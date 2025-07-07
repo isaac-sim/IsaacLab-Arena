@@ -50,3 +50,5 @@ if $push ; then
     echo "Pushing to $DOCKER_IMAGE_NAME:${TAG}"
     docker push $DOCKER_IMAGE_NAME:${TAG}
 fi
+
+docker run -it -e "ACCEPT_EULA=Y" ${DOCKER_IMAGE_NAME}:${TAG}

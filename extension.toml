@@ -1,0 +1,30 @@
+[package]
+
+# Note: Semantic Versioning is used: https://semver.org/
+version = "0.1.0"
+
+# Description
+title = "Isaac Arena"
+description="Evaluation framework for Isaac Lab"
+readme  = "README.md"
+repository = ""
+category = "robotics"
+keywords = ["robotics", "rl", "il", "learning"]
+
+[dependencies]
+"omni.isaac.lab" = {}
+"omni.isaac.lab_assets" = {}
+
+[python.pipapi]
+requirements = [
+    "h5py",
+]
+
+modules = [
+    "h5py",
+]
+
+use_online_index=true
+
+[[python.module]]
+name = "isaac_arena"

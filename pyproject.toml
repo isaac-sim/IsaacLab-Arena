@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools", "wheel", "toml"]
+build-backend = "setuptools.build_meta"
+
 [tool.isort]
 profile = "google"
 known_first_party = ["isaac_arena"]

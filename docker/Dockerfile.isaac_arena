@@ -1,6 +1,18 @@
-ARG BASE_IMAGE=Isaaclab docker image
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-lab:2.1.0
 
-FROM ${BASE_IMAGE}$
+FROM ${BASE_IMAGE}
 
-RUN pip install isaac-arena
+# Hide conflicting Vulkan files, if needed.
+RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
+      mv /usr/share/vulkan /usr/share/vulkan_hidden; \
+    fi
 
+WORKDIR /workspace/isaac_arena
+
+COPY . /workspace/isaac_arena
+
+# Install isaac-arena
+RUN ${ISAACLAB_PATH}/_isaac_sim/python.sh -m pip install -e /workspace/isaac_arena/
+
+# Set the entrypoint to bash
+ENTRYPOINT ["bash"]
