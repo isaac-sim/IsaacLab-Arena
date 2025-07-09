@@ -24,19 +24,19 @@ def compile_env(
     # Compose embodiment and scene observation cfg
     class ObservationCfg:
         embodiment_observation = embodiment.get_observation_cfg()
-        scene_observation = scene.get_observation_cfg()
+        # scene_observation = scene.get_observation_cfg()
 
     # Compose embodiment and scene events cfg
-    class EventsCfg:
-        embodiment_events = embodiment.get_events_cfg()
-        scene_events = scene.get_events_cfg()
+    # class EventsCfg:
+    #     embodiment_events = embodiment.get_events_cfg()
+    #     scene_events = scene.get_events_cfg()
 
     class IsaacLabEnvCfg(ManagerBasedRLEnvCfg):
         scene_cfg = scene.get_scene_cfg()
         observations_cfg = ObservationCfg()
         actions_cfg = embodiment.get_action_cfg()
-        terminations_cfg = task.get_termincation_cfg()
-        events_cfg = EventsCfg()
+        terminations_cfg = None
+        events_cfg = None
 
         def __post_init__(self):
             self._add_robot_to_scene_cfg()
