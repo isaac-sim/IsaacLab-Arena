@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-lab:2.1.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:4.5.0
 
 FROM ${BASE_IMAGE}
 
@@ -7,18 +7,32 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
       mv /usr/share/vulkan /usr/share/vulkan_hidden; \
     fi
 
-WORKDIR /workspace/isaac_arena
+################################
+# INSTALL APT DEPS
+################################
+RUN apt-get update && apt-get install -y \
+python3-pip \
+git
 
-COPY . /workspace/isaac_arena
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
-# Install isaac-lab
-RUN ${ISAACLAB_PATH}/_isaac_sim/python.sh -m pip install -e /workspace/isaac_arena/submodules/IsaacLab-Internal/source/isaaclab*/
+WORKDIR /workspaces/isaac_arena
+
+COPY . /workspaces/isaac_arena
+
+# Set the ISAACLAB_PATH environment variable
+ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab-Internal
+ENV TERM=xterm
+
+# RUN python3 -m pip install numpy==1.26.0
 
 # Symlink isaac sim to IsaacLab-Internal
-RUN ln -s /isaac-sim/ /workspace/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim
+RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim
+
+RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Install isaac-arena
-RUN ${ISAACLAB_PATH}/_isaac_sim/python.sh -m pip install -e /workspace/isaac_arena/
+RUN pip install -e /workspaces/isaac_arena/
 
 # Set the entrypoint to bash
 ENTRYPOINT ["bash"]
