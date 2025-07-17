@@ -1,4 +1,4 @@
-# Perceptive IL CI
+# Isaac Arena CI
 
 We run a local gitlab CI runner in the Zurich office (rather than using an NVIDIA maintained machine).
 
