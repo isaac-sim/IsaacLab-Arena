@@ -12,7 +12,8 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
 ################################
 RUN apt-get update && apt-get install -y \
 python3-pip \
-git
+git \
+cmake
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
@@ -23,9 +24,6 @@ COPY . /workspaces/isaac_arena
 # Set the ISAACLAB_PATH environment variable
 ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab-Internal
 ENV TERM=xterm
-
-# Install cmake
-RUN apt-get install -y cmake
 
 # Symlink isaac sim to IsaacLab-Internal
 RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim
@@ -39,7 +37,7 @@ RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 RUN pip install -e /workspaces/isaac_arena/
 
 # Install usdcode helper functions
-RUN pip install /workspaces/isaac_arena/dependencies/usdcode-0.1.2-py3-none-any.whl "usd-core>=22.11" numpy==1.26.4 pillow==11.0.0
+RUN pip install /workspaces/isaac_arena/third_party/usdcode_helper_function_package_1.0.0/usdcode-0.1.2-py3-none-any.whl "usd-core>=22.11" numpy==1.26.4 pillow==11.0.0
 
 # Set the entrypoint to bash
 ENTRYPOINT ["bash"]
