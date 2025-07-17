@@ -39,5 +39,8 @@ RUN pip install -e /workspaces/isaac_arena/
 # Install usdcode helper functions
 RUN pip install /workspaces/isaac_arena/third_party/usdcode_helper_function_package_1.0.0/usdcode-0.1.2-py3-none-any.whl "usd-core>=22.11" numpy==1.26.4 pillow==11.0.0
 
+# Set an alias to run the isaac lab python interpreter.
+RUN echo "alias isaac_python='/workspaces/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim/python.sh'" >> /etc/bash.bashrc
+
 # Set the entrypoint to bash
 ENTRYPOINT ["bash"]
