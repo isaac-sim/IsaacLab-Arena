@@ -1,0 +1,16 @@
+stages:
+  - lint
+pre-commit:
+  stage: lint
+  tags: ["os/linux", "gpu"]
+  image: python:3.10-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git clang-format
+    - pip install --no-cache-dir --upgrade pip
+    - pip install --no-cache-dir pre-commit
+  script:
+    - pre-commit run --all-files
+  cache:
+    key: "${CI_PROJECT_ID}"
+    paths:
+      - .cache/pre-commit
