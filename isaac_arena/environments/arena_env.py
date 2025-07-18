@@ -1,4 +1,4 @@
-from isaac_arena.embodiments.embodiments import (
+from isaac_arena.embodiments.franka.franka_embodiment import (
     FrankaActionsCfg,
     FrankaEmbodiment,
     FrankaEventCfg,
@@ -10,13 +10,9 @@ from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
 
-##
-# Pre-defined configs
-##
 from isaaclab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 
-# TODO(cvolk): Compose this from compile_env()
 @configclass
 class ArenaEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the stacking environment."""
@@ -42,9 +38,8 @@ class ArenaEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 0.01  # 100Hz
         self.sim.render_interval = 2
 
-        # TODO(cvolk): Find out why the scene needs to hold a robot.
-        # scene (class InteractiveSceneCfg) -->
-        # "The users can inherit from this class to add entities to their scene."
+        # TODO(cvolk) The scene needs to hold a robot.
+        # --> scene (class InteractiveSceneCfg)
         self.scene.robot = FrankaEmbodiment().get_robot_cfg()
 
         # TODO(cvolk): Currently lots of helper functions in the mdp (observations.py) expect

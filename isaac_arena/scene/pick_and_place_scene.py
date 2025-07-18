@@ -15,7 +15,7 @@ class PickAndPlaceSceneCfg(InteractiveSceneCfg):
     pick_up_object: RigidObjectCfg = MISSING
     destination_object: RigidObjectCfg = MISSING
 
-    # TODO(cvolk): It seems like the scene needs to hold a robot...
+    # TODO(cvolk): It seems like the scene needs to hold a robot
     robot: ArticulationCfg = MISSING
 
 
@@ -43,7 +43,6 @@ class KitchenPickAndPlaceScene(SceneBase):
 
     def get_scene_cfg(self) -> PickAndPlaceSceneCfg:
         return PickAndPlaceSceneCfg(
-            # TODO(cvolk): Pass extra args properly
             num_envs=4096,
             env_spacing=30.0,
             replicate_physics=False,

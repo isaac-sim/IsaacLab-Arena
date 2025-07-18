@@ -7,7 +7,6 @@
 The functions can be passed to the :class:`isaaclab.managers.TerminationTermCfg` object to enable
 the termination introduced by the function.
 """
-# TODO(cvolk): Move this file to terminations/
 from __future__ import annotations
 
 import torch
@@ -20,7 +19,7 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
-# TODO(cvolk): Pass these as args
+# TODO(cvolk): Generalize this to target_object_in()
 def object_in_drawer(
     env: ManagerBasedRLEnv,
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),

@@ -26,6 +26,8 @@ class KitchenPickAndPlaceScene(PickAndPlaceSceneBase):
             ),
         )
 
+        # TODO(cvolk): This seems to be more of a taask specific definition than a scene specific definition.
+        # Could this be moved to a task definition?
         self.destination_object = RigidObjectCfg(
             prim_path="{ENV_REGEX_NS}/bottom_of_drawer_with_mugs",
             spawn=sim_utils.CuboidCfg(

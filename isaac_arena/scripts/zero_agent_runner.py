@@ -57,10 +57,6 @@ from isaaclab_tasks.utils import parse_env_cfg
 
 def main():
     """Zero actions agent with Isaac Lab environment."""
-
-    # compile_arena_env(args.cli)
-    # This creates the config (and the environment __init__.py entry points? )
-
     # parse configuration
     env_cfg = parse_env_cfg(
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
