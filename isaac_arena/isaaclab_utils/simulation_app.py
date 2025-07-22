@@ -28,8 +28,7 @@ class SimulationAppContext:
     def __init__(self, args: argparse.Namespace):
         """
         Args:
-            headless (bool): Whether to run the app in headless mode.
-            enable_cameras (bool): Whether to enable cameras.
+            args (argparse.Namespace): The arguments to the simulation app.
         """
         self.args = args
         self.app_launcher = None
@@ -54,6 +53,7 @@ class SimulationAppContext:
         if get_isaac_sim_version() != "4.5.0":
             print(f"WARNING: IsaacSim has been upgraded to {get_isaac_sim_version()}.")
             print("Please remove the pinocchio related hacks in: simulation_app.py")
+            print("Please investigate if the SimulationAppContext is still required to get exit codes.")
 
         return self
 
