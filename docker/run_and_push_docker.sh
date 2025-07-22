@@ -160,7 +160,7 @@ else
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
                     "--env" "OMNI_USER=\$omni-api-token"
                     "--env" "OMNI_PASS=$OMNI_PASS"
-                    "--env" "OMNI_KIT_ALLOW_ROOT=1"
+                    # "--env" "OMNI_KIT_ALLOW_ROOT=1"
                     "--entrypoint" "/workspaces/isaac_arena/docker/run_and_push_docker.sh"
                     )
 

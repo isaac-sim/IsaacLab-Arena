@@ -77,9 +77,11 @@ def randomize_scene_lighting_domelight(
 def sample_object_poses(
     num_objects: int,
     min_separation: float = 0.0,
-    pose_range: dict[str, tuple[float, float]] = {},
+    pose_range: dict[str, tuple[float, float]] | None = None,
     max_sample_tries: int = 5000,
 ):
+
+    pose_range = pose_range or {}
     range_list = [pose_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z", "roll", "pitch", "yaw"]]
     pose_list = []
 

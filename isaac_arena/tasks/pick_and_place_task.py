@@ -15,20 +15,23 @@ class TerminationsCfg:
     # success: TerminationTermCfg = MISSING
     time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
 
+    # TODO(alex.millane, 2025.07.22): This is specific to the drawer scene. Make this generic
+    # to support other destination objects.
     object_dropped = TerminationTermCfg(
         func=mdp_isaac_lab.root_height_below_minimum,
         params={"minimum_height": -0.2, "asset_cfg": SceneEntityCfg("pick_up_object")},
     )
+    # TODO(alex.millane, 2025.07.22): This is specific to the drawer scene. Make this generic
+    # to support other destination objects.
     success = TerminationTermCfg(func=object_in_drawer)
 
 
 class PickAndPlaceTaskCfg(TaskBase):
-    def __init__(self, time_out_functor=None, termination_terms_functor=None, success_functor=None):
-        self.time_out_functor = time_out_functor
-        self.termination_terms_functor = termination_terms_functor
-        self.success_functor = success_functor
+    def __init__(self):
+        super().__init__()
 
     def get_termination_cfg(self):
+        # NOTE(alex.millane, 2025.07.22): This looks non-composable to me.
         return TerminationsCfg()
 
     def get_prompt(self):

@@ -23,6 +23,7 @@ class KitchenPickAndPlaceScene(SceneBase):
     def __init__(
         self, pick_up_object: RigidObjectCfg, destination_object: RigidObjectCfg, robot: ArticulationCfg = None
     ):
+        super().__init__()
         # The background scene
         self.background_scene = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/Kitchen",

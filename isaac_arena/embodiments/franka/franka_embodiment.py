@@ -20,8 +20,6 @@ class FrankaEmbodiment(EmbodimentBase):
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()
         self.event_config = FrankaEventCfg()
-
-    def __post_init__(self):
         self.robot.spawn.semantic_tags = [("class", "robot_arm")]
 
 

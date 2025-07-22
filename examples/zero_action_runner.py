@@ -1,10 +1,11 @@
 """Launch Isaac Sim Simulator first."""
 
+from isaac_arena.app_launcher.app_launcher import app_launcher
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-from isaac_arena.scripts.app_launcher import app_launcher
 
 args_parser = get_isaac_arena_cli_parser()
-simulation_app = app_launcher(args_parser)
+args_cli = args_parser.parse_args()
+simulation_app = app_launcher(args_cli)
 
 """Rest everything follows."""
 import gymnasium as gym
@@ -20,7 +21,6 @@ from isaaclab_tasks.utils import parse_env_cfg
 def main():
     """Script to run an Isaac Arena environment with a zero-action agent."""
 
-    args_cli = args_parser.parse_args()
     # Compile an isaac arena environment configuration from existing isaac arena registry.
     arena_env_cfg = compile_arena_env_cfg(args_cli)
     gym.register(
