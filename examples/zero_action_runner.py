@@ -1,8 +1,15 @@
-"""Launch Isaac Sim Simulator first."""
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+#
 
-# from isaac_arena.app_launcher.app_launcher import app_launcher
-from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 
 
 def main():
@@ -11,14 +18,16 @@ def main():
     # Args
     args_parser = get_isaac_arena_cli_parser()
     args_cli = args_parser.parse_args()
-    # simulation_app = app_launcher(args_cli)
 
-    with SimulationAppContext(args_cli) as simulation_app: #headless=True, enable_cameras=True)
+    # Start the simulation app
+    with SimulationAppContext(args_cli) as simulation_app:
 
         # Post simulation app launch imports
         import gymnasium as gym
         import torch
+
         from isaac_arena.environments.compile_env import compile_arena_env_cfg
+
         from isaaclab_tasks.utils import parse_env_cfg
 
         # Compile an isaac arena environment configuration from existing isaac arena registry.
@@ -39,16 +48,12 @@ def main():
         env = gym.make(args_cli.task, cfg=env_cfg)
 
         env.reset()
-        # while simulation_app.is_running():
-        import tqdm
-        for _ in tqdm.tqdm(range(10)):
+        while simulation_app.is_running():
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
         env.close()
-
-    # simulation_app.close()
 
 
 if __name__ == "__main__":

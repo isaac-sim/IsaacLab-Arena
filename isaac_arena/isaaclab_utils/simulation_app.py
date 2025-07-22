@@ -12,8 +12,9 @@ import argparse
 import os
 import traceback
 
-from isaaclab.app import AppLauncher
 import omni.kit.app
+
+from isaaclab.app import AppLauncher
 
 
 def get_isaac_sim_version() -> str:
@@ -24,7 +25,7 @@ def get_isaac_sim_version() -> str:
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
-    def __init__(self, args: argparse.Namespace): #headless: bool, enable_cameras: bool):
+    def __init__(self, args: argparse.Namespace):
         """
         Args:
             headless (bool): Whether to run the app in headless mode.
@@ -32,8 +33,6 @@ class SimulationAppContext:
         """
         self.args = args
         self.app_launcher = None
-        # self.headless = headless
-        # self.enable_cameras = enable_cameras
 
     def is_running(self) -> bool:
         return self.app_launcher.app.is_running()
@@ -48,15 +47,13 @@ class SimulationAppContext:
         # From the slack thread, the issue appears to be fixed internally, but the fix is not yet released.
         # Remove this function once the issue is fixed in a released version of Isaac Sim.
         # We warn if IsaacSim has been upgraded.
-        import pinocchio
+        if self.args.enable_pinocchio:
+            import pinocchio  # noqa: F401
 
-        self.app_launcher = AppLauncher(self.args)#headless=self.headless, enable_cameras=self.enable_cameras)
+        self.app_launcher = AppLauncher(self.args)
         if get_isaac_sim_version() != "4.5.0":
             print(f"WARNING: IsaacSim has been upgraded to {get_isaac_sim_version()}.")
-            print(f"Please remove the pinocchio related hacks in: simulation_app.py")
-
-        # Make sure that MINDMAP's custom tasks are registered
-        # import mindmap.tasks.task_definitions
+            print("Please remove the pinocchio related hacks in: simulation_app.py")
 
         return self
 
