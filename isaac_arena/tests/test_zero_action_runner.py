@@ -11,13 +11,6 @@
 from isaac_arena.tests.utils.constants import TestConstants
 from isaac_arena.tests.utils.subprocess import run_subprocess
 
-from isaac_arena.examples.zero_action_runner import main
-
-
-def test_before():
-    print("TEST BEFORE")
-    assert False, "Fail!"
-
 
 def test_zero_action_runner():
     run_subprocess([

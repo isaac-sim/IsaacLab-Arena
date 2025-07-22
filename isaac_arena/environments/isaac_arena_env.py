@@ -69,3 +69,23 @@ class IsaacArenaEnvCfg(ManagerBasedRLEnvCfg):
                 ),
             ],
         )
+
+
+# WORK IN PROGRESS
+
+# from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+# from isaac_arena.scene.scene import SceneBase
+# from isaac_arena.tasks.task import TaskBase
+
+# @configclass
+# class IsaacArenaEnv2:
+#     """Describes an environment in Isaac Arena."""
+
+#     embodiment: EmbodimentBase
+#     """The embodiment to use in the environment."""
+
+#     scene: SceneBase
+#     """The scene to use in the environment."""
+
+#     task: TaskBase
+#     """The task to use in the environment."""
