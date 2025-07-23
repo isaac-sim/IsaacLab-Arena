@@ -11,7 +11,7 @@
 import os
 
 
-class _TestDataLocations:
+class _TestConstants:
     """Class for storing test data paths"""
 
     def __init__(self):
@@ -27,4 +27,4 @@ class _TestDataLocations:
         self.python_path = "/isaac-sim/python.sh"
 
 
-TestDataLocations = _TestDataLocations()
+TestConstants = _TestConstants()
