@@ -51,5 +51,5 @@ RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 
-# Set the entrypoint to bash
-ENTRYPOINT ["bash"]
+# Remove the entrypoint from the base image.
+ENTRYPOINT []

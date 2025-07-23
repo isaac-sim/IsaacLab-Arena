@@ -4,24 +4,6 @@ stages:
 pre-commit:
   stage: lint
   tags: ["os/linux", "gpu"]
-  image: python:3.10-slim
-  before_script:
-    - apt-get update && apt-get install -y --no-install-recommends git clang-format
-    - pip install --no-cache-dir --upgrade pip
-    - pip install --no-cache-dir pre-commit
-  script:
-    - pre-commit run --all-files
-  cache:
-    key: "${CI_PROJECT_ID}"
-    paths:
-      - .cache/pre-commit
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-run_tests:
-  stage: test
-  tags: ["gpu", "os/linux"]
   # Set as an environment variable in the CI/CD settings.
   # https://docs.gitlab.com/ee/ci/variables/index.html#override-variables-from-the-ui
   # Push the branch like this:
@@ -30,13 +12,40 @@ run_tests:
     IMAGE: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
   image: "${IMAGE}"
   before_script:
-    # - . /opt/venv/bin/activate
-    - python3 -m pip install --ignore-installed --upgrade pip
+    # - apt-get update && apt-get install -y --no-install-recommends git clang-format
+    # - pip install --no-cache-dir --upgrade pip
+    # - pip install --no-cache-dir pre-commit
     - pip install -e .
-    # - ci/print_system_status.sh
+    - source etc/bash.bashrc
   script:
+    # - pre-commit run --all-files
     - pytest -sv isaac_arena/tests
   cache:
     key: "${CI_PROJECT_ID}"
     paths:
-      - .cache/run_tests
+      - .cache/pre-commit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+# run_tests:
+#   stage: test
+#   tags: ["gpu", "os/linux"]
+#   # Set as an environment variable in the CI/CD settings.
+#   # https://docs.gitlab.com/ee/ci/variables/index.html#override-variables-from-the-ui
+#   # Push the branch like this:
+#   # git push -o ci.variable="IMAGE=your/custom/image:tag" origin your-branch
+#   variables:
+#     IMAGE: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
+#   image: "${IMAGE}"
+#   before_script:
+#     # - . /opt/venv/bin/activate
+#     - python -m pip install --ignore-installed --upgrade pip
+#     - pip install -e .
+#     # - ci/print_system_status.sh
+#   script:
+#     - pytest -sv isaac_arena/tests
+#   cache:
+#     key: "${CI_PROJECT_ID}"
+#     paths:
+#       - .cache/run_tests
