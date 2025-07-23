@@ -8,7 +8,6 @@
 # its affiliates is strictly prohibited.
 #
 
-import gymnasium as gym
 import torch
 import tqdm
 
@@ -33,28 +32,24 @@ def main():
     with SimulationAppContext(args_cli):
 
         # Imports have to follow simulation startup.
+        from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
         from isaac_arena.environments.compile_env import compile_arena_env_cfg
+        from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
+        from isaac_arena.scene.pick_and_place_scene import MugInDrawerKitchenPickAndPlaceScene
+        from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTaskCfg
 
-        from isaaclab_tasks.utils import parse_env_cfg
-
-        # Compile an isaac arena environment configuration from existing isaac arena registry.
-        arena_env_cfg = compile_arena_env_cfg(args_cli)
-        gym.register(
-            id=args_cli.task,
-            entry_point="isaaclab.envs:ManagerBasedRLEnv",
-            kwargs={
-                "env_cfg_entry_point": arena_env_cfg,
-            },
-            disable_env_checker=True,
+        # Arena Environment
+        isaac_arena_environment = IsaacArenaEnvironment(
+            name="kitchen_pick_and_place",
+            embodiment=FrankaEmbodiment(),
+            scene=MugInDrawerKitchenPickAndPlaceScene(),
+            task=PickAndPlaceTaskCfg(),
         )
 
-        # Build the environment configuration in gym.
-        env_cfg = parse_env_cfg(
-            args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
-        )
-        env = gym.make(args_cli.task, cfg=env_cfg)
-
+        # Compile an IsaacLab compatible arena environment configuration
+        env = compile_arena_env_cfg(isaac_arena_environment, args_cli)
         env.reset()
+
         for _ in tqdm.tqdm(range(args_cli.num_steps)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

@@ -8,15 +8,14 @@
 # its affiliates is strictly prohibited.
 #
 
-from isaac_arena.tests.utils.constants import TestConstants
-from isaac_arena.tests.utils.subprocess import run_subprocess
+from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
 
 
-def test_zero_action_runner():
-    run_subprocess([
-        TestConstants.python_path,
-        f"{TestConstants.examples_dir}/zero_action_runner.py",
-        "--headless",
-        "--num_steps",
-        "2",
-    ])
+def test_isaac_arena_environment():
+    with SimulationAppContext():
+        # Arena Environment
+        isaac_arena_environment = IsaacArenaEnvironment(
+            embodiment=FrankaEmbodiment(),
+            scene=MugInDrawerKitchenPickAndPlaceScene(),
+            task=PickAndPlaceTaskCfg(),
+        )

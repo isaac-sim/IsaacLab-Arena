@@ -9,7 +9,7 @@ from isaaclab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 
 @configclass
-class IsaacArenaEnvCfg(ManagerBasedRLEnvCfg):
+class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for an Isaac Arena environment."""
 
     # Scene settings
