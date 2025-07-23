@@ -145,8 +145,11 @@ else
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
                     "--env" "OMNI_USER=\$omni-api-token"
                     "--env" "OMNI_PASS=$OMNI_PASS"
+                    # NOTE(alexmillane, 2025.07.23): This looks a bit suspect to me. We should be running
+                    # as a user inside the container, not root. I've left it in for now, but we should
+                    # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
-                    "--entrypoint" "/workspaces/isaac_arena/docker/run_and_push_docker.sh"
+                    "--entrypoint" "/workspaces/isaac_arena/docker/run_docker.sh"
                     )
 
     # Allow X11 connections
