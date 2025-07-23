@@ -108,7 +108,7 @@ then
         echo "Installing $DIR"
         pip install --no-deps -e "$DIR"
     done
-    # Re-doing simlink (we do this in the Dockerfile, but we overwrite with the mapping).
+    # Re-doing symlink (we do this in the Dockerfile, but we overwrite with the mapping).
     if [ ! -d "/workspaces/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim" ]; then
         ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim
     fi

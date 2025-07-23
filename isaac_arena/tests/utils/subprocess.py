@@ -15,11 +15,11 @@ import sys
 def run_subprocess(cmd, env=None):
     print(f"Running command: {cmd}")
     try:
-        # Don't capture output, let it flow through in real-time
         result = subprocess.run(
             cmd,
             check=True,
             env=env,
+            # Don't capture output, let it flow through in real-time
             capture_output=False,
             text=True,
             # Explicitly set stdout and stderr to None to use parent process's pipes
