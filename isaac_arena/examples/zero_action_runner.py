@@ -48,8 +48,8 @@ def main():
 
         # Compile an IsaacLab compatible arena environment configuration
         env = compile_arena_env_cfg(isaac_arena_environment, args_cli)
-        env.reset()
 
+        # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
