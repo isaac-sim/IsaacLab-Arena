@@ -24,6 +24,8 @@ pre-commit:
     # - pre-commit run --all-files
     # - pytest -sv isaac_arena/tests
     - ls /isaac-sim/
+    - ls /builds/nvblox/isaac_arena
+    - ls /builds/nvblox/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim/
     - /isaac-sim/python.sh -m pytest -sv isaac_arena/tests
   cache:
     key: "${CI_PROJECT_ID}"
