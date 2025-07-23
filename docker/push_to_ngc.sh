@@ -21,11 +21,11 @@ while getopts ":t:ph" OPTION; do
             echo "Helper script for pushing isaac_arena images to NGC."
             echo "Usage:"
             echo "- pushing to NGC:"
-            echo "    run_docker.sh -p -t tag_name"
+            echo "    push_to_ngc.sh -p -t <tag_name>"
             echo "- see help message:"
-            echo "    run_docker.sh -h"
+            echo "    push_to_ngc.sh -h"
             echo ""
-            echo "  -p Push to NGC mode."
+            echo "  -p Push the image to NGC."
             echo "  -t Tag name of the image."
             echo "  -h help (this output)"
             exit 0
@@ -38,7 +38,10 @@ ISAAC_ARENA_IMAGE_NAME=isaac_arena
 NGC_PATH=nvcr.io/nvstaging/isaac-amr/${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME}
 
 # Build the image.
-docker build --progress=plain --network=host -t ${ISAAC_ARENA_IMAGE_NAME} . -f docker/Dockerfile.isaac_arena
+docker build --progress=plain --network=host \
+  -t ${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME} \
+  "${SCRIPT_DIR}/.." \
+  -f "${SCRIPT_DIR}/Dockerfile.isaac_arena"
 
 # Push if requested.
 if [ "$PUSH_TO_NGC" = true ]; then

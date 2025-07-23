@@ -1,11 +1,8 @@
 #!/bin/bash
 set -e
-DOCKER_IMAGE_NAME='nvcr.io/nvidian/isaac-sdk/isaac_arena'
-TAG='development'
+DOCKER_IMAGE_NAME='isaac_arena'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-push=false
 
 # Default mount directory on the host machine for the datasets
 DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
@@ -14,7 +11,7 @@ MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 
-while getopts ":d:m:e:hptn:" OPTION; do
+while getopts ":d:m:e:hn:" OPTION; do
     case $OPTION in
 
         d)
@@ -26,12 +23,6 @@ while getopts ":d:m:e:hptn:" OPTION; do
         e)
             EVAL_HOST_MOUNT_DIRECTORY=$OPTARG
             ;;
-        p)
-            push=true
-            ;;
-        t)
-            TAG=${OPTARG}
-            ;;
         n)
             DOCKER_IMAGE_NAME=${OPTARG}
             ;;
@@ -42,15 +33,11 @@ while getopts ":d:m:e:hptn:" OPTION; do
             echo "$script_name -d <datasets directory>"
             echo "$script_name -m <models directory>"
             echo "$script_name -e <evaluation directory>"
-            echo "$script_name -p <push image to $DOCKER_IMAGE_NAME after building>"
-            echo "$script_name -t <tag>"
             echo "$script_name -n <docker name>"
             echo ""
             echo "  -d <datasets directory> (default is $DATASETS_HOST_MOUNT_DIRECTORY)"
             echo "  -m <models directory> (default is $MODELS_HOST_MOUNT_DIRECTORY)"
             echo "  -e <evaluation directory> (default is $EVAL_HOST_MOUNT_DIRECTORY)"
-            echo "  -p <push image to $DOCKER_IMAGE_NAME after building>"
-            echo "  -t <tag> (default is $TAG)"
             echo "  -n <docker name> (default is $DOCKER_IMAGE_NAME)"
             exit 0
             ;;
@@ -67,7 +54,6 @@ done
 
 # Display the values being used
 echo "Using Docker name: $DOCKER_IMAGE_NAME"
-echo "Using tag: $TAG"
 
 # This portion of the script will only be executed *inside* the docker when
 # this script is used as entrypoint further down. It will setup an user account for
@@ -120,13 +106,8 @@ then
     exit
 fi
 
-# Build the Docker image with the specified or default name and tag
-docker build --pull -t ${DOCKER_IMAGE_NAME}:${TAG} --file $SCRIPT_DIR/Dockerfile.isaac_arena $SCRIPT_DIR/..
-
-if $push ; then
-    echo "Pushing to $DOCKER_IMAGE_NAME:${TAG}"
-    docker push $DOCKER_IMAGE_NAME:${TAG}
-fi
+# Build the Docker image with the specified or default name
+docker build --pull -t ${DOCKER_IMAGE_NAME} --file $SCRIPT_DIR/Dockerfile.isaac_arena $SCRIPT_DIR/..
 
 # Remove any exited containers
 if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME)" ]; then
@@ -171,5 +152,5 @@ else
     # Allow X11 connections
     xhost +local:docker
 
-    docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}:${TAG}
+    docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}
 fi
