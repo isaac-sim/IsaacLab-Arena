@@ -17,10 +17,10 @@ pre-commit:
     # - pip install --no-cache-dir pre-commit
     - pip install -e .
     - source /etc/bash.bashrc
+  script:
     - alias python='/isaac-sim/python.sh'
     - alias pip3='/isaac-sim/python.sh -m pip'
     - alias pytest='/isaac-sim/python.sh -m pytest'
-  script:
     # - pre-commit run --all-files
     - pytest -sv isaac_arena/tests
   cache:
