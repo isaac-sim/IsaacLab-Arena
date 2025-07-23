@@ -8,7 +8,7 @@
 # its affiliates is strictly prohibited.
 #
 
-from isaac_arena.tests.utils.constants import TestDataLocations
+from isaac_arena.tests.utils.constants import TestConstants
 from isaac_arena.tests.utils.subprocess import run_subprocess
 
 from isaac_arena.examples.zero_action_runner import main
@@ -21,8 +21,8 @@ def test_before():
 
 def test_zero_action_runner():
     run_subprocess([
-        TestDataLocations.python_path,
-        f"{TestDataLocations.examples_dir}/zero_action_runner.py",
+        TestConstants.python_path,
+        f"{TestConstants.examples_dir}/zero_action_runner.py",
         "--headless",
         "--embodiment",
         "franka",
