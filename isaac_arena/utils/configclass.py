@@ -8,10 +8,10 @@
 # its affiliates is strictly prohibited.
 #
 
+import dataclasses
 import keyword
 import types
 from typing import Any
-import dataclasses
 
 from isaaclab.utils import configclass
 
