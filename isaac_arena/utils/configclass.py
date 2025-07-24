@@ -152,6 +152,7 @@ def combine_configclasses(name: str, *input_configclasses: configclass) -> confi
     field_info_list = []
     for d in input_configclasses:
         field_info_list.extend(get_field_info(d))
+    print(f"field_info_list: {field_info_list}")
     return make_configclass(name, field_info_list)
 
 
