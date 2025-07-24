@@ -10,7 +10,6 @@
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
-
 TEST_ARG = 123
 
 
@@ -22,19 +21,20 @@ def simulation_app_running(simulation_app) -> bool:
 def test_simulation_app_context():
     # Run a function which returns True if the simulation app is running.
     test_passed = run_simulation_app_function_in_separate_process(
-        simulation_app_running, 
+        simulation_app_running,
     )
     assert test_passed, "Tested function returned False"
 
 
 def got_argument(_, test_arg: int) -> bool:
-    print(f'Got argument: {test_arg}')
+    print(f"Got argument: {test_arg}")
     return test_arg == TEST_ARG
+
 
 def test_run_simulation_app_function_in_separate_process_with_arg():
     # Run a function which returns True if the simulation app is running.
     test_passed = run_simulation_app_function_in_separate_process(
-        got_argument, 
+        got_argument,
         TEST_ARG,
     )
     assert test_passed, "Tested function returned False"

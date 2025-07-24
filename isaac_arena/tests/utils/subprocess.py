@@ -56,10 +56,8 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
             print(f"Exception occurred while running the policy: {e}")
             test_passed = False
         finally:
-            # NOTE(alexmillane, 2025.04.09): Closing the simulation app here causes pytest
-            # sessions to prematurely exit. The best solution I've found so far is to run
-            # the test in a separate process.
-            # Close environment and simulation app
+            # NOTE(alexmillane, 2025.04.09): Put the test result in the queue, so that the main process
+            # can get it after the simulation app is closed.
             print("Communicating test result to main process...")
             q.put_nowait(test_passed)
 
