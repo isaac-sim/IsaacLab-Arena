@@ -1,6 +1,6 @@
 import inspect
 import random
-from typing import Any, List
+from typing import Any
 
 import isaac_arena.scene.background.background as background
 import isaac_arena.scene.pick_up_object.pick_up_object as pick_up_object

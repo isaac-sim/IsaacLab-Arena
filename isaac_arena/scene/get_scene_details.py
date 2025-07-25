@@ -13,10 +13,17 @@ from isaac_arena.scene.scene_registry import ObjectRegistry
 
 def get_scene_details(background_name: str, pick_up_object_name: str):
     object_registry = ObjectRegistry()
-    background = object_registry.get_object_by_name(background_name)
-    pick_up_object = object_registry.get_object_by_name(pick_up_object_name)
+    if background_name:
+        background = object_registry.get_object_by_name(background_name)
+    else:
+        background = object_registry.get_random_object_by_tag("background")
+    if pick_up_object_name:
+        pick_up_object = object_registry.get_object_by_name(pick_up_object_name)
+    else:
+        pick_up_object = object_registry.get_random_object_by_tag("pick_up_object")
     # Add the initial state of the pick up object
-    pick_up_object.get_pick_up_object().init_state = background.get_pick_up_object_location()
+    if pick_up_object:
+        pick_up_object.get_pick_up_object().init_state = background.get_pick_up_object_location()
     scene_details = {
         "background": background.get_background(),
         "pick_up_object": pick_up_object.get_pick_up_object(),
