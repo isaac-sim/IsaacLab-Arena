@@ -15,6 +15,8 @@ def get_scene_details(background_name: str, pick_up_object_name: str):
     object_registry = ObjectRegistry()
     background = object_registry.get_object_by_name(background_name)
     pick_up_object = object_registry.get_object_by_name(pick_up_object_name)
+    # Add the initial state of the pick up object
+    pick_up_object.get_pick_up_object().init_state = background.get_pick_up_object_location()
     scene_details = {
         "background": background.get_background(),
         "pick_up_object": pick_up_object.get_pick_up_object(),

@@ -27,7 +27,6 @@ class Mug(PickUpObject):
         super().__init__(
             pick_up_object=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/target_mug",
-                init_state=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
                 spawn=UsdFileCfg(
                     usd_path=(
                         "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/Collected_kitchen_scene/mug_physics.usd"
@@ -49,10 +48,9 @@ class GelatinBox(PickUpObject):
         super().__init__(
             pick_up_object=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/target_gelatin_box",
-                init_state=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
                 spawn=UsdFileCfg(
                     usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/Collected_kitchen_scene/gelatin_box_physics.usd",
-                    scale=(0.0125, 0.0125, 0.0125),
+                    scale=(1.0, 1.0, 1.0),
                     activate_contact_sensors=True,
                 ),
             ),
@@ -69,10 +67,9 @@ class MacandCheeseBox(PickUpObject):
         super().__init__(
             pick_up_object=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/target_mac_and_cheese_box",
-                init_state=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
                 spawn=UsdFileCfg(
                     usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/Collected_kitchen_scene/mac_n_cheese_physics.usd",
-                    scale=(0.0125, 0.0125, 0.0125),
+                    scale=(1.0, 1.0, 1.0),
                     activate_contact_sensors=True,
                 ),
             ),
@@ -89,10 +86,9 @@ class SugarBox(PickUpObject):
         super().__init__(
             pick_up_object=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/target_sugar_box",
-                init_state=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
                 spawn=UsdFileCfg(
                     usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/Collected_kitchen_scene/sugar_box_physics.usd",
-                    scale=(0.0125, 0.0125, 0.0125),
+                    scale=(1.0, 1.0, 1.0),
                     activate_contact_sensors=True,
                 ),
             ),
@@ -109,10 +105,9 @@ class TomatoSoupCan(PickUpObject):
         super().__init__(
             pick_up_object=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/target_tomato_soup_can",
-                init_state=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
                 spawn=UsdFileCfg(
                     usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/Collected_kitchen_scene/tomato_soup_physics.usd",
-                    scale=(0.0125, 0.0125, 0.0125),
+                    scale=(1.0, 1.0, 1.0),
                     activate_contact_sensors=True,
                 ),
             ),

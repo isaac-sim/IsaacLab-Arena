@@ -9,9 +9,16 @@ class Background(Asset):
     Encapsulates the background scene config for a environment.
     """
 
-    def __init__(self, background_scene: AssetBaseCfg, destination_object: RigidObjectCfg, name: str):
+    def __init__(
+        self,
+        background_scene: AssetBaseCfg,
+        destination_object: RigidObjectCfg,
+        pick_up_object_location: RigidObjectCfg.InitialStateCfg,
+        name: str,
+    ):
         self.background_scene = background_scene
         self.destination_object = destination_object
+        self.pick_up_object_location = pick_up_object_location
         self.tags = ["background"]
         self.name = name
 
@@ -22,6 +29,10 @@ class Background(Asset):
     def get_destination(self) -> RigidObjectCfg:
         """Return the configured destination-object asset."""
         return self.destination_object
+
+    def get_pick_up_object_location(self) -> RigidObjectCfg.InitialStateCfg:
+        """Return the configured pick-up object location."""
+        return self.pick_up_object_location
 
 
 class Kitchen(Background):
@@ -48,5 +59,6 @@ class Kitchen(Background):
                     activate_contact_sensors=True,
                 ),
             ),
+            pick_up_object_location=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
             name="kitchen",
         )
