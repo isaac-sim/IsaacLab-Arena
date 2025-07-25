@@ -24,6 +24,13 @@ def main():
     args_parser.add_argument(
         "--num_steps", type=int, default=100, help="Number of steps to run the policy for. Default to run until "
     )
+    args_parser.add_argument(
+        "--embodiment",
+        type=str,
+        default="franka",
+        choices=["gr1t2", "franka"],
+        help="Embodiment to use. Default to franka.",
+    )
 
     # Args
     args_cli = args_parser.parse_args()
@@ -33,15 +40,23 @@ def main():
 
         # Imports have to follow simulation startup.
         from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
+        from isaac_arena.embodiments.gr1t2.gr1t2_embodiment import GR1T2Embodiment
         from isaac_arena.environments.compile_env import run_environment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.scene.pick_and_place_scene import MugInDrawerKitchenPickAndPlaceScene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTaskCfg
 
+        # Embodiment
+        embodiments = {
+            "gr1t2": GR1T2Embodiment,
+            "franka": FrankaEmbodiment,
+        }
+        embodiment = embodiments[args_cli.embodiment]()
+
         # Arena Environment
         isaac_arena_environment = IsaacArenaEnvironment(
             name="kitchen_pick_and_place",
-            embodiment=FrankaEmbodiment(),
+            embodiment=embodiment,
             scene=MugInDrawerKitchenPickAndPlaceScene(),
             task=PickAndPlaceTaskCfg(),
         )

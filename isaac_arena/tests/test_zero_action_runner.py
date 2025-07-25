@@ -12,11 +12,25 @@ from isaac_arena.tests.utils.constants import TestConstants
 from isaac_arena.tests.utils.subprocess import run_subprocess
 
 
-def test_zero_action_runner():
+def test_zero_action_runner_franka():
     run_subprocess([
         TestConstants.python_path,
         f"{TestConstants.examples_dir}/zero_action_runner.py",
         "--headless",
+        "--embodiment",
+        "franka",
+        "--num_steps",
+        "2",
+    ])
+
+
+def test_zero_action_runner_gr1():
+    run_subprocess([
+        TestConstants.python_path,
+        f"{TestConstants.examples_dir}/zero_action_runner.py",
+        "--headless",
+        "--embodiment",
+        "gr1t2",
         "--num_steps",
         "2",
     ])
