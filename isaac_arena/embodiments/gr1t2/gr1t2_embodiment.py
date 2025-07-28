@@ -10,18 +10,19 @@
 
 import tempfile
 
-from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
-from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
+
 import isaaclab.controllers.utils as ControllerUtils
+import isaaclab.envs.mdp as base_mdp
+from isaac_arena.embodiments.embodiment_base import EmbodimentBase, EventCfg, ObservationsCfg
+from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-import isaaclab.envs.mdp as base_mdp
-import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+from isaaclab.utils import configclass
 
-from isaac_arena.embodiments.embodiment_base import EmbodimentBase, EventCfg, ObservationsCfg
+import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 
 
 class GR1T2Embodiment(EmbodimentBase):

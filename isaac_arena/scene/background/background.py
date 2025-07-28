@@ -55,7 +55,9 @@ class KitchenPickAndPlaceBackground(PickAndPlaceBackground):
                 prim_path="{ENV_REGEX_NS}/Kitchen",
                 init_state=AssetBaseCfg.InitialStateCfg(pos=[0.772, 3.39, -0.895], rot=[0.70711, 0, 0, -0.70711]),
                 spawn=UsdFileCfg(
-                    usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/kitchen_scene_teleop_v3.usd"
+                    usd_path=(
+                        "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/kitchen_scene_teleop_v3.usd"
+                    )
                 ),
             ),
             destination_object_cfg=RigidObjectCfg(
