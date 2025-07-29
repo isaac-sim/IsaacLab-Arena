@@ -11,26 +11,38 @@
 from isaac_arena.tests.utils.constants import TestConstants
 from isaac_arena.tests.utils.subprocess import run_subprocess
 
+HEADLESS = True
 
-def test_zero_action_runner_franka():
-    run_subprocess([
+
+def run_zero_action_runner(embodiment: str, background: str):
+
+    args = [
         TestConstants.python_path,
         f"{TestConstants.examples_dir}/zero_action_runner.py",
-        "--headless",
         "--embodiment",
-        "franka",
+        embodiment,
+        "--background",
+        background,
         "--num_steps",
         "2",
-    ])
+    ]
+    if HEADLESS:
+        args.append("--headless")
+
+    run_subprocess(args)
 
 
-def test_zero_action_runner_gr1():
-    run_subprocess([
-        TestConstants.python_path,
-        f"{TestConstants.examples_dir}/zero_action_runner.py",
-        "--headless",
-        "--embodiment",
-        "gr1",
-        "--num_steps",
-        "2",
-    ])
+def test_zero_action_runner_franka_kitchen():
+    run_zero_action_runner("franka", "kitchen_pick_and_place")
+
+
+def test_zero_action_runner_gr1_kitchen():
+    run_zero_action_runner("gr1", "kitchen_pick_and_place")
+
+
+def test_zero_action_runner_franka_packing_table():
+    run_zero_action_runner("franka", "packing_table_pick_and_place")
+
+
+def test_zero_action_runner_gr1_packing_table():
+    run_zero_action_runner("gr1", "packing_table_pick_and_place")

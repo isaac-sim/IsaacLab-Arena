@@ -27,6 +27,7 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cf
 
 class GR1T2Embodiment(EmbodimentBase):
     def __init__(self):
+        super().__init__()
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.action_config = GR1T2ActionsCfg()

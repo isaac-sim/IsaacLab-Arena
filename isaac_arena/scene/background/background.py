@@ -20,13 +20,10 @@ class Background(Asset):
     Encapsulates the background scene config for a environment.
     """
 
-    def __init__(self, background_scene_cfg: AssetBaseCfg, name: str, tags: list[str], robot_initial_pose: Pose | None):
+    def __init__(self, background_scene_cfg: AssetBaseCfg, name: str, tags: list[str], robot_initial_pose: Pose):
         super().__init__(name, tags)
         self.background_scene_cfg = background_scene_cfg
-        if robot_initial_pose is not None:
-            self.robot_initial_pose = robot_initial_pose
-        else:
-            self.robot_initial_pose = Pose.identity()
+        self.robot_initial_pose = robot_initial_pose
 
     def get_background_cfg(self) -> AssetBaseCfg:
         """Return the configured background scene asset."""
@@ -47,7 +44,7 @@ class PickAndPlaceBackground(Background):
         background_scene_cfg: AssetBaseCfg,
         destination_object_cfg: RigidObjectCfg,
         pick_up_object_location_cfg: RigidObjectCfg.InitialStateCfg,
-        robot_initial_pose: Pose | None,
+        robot_initial_pose: Pose,
         name: str,
     ):
         super().__init__(background_scene_cfg, name, ["background", "pick_and_place"], robot_initial_pose)
@@ -88,10 +85,7 @@ class KitchenPickAndPlaceBackground(PickAndPlaceBackground):
             pick_up_object_location_cfg=RigidObjectCfg.InitialStateCfg(
                 pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]
             ),
-            robot_initial_pose=Pose(
-                position_xyz=(0.0, 0.0, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
-            ),
+            robot_initial_pose=Pose.identity(),
             name="kitchen_pick_and_place",
         )
 

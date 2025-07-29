@@ -32,6 +32,7 @@ from isaaclab.utils import configclass
 
 class FrankaEmbodiment(EmbodimentBase):
     def __init__(self):
+        super().__init__()
         self.scene_config = FrankaSceneCfg()
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()
