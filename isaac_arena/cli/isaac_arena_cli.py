@@ -31,11 +31,13 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
     )
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
+    # NOTE(alexmillane, 2025.07.25): Unlike base isaaclab, we enable pinocchio by default.
     isaac_lab_group.add_argument(
-        "--enable_pinocchio",
-        action="store_true",
-        default=False,
-        help="Enable Pinocchio.",
+        "--disable_pinocchio",
+        dest="enable_pinocchio",
+        default=True,
+        action="store_false",
+        help="Disable Pinocchio.",
     )
 
 

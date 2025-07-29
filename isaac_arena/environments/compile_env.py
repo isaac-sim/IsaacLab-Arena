@@ -29,6 +29,10 @@ def run_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: ar
     Returns:
         gym.Env: The compiled gymnasium environment.
     """
+
+    # Set the robot position
+    isaac_arena_environment.embodiment.set_robot_initial_pose(isaac_arena_environment.scene.get_robot_initial_pose())
+
     # Scene composition - The scene is composed of:
     # - Base IsaacLab config
     # - Contributions from the (background) scene
@@ -54,7 +58,7 @@ def run_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: ar
     )
 
     gym.register(
-        id=isaac_arena_environment.name,  # args_cli.task,
+        id=isaac_arena_environment.name,
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
         kwargs={
             "env_cfg_entry_point": arena_env_cfg,

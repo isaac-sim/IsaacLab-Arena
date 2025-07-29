@@ -11,10 +11,16 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from isaac_arena.geometry.pose import Pose
+
 
 class SceneBase(ABC):
     def __init__(self):
         pass
+
+    @abstractmethod
+    def get_robot_initial_pose(self) -> Pose:
+        raise NotImplementedError
 
     @abstractmethod
     def get_scene_cfg(self) -> Any:

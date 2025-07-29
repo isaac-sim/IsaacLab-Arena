@@ -8,6 +8,7 @@
 # its affiliates is strictly prohibited.
 #
 
+import argparse
 import torch
 import tqdm
 
@@ -16,19 +17,33 @@ from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 from isaac_arena.scene.scene_registry import ObjectRegistry
 
 
-def get_scene_configuration_from_registry(background_name: str, pick_up_object_name: str):
+def get_environment_configuration_from_args(args_cli: argparse.Namespace):
+    from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
+    from isaac_arena.embodiments.gr1t2.gr1t2_embodiment import GR1T2Embodiment
+
     object_registry = ObjectRegistry()
-    if background_name:
-        background = object_registry.get_object_by_name(background_name)
+    if args_cli.background:
+        background = object_registry.get_object_by_name(args_cli.background)
     else:
         background = object_registry.get_random_object_by_tag("background")
-    if pick_up_object_name:
-        pick_up_object = object_registry.get_object_by_name(pick_up_object_name)
+    if args_cli.pick_up_object:
+        pick_up_object = object_registry.get_object_by_name(args_cli.pick_up_object)
     else:
         pick_up_object = object_registry.get_random_object_by_tag("pick_up_object")
 
-    scene_configuration = {"background": background, "pick_up_object": pick_up_object}
-    return scene_configuration
+    # Embodiment
+    embodiments = {
+        "gr1": GR1T2Embodiment,
+        "franka": FrankaEmbodiment,
+    }
+    embodiment = embodiments[args_cli.embodiment]()
+
+    environment_configuration = {
+        "background": background,
+        "pick_up_object": pick_up_object,
+        "embodiment": embodiment,
+    }
+    return environment_configuration
 
 
 def main():
@@ -40,6 +55,13 @@ def main():
     args_parser.add_argument(
         "--num_steps", type=int, default=100, help="Number of steps to run the policy for. Default to run until "
     )
+    args_parser.add_argument(
+        "--embodiment",
+        type=str,
+        default="franka",
+        choices=["gr1", "franka"],
+        help="Embodiment to use. Default to franka.",
+    )
 
     # Args
     args_cli = args_parser.parse_args()
@@ -48,19 +70,22 @@ def main():
     with SimulationAppContext(args_cli):
 
         # Imports have to follow simulation startup.
-        from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
         from isaac_arena.environments.compile_env import run_environment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTaskCfg
 
-        scene_configuration = get_scene_configuration_from_registry(args_cli.background, args_cli.pick_up_object)
+        # Scene variation
+        environment_configuration = get_environment_configuration_from_args(args_cli)
 
         # Arena Environment
         isaac_arena_environment = IsaacArenaEnvironment(
             name="kitchen_pick_and_place",
-            embodiment=FrankaEmbodiment(),
-            scene=PickAndPlaceScene(scene_configuration["background"], scene_configuration["pick_up_object"]),
+            embodiment=environment_configuration["embodiment"],
+            scene=PickAndPlaceScene(
+                environment_configuration["background"],
+                environment_configuration["pick_up_object"],
+            ),
             task=PickAndPlaceTaskCfg(),
         )
 

@@ -11,12 +11,32 @@
 from isaac_arena.tests.utils.constants import TestConstants
 from isaac_arena.tests.utils.subprocess import run_subprocess
 
+HEADLESS = True
 
-def test_zero_action_runner():
-    run_subprocess([
+
+def run_zero_action_runner(embodiment: str, background: str):
+
+    args = [
         TestConstants.python_path,
         f"{TestConstants.examples_dir}/zero_action_runner.py",
-        "--headless",
+        "--embodiment",
+        embodiment,
+        "--background",
+        background,
         "--num_steps",
         "2",
-    ])
+    ]
+    if HEADLESS:
+        args.append("--headless")
+
+    run_subprocess(args)
+
+
+def test_zero_action_runner():
+    # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
+    # from a registry when we have one.
+    embodiments = ["franka", "gr1"]
+    backgrounds = ["kitchen_pick_and_place", "packing_table_pick_and_place"]
+    for embodiment in embodiments:
+        for background in backgrounds:
+            run_zero_action_runner(embodiment, background)
