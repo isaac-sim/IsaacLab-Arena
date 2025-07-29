@@ -35,6 +35,6 @@ def test_run_simulation_app_function_in_separate_process_with_arg():
     # Run a function which returns True if the simulation app is running.
     test_passed = run_simulation_app_function_in_separate_process(
         got_argument,
-        TEST_ARG,
+        test_arg=TEST_ARG,
     )
     assert test_passed, "Tested function returned False"

@@ -19,7 +19,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
 
-def run_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: argparse.Namespace) -> gym.Env:
+def compile_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: argparse.Namespace) -> gym.Env:
     """Compile the arena environment configuration to a gymnasium environment.
 
     Args:
@@ -28,6 +28,22 @@ def run_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: ar
 
     Returns:
         gym.Env: The compiled gymnasium environment.
+    """
+    # Get the manager-based environment configuration.
+    arena_env_cfg = compile_manager_based_env_cfg(isaac_arena_environment)
+    env = compile_gym_env(isaac_arena_environment.name, arena_env_cfg, args_cli)
+
+    return env
+
+
+def compile_manager_based_env_cfg(isaac_arena_environment: IsaacArenaEnvironment) -> IsaacArenaManagerBasedRLEnvCfg:
+    """Get the manager-based environment configuration.
+
+    Args:
+        isaac_arena_environment (IsaacArenaEnvironment): The arena environment configuration.
+
+    Returns:
+        IsaacArenaManagerBasedRLEnvCfg: The manager-based environment configuration.
     """
 
     # Set the robot position
@@ -56,9 +72,22 @@ def run_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: ar
         scene=scene_cfg,
         terminations=isaac_arena_environment.task.get_termination_cfg(),
     )
+    return arena_env_cfg
 
+
+def compile_gym_env(name: str, arena_env_cfg: IsaacArenaManagerBasedRLEnvCfg, args_cli: argparse.Namespace) -> gym.Env:
+    """Compile the arena environment configuration to a gymnasium environment.
+
+    Args:
+        name (str): The name of the environment.
+        arena_env_cfg (IsaacArenaManagerBasedRLEnvCfg): The manager-based environment configuration.
+        args_cli (argparse.Namespace): The command line arguments.
+
+    Returns:
+        gym.Env: The compiled gymnasium environment.
+    """
     gym.register(
-        id=isaac_arena_environment.name,
+        id=name,
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
         kwargs={
             "env_cfg_entry_point": arena_env_cfg,
@@ -66,12 +95,12 @@ def run_environment(isaac_arena_environment: IsaacArenaEnvironment, args_cli: ar
         disable_env_checker=True,
     )
     env_cfg = parse_env_cfg(
-        isaac_arena_environment.name,
+        name,
         device=args_cli.device,
         num_envs=args_cli.num_envs,
         use_fabric=not args_cli.disable_fabric,
     )
-    env = gym.make(isaac_arena_environment.name, cfg=env_cfg)
+    env = gym.make(name, cfg=env_cfg)
 
     # Reset for good measure.
     env.reset()

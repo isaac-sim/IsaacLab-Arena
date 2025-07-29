@@ -24,18 +24,20 @@ class PickUpObject(Asset):
         return self.pick_up_object_cfg
 
 
-class Banana(PickUpObject):
-    """
-    Encapsulates the pick-up object config for a pick-and-place environment.
-    """
+# NOTE(alexmillane, 2025-07-29): This banana object does not have physics enabled and therefore
+# cannot be used in arena.
+# class Banana(PickUpObject):
+#     """
+#     Encapsulates the pick-up object config for a pick-and-place environment.
+#     """
 
-    def __init__(self):
-        super().__init__(
-            prim_path="{ENV_REGEX_NS}/target_banana",
-            usd_path="omniverse://isaac-dev.ov.nvidia.com/NVIDIA/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned/011_banana.usd",
-            scale=(1.0, 1.0, 1.0),
-            name="banana",
-        )
+#     def __init__(self):
+#         super().__init__(
+#             prim_path="{ENV_REGEX_NS}/target_banana",
+#             usd_path="omniverse://isaac-dev.ov.nvidia.com/NVIDIA/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned/011_banana.usd",
+#             scale=(1.0, 1.0, 1.0),
+#             name="banana",
+#         )
 
 
 class CrackerBox(PickUpObject):

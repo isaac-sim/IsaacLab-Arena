@@ -39,19 +39,19 @@ def run_subprocess(cmd, env=None):
         raise
 
 
-def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, Any], bool], *args):
+def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, Any], bool], headless: bool, **kwargs):
     # The runner runs a function in a way that a result is returned to the main process, before
     # simulation_app.close() can ruin everything.
     # Simulation app args. For now, we just make these default + headless.
     parser = argparse.ArgumentParser(description="Isaac Arena CLI parser.")
     AppLauncher.add_app_launcher_args(parser)
     simulation_app_args = parser.parse_args([])
-    simulation_app_args.headless = True
+    simulation_app_args.headless = headless
     # Launch the simulator
     with SimulationAppContext(simulation_app_args) as simulation_app:
         # Run the function
         try:
-            test_passed = function(simulation_app, *args)
+            test_passed = function(simulation_app, **kwargs)
         except Exception as e:
             print(f"Exception occurred while running the policy: {e}")
             test_passed = False
@@ -62,7 +62,9 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
             q.put_nowait(test_passed)
 
 
-def run_simulation_app_function_in_separate_process(function: Callable[..., bool], *args) -> bool:
+def run_simulation_app_function_in_separate_process(
+    function: Callable[..., bool], headless: bool = True, **kwargs
+) -> bool:
     """Run a simulation app in a separate process.
 
     This is sometimes required to prevent simulation app shutdown interrupting pytest.
@@ -85,7 +87,7 @@ def run_simulation_app_function_in_separate_process(function: Callable[..., bool
     # NOTE(alexmillane, 2025.04.10): We need to start the test in a separate process
     # because the simulation app cannot be closed in the main process, because it
     # kills the entire pytest process.
-    p = multiprocessing.Process(target=runner, args=(q, function, *args))
+    p = multiprocessing.Process(target=runner, args=(q, function, headless), kwargs=kwargs)
     p.start()
     p.join()
 

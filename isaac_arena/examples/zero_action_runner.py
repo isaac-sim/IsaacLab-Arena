@@ -14,22 +14,22 @@ import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
-from isaac_arena.scene.scene_registry import ObjectRegistry
+from isaac_arena.scene.asset_registry import AssetRegistry
 
 
 def get_environment_configuration_from_args(args_cli: argparse.Namespace):
     from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
     from isaac_arena.embodiments.gr1t2.gr1t2_embodiment import GR1T2Embodiment
 
-    object_registry = ObjectRegistry()
+    object_registry = AssetRegistry()
     if args_cli.background:
-        background = object_registry.get_object_by_name(args_cli.background)
+        background = object_registry.get_asset_by_name(args_cli.background)
     else:
-        background = object_registry.get_random_object_by_tag("background")
+        background = object_registry.get_random_asset_by_tag("background")
     if args_cli.pick_up_object:
-        pick_up_object = object_registry.get_object_by_name(args_cli.pick_up_object)
+        pick_up_object = object_registry.get_asset_by_name(args_cli.pick_up_object)
     else:
-        pick_up_object = object_registry.get_random_object_by_tag("pick_up_object")
+        pick_up_object = object_registry.get_random_asset_by_tag("pick_up_object")
 
     # Embodiment
     embodiments = {
@@ -70,7 +70,7 @@ def main():
     with SimulationAppContext(args_cli):
 
         # Imports have to follow simulation startup.
-        from isaac_arena.environments.compile_env import run_environment
+        from isaac_arena.environments.compile_env import compile_environment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTaskCfg
@@ -90,7 +90,7 @@ def main():
         )
 
         # Compile an IsaacLab compatible arena environment configuration
-        env = run_environment(isaac_arena_environment, args_cli)
+        env = compile_environment(isaac_arena_environment, args_cli)
 
         # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):

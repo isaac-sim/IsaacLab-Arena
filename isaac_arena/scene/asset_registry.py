@@ -2,33 +2,65 @@ import importlib
 import inspect
 import pkgutil
 import random
-from typing import Any
 
 from isaac_arena.scene.asset import Asset
+from isaac_arena.utils.singleton import SingletonMeta
+
+SCANNED_PACKAGES = ["isaac_arena.scene"]
 
 
-class SingletonMeta(type):
-    """
-    Metaclass that overrides __call__ so that only one instance
-    of any class using it is ever created.
-    """
+class AssetRegistry(metaclass=SingletonMeta):
 
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            # first time: actually create the instance
-            cls._instances[cls] = super().__call__(*args, **kwargs)
-        # afterwards: always return the same object
-        return cls._instances[cls]
-
-
-class ObjectRegistry(metaclass=SingletonMeta):
-
-    def __init__(self, base_packages=None):
-        self.base_packages = base_packages or ["isaac_arena.scene"]
+    def __init__(self):
+        self.base_packages = SCANNED_PACKAGES
         self.registry = {}
         self._auto_register()
+
+    def register_asset(self, name: str, object: Asset):
+        """Register an asset with a name.
+
+        Args:
+            name (str): The name of the asset.
+            object (Asset): The asset to register.
+        """
+        assert name not in self.registry, f"Object {name} already registered"
+        self.registry[name] = object
+
+    def get_asset_by_name(self, name: str) -> Asset:
+        """Register an asset with a name.
+
+        Args:
+            name (str): The name of the asset.
+
+        Returns:
+            Asset: The asset.
+        """
+        return self.registry[name]
+
+    def get_assets_by_tag(self, tag: str) -> list[Asset]:
+        """Gets a list of assets by tag.
+
+        Args:
+            tag (str): The tag of the assets.
+
+        Returns:
+            list[Asset]: The list of assets.
+        """
+        return [object for object in self.registry.values() if tag in object.tags]
+
+    def get_random_asset_by_tag(self, tag: str) -> Asset:
+        """Gets a random asset which has the given tag.
+
+        Args:
+            tag (str): The tag of the assets.
+
+        Returns:
+            Asset: The random asset.
+        """
+        assets = self.get_assets_by_tag(tag)
+        if len(assets) == 0:
+            raise ValueError(f"No assets found with tag {tag}")
+        return random.choice(assets)
 
     def _auto_register(self):
         """
@@ -74,17 +106,4 @@ class ObjectRegistry(metaclass=SingletonMeta):
                     continue
 
                 instance = cls()
-                self.register_object(instance.get_name(), instance)
-
-    def register_object(self, name: str, object):
-        assert name not in self.registry, f"Object {name} already registered"
-        self.registry[name] = object
-
-    def get_object_by_name(self, name) -> Any:
-        return self.registry[name]
-
-    def get_objects_by_tag(self, tag) -> list[Any]:
-        return [object for object in self.registry.values() if tag in object.tags]
-
-    def get_random_object_by_tag(self, tag) -> Any:
-        return random.choice(self.get_objects_by_tag(tag))
+                self.register_asset(instance.get_name(), instance)
