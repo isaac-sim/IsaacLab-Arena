@@ -1,34 +1,26 @@
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+#
+
 from abc import ABC
 from typing import Any
 
 from isaac_arena.geometry.pose import Pose
-from isaaclab.utils import configclass
-
-# NOTE(alexmillane, 2025.07.25): Consider if we need these classes.
-
-
-@configclass
-class ActionsCfg:
-    pass
-
-
-@configclass
-class ObservationsCfg:
-    pass
-
-
-@configclass
-class EventCfg:
-    pass
 
 
 class EmbodimentBase(ABC):
 
     def __init__(self):
         self.scene_config: Any | None = None
-        self.action_config: ActionsCfg | None = None
-        self.observation_config: ObservationsCfg | None = None
-        self.event_config: EventCfg | None = None
+        self.action_config: Any | None = None
+        self.observation_config: Any | None = None
+        self.event_config: Any | None = None
 
     def get_scene_cfg(self) -> Any:
         return self.scene_config

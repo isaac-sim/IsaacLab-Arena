@@ -18,18 +18,18 @@ from isaac_arena.scene.asset_registry import AssetRegistry
 
 
 def get_environment_configuration_from_args(args_cli: argparse.Namespace):
-    from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
-    from isaac_arena.embodiments.gr1t2.gr1t2_embodiment import GR1T2Embodiment
+    from isaac_arena.embodiments.franka import FrankaEmbodiment
+    from isaac_arena.embodiments.gr1t2 import GR1T2Embodiment
 
-    object_registry = AssetRegistry()
+    asset_registry = AssetRegistry()
     if args_cli.background:
-        background = object_registry.get_asset_by_name(args_cli.background)
+        background = asset_registry.get_asset_by_name(args_cli.background)
     else:
-        background = object_registry.get_random_asset_by_tag("background")
-    if args_cli.pick_up_object:
-        pick_up_object = object_registry.get_asset_by_name(args_cli.pick_up_object)
+        background = asset_registry.get_random_asset_by_tag("background")
+    if args_cli.object:
+        pick_up_object = asset_registry.get_asset_by_name(args_cli.object)
     else:
-        pick_up_object = object_registry.get_random_asset_by_tag("pick_up_object")
+        pick_up_object = asset_registry.get_random_asset_by_tag("object")
 
     # Embodiment
     embodiments = {
@@ -40,7 +40,7 @@ def get_environment_configuration_from_args(args_cli: argparse.Namespace):
 
     environment_configuration = {
         "background": background,
-        "pick_up_object": pick_up_object,
+        "object": pick_up_object,
         "embodiment": embodiment,
     }
     return environment_configuration
@@ -73,7 +73,7 @@ def main():
         from isaac_arena.environments.compile_env import compile_environment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
-        from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTaskCfg
+        from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
         # Scene variation
         environment_configuration = get_environment_configuration_from_args(args_cli)
@@ -84,9 +84,9 @@ def main():
             embodiment=environment_configuration["embodiment"],
             scene=PickAndPlaceScene(
                 environment_configuration["background"],
-                environment_configuration["pick_up_object"],
+                environment_configuration["object"],
             ),
-            task=PickAndPlaceTaskCfg(),
+            task=PickAndPlaceTask(),
         )
 
         # Compile an IsaacLab compatible arena environment configuration

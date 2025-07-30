@@ -14,7 +14,7 @@ from isaaclab_assets.robots.fourier import GR1T2_CFG
 
 import isaaclab.controllers.utils as ControllerUtils
 import isaaclab.envs.mdp as base_mdp
-from isaac_arena.embodiments.embodiment_base import EmbodimentBase, EventCfg, ObservationsCfg
+from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -93,7 +93,7 @@ class GR1T2SceneCfg:
 # the scene e.g. object positions. So here we copy out just the robot observations
 # to allow composition with other scenes.
 @configclass
-class GR1T2ObservationsCfg(ObservationsCfg):
+class GR1T2ObservationsCfg:
     """Observation specifications for the MDP."""
 
     @configclass
@@ -130,7 +130,7 @@ class GR1T2ObservationsCfg(ObservationsCfg):
 # the scene e.g. object randomization. So here we copy out just the robot events
 # to allow composition with other scenes.
 @configclass
-class GR1T2EventCfg(EventCfg):
+class GR1T2EventCfg:
     """Configuration for events."""
 
     # NOTE(alexmillane, 2025-07-28): I removed this event term because it was resetting

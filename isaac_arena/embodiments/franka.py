@@ -11,7 +11,7 @@
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
 import isaaclab.envs.mdp as mdp_isaac_lab
-from isaac_arena.embodiments.embodiment_base import ActionsCfg, EmbodimentBase, EventCfg, ObservationsCfg
+from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.pick_and_place_scene import AssetBaseCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
@@ -42,8 +42,7 @@ class FrankaEmbodiment(EmbodimentBase):
     def set_robot_initial_pose(self, pose: Pose):
         # We override the default initial pose setting function in order to also set
         # the initial pose of the stand.
-        self.scene_config.robot.init_state.pos = pose.position_xyz
-        self.scene_config.robot.init_state.rot = pose.rotation_wxyz
+        super().set_robot_initial_pose(pose)
         self.scene_config.stand.init_state.pos = pose.position_xyz
         self.scene_config.stand.init_state.rot = pose.rotation_wxyz
 
@@ -105,7 +104,7 @@ class FrankaSceneCfg:
 
 
 @configclass
-class FrankaActionsCfg(ActionsCfg):
+class FrankaActionsCfg:
     """Action specifications for the MDP."""
 
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
@@ -126,7 +125,7 @@ class FrankaActionsCfg(ActionsCfg):
 
 
 @configclass
-class FrankaObservationsCfg(ObservationsCfg):
+class FrankaObservationsCfg:
     """Observation specifications for the MDP."""
 
     @configclass
@@ -148,7 +147,7 @@ class FrankaObservationsCfg(ObservationsCfg):
 
 
 @configclass
-class FrankaEventCfg(EventCfg):
+class FrankaEventCfg:
     """Configuration for Franek."""
 
     init_franka_arm_pose = EventTerm(

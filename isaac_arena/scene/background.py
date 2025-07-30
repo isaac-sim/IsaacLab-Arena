@@ -43,21 +43,21 @@ class PickAndPlaceBackground(Background):
         self,
         background_scene_cfg: AssetBaseCfg,
         destination_object_cfg: RigidObjectCfg,
-        pick_up_object_location_cfg: RigidObjectCfg.InitialStateCfg,
+        object_location_cfg: RigidObjectCfg.InitialStateCfg,
         robot_initial_pose: Pose,
         name: str,
     ):
         super().__init__(background_scene_cfg, name, ["background", "pick_and_place"], robot_initial_pose)
         self.destination_object_cfg = destination_object_cfg
-        self.pick_up_object_location_cfg = pick_up_object_location_cfg
+        self.object_location_cfg = object_location_cfg
 
     def get_destination_cfg(self) -> RigidObjectCfg:
         """Return the configured destination-object asset."""
         return self.destination_object_cfg
 
-    def get_pick_up_object_location_cfg(self) -> RigidObjectCfg.InitialStateCfg:
+    def get_object_location_cfg(self) -> RigidObjectCfg.InitialStateCfg:
         """Return the configured pick-up object location."""
-        return self.pick_up_object_location_cfg
+        return self.object_location_cfg
 
 
 class KitchenPickAndPlaceBackground(PickAndPlaceBackground):
@@ -82,9 +82,7 @@ class KitchenPickAndPlaceBackground(PickAndPlaceBackground):
             destination_object_cfg=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/Kitchen/Cabinet_B_02",
             ),
-            pick_up_object_location_cfg=RigidObjectCfg.InitialStateCfg(
-                pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]
-            ),
+            object_location_cfg=RigidObjectCfg.InitialStateCfg(pos=[0.35, 0.0, 0.094], rot=[0.0, 0.0, 0.0, 1.0]),
             robot_initial_pose=Pose.identity(),
             name="kitchen_pick_and_place",
         )
@@ -108,9 +106,7 @@ class PackingTablePickAndPlaceBackground(PickAndPlaceBackground):
             destination_object_cfg=RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/PackingTable/container_h20",
             ),
-            pick_up_object_location_cfg=RigidObjectCfg.InitialStateCfg(
-                pos=[-0.35, 0.40, 1.0413], rot=[1.0, 0.0, 0.0, 0.0]
-            ),
+            object_location_cfg=RigidObjectCfg.InitialStateCfg(pos=[-0.35, 0.40, 1.0413], rot=[1.0, 0.0, 0.0, 0.0]),
             robot_initial_pose=Pose(
                 position_xyz=(0.0, 0.0, 1.0),
                 rotation_wxyz=(0.7071068, 0, 0, 0.7071068),

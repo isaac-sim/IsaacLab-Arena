@@ -8,13 +8,16 @@
 # its affiliates is strictly prohibited.
 #
 
-from abc import ABC
+from abc import ABC, abstractmethod
+from typing import Any
 
 
 class TaskBase(ABC):
 
-    def get_termination_cfg(self):
-        pass
+    @abstractmethod
+    def get_termination_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
 
+    @abstractmethod
     def get_prompt(self) -> str:
-        pass
+        raise NotImplementedError("Function not implemented yet.")

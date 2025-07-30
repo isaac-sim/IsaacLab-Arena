@@ -12,10 +12,13 @@ import torch
 import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.asset_registry import AssetRegistry
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
 NUM_STEPS = 2
+HEADLESS = True
+OBJECT_SEPARATION = 0.2
 
 
 def _test_default_assets_registered(simulation_app):
@@ -27,9 +30,9 @@ def _test_default_assets_registered(simulation_app):
     num_background_assets = len(asset_registry.get_assets_by_tag("background"))
     print(f"Number of background assets registered: {num_background_assets}")
     assert num_background_assets > 0
-    num_pick_up_object_assets = len(asset_registry.get_assets_by_tag("pick_up_object"))
-    print(f"Number of pick up object assets registered: {num_pick_up_object_assets}")
-    assert num_pick_up_object_assets > 0
+    num_assets = len(asset_registry.get_assets_by_tag("object"))
+    print(f"Number of pick up object assets registered: {num_assets}")
+    assert num_assets > 0
     return True
 
 
@@ -43,45 +46,48 @@ def test_default_assets_registered():
 
 def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
-    from isaac_arena.embodiments.franka.franka_embodiment import FrankaEmbodiment
+    from isaac_arena.embodiments.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import compile_gym_env, compile_manager_based_env_cfg
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene, RigidObjectCfg
-    from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTaskCfg
+    from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaac_arena.utils.configclass import combine_configclass_instances, make_configclass
 
     # Base Environment
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table_pick_and_place")
-    pick_up_object = asset_registry.get_asset_by_name("cracker_box")
+    asset = asset_registry.get_asset_by_name("cracker_box")
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),
-        scene=PickAndPlaceScene(background, pick_up_object),
-        task=PickAndPlaceTaskCfg(),
+        scene=PickAndPlaceScene(background, asset),
+        task=PickAndPlaceTask(),
     )
 
     # Compile the environment.
     arena_env_cfg = compile_manager_based_env_cfg(isaac_arena_environment)
 
     # Get the position of the pick-up object.
-    pick_up_object_position = pick_up_object.get_pick_up_object_cfg().init_state.pos
+    object_position = asset.get_object_cfg().init_state.pos
 
     # NOTE(alexmillane): We're doing backflips here to add an object. This indicates there
     # is something suboptimal with our interfaces.
 
     # Go through all the pick-up objects and make a configclass containing all of them.
     fields = []
-    for idx, object in enumerate(asset_registry.get_assets_by_tag("pick_up_object")):
-        object_cfg = object.get_pick_up_object_cfg()
-        object_cfg.prim_path = "{ENV_REGEX_NS}/new_object_" + str(idx)
-        object_cfg.name = "new_object_" + str(idx)
-        OBJECT_SEPARATION = 0.2
-        object_cfg.init_state.pos = (
-            (idx + 1) * OBJECT_SEPARATION + pick_up_object_position[0],
-            pick_up_object_position[1],
-            pick_up_object_position[2],
+    for idx, asset in enumerate(asset_registry.get_assets_by_tag("object")):
+        asset.set_prim_path("{ENV_REGEX_NS}/new_object_" + str(idx))
+        asset.set_name("new_object_" + str(idx))
+        pose = Pose(
+            position_xyz=(
+                object_position[0] + (idx + 1) * OBJECT_SEPARATION,
+                object_position[1],
+                object_position[2],
+            ),
+            rotation_wxyz=(1, 0, 0, 0),
         )
+        asset.set_initial_pose(pose)
+        object_cfg = asset.get_object_cfg()
         fields.append(
             (f"object_{idx}", RigidObjectCfg, object_cfg),
         )
@@ -112,5 +118,6 @@ def test_all_assets_in_registry():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
     result = run_simulation_app_function_in_separate_process(
         _test_all_assets_in_registry,
+        headless=HEADLESS,
     )
     assert result, "Test failed"

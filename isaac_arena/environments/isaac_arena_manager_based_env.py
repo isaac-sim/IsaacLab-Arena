@@ -8,29 +8,22 @@
 # its affiliates is strictly prohibited.
 #
 
-from isaac_arena.embodiments.embodiment_base import ActionsCfg, EventCfg, ObservationsCfg
-from isaac_arena.tasks.pick_and_place_task import TerminationsCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
-from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
-
-# TODO(alex.millane, 2025-07-23): Consider if we actually need this. What is missing from the base class?
 
 
 @configclass
 class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for an Isaac Arena environment."""
 
-    # Scene settings
-    scene: InteractiveSceneCfg
+    # NOTE(alexmillane, 2025-07-29): The following definitions are taken from the base class.
+    # scene: InteractiveSceneCfg
+    # observations: object
+    # actions: object
+    # events: object
+    # terminations: object
 
-    observations: ObservationsCfg
-    actions: ActionsCfg
-    events: EventCfg
-
-    terminations: TerminationsCfg
-
-    # Unused managers
+    # Kill the unused managers
     commands = None
     rewards = None
     curriculum = None

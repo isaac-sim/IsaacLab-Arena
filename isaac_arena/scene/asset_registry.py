@@ -1,3 +1,13 @@
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+#
+
 import importlib
 import inspect
 import pkgutil
@@ -16,18 +26,18 @@ class AssetRegistry(metaclass=SingletonMeta):
         self.registry = {}
         self._auto_register()
 
-    def register_asset(self, name: str, object: Asset):
+    def register_asset(self, name: str, asset: Asset):
         """Register an asset with a name.
 
         Args:
             name (str): The name of the asset.
-            object (Asset): The asset to register.
+            asset (Asset): The asset to register.
         """
-        assert name not in self.registry, f"Object {name} already registered"
-        self.registry[name] = object
+        assert name not in self.registry, f"Asset {name} already registered"
+        self.registry[name] = asset
 
     def get_asset_by_name(self, name: str) -> Asset:
-        """Register an asset with a name.
+        """Get an asset by name.
 
         Args:
             name (str): The name of the asset.
@@ -46,7 +56,7 @@ class AssetRegistry(metaclass=SingletonMeta):
         Returns:
             list[Asset]: The list of assets.
         """
-        return [object for object in self.registry.values() if tag in object.tags]
+        return [asset for asset in self.registry.values() if tag in asset.tags]
 
     def get_random_asset_by_tag(self, tag: str) -> Asset:
         """Gets a random asset which has the given tag.
@@ -77,9 +87,9 @@ class AssetRegistry(metaclass=SingletonMeta):
             for finder, submod_name, is_pkg in pkgutil.walk_packages(pkg.__path__, pkg_name + "."):
                 try:
                     module = importlib.import_module(submod_name)
-                except ImportError:
-                    # Ignore modules that fail to import
-                    continue
+                except ImportError as e:
+                    print(f"Fail to import a module during Asset search. Exception: {e}")
+                    raise e
                 self._register_from_module(module)
 
     def _register_from_module(self, module):

@@ -1,32 +1,67 @@
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+#
+
+from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.asset import Asset
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 
-class PickUpObject(Asset):
+class Object(Asset):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
-    def __init__(self, prim_path: str, usd_path: str, scale: tuple[float, float, float], name: str):
-        super().__init__(name, ["pick_up_object"])
-        self.pick_up_object_cfg = RigidObjectCfg(
-            prim_path=prim_path,
+    def __init__(
+        self,
+        prim_path: str,
+        usd_path: str,
+        scale: tuple[float, float, float],
+        name: str,
+        initial_pose: Pose | None = None,
+    ):
+        super().__init__(name, ["object"])
+        self.prim_path = prim_path
+        self.usd_path = usd_path
+        self.scale = scale
+        self.initial_pose = initial_pose
+
+    def set_prim_path(self, prim_path: str) -> None:
+        self.prim_path = prim_path
+
+    def set_initial_pose(self, pose: Pose) -> None:
+        self.initial_pose = pose
+
+    def get_object_cfg(self) -> RigidObjectCfg:
+        """Return the configured pick-up object asset."""
+        return self._generate_cfg()
+
+    def _generate_cfg(self) -> RigidObjectCfg:
+        object_cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
             spawn=UsdFileCfg(
-                usd_path=usd_path,
-                scale=scale,
+                usd_path=self.usd_path,
+                scale=self.scale,
                 activate_contact_sensors=True,
             ),
         )
-
-    def get_pick_up_object_cfg(self) -> RigidObjectCfg:
-        """Return the configured pick-up object asset."""
-        return self.pick_up_object_cfg
+        # Optionally specify initial pose
+        if self.initial_pose is not None:
+            object_cfg.init_state.pos = self.initial_pose.position_xyz
+            object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
+        return object_cfg
 
 
 # NOTE(alexmillane, 2025-07-29): This banana object does not have physics enabled and therefore
 # cannot be used in arena.
-# class Banana(PickUpObject):
+# class Banana(Object):
 #     """
 #     Encapsulates the pick-up object config for a pick-and-place environment.
 #     """
@@ -40,7 +75,7 @@ class PickUpObject(Asset):
 #         )
 
 
-class CrackerBox(PickUpObject):
+class CrackerBox(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
@@ -54,7 +89,7 @@ class CrackerBox(PickUpObject):
         )
 
 
-class MustardBottle(PickUpObject):
+class MustardBottle(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
@@ -68,7 +103,7 @@ class MustardBottle(PickUpObject):
         )
 
 
-class SugarBox(PickUpObject):
+class SugarBox(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
@@ -82,7 +117,7 @@ class SugarBox(PickUpObject):
         )
 
 
-class TomatoSoupCan(PickUpObject):
+class TomatoSoupCan(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """

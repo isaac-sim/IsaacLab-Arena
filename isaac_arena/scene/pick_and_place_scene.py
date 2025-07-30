@@ -17,7 +17,7 @@ class PickAndPlaceSceneCfg:
     # The object to pick up
     pick_up_object: RigidObjectCfg = MISSING
 
-    # The object to place the pick_up_object on/into
+    # The object to place the object on/into
     destination_object: RigidObjectCfg = MISSING
 
 
@@ -27,9 +27,9 @@ class PickAndPlaceScene(SceneBase):
         # The background scene
         self.background_scene = background_scene.get_background_cfg()
         # An object, which has to be placed on/into the target object
-        self.pick_up_object = pick_up_object.get_pick_up_object_cfg()
+        self.pick_up_object = pick_up_object.get_object_cfg()
         # Set the location of the pick up object
-        self.pick_up_object.init_state = background_scene.get_pick_up_object_location_cfg()
+        self.pick_up_object.init_state = background_scene.get_object_location_cfg()
         # An object, which has to be placed on/into the target object
         self.destination_object = background_scene.get_destination_cfg()
         # The position of the robot

@@ -21,5 +21,8 @@ class Asset:
     def get_name(self) -> str:
         return self.name
 
+    def set_name(self, name: str) -> None:
+        self.name = name
+
     def get_tags(self) -> list[str]:
         return self.tags

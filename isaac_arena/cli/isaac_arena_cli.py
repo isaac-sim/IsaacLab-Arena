@@ -49,5 +49,5 @@ def add_isaac_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     )
 
     isaac_arena_group.add_argument("--background", type=str, default=None, help="Name of the background.")
-    isaac_arena_group.add_argument("--pick_up_object", type=str, default=None, help="Name of the pick-up object.")
+    isaac_arena_group.add_argument("--object", type=str, default=None, help="Name of the pick-up object.")
     isaac_arena_group.add_argument("--task", type=str, default=None, help="Name of the task.")

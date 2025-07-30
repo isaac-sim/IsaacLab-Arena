@@ -53,7 +53,7 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
         try:
             test_passed = function(simulation_app, **kwargs)
         except Exception as e:
-            print(f"Exception occurred while running the policy: {e}")
+            print(f"Exception occurred while running the function: {e}")
             test_passed = False
         finally:
             # NOTE(alexmillane, 2025.04.09): Put the test result in the queue, so that the main process
