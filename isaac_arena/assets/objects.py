@@ -8,8 +8,9 @@
 # its affiliates is strictly prohibited.
 #
 
+from isaac_arena.assets.asset import Asset
+from isaac_arena.assets.register_asset import registerasset
 from isaac_arena.geometry.pose import Pose
-from isaac_arena.scene.asset import Asset
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
@@ -19,18 +20,16 @@ class Object(Asset):
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
+    usd_path: str | None = None
+    scale: tuple[float, float, float] | None = None
+
     def __init__(
         self,
         prim_path: str,
-        usd_path: str,
-        scale: tuple[float, float, float],
-        name: str,
         initial_pose: Pose | None = None,
     ):
-        super().__init__(name, ["object"])
+        super().__init__()
         self.prim_path = prim_path
-        self.usd_path = usd_path
-        self.scale = scale
         self.initial_pose = initial_pose
 
     def set_prim_path(self, prim_path: str) -> None:
@@ -59,73 +58,67 @@ class Object(Asset):
         return object_cfg
 
 
-# NOTE(alexmillane, 2025-07-29): This banana object does not have physics enabled and therefore
-# cannot be used in arena.
-# class Banana(Object):
-#     """
-#     Encapsulates the pick-up object config for a pick-and-place environment.
-#     """
-
-#     def __init__(self):
-#         super().__init__(
-#             prim_path="{ENV_REGEX_NS}/target_banana",
-#             usd_path="omniverse://isaac-dev.ov.nvidia.com/NVIDIA/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned/011_banana.usd",
-#             scale=(1.0, 1.0, 1.0),
-#             name="banana",
-#         )
-
-
+@registerasset
 class CrackerBox(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
-    def __init__(self):
-        super().__init__(
-            prim_path="{ENV_REGEX_NS}/target_cracker_box",
-            usd_path="omniverse://isaac-dev.ov.nvidia.com/NVIDIA/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd",
-            scale=(1.0, 1.0, 1.0),
-            name="cracker_box",
-        )
+    name = "cracker_box"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/NVIDIA/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd"
+    scale = (1.0, 1.0, 1.0)
+    default_prim_path = "{ENV_REGEX_NS}/target_cracker_box"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
+@registerasset
 class MustardBottle(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
-    def __init__(self):
-        super().__init__(
-            prim_path="{ENV_REGEX_NS}/target_mustard_bottle",
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd",
-            scale=(1.0, 1.0, 1.0),
-            name="mustard_bottle",
-        )
+    name = "mustard_bottle"
+    tags = ["object"]
+    usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd"
+    scale = (1.0, 1.0, 1.0)
+    default_prim_path = "{ENV_REGEX_NS}/target_mustard_bottle"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
+@registerasset
 class SugarBox(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
-    def __init__(self):
-        super().__init__(
-            prim_path="{ENV_REGEX_NS}/target_sugar_box",
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd",
-            scale=(1.0, 1.0, 1.0),
-            name="sugar_box",
-        )
+    name = "sugar_box"
+    tags = ["object"]
+    prim_path = ("{ENV_REGEX_NS}/target_sugar_box",)
+    usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd"
+    scale = (1.0, 1.0, 1.0)
+    default_prim_path = "{ENV_REGEX_NS}/target_sugar_box"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
+@registerasset
 class TomatoSoupCan(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
-    def __init__(self):
-        super().__init__(
-            prim_path="{ENV_REGEX_NS}/target_tomato_soup_can",
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd",
-            scale=(1.0, 1.0, 1.0),
-            name="tomato_soup_can",
-        )
+    name = "tomato_soup_can"
+    tags = ["object"]
+    prim_path = ("{ENV_REGEX_NS}/target_tomato_soup_can",)
+    usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd"
+    scale = (1.0, 1.0, 1.0)
+    default_prim_path = "{ENV_REGEX_NS}/target_tomato_soup_can"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)

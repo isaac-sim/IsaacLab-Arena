@@ -13,7 +13,6 @@ import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.geometry.pose import Pose
-from isaac_arena.scene.asset_registry import AssetRegistry
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
 NUM_STEPS = 2
@@ -22,9 +21,11 @@ OBJECT_SEPARATION = 0.2
 
 
 def _test_default_assets_registered(simulation_app):
+    from isaac_arena.assets.asset_registry import AssetRegistry
+
     asset_registry = AssetRegistry()
     assert asset_registry is not None
-    num_assets = len(asset_registry.registry)
+    num_assets = len(asset_registry.assets)
     print(f"Number of assets registered: {num_assets}")
     assert num_assets > 0
     num_background_assets = len(asset_registry.get_assets_by_tag("background"))
@@ -46,6 +47,7 @@ def test_default_assets_registered():
 
 def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
+    from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.embodiments.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import compile_gym_env, compile_manager_based_env_cfg
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
@@ -55,8 +57,8 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Base Environment
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")
-    asset = asset_registry.get_asset_by_name("cracker_box")
+    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
+    asset = asset_registry.get_asset_by_name("cracker_box")()
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),
@@ -75,9 +77,9 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Go through all the pick-up objects and make a configclass containing all of them.
     fields = []
-    for idx, asset in enumerate(asset_registry.get_assets_by_tag("object")):
+    for idx, asset_cls in enumerate(asset_registry.get_assets_by_tag("object")):
+        asset = asset_cls()
         asset.set_prim_path("{ENV_REGEX_NS}/new_object_" + str(idx))
-        asset.set_name("new_object_" + str(idx))
         pose = Pose(
             position_xyz=(
                 object_position[0] + (idx + 1) * OBJECT_SEPARATION,

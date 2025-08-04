@@ -1,8 +1,18 @@
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+#
+
 from dataclasses import MISSING
 from typing import Any
 
+from isaac_arena.assets.asset import Asset
 from isaac_arena.geometry.pose import Pose
-from isaac_arena.scene.asset import Asset
 from isaac_arena.scene.scene import SceneBase
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.utils import configclass
@@ -22,24 +32,21 @@ class PickAndPlaceSceneCfg:
 
 
 class PickAndPlaceScene(SceneBase):
+
     def __init__(self, background_scene: Asset, pick_up_object: Asset):
         super().__init__()
-        # The background scene
-        self.background_scene = background_scene.get_background_cfg()
-        # An object, which has to be placed on/into the target object
-        self.pick_up_object = pick_up_object.get_object_cfg()
-        # Set the location of the pick up object
-        self.pick_up_object.init_state = background_scene.get_object_location_cfg()
-        # An object, which has to be placed on/into the target object
-        self.destination_object = background_scene.get_destination_cfg()
-        # The position of the robot
+        # Save the background and the pick up object
+        self.background_scene = background_scene
+        self.pick_up_object = pick_up_object
+        # Set the pose of the pick up object and the robot
+        self.pick_up_object.set_initial_pose(self.background_scene.object_pose)
         self.robot_initial_pose = background_scene.get_robot_initial_pose()
 
     def get_scene_cfg(self) -> PickAndPlaceSceneCfg:
         return PickAndPlaceSceneCfg(
-            background_scene=self.background_scene,
-            pick_up_object=self.pick_up_object,
-            destination_object=self.destination_object,
+            background_scene=self.background_scene.get_background_cfg(),
+            pick_up_object=self.pick_up_object.get_object_cfg(),
+            destination_object=self.background_scene.get_destination_cfg(),
         )
 
     def get_robot_initial_pose(self) -> Pose:

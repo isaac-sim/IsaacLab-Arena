@@ -9,34 +9,38 @@
 #
 
 import argparse
+import random
 import torch
 import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
-from isaac_arena.scene.asset_registry import AssetRegistry
 
 
 def get_environment_configuration_from_args(args_cli: argparse.Namespace):
+    from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.embodiments.franka import FrankaEmbodiment
     from isaac_arena.embodiments.gr1t2 import GR1T2Embodiment
 
     asset_registry = AssetRegistry()
     if args_cli.background:
-        background = asset_registry.get_asset_by_name(args_cli.background)
+        background = asset_registry.get_asset_by_name(args_cli.background)()
     else:
-        background = asset_registry.get_random_asset_by_tag("background")
+        background = asset_registry.get_random_asset_by_tag("background")()
     if args_cli.object:
-        pick_up_object = asset_registry.get_asset_by_name(args_cli.object)
+        pick_up_object = asset_registry.get_asset_by_name(args_cli.object)()
     else:
-        pick_up_object = asset_registry.get_random_asset_by_tag("object")
+        pick_up_object = asset_registry.get_random_asset_by_tag("object")()
 
     # Embodiment
     embodiments = {
         "gr1": GR1T2Embodiment,
         "franka": FrankaEmbodiment,
     }
-    embodiment = embodiments[args_cli.embodiment]()
+    if args_cli.embodiment:
+        embodiment = embodiments[args_cli.embodiment]()
+    else:
+        embodiment = random.choice(list(embodiments.values()))()
 
     environment_configuration = {
         "background": background,
@@ -58,7 +62,7 @@ def main():
     args_parser.add_argument(
         "--embodiment",
         type=str,
-        default="franka",
+        default=None,
         choices=["gr1", "franka"],
         help="Embodiment to use. Default to franka.",
     )
