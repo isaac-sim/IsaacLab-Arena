@@ -104,7 +104,7 @@ def _test_all_assets_in_registry(simulation_app):
     # Run some zero actions.
     args_parser = get_isaac_arena_cli_parser()
     args_cli = args_parser.parse_args([])
-    env = compile_gym_env(isaac_arena_environment.name, arena_env_cfg, args_cli)
+    env, _ = compile_gym_env(isaac_arena_environment.name, arena_env_cfg, args_cli)
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

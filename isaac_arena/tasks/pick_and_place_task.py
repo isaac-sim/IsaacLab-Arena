@@ -34,12 +34,12 @@ class TerminationsCfg:
     # time_out: TerminationTermCfg = MISSING
     # termination_terms: TerminationTermCfg = MISSING
     # success: TerminationTermCfg = MISSING
-    time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
+    time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
 
     # TODO(alex.millane, 2025.07.22): This is specific to the drawer scene. Make this generic.
     object_dropped = TerminationTermCfg(
         func=mdp_isaac_lab.root_height_below_minimum,
-        params={"minimum_height": -0.2, "asset_cfg": SceneEntityCfg("pick_up_object")},
+        params={"minimum_height": 0.5, "asset_cfg": SceneEntityCfg("pick_up_object")},
     )
     # TODO(alex.millane, 2025.07.22): This is specific to the drawer scene. Make this generic
     # to support other destination objects.
