@@ -15,7 +15,11 @@ from isaac_arena.assets.asset import Asset
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.scene import SceneBase
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
+
+from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 
 @configclass
@@ -56,4 +60,26 @@ class PickAndPlaceScene(SceneBase):
         pass
 
     def get_events_cfg(self) -> Any:
-        pass
+        return PickAndPlaceEventCfg(object_pose=self.background_scene.object_pose)
+
+
+@configclass
+class PickAndPlaceEventCfg:
+    """Configuration for Pick and Place."""
+
+    reset_pick_up_object_pose: EventTerm = MISSING
+
+    def __init__(self, object_pose: Pose):
+        self.reset_pick_up_object_pose = EventTerm(
+            func=franka_stack_events.randomize_object_pose,
+            mode="reset",
+            # NOTE: We use a randomize term but set the pose range to the same value to achieve constant pose for now.
+            params={
+                "pose_range": {
+                    "x": (object_pose.position_xyz[0], object_pose.position_xyz[0]),
+                    "y": (object_pose.position_xyz[1], object_pose.position_xyz[1]),
+                    "z": (object_pose.position_xyz[2], object_pose.position_xyz[2]),
+                },
+                "asset_cfgs": [SceneEntityCfg("pick_up_object")],
+            },
+        )

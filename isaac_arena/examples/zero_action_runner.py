@@ -8,46 +8,11 @@
 # its affiliates is strictly prohibited.
 #
 
-import argparse
-import random
 import torch
 import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
-
-
-def get_environment_configuration_from_args(args_cli: argparse.Namespace):
-    from isaac_arena.assets.asset_registry import AssetRegistry
-    from isaac_arena.embodiments.franka import FrankaEmbodiment
-    from isaac_arena.embodiments.gr1t2 import GR1T2Embodiment
-
-    asset_registry = AssetRegistry()
-    if args_cli.background:
-        background = asset_registry.get_asset_by_name(args_cli.background)()
-    else:
-        background = asset_registry.get_random_asset_by_tag("background")()
-    if args_cli.object:
-        pick_up_object = asset_registry.get_asset_by_name(args_cli.object)()
-    else:
-        pick_up_object = asset_registry.get_random_asset_by_tag("object")()
-
-    # Embodiment
-    embodiments = {
-        "gr1": GR1T2Embodiment,
-        "franka": FrankaEmbodiment,
-    }
-    if args_cli.embodiment:
-        embodiment = embodiments[args_cli.embodiment]()
-    else:
-        embodiment = random.choice(list(embodiments.values()))()
-
-    environment_configuration = {
-        "background": background,
-        "object": pick_up_object,
-        "embodiment": embodiment,
-    }
-    return environment_configuration
 
 
 def main():
@@ -74,13 +39,16 @@ def main():
     with SimulationAppContext(args_cli):
 
         # Imports have to follow simulation startup.
+        from isaac_arena.assets.asset_registry import get_environment_configuration_from_registry
         from isaac_arena.environments.compile_env import compile_environment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
         # Scene variation
-        environment_configuration = get_environment_configuration_from_args(args_cli)
+        environment_configuration = get_environment_configuration_from_registry(
+            args_cli.background, args_cli.object, args_cli.embodiment
+        )
 
         # Arena Environment
         isaac_arena_environment = IsaacArenaEnvironment(
@@ -94,7 +62,7 @@ def main():
         )
 
         # Compile an IsaacLab compatible arena environment configuration
-        env = compile_environment(isaac_arena_environment, args_cli)
+        env, _ = compile_environment(isaac_arena_environment, args_cli)
 
         # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):
