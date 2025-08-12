@@ -24,13 +24,6 @@ def main():
     args_parser.add_argument(
         "--num_steps", type=int, default=100, help="Number of steps to run the policy for. Default to run until "
     )
-    args_parser.add_argument(
-        "--embodiment",
-        type=str,
-        default=None,
-        choices=["gr1", "franka"],
-        help="Embodiment to use. Default to franka.",
-    )
 
     # Args
     args_cli = args_parser.parse_args()
@@ -39,31 +32,12 @@ def main():
     with SimulationAppContext(args_cli):
 
         # Imports have to follow simulation startup.
-        from isaac_arena.assets.asset_registry import get_environment_configuration_from_registry
-        from isaac_arena.environments.compile_env import compile_environment_config, make_gym_env
-        from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-        from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
-        from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaac_arena.environments.compile_env import get_arena_env_cfg, make_gym_env
 
         # Scene variation
-        environment_configuration = get_environment_configuration_from_registry(
-            args_cli.background, args_cli.object, args_cli.embodiment
-        )
-
-        # Arena Environment
-        isaac_arena_environment = IsaacArenaEnvironment(
-            name="kitchen_pick_and_place",
-            embodiment=environment_configuration["embodiment"],
-            scene=PickAndPlaceScene(
-                environment_configuration["background"],
-                environment_configuration["object"],
-            ),
-            task=PickAndPlaceTask(),
-        )
-
-        # Compile an IsaacLab compatible arena environment configuration
-        env_cfg = compile_environment_config(isaac_arena_environment, args_cli)
-        env = make_gym_env(isaac_arena_environment.name, env_cfg)
+        env_cfg, env_name = get_arena_env_cfg(args_cli)
+        env = make_gym_env(env_name, env_cfg)
+        env.reset()
 
         # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):

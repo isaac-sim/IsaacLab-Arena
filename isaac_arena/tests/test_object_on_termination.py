@@ -57,6 +57,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     # Compile an IsaacLab compatible arena environment configuration
     env_cfg = compile_environment_config(isaac_arena_environment, args_cli)
     env = make_gym_env(isaac_arena_environment.name, env_cfg)
+    env.reset()
 
     # Run some zero actions.
     forces_vec = []

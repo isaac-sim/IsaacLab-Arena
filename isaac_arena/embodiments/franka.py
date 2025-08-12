@@ -43,6 +43,7 @@ class FrankaEmbodiment(EmbodimentBase):
         self.observation_config = FrankaObservationsCfg()
         self.event_config = FrankaEventCfg()
         self.mimic_env = FrankaMimicEnv
+        self.name = "franka"
 
     def set_robot_initial_pose(self, pose: Pose):
         # We override the default initial pose setting function in order to also set

@@ -33,7 +33,7 @@ def object_on_destination(
     assert sensor.data.force_matrix_w.shape[1] == 1
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
-    force_matrix_norm = torch.norm(sensor.data.force_matrix_w, dim=-1).reshape(-1)
+    force_matrix_norm = torch.norm(sensor.data.force_matrix_w.clone(), dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
     velocity_w = object.data.root_lin_vel_w
