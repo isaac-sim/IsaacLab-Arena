@@ -131,3 +131,37 @@ class TomatoSoupCan(Object):
 
     def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@registerasset
+class LightWheelKettle21(Object):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "lightwheel_kettle_21"
+    tags = ["object"]
+    prim_path = ("{ENV_REGEX_NS}/target_lightwheel_kettle_21",)
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/lightwheel/kettle/Kettle021/Kettle021.usd"
+    scale = (1.0, 1.0, 1.0)
+    default_prim_path = "{ENV_REGEX_NS}/target_lightwheel_kettle_21"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@registerasset
+class SketchFabSprayCan3(Object):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "sketchfab_spray_can_3"
+    tags = ["object"]
+    prim_path = ("{ENV_REGEX_NS}/target_sketchfab_spray_can_3",)
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/sketchfab/spray_bottle/spray_bottle_3/spray_bottle_3.usd"
+    scale = (1.0, 1.0, 1.0)
+    default_prim_path = "{ENV_REGEX_NS}/target_sketchfab_spray_can_3"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)

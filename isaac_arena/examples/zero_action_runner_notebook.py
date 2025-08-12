@@ -50,10 +50,10 @@ if first_run:
     # Post simulation app launch imports
     from isaaclab_tasks.utils import parse_env_cfg
 
-    from isaac_arena.environments.compile_env import compile_arena_env_cfg
+    from isaac_arena.environments.compile_env import get_arena_env_cfg
 
     # Compile an isaac arena environment configuration from existing isaac arena registry.
-    arena_env_cfg = compile_arena_env_cfg(args)
+    arena_env_cfg = get_arena_env_cfg(args)
     gym.register(
         id=args.task,
         entry_point="isaaclab.envs:ManagerBasedRLEnv",

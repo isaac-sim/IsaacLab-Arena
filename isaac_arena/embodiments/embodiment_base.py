@@ -24,6 +24,8 @@ class EmbodimentBase(ABC):
         self.observation_config: Any | None = None
         self.event_config: Any | None = None
         self.mimic_env: Any | None = None
+        self.xr: Any | None = None
+        self.name: str = "embodiment_base"
 
     def get_scene_cfg(self) -> Any:
         return self.scene_config
@@ -39,6 +41,9 @@ class EmbodimentBase(ABC):
 
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:
         return self.mimic_env
+
+    def get_xr_cfg(self) -> Any:
+        return self.xr
 
     def set_robot_initial_pose(self, pose: Pose):
         if self.scene_config is None or not hasattr(self.scene_config, "robot"):

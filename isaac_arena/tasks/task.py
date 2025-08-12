@@ -23,9 +23,5 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
-    def get_mimic_env_cfg(self) -> Any:
-        raise NotImplementedError("Function not implemented yet.")
-
-    @abstractmethod
-    def get_mimic_env(self) -> Any:
+    def get_mimic_env_cfg(self, embodiment_name: str) -> Any:
         raise NotImplementedError("Function not implemented yet.")
