@@ -10,28 +10,15 @@ jobs:
     name: Run pre-commit
     runs-on: ubuntu-latest
 
-    container:
-      image: python:3.10-slim
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
             fetch-depth: 0
+      
+      - name: Setup Python
+        uses: actions/setup-python@v3
 
-      - name: Cache pre-commit
-        uses: actions/cache@v3
-        with:
-          path: .cache/pre-commit
-          key: precommit-${{ github.sha }}
-          restore-keys: |
-            precommit-
-
-      - name: Install dependencies
-        run: |
-          apt-get update && apt-get install -y --no-install-recommends git clang-format
-          pip install --no-cache-dir --upgrade pip
-          pip install --no-cache-dir pre-commit
 
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
