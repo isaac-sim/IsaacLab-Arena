@@ -17,7 +17,7 @@ permissions:
   issues: read
 
 env:
-  NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+  NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
 jobs:
   test:
