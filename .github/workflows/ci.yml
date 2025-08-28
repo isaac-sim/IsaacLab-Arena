@@ -14,7 +14,8 @@ jobs:
       image: python:3.10-slim
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
         with:
             fetch-depth: 0
 
@@ -33,4 +34,4 @@ jobs:
           pip install --no-cache-dir pre-commit
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        uses: pre-commit/action@v4.0.0
