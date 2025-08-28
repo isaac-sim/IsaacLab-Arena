@@ -18,12 +18,17 @@ permissions:
 
 env:
   NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
-  CONTAINER_IMAGE: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
 
 jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ secrets.NGC_API_KEY }}
 
     steps:
       # Checkout Code
@@ -31,20 +36,21 @@ jobs:
         uses: actions/checkout@v4
         with:
             fetch-depth: 0
+      
+      # Cache pre-commit
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: .cache/pre-commit
+          key: precommit-${{ github.sha }}
+          restore-keys: |
+            precommit-
 
-      - name: NGC Login
-        run: docker login nvcr.io -u '$oauthtoken' -p ${{ env.NGC_API_KEY }}
+      - name: Setup Python
+        uses: actions/setup-python@v3
 
-      - name: Run in container
-        run: |
-          docker run --rm \
-            -v $PWD:/workspace \
-            -w /workspace \
-            $CONTAINER_IMAGE \
-            bash -c "
-              apt-get update && apt-get install -y --no-install-recommends git clang-format &&
-              pip install --no-cache-dir --upgrade pip &&
-              pip install --no-cache-dir pre-commit &&
-              pre-commit run --all-files &&
-              /isaac-sim/python.sh -m pytest -sv isaac_arena/tests
-            "
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.0
+
+      - name: Run pytest
+        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests
