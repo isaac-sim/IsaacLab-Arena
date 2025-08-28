@@ -18,8 +18,6 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaac_arena.tasks.task import TaskBase
-
-# from isaac_arena.tasks.terminations.object_in_drawer import object_in_drawer
 from isaac_arena.tasks.terminations import object_on_destination
 
 
