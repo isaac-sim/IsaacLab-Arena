@@ -32,10 +32,10 @@ jobs:
 
     steps:
       - name: Install git (and tools needed by hooks)
-          run: |
-            apt-get update
-            apt-get install -y --no-install-recommends git clang-format ca-certificates
-            git --version
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git clang-format ca-certificates
+          git --version
 
       # Checkout Code
       - name: Checkout Code
