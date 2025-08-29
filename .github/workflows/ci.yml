@@ -21,7 +21,7 @@ env:
 
 jobs:
   test:
-    name: Run tests
+    name: Run pre commit checks and tests
     runs-on: [self-hosted, zurich]
 
     container:
@@ -41,7 +41,9 @@ jobs:
         uses: actions/setup-python@v3
 
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.0
+        run: |
+          pip install --no-cache-dir --upgrade pip pre-commit
+          pre-commit run --all-files
 
       - name: Run pytest
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests
