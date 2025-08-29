@@ -18,7 +18,7 @@ from isaac_arena.tests.utils.subprocess import run_subprocess
 HEADLESS = True
 
 
-def run_zero_action_runner(embodiment: str, background: str):
+def run_zero_action_runner(embodiment: str, background: str, object_name: str):
 
     args = [
         TestConstants.python_path,
@@ -27,6 +27,8 @@ def run_zero_action_runner(embodiment: str, background: str):
         embodiment,
         "--background",
         background,
+        "--object",
+        object_name,
         "--num_steps",
         "2",
     ]
@@ -41,6 +43,7 @@ def test_zero_action_runner():
     # from a registry when we have one.
     embodiments = ["franka", "gr1"]
     backgrounds = ["kitchen_pick_and_place", "packing_table_pick_and_place"]
+    object_name = "cracker_box"
     for embodiment in embodiments:
         for background in backgrounds:
-            run_zero_action_runner(embodiment, background)
+            run_zero_action_runner(embodiment, background, object_name)

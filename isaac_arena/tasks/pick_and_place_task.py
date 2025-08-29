@@ -39,10 +39,6 @@ class PickAndPlaceTask(TaskBase):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    # TODO(cvolk): Make this config generic and move instance out.
-    # time_out: TerminationTermCfg = MISSING
-    # termination_terms: TerminationTermCfg = MISSING
-    # success: TerminationTermCfg = MISSING
     time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
 
     success = TerminationTermCfg(
