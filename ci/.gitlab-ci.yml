@@ -21,7 +21,7 @@ run_tests:
     # version in the CI pipeline.
     # NOTE(alex.millane, 2025-07-23): We use a conditional to avoid the case where the
     # isaac-sim directory already exists due to a previous CI run.
-    - '[ -e ./submodules/IsaacLab-Internal/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab-Internal/_isaac_sim'
+    - '[ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim'
   script:
     - pre-commit run --all-files
     - /isaac-sim/python.sh -m pytest -sv isaac_arena/tests

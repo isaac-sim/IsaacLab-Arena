@@ -62,7 +62,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env_name, runtime_cfg = builder.build_registered()
-    env = gym.make(env_name, cfg=runtime_cfg)
+    env = gym.make(env_name, cfg=runtime_cfg).unwrapped
     env.reset()
 
     # Run some zero actions.
