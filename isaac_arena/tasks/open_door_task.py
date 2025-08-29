@@ -12,19 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import MISSING
+from typing import Callable # REMOVE
+
+import torch # REMOVE
+
+from isaaclab.envs.manager_based_env import ManagerBasedEnv # REMOVE
+
 import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.managers import TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
+from isaac_arena.assets.affordances import Openable
 from isaac_arena.tasks.task import TaskBase
 
 
+def debug_wrapper(func: Callable[[ManagerBasedEnv, str], torch.Tensor]):
+    def wrapper(env: ManagerBasedEnv, object_name: str) -> torch.Tensor:
+        print(f"Calling function: {func.__name__}")
+        ret = func(env, object_name)
+        print(f"Returned value: {ret}")
+        return ret
+    return wrapper
+
+
 class OpenDoorTask(TaskBase):
-    def __init__(self):
+    def __init__(self, openable_object: Openable):
         super().__init__()
+        assert isinstance(openable_object, Openable), "Openable object must be an instance of Openable"
+        self.openable_object = openable_object
 
     def get_termination_cfg(self):
-        return TerminationsCfg()
+        # TODO(alexmillane, 2025.08.29): This is strongly coupled to the OpenDoorScene,
+        # because of our use of the name "interactable_object" which is the name of the
+        # member of the scene where the openable object is located... Need to imporove
+        # this design...
+        success = TerminationTermCfg(
+            # func=self.openable_object.is_open,
+            func=debug_wrapper(self.openable_object.is_open),
+            params={
+                "object_name": SceneEntityCfg("interactable_object"),
+            },
+        )
+        return TerminationsCfg(success=success)
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
@@ -37,15 +67,8 @@ class OpenDoorTask(TaskBase):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
 
-    # TODO(alexmillane, 2025.08.28): Implement success condition.
-    # success = TerminationTermCfg(
-    #     func=object_on_destination,
-    #     params={
-    #         "object_cfg": SceneEntityCfg("pick_up_object"),
-    #         "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-    #         "force_threshold": 1.0,
-    #         "velocity_threshold": 0.1,
-    #     },
-    # )
+    # Dependent on the openable object, so this is passed in from the task at
+    # construction time.
+    success: TerminationTermCfg = MISSING

@@ -15,6 +15,7 @@
 import torch
 
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
+from isaaclab.managers import SceneEntityCfg
 
 
 def normalize_value(value: torch.Tensor, min_value: float, max_value: float):
@@ -25,9 +26,10 @@ def unnormalize_value(value: float, min_value: float, max_value: float):
     return min_value + (max_value - min_value) * value
 
 
-def get_normalized_joint_position(env: ManagerBasedEnv, object_name: str, joint_name: str):
-    articulation = env.unwrapped.scene.articulations[object_name]
-    joint_index = articulation.data.joint_names.index(joint_name)
+def get_normalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg):
+    articulation = env.unwrapped.scene.articulations[asset_cfg.name]
+    assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
+    joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
     joint_position = articulation.data.joint_pos[:, joint_index]
     joint_position_limits = articulation.data.joint_pos_limits[0, joint_index, :]
     joint_min, joint_max = joint_position_limits[0], joint_position_limits[1]
@@ -38,10 +40,11 @@ def get_normalized_joint_position(env: ManagerBasedEnv, object_name: str, joint_
 
 
 def set_normalized_joint_position(
-    env: ManagerBasedEnv, object_name: str, joint_name: str, target_joint_position: float
+    env: ManagerBasedEnv, asset_cfg: SceneEntityCfg, target_joint_position: float
 ):
-    articulation = env.unwrapped.scene.articulations[object_name]
-    joint_index = articulation.data.joint_names.index(joint_name)
+    articulation = env.unwrapped.scene.articulations[asset_cfg.name]
+    assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
+    joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
     joint_position_limits = articulation.data.joint_pos_limits[0, joint_index, :]
     joint_min, joint_max = joint_position_limits[0], joint_position_limits[1]
     if joint_min < 0.0:
@@ -62,14 +65,21 @@ class Openable:
         self.openable_joint_name = openable_joint_name
         self.openable_open_threshold = openable_open_threshold
 
-    def is_open(self, env: ManagerBasedEnv, object_name: str) -> torch.Tensor:
+    def is_open(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is open."""
-        return get_normalized_joint_position(env, object_name, self.openable_joint_name) > self.openable_open_threshold
+        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
+        return get_normalized_joint_position(env, asset_cfg) > self.openable_open_threshold
 
-    def open(self, env: ManagerBasedEnv, object_name: str, percentage: float = 1.0):
+    def open(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg, percentage: float = 1.0):
         """Open the object (in all the environments)."""
-        set_normalized_joint_position(env, object_name, self.openable_joint_name, percentage)
+        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
+        set_normalized_joint_position(env, asset_cfg, percentage)
 
-    def close(self, env: ManagerBasedEnv, object_name: str, percentage: float = 0.0):
+    def close(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg, percentage: float = 0.0):
         """Close the object (in all the environments)."""
-        set_normalized_joint_position(env, object_name, self.openable_joint_name, percentage)
+        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
+        set_normalized_joint_position(env, asset_cfg, percentage)
+
+    def _add_joint_name_to_scene_entity_cfg(self, asset_cfg: SceneEntityCfg) -> SceneEntityCfg:
+        asset_cfg.joint_names = [self.openable_joint_name]
+        return asset_cfg
