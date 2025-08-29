@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gymnasium as gym
 import os
 import torch
 import tqdm
@@ -61,8 +60,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
-    env_name, runtime_cfg = builder.build_registered()
-    env = gym.make(env_name, cfg=runtime_cfg)
+    env = builder.make_registered()
     env.reset()
 
     # Run some zero actions.

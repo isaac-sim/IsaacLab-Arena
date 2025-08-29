@@ -18,6 +18,8 @@ permissions:
 
 env:
   NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+  OMNI_PASS: ${{ secrets.OMNI_PASS }}
+  OMNI_USER: ${{ secrets.OMNI_USER }}
 
 jobs:
   test:
@@ -49,6 +51,11 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v3
+
+      - name: Install project and link isaac-sim
+        run: |
+          pip install --no-cache-dir -e .
+          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       - name: Run pre-commit
         run: |

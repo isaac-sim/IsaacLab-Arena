@@ -18,6 +18,7 @@ import argparse
 import gymnasium as gym
 
 from isaaclab.envs import ManagerBasedRLEnvCfg, ManagerBasedRLMimicEnv
+from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
@@ -119,12 +120,12 @@ class ArenaEnvBuilder:
         )
         return name, runtime_cfg
 
-    @staticmethod
-    def make_env(name: str, env_cfg: ManagerBasedRLEnvCfg):
-        return gym.make(name, cfg=env_cfg)
+    def make_registered(self) -> ManagerBasedEnv:
+        name, runtime_cfg = self.build_registered()
+        return gym.make(name, cfg=runtime_cfg).unwrapped
 
 
-# Back-compat shim
+# TODO(Vik, 2025-08-29): Remove this function.
 def get_arena_env_cfg(args_cli: argparse.Namespace) -> tuple[ManagerBasedRLEnvCfg, str]:
     builder = ArenaEnvBuilder.from_args(args_cli)
     name, cfg = builder.build_registered()

@@ -52,10 +52,17 @@ class PickAndPlaceScene(SceneBase):
         self.background_scene = background_scene
         self.pick_up_object = pick_up_object
         # Set the pose of the pick up object and the robot
-        self.pick_up_object.set_initial_pose(self.background_scene.object_pose)
         self.robot_initial_pose = background_scene.get_robot_initial_pose()
 
     def get_scene_cfg(self) -> PickAndPlaceSceneCfg:
+        # Set the initial pose of the pick up object
+        # NOTE(alexmillane, 2025-08-27): We do this here, at the last moment as the env is built,
+        # to give the user the maximum time to be able to set the initial pose of the pick up object
+        # directly from outside.
+        if not self.pick_up_object.is_initial_pose_set():
+            self.pick_up_object.set_initial_pose(self.background_scene.object_pose)
+        else:
+            print("Pickup object initial pose set explicitly, not using background scene object pose")
         return PickAndPlaceSceneCfg(
             background_scene=self.background_scene.get_background_cfg(),
             pick_up_object=self.pick_up_object.get_object_cfg(),

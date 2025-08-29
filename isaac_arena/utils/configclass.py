@@ -173,12 +173,13 @@ def combine_configclass_instances(name: str, *input_configclass_instances: confi
     Returns:
         A new configclass instance that is the combination of the input configclass instances.
     """
-    input_configclasses: list[type] = [type(i) for i in input_configclass_instances]
-    combined_configclass = combine_configclasses(name, *input_configclasses)
+    input_configclass_instances_not_none = [i for i in input_configclass_instances if i is not None]
+    input_configclasses_not_none: list[type] = [type(i) for i in input_configclass_instances_not_none]
+    combined_configclass = combine_configclasses(name, *input_configclasses_not_none)
     # Create an instance of the combined type
     combined_configclass_instance = combined_configclass()
     # Copy in the values from the input configclass instances
-    for configclass_instance in input_configclass_instances:
+    for configclass_instance in input_configclass_instances_not_none:
         for field in dataclasses.fields(configclass_instance):
             setattr(combined_configclass_instance, field.name, getattr(configclass_instance, field.name))
     return combined_configclass_instance

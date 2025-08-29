@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:4.5.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
 
 FROM ${BASE_IMAGE}
 
@@ -21,11 +21,11 @@ WORKDIR /workspaces/isaac_arena
 COPY . /workspaces/isaac_arena
 
 # Set the ISAACLAB_PATH environment variable
-ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab-Internal
+ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab
 ENV TERM=xterm
 
-# Symlink isaac sim to IsaacLab-Internal
-RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab-Internal/_isaac_sim
+# Symlink isaac sim to IsaacLab
+RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
 
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
@@ -42,9 +42,6 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
 
 # Install isaac-arena
 RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
-
-# Install usdcode helper functions
-RUN /isaac-sim/python.sh -m pip install /workspaces/isaac_arena/third_party/usdcode_helper_function_package_1.0.0/usdcode-0.1.2-py3-none-any.whl "usd-core>=22.11" numpy==1.26.4 pillow==11.0.0
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

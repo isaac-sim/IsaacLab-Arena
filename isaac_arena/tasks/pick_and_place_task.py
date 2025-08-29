@@ -18,8 +18,6 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaac_arena.tasks.task import TaskBase
-
-# from isaac_arena.tasks.terminations.object_in_drawer import object_in_drawer
 from isaac_arena.tasks.terminations import object_on_destination
 
 
@@ -41,10 +39,6 @@ class PickAndPlaceTask(TaskBase):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    # TODO(cvolk): Make this config generic and move instance out.
-    # time_out: TerminationTermCfg = MISSING
-    # termination_terms: TerminationTermCfg = MISSING
-    # success: TerminationTermCfg = MISSING
     time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
 
     success = TerminationTermCfg(
