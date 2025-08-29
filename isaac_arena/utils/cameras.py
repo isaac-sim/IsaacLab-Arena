@@ -15,7 +15,7 @@
 from copy import deepcopy
 from typing import Any
 
-from isaaclab import mdp
+from isaaclab.envs import mdp
 from isaaclab.envs.mdp import ObsTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import SceneEntityCfg
