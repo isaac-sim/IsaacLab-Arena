@@ -46,12 +46,7 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
     # The runner runs a function in a way that a result is returned to the main process, before
     # simulation_app.close() can ruin everything.
     # Simulation app args. For now, we just make these default + headless.
-    # parser = argparse.ArgumentParser(description="Isaac Arena CLI parser.")
-    # AppLauncher.add_app_launcher_args(parser)
-    # simulation_app_args = parser.parse_args([])
-    # simulation_app_args.headless = headless
-    # TODO(alexmillane, 2025.09.01): For now we're taking default args (other than headless)
-    # We're eventually going to want a way to override the args.
+    # TODO(alexmillane, 2025.09.01): We're eventually going to want a way to override the args.
     parser = get_isaac_arena_cli_parser()
     simulation_app_args = parser.parse_args([])
     simulation_app_args.headless = headless
