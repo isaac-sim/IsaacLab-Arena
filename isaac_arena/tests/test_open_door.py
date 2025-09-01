@@ -22,7 +22,6 @@ NUM_STEPS = 10
 HEADLESS = True
 
 
-
 def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
 
@@ -36,7 +35,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     from isaac_arena.tasks.open_door_task import OpenDoorTask
 
     args_parser = get_isaac_arena_cli_parser()
-    args_cli = args_parser.parse_args(['--num_envs', str(num_envs)])
+    args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
@@ -138,37 +137,37 @@ def _test_open_door_microwave_multiple_envs(simulation_app) -> bool:
 
         with torch.inference_mode():
             # Close both
-            microwave.close(env, None, SceneEntityCfg('interactable_object'))
+            microwave.close(env, None, SceneEntityCfg("interactable_object"))
             step_zeros_and_call(env, NUM_STEPS)
-            is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+            is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
             print(f"expected: [False, False]: got: {is_open}")
             assert torch.all(is_open == torch.tensor([False, False], device=env.device))
 
             # Open both
-            is_open = microwave.open(env, None, SceneEntityCfg('interactable_object'))
+            is_open = microwave.open(env, None, SceneEntityCfg("interactable_object"))
             step_zeros_and_call(env, NUM_STEPS)
-            is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+            is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
             print(f"expected: [True, True]: got: {is_open}")
             assert torch.all(is_open == torch.tensor([True, True], device=env.device))
 
             # Close first
-            microwave.close(env, torch.tensor([0]), SceneEntityCfg('interactable_object'))
+            microwave.close(env, torch.tensor([0]), SceneEntityCfg("interactable_object"))
             step_zeros_and_call(env, NUM_STEPS)
-            is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+            is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
             print(f"expected: [False, True]: got: {is_open}")
             assert torch.all(is_open == torch.tensor([False, True], device=env.device))
 
             # Close second
-            microwave.close(env, torch.tensor([1]), SceneEntityCfg('interactable_object'))
+            microwave.close(env, torch.tensor([1]), SceneEntityCfg("interactable_object"))
             step_zeros_and_call(env, NUM_STEPS)
-            is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+            is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
             print(f"expected: [False, False]: got: {is_open}")
             assert torch.all(is_open == torch.tensor([False, False], device=env.device))
 
             # Open first
-            microwave.open(env, torch.tensor([0]), SceneEntityCfg('interactable_object'))
+            microwave.open(env, torch.tensor([0]), SceneEntityCfg("interactable_object"))
             step_zeros_and_call(env, NUM_STEPS)
-            is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+            is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
             print(f"expected: [True, False]: got: {is_open}")
             assert torch.all(is_open == torch.tensor([True, False], device=env.device))
 
@@ -186,7 +185,7 @@ def _test_open_door_microwave_reset_condition(simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg
 
     # NOTE(alexmillane, 2025-09-01): Here we DON'T remove the reset door state event,
-    # and we check that when we open the door, the enviroment resets and we read
+    # and we check that when we open the door, the environment resets and we read
     # the door position as closed.
 
     env, microwave = get_test_environment(remove_reset_door_state_event=False, num_envs=2)
@@ -194,23 +193,23 @@ def _test_open_door_microwave_reset_condition(simulation_app) -> bool:
     try:
 
         # Close - Ensure that we start closed.
-        microwave.close(env, None, SceneEntityCfg('interactable_object'))
+        microwave.close(env, None, SceneEntityCfg("interactable_object"))
         step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+        is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
         print(f"expected: [False, False]: got: {is_open}")
         assert torch.all(is_open == torch.tensor([False, False], device=env.device))
 
         # Open - Ensure that we reset to closed.
-        microwave.open(env, None, SceneEntityCfg('interactable_object'))
+        microwave.open(env, None, SceneEntityCfg("interactable_object"))
         step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+        is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
         print(f"expected: [False, False]: got: {is_open}")
         assert torch.all(is_open == torch.tensor([False, False], device=env.device))
 
         # Open one env - Ensure it also resets to closed.
-        microwave.open(env, torch.tensor([0]), SceneEntityCfg('interactable_object'))
+        microwave.open(env, torch.tensor([0]), SceneEntityCfg("interactable_object"))
         step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env, SceneEntityCfg('interactable_object'))
+        is_open = microwave.is_open(env, SceneEntityCfg("interactable_object"))
         print(f"expected: [False, False]: got: {is_open}")
         assert torch.all(is_open == torch.tensor([False, False], device=env.device))
 

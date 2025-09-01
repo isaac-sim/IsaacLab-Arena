@@ -16,14 +16,13 @@ from dataclasses import MISSING
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils import configclass
-from isaaclab.managers import SceneEntityCfg, EventTermCfg
 
-
+from isaac_arena.assets.affordances import Openable
 from isaac_arena.assets.asset import Asset
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.scene import SceneBase
-from isaac_arena.assets.affordances import Openable
 
 
 @configclass

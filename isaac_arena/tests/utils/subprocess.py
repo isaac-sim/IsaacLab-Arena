@@ -12,17 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import multiprocessing
 import subprocess
 import sys
 from collections.abc import Callable
 from typing import Any
 
-from isaaclab.app import AppLauncher
-
-from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 
 
 def run_subprocess(cmd, env=None):
@@ -74,9 +71,7 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
 
 
 def run_simulation_app_function_in_separate_process(
-    function: Callable[..., bool],
-    headless: bool = True,
-    **kwargs
+    function: Callable[..., bool], headless: bool = True, **kwargs
 ) -> bool:
     """Run a simulation app in a separate process.
 
