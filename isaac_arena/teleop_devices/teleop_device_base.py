@@ -12,23 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import ABC
 from typing import Any
 
-from isaac_arena.assets.asset import Asset
 
-
-class TeleopDeviceBase(Asset):
+class TeleopDeviceBase(ABC):
 
     name: str | None = None
-    tags: list[str] = ["teleop_device"]
 
     def __init__(self):
         self._teleop_device_cfg: Any | None = None
 
-    def build_cfg(self, *, sim_device: str | None = None, xr_cfg: object | None = None):
+    def build_cfg(self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None):
         raise NotImplementedError
 
-    def get_teleop_device_cfg(self, *, sim_device: str | None = None, xr_cfg: object | None = None):
+    def get_teleop_device_cfg(
+        self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None
+    ):
         if self._teleop_device_cfg is None:
-            self._teleop_device_cfg = self.build_cfg(sim_device=sim_device, xr_cfg=xr_cfg)
+            self._teleop_device_cfg = self.build_cfg(sim_device=sim_device, actions=actions, xr_cfg=xr_cfg)
         return self._teleop_device_cfg

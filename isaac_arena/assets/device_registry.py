@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from isaac_arena.assets.registry import Registry
+
+if TYPE_CHECKING:
+    from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
+
 
 class DeviceRegistry(Registry):
 
@@ -23,8 +29,9 @@ class DeviceRegistry(Registry):
 def get_environment_configuration_from_device_registry(
     device_registry: DeviceRegistry,
     device_name: str | None = None,
-) -> dict[str, type["Device"]]:
+) -> dict[str, type["TeleopDeviceBase"]]:
     from isaac_arena.assets.device_registry import DeviceRegistry
+
     device_registry = DeviceRegistry()
     if device_name:
         print(f"Getting device {device_name} from device registry")

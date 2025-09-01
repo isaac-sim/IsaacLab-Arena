@@ -12,14 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
+from typing import TYPE_CHECKING
+
+from isaac_arena.utils.singleton import SingletonMeta
+
+if TYPE_CHECKING:
+    from isaac_arena.assets.asset import Asset
+    from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
+
 
 class Registry(metaclass=SingletonMeta):
-    
+
     def __init__(self):
         self.assets = {}
 
-    def register(self, asset: type["Asset"]):
+    def register(self, asset: type["Asset" | "TeleopDeviceBase"]):
         """Register an asset with a name.
 
         Args:
@@ -39,7 +46,7 @@ class Registry(metaclass=SingletonMeta):
         """
         return name in self.assets
 
-    def get_asset_by_name(self, name: str) -> type["Asset"]:
+    def get_asset_by_name(self, name: str) -> type["Asset" | "TeleopDeviceBase"]:
         """Get an asset by name.
 
         Args:
