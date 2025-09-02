@@ -38,7 +38,9 @@ RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 ################################
 # NOTE(alexmillane, 2025-07-22): Dependencies are installed in the IsaacSim version of python.
 RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
-  /isaac-sim/python.sh -m pip install pytest
+  /isaac-sim/python.sh -m pip install \
+  pytest \
+  jupyter
 
 # Install isaac-arena
 RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
