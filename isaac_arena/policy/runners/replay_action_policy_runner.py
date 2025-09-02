@@ -54,7 +54,6 @@ def main():
         for action_index in tqdm.tqdm(range(len(policy))):
             with torch.inference_mode():
                 actions = policy.get_action(action_index)
-                print(actions)
                 env.step(actions)
 
         # Close the environment.

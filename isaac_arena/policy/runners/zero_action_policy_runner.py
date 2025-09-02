@@ -18,7 +18,7 @@ import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
-from isaac_arena.policy.policy import ZeroActionPolicy
+from isaac_arena.policy.zero_action_policy import ZeroActionPolicy
 
 
 def main():

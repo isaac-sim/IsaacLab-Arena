@@ -74,10 +74,10 @@ The Docker setup is based on NVIDIA Isaac Lab base image and includes all necess
 Run a simple pick-and-place simulation with zero actions:
 
 ```bash
-python isaac_arena/examples/zero_action_runner.py \
+python isaac_arena/policy/runners/zero_action_policy_runner.py \
     --background kitchen_pick_and_place \
     --object tomato_soup_can \
-    --embodiment franka
+    --embodiment gr1
 ```
 
 For using a scene with actions one can use the teleop interface from IsaacLab
