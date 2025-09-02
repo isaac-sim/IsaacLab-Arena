@@ -14,30 +14,16 @@
 import gymnasium as gym
 import numpy as np
 import torch
-from abc import ABC, abstractmethod
+
+from isaac_arena.policy.policy import PolicyBase
 
 
-class PolicyBase(ABC):
+class ZeroActionPolicy(PolicyBase):
     def __init__(self, env: gym.Env):
-        """
-        Base class for policies.
+        super().__init__(env)
 
-        Args:
-            env: The environment whose action space this policy will use.
-        """
-        self.action_space = env.action_space
-        self.device = torch.device(env.unwrapped.device)
-
-    @abstractmethod
     def get_action(self, env: gym.Env, observation: dict[str, dict[str, np.ndarray]]) -> torch.Tensor:
         """
-        Compute an action given the environment and observation.
-
-        Args:
-            env: The environment instance.
-            observation: Observation dictionary from the environment.
-
-        Returns:
-            torch.Tensor: The action to take.
+        Always returns a zero action.
         """
-        pass
+        return torch.zeros(self.action_space.shape, device=self.device)
