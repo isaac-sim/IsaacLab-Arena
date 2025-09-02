@@ -12,44 +12,135 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import MISSING
+
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
+from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaac_arena.tasks.task import TaskBase
 from isaac_arena.tasks.terminations import object_on_destination
+from isaac_arena.assets.asset import Asset
+from isaac_arena.geometry.pose import Pose
 
 
 class PickAndPlaceTask(TaskBase):
-    def __init__(self):
+
+    def __init__(self, pick_up_object: Asset, background_scene: Asset):
         super().__init__()
+        self.pick_up_object = pick_up_object
+        self.background_scene = background_scene
+
+    def get_scene_cfg(self):
+        # TODO(alexmillane, 2025.09.02): This is a hack. FIX.
+        # Right now the contact against object is hardcoded to the cabinet.
+        # We need a way to pass in a reference to an object that exists in the
+        # scene. This is next on my plate to fix.
+        contact_against_prim_paths = "{ENV_REGEX_NS}/Kitchen/Cabinet_B_02"
+        return SceneCfg(
+            pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
+                contact_against_prim_paths=[contact_against_prim_paths],
+            ),
+        )
 
     def get_termination_cfg(self):
-        return TerminationsCfg()
+        success = TerminationTermCfg(
+                func=object_on_destination,
+                params={
+                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                    "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                    "force_threshold": 1.0,
+                    "velocity_threshold": 0.1,
+                },
+            )
+        object_dropped = TerminationTermCfg(
+            func=mdp_isaac_lab.root_height_below_minimum,
+            params={
+                "minimum_height": self.background_scene.object_min_z,
+                "asset_cfg": SceneEntityCfg(self.pick_up_object.name)
+            },
+        )
+        return TerminationsCfg(
+            success=success,
+            object_dropped=object_dropped,
+        )
+
+    def get_events_cfg(self):
+        return EventsCfg(pick_up_object=self.pick_up_object)
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_mimic_env_cfg(self, embodiment_name: str):
-        return PickPlaceMimicEnvCfg(embodiment_name=embodiment_name)
+        return PickPlaceMimicEnvCfg(
+            embodiment_name=embodiment_name,
+            pick_up_object_name=self.pick_up_object.name,
+        )
+
+
+@configclass
+class SceneCfg:
+    """Scene configuration for the pick and place task."""
+
+    pick_up_object_contact_sensor: ContactSensorCfg = MISSING
 
 
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
 
-    success = TerminationTermCfg(
-        func=object_on_destination,
-        params={
-            "object_cfg": SceneEntityCfg("pick_up_object"),
-            "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-            "force_threshold": 1.0,
-            "velocity_threshold": 0.1,
-        },
-    )
+    success: TerminationTermCfg = MISSING
+
+    object_dropped: TerminationTermCfg = MISSING
+
+    # def __init__(self, pick_up_object: Asset, minimum_height: float = 0.5):
+    #     self.success=TerminationTermCfg(
+    #             func=object_on_destination,
+    #             params={
+    #                 "object_cfg": SceneEntityCfg(pick_up_object.name),
+    #                 "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+    #                 "force_threshold": 1.0,
+    #                 "velocity_threshold": 0.1,
+    #             },
+    #         )
+    #     self.object_dropped = TerminationTermCfg(
+    #         func=mdp_isaac_lab.root_height_below_minimum,
+    #         params={"minimum_height": minimum_height, "asset_cfg": SceneEntityCfg(pick_up_object.name)},
+    #     )
+
+
+@configclass
+class EventsCfg:
+    """Configuration for Pick and Place."""
+
+    reset_pick_up_object_pose: EventTermCfg = MISSING
+
+    def __init__(self, pick_up_object: Asset):
+        initial_pose=pick_up_object.get_initial_pose()
+        if initial_pose is not None:
+            self.reset_pick_up_object_pose = EventTermCfg(
+                func=franka_stack_events.randomize_object_pose,
+                mode="reset",
+                # NOTE: We use a randomize term but set the pose range to the same value to
+                # achieve constant pose for now.
+                params={
+                    "pose_range": {
+                        "x": (initial_pose.position_xyz[0], initial_pose.position_xyz[0]),
+                        "y": (initial_pose.position_xyz[1], initial_pose.position_xyz[1]),
+                        "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
+                    },
+                    "asset_cfgs": [SceneEntityCfg(pick_up_object.name)],
+                },
+            )
+        else:
+            print(f"Pick up object {pick_up_object.name} has no initial pose. Not setting reset pick up object pose event.")
+            self.reset_pick_up_object_pose = None
 
 
 @configclass
@@ -59,6 +150,8 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
     """
 
     embodiment_name: str = "franka"
+
+    pick_up_object_name: str = "pick_up_object"
 
     def __post_init__(self):
         # post init of parents
@@ -86,7 +179,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="pick_up_object",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="grasp_1",
@@ -110,6 +203,9 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
+                # TODO(alexmillane, 2025.09.02): This is currently broken. FIX.
+                # We need a way to pass in a reference to an object that exists in the
+                # scene. This is next on my plate to fix.
                 object_ref="destination_object",
                 # End of final subtask does not need to be detected
                 subtask_term_signal=None,
@@ -139,7 +235,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
             subtask_configs.append(
                 SubTaskConfig(
                     # Each subtask involves manipulation with respect to a single object frame.
-                    object_ref="pick_up_object",
+                    object_ref=self.pick_up_object_name,
                     # Corresponding key for the binary indicator in "datagen_info" for completion
                     subtask_term_signal=None,
                     # Time offsets for data generation when splitting a trajectory

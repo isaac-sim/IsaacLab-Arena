@@ -25,7 +25,8 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaac_arena.assets.asset_registry import get_environment_configuration_from_registry
 from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
 from isaac_arena.environments.isaac_arena_manager_based_env import IsaacArenaManagerBasedRLEnvCfg
-from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
+# from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
+from isaac_arena.scene.scene_2 import Scene2
 from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 from isaac_arena.utils.configclass import combine_configclass_instances
 
@@ -41,14 +42,17 @@ class ArenaEnvBuilder:
 
     # ---------- factory ----------
 
+    # TODO(alexmillane, 2025.09.02): Remove this function. It's specific to pick and place and therefore
+    # belongs somewhere else.
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> ArenaEnvBuilder:
         cfgs = get_environment_configuration_from_registry(args.background, args.object, args.embodiment)
+        scene = Scene2(assets=[cfgs["background"], cfgs["object"]])
         arena_env = IsaacArenaEnvironment(
             name=f"pick_and_place_{args.embodiment}_{args.background}_{args.object}",
             embodiment=cfgs["embodiment"],
-            scene=PickAndPlaceScene(cfgs["background"], cfgs["object"]),
-            task=PickAndPlaceTask(),
+            scene=scene,
+            task=PickAndPlaceTask(pick_up_object=cfgs["object"], background_scene=cfgs["background"]),
         )
         return cls(arena_env, args)
 
@@ -62,11 +66,13 @@ class ArenaEnvBuilder:
             self.DEFAULT_SCENE_CFG,
             self.arena_env.scene.get_scene_cfg(),
             self.arena_env.embodiment.get_scene_cfg(),
+            self.arena_env.task.get_scene_cfg(),
         )
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             self.arena_env.embodiment.get_event_cfg(),
             self.arena_env.scene.get_events_cfg(),
+            self.arena_env.task.get_events_cfg(),
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",

@@ -1,3 +1,4 @@
+
 # Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,18 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
-from typing import Any
+from isaac_arena.tasks.task import TaskBase
 
 
-class Asset(ABC):
-    """
-    Base class for all assets.
-    """
+class DummyTask(TaskBase):
+    def __init__(self):
+        super().__init__()
 
-    name: str | None = None
-    tags: list[str] | None = None
+    def get_scene_cfg(self):
+        pass
 
-    # @abstractmethod
-    # def get_cfgs(self) -> dict[str, Any]:
-    #     raise NotImplementedError
+    def get_termination_cfg(self):
+        pass
+    
+    def get_events_cfg(self):
+        pass
+
+    def get_prompt(self):
+        pass
+
+    def get_mimic_env_cfg(self, embodiment_name: str):
+        pass

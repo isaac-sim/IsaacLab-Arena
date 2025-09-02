@@ -15,7 +15,7 @@
 from isaac_arena.tests.utils.constants import TestConstants
 from isaac_arena.tests.utils.subprocess import run_subprocess
 
-HEADLESS = True
+HEADLESS = False
 
 
 def run_zero_action_runner(embodiment: str, background: str, object_name: str):

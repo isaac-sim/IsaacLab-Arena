@@ -20,9 +20,9 @@ from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
-NUM_STEPS = 2
-HEADLESS = True
-OBJECT_SEPARATION = 0.2
+NUM_STEPS = 10
+HEADLESS = False
+OBJECT_SEPARATION = 0.5
 
 
 def _test_default_assets_registered(simulation_app):
@@ -52,25 +52,45 @@ def test_default_assets_registered():
 
 def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
-    from isaaclab_tasks.utils import parse_env_cfg
-
     from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.assets.objects import Object
     from isaac_arena.embodiments.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene, RigidObjectCfg
-    from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaac_arena.utils.configclass import combine_configclass_instances, make_configclass
+    from isaac_arena.tasks.dummy_task import DummyTask
+    from isaac_arena.scene.scene_2 import Scene2
 
     # Base Environment
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
     asset = asset_registry.get_asset_by_name("cracker_box")()
+
+    first_position = (0.5, 0.0, 0.0)
+    objects_in_registry_names: list[str] = []
+    objects_in_registry: list[Object] = []
+    for idx, asset_cls in enumerate(asset_registry.get_assets_by_tag("object")):
+        asset = asset_cls()
+        # Set their pose
+        pose = Pose(
+            position_xyz=(
+                first_position[0] + (idx + 1) * OBJECT_SEPARATION,
+                first_position[1],
+                first_position[2],
+            ),
+            rotation_wxyz=(1, 0, 0, 0),
+        )
+        asset.set_initial_pose(pose)
+        objects_in_registry.append(asset)
+        objects_in_registry_names.append(asset.name)
+    assert len(objects_in_registry) > 0
+
+    scene = Scene2(assets=[background, *objects_in_registry])
+
     isaac_arena_environment = IsaacArenaEnvironment(
-        name="kitchen_pick_and_place",
+        name="dummy_task",
         embodiment=FrankaEmbodiment(),
-        scene=PickAndPlaceScene(background, asset),
-        task=PickAndPlaceTask(),
+        scene=scene,
+        task=DummyTask(),
     )
 
     # Compile the environment.
@@ -78,60 +98,22 @@ def _test_all_assets_in_registry(simulation_app):
     args_cli = args_parser.parse_args([])
 
     builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
-    base_cfg = builder.compose_manager_cfg()
-
-    # Get the position of the pick-up object.
-    object_position = asset.get_object_cfg().init_state.pos
-
-    # NOTE(alexmillane): We're doing backflips here to add an object. This indicates there
-    # is something suboptimal with our interfaces.
-
-    # Go through all the pick-up objects and make a configclass containing all of them.
-    fields = []
-    for idx, asset_cls in enumerate(asset_registry.get_assets_by_tag("object")):
-        asset = asset_cls()
-        asset.set_prim_path("{ENV_REGEX_NS}/new_object_" + str(idx))
-        pose = Pose(
-            position_xyz=(
-                object_position[0] + (idx + 1) * OBJECT_SEPARATION,
-                object_position[1],
-                object_position[2],
-            ),
-            rotation_wxyz=(1, 0, 0, 0),
-        )
-        asset.set_initial_pose(pose)
-        object_cfg = asset.get_object_cfg()
-        fields.append(
-            (f"object_{idx}", RigidObjectCfg, object_cfg),
-        )
-    AdditionalObjectCfg = make_configclass("AdditionalObjectCfg", fields)
-    additional_object_cfg = AdditionalObjectCfg()
-
-    # Add the new objects to the scene.
-    new_scene_cfg = combine_configclass_instances("SceneCfg", base_cfg.scene, additional_object_cfg)
-    base_cfg.scene = new_scene_cfg
-    print(base_cfg)
-
-    # Run some zero actions.
-    entry_point = "isaaclab.envs:ManagerBasedRLEnv"
-    gym.register(
-        id=isaac_arena_environment.name,
-        entry_point=entry_point,
-        kwargs={"env_cfg_entry_point": base_cfg},
-        disable_env_checker=True,
-    )
-    env_cfg = parse_env_cfg(
-        isaac_arena_environment.name,
-        device=args_cli.device,
-        num_envs=args_cli.num_envs,
-        use_fabric=not args_cli.disable_fabric,
-    )
-    env = gym.make(isaac_arena_environment.name, cfg=env_cfg)
+    env = builder.make_registered()
     env.reset()
+
+    # Run
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
+
+    # Check all the assets made it into the scene.
+    for asset_name in objects_in_registry_names:
+        assert asset_name in env.scene.keys(), f"Asset {asset_name} not found in scene"
+
+    # Check all the assets have the correct pose.
+    for asset_name in objects_in_registry_names:
+        assert asset_name in env.scene.keys(), f"Asset {asset_name} not found in scene"
 
     # Close the environment.
     env.close()
@@ -146,3 +128,8 @@ def test_all_assets_in_registry():
         headless=HEADLESS,
     )
     assert result, "Test failed"
+
+
+if __name__ == "__main__":
+    test_default_assets_registered()
+    test_all_assets_in_registry()

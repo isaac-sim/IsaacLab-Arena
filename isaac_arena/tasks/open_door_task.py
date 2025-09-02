@@ -15,7 +15,7 @@
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg, EventTermCfg
 from isaaclab.utils import configclass
 
 from isaac_arena.assets.affordances import Openable
@@ -28,6 +28,9 @@ class OpenDoorTask(TaskBase):
         assert isinstance(openable_object, Openable), "Openable object must be an instance of Openable"
         self.openable_object = openable_object
 
+    def get_scene_cfg(self):
+        pass
+
     def get_termination_cfg(self):
         # TODO(alexmillane, 2025.08.29): This is strongly coupled to the OpenDoorScene,
         # because of our use of the name "interactable_object" which is the name of the
@@ -36,10 +39,14 @@ class OpenDoorTask(TaskBase):
         success = TerminationTermCfg(
             func=self.openable_object.is_open,
             params={
-                "asset_cfg": SceneEntityCfg("interactable_object"),
+                # "asset_cfg": SceneEntityCfg("interactable_object"),
+                "asset_cfg": SceneEntityCfg(self.openable_object.name),
             },
         )
         return TerminationsCfg(success=success)
+    
+    def get_events_cfg(self):
+        return OpenDoorEventCfg(self.openable_object)
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
@@ -57,3 +64,20 @@ class TerminationsCfg:
     # Dependent on the openable object, so this is passed in from the task at
     # construction time.
     success: TerminationTermCfg = MISSING
+
+
+@configclass
+class OpenDoorEventCfg:
+    """Configuration for Open Door."""
+
+    reset_door_state: EventTermCfg = MISSING
+
+    def __init__(self, openable_object: Openable):
+        assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
+        self.reset_door_state = EventTermCfg(
+            func=openable_object.close,
+            mode="reset",
+            params={
+                "asset_cfg": SceneEntityCfg(openable_object.name),
+            },
+        )

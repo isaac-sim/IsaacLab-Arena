@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
@@ -26,6 +28,9 @@ class Background(Asset):
     Encapsulates the background scene config for a environment.
     """
 
+    # Defined in Asset, restated here for clariry
+    # name: str | None = None
+    # tags: list[str] | None = None
     background_scene_cfg: AssetBaseCfg | None = None
 
     def __init__(self, robot_initial_pose: Pose):
@@ -39,6 +44,11 @@ class Background(Asset):
     def get_robot_initial_pose(self) -> Pose:
         """Return the configured robot initial pose."""
         return self.robot_initial_pose
+
+    def get_scene_cfgs(self) -> dict[str, Any]:
+        return {
+            self.name: self.get_background_cfg(),
+        }
 
 
 class PickAndPlaceBackground(Background):

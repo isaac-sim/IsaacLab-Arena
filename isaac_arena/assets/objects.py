@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from typing import Any
+
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -48,23 +51,14 @@ class Object(Asset):
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
+    
+    def get_initial_pose(self) -> Pose:
+        return self.initial_pose
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
 
     def get_object_cfg(self) -> RigidObjectCfg:
-        """Return the configured pick-up object asset."""
-        return self._generate_cfg()
-
-    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
-        if contact_against_prim_paths is None:
-            contact_against_prim_paths = []
-        return ContactSensorCfg(
-            prim_path=self.prim_path,
-            filter_prim_paths_expr=contact_against_prim_paths,
-        )
-
-    def _generate_cfg(self) -> RigidObjectCfg:
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,
             spawn=UsdFileCfg(
@@ -78,6 +72,38 @@ class Object(Asset):
             object_cfg.init_state.pos = self.initial_pose.position_xyz
             object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
         return object_cfg
+        # return self._generate_cfg()
+
+    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+        if contact_against_prim_paths is None:
+            contact_against_prim_paths = []
+        return ContactSensorCfg(
+            prim_path=self.prim_path,
+            filter_prim_paths_expr=contact_against_prim_paths,
+        )
+
+    # def _generate_cfg(self) -> RigidObjectCfg:
+    #     object_cfg = RigidObjectCfg(
+    #         prim_path=self.prim_path,
+    #         spawn=UsdFileCfg(
+    #             usd_path=self.usd_path,
+    #             scale=self.scale,
+    #             activate_contact_sensors=True,
+    #         ),
+    #     )
+    #     # Optionally specify initial pose
+    #     if self.initial_pose is not None:
+    #         object_cfg.init_state.pos = self.initial_pose.position_xyz
+    #         object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
+    #     return object_cfg
+
+    # WIP
+    # Eventually this should replace the two methods above
+    def get_scene_cfgs(self) -> dict[str, Any]:
+        return {
+            self.name: self.get_object_cfg(),
+            # self.name + "_contact_sensor_cfg": self.get_contact_sensor_cfg(),
+        }
 
 
 @registerasset
@@ -217,3 +243,10 @@ class Microwave(Object, Openable):
             object_cfg.init_state.pos = self.initial_pose.position_xyz
             object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
         return object_cfg
+
+    def get_scene_cfgs(self) -> dict[str, Any]:
+        # TODO(alexmillane, 2025.08.28): This is a hack. Fix.
+        return {
+            self.name: self.get_object_cfg(),
+            # self.name + "_contact_sensor_cfg": self.get_contact_sensor_cfg(),
+        }
