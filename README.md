@@ -77,7 +77,7 @@ Run a simple pick-and-place simulation with zero actions:
 python isaac_arena/examples/zero_action_runner.py \
     --background kitchen_pick_and_place \
     --object tomato_soup_can \
-    --embodiment franka \
+    --embodiment franka
 ```
 
 For using a scene with actions one can use the teleop interface from IsaacLab
