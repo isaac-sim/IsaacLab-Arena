@@ -15,11 +15,11 @@ from isaaclab.devices.device_base import DevicesCfg
 from isaaclab.devices.openxr import OpenXRDeviceCfg
 from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
 
-from isaac_arena.assets.register import registerdevice
+from isaac_arena.assets.register import register_device
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
-@registerdevice
+@register_device
 class HandTrackingTeleopDevice(TeleopDeviceBase):
     """
     Teleop device for hand tracking.

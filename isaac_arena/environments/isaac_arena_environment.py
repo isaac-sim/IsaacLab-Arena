@@ -41,8 +41,5 @@ class IsaacArenaEnvironment:
     task: TaskBase = MISSING
     """The task to use in the environment."""
 
-    teleop_device: TeleopDeviceBase = MISSING
+    teleop_device: TeleopDeviceBase | None = None
     """The teleop device to use in the environment."""
-
-    retargeter_name: str = MISSING
-    """The retargeter to use in the environment."""

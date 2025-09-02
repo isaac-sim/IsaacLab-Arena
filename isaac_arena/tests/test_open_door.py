@@ -26,9 +26,9 @@ def _test_open_door_microwave(simulation_app) -> bool:
 
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
-    from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.assets.registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-    from isaac_arena.embodiments.franka import FrankaEmbodiment
+    from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.geometry.pose import Pose
@@ -39,8 +39,8 @@ def _test_open_door_microwave(simulation_app) -> bool:
     args_cli = args_parser.parse_args([])
 
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
-    microwave = asset_registry.get_asset_by_name("microwave")()
+    background = asset_registry.get_component_by_name("packing_table_pick_and_place")()
+    microwave = asset_registry.get_component_by_name("microwave")()
 
     # Put the microwave on the packing table.
     microwave.set_initial_pose(

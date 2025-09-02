@@ -25,9 +25,9 @@ PLOT = False
 
 def _test_object_on_destination_termination(simulation_app) -> bool:
 
-    from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.assets.registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-    from isaac_arena.embodiments.franka import FrankaEmbodiment
+    from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.geometry.pose import Pose
@@ -39,8 +39,8 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     args_cli = args_parser.parse_args([])
 
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("kitchen_pick_and_place")()
-    object = asset_registry.get_asset_by_name("cracker_box")()
+    background = asset_registry.get_component_by_name("kitchen_pick_and_place")()
+    object = asset_registry.get_component_by_name("cracker_box")()
 
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",

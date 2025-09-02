@@ -12,16 +12,16 @@
 # limitations under the License.
 
 from isaaclab.devices.device_base import DevicesCfg
-from isaaclab.devices.keyboard import Se3KeyboardCfg
+from isaaclab.devices.spacemouse import Se3SpaceMouseCfg
 
-from isaac_arena.assets.register import registerasset
+from isaac_arena.assets.register import register_device
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
-@registerasset
+@register_device
 class SpacemouseTeleopDevice(TeleopDeviceBase):
     """
-    Teleop device for hand tracking.
+    Teleop device for spacemouse.
     """
 
     name = "spacemouse"

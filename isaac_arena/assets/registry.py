@@ -103,15 +103,15 @@ def get_environment_configuration_from_asset_registry(
 
     asset_registry = AssetRegistry()
     if background_name:
-        background = asset_registry.get_asset_by_name(background_name)()
+        background = asset_registry.get_component_by_name(background_name)()
     else:
         background = asset_registry.get_random_asset_by_tag("background")()
     if object_name:
-        pick_up_object = asset_registry.get_asset_by_name(object_name)()
+        pick_up_object = asset_registry.get_component_by_name(object_name)()
     else:
         pick_up_object = asset_registry.get_random_asset_by_tag("object")()
     if embodiment_name:
-        embodiment = asset_registry.get_asset_by_name(embodiment_name)()
+        embodiment = asset_registry.get_component_by_name(embodiment_name)()
     else:
         embodiment = asset_registry.get_random_asset_by_tag("embodiment")()
 
@@ -132,7 +132,7 @@ def get_environment_configuration_from_device_registry(
     if device_name:
         print(f"Getting device {device_name} from device registry")
         assert device_registry.is_registered(device_name), f"Device {device_name} not registered"
-        device = device_registry.get_asset_by_name(device_name)()
+        device = device_registry.get_component_by_name(device_name)()
     else:
         device = None
 

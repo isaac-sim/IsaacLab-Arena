@@ -17,7 +17,7 @@ from isaac_arena.assets.registry import AssetRegistry, DeviceRegistry
 
 
 # Decorator to register an asset with the AssetRegistry.
-def registerasset(cls):
+def register_asset(cls):
     if AssetRegistry().is_registered(cls.name):
         print(f"WARNING: Asset {cls.name} is already registered. Doing nothing.")
     else:
@@ -26,7 +26,7 @@ def registerasset(cls):
 
 
 # Decorator to register an device with the DeviceRegistry.
-def registerdevice(cls):
+def register_device(cls):
     if DeviceRegistry().is_registered(cls.name):
         print(f"WARNING: Device {cls.name} is already registered. Doing nothing.")
     else:

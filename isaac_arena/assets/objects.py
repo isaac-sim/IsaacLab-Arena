@@ -18,7 +18,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaac_arena.assets.affordances import Openable
 from isaac_arena.assets.asset import Asset
-from isaac_arena.assets.register import registerasset
+from isaac_arena.assets.register import register_asset
 from isaac_arena.geometry.pose import Pose
 
 
@@ -80,7 +80,7 @@ class Object(Asset):
         return object_cfg
 
 
-@registerasset
+@register_asset
 class CrackerBox(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
@@ -95,7 +95,7 @@ class CrackerBox(Object):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
-@registerasset
+@register_asset
 class MustardBottle(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
@@ -110,7 +110,7 @@ class MustardBottle(Object):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
-@registerasset
+@register_asset
 class SugarBox(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
@@ -126,7 +126,7 @@ class SugarBox(Object):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
-@registerasset
+@register_asset
 class TomatoSoupCan(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
@@ -142,7 +142,7 @@ class TomatoSoupCan(Object):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
-@registerasset
+@register_asset
 class LightWheelKettle21(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
@@ -158,7 +158,7 @@ class LightWheelKettle21(Object):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
-@registerasset
+@register_asset
 class SketchFabSprayCan3(Object):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
@@ -175,7 +175,7 @@ class SketchFabSprayCan3(Object):
 
 
 # TODO(alexmillane, 2025.08.28): Cleanup. Push this override here into the object base class.
-@registerasset
+@register_asset
 class Microwave(Object, Openable):
     """A microwave oven."""
 

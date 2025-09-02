@@ -186,7 +186,7 @@ python your_script.py \
 
 ```python
 from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-from isaac_arena.embodiments.franka import FrankaEmbodiment
+from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
 from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
 from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
@@ -208,7 +208,7 @@ from isaac_arena.assets.asset_registry import AssetRegistry
 registry = AssetRegistry()
 
 # Get specific asset
-my_object = registry.get_asset_by_name("sugar_box")
+my_object = registry.get_component_by_name("sugar_box")
 
 # Get random asset by tag
 random_background = registry.get_random_asset_by_tag("background")

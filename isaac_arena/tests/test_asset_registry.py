@@ -26,11 +26,11 @@ OBJECT_SEPARATION = 0.2
 
 
 def _test_default_assets_registered(simulation_app):
-    from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.assets.registry import AssetRegistry
 
     asset_registry = AssetRegistry()
     assert asset_registry is not None
-    num_assets = len(asset_registry.assets)
+    num_assets = len(asset_registry.components)
     print(f"Number of assets registered: {num_assets}")
     assert num_assets > 0
     num_background_assets = len(asset_registry.get_assets_by_tag("background"))
@@ -54,8 +54,8 @@ def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
     from isaaclab_tasks.utils import parse_env_cfg
 
-    from isaac_arena.assets.asset_registry import AssetRegistry
-    from isaac_arena.embodiments.franka import FrankaEmbodiment
+    from isaac_arena.assets.registry import AssetRegistry
+    from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene, RigidObjectCfg
@@ -64,8 +64,8 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Base Environment
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
-    asset = asset_registry.get_asset_by_name("cracker_box")()
+    background = asset_registry.get_component_by_name("packing_table_pick_and_place")()
+    asset = asset_registry.get_component_by_name("cracker_box")()
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),

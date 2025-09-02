@@ -49,13 +49,14 @@ class ArenaEnvBuilder:
         cfgs = get_environment_configuration_from_asset_registry(args.background, args.object, args.embodiment)
         if args.teleop_device is not None:
             cfgs.update(get_environment_configuration_from_device_registry(args.teleop_device))
+        else:
+            cfgs["device"] = None
         arena_env = IsaacArenaEnvironment(
             name=f"pick_and_place_{args.embodiment}_{args.background}_{args.object}",
             embodiment=cfgs["embodiment"],
             scene=PickAndPlaceScene(cfgs["background"], cfgs["object"]),
             task=PickAndPlaceTask(),
             teleop_device=cfgs["device"],
-            retargeter_name=args.retargeter_name,
         )
         return cls(arena_env, args)
 

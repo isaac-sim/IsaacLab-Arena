@@ -17,7 +17,7 @@ from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaac_arena.assets.asset import Asset
-from isaac_arena.assets.register import registerasset
+from isaac_arena.assets.register import register_asset
 from isaac_arena.geometry.pose import Pose
 
 
@@ -57,7 +57,7 @@ class PickAndPlaceBackground(Background):
         return self.destination_object_cfg
 
 
-@registerasset
+@register_asset
 class KitchenPickAndPlaceBackground(PickAndPlaceBackground):
     """
     Encapsulates the background scene and destination-object config for a kitchen pick-and-place environment.
@@ -88,7 +88,7 @@ class KitchenPickAndPlaceBackground(PickAndPlaceBackground):
         super().__init__(robot_initial_pose)
 
 
-@registerasset
+@register_asset
 class PackingTablePickAndPlaceBackground(PickAndPlaceBackground):
     """
     Encapsulates the background scene and destination-object config for a packing table pick-and-place environment.

@@ -14,14 +14,14 @@
 from isaaclab.devices.device_base import DevicesCfg
 from isaaclab.devices.keyboard import Se3KeyboardCfg
 
-from isaac_arena.assets.register import registerasset
+from isaac_arena.assets.register import register_device
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
-@registerasset
+@register_device
 class KeyboardTeleopDevice(TeleopDeviceBase):
     """
-    Teleop device for hand tracking.
+    Teleop device for keyboard.
     """
 
     name = "keyboard"
