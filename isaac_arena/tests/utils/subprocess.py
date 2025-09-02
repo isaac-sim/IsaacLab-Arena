@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import multiprocessing
 import subprocess
 import sys
 from collections.abc import Callable
 from typing import Any
 
-from isaaclab.app import AppLauncher
-
+from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 
 
@@ -48,8 +46,8 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
     # The runner runs a function in a way that a result is returned to the main process, before
     # simulation_app.close() can ruin everything.
     # Simulation app args. For now, we just make these default + headless.
-    parser = argparse.ArgumentParser(description="Isaac Arena CLI parser.")
-    AppLauncher.add_app_launcher_args(parser)
+    # TODO(alexmillane, 2025.09.01): We're eventually going to want a way to override the args.
+    parser = get_isaac_arena_cli_parser()
     simulation_app_args = parser.parse_args([])
     simulation_app_args.headless = headless
     # Launch the simulator

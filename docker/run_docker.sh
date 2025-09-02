@@ -119,7 +119,8 @@ if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME 2>/
   echo "Container already running. Attaching."
   docker exec -it $DOCKER_IMAGE_NAME su $(id -un)
 else
-    DOCKER_RUN_ARGS=("--privileged"
+    DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME"
+                    "--privileged"
                     "--ulimit" "memlock=-1"
                     "--ulimit" "stack=-1"
                     "--ipc=host"

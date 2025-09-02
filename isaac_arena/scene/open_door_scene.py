@@ -16,8 +16,10 @@ from dataclasses import MISSING
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils import configclass
 
+from isaac_arena.assets.affordances import Openable
 from isaac_arena.assets.asset import Asset
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.scene import SceneBase
@@ -35,8 +37,9 @@ class OpenDoorSceneCfg:
 
 class OpenDoorScene(SceneBase):
 
-    def __init__(self, background_scene: Asset, interactable_object: Asset):
+    def __init__(self, background_scene: Asset, interactable_object: Openable):
         super().__init__()
+        assert isinstance(interactable_object, Openable), "Interactable object must be an instance of Openable"
         # Save the background and the pick up object
         self.background_scene = background_scene
         self.interactable_object = interactable_object
@@ -65,30 +68,24 @@ class OpenDoorScene(SceneBase):
         pass
 
     def get_events_cfg(self) -> Any:
-        pass
+        return OpenDoorEventCfg(self.interactable_object)
 
     def get_termination_cfg(self) -> Any:
         pass
 
 
-# TODO(alexmillane, 2025.08.28): Implement reset event.
-# @configclass
-# class OpenDoorEventCfg:
-#     """Configuration for Pick and Place."""
+@configclass
+class OpenDoorEventCfg:
+    """Configuration for Open Door."""
 
-#     reset_pick_up_object_pose: EventTerm = MISSING
+    reset_door_state: EventTermCfg = MISSING
 
-#     def __init__(self, object_pose: Pose):
-#         self.reset_pick_up_object_pose = EventTerm(
-#             func=franka_stack_events.randomize_object_pose,
-#             mode="reset",
-#             # NOTE: We use a randomize term but set the pose range to the same value to achieve constant pose for now.
-#             params={
-#                 "pose_range": {
-#                     "x": (object_pose.position_xyz[0], object_pose.position_xyz[0]),
-#                     "y": (object_pose.position_xyz[1], object_pose.position_xyz[1]),
-#                     "z": (object_pose.position_xyz[2], object_pose.position_xyz[2]),
-#                 },
-#                 "asset_cfgs": [SceneEntityCfg("interactable_object")],
-#             },
-#         )
+    def __init__(self, openable_object: Openable):
+        assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
+        self.reset_door_state = EventTermCfg(
+            func=openable_object.close,
+            mode="reset",
+            params={
+                "asset_cfg": SceneEntityCfg("interactable_object"),
+            },
+        )

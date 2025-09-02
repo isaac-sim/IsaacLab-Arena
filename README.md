@@ -95,7 +95,7 @@ The following are example commands used for the mimic gen pipeline.
 
 For recording demos with the gr1 robot
 ```bash
-python submodules/IsaacLab-Internal/scripts/tools/record_demos.py \
+python submodules/IsaacLab/scripts/tools/record_demos.py \
     --teleop_device dualhandtracking_abs \
     --embodiment gr1 \
     --background packing_table_pick_and_place \
@@ -111,7 +111,7 @@ python submodules/IsaacLab-Internal/scripts/tools/record_demos.py \
 
 For replaying the recorded demos
 ```bash
-python submodules/IsaacLab-Internal/scripts/tools/replay_demos.py \
+python submodules/IsaacLab/scripts/tools/replay_demos.py \
     --embodiment gr1 \
     --background packing_table_pick_and_place \
     --task PickPlace-GR1T2 \
@@ -124,7 +124,7 @@ python submodules/IsaacLab-Internal/scripts/tools/replay_demos.py \
 
 For annotating them. We only support manual annotation for now.
 ```bash
-python submodules/IsaacLab-Internal/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py \
+python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py \
     --embodiment gr1 \
     --background packing_table_pick_and_place \
     --task PickPlace-GR1T2 \
@@ -138,7 +138,7 @@ python submodules/IsaacLab-Internal/scripts/imitation_learning/isaaclab_mimic/an
 
 For generating a dataset
 ```bash
-python submodules/IsaacLab-Internal/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
+python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
     --embodiment gr1 \
     --background packing_table_pick_and_place \
     --task PickPlace-GR1T2 \
