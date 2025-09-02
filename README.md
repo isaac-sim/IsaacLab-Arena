@@ -222,9 +222,9 @@ all_objects = registry.get_assets_by_tag("object")
 
 ```python
 from isaac_arena.assets.asset import Asset
-from isaac_arena.assets.register_asset import register_asset
+from isaac_arena.assets.register import register
 
-@register_asset
+@register
 class MyCustomObject(Asset):
     def __init__(self):
         super().__init__()

@@ -14,22 +14,22 @@
 from isaaclab.devices.device_base import DevicesCfg
 from isaaclab.devices.keyboard import Se3KeyboardCfg
 
-from isaac_arena.assets.register_asset import registerasset
+from isaac_arena.assets.register import registerasset
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
 @registerasset
-class HandTrackingTeleopDevice(TeleopDeviceBase):
+class KeyboardTeleopDevice(TeleopDeviceBase):
     """
     Teleop device for hand tracking.
     """
 
-    name = "avp"
+    name = "keyboard"
 
     def __init__(self):
         super().__init__()
 
-    def build_cfg(self, *, sim_device: str | None = None, xr_cfg: object | None = None):
+    def build_cfg(self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None):
         return DevicesCfg(
             devices={
                 "keyboard": Se3KeyboardCfg(

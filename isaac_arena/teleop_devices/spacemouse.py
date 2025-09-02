@@ -12,22 +12,19 @@
 # limitations under the License.
 
 from isaaclab.devices.device_base import DevicesCfg
-from isaaclab.devices.openxr import OpenXRDeviceCfg
-from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
+from isaaclab.devices.keyboard import Se3KeyboardCfg
 
-from isaac_arena.assets.register import registerdevice
+from isaac_arena.assets.register import registerasset
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
-@registerdevice
-class HandTrackingTeleopDevice(TeleopDeviceBase):
+@registerasset
+class SpacemouseTeleopDevice(TeleopDeviceBase):
     """
     Teleop device for hand tracking.
     """
 
-    NUM_OPENXR_HAND_JOINTS = 26
-
-    name = "avp"
+    name = "spacemouse"
 
     def __init__(self):
         super().__init__()
@@ -35,18 +32,10 @@ class HandTrackingTeleopDevice(TeleopDeviceBase):
     def build_cfg(self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None):
         return DevicesCfg(
             devices={
-                "avp": OpenXRDeviceCfg(
-                    retargeters=[
-                        GR1T2RetargeterCfg(
-                            enable_visualization=True,
-                            # number of joints in both hands
-                            num_open_xr_hand_joints=2 * self.NUM_OPENXR_HAND_JOINTS,
-                            sim_device=sim_device,
-                            hand_joint_names=actions.pink_ik_cfg.hand_joint_names,
-                        ),
-                    ],
+                "spacemouse": Se3SpaceMouseCfg(
+                    pos_sensitivity=0.05,
+                    rot_sensitivity=0.05,
                     sim_device=sim_device,
-                    xr_cfg=xr_cfg,
                 ),
             }
         )

@@ -17,7 +17,7 @@ from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaac_arena.assets.asset import Asset
-from isaac_arena.assets.register_asset import registerasset
+from isaac_arena.assets.register import registerasset
 from isaac_arena.geometry.pose import Pose
 
 
