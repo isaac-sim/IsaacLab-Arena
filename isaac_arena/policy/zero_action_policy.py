@@ -15,7 +15,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from isaac_arena.policy.policy import PolicyBase
+from isaac_arena.policy.policy_base import PolicyBase
 
 
 class ZeroActionPolicy(PolicyBase):
