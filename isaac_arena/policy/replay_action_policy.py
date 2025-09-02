@@ -45,7 +45,7 @@ class ReplayActionPolicy(PolicyBase):
         """Return the number of actions in the episode."""
         return len(self.episode_data.data["actions"])
 
-    def get_action(self, action_index: int) -> torch.Tensor | None:
+    def get_action_from_index(self, action_index: int) -> torch.Tensor | None:
         """Get the action of the specified index from the dataset."""
         if "actions" not in self.episode_data.data:
             return None
