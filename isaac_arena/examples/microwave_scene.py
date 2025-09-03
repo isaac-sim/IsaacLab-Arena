@@ -33,11 +33,22 @@ from isaac_arena.examples.utils.example_environments import add_example_environm
 
 args_parser = get_isaac_arena_cli_parser()
 args_parser = add_example_environments_cli_args(args_parser)
+# args_cli = args_parser.parse_args([
+#     "--example_environment",
+#     "gr1_open_microwave",
+#     "--object",
+#     "cracker_box",
+# ])
+
 args_cli = args_parser.parse_args([
     "--example_environment",
-    "gr1_open_microwave",
+    "pick_and_place",
     "--object",
     "cracker_box",
+    "--background",
+    "kitchen_pick_and_place",
+    "--embodiment",
+    "franka",
 ])
 
 cfg, name = get_env_cfg_from_cli(args_cli)

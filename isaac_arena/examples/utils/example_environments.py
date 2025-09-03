@@ -24,6 +24,7 @@ from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironme
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.scene.scene import Scene
 from isaac_arena.tasks.open_door_task import OpenDoorTask
+from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
 
 def add_argument_if_missing(parser: argparse.ArgumentParser, flag: str, **kwargs):
@@ -33,11 +34,12 @@ def add_argument_if_missing(parser: argparse.ArgumentParser, flag: str, **kwargs
     dest = kwargs.get("dest", flag.lstrip("-").replace("-", "_"))
     for action in parser._actions:
         if action.dest == dest:
-            return action  # already exists → return it
+            # if argument already exists then return it
+            return action
     return parser.add_argument(flag, **kwargs)
 
 
-class ExampleEnvironment(ABC):
+class ExampleEnvironmentBase(ABC):
 
     name: str | None = None
 
@@ -54,7 +56,7 @@ class ExampleEnvironment(ABC):
         pass
 
 
-class Gr1OpenMicrowaveEnvironment(ExampleEnvironment):
+class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
     name: str = "gr1_open_microwave"
 
@@ -97,12 +99,55 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironment):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        # parser.add_argument("--object", type=str, default=None)
         add_argument_if_missing(parser, "--object", type=str, default=None)
+
+
+class PickAndPlaceEnvironment(ExampleEnvironmentBase):
+
+    name: str = "pick_and_place"
+
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacArenaEnvironment:
+        assert args_cli.background is not None
+        assert args_cli.object is not None
+        assert args_cli.embodiment is not None
+
+        background = self.asset_registry.get_asset_by_name(args_cli.background)()
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+
+        if args_cli.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        else:
+            teleop_device = None
+
+        pick_up_object.set_initial_pose(
+            Pose(
+                position_xyz=(0.4, 0.0, 0.1),
+                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            )
+        )
+
+        scene = Scene(assets=[background, pick_up_object])
+        isaac_arena_environment = IsaacArenaEnvironment(
+            name="pick_and_place",
+            embodiment=embodiment,
+            scene=scene,
+            task=PickAndPlaceTask(pick_up_object, background),
+            teleop_device=teleop_device,
+        )
+        return isaac_arena_environment
+
+    @staticmethod
+    def add_cli_args(parser: argparse.ArgumentParser) -> None:
+        add_argument_if_missing(parser, "--object", type=str, default=None)
+        add_argument_if_missing(parser, "--background", type=str, default=None)
+        add_argument_if_missing(parser, "--embodiment", type=str, default=None)
+        add_argument_if_missing(parser, "--teleop_device", type=str, default=None)
 
 
 ExampleEnvironments = {
     Gr1OpenMicrowaveEnvironment.name: Gr1OpenMicrowaveEnvironment(),
+    PickAndPlaceEnvironment.name: PickAndPlaceEnvironment(),
 }
 
 
