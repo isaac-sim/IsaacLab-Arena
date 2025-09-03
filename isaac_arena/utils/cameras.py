@@ -34,7 +34,7 @@ def add_camera_to_environment_cfg(
     We will also add the observation config if we are enabling cameras.
     camera_defs: mapping like { "agentview_left_camera": {"camera_cfg": TiledCameraCfg(...), "tags": ["teleop"]}, ... }
     """
-    if not enable_cameras:
+    if not enable_cameras or not hasattr(scene_cfg, "observation_cameras"):
         return make_configclass("EmptyCamerasSceneCfg", [])(), make_configclass("EmptyCameraObsCfg", [])()
 
     camera_defs: dict[str, dict[str, Any]] = scene_cfg.observation_cameras
