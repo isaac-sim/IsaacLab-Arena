@@ -16,7 +16,6 @@ from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
 
 # add argparse arguments
 parser = get_isaac_arena_cli_parser()
-parser.add_argument("--teleop_device", type=str, default="keyboard", help="Device for interacting with environment")
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
 parser.add_argument(
     "--enable_pinocchio",
@@ -35,7 +34,8 @@ if args_cli.enable_pinocchio:
     # not the one installed by Isaac Sim pinocchio is required by the Pink IK controllers and the
     # GR1T2 retargeter
     import pinocchio  # noqa: F401
-if "handtracking" in args_cli.teleop_device.lower():
+
+    # Keep this on if we use pinocchio as we will use AVP for the humanoid
     app_launcher_args["xr"] = True
 
 # launch omniverse app
@@ -186,7 +186,7 @@ def main() -> None:
                 )
             else:
                 omni.log.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                omni.log.error("Supported devices: keyboard, spacemouse, gamepad, handtracking")
+                omni.log.error("Supported devices: keyboard, spacemouse, gamepad, avp")
                 env.close()
                 simulation_app.close()
                 return

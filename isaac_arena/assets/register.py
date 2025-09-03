@@ -13,13 +13,22 @@
 # limitations under the License.
 
 
-from isaac_arena.assets.asset_registry import AssetRegistry
+from isaac_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
 
 
 # Decorator to register an asset with the AssetRegistry.
-def registerasset(cls):
+def register_asset(cls):
     if AssetRegistry().is_registered(cls.name):
         print(f"WARNING: Asset {cls.name} is already registered. Doing nothing.")
     else:
         AssetRegistry().register(cls)
+    return cls
+
+
+# Decorator to register an device with the DeviceRegistry.
+def register_device(cls):
+    if DeviceRegistry().is_registered(cls.name):
+        print(f"WARNING: Device {cls.name} is already registered. Doing nothing.")
+    else:
+        DeviceRegistry().register(cls)
     return cls

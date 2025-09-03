@@ -57,3 +57,4 @@ def add_isaac_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_arena_group.add_argument("--object", type=str, default=None, help="Name of the pick-up object.")
     isaac_arena_group.add_argument("--task", type=str, default=None, help="Name of the task.")
     isaac_arena_group.add_argument("--embodiment", type=str, default=None, help="Name of the embodiment.")
+    isaac_arena_group.add_argument("--teleop_device", type=str, default=None, help="Name of the teleop device.")

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import abstractmethod
 from typing import Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -50,6 +51,10 @@ class EmbodimentBase(Asset):
 
     def get_xr_cfg(self) -> Any:
         return self.xr
+
+    @abstractmethod
+    def get_retargeters_cfg(self, retargeter_name: str) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
 
     def set_robot_initial_pose(self, pose: Pose):
         if self.scene_config is None or not hasattr(self.scene_config, "robot"):

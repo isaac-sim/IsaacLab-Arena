@@ -22,7 +22,10 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
-from isaac_arena.assets.asset_registry import get_environment_configuration_from_registry
+from isaac_arena.assets.asset_registry import (
+    get_environment_configuration_from_asset_registry,
+    get_environment_configuration_from_device_registry,
+)
 from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
 from isaac_arena.environments.isaac_arena_manager_based_env import IsaacArenaManagerBasedRLEnvCfg
 from isaac_arena.scene.scene import Scene
@@ -45,13 +48,17 @@ class ArenaEnvBuilder:
     # belongs somewhere else.
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> ArenaEnvBuilder:
-        cfgs = get_environment_configuration_from_registry(args.background, args.object, args.embodiment)
-        scene = Scene(assets=[cfgs["background"], cfgs["object"]])
+        cfgs = get_environment_configuration_from_asset_registry(args.background, args.object, args.embodiment)
+        if args.teleop_device is not None:
+            cfgs.update(get_environment_configuration_from_device_registry(args.teleop_device))
+        else:
+            cfgs["device"] = None
         arena_env = IsaacArenaEnvironment(
             name=f"pick_and_place_{args.embodiment}_{args.background}_{args.object}",
             embodiment=cfgs["embodiment"],
-            scene=scene,
+            scene=Scene(assets=[cfgs["background"], cfgs["object"]]),
             task=PickAndPlaceTask(pick_up_object=cfgs["object"], background_scene=cfgs["background"]),
+            teleop_device=cfgs["device"],
         )
         return cls(arena_env, args)
 
@@ -78,13 +85,19 @@ class ArenaEnvBuilder:
             self.arena_env.task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
         )
+        observation_cfg = self.arena_env.embodiment.get_observation_cfg()
+        actions_cfg = self.arena_env.embodiment.get_action_cfg()
+        xr_cfg = self.arena_env.embodiment.get_xr_cfg()
+        teleop_device = self.arena_env.teleop_device
+
         return IsaacArenaManagerBasedRLEnvCfg(
-            observations=self.arena_env.embodiment.get_observation_cfg(),
-            actions=self.arena_env.embodiment.get_action_cfg(),
+            observations=observation_cfg,
+            actions=actions_cfg,
             events=events_cfg,
             scene=scene_cfg,
             terminations=termination_cfg,
-            xr=self.arena_env.embodiment.get_xr_cfg(),
+            xr=xr_cfg,
+            teleop_devices=teleop_device,
         )
 
     def compose_mimic_cfg(

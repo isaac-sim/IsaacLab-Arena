@@ -33,12 +33,12 @@ from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 
-from isaac_arena.assets.register_asset import registerasset
+from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
 
 
-@registerasset
+@register_asset
 class GR1T2Embodiment(EmbodimentBase):
     """Embodiment for the GR1T2 robot."""
 

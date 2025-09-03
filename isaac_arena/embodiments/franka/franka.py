@@ -35,12 +35,12 @@ from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat, gripper_pos
 
-from isaac_arena.assets.register_asset import registerasset
+from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.geometry.pose import Pose
 
 
-@registerasset
+@register_asset
 class FrankaEmbodiment(EmbodimentBase):
     """Embodiment for the Franka robot."""
 

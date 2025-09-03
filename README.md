@@ -186,7 +186,7 @@ python your_script.py \
 
 ```python
 from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-from isaac_arena.embodiments.franka import FrankaEmbodiment
+from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
 from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
 from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
@@ -222,7 +222,7 @@ all_objects = registry.get_assets_by_tag("object")
 
 ```python
 from isaac_arena.assets.asset import Asset
-from isaac_arena.assets.register_asset import register_asset
+from isaac_arena.assets.register import register
 
 @register_asset
 class MyCustomObject(Asset):

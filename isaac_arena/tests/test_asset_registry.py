@@ -29,7 +29,7 @@ def _test_default_assets_registered(simulation_app):
 
     asset_registry = AssetRegistry()
     assert asset_registry is not None
-    num_assets = len(asset_registry.assets)
+    num_assets = len(asset_registry.components)
     print(f"Number of assets registered: {num_assets}")
     assert num_assets > 0
     num_background_assets = len(asset_registry.get_assets_by_tag("background"))
@@ -53,7 +53,7 @@ def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
     from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.assets.objects import Object
-    from isaac_arena.embodiments.franka import FrankaEmbodiment
+    from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.scene import Scene
