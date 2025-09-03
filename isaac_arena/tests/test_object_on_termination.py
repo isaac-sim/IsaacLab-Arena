@@ -25,13 +25,15 @@ PLOT = False
 
 def _test_object_on_destination_termination(simulation_app) -> bool:
 
-    from isaac_arena.assets.registry import AssetRegistry
+    from isaaclab.managers import SceneEntityCfg
+
+    from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.geometry.pose import Pose
-    from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
+    from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaac_arena.tasks.terminations import object_on_destination
 
@@ -40,57 +42,77 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen_pick_and_place")()
-    object = asset_registry.get_asset_by_name("cracker_box")()
+    cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+
+    cracker_box.set_initial_pose(
+        Pose(
+            position_xyz=(0.0758066475391388, -0.5088448524475098, 0.0),
+            rotation_wxyz=(1, 0, 0, 0),
+        )
+    )
+
+    scene = Scene(assets=[background, cracker_box])
 
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),
-        scene=PickAndPlaceScene(background, object),
-        task=PickAndPlaceTask(),
+        scene=scene,
+        task=PickAndPlaceTask(cracker_box, background),
     )
-
-    # Set the initial pose of the object above the drawer, such that it falls in
-    # and triggers the termination condition.
-    position_above_drawer = Pose(
-        position_xyz=(0.0758066475391388, -0.5088448524475098, 0.0),
-        rotation_wxyz=(1, 0, 0, 0),
-    )
-
-    isaac_arena_environment.scene.background_scene.object_pose = position_above_drawer
 
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env = builder.make_registered()
     env.reset()
 
-    # Run some zero actions.
-    forces_vec = []
-    force_matrix_vec = []
-    velocities_vec = []
-    condition_met_vec = []
-    sensor = env.scene.sensors["pick_up_object_contact_sensor"]
-    for _ in tqdm.tqdm(range(NUM_STEPS)):
-        with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            env.step(actions)
-            # Get the force on the pick up object.
-            forces_vec.append(sensor.data.net_forces_w.clone())
-            force_matrix_vec.append(sensor.data.force_matrix_w.clone())
-            velocities_vec.append(env.scene["pick_up_object"].data.root_lin_vel_w.clone())
+    try:
 
-            # Try the termination.
-            condition_met_vec.append(object_on_destination(env))
+        # Run some zero actions.
+        forces_vec = []
+        force_matrix_vec = []
+        velocities_vec = []
+        condition_met_vec = []
+        terminated_vec = []
+        sensor = env.scene.sensors["pick_up_object_contact_sensor"]
+        for _ in tqdm.tqdm(range(NUM_STEPS)):
+            with torch.inference_mode():
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                _, _, terminated, _, _ = env.step(actions)
+                # Get the force on the pick up object.
+                forces_vec.append(sensor.data.net_forces_w.clone())
+                force_matrix_vec.append(sensor.data.force_matrix_w.clone())
+                velocities_vec.append(env.scene[cracker_box.name].data.root_lin_vel_w.clone())
 
-    env.close()
+                # Try the termination.
+                condition_met_vec.append(
+                    object_on_destination(
+                        env,
+                        object_cfg=SceneEntityCfg(cracker_box.name),
+                        contact_sensor_cfg=SceneEntityCfg("pick_up_object_contact_sensor"),
+                    )
+                )
+                terminated_vec.append(terminated.item())
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
 
     # Check that the termination condition is:
     # - not met at the start (object above the drawer)
     # - met at the end (object in the drawer)
     print("Checking the object started out of the drawer")
     assert condition_met_vec[0].item() is False, "Object started in the drawer"
-    print("Checking the object ended in the drawer")
     # Check if the object was in the drawer at any point.
+    print("Checking the object ended in the drawer")
     assert any(condition_met_vec), "Object did not end in the drawer"
+    print("Checking the task was terminated")
+    assert any(terminated_vec), "The task was not terminated"
+    # Check that the reset fired and moved the object above the drawer
+    print("Checking the reset fired and the object was moved above the drawer")
+    assert condition_met_vec[-1].item() is False, "Object was not moved above the drawer"
 
     # NOTE(alexmillane, 2025-08-04): Plot viewing is currently not working. It's complaining
     # about some non-interactive backend. For now I'm just saving the figure in the current

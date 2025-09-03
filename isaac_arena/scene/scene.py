@@ -12,32 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Union
 
+from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
+from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+
+from isaac_arena.assets.asset import Asset
 from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.configclass import make_configclass
+
+AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
 
 
-class SceneBase(ABC):
-    def __init__(self):
+class Scene:
+
+    def __init__(self, assets: list[Asset] | None = None):
+        self.assets: dict[str, Asset] = {}
+        if assets is not None:
+            self.add_assets(assets)
+
+    def add_asset(self, asset: Asset):
+        assert asset.name is not None, "Asset with the same name already exists"
+        self.assets[asset.name] = asset
+
+    def add_assets(self, assets: list[Asset]):
+        for asset in assets:
+            self.add_asset(asset)
+
+    def get_scene_cfg(self) -> Any:
+        """Returns a configclass containing all the scene elements."""
+        # Combine the configs into a configclass.
+        fields: list[tuple[str, type, AssetCfg]] = []
+        for asset in self.assets.values():
+            for asset_cfg_name, asset_cfg in asset.get_cfgs().items():
+                fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+        NewConfigClass = make_configclass("SceneCfg", fields)
+        new_config_class = NewConfigClass()
+        return new_config_class
+
+    def get_robot_initial_pose(self) -> Pose:
+        # TODO(alexmillane, 2025.09.02): This is a hack. Fix.
+        # We need to make a decision on whether the background should specify
+        # a default robot initial pose.
+        return Pose.identity()
+
+    def get_observation_cfg(self) -> Any:
         pass
 
-    @abstractmethod
-    def get_robot_initial_pose(self) -> Pose:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_scene_cfg(self) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_observation_cfg(self) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
     def get_events_cfg(self) -> Any:
-        raise NotImplementedError
+        pass
 
-    @abstractmethod
     def get_termination_cfg(self) -> Any:
-        raise NotImplementedError
+        pass

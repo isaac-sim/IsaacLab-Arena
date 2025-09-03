@@ -19,7 +19,15 @@ from typing import Any
 class TaskBase(ABC):
 
     @abstractmethod
+    def get_scene_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
     def get_termination_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def get_events_cfg(self) -> Any:
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod

@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from typing import Any
+
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -49,12 +52,16 @@ class Object(Asset):
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
 
+    def get_initial_pose(self) -> Pose:
+        return self.initial_pose
+
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
 
-    def get_object_cfg(self) -> RigidObjectCfg:
-        """Return the configured pick-up object asset."""
-        return self._generate_cfg()
+    def get_cfgs(self) -> dict[str, Any]:
+        return {
+            self.name: self._generate_cfg(),
+        }
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         if contact_against_prim_paths is None:
@@ -196,7 +203,15 @@ class Microwave(Object, Openable):
             openable_open_threshold=self.openable_open_threshold,
         )
 
-    def get_object_cfg(self) -> ArticulationCfg:
+    def get_cfgs(self) -> dict[str, Any]:
+        # TODO(alexmillane, 2025.08.28): This is a hack. Fix.
+        # Should be relying on the base class method, but we're abusing things here...
+        # for now...
+        return {
+            self.name: self._generate_cfg(),
+        }
+
+    def _generate_cfg(self) -> ArticulationCfg:
         # TODO(alexmillane, 2025.08.28): This is a hack. Fix.
         # We're overriding the get_object_cfg method in the object base class.
         # We need to move this to the object base class, and detect the correct type of

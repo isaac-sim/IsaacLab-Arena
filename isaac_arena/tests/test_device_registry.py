@@ -29,11 +29,11 @@ def _test_all_devices_in_registry(simulation_app):
     # Needed for sim app restart.
     import omni.usd
 
-    from isaac_arena.assets.registry import AssetRegistry, DeviceRegistry
+    from isaac_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
     from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2Embodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.scene.pick_and_place_scene import PickAndPlaceScene
+    from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
     # Base Environment
@@ -50,8 +50,8 @@ def _test_all_devices_in_registry(simulation_app):
         isaac_arena_environment = IsaacArenaEnvironment(
             name="kitchen_pick_and_place",
             embodiment=GR1T2Embodiment(),
-            scene=PickAndPlaceScene(background, asset),
-            task=PickAndPlaceTask(),
+            scene=Scene([background, asset]),
+            task=PickAndPlaceTask(pick_up_object=asset, background_scene=background),
             teleop_device=teleop_device,
         )
 

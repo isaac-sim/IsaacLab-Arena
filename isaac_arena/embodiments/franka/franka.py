@@ -18,6 +18,7 @@ from collections.abc import Sequence
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.utils.math as PoseUtils
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.assets.asset_base_cfg import AssetBaseCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions.actions_cfg import BinaryJointPositionActionCfg, DifferentialInverseKinematicsActionCfg
@@ -37,7 +38,6 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.geometry.pose import Pose
-from isaac_arena.scene.pick_and_place_scene import AssetBaseCfg
 
 
 @register_asset
