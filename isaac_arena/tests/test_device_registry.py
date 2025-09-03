@@ -21,7 +21,7 @@ from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_se
 
 NUM_STEPS = 2
 HEADLESS = True
-DEVICE_NAMES = ["avp", "spacemouse", "keyboard"]
+DEVICE_NAMES = ["avp_handtracking", "spacemouse", "keyboard"]
 
 
 def _test_all_devices_in_registry(simulation_app):

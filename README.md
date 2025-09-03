@@ -93,10 +93,13 @@ python scripts/environments/teleoperation/teleop_se3_agent.py \
 
 The following are example commands used for the mimic gen pipeline.
 
-For recording demos with the gr1 robot
+For recording demos with the gr1 robot and the Apple Vision Pro:
+Launch the [CloudXR runtime as explained here](https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#:~:text=container%20with%20Docker-,Isaac%20Lab,-can%20be%20run) in a separate terminal.
+The environment variables `XDG_RUNTIME_DIR` and `XR_RUNTIME_JSON` are already set within the Isaac_arena docker.
+
 ```bash
-python submodules/IsaacLab/scripts/tools/record_demos.py \
-    --teleop_device dualhandtracking_abs \
+python isaac_arena/scripts/record_demos.py \
+    --teleop_device avp_handtracking \
     --embodiment gr1 \
     --background packing_table_pick_and_place \
     --task PickPlace-GR1T2 \

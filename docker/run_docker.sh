@@ -146,6 +146,9 @@ else
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
                     "--env" "OMNI_USER=\$omni-api-token"
                     "--env" "OMNI_PASS=$OMNI_PASS"
+                    # Setting envs for XR: https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#run-isaac-lab-with-the-cloudxr-runtime
+                    "--env" "XDG_RUNTIME_DIR=/workspaces/isaac_arena/submodules/IsaacLab/openxr/run"
+                    "--env" "XR_RUNTIME_JSON=/workspaces/isaac_arena/submodules/IsaacLab/openxr/share/openxr/1/openxr_cloudxr.json"
                     # NOTE(alexmillane, 2025.07.23): This looks a bit suspect to me. We should be running
                     # as a user inside the container, not root. I've left it in for now, but we should
                     # remove it, if indeed it's not needed.

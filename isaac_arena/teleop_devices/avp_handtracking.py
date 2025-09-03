@@ -27,7 +27,7 @@ class HandTrackingTeleopDevice(TeleopDeviceBase):
 
     NUM_OPENXR_HAND_JOINTS = 26
 
-    name = "avp"
+    name = "avp_handtracking"
 
     def __init__(self):
         super().__init__()
@@ -35,7 +35,7 @@ class HandTrackingTeleopDevice(TeleopDeviceBase):
     def build_cfg(self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None):
         return DevicesCfg(
             devices={
-                "avp": OpenXRDeviceCfg(
+                "avp_handtracking": OpenXRDeviceCfg(
                     retargeters=[
                         GR1T2RetargeterCfg(
                             enable_visualization=True,
