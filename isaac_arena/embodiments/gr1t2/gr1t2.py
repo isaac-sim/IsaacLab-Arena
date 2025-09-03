@@ -48,6 +48,7 @@ class GR1T2Embodiment(EmbodimentBase):
         super().__init__()
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
+        self.camera_config = GR1T2CameraCfg()
         self.action_config = GR1T2ActionsCfg()
         self.observation_config = GR1T2ObservationsCfg()
         self.event_config = GR1T2EventCfg()
@@ -113,6 +114,11 @@ class GR1T2SceneCfg:
             joint_vel={".*": 0.0},
         ),
     )
+
+
+@configclass
+class GR1T2CameraCfg:
+    """Configuration for cameras."""
 
     observation_cameras: dict = {
         "robot_pov_cam": {

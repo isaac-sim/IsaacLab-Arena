@@ -18,7 +18,12 @@ from isaac_arena.tests.utils.subprocess import run_subprocess
 HEADLESS = True
 
 
-def run_zero_action_runner(embodiment: str, background: str, object_name: str):
+def run_zero_action_runner(embodiment: str, background: str, object_name: str, enable_cameras: bool):
+
+    if enable_cameras:
+        enable_cameras_arg = "--enable_cameras"
+    else:
+        enable_cameras_arg = ""
 
     args = [
         TestConstants.python_path,
@@ -31,6 +36,7 @@ def run_zero_action_runner(embodiment: str, background: str, object_name: str):
         object_name,
         "--num_steps",
         "2",
+        enable_cameras_arg,
     ]
     if HEADLESS:
         args.append("--headless")
@@ -46,4 +52,5 @@ def test_zero_action_runner():
     object_name = "cracker_box"
     for embodiment in embodiments:
         for background in backgrounds:
-            run_zero_action_runner(embodiment, background, object_name)
+            for enable_cameras in [True, False]:
+                run_zero_action_runner(embodiment, background, object_name, enable_cameras)

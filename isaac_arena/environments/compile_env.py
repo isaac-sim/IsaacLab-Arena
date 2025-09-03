@@ -70,10 +70,11 @@ class ArenaEnvBuilder:
 
         # Add cameras to the scene along with the observation cfg if requested
         camera_scene_cfg, camera_observation_cfg = add_camera_to_environment_cfg(
-            self.arena_env.embodiment.get_scene_cfg(),
+            self.arena_env.embodiment.get_camera_cfg(),
             enable_cameras=self.args.enable_cameras,
             tag=self.args.camera_tag,
         )
+        print("camera_scene_cfg", camera_scene_cfg, "camera_observation_cfg", camera_observation_cfg)
         observation_cfg = combine_configclass_instances(
             "ObservationCfg",
             self.arena_env.embodiment.get_observation_cfg(),

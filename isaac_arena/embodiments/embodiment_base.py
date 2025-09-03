@@ -28,6 +28,7 @@ class EmbodimentBase(Asset):
 
     def __init__(self):
         self.scene_config: Any | None = None
+        self.camera_config: Any | None = None
         self.action_config: Any | None = None
         self.observation_config: Any | None = None
         self.event_config: Any | None = None
@@ -51,6 +52,9 @@ class EmbodimentBase(Asset):
 
     def get_xr_cfg(self) -> Any:
         return self.xr
+
+    def get_camera_cfg(self) -> Any:
+        return self.camera_config
 
     @abstractmethod
     def get_retargeters_cfg(self, retargeter_name: str) -> Any:

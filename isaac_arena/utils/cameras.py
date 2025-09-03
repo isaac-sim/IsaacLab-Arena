@@ -39,6 +39,7 @@ def add_camera_to_environment_cfg(
 
     camera_defs: dict[str, dict[str, Any]] = scene_cfg.observation_cameras
     fields_spec = []
+    observation_dict = {}
     for name, meta in camera_defs.items():
         tags: list[str] = meta.get("tags", [])
         # If a tag is provided, only add the camera if it has that tag.
@@ -47,6 +48,7 @@ def add_camera_to_environment_cfg(
             if tag not in tags:
                 continue
         cam_cfg = deepcopy(meta["camera_cfg"])
+        observation_dict[name] = meta
         # each camera becomes a field on the Scene config
         fields_spec.append((name, type(cam_cfg), cam_cfg))
 
@@ -55,11 +57,11 @@ def add_camera_to_environment_cfg(
 
     CamerasSceneCfg = make_configclass("CamerasSceneCfg", fields_spec)
 
-    return CamerasSceneCfg(), make_camera_observations_cfg(registered_cameras=fields_spec)
+    return CamerasSceneCfg(), make_camera_observations_cfg(registered_cameras=observation_dict)
 
 
 def make_camera_observations_cfg(
-    registered_cameras: dict[str, Any],
+    registered_cameras: dict[str, dict[str, Any]],
     normalize: bool = False,
 ):
     """
@@ -69,7 +71,7 @@ def make_camera_observations_cfg(
 
     obs_fields = []
     for name, meta in registered_cameras.items():
-        data_type: list[str] = meta.get("data_types", ["rgb"])
+        data_type: list[str] = getattr(meta["camera_cfg"], "data_types", ["rgb"])
         term = ObsTerm(
             func=mdp.image,
             params={"sensor_cfg": SceneEntityCfg(name), "data_type": data_type, "normalize": normalize},
