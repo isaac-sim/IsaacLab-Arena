@@ -106,7 +106,9 @@ class PackingTablePickAndPlaceBackground(PickAndPlaceBackground):
     default_robot_initial_pose = Pose.identity()
     background_scene_cfg = AssetBaseCfg(
         prim_path="/World/envs/env_.*/PackingTable",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[0.52193 + 0.2, -0.04727, -0.92512], rot=[0.70711, 0.0, 0.0, -0.70711]),
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=[0.52193 + 0.2, -0.04727, -0.92512], rot=[0.70711, 0.0, 0.0, -0.70711]
+        ),
         spawn=UsdFileCfg(
             usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/packing_table_arena.usd",
             rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
