@@ -39,15 +39,14 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     args_cli = args_parser.parse_args([])
 
     asset_registry = AssetRegistry()
-    background = asset_registry.get_component_by_name("kitchen_pick_and_place")()
-    object = asset_registry.get_component_by_name("cracker_box")()
+    background = asset_registry.get_asset_by_name("kitchen_pick_and_place")()
+    object = asset_registry.get_asset_by_name("cracker_box")()
 
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),
         scene=PickAndPlaceScene(background, object),
         task=PickAndPlaceTask(),
-        teleop_device=None,
     )
 
     # Set the initial pose of the object above the drawer, such that it falls in

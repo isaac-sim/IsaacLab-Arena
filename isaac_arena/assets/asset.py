@@ -20,3 +20,4 @@ class Asset:
 
     name: str | None = None
     tags: list[str] | None = None
+    tagged: bool = True

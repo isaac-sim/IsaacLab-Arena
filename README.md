@@ -208,7 +208,7 @@ from isaac_arena.assets.asset_registry import AssetRegistry
 registry = AssetRegistry()
 
 # Get specific asset
-my_object = registry.get_component_by_name("sugar_box")
+my_object = registry.get_asset_by_name("sugar_box")
 
 # Get random asset by tag
 random_background = registry.get_random_asset_by_tag("background")
@@ -224,7 +224,7 @@ all_objects = registry.get_assets_by_tag("object")
 from isaac_arena.assets.asset import Asset
 from isaac_arena.assets.register import register
 
-@register
+@register_asset
 class MyCustomObject(Asset):
     def __init__(self):
         super().__init__()

@@ -19,6 +19,7 @@ from typing import Any
 class TeleopDeviceBase(ABC):
 
     name: str | None = None
+    tagged: bool = False
 
     def __init__(self):
         self._teleop_device_cfg: Any | None = None

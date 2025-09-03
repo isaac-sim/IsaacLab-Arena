@@ -38,8 +38,8 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
 
     asset_registry = AssetRegistry()
-    background = asset_registry.get_component_by_name("packing_table_pick_and_place")()
-    microwave = asset_registry.get_component_by_name("microwave")()
+    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
+    microwave = asset_registry.get_asset_by_name("microwave")()
 
     # Put the microwave on the packing table.
     microwave.set_initial_pose(

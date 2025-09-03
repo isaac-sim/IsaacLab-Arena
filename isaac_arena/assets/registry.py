@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import random
+from typing import Any
 
 from isaac_arena.assets.asset import Asset
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
@@ -25,7 +26,7 @@ class Registry(metaclass=SingletonMeta):
     def __init__(self):
         self.components = {}
 
-    def register(self, component: type["Asset"] | type["TeleopDeviceBase"]):
+    def register(self, component: Any):
         """Register an asset with a name.
 
         Args:
@@ -34,7 +35,7 @@ class Registry(metaclass=SingletonMeta):
         """
         assert component.name not in self.components, f"component {component.name} already registered"
         assert component.name is not None, "component name is not set"
-        if isinstance(component, Asset):
+        if component.tagged:
             assert component.tags is not None, "Asset tags are not set"
         self.components[component.name] = component
 
@@ -46,7 +47,7 @@ class Registry(metaclass=SingletonMeta):
         """
         return name in self.components
 
-    def get_component_by_name(self, name: str) -> type["Asset"] | type["TeleopDeviceBase"]:
+    def get_component_by_name(self, name: str) -> Any:
         """Get an component by name.
 
         Args:
@@ -62,6 +63,14 @@ class AssetRegistry(Registry):
 
     def __init__(self):
         super().__init__()
+
+    def get_asset_by_name(self, name: str) -> type["Asset"]:
+        """Gets an asset by name.
+
+        Args:
+            name (str): The name of the asset.
+        """
+        return self.get_component_by_name(name)
 
     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
         """Gets a list of assets by tag.
@@ -94,6 +103,14 @@ class DeviceRegistry(Registry):
     def __init__(self):
         super().__init__()
 
+    def get_device_by_name(self, name: str) -> type["TeleopDeviceBase"]:
+        """Gets a device by name.
+
+        Args:
+            name (str): The name of the device.
+        """
+        return self.get_component_by_name(name)
+
 
 def get_environment_configuration_from_asset_registry(
     background_name: str | None = None,
@@ -103,15 +120,15 @@ def get_environment_configuration_from_asset_registry(
 
     asset_registry = AssetRegistry()
     if background_name:
-        background = asset_registry.get_component_by_name(background_name)()
+        background = asset_registry.get_asset_by_name(background_name)()
     else:
         background = asset_registry.get_random_asset_by_tag("background")()
     if object_name:
-        pick_up_object = asset_registry.get_component_by_name(object_name)()
+        pick_up_object = asset_registry.get_asset_by_name(object_name)()
     else:
         pick_up_object = asset_registry.get_random_asset_by_tag("object")()
     if embodiment_name:
-        embodiment = asset_registry.get_component_by_name(embodiment_name)()
+        embodiment = asset_registry.get_asset_by_name(embodiment_name)()
     else:
         embodiment = asset_registry.get_random_asset_by_tag("embodiment")()
 
@@ -132,7 +149,7 @@ def get_environment_configuration_from_device_registry(
     if device_name:
         print(f"Getting device {device_name} from device registry")
         assert device_registry.is_registered(device_name), f"Device {device_name} not registered"
-        device = device_registry.get_component_by_name(device_name)()
+        device = device_registry.get_device_by_name(device_name)()
     else:
         device = None
 

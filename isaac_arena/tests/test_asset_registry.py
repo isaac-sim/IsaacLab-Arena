@@ -64,8 +64,8 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Base Environment
     asset_registry = AssetRegistry()
-    background = asset_registry.get_component_by_name("packing_table_pick_and_place")()
-    asset = asset_registry.get_component_by_name("cracker_box")()
+    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
+    asset = asset_registry.get_asset_by_name("cracker_box")()
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),
