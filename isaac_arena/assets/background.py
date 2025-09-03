@@ -42,8 +42,9 @@ class Background(Asset):
         return self.robot_initial_pose
 
     def get_cfgs(self) -> dict[str, Any]:
+        assert self.name is not None, "Background name is not set"
         return {
-            self.name: self.get_background_cfg(),
+            self.name: self.background_scene_cfg,
         }
 
 
