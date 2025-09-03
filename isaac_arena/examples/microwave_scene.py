@@ -29,17 +29,15 @@ print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
 
-from isaac_arena.examples.utils.example_environments import add_example_environments_cli_args, get_env_cfg_from_cli
+from isaac_arena.examples.example_environments.cli import get_env_cfg_from_cli
 
 args_parser = get_isaac_arena_cli_parser()
-args_parser = add_example_environments_cli_args(args_parser)
 # args_cli = args_parser.parse_args([
 #     "--example_environment",
 #     "gr1_open_microwave",
 #     "--object",
 #     "cracker_box",
 # ])
-
 args_cli = args_parser.parse_args([
     "--example_environment",
     "pick_and_place",

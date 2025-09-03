@@ -16,12 +16,14 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
+from isaac_arena.examples.example_environments.cli import add_example_environments_cli_args
+
 
 def get_isaac_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and Isaac Arena arguments."""
     parser = argparse.ArgumentParser(description="Isaac Arena CLI parser.")
     add_isaac_lab_cli_args(parser)
-    add_isaac_arena_cli_args(parser)
+    add_example_environments_cli_args(parser)
     AppLauncher.add_app_launcher_args(parser)
     return parser
 
@@ -46,15 +48,15 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
 
 
-def add_isaac_arena_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add Isaac Arena specific command line arguments to the given parser."""
+# def add_isaac_arena_cli_args(parser: argparse.ArgumentParser) -> None:
+#     """Add Isaac Arena specific command line arguments to the given parser."""
 
-    isaac_arena_group = parser.add_argument_group(
-        "Isaac Arena Arguments", "Arguments specific to Isaac Arena framework"
-    )
+#     isaac_arena_group = parser.add_argument_group(
+#         "Isaac Arena Arguments", "Arguments specific to Isaac Arena framework"
+#     )
 
-    isaac_arena_group.add_argument("--background", type=str, default=None, help="Name of the background.")
-    isaac_arena_group.add_argument("--object", type=str, default=None, help="Name of the pick-up object.")
-    isaac_arena_group.add_argument("--task", type=str, default=None, help="Name of the task.")
-    isaac_arena_group.add_argument("--embodiment", type=str, default=None, help="Name of the embodiment.")
-    isaac_arena_group.add_argument("--teleop_device", type=str, default=None, help="Name of the teleop device.")
+#     isaac_arena_group.add_argument("--background", type=str, default=None, help="Name of the background.")
+#     isaac_arena_group.add_argument("--object", type=str, default=None, help="Name of the pick-up object.")
+#     isaac_arena_group.add_argument("--task", type=str, default=None, help="Name of the task.")
+#     isaac_arena_group.add_argument("--embodiment", type=str, default=None, help="Name of the embodiment.")
+#     isaac_arena_group.add_argument("--teleop_device", type=str, default=None, help="Name of the teleop device.")
