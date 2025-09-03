@@ -22,7 +22,7 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
-from isaac_arena.assets.registry import (
+from isaac_arena.assets.asset_registry import (
     get_environment_configuration_from_asset_registry,
     get_environment_configuration_from_device_registry,
 )

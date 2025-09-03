@@ -27,7 +27,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     from isaaclab.managers import SceneEntityCfg
 
-    from isaac_arena.assets.registry import AssetRegistry
+    from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder

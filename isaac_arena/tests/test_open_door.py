@@ -25,7 +25,7 @@ HEADLESS = True
 def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
 
-    from isaac_arena.assets.registry import AssetRegistry
+    from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder

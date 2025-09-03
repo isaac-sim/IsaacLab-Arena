@@ -25,7 +25,7 @@ OBJECT_SEPARATION = 0.5
 
 
 def _test_default_assets_registered(simulation_app):
-    from isaac_arena.assets.registry import AssetRegistry
+    from isaac_arena.assets.asset_registry import AssetRegistry
 
     asset_registry = AssetRegistry()
     assert asset_registry is not None
@@ -51,8 +51,8 @@ def test_default_assets_registered():
 
 def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
+    from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.assets.objects import Object
-    from isaac_arena.assets.registry import AssetRegistry
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment

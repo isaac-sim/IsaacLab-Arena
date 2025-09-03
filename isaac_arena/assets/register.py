@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from isaac_arena.assets.registry import AssetRegistry, DeviceRegistry
+from isaac_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
 
 
 # Decorator to register an asset with the AssetRegistry.
