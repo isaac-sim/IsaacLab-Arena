@@ -15,8 +15,9 @@
 import argparse
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.examples.example_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
 from isaac_arena.examples.example_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
-from isaac_arena.examples.example_environments.pick_and_place_environment import PickAndPlaceEnvironment
+from isaac_arena.examples.example_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
 # We cannot annotate types which require the simulation app to be started in order to
@@ -28,7 +29,8 @@ from isaac_arena.examples.example_environments.pick_and_place_environment import
 # Collection of the available example environments
 ExampleEnvironments = {
     Gr1OpenMicrowaveEnvironment.name: Gr1OpenMicrowaveEnvironment,
-    PickAndPlaceEnvironment.name: PickAndPlaceEnvironment,
+    KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
+    GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
 }
 
 

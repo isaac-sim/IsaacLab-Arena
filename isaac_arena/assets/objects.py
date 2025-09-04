@@ -215,6 +215,22 @@ class SketchFabSprayCan3(Object):
 
 
 @register_asset
+class PowerDrill(Object):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "power_drill"
+    tags = ["object"]
+    prim_path = ("{ENV_REGEX_NS}/target_power_drill",)
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/power_drill_physics.usd"
+    default_prim_path = "{ENV_REGEX_NS}/target_power_drill"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
 class Microwave(Object, Openable):
     """A microwave oven."""
 

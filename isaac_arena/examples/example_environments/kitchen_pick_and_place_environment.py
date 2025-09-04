@@ -23,59 +23,46 @@ from isaac_arena.examples.example_environments.example_environment_base import E
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
+class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
-    name: str = "gr1_open_microwave"
+    name: str = "kitchen_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
-        from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2Embodiment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.geometry.pose import Pose
         from isaac_arena.scene.scene import Scene
-        from isaac_arena.tasks.open_door_task import OpenDoorTask
+        from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("packing_table_pick_and_place")()
-        microwave = self.asset_registry.get_asset_by_name("microwave")()
-        assets = [background, microwave]
+        background = self.asset_registry.get_asset_by_name("kitchen_pick_and_place")()
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
             teleop_device = None
 
-        # Put the microwave on the packing table.
-        microwave_pose = Pose(
-            position_xyz=(0.7, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
-        )
-        microwave.set_initial_pose(microwave_pose)
-
-        # Optionally add another object
-        if args_cli.object is not None:
-            object = self.asset_registry.get_asset_by_name(args_cli.object)()
-            object_pose = Pose(
-                position_xyz=(0.7, -0.00586 + 0.5, 0.22773),
-                rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+        pick_up_object.set_initial_pose(
+            Pose(
+                position_xyz=(0.4, 0.0, 0.1),
+                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
-            object.set_initial_pose(object_pose)
-            assets.append(object)
+        )
 
-        # Compose the scene
-        scene = Scene(assets=assets)
-
+        scene = Scene(assets=[background, pick_up_object])
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
-            embodiment=GR1T2Embodiment(),
+            embodiment=embodiment,
             scene=scene,
-            task=OpenDoorTask(microwave),
+            task=PickAndPlaceTask(pick_up_object, background),
             teleop_device=teleop_device,
         )
-
         return isaac_arena_environment
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=None)
+        parser.add_argument("--object", type=str, default="cracker_box")
+        parser.add_argument("--embodiment", type=str, default="franka")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)

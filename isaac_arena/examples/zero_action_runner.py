@@ -46,8 +46,9 @@ def main():
         # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):
             with torch.inference_mode():
-                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                env.step(actions)
+                actions = torch.zeros(env.action_space.shape, device=env.device)
+                _, _, terminated, _, _ = env.step(actions)
+                print(f"terminated: {terminated}")
 
         # Close the environment.
         env.close()

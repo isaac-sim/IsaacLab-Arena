@@ -23,9 +23,9 @@ from isaac_arena.examples.example_environments.example_environment_base import E
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class PickAndPlaceEnvironment(ExampleEnvironmentBase):
+class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
-    name: str = "pick_and_place"
+    name: str = "galileo_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
@@ -33,7 +33,7 @@ class PickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("kitchen_pick_and_place")()
+        background = self.asset_registry.get_asset_by_name("galileo_pick_and_place")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
@@ -44,14 +44,14 @@ class PickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(0.4, 0.0, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                position_xyz=(0.55, 0.0, 0.33),
+                rotation_wxyz=(0.0, 0.0, 0.7071068, -0.7071068),
             )
         )
 
         scene = Scene(assets=[background, pick_up_object])
         isaac_arena_environment = IsaacArenaEnvironment(
-            name="kitchen_pick_and_place",
+            name=self.name,
             embodiment=embodiment,
             scene=scene,
             task=PickAndPlaceTask(pick_up_object, background),
@@ -61,8 +61,8 @@ class PickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="cracker_box")
-        parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--object", type=str, default="power_drill")
+        parser.add_argument("--embodiment", type=str, default="gr1")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
