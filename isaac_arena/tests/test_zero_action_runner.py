@@ -52,14 +52,12 @@ def test_zero_action_runner_pick_and_place():
     # from a registry when we have one.
     example_environment = "pick_and_place"
     embodiments = ["franka", "gr1"]
-    backgrounds = ["kitchen_pick_and_place", "packing_table_pick_and_place"]
-    object_name = "cracker_box"
+    object_names = ["cracker_box", "tomato_soup_can"]
     for embodiment in embodiments:
-        for background in backgrounds:
+        for object_name in object_names:
             run_zero_action_runner(
                 example_environment=example_environment,
                 embodiment=embodiment,
-                background=background,
                 object_name=object_name,
                 num_steps=NUM_STEPS,
             )

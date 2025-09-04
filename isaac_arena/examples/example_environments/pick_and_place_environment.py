@@ -36,11 +36,7 @@ class PickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        assert args_cli.background is not None
-        assert args_cli.object is not None
-        assert args_cli.embodiment is not None
-
-        background = self.asset_registry.get_asset_by_name(args_cli.background)()
+        background = self.asset_registry.get_asset_by_name("kitchen_pick_and_place")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
@@ -58,7 +54,7 @@ class PickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         scene = Scene(assets=[background, pick_up_object])
         isaac_arena_environment = IsaacArenaEnvironment(
-            name="pick_and_place",
+            name="kitchen_pick_and_place",
             embodiment=embodiment,
             scene=scene,
             task=PickAndPlaceTask(pick_up_object, background),
@@ -69,6 +65,5 @@ class PickAndPlaceEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         add_argument_if_missing(parser, "--object", type=str, default="cracker_box")
-        add_argument_if_missing(parser, "--background", type=str, default="kitchen_pick_and_place")
         add_argument_if_missing(parser, "--embodiment", type=str, default="franka")
         add_argument_if_missing(parser, "--teleop_device", type=str, default=None)
