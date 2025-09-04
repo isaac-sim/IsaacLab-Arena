@@ -10,6 +10,7 @@
 from isaaclab.app import AppLauncher
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.examples.example_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
 
 # add argparse arguments
 parser = get_isaac_arena_cli_parser()
@@ -37,6 +38,11 @@ parser.add_argument(
     help="Enable Pinocchio.",
 )
 
+# Add the example environments CLI args
+# NOTE(alexmillane, 2025.09.04): This has to be added last, because
+# of the app specific flags being parsed after the global flags.
+add_example_environments_cli_args(parser)
+
 # parse the arguments
 args_cli = parser.parse_args()
 # args_cli.headless = True
@@ -59,8 +65,6 @@ import torch
 
 from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
 from isaaclab.utils.datasets import EpisodeData, HDF5DatasetFileHandler
-
-from isaac_arena.environments.compile_env import get_arena_env_cfg
 
 if args_cli.enable_pinocchio:
     import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
@@ -138,7 +142,8 @@ def main():
     num_envs = args_cli.num_envs
 
     # Compile an IsaacLab compatible arena environment configuration
-    env_cfg, env_name = get_arena_env_cfg(args_cli)
+    arena_builder = get_arena_builder_from_cli(args_cli)
+    env_name, env_cfg = arena_builder.build_registered()
 
     # Disable all recorders and terminations
     env_cfg.recorders = {}

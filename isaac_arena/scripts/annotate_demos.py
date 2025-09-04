@@ -14,6 +14,7 @@ import gymnasium as gym
 from isaaclab.app import AppLauncher
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.examples.example_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
 
 # Launching Isaac Sim Simulator first.
 
@@ -37,6 +38,11 @@ parser.add_argument(
     help="Enable Pinocchio.",
 )
 
+# Add the example environments CLI args
+# NOTE(alexmillane, 2025.09.04): This has to be added last, because
+# of the app specific flags being parsed after the global flags.
+add_example_environments_cli_args(parser)
+
 # parse the arguments
 args_cli = parser.parse_args()
 
@@ -58,7 +64,6 @@ import torch
 import isaaclab_mimic.envs  # noqa: F401
 
 # Imports have to follow simulation startup.
-from isaac_arena.environments.compile_env import get_arena_env_cfg
 
 if args_cli.enable_pinocchio:
     import isaaclab_mimic.envs.pinocchio_envs  # noqa: F401
@@ -175,7 +180,8 @@ def main():
         raise ValueError("Task/env name was not specified nor found in the dataset.")
 
     # Compile an IsaacLab compatible arena environment configuration
-    env_cfg, env_name = get_arena_env_cfg(args_cli)
+    arena_builder = get_arena_builder_from_cli(args_cli)
+    env_name, env_cfg = arena_builder.build_registered()
 
     env_cfg.env_name = env_name
 

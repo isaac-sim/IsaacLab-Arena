@@ -17,6 +17,7 @@ from typing import Any
 from isaaclab.app import AppLauncher
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.examples.example_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
 
 # add argparse arguments
 parser = get_isaac_arena_cli_parser()
@@ -39,6 +40,11 @@ parser.add_argument(
     default=False,
     help="Enable Pinocchio.",
 )
+
+# Add the example environments CLI args
+# NOTE(alexmillane, 2025.09.04): This has to be added last, because
+# of the app specific flags being parsed after the global flags.
+add_example_environments_cli_args(parser)
 
 # parse the arguments
 args_cli = parser.parse_args()
@@ -68,7 +74,6 @@ from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManager
 from isaaclab.managers import DatasetExportMode
 
 # Imports have to follow simulation startup.
-from isaac_arena.environments.compile_env import get_arena_env_cfg
 
 if args_cli.enable_pinocchio:
     import isaaclab_mimic.envs.pinocchio_envs  # noqa: F401
@@ -105,7 +110,8 @@ def setup_env_config(
     Raises:
         NotImplementedError: If no success termination term found
     """
-    env_cfg, env_name = get_arena_env_cfg(args_cli)
+    arena_builder = get_arena_builder_from_cli(args_cli)
+    env_name, env_cfg = arena_builder.build_registered()
 
     if generation_num_trials is not None:
         env_cfg.datagen_config.generation_num_trials = generation_num_trials
