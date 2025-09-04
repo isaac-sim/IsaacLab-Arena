@@ -48,7 +48,7 @@ def runner(q: multiprocessing.Queue, function: Callable[[SimulationAppContext, A
     # Simulation app args. For now, we just make these default + headless.
     # TODO(alexmillane, 2025.09.01): We're eventually going to want a way to override the args.
     parser = get_isaac_arena_cli_parser()
-    simulation_app_args = parser.parse_args([])
+    simulation_app_args = parser.parse_args(["--enable_cameras"])
     simulation_app_args.headless = headless
     # Launch the simulator
     with SimulationAppContext(simulation_app_args) as simulation_app:

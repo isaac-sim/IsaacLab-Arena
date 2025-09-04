@@ -77,10 +77,16 @@ def make_camera_observations_cfg(
             params={"sensor_cfg": SceneEntityCfg(name), "data_type": data_type, "normalize": normalize},
         )
         # Field name on ObservationsCfg: use the camera name (or add suffix if you like)
-        obs_fields.append((name, type(term), term))
+        obs_fields.append((name, ObsTerm, term))
 
     if not obs_fields:
-        return make_configclass("EmptyCameraObsCfg", [])()
+        EmptyCameraObsCfg = make_configclass("EmptyCameraObsCfg", [], bases=(ObsGroup,))
+        WrappedEmpty = make_configclass(
+            "WrappedCameraObsCfg",
+            [("camera_obs", EmptyCameraObsCfg, EmptyCameraObsCfg())],
+            namespace={"EmptyCameraObsCfg": EmptyCameraObsCfg},
+        )
+        return WrappedEmpty()
 
     # Create the post init to be used in the observation class
     def post_init(self):
@@ -91,9 +97,17 @@ def make_camera_observations_cfg(
     AutoCameraObsCfg = make_configclass(
         "AutoCameraObsCfg", obs_fields, bases=(ObsGroup,), namespace={"__post_init__": post_init}
     )
+
     # Now wrap the observation group in an observation class
     WrappedCameraObsCfg = make_configclass(
-        "WrappedCameraObsCfg", [("camera_obs", type(AutoCameraObsCfg), AutoCameraObsCfg)]
+        "WrappedCameraObsCfg",
+        [("camera_obs", AutoCameraObsCfg, AutoCameraObsCfg())],
+        namespace={"AutoCameraObsCfg": AutoCameraObsCfg},
     )
+
+    try:
+        AutoCameraObsCfg.__qualname__ = f"{WrappedCameraObsCfg.__name__}.AutoCameraObsCfg"
+    except Exception:
+        pass
 
     return WrappedCameraObsCfg()
