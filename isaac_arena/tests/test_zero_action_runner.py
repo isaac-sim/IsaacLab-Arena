@@ -20,11 +20,6 @@ HEADLESS = True
 
 def run_zero_action_runner(embodiment: str, background: str, object_name: str, enable_cameras: bool):
 
-    if enable_cameras:
-        enable_cameras_arg = "--enable_cameras"
-    else:
-        enable_cameras_arg = ""
-
     args = [
         TestConstants.python_path,
         f"{TestConstants.examples_dir}/zero_action_runner.py",
@@ -36,10 +31,11 @@ def run_zero_action_runner(embodiment: str, background: str, object_name: str, e
         object_name,
         "--num_steps",
         "2",
-        enable_cameras_arg,
     ]
     if HEADLESS:
         args.append("--headless")
+    if enable_cameras:
+        args.append("--enable_cameras")
 
     run_subprocess(args)
 
