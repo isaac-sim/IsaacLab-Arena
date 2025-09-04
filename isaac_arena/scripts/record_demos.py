@@ -30,10 +30,7 @@ import contextlib
 from isaaclab.app import AppLauncher
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-from isaac_arena.examples.example_environments.cli import (  # get_isaac_arena_example_environment_cli_parser,
-    add_example_environments_cli_args,
-    get_arena_builder_from_cli,
-)
+from isaac_arena.examples.example_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
 
 # add argparse arguments
 parser = get_isaac_arena_cli_parser()
@@ -58,6 +55,8 @@ parser.add_argument(
 )
 
 # Add the example environments CLI args
+# NOTE(alexmillane, 2025.09.04): This has to be added last, because
+# of the app specific flags being parsed after the global flags.
 add_example_environments_cli_args(parser)
 
 # parse the arguments
@@ -96,8 +95,6 @@ from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
 
 # Imports have to follow simulation startup.
-# from isaac_arena.environments.compile_env import get_arena_env_cfg
-# from isaac_arena.environments.compile_env import ArenaEnvBuilder
 
 if args_cli.enable_pinocchio:
     import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
@@ -189,8 +186,6 @@ def create_environment_config(
     """
     # parse configuration
     try:
-        # env_cfg, env_name = get_arena_env_cfg(args_cli)
-        # env_cfg.env_name = env_name
         arena_builder = get_arena_builder_from_cli(args_cli)
         env_name, env_cfg = arena_builder.build_registered()
 
