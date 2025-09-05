@@ -47,9 +47,7 @@ class GR1T2Embodiment(EmbodimentBase):
     def __init__(self):
         super().__init__()
         # Configuration structs
-        self.scene_config = GR1T2SceneCfg()
         self.action_config = GR1T2ActionsCfg()
-        self.observation_config = GR1T2ObservationsCfg()
         self.event_config = GR1T2EventCfg()
         self.mimic_env = GR1T2MimicEnv
 
@@ -60,11 +58,18 @@ class GR1T2Embodiment(EmbodimentBase):
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
 
+    def get_scene_cfg(self, enable_camera: bool):
+        return GR1T2SceneCfg(enable_camera=enable_camera)
+
+    def get_observation_cfg(self, enable_camera: bool):
+        return GR1T2ObservationsCfg(enable_camera=enable_camera)
+    
+    def __post_init__(self):
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
         self.temp_urdf_dir = tempfile.gettempdir()
         temp_urdf_output_path, temp_urdf_meshes_output_path = ControllerUtils.convert_usd_to_urdf(
-            self.scene_config.robot.spawn.usd_path, self.temp_urdf_dir, force_conversion=True
+            self.get_scene_cfg(enable_camera=False).robot.spawn.usd_path, self.temp_urdf_dir, force_conversion=True
         )
         ControllerUtils.change_revolute_to_fixed(
             temp_urdf_output_path, self.action_config.pink_ik_cfg.ik_urdf_fixed_joint_names
@@ -79,6 +84,8 @@ class GR1T2Embodiment(EmbodimentBase):
 # we copy out just the robot to allow composition with other scenes.
 @configclass
 class GR1T2SceneCfg:
+
+    enable_camera: bool = False
 
     # Humanoid robot w/ arms higher
     robot: ArticulationCfg = GR1T2_CFG.replace(
@@ -114,20 +121,25 @@ class GR1T2SceneCfg:
         ),
     )
 
-    # TODO(vik: Fix camera and xr issues)
-    # robot_pov_cam: CameraCfg = CameraCfg(
-    #         prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
-    #         update_period=0.0,
-    #         height=512,
-    #         width=512,
-    #         data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
-    #         spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
-    #         offset=CameraCfg.OffsetCfg(
-    #             pos=(0.12515, 0.0, 0.06776),
-    #             rot=(0.62, 0.32, -0.32, -0.63),
-    #             convention="opengl",
-    #         ),
-    #     )
+    observation_cameras: dict = {
+        "robot_pov_cam": CameraCfg(
+            prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+            update_period=0.0,
+            height=512,
+            width=512,
+            data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+            spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+            offset=CameraCfg.OffsetCfg(
+                pos=(0.12515, 0.0, 0.06776),
+                rot=(0.62, 0.32, -0.32, -0.63),
+                convention="opengl",
+            ),
+        ),
+    }
+
+    def __post_init__(self):
+        if self.enable_camera:
+            self.robot_pov_cam = self.observation_cameras["robot_pov_cam"]
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py
@@ -138,9 +150,14 @@ class GR1T2SceneCfg:
 class GR1T2ObservationsCfg:
     """Observation specifications for the MDP."""
 
+    enable_camera: bool = False
+
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group with state values."""
+
+        enable_camera: bool = False
+        camera_observation: ObsTerm | None = None
 
         actions = ObsTerm(func=mdp.last_action)
         robot_joint_pos = ObsTerm(
@@ -163,8 +180,21 @@ class GR1T2ObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = False
 
+            if self.enable_camera:
+                self.camera_observation = ObsTerm(
+                    func=mdp.image,
+                    params={"sensor_cfg": SceneEntityCfg("robot_pov_cam"), "data_type": "rgb", "normalize": False},
+                )
+
     # observation groups
     policy: PolicyCfg = PolicyCfg()
+
+    def __post_init__(self):
+        # sync the outer flag down to the group
+        self.policy.enable_camera = self.enable_camera
+        # if you need the ObsTerm created now, re-run group post-init logic:
+        if self.policy.enable_camera and self.policy.camera_observation is None:
+            self.policy.__post_init__()
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py

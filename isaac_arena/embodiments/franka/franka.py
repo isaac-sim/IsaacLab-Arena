@@ -48,9 +48,7 @@ class FrankaEmbodiment(EmbodimentBase):
 
     def __init__(self):
         super().__init__()
-        self.scene_config = FrankaSceneCfg()
         self.action_config = FrankaActionsCfg()
-        self.observation_config = FrankaObservationsCfg()
         self.event_config = FrankaEventCfg()
         self.mimic_env = FrankaMimicEnv
 
@@ -60,11 +58,19 @@ class FrankaEmbodiment(EmbodimentBase):
         super().set_robot_initial_pose(pose)
         self.scene_config.stand.init_state.pos = pose.position_xyz
         self.scene_config.stand.init_state.rot = pose.rotation_wxyz
+    
+    def get_scene_cfg(self, enable_camera: bool):
+        return FrankaSceneCfg(enable_camera=enable_camera)
+    
+    def get_observation_cfg(self, enable_camera: bool):
+        return FrankaObservationsCfg(enable_camera=enable_camera)
 
 
 @configclass
 class FrankaSceneCfg:
     """Additions to the scene configuration coming from the Franka embodiment."""
+
+    enable_camera: bool = False
 
     # The robot
     robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -143,6 +149,8 @@ class FrankaActionsCfg:
 class FrankaObservationsCfg:
     """Observation specifications for the MDP."""
 
+    enable_camera: bool = False
+
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group with state values."""
@@ -163,7 +171,7 @@ class FrankaObservationsCfg:
 
 @configclass
 class FrankaEventCfg:
-    """Configuration for Franek."""
+    """Configuration for Franka."""
 
     init_franka_arm_pose = EventTerm(
         func=franka_stack_events.set_default_joint_pose,

@@ -34,14 +34,14 @@ class EmbodimentBase(Asset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
 
-    def get_scene_cfg(self) -> Any:
-        return self.scene_config
+    def get_scene_cfg(self, enable_camera: bool) -> Any:
+        pass
 
     def get_action_cfg(self) -> Any:
         return self.action_config
 
-    def get_observation_cfg(self) -> Any:
-        return self.observation_config
+    def get_observation_cfg(self, enable_camera: bool) -> Any:
+        pass
 
     def get_event_cfg(self) -> Any:
         return self.event_config

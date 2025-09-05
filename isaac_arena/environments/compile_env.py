@@ -45,7 +45,7 @@ class ArenaEnvBuilder:
             "SceneCfg",
             self.DEFAULT_SCENE_CFG,
             self.arena_env.scene.get_scene_cfg(),
-            self.arena_env.embodiment.get_scene_cfg(),
+            self.arena_env.embodiment.get_scene_cfg(enable_camera=self.args.enable_camera),
             self.arena_env.task.get_scene_cfg(),
         )
         events_cfg = combine_configclass_instances(
@@ -59,7 +59,7 @@ class ArenaEnvBuilder:
             self.arena_env.task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
         )
-        observation_cfg = self.arena_env.embodiment.get_observation_cfg()
+        observation_cfg = self.arena_env.embodiment.get_observation_cfg(enable_camera=self.args.enable_camera)
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
         teleop_device = self.arena_env.teleop_device
