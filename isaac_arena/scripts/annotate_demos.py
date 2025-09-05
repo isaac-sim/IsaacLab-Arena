@@ -70,7 +70,7 @@ if args_cli.enable_pinocchio:
 
 # Only enables inputs if this script is NOT headless mode
 if not args_cli.headless and not os.environ.get("HEADLESS", 0):
-    from isaaclab.devices import Se3Keyboard
+    from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -174,11 +174,6 @@ def main():
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    if args_cli.task is not None:
-        env_name = args_cli.task
-    if env_name is None:
-        raise ValueError("Task/env name was not specified nor found in the dataset.")
-
     # Compile an IsaacLab compatible arena environment configuration
     arena_builder = get_arena_builder_from_cli(args_cli)
     env_name, env_cfg = arena_builder.build_registered()
@@ -233,7 +228,7 @@ def main():
 
     # Only enables inputs if this script is NOT headless mode
     if not args_cli.headless and not os.environ.get("HEADLESS", 0):
-        keyboard_interface = Se3Keyboard(pos_sensitivity=0.1, rot_sensitivity=0.1)
+        keyboard_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.1, rot_sensitivity=0.1))
         keyboard_interface.add_callback("N", play_cb)
         keyboard_interface.add_callback("B", pause_cb)
         keyboard_interface.add_callback("Q", skip_episode_cb)
