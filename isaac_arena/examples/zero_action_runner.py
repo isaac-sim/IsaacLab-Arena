@@ -20,6 +20,7 @@ from isaac_arena.examples.example_environments.cli import (
     get_isaac_arena_example_environment_cli_parser,
 )
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
+from isaac_arena.policy.zero_action_policy import ZeroActionPolicy
 
 
 def main():
@@ -43,10 +44,12 @@ def main():
         env = arena_builder.make_registered()
         env.reset()
 
+        policy = ZeroActionPolicy(env)
+
         # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):
             with torch.inference_mode():
-                actions = torch.zeros(env.action_space.shape, device=env.device)
+                actions = policy.get_action(env, env.observation_space.sample())
                 env.step(actions)
 
         # Close the environment.
