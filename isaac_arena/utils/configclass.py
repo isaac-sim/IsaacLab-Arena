@@ -16,7 +16,7 @@ import dataclasses
 import keyword
 import types
 from collections.abc import Callable
-from typing import Any, List, Tuple, Type
+from typing import Any
 
 from isaaclab.utils import configclass
 
@@ -190,7 +190,7 @@ def combine_configclass_instances(
     return combined_configclass_instance
 
 
-def combine_post_inits(*cls_list: tuple[type, ...]) -> Callable:
+def combine_post_inits(*cls_list: type) -> Callable:
     """Takes a list of classes and returns a function that calls the
     __post_init__ method of each class.
 
@@ -204,5 +204,9 @@ def combine_post_inits(*cls_list: tuple[type, ...]) -> Callable:
     for cls in cls_list:
         if hasattr(cls, "__post_init__"):
             post_init_list.append(cls.__post_init__)
-    new_post_init = lambda self: [post_init(self) for post_init in post_init_list]
+
+    def new_post_init(self):
+        for post_init in post_init_list:
+            post_init(self)
+
     return new_post_init
