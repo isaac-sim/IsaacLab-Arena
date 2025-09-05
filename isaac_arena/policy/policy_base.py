@@ -18,15 +18,10 @@ from abc import ABC, abstractmethod
 
 
 class PolicyBase(ABC):
-    def __init__(self, env: gym.Env):
+    def __init__(self):
         """
         Base class for policies.
-
-        Args:
-            env: The environment whose action space this policy will use.
         """
-        self.action_space = env.action_space
-        self.device = torch.device(env.unwrapped.device)
 
     @abstractmethod
     def get_action(self, env: gym.Env, observation: dict[str, dict[str, np.ndarray]]) -> torch.Tensor:

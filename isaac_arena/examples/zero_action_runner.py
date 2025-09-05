@@ -44,7 +44,7 @@ def main():
         env = arena_builder.make_registered()
         env.reset()
 
-        policy = ZeroActionPolicy(env)
+        policy = ZeroActionPolicy()
 
         # Run some zero actions.
         for _ in tqdm.tqdm(range(args_cli.num_steps)):
