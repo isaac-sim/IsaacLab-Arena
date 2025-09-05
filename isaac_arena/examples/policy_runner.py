@@ -36,13 +36,12 @@ def main():
         env = arena_builder.make_registered()
         env.reset()
 
-        # Run simulation
         for _ in tqdm.tqdm(range(num_steps)):
             with torch.inference_mode():
                 actions = policy.get_action(env, env.observation_space.sample())
                 env.step(actions)
 
-        # Close the environment
+        # Close the environment.
         env.close()
 
 

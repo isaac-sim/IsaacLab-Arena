@@ -37,15 +37,15 @@ def add_replay_arguments(parser: argparse.ArgumentParser) -> None:
     replay_group.add_argument(
         "--replay_file_path",
         type=str,
-        help="Path to the HDF5 file containing the episode (required with --type replay)",
+        help="Path to the HDF5 file containing the episode (required with --policy_type replay)",
     )
     replay_group.add_argument(
         "--episode_name",
         type=str,
         default=None,
         help=(
-            "Name of the episode to replay. If not provided, the first episode will be replayed (only used with --type"
-            " replay)"
+            "Name of the episode to replay. If not provided, the first episode will be"
+            "replayed (only used with --policy_type replay)"
         ),
     )
 
@@ -58,9 +58,9 @@ def setup_policy_argument_parser() -> argparse.ArgumentParser:
     args_parser.add_argument(
         "--policy_type",
         type=str,
-        choices=["zero_action", "replay", "policy"],
+        choices=["zero_action", "replay"],
         required=True,
-        help="Type of policy to use: 'zero_action', 'replay', or 'policy'",
+        help="Type of policy to use: 'zero_action' or 'replay'",
     )
 
     # Add policy-specific argument groups
