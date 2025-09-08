@@ -2,6 +2,11 @@ ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
 
 FROM ${BASE_IMAGE}
 
+# Build arguments must come AFTER FROM for proper scope
+# GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
+ARG INSTALL_GROOT
+ARG GROOT_DEPS_GROUP
+
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
       mv /usr/share/vulkan /usr/share/vulkan_hidden; \
@@ -44,6 +49,19 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
 
 # Install isaac-arena
 RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
+
+################################
+# OPTIONAL GR00T Policy DEPS
+################################
+# Install GR00T Policy Deps if requested
+RUN if [ "$INSTALL_GROOT" = "true" ]; then \
+    echo "Installing GR00T with dependency group: $GROOT_DEPS_GROUP" && \
+    /isaac-sim/python.sh -m pip install --upgrade setuptools && \
+    /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP] && \
+    /isaac-sim/python.sh -m pip install --no-build-isolation flash-attn==2.7.1.post4; \
+  else \
+    echo "Skipping GR00T installation"; \
+  fi
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
