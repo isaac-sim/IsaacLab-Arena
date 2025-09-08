@@ -64,3 +64,41 @@ jobs:
 
       - name: Run pytest
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests
+
+  test_policy:
+    name: Run policy-related tests with GR00T & cuda12_8 deps
+    runs-on: [self-hosted, zurich]
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git clang-format ca-certificates
+          git --version
+
+      # Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Fix "detected dubious ownership in repository" inside containers
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
+
+      - name: Setup Python
+        uses: actions/setup-python@v3
+
+      - name: Install project and link isaac-sim
+        run: |
+          pip install --no-cache-dir -e .
+          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+
+      - name: Run policy-related pytest
+        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
