@@ -1,3 +1,6 @@
 [submodule "submodules/IsaacLab"]
 	path = submodules/IsaacLab
 	url = git@github.com:isaac-sim/IsaacLab.git
+[submodule "submodules/Isaac-GR00T"]
+	path = submodules/Isaac-GR00T
+	url = git@github.com:NVIDIA/Isaac-GR00T.git

@@ -10,8 +10,11 @@ DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
+# Default GR00T installation settings (false means no GR00T installation)
+INSTALL_GROOT="false"
+GROOT_DEPS_GROUP="base"
 
-while getopts ":d:m:e:hn:" OPTION; do
+while getopts ":d:m:e:hn:g:G:" OPTION; do
     case $OPTION in
 
         d)
@@ -26,6 +29,13 @@ while getopts ":d:m:e:hn:" OPTION; do
         n)
             DOCKER_IMAGE_NAME=${OPTARG}
             ;;
+        g)
+            INSTALL_GROOT="true"
+            ;;
+        G)
+            GROOT_DEPS_GROUP=${OPTARG}
+            INSTALL_GROOT="true"
+            ;;
         h)
             echo "Helper script to build $DOCKER_IMAGE_NAME (default)"
             echo "Usage:"
@@ -34,11 +44,15 @@ while getopts ":d:m:e:hn:" OPTION; do
             echo "$script_name -m <models directory>"
             echo "$script_name -e <evaluation directory>"
             echo "$script_name -n <docker name>"
+            echo "$script_name -g (install GR00T with 'base' dependencies)"
+            echo "$script_name -G <deps_group> (install GR00T with specific dependency group)"
             echo ""
             echo "  -d <datasets directory> (default is $DATASETS_HOST_MOUNT_DIRECTORY)"
             echo "  -m <models directory> (default is $MODELS_HOST_MOUNT_DIRECTORY)"
             echo "  -e <evaluation directory> (default is $EVAL_HOST_MOUNT_DIRECTORY)"
             echo "  -n <docker name> (default is $DOCKER_IMAGE_NAME)"
+            echo "  -g install GR00T with base dependencies"
+            echo "  -G <deps_group> install GR00T with dependency group: base, dev, orin, thor, deploy"
             exit 0
             ;;
         \?)
@@ -107,7 +121,16 @@ then
 fi
 
 # Build the Docker image with the specified or default name
-docker build --pull -t ${DOCKER_IMAGE_NAME} --file $SCRIPT_DIR/Dockerfile.isaac_arena $SCRIPT_DIR/..
+echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
+if [ "$INSTALL_GROOT" = "true" ]; then
+    echo "GR00T dependency group: $GROOT_DEPS_GROUP"
+fi
+docker build --pull \
+    --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+    --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
+    -t ${DOCKER_IMAGE_NAME} \
+    --file $SCRIPT_DIR/Dockerfile.isaac_arena \
+    $SCRIPT_DIR/..
 
 # Remove any exited containers
 if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME)" ]; then
