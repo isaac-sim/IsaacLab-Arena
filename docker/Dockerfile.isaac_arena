@@ -15,7 +15,7 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
 ################################
 # Optional: Install CUDA 12.8
 ################################
-# If GR00T deps to be installed, install cuda 12.8 (neded for flash-attn, and avoid 4G memory addon)
+# If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
 # Detect Ubuntu version and install CUDA 12.8 via NVIDIA network repo (cuda-keyring)
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     echo "Installing CUDA 12.8"; \
