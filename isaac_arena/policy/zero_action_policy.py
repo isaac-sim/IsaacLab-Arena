@@ -11,26 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import gymnasium as gym
+import torch
+from gymnasium.spaces.dict import Dict as GymSpacesDict
 
-import os
+from isaac_arena.policy.policy_base import PolicyBase
 
 
-class _TestConstants:
-    """Class for storing test data paths"""
-
+class ZeroActionPolicy(PolicyBase):
     def __init__(self):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        super().__init__()
 
-        # The root directory of the repo
-        self.repo_root = os.path.realpath(os.path.join(script_dir, *([".."] * 3)))
-
-        self.examples_dir = f"{self.repo_root}/isaac_arena/examples/"
-
-        self.test_dir = f"{self.repo_root}/isaac_arena/tests/"
-
-        self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
-
-        self.test_data_dir = f"{self.test_dir}/test_data/"
-
-
-TestConstants = _TestConstants()
+    def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+        """
+        Always returns a zero action.
+        """
+        return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))

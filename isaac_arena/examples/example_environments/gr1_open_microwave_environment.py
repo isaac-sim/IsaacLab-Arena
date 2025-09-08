@@ -45,7 +45,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         # Put the microwave on the packing table.
         microwave_pose = Pose(
-            position_xyz=(0.7, -0.00586, 0.22773),
+            position_xyz=(0.8, -0.00586, 0.22773),
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
         microwave.set_initial_pose(microwave_pose)
@@ -54,8 +54,8 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         if args_cli.object is not None:
             object = self.asset_registry.get_asset_by_name(args_cli.object)()
             object_pose = Pose(
-                position_xyz=(0.7, -0.00586 + 0.5, 0.22773),
-                rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+                position_xyz=(0.466, -0.437, 0.154),
+                rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
             )
             object.set_initial_pose(object_pose)
             assets.append(object)

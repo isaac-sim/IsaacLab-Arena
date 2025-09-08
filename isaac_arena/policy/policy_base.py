@@ -11,26 +11,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import gymnasium as gym
+import torch
+from abc import ABC, abstractmethod
+from gymnasium.spaces.dict import Dict as GymSpacesDict
 
-import os
 
-
-class _TestConstants:
-    """Class for storing test data paths"""
-
+class PolicyBase(ABC):
     def __init__(self):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        """
+        Base class for policies.
+        """
 
-        # The root directory of the repo
-        self.repo_root = os.path.realpath(os.path.join(script_dir, *([".."] * 3)))
+    @abstractmethod
+    def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+        """
+        Compute an action given the environment and observation.
 
-        self.examples_dir = f"{self.repo_root}/isaac_arena/examples/"
+        Args:
+            env: The environment instance.
+            observation: Observation dictionary from the environment.
 
-        self.test_dir = f"{self.repo_root}/isaac_arena/tests/"
-
-        self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
-
-        self.test_data_dir = f"{self.test_dir}/test_data/"
-
-
-TestConstants = _TestConstants()
+        Returns:
+            torch.Tensor: The action to take.
+        """
+        pass
