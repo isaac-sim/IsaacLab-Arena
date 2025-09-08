@@ -33,7 +33,7 @@ def get_test_background():
         Encapsulates the background scene and destination-object config for a kitchen pick-and-place environment.
         """
 
-        name = "reference_object_test_kitchen"
+        name = "kitchen"
         tags = ["background", "pick_and_place"]
         default_robot_initial_pose = Pose.identity()
         usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd"
