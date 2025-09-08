@@ -4,8 +4,10 @@ FROM ${BASE_IMAGE}
 
 # Build arguments must come AFTER FROM for proper scope
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
+
 ARG INSTALL_GROOT=false
 ARG GROOT_DEPS_GROUP=base
+
 
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
@@ -68,6 +70,7 @@ RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
 ################################
 # OPTIONAL GR00T Policy Deps
 ################################
+
 # Copy GR00T dependencies installation script
 COPY docker/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
 RUN chmod +x /tmp/install_gr00t_deps.sh
@@ -80,6 +83,7 @@ RUN if [ "$INSTALL_GROOT" = "true" ]; then \
   fi && \
   # Clean up installation scripts
   rm -f /tmp/install_gr00t_deps.sh
+
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

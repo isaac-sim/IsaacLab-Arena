@@ -134,11 +134,6 @@ def main():
     if len(episode_indices_to_replay) == 0:
         episode_indices_to_replay = list(range(episode_count))
 
-    if args_cli.task is not None:
-        env_name = args_cli.task.split(":")[-1]
-    if env_name is None:
-        raise ValueError("Task/env name was not specified nor found in the dataset.")
-
     num_envs = args_cli.num_envs
 
     # Compile an IsaacLab compatible arena environment configuration

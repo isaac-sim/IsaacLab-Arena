@@ -71,14 +71,7 @@ Start the docker to before running any commands.
 
 The Docker setup is based on NVIDIA Isaac Lab base image and includes all necessary dependencies.
 
-Run a simple pick-and-place simulation with zero actions:
-
-```bash
-python isaac_arena/examples/zero_action_runner.py \
-    --background kitchen_pick_and_place \
-    --object tomato_soup_can \
-    --embodiment franka \
-```
+To run a simple example see: [Examples Documentation](examples/README.md)
 
 For using a scene with actions one can use the teleop interface from IsaacLab
 
@@ -98,45 +91,21 @@ Launch the [CloudXR runtime as explained here](https://isaac-sim.github.io/Isaac
 The environment variables `XDG_RUNTIME_DIR` and `XR_RUNTIME_JSON` are already set within the Isaac_arena docker.
 
 ```bash
-python isaac_arena/scripts/record_demos.py \
-    --teleop_device avp_handtracking \
-    --embodiment gr1 \
-    --background packing_table_pick_and_place \
-    --task PickPlace-GR1T2 \
-    --object tomato_soup_can \
-    --dataset_file /tmp/gr1_table.hdf5 \
-    --num_demos 1 \
-    --mimic \
-    --enable_pinocchio \
-    --num_success_steps 1 \
-    --device cpu
+python scripts/record_demos.py --dataset_file <output_hdf5_file> gr1_open_microwave \
+    --teleop_device avp_handtracking
+    --object tomato_soup_can
 ```
 
 For replaying the recorded demos
 ```bash
-python submodules/IsaacLab/scripts/tools/replay_demos.py \
-    --embodiment gr1 \
-    --background packing_table_pick_and_place \
-    --task PickPlace-GR1T2 \
-    --object tomato_soup_can \
-    --dataset_file /tmp/gr1_table.hdf5 \
-    --mimic \
-    --enable_pinocchio \
-    --device cpu
+python scripts/replay_demos.py --dataset_file <input_hdf5_file> gr1_open_microwave \
+    --object tomato_soup_can
 ```
 
-For annotating them. We only support manual annotation for now.
+We support manual annotation using mimic via the following script:
 ```bash
-python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/annotate_demos.py \
-    --embodiment gr1 \
-    --background packing_table_pick_and_place \
-    --task PickPlace-GR1T2 \
-    --object tomato_soup_can \
-    --input_file /tmp/gr1_table.hdf5 \
-    --output_file /tmp/gr1_annotated.hdf5 \
-    --mimic \
-    --enable_pinocchio \
-    --device cpu
+python scripts/annotate_demos.py --dataset_file <input_hdf5_file> gr1_open_microwave \
+    --object tomato_soup_can
 ```
 
 For generating a dataset

@@ -15,6 +15,7 @@
 import dataclasses
 import keyword
 import types
+from collections.abc import Callable
 from typing import Any
 
 from isaaclab.utils import configclass
@@ -143,7 +144,7 @@ def get_field_info(config_class: configclass) -> list[tuple[str, type, Any]]:
     return field_info_list
 
 
-def combine_configclasses(name: str, *input_configclasses: configclass) -> configclass:
+def combine_configclasses(name: str, *input_configclasses: type, bases: tuple[type, ...] = ()) -> configclass:
     """Combine a list of configclasses into a single configclass.
 
     Args:
@@ -160,10 +161,14 @@ def combine_configclasses(name: str, *input_configclasses: configclass) -> confi
     names = [f[0] for f in field_info_list]
     unique_names = list(set(names))
     assert len(unique_names) == len(names), "Duplicate field names in the input configclasses"
-    return make_configclass(name, field_info_list)
+    new_configclass = make_configclass(name, field_info_list, bases=bases)
+    new_configclass.__post_init__ = combine_post_inits(*input_configclasses)
+    return new_configclass
 
 
-def combine_configclass_instances(name: str, *input_configclass_instances: configclass) -> configclass:
+def combine_configclass_instances(
+    name: str, *input_configclass_instances: type, bases: tuple[type, ...] = ()
+) -> configclass:
     """Combine a list of configclass instances into a single configclass instance.
 
     Args:
@@ -175,7 +180,7 @@ def combine_configclass_instances(name: str, *input_configclass_instances: confi
     """
     input_configclass_instances_not_none = [i for i in input_configclass_instances if i is not None]
     input_configclasses_not_none: list[type] = [type(i) for i in input_configclass_instances_not_none]
-    combined_configclass = combine_configclasses(name, *input_configclasses_not_none)
+    combined_configclass = combine_configclasses(name, *input_configclasses_not_none, bases=bases)
     # Create an instance of the combined type
     combined_configclass_instance = combined_configclass()
     # Copy in the values from the input configclass instances
@@ -183,3 +188,25 @@ def combine_configclass_instances(name: str, *input_configclass_instances: confi
         for field in dataclasses.fields(configclass_instance):
             setattr(combined_configclass_instance, field.name, getattr(configclass_instance, field.name))
     return combined_configclass_instance
+
+
+def combine_post_inits(*cls_list: type) -> Callable:
+    """Takes a list of classes and returns a function that calls the
+    __post_init__ method of each class.
+
+    Args:
+        cls_list: The list of classes to combine.
+
+    Returns:
+        A function that calls the __post_init__ method of each class.
+    """
+    post_init_list: list[Callable] = []
+    for cls in cls_list:
+        if hasattr(cls, "__post_init__"):
+            post_init_list.append(cls.__post_init__)
+
+    def new_post_init(self):
+        for post_init in post_init_list:
+            post_init(self)
+
+    return new_post_init
