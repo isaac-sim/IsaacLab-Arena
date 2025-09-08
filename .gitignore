@@ -70,5 +70,8 @@ TAGS
 # Models
 *models/
 
+# Training logs and outputs
+*wandb/
+
 # Ignore plots
 *.png
