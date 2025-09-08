@@ -7,11 +7,17 @@ PUSH_TO_NGC=false
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-while getopts ":t:ph" OPTION; do
+while getopts ":t:g:ph" OPTION; do
     case $OPTION in
         t)
             TAG_NAME=$OPTARG
             echo "Tag name is ${TAG_NAME}."
+            ;;
+        g)
+            INSTALL_GROOT=true
+            GROOT_DEPS_GROUP=base
+            echo "INSTALL_GROOT is ${INSTALL_GROOT}."
+            echo "GROOT_DEPS_GROUP is ${GROOT_DEPS_GROUP}."
             ;;
         p)
             PUSH_TO_NGC=true
@@ -22,6 +28,8 @@ while getopts ":t:ph" OPTION; do
             echo "Usage:"
             echo "- pushing to NGC:"
             echo "    push_to_ngc.sh -p -t <tag_name>"
+            echo "- pushing to NGC with GR00T installation:"
+            echo "    push_to_ngc.sh -p -t <tag_name> -g"
             echo "- see help message:"
             echo "    push_to_ngc.sh -h"
             echo ""
@@ -39,6 +47,7 @@ NGC_PATH=nvcr.io/nvstaging/isaac-amr/${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME}
 
 # Build the image.
 docker build --progress=plain --network=host \
+  --build-arg INSTALL_GROOT=$INSTALL_GROOT \
   -t ${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME} \
   "${SCRIPT_DIR}/.." \
   -f "${SCRIPT_DIR}/Dockerfile.isaac_arena"
