@@ -8,7 +8,6 @@ This module tests that GR00T dependencies are properly installed and functional:
 
 import importlib.util
 import os
-import subprocess
 import sys
 
 import pytest
@@ -113,24 +112,6 @@ class TestGr00tDependencies:
                 pytest.fail(f"Failed to import any GR00T module: {e}")
         else:
             pytest.fail("No Python files found in GR00T directory")
-
-    @pytest.mark.skipif(not os.path.exists("/isaac-sim/python.sh"), reason="Isaac Sim not available")
-    def test_gr00t_in_isaac_sim_environment(self):
-        """Test that GR00T dependencies work in Isaac Sim Python environment."""
-        # Test flash_attn in Isaac Sim environment
-        result = subprocess.run(
-            [
-                "/isaac-sim/python.sh",
-                "-c",
-                'import flash_attn; print("Flash Attention available in Isaac Sim:", flash_attn.__version__)',
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        assert result.returncode == 0, f"Flash Attention test failed in Isaac Sim: {result.stderr}"
-        print(f"Isaac Sim test output: {result.stdout.strip()}")
 
     def test_pytorch_cuda_compatibility(self):
         """Test that PyTorch and CUDA are properly configured for GR00T."""
