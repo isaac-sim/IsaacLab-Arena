@@ -68,8 +68,8 @@ jobs:
           pip install --no-cache-dir --upgrade pip pre-commit
           pre-commit run --all-files
 
-      - name: Run pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests
+      - name: Run pytest excluding policy-related tests
+        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests --ignore=isaac_arena/tests/policy/
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
