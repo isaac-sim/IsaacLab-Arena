@@ -25,35 +25,25 @@ OPEN_STEP = NUM_STEPS // 2
 
 def get_test_background():
 
-    from isaaclab.assets import AssetBaseCfg
-    from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
-
-    from isaac_arena.assets.background import PickAndPlaceBackground
+    from isaac_arena.assets.background import Background
     from isaac_arena.geometry.pose import Pose
 
-    class ObjectReferenceTestKitchenPickAndPlaceBackground(PickAndPlaceBackground):
+    class ObjectReferenceTestKitchenBackground(Background):
         """
         Encapsulates the background scene and destination-object config for a kitchen pick-and-place environment.
         """
 
-        name = "reference_object_test_kitchen_pick_and_place"
+        name = "kitchen"
         tags = ["background", "pick_and_place"]
         default_robot_initial_pose = Pose.identity()
-        background_scene_cfg = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/Kitchen",
-            init_state=AssetBaseCfg.InitialStateCfg(pos=[0.772, 3.39, -0.895], rot=[0.70711, 0, 0, -0.70711]),
-            spawn=UsdFileCfg(
-                usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd"
-            ),
-        )
-        destination_object_cfg = None
-        object_pose = None
+        usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd"
+        initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
         object_min_z = -0.2
 
         def __init__(self):
             super().__init__(robot_initial_pose=self.default_robot_initial_pose)
 
-    return ObjectReferenceTestKitchenPickAndPlaceBackground()
+    return ObjectReferenceTestKitchenBackground()
 
 
 def _test_object_on_destination_termination(simulation_app) -> bool:
@@ -81,17 +71,17 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     embodiment = FrankaEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
-        prim_path="{ENV_REGEX_NS}/Kitchen/_03_cracker_box",
+        prim_path="{ENV_REGEX_NS}/kitchen/_03_cracker_box",
         parent_asset=background,
     )
     destination_location = ObjectReference(
         name="drawer",
-        prim_path="{ENV_REGEX_NS}/Kitchen/Cabinet_B_02",
+        prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         parent_asset=background,
     )
     microwave = OpenableObjectReference(
         name="microwave",
-        prim_path="{ENV_REGEX_NS}/Kitchen/microwave",
+        prim_path="{ENV_REGEX_NS}/kitchen/microwave",
         parent_asset=background,
         openable_joint_name="microjoint",
         openable_open_threshold=0.5,

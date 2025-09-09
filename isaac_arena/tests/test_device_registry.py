@@ -39,7 +39,7 @@ def _test_all_devices_in_registry(simulation_app):
     # Base Environment
     asset_registry = AssetRegistry()
     device_registry = DeviceRegistry()
-    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
+    background = asset_registry.get_asset_by_name("packing_table")()
     asset = asset_registry.get_asset_by_name("cracker_box")()
 
     for device_name in DEVICE_NAMES:
@@ -48,7 +48,7 @@ def _test_all_devices_in_registry(simulation_app):
 
         teleop_device = device_registry.get_device_by_name(device_name)()
         isaac_arena_environment = IsaacArenaEnvironment(
-            name="kitchen_pick_and_place",
+            name="kitchen",
             embodiment=GR1T2Embodiment(),
             scene=Scene([background, asset]),
             task=DummyTask(),

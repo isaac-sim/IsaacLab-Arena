@@ -34,7 +34,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("galileo_pick_and_place")()
+        background = self.asset_registry.get_asset_by_name("galileo")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
@@ -59,7 +59,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # the bottom shelf specifically.
         destination_location = ObjectReference(
             name="destination_location",
-            prim_path="{ENV_REGEX_NS}/Galileo/BackgroundAssets/bins/small_bin_grid_01/lid",
+            prim_path="{ENV_REGEX_NS}/galileo/BackgroundAssets/bins/small_bin_grid_01/lid",
             parent_asset=background,
         )
 

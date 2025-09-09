@@ -44,7 +44,7 @@ args_cli = args_parser.parse_args([
 #     "--object",
 #     "cracker_box",
 #     "--background",
-#     "galileo_pick_and_place",
+#     "kitchen",
 #     "--embodiment",
 #     "franka",
 # ])
