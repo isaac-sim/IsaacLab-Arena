@@ -34,7 +34,7 @@ def _test_all_devices_in_registry(simulation_app):
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.scene import Scene
-    from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaac_arena.tasks.dummy_task import DummyTask
 
     # Base Environment
     asset_registry = AssetRegistry()
@@ -51,7 +51,7 @@ def _test_all_devices_in_registry(simulation_app):
             name="kitchen_pick_and_place",
             embodiment=GR1T2Embodiment(),
             scene=Scene([background, asset]),
-            task=PickAndPlaceTask(pick_up_object=asset, background_scene=background),
+            task=DummyTask(),
             teleop_device=teleop_device,
         )
 

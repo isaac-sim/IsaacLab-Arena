@@ -30,20 +30,16 @@ from isaac_arena.tasks.terminations import object_on_destination
 
 class PickAndPlaceTask(TaskBase):
 
-    def __init__(self, pick_up_object: Asset, background_scene: Asset):
+    def __init__(self, pick_up_object: Asset, destination_location: Asset, background_scene: Asset):
         super().__init__()
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
+        self.destination_location = destination_location
 
     def get_scene_cfg(self):
-        # TODO(alexmillane, 2025.09.02): This is a hack. FIX.
-        # Right now the contact against object is hardcoded to the cabinet.
-        # We need a way to pass in a reference to an object that exists in the
-        # scene. This is next on my plate to fix.
-        contact_against_prim_paths = "{ENV_REGEX_NS}/Kitchen/Cabinet_B_02"
         return SceneCfg(
             pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
-                contact_against_prim_paths=[contact_against_prim_paths],
+                contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
 

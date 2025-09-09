@@ -28,6 +28,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
     name: str = "kitchen_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
+        from isaac_arena.assets.object_reference import ObjectReference
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.geometry.pose import Pose
         from isaac_arena.scene.scene import Scene
@@ -49,12 +50,18 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        scene = Scene(assets=[background, pick_up_object])
+        destination_location = ObjectReference(
+            name="destination_location",
+            prim_path="{ENV_REGEX_NS}/Kitchen/Cabinet_B_02",
+            parent_asset=background,
+        )
+
+        scene = Scene(assets=[background, pick_up_object, destination_location])
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=PickAndPlaceTask(pick_up_object, background),
+            task=PickAndPlaceTask(pick_up_object, destination_location, background),
             teleop_device=teleop_device,
         )
         return isaac_arena_environment

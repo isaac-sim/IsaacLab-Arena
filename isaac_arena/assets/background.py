@@ -34,7 +34,7 @@ class Background(Asset):
     background_scene_cfg: AssetBaseCfg | None = None
 
     def __init__(self, robot_initial_pose: Pose):
-        super().__init__()
+        super().__init__(self.name)
         self.robot_initial_pose = robot_initial_pose
 
     def get_robot_initial_pose(self) -> Pose:
@@ -105,7 +105,7 @@ class PackingTablePickAndPlaceBackground(PickAndPlaceBackground):
     tags = ["background", "pick_and_place"]
     default_robot_initial_pose = Pose.identity()
     background_scene_cfg = AssetBaseCfg(
-        prim_path="/World/envs/env_.*/PackingTable",
+        prim_path="{ENV_REGEX_NS}/PackingTable",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[0.72193, -0.04727, -0.92512], rot=[0.70711, 0.0, 0.0, -0.70711]),
         spawn=UsdFileCfg(
             usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/packing_table_arena.usd",
@@ -137,7 +137,7 @@ class GalileoPickAndPlaceBackground(PickAndPlaceBackground):
     tags = ["background", "pick_and_place"]
     default_robot_initial_pose = Pose.identity()
     background_scene_cfg = AssetBaseCfg(
-        prim_path="/World/envs/env_.*/Galileo",
+        prim_path="{ENV_REGEX_NS}/Galileo",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[4.420, 1.408, -0.795], rot=[1.0, 0.0, 0.0, 0.0]),
         spawn=UsdFileCfg(
             usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/galileo_simplified.usd",

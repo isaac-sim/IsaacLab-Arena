@@ -28,6 +28,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
     name: str = "galileo_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
+        from isaac_arena.assets.object_reference import ObjectReference
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.geometry.pose import Pose
         from isaac_arena.scene.scene import Scene
@@ -49,12 +50,25 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        scene = Scene(assets=[background, pick_up_object])
+        # NOTE(alexmillane, 2025.09.08): This is a sub-optimal destination location
+        # in the room. I'd like to use the bottom shelf, however, the whole shelf is
+        # a single prim and therefore I cannot pick out the bottom shelf specifically.
+        # NOTE(alexmillane, 2025.09.08): I've also had to apply the rigid body API to
+        # the lid via the UI.
+        # TODO(alexmillane, 2025.09.08): Separate the self into prims so we can reference
+        # the bottom shelf specifically.
+        destination_location = ObjectReference(
+            name="destination_location",
+            prim_path="{ENV_REGEX_NS}/Galileo/BackgroundAssets/bins/small_bin_grid_01/lid",
+            parent_asset=background,
+        )
+
+        scene = Scene(assets=[background, pick_up_object, destination_location])
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=PickAndPlaceTask(pick_up_object, background),
+            task=PickAndPlaceTask(pick_up_object, destination_location, background),
             teleop_device=teleop_device,
         )
         return isaac_arena_environment

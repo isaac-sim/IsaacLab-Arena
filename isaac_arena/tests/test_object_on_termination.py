@@ -28,6 +28,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg
 
     from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.assets.object_reference import ObjectReference
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
@@ -43,7 +44,11 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen_pick_and_place")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-
+    destination_location = ObjectReference(
+        name="destination_location",
+        prim_path="{ENV_REGEX_NS}/Kitchen/Cabinet_B_02",
+        parent_asset=background,
+    )
     cracker_box.set_initial_pose(
         Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.0),
@@ -51,13 +56,13 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         )
     )
 
-    scene = Scene(assets=[background, cracker_box])
+    scene = Scene(assets=[background, cracker_box, destination_location])
 
     isaac_arena_environment = IsaacArenaEnvironment(
         name="kitchen_pick_and_place",
         embodiment=FrankaEmbodiment(),
         scene=scene,
-        task=PickAndPlaceTask(cracker_box, background),
+        task=PickAndPlaceTask(cracker_box, destination_location, background),
     )
 
     # Compile an IsaacLab compatible arena environment configuration
