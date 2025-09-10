@@ -23,7 +23,10 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
 from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-from isaac_arena.environments.isaac_arena_manager_based_env import IsaacArenaManagerBasedRLEnvCfg
+from isaac_arena.environments.isaac_arena_manager_based_env import (
+    IsaacArenaManagerBasedMimicEnvCfg,
+    IsaacArenaManagerBasedRLEnvCfg,
+)
 from isaac_arena.utils.configclass import combine_configclass_instances
 
 
@@ -36,7 +39,7 @@ class ArenaEnvBuilder:
         self.arena_env = arena_env
         self.args = args
 
-    def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
+    def compose_manager_cfg(self) -> tuple[IsaacArenaManagerBasedRLEnvCfg, str | type[ManagerBasedRLMimicEnv]]:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
         robot_pose = self.arena_env.scene.get_robot_initial_pose()
         self.arena_env.embodiment.set_robot_initial_pose(robot_pose)
@@ -64,40 +67,40 @@ class ArenaEnvBuilder:
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
         teleop_device = self.arena_env.teleop_device
 
-        return IsaacArenaManagerBasedRLEnvCfg(
-            observations=observation_cfg,
-            actions=actions_cfg,
-            events=events_cfg,
-            scene=scene_cfg,
-            terminations=termination_cfg,
-            xr=xr_cfg,
-            teleop_devices=teleop_device,
-        )
-
-    def compose_mimic_cfg(
-        self, base_cfg: IsaacArenaManagerBasedRLEnvCfg
-    ) -> tuple[IsaacArenaManagerBasedRLEnvCfg, str | type[ManagerBasedRLMimicEnv]]:
-        """Return (combined_mimic_cfg, entry_point) without registering."""
-        task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
-        combined = combine_configclass_instances("MimicEnvCfg", base_cfg, task_mimic_env_cfg)
-        entry_point = self.arena_env.embodiment.get_mimic_env()
-        return combined, entry_point
-
-    def build_unregistered(self) -> tuple[str, ManagerBasedRLEnvCfg, str | type[ManagerBasedRLMimicEnv]]:
-        """
-        Compose final cfg and entry point WITHOUT registering or parsing.
-        """
-        base = self.compose_manager_cfg()
-        if self.args.mimic:
-            final, entry = self.compose_mimic_cfg(base)
+        # Build the environment configuration
+        if not self.args.mimic:
+            entry_point = "isaaclab.envs:ManagerBasedRLEnv"
+            env_cfg = IsaacArenaManagerBasedRLEnvCfg(
+                observations=observation_cfg,
+                actions=actions_cfg,
+                events=events_cfg,
+                scene=scene_cfg,
+                terminations=termination_cfg,
+                xr=xr_cfg,
+                teleop_devices=teleop_device,
+            )
         else:
-            final, entry = base, "isaaclab.envs:ManagerBasedRLEnv"
-        return self.arena_env.name, final, entry
+            entry_point = self.arena_env.embodiment.get_mimic_env()
+            task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
+            env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
+                observations=observation_cfg,
+                actions=actions_cfg,
+                events=events_cfg,
+                scene=scene_cfg,
+                terminations=termination_cfg,
+                xr=xr_cfg,
+                teleop_devices=teleop_device,
+                # Mimic stuff
+                datagen_config=task_mimic_env_cfg.datagen_config,
+                subtask_configs=task_mimic_env_cfg.subtask_configs,
+                task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
+            )
+        return env_cfg, entry_point
 
     def build_registered(self) -> tuple[str, ManagerBasedRLEnvCfg]:
         """Register Gym env and parse runtime cfg."""
         name = self.arena_env.name
-        _, cfg_entry, entry_point = self.build_unregistered()
+        cfg_entry, entry_point = self.compose_manager_cfg()
         gym.register(
             id=name,
             entry_point=entry_point,

@@ -14,6 +14,7 @@
 
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
+from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.utils import configclass
 
 
@@ -49,3 +50,17 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
                 actions=self.actions,
                 xr_cfg=self.xr,
             )
+
+
+class IsaacArenaManagerBasedMimicEnvCfg(IsaacArenaManagerBasedRLEnvCfg, MimicEnvCfg):
+    """Configuration for an Isaac Arena environment."""
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    # NOTE(alexmillane, 2025-09-10): The following members are defined in the MimicEnvCfg class.
+    # Restated here for clarity.
+    # datagen_config: DataGenConfig = DataGenConfig()
+    # subtask_configs: dict[str, list[SubTaskConfig]] = {}
+    # task_constraint_configs: list[SubTaskConstraintConfig] = []
+    pass
