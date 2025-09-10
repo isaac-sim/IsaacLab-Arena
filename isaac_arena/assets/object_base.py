@@ -27,6 +27,7 @@ from isaac_arena.geometry.pose import Pose
 class ObjectType(Enum):
     ARTICULATION = "articulation"
     RIGID = "rigid"
+    BASE = "base"
 
 
 class ObjectBase(Asset, ABC):
