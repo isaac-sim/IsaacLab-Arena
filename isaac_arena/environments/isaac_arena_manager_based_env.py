@@ -52,6 +52,7 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
             )
 
 
+@configclass
 class IsaacArenaManagerBasedMimicEnvCfg(IsaacArenaManagerBasedRLEnvCfg, MimicEnvCfg):
     """Configuration for an Isaac Arena environment."""
 
