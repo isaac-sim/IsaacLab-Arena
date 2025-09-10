@@ -34,7 +34,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.open_door_task import OpenDoorTask
 
-        background = self.asset_registry.get_asset_by_name("packing_table_pick_and_place")()
+        background = self.asset_registry.get_asset_by_name("packing_table")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
 

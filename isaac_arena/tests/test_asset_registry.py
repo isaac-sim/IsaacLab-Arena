@@ -61,7 +61,7 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Base Environment
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("packing_table_pick_and_place")()
+    background = asset_registry.get_asset_by_name("packing_table")()
     asset = asset_registry.get_asset_by_name("cracker_box")()
 
     first_position = (0.5, 0.0, 0.0)

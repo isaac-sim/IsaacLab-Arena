@@ -4,8 +4,10 @@ FROM ${BASE_IMAGE}
 
 # Build arguments must come AFTER FROM for proper scope
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
-ARG INSTALL_GROOT
-ARG GROOT_DEPS_GROUP
+
+ARG INSTALL_GROOT=false
+ARG GROOT_DEPS_GROUP=base
+
 
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
@@ -15,40 +17,17 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
 ################################
 # Optional: Install CUDA 12.8
 ################################
+# Copy CUDA 12.8 installation script
+COPY docker/install_cuda.sh /tmp/install_cuda.sh
+RUN chmod +x /tmp/install_cuda.sh
+
 # If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
-# Detect Ubuntu version and install CUDA 12.8 via NVIDIA network repo (cuda-keyring)
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
-    echo "Installing CUDA 12.8"; \
-    set -eu && \
-    . /etc/os-release && \
-    case "$ID" in \
-      ubuntu) \
-        case "$VERSION_ID" in \
-          "20.04") cuda_repo="ubuntu2004";; \
-          "22.04") cuda_repo="ubuntu2204";; \
-          "24.04") cuda_repo="ubuntu2404";; \
-          *) echo "Unsupported Ubuntu $VERSION_ID"; exit 1;; \
-        esac ;; \
-      *) echo "Unsupported base OS: $ID"; exit 1 ;; \
-    esac && \
-    apt-get update && apt-get install -y --no-install-recommends wget gnupg ca-certificates && \
-    wget -q https://developer.download.nvidia.com/compute/cuda/repos/${cuda_repo}/x86_64/cuda-keyring_1.1-1_all.deb && \
-    dpkg -i cuda-keyring_1.1-1_all.deb && \
-    rm -f cuda-keyring_1.1-1_all.deb && \
-    wget -q https://developer.download.nvidia.com/compute/cuda/repos/${cuda_repo}/x86_64/cuda-${cuda_repo}.pin && \
-    mv cuda-${cuda_repo}.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends cuda-toolkit-12-8 && \
-    apt-get -y autoremove && apt-get clean && rm -rf /var/lib/apt/lists/* && \
-    \
-    # Set CUDA environment variables only when CUDA is installed
-    export CUDA_HOME=/usr/local/cuda-12.8 && \
-    export PATH=/usr/local/cuda-12.8/bin:${PATH} && \
-    export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-} && \
-    export TORCH_CUDA_ARCH_LIST=8.0+PTX; \
+    /tmp/install_cuda.sh; \
   else \
     echo "Skipping CUDA 12.8 installation"; \
-  fi
+  fi && \
+  rm -f /tmp/install_cuda.sh
 
 ################################
 # INSTALL APT DEPS
@@ -91,18 +70,20 @@ RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
 ################################
 # OPTIONAL GR00T Policy Deps
 ################################
+
+# Copy GR00T dependencies installation script
+COPY docker/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
+RUN chmod +x /tmp/install_gr00t_deps.sh
+
+# Install GR00T dependencies if requested
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
-    echo "Installing GR00T with dependency group: $GROOT_DEPS_GROUP" && \
-    export CUDA_HOME=/usr/local/cuda-12.8 && \
-    export PATH=/usr/local/cuda-12.8/bin:${PATH} && \
-    export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-} && \
-    export TORCH_CUDA_ARCH_LIST=8.0+PTX && \
-    /isaac-sim/python.sh -m pip install --upgrade setuptools packaging wheel && \
-    /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e  /workspaces/isaac_arena/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP] && \
-    /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.1.post4; \
+    /tmp/install_gr00t_deps.sh; \
   else \
     echo "Skipping GR00T installation"; \
-  fi
+  fi && \
+  # Clean up installation scripts
+  rm -f /tmp/install_gr00t_deps.sh
+
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
