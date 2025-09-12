@@ -1,0 +1,92 @@
+HOMIE_CONFIG: "config/g1_homie_v2.yaml"
+
+# copy from g1_43dof_hist.yaml
+ROBOT_TYPE: 'g1_29dof' # Robot name, "go2", "b2", "b2w", "h1", "go2w", "g1" 
+
+FREE_BASE: False
+
+PRINT_SCENE_INFORMATION: True # Print link, joint and sensors information of robot
+ENABLE_ELASTIC_BAND: True # Virtual spring band, used for lifting h1
+
+SIMULATE_DT: 0.005  # Need to be larger than the runtime of viewer.sync()
+VIEWER_DT: 0.02  # Viewer update time
+USE_HISTORY: True
+
+GAIT_PERIOD: 0.9 # 1.25
+
+NUM_MOTORS: 29
+NUM_JOINTS: 29
+NUM_HAND_MOTORS: 7
+NUM_HAND_JOINTS: 7
+NUM_UPPER_BODY_JOINTS: 17
+
+history_config: {
+  base_ang_vel: 4,
+  projected_gravity: 4,
+  command_lin_vel: 4,
+  command_ang_vel: 4,
+  command_base_height: 4,
+  command_stand: 4,
+  ref_upper_dof_pos: 4,
+  dof_pos: 4,
+  dof_vel: 4,
+  actions: 4,
+  # phase_time: 4,
+  ref_motion_phase: 4,
+  sin_phase: 4,
+  cos_phase: 4
+}
+
+obs_dims: {
+            base_lin_vel: 3,
+            base_ang_vel: 3,
+            projected_gravity: 3,
+            command_lin_vel: 2,
+            command_ang_vel: 1,
+            command_stand: 1,
+            command_base_height: 1,
+            ref_upper_dof_pos: 17, # upper body actions
+            dof_pos: 29,
+            dof_vel: 29,
+            # actions: 12, # lower body actions
+            actions: 29, # full body actions
+            phase_time: 1,
+            ref_motion_phase: 1, # mimic motion phase
+            sin_phase: 1,
+            cos_phase: 1,
+          }
+
+obs_scales: {
+    base_lin_vel: 2.0,
+    base_ang_vel: 0.25,
+    projected_gravity: 1.0,
+    command_lin_vel: 1,
+    command_ang_vel: 1,
+    command_stand: 1,
+    command_base_height: 2, # Yuanhang: it's 2, not 1!
+    ref_upper_dof_pos: 1.0,
+    dof_pos: 1.0,
+    dof_vel: 0.05,
+    history: 1.0,
+    history_loco: 1.0,
+    history_mimic: 1.0,
+    actions: 1.0,
+    phase_time: 1.0,
+    ref_motion_phase: 1.0,
+    sin_phase: 1.0,
+    cos_phase: 1.0
+  }
+
+
+robot_dofs: {
+  "g1_29dof": [1, 1, 1, 1, 1, 1, 
+               1, 1, 1, 1, 1, 1,
+               1, 1, 1,
+               1, 1, 1, 1, 1, 1, 1,
+               1, 1, 1, 1, 1, 1, 1],
+  "g1_29dof_anneal_23dof": [1, 1, 1, 1, 1, 1, 
+                            1, 1, 1, 1, 1, 1,
+                            1, 1, 1,
+                            1, 1, 1, 1, 0, 0, 0,
+                            1, 1, 1, 1, 0, 0, 0],
+}
