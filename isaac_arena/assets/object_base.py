@@ -25,15 +25,15 @@ from isaac_arena.geometry.pose import Pose
 
 
 class ObjectType(Enum):
-    ARTICULATION = "articulation"
+    BASE = "base"
     RIGID = "rigid"
+    ARTICULATION = "articulation"
 
 
 class ObjectBase(Asset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
     # Defined in Asset, restated here for clariry
-    # name: str | None = None
     # tags: list[str] | None = None
 
     def __init__(
@@ -69,6 +69,8 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_rigid_cfg()
         elif self.object_type == ObjectType.ARTICULATION:
             object_cfg = self._generate_articulation_cfg()
+        elif self.object_type == ObjectType.BASE:
+            object_cfg = self._generate_base_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
         return {

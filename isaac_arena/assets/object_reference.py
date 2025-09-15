@@ -13,8 +13,7 @@
 # limitations under the License.
 
 
-from isaaclab.assets import RigidObjectCfg
-from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaac_arena.assets.affordances import Openable
@@ -53,6 +52,13 @@ class ObjectReference(ObjectBase):
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
             actuators={},
+        )
+        return object_cfg
+
+    def _generate_base_cfg(self) -> AssetBaseCfg:
+        assert self.object_type == ObjectType.BASE
+        object_cfg = AssetBaseCfg(
+            prim_path=self.prim_path,
         )
         return object_cfg
 
