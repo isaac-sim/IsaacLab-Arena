@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
-
 import numpy as np
+from typing import Optional
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 
@@ -75,7 +74,7 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
         # self.upper_body_policy.set_goal(upper_body_goal)
         self.lower_body_policy.set_goal(lower_body_goal)
 
-    def get_action(self, upper_body_target_pose_mujoco: Optional[np.ndarray] = None):
+    def get_action(self, upper_body_target_pose_mujoco: np.ndarray | None = None):
         # Get indices for groups
         lower_body_indices = self.robot_model.get_joint_group_indices("lower_body")
         upper_body_indices = self.robot_model.get_joint_group_indices("upper_body")
@@ -84,10 +83,13 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
         q = np.zeros([self.num_envs, self.robot_model.num_dofs])
         if upper_body_target_pose_mujoco is not None:
             upper_body_action = self.upper_body_policy.get_action(upper_body_target_pose_mujoco)
-            assert upper_body_action["q"].shape[-1] == len(upper_body_indices), f"Upper body action has {upper_body_action['q'].shape[-1]} dofs, but upper body has {len(upper_body_indices)} dofs"
+            assert upper_body_action["q"].shape[-1] == len(upper_body_indices), (
+                f"Upper body action has {upper_body_action['q'].shape[-1]} dofs, but upper body has"
+                f" {len(upper_body_indices)} dofs"
+            )
             q[:, upper_body_indices] = upper_body_action["q"]
 
         lower_body_action = self.lower_body_policy.get_action()
-        q[:, lower_body_indices] = lower_body_action["body_action"][:, :len(lower_body_indices)]
+        q[:, lower_body_indices] = lower_body_action["body_action"][:, : len(lower_body_indices)]
 
         return {"q": q}

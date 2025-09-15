@@ -20,7 +20,7 @@ class IdentityPolicy(WBCPolicy):
         self.reset()
 
     def get_action(self, target_pose) -> dict[str, any]:
-        return {'q': target_pose}
+        return {"q": target_pose}
 
     def reset(self):
         pass

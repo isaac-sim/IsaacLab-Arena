@@ -12,20 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import time
 
-import numpy as np
-
+from isaac_arena.embodiments.g1.wbc_policy.policy.g1_decoupled_whole_body_policy import G1DecoupledWholeBodyPolicy
 from isaac_arena.embodiments.g1.wbc_policy.policy.g1_homie_policy import G1HomiePolicyV2
 from isaac_arena.embodiments.g1.wbc_policy.policy.identity_policy import IdentityPolicy
-from isaac_arena.embodiments.g1.wbc_policy.policy.g1_decoupled_whole_body_policy import G1DecoupledWholeBodyPolicy
 
 
-def get_wbc_policy(
-    robot_type,
-    robot_model,
-    wbc_config
-):
+def get_wbc_policy(robot_type, robot_model, wbc_config):
     # current_upper_body_pose = robot_model.get_initial_upper_body_pose()
 
     if robot_type == "g1":
@@ -41,7 +36,9 @@ def get_wbc_policy(
                 model_path=wbc_config.wbc_model_path,
             )
         else:
-            raise ValueError(f"Invalid lower body policy type: {lower_body_policy_type}, Supported lower body policy types: homie_v2")
+            raise ValueError(
+                f"Invalid lower body policy type: {lower_body_policy_type}, Supported lower body policy types: homie_v2"
+            )
 
         wbc_policy = G1DecoupledWholeBodyPolicy(
             robot_model=robot_model,

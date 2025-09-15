@@ -29,7 +29,4 @@ class G1DecoupledWBCActionCfg(ActionTermCfg):
     preserve_order: bool = False
     joint_names: list[str] = MISSING
 
-    USE_UPPERBODY = True
-
     wbc_version: str = "homie_v2"
-

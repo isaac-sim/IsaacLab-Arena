@@ -16,28 +16,29 @@ import torch
 from collections.abc import Sequence
 from dataclasses import MISSING
 
-from isaaclab.actuators import IdealPDActuatorCfg
 import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.devices.openxr import XrCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
-from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
 from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
+from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
+
 
 @register_asset
 class G1Embodiment(EmbodimentBase):
@@ -80,13 +81,11 @@ class G1SceneCfg:
                 max_angular_velocity=1000.0,
                 max_depenetration_velocity=1.0,
                 solver_position_iteration_count=4,
-                solver_velocity_iteration_count=0
+                solver_velocity_iteration_count=0,
             ),
             # collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.01, rest_offset=0.0),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-                enabled_self_collisions=False,
-                solver_position_iteration_count=4,
-                solver_velocity_iteration_count=0
+                enabled_self_collisions=False, solver_position_iteration_count=4, solver_velocity_iteration_count=0
             ),
         ),
         prim_path="/World/envs/env_.*/Robot",
@@ -111,15 +110,15 @@ class G1SceneCfg:
                 "waist_roll_joint": 0.0,
                 "waist_pitch_joint": 0.0,
                 "left_shoulder_pitch_joint": 0.0,
-                "left_shoulder_roll_joint": 0., #0.3,
+                "left_shoulder_roll_joint": 0.0,  # 0.3,
                 "left_shoulder_yaw_joint": 0.0,
-                "left_elbow_joint": 0., #1.0,
+                "left_elbow_joint": 0.0,  # 1.0,
                 "right_shoulder_pitch_joint": 0.0,
-                "right_shoulder_roll_joint": 0, #-0.3,
+                "right_shoulder_roll_joint": 0,  # -0.3,
                 "right_shoulder_yaw_joint": 0.0,
-                "right_elbow_joint": 0., #1.0,
+                "right_elbow_joint": 0.0,  # 1.0,
             },
-            joint_vel={".*": 0.0}
+            joint_vel={".*": 0.0},
         ),
         actuators={
             "legs": IdealPDActuatorCfg(
@@ -142,16 +141,16 @@ class G1SceneCfg:
                     ".*_knee_joint": 20.0,
                 },
                 stiffness={
-                    ".*_hip_yaw_joint": 150.0, #100.0,
-                    ".*_hip_roll_joint": 150.0, #100.0,
-                    ".*_hip_pitch_joint": 150.0, # 100.0
-                    ".*_knee_joint": 300.0, # 200.0,
+                    ".*_hip_yaw_joint": 150.0,  # 100.0,
+                    ".*_hip_roll_joint": 150.0,  # 100.0,
+                    ".*_hip_pitch_joint": 150.0,  # 100.0
+                    ".*_knee_joint": 300.0,  # 200.0,
                 },
                 damping={
-                    ".*_hip_yaw_joint": 2.0, #2.5,
-                    ".*_hip_roll_joint": 2.0, #2.5,
-                    ".*_hip_pitch_joint": 2.0, #2.5,
-                    ".*_knee_joint": 4.0, #5.0,
+                    ".*_hip_yaw_joint": 2.0,  # 2.5,
+                    ".*_hip_roll_joint": 2.0,  # 2.5,
+                    ".*_hip_pitch_joint": 2.0,  # 2.5,
+                    ".*_knee_joint": 4.0,  # 5.0,
                 },
                 armature={
                     ".*_hip_.*": 0.03,
@@ -161,12 +160,12 @@ class G1SceneCfg:
             "feet": IdealPDActuatorCfg(
                 joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
                 stiffness={
-                    ".*_ankle_pitch_joint": 40.0, # 20.0,
-                    ".*_ankle_roll_joint": 40.0, # 20.0,
+                    ".*_ankle_pitch_joint": 40.0,  # 20.0,
+                    ".*_ankle_roll_joint": 40.0,  # 20.0,
                 },
                 damping={
-                    ".*_ankle_pitch_joint": 2, # 0.2,
-                    ".*_ankle_roll_joint": 2, # 0.1,
+                    ".*_ankle_pitch_joint": 2,  # 0.2,
+                    ".*_ankle_roll_joint": 2,  # 0.1,
                 },
                 effort_limit={
                     ".*_ankle_pitch_joint": 50.0,
@@ -177,7 +176,7 @@ class G1SceneCfg:
                     ".*_ankle_roll_joint": 37.0,
                 },
                 armature=0.03,
-                friction=0.03
+                friction=0.03,
             ),
             "waist": IdealPDActuatorCfg(
                 joint_names_expr=[
@@ -195,9 +194,9 @@ class G1SceneCfg:
                 },
                 # changing from 400 to 200
                 stiffness={
-                    "waist_yaw_joint": 250.0, # 300.0,
-                    "waist_roll_joint": 250.0, # 300.0,
-                    "waist_pitch_joint": 250.0, # 300.0,
+                    "waist_yaw_joint": 250.0,  # 300.0,
+                    "waist_roll_joint": 250.0,  # 300.0,
+                    "waist_pitch_joint": 250.0,  # 300.0,
                 },
                 damping={
                     "waist_yaw_joint": 5.0,
@@ -205,7 +204,7 @@ class G1SceneCfg:
                     "waist_pitch_joint": 5.0,
                 },
                 armature=0.03,
-                friction=0.03
+                friction=0.03,
             ),
             "arms": IdealPDActuatorCfg(
                 joint_names_expr=[
@@ -234,25 +233,21 @@ class G1SceneCfg:
                     ".*_wrist_yaw_joint": 22.0,
                 },
                 stiffness={
-                    ".*_shoulder_pitch_joint": 100.0, # 90.0,
-                    ".*_shoulder_roll_joint": 100.0, # 60.0,
-                    ".*_shoulder_yaw_joint": 40.0, # 20.0,
-                    ".*_elbow_joint": 40.0, # 60.0,
-                    ".*_wrist_.*_joint": 20.0,  #10.0,
+                    ".*_shoulder_pitch_joint": 100.0,  # 90.0,
+                    ".*_shoulder_roll_joint": 100.0,  # 60.0,
+                    ".*_shoulder_yaw_joint": 40.0,  # 20.0,
+                    ".*_elbow_joint": 40.0,  # 60.0,
+                    ".*_wrist_.*_joint": 20.0,  # 10.0,
                 },
                 damping={
-                    ".*_shoulder_pitch_joint": 5.0, # 2.0,
-                    ".*_shoulder_roll_joint": 5.0, # 1.0,
-                    ".*_shoulder_yaw_joint": 2.0, # 0.4,
-                    ".*_elbow_joint": 2.0, # 1.0,
-                    ".*_wrist_.*_joint": 2.0, #0.2,
+                    ".*_shoulder_pitch_joint": 5.0,  # 2.0,
+                    ".*_shoulder_roll_joint": 5.0,  # 1.0,
+                    ".*_shoulder_yaw_joint": 2.0,  # 0.4,
+                    ".*_elbow_joint": 2.0,  # 1.0,
+                    ".*_wrist_.*_joint": 2.0,  # 0.2,
                 },
-                armature={
-                    ".*_shoulder_.*": 0.03,
-                    ".*_elbow_.*": 0.03,
-                    ".*_wrist_.*_joint": 0.03
-                },
-                friction=0.03
+                armature={".*_shoulder_.*": 0.03, ".*_elbow_.*": 0.03, ".*_wrist_.*_joint": 0.03},
+                friction=0.03,
             ),
             # TODO: check with teleop
             "hands": IdealPDActuatorCfg(
@@ -264,7 +259,7 @@ class G1SceneCfg:
                 stiffness=4.0,
                 damping=0.2,
                 armature=0.03,
-                friction=0.03
+                friction=0.03,
             ),
         },
     )
@@ -319,6 +314,7 @@ class G1ObservationsCfg:
     @configclass
     class WBCObsCfg(ObsGroup):
         """Observations for WBC policy group with state values."""
+
         robot_joint_pos = ObsTerm(
             func=base_mdp.joint_pos,
             params={"asset_cfg": SceneEntityCfg("robot")},
@@ -339,13 +335,16 @@ class G1ObservationsCfg:
         def __post_init__(self):
             self.enable_corruption = False
             self.concatenate_terms = False
+
     # observation groups
     policy: PolicyCfg = PolicyCfg()
     wbc: WBCObsCfg = WBCObsCfg()
 
+
 @configclass
 class G1WBCActionCfg:
     """Action specifications for the MDP, for G1 WBC action."""
+
     g1_action: ActionTermCfg = G1DecoupledWBCActionCfg(asset_name="robot", joint_names=[".*"])
 
 
@@ -364,4 +363,3 @@ class G1EventCfg:
 
     reset_wbc_policy = EventTerm(func=wbc_events_mdp.reset_decoupled_wbc_policy, mode="reset")
     # NOTE(xinjie.yao, 2025.09.09): Commented out P-control reset for Mimic loco-manip
-    # reset_p_controller = EventTerm(func=mdp.reset_p_controller, mode="reset")

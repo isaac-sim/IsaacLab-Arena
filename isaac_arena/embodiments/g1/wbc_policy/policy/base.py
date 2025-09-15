@@ -41,7 +41,7 @@ class WBCPolicy(ABC):
         self.observation = observation
 
     @abstractmethod
-    def get_action(self, time: Optional[float] = None) -> dict[str, any]:
+    def get_action(self, time: float | None = None) -> dict[str, any]:
         """Compute and return the next action at the specified time, based on current observation
         and planner command.
 

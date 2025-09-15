@@ -13,12 +13,11 @@
 # limitations under the License.
 
 import collections
-import pathlib
-from typing import Any, Dict, Optional
-
 import numpy as np
 import onnxruntime as ort
+import pathlib
 import torch
+from typing import Any, Dict, Optional
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 from isaac_arena.embodiments.g1.wbc_policy.utils.homie_utils import get_gravity_orientation, load_config
@@ -91,7 +90,7 @@ class G1HomiePolicyV2(WBCPolicy):
 
         return run_inference
 
-    def compute_observation(self, observation: Dict[str, Any]) -> tuple[np.ndarray, int]:
+    def compute_observation(self, observation: dict[str, Any]) -> tuple[np.ndarray, int]:
         """Compute the observation vector from current state"""
         # Get body joint indices (excluding waist roll and pitch)
         self.gait_indices = torch.remainder(self.gait_indices + 0.02 * self.freq_cmd, 1.0)
@@ -101,9 +100,7 @@ class G1HomiePolicyV2(WBCPolicy):
             self.gait_indices + phases,  # FL
             self.gait_indices,  # FR
         ]
-        self.foot_indices = torch.remainder(
-            torch.cat([foot_indices[i].unsqueeze(1) for i in range(2)], dim=1), 1.0
-        )
+        self.foot_indices = torch.remainder(torch.cat([foot_indices[i].unsqueeze(1) for i in range(2)], dim=1), 1.0)
         for fi in foot_indices:
             stance = fi < durations
             swing = fi >= durations
@@ -150,13 +147,13 @@ class G1HomiePolicyV2(WBCPolicy):
         single_obs[:, 4:7] = np.concatenate([self.roll_cmd, self.pitch_cmd, self.yaw_cmd], axis=0)
         single_obs[:, 7:10] = omega_scaled
         single_obs[:, 10:13] = gravity_orientation.T
-        single_obs[:, 13:13 + n_joints] = qj_scaled
-        single_obs[:, 13 + n_joints:13 + 2 * n_joints] = dqj_scaled
-        single_obs[:, 13 + 2 * n_joints:13 + 2 * n_joints + 15] = self.action
+        single_obs[:, 13 : 13 + n_joints] = qj_scaled
+        single_obs[:, 13 + n_joints : 13 + 2 * n_joints] = dqj_scaled
+        single_obs[:, 13 + 2 * n_joints : 13 + 2 * n_joints + 15] = self.action
 
         return single_obs, single_obs_dim
 
-    def set_observation(self, observation: Dict[str, Any]):
+    def set_observation(self, observation: dict[str, Any]):
         """Update the policy's current observation of the environment.
 
         Args:
@@ -188,7 +185,7 @@ class G1HomiePolicyV2(WBCPolicy):
 
         assert self.obs_tensor.shape[1] == self.config["num_obs"]
 
-    def set_goal(self, goal: Dict[str, Any]):
+    def set_goal(self, goal: dict[str, Any]):
         """Set the goal for the policy.
 
         Args:
@@ -214,9 +211,7 @@ class G1HomiePolicyV2(WBCPolicy):
             self.pitch_cmd = goal["torso_orientation_rpy_cmd"][:, 1]
             self.yaw_cmd = goal["torso_orientation_rpy_cmd"][:, 2]
 
-    def get_action(
-        self
-    ) -> Dict[str, Any]:
+    def get_action(self) -> dict[str, Any]:
         """Compute and return the next action based on current observation.
 
         Args:
@@ -227,7 +222,6 @@ class G1HomiePolicyV2(WBCPolicy):
         """
         if self.obs_tensor is None:
             raise ValueError("No observation set. Call set_observation() first.")
-
 
         # Run policy inference
         with torch.no_grad():

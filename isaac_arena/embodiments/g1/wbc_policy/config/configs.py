@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import asdict, dataclass, MISSING
 import os
+import yaml
+from dataclasses import MISSING, asdict, dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-import yaml
 
 @dataclass
 class ArgsConfig:
@@ -60,6 +60,7 @@ class BaseConfig(ArgsConfig):
     # Robot Configuration
     enable_waist: bool = False
     """Whether to include waist joints in IK."""
+
 
 @dataclass
 class HomieV2Config(BaseConfig):

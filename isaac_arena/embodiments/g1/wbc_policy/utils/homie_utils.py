@@ -16,9 +16,10 @@
 import numpy as np
 import yaml
 
+
 def load_config(config_path):
     """Load and process the YAML configuration file"""
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     # Convert lists to numpy arrays where needed
@@ -29,6 +30,7 @@ def load_config(config_path):
 
     return config
 
+
 def quat_rotate_inverse(q, v):
     """Rotate vector v by the inverse of quaternion q"""
     w = q[..., 0]
@@ -38,22 +40,20 @@ def quat_rotate_inverse(q, v):
 
     q_conj = np.array([w, -x, -y, -z])
 
-    return np.array(
-        [
-            v[0] * (q_conj[0] ** 2 + q_conj[1] ** 2 - q_conj[2] ** 2 - q_conj[3] ** 2)
-            + v[1] * 2 * (q_conj[1] * q_conj[2] - q_conj[0] * q_conj[3])
-            + v[2] * 2 * (q_conj[1] * q_conj[3] + q_conj[0] * q_conj[2]),
-            v[0] * 2 * (q_conj[1] * q_conj[2] + q_conj[0] * q_conj[3])
-            + v[1] * (q_conj[0] ** 2 - q_conj[1] ** 2 + q_conj[2] ** 2 - q_conj[3] ** 2)
-            + v[2] * 2 * (q_conj[2] * q_conj[3] - q_conj[0] * q_conj[1]),
-            v[0] * 2 * (q_conj[1] * q_conj[3] - q_conj[0] * q_conj[2])
-            + v[1] * 2 * (q_conj[2] * q_conj[3] + q_conj[0] * q_conj[1])
-            + v[2] * (q_conj[0] ** 2 - q_conj[1] ** 2 - q_conj[2] ** 2 + q_conj[3] ** 2),
-        ]
-    )
+    return np.array([
+        v[0] * (q_conj[0] ** 2 + q_conj[1] ** 2 - q_conj[2] ** 2 - q_conj[3] ** 2)
+        + v[1] * 2 * (q_conj[1] * q_conj[2] - q_conj[0] * q_conj[3])
+        + v[2] * 2 * (q_conj[1] * q_conj[3] + q_conj[0] * q_conj[2]),
+        v[0] * 2 * (q_conj[1] * q_conj[2] + q_conj[0] * q_conj[3])
+        + v[1] * (q_conj[0] ** 2 - q_conj[1] ** 2 + q_conj[2] ** 2 - q_conj[3] ** 2)
+        + v[2] * 2 * (q_conj[2] * q_conj[3] - q_conj[0] * q_conj[1]),
+        v[0] * 2 * (q_conj[1] * q_conj[3] - q_conj[0] * q_conj[2])
+        + v[1] * 2 * (q_conj[2] * q_conj[3] + q_conj[0] * q_conj[1])
+        + v[2] * (q_conj[0] ** 2 - q_conj[1] ** 2 - q_conj[2] ** 2 + q_conj[3] ** 2),
+    ])
+
 
 def get_gravity_orientation(quat):
     """Get gravity vector in body frame"""
     gravity_vec = np.array([0.0, 0.0, -1.0])
     return quat_rotate_inverse(quat, gravity_vec)
-
