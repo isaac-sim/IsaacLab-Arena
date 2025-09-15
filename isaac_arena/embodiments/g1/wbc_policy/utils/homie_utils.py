@@ -57,38 +57,3 @@ def get_gravity_orientation(quat):
     gravity_vec = np.array([0.0, 0.0, -1.0])
     return quat_rotate_inverse(quat, gravity_vec)
 
-def compute_observation(d, config, action, cmd, height_cmd, n_joints):
-    """Compute the observation vector from current state"""
-    # Get state from MuJoCo
-    qj = d.qpos[7 : 7 + n_joints].copy()
-    dqj = d.qvel[6 : 6 + n_joints].copy()
-    quat = d.qpos[3:7].copy()
-    omega = d.qvel[3:6].copy()
-
-    # Handle default angles padding
-    if len(config["default_angles"]) < n_joints:
-        padded_defaults = np.zeros(n_joints, dtype=np.float32)
-        padded_defaults[: len(config["default_angles"])] = config["default_angles"]
-    else:
-        padded_defaults = config["default_angles"][:n_joints]
-
-    # Scale the values
-    qj_scaled = (qj - padded_defaults) * config["dof_pos_scale"]
-    dqj_scaled = dqj * config["dof_vel_scale"]
-    gravity_orientation = get_gravity_orientation(quat)
-    omega_scaled = omega * config["ang_vel_scale"]
-
-    # Calculate single observation dimension
-    single_obs_dim = 3 + 1 + 3 + 3 + n_joints + n_joints + 12
-
-    # Create single observation
-    single_obs = np.zeros(single_obs_dim, dtype=np.float32)
-    single_obs[0:3] = cmd[:3] * config["cmd_scale"]
-    single_obs[3:4] = np.array([height_cmd])
-    single_obs[4:7] = omega_scaled
-    single_obs[7:10] = gravity_orientation
-    single_obs[10 : 10 + n_joints] = qj_scaled
-    single_obs[10 + n_joints : 10 + 2 * n_joints] = dqj_scaled
-    single_obs[10 + 2 * n_joints : 10 + 2 * n_joints + 12] = action
-
-    return single_obs, single_obs_dim
