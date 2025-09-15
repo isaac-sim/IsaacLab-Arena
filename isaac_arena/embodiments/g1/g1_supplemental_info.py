@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 from dataclasses import dataclass
 
-import numpy as np
 
 # NOTE(xinjie.yao, 9.11.2025): consider inheritating from a base class `RobotSupplementalInfo`
 @dataclass
@@ -261,7 +261,6 @@ class G1SupplementalInfo:
         self.default_joint_q = {}
 
 
-
 @dataclass
 class G1SupplementalInfoWaistUpperBody(G1SupplementalInfo):
     """
@@ -284,6 +283,7 @@ class G1SupplementalInfoWaistUpperBody(G1SupplementalInfo):
 
         # Update the joint_groups attribute
         self.joint_groups = modified_joint_groups
+
 
 @dataclass
 class G1SupplementalInfoWaistLowerAndUpperBody(G1SupplementalInfo):

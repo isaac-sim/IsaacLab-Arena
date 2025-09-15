@@ -14,11 +14,11 @@
 
 import numpy as np
 import os
-from copy import deepcopy
-from typing import List, Optional, Set, Union, TYPE_CHECKING
 import yaml
-import pinocchio as pin
+from copy import deepcopy
+from typing import TYPE_CHECKING, List, Optional, Set, Union
 
+import pinocchio as pin
 
 from isaac_arena.embodiments.g1.g1_supplemental_info import G1SupplementalInfo
 
@@ -26,7 +26,7 @@ from isaac_arena.embodiments.g1.g1_supplemental_info import G1SupplementalInfo
 class RobotModel:
     def __init__(
         self,
-        supplemental_info: Optional[G1SupplementalInfo] = None,
+        supplemental_info: G1SupplementalInfo | None = None,
     ):
         # self.pinocchio_wrapper = pin.RobotWrapper.BuildFromURDF(
         #     filename=urdf_path,
@@ -36,21 +36,24 @@ class RobotModel:
 
         # self.is_floating_base_model = set_floating_base
 
-        joints_order_path = os.path.join(os.path.dirname(__file__), "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml")
+        joints_order_path = os.path.join(
+            os.path.dirname(__file__), "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml"
+        )
 
-        with open(joints_order_path, "r") as f:
+        with open(joints_order_path) as f:
             self.wbc_g1_joints_order = yaml.safe_load(f)
 
         self.joint_to_dof_index = {}
         for name in self.wbc_g1_joints_order:
             self.joint_to_dof_index[name] = self.wbc_g1_joints_order[name]
 
-
         # Set up supplemental info if provided
         self.supplemental_info = supplemental_info
         print(f"self.supplemental_info: {self.supplemental_info}")
         self.num_dofs_body = len(self.supplemental_info.body_actuated_joints)
-        self.num_dofs_hands = len(self.supplemental_info.left_hand_actuated_joints) + len(self.supplemental_info.right_hand_actuated_joints)
+        self.num_dofs_hands = len(self.supplemental_info.left_hand_actuated_joints) + len(
+            self.supplemental_info.right_hand_actuated_joints
+        )
         # self.lower_joint_limits = np.zeros(self.num_dofs)
         # self.upper_joint_limits = np.zeros(self.num_dofs)
         if self.supplemental_info is not None:
@@ -106,7 +109,7 @@ class RobotModel:
         return self.initial_body_pose
 
     @property
-    def joint_names(self) -> List[str]:
+    def joint_names(self) -> list[str]:
         """Get the names of the joints of the robot."""
         return list(self.joint_to_dof_index.keys())
 
@@ -122,12 +125,11 @@ class RobotModel:
         """
         if joint_name not in self.joint_to_dof_index:
             raise ValueError(
-                f"Unknown joint name: '{joint_name}'. "
-                f"Available joints: {list(self.joint_to_dof_index.keys())}"
+                f"Unknown joint name: '{joint_name}'. Available joints: {list(self.joint_to_dof_index.keys())}"
             )
         return self.joint_to_dof_index[joint_name]
 
-    def get_body_actuated_joint_indices(self) -> List[int]:
+    def get_body_actuated_joint_indices(self) -> list[int]:
         """
         Get the indices of body actuated joints in the full configuration.
         Ordering is that of the actuated joints as defined in the supplemental info.
@@ -137,7 +139,7 @@ class RobotModel:
             raise ValueError("supplemental_info must be provided to use this method")
         return self._body_actuated_joint_indices
 
-    def get_hand_actuated_joint_indices(self, side: str = "both") -> List[int]:
+    def get_hand_actuated_joint_indices(self, side: str = "both") -> list[int]:
         """
         Get the indices of hand actuated joints in the full configuration.
         Ordering is that of the actuated joints as defined in the supplemental info.
@@ -158,7 +160,7 @@ class RobotModel:
         else:
             raise ValueError("side must be 'left', 'right', or 'both'")
 
-    def get_joint_group_indices(self, group_names: Union[str, Set[str]]) -> List[int]:
+    def get_joint_group_indices(self, group_names: str | set[str]) -> list[int]:
         """
         Get the indices of joints in one or more groups in the full configuration.
         Requires supplemental_info to be provided.
@@ -208,7 +210,6 @@ class RobotModel:
         """
         indices = self.get_hand_actuated_joint_indices(side)
         return q[indices]
-
 
     # def get_initial_upper_body_pose(self) -> np.ndarray:
     #     """
@@ -267,6 +268,3 @@ class RobotModel:
     #     )
 
     #     return q_clipped
-
-
-

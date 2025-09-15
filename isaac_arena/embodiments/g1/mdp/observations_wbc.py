@@ -17,12 +17,12 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.managers import SceneEntityCfg
 import isaaclab.utils.math as PoseUtils
+from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
-    from isaaclab.envs import ManagerBasedEnv,ManagerBasedRLEnv
     from isaaclab.assets import Articulation
+    from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLEnv
 
 
 def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
@@ -33,6 +33,7 @@ def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.joint_acc[:, asset_cfg.joint_ids]
+
 
 def eef_pose_pelvis_frame(env: ManagerBasedEnv, eef_name, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
     asset: Articulation = env.scene[asset_cfg.name]
@@ -96,10 +97,12 @@ def get_eef_pose(
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
+
 def get_navigate_cmd(
     env: ManagerBasedRLEnv,
 ):
     return env.action_manager.get_term("g1_action").navigate_cmd.clone()
+
 
 def get_robot_pos(
     env: ManagerBasedRLEnv,
@@ -107,6 +110,7 @@ def get_robot_pos(
 ):
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.root_pos_w
+
 
 def get_robot_quat(
     env: ManagerBasedRLEnv,

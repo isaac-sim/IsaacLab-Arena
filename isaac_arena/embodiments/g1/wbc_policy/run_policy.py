@@ -15,8 +15,8 @@
 import numpy as np
 import torch
 
-from isaaclab.assets import ArticulationData
 import isaaclab.utils.math as math_utils
+from isaaclab.assets import ArticulationData
 
 
 def convert_sim_joint_to_wbc_joint(sim_joint_data: np.ndarray, sim_joint_names: list, wbc_joints_order: dict):
@@ -35,6 +35,7 @@ def convert_sim_joint_to_wbc_joint(sim_joint_data: np.ndarray, sim_joint_names: 
         wbc_joint_index = wbc_joints_order[sim_joint_name]
         wbc_joint_data[:, wbc_joint_index] = sim_joint_data[:, sim_joint_index]
     return wbc_joint_data
+
 
 def prepare_observations(num_envs: int, robot_data: ArticulationData, wbc_joints_order: dict):
     """Prepare observations for the policy."""
@@ -63,7 +64,7 @@ def prepare_observations(num_envs: int, robot_data: ArticulationData, wbc_joints
     base_vel_b = np.concatenate((base_lin_vel_b, base_ang_vel_b), axis=1)
     # torso link in world frame
     torso_link_pose_w = robot_data.body_link_state_w[:, robot_data.body_names.index("torso_link"), :]
-    torso_link_quat_w = torso_link_pose_w[:, 3:7] # w, x, y, z
+    torso_link_quat_w = torso_link_pose_w[:, 3:7]  # w, x, y, z
     torso_link_ang_vel_w = torso_link_pose_w[:, -3:]
 
     torso_link_ang_vel_b = math_utils.quat_apply_inverse(torso_link_quat_w, torso_link_ang_vel_w)
@@ -72,17 +73,20 @@ def prepare_observations(num_envs: int, robot_data: ArticulationData, wbc_joints
     wbc_obs = {
         "q": wbc_joint_pos,
         "dq": wbc_joint_vel,
-        "ddq": np.zeros((num_envs, num_joints)),     # Not used by Standing Waist Height Policy
-        "tau_est": np.zeros((num_envs, num_joints)),     # Not used by Standing Waist Height Policy
-        "floating_base_pose": base_pose_w, # wrt world frame, used to project gravity vector to local frame
-        "floating_base_vel": base_vel_b, # wrt body frame
-        "floating_base_acc": np.zeros((num_envs, 6)),     # Not used by Standing Waist Height Policy
+        "ddq": np.zeros((num_envs, num_joints)),  # Not used by Standing Waist Height Policy
+        "tau_est": np.zeros((num_envs, num_joints)),  # Not used by Standing Waist Height Policy
+        "floating_base_pose": base_pose_w,  # wrt world frame, used to project gravity vector to local frame
+        "floating_base_vel": base_vel_b,  # wrt body frame
+        "floating_base_acc": np.zeros((num_envs, 6)),  # Not used by Standing Waist Height Policy
         "torso_quat": torso_link_quat_w.cpu().numpy(),
         "torso_ang_vel": torso_link_ang_vel_b.cpu().numpy(),
     }
     return wbc_obs
 
-def postprocess_actions(wbc_action: dict, robot_data: ArticulationData, wbc_g1_joints_order: dict, device: torch.device):
+
+def postprocess_actions(
+    wbc_action: dict, robot_data: ArticulationData, wbc_g1_joints_order: dict, device: torch.device
+):
     """Postprocess actions for the policy."""
     num_envs = wbc_action["q"].shape[0]
     num_joints = len(robot_data.joint_names)

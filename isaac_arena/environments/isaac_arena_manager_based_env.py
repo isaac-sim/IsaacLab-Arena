@@ -37,10 +37,10 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         """Post initialization."""
         # general settings
-        self.decimation = 5
+        self.decimation = 4
         self.episode_length_s = 30.0
         # simulation settings
-        self.sim.dt = 0.01  # 100Hz
+        self.sim.dt = 1 / 200  # 200Hz
         self.sim.render_interval = 2
 
         # Add teleop device here as we need access to xr and sim device.

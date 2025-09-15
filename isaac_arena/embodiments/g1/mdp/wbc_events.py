@@ -14,14 +14,14 @@
 
 from __future__ import annotations
 
+import copy
 import numpy as np
 import torch
-import copy
 from typing import TYPE_CHECKING
-
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLenv
+
 
 def reset_decoupled_wbc_policy(env: ManagerBasedRLenv, env_ids: torch.Tensor):
     policy = env.action_manager.get_term("g1_action").get_wbc_policy

@@ -15,12 +15,12 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from isaac_arena.embodiments.g1.robot_model import RobotModel
 from isaac_arena.embodiments.g1.g1_supplemental_info import (
     G1SupplementalInfo,
     G1SupplementalInfoWaistLowerAndUpperBody,
     G1SupplementalInfoWaistUpperBody,
 )
+from isaac_arena.embodiments.g1.robot_model import RobotModel
 
 
 def instantiate_g1_robot_model(
