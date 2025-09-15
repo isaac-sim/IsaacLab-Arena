@@ -83,7 +83,7 @@ class LightwheelKitchenBackground(Background):
     tags = ["background"]
     default_robot_initial_pose = Pose.identity()
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/lightwheel_assets_for_deletion/robocasakitchen-4-2/scene.usd"
-    initial_pose = Pose(position_xyz=(-1.20, 1.70, -0.87), rotation_wxyz=(1.0, 0, 0, 0))
+    initial_pose = Pose(position_xyz=(-1.20, 1.70, -0.92), rotation_wxyz=(1.0, 0, 0, 0))
     object_min_z = -0.2
 
     def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):

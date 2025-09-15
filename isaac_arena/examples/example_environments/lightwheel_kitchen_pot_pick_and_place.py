@@ -44,7 +44,7 @@ class LightwheelKitchenPotPickAndPlaceEnvironment(ExampleEnvironmentBase):
             teleop_device = None
 
         # Put the pot on the bench.
-        pot.set_initial_pose(Pose(position_xyz=(1.06, -1.01, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        pot.set_initial_pose(Pose(position_xyz=(1.06, -1.01, 0.00), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         # Put the pot above the stovetop to test the termination condition
         # pot.set_initial_pose(Pose(position_xyz=(2.21, -0.47, 1.36), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
