@@ -20,12 +20,14 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 
+# NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
+# seem to generate a "small" velocity.
 def object_on_destination(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
     contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
     force_threshold: float = 1.0,
-    velocity_threshold: float = 0.05,
+    velocity_threshold: float = 0.5,
 ) -> torch.Tensor:
     object: RigidObject = env.scene[object_cfg.name]
     sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
