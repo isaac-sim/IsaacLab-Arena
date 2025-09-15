@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from isaaclab.assets import RigidObjectCfg, ArticulationCfg, AssetBaseCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaac_arena.assets.affordances import Openable

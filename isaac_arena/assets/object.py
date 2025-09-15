@@ -13,8 +13,7 @@
 # limitations under the License.
 
 
-from isaaclab.assets import RigidObjectCfg, AssetBaseCfg, ArticulationCfg
-# from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaac_arena.assets.object_base import ObjectBase, ObjectType
@@ -28,7 +27,7 @@ class Object(ObjectBase):
 
     # Defined in Asset, restated here for clariry
     # tags: list[str] | None = None
-    name: str
+    name: str | None = None
     object_type: ObjectType = ObjectType.RIGID
     usd_path: str | None = None
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
@@ -38,6 +37,7 @@ class Object(ObjectBase):
         initial_pose: Pose | None = None,
         **kwargs,
     ):
+        assert self.name is not None and self.usd_path is not None
         super().__init__(name=self.name, object_type=self.object_type, **kwargs)
         self.initial_pose = initial_pose
 
@@ -67,7 +67,7 @@ class Object(ObjectBase):
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
-    
+
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
         object_cfg = AssetBaseCfg(

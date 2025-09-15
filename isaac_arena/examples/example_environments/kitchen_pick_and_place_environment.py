@@ -35,8 +35,20 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
-        pick_up_object = self.asset_registry.get_asset_by_name("cracker_box")()
-        embodiment = self.asset_registry.get_asset_by_name("franka")()
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+
+        if args_cli.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        else:
+            teleop_device = None
+
+        pick_up_object.set_initial_pose(
+            Pose(
+                position_xyz=(0.4, 0.0, 0.1),
+                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            )
+        )
 
         destination_location = ObjectReference(
             name="destination_location",
@@ -45,13 +57,12 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
 
         scene = Scene(assets=[background, pick_up_object, destination_location])
-
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
             task=PickAndPlaceTask(pick_up_object, destination_location, background),
-            teleop_device=None,
+            teleop_device=teleop_device,
         )
         return isaac_arena_environment
 
