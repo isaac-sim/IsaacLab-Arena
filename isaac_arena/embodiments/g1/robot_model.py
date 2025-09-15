@@ -20,26 +20,23 @@ import yaml
 import pinocchio as pin
 
 
-from isaac_arena.embodiments.g1.wbc_policy.utils.robot_supplemental_info import RobotSupplementalInfo
+from isaac_arena.embodiments.g1.g1_supplemental_info import G1SupplementalInfo
 
 
 class RobotModel:
     def __init__(
         self,
-        urdf_path,
-        asset_path,
-        set_floating_base=False,
-        supplemental_info: Optional[RobotSupplementalInfo] = None,
+        supplemental_info: Optional[G1SupplementalInfo] = None,
     ):
-        self.pinocchio_wrapper = pin.RobotWrapper.BuildFromURDF(
-            filename=urdf_path,
-            package_dirs=[asset_path],
-            root_joint=pin.JointModelFreeFlyer() if set_floating_base else None,
-        )
+        # self.pinocchio_wrapper = pin.RobotWrapper.BuildFromURDF(
+        #     filename=urdf_path,
+        #     package_dirs=[asset_path],
+        #     root_joint=pin.JointModelFreeFlyer() if set_floating_base else None,
+        # )
 
-        self.is_floating_base_model = set_floating_base
+        # self.is_floating_base_model = set_floating_base
 
-        joints_order_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config/loco_manip_g1_joints_order_43dof.yaml")
+        joints_order_path = os.path.join(os.path.dirname(__file__), "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml")
 
         with open(joints_order_path, "r") as f:
             self.wbc_g1_joints_order = yaml.safe_load(f)
@@ -48,33 +45,29 @@ class RobotModel:
         for name in self.wbc_g1_joints_order:
             self.joint_to_dof_index[name] = self.wbc_g1_joints_order[name]
 
-        # Store joint limits only for actual joints (excluding floating base)
-        # if set floating base is true and the robot can move in the world
-        # then we don't want to impose joint limits for the 7 dofs corresponding
-        # to the floating base dofs.
-        root_nq = 7 if set_floating_base else 0
 
         # Set up supplemental info if provided
         self.supplemental_info = supplemental_info
+        print(f"self.supplemental_info: {self.supplemental_info}")
         self.num_dofs_body = len(self.supplemental_info.body_actuated_joints)
         self.num_dofs_hands = len(self.supplemental_info.left_hand_actuated_joints) + len(self.supplemental_info.right_hand_actuated_joints)
-        self.lower_joint_limits = np.zeros(self.num_dofs)
-        self.upper_joint_limits = np.zeros(self.num_dofs)
+        # self.lower_joint_limits = np.zeros(self.num_dofs)
+        # self.upper_joint_limits = np.zeros(self.num_dofs)
         if self.supplemental_info is not None:
-            print(f"self.supplemental_info.body_actuated_joints: {self.supplemental_info.body_actuated_joints}")
+            # print(f"self.supplemental_info.body_actuated_joints: {self.supplemental_info.body_actuated_joints}")
             # Cache indices for body and hand actuated joints separately
-            self._body_actuated_joint_indices = [
-                self.dof_index(name) for name in self.supplemental_info.body_actuated_joints
-            ]
-            self._left_hand_actuated_joint_indices = [
-                self.dof_index(name) for name in self.supplemental_info.left_hand_actuated_joints
-            ]
-            self._right_hand_actuated_joint_indices = [
-                self.dof_index(name) for name in self.supplemental_info.right_hand_actuated_joints
-            ]
-            self._hand_actuated_joint_indices = (
-                self._left_hand_actuated_joint_indices + self._right_hand_actuated_joint_indices
-            )
+            # self._body_actuated_joint_indices = [
+            #     self.dof_index(name) for name in self.supplemental_info.body_actuated_joints
+            # ]
+            # self._left_hand_actuated_joint_indices = [
+            #     self.dof_index(name) for name in self.supplemental_info.left_hand_actuated_joints
+            # ]
+            # self._right_hand_actuated_joint_indices = [
+            #     self.dof_index(name) for name in self.supplemental_info.right_hand_actuated_joints
+            # ]
+            # self._hand_actuated_joint_indices = (
+            #     self._left_hand_actuated_joint_indices + self._right_hand_actuated_joint_indices
+            # )
 
             # Cache indices for joint groups, handling nested groups
             self._joint_group_indices = {}
@@ -87,16 +80,16 @@ class RobotModel:
                     indices.extend(self.get_joint_group_indices(subgroup_name))
                 self._joint_group_indices[group_name] = sorted(set(indices))
 
-            # Update joint limits from supplemental info if available
-            if (
-                hasattr(self.supplemental_info, "joint_limits")
-                and self.supplemental_info.joint_limits
-            ):
-                for joint_name, limits in self.supplemental_info.joint_limits.items():
-                    if joint_name in self.joint_to_dof_index:
-                        idx = self.joint_to_dof_index[joint_name] - root_nq
-                        self.lower_joint_limits[idx] = limits[0]
-                        self.upper_joint_limits[idx] = limits[1]
+            # # Update joint limits from supplemental info if available
+            # if (
+            #     hasattr(self.supplemental_info, "joint_limits")
+            #     and self.supplemental_info.joint_limits
+            # ):
+            #     for joint_name, limits in self.supplemental_info.joint_limits.items():
+            #         if joint_name in self.joint_to_dof_index:
+            #             idx = self.joint_to_dof_index[joint_name] - root_nq
+            #             self.lower_joint_limits[idx] = limits[0]
+            #             self.upper_joint_limits[idx] = limits[1]
 
         self.initial_body_pose = None
 
@@ -217,63 +210,63 @@ class RobotModel:
         return q[indices]
 
 
-    def get_initial_upper_body_pose(self) -> np.ndarray:
-        """
-        Get the default upper body pose of the robot.
-        """
-        if self.initial_body_pose is not None:
-            return self.initial_body_pose[self.get_joint_group_indices("upper_body")]
+    # def get_initial_upper_body_pose(self) -> np.ndarray:
+    #     """
+    #     Get the default upper body pose of the robot.
+    #     """
+    #     if self.initial_body_pose is not None:
+    #         return self.initial_body_pose[self.get_joint_group_indices("upper_body")]
 
-        q = np.zeros(self.num_dofs)
-        default_joint_q = self.supplemental_info.default_joint_q
-        for joint, sides in default_joint_q.items():
-            for side, value in sides.items():
-                q[self.dof_index(self.supplemental_info.joint_name_mapping[joint][side])] = value
-        self.initial_body_pose = q
-        return self.initial_body_pose[self.get_joint_group_indices("upper_body")]
+    #     q = np.zeros(self.num_dofs)
+    #     default_joint_q = self.supplemental_info.default_joint_q
+    #     for joint, sides in default_joint_q.items():
+    #         for side, value in sides.items():
+    #             q[self.dof_index(self.supplemental_info.joint_name_mapping[joint][side])] = value
+    #     self.initial_body_pose = q
+    #     return self.initial_body_pose[self.get_joint_group_indices("upper_body")]
 
-    def set_initial_body_pose(self, q: np.ndarray, q_idx=None) -> None:
-        """
-        Set the initial body pose of the robot.
-        """
-        if q_idx is None:
-            self.initial_body_pose = q
-        else:
-            self.initial_body_pose[q_idx] = q
+    # def set_initial_body_pose(self, q: np.ndarray, q_idx=None) -> None:
+    #     """
+    #     Set the initial body pose of the robot.
+    #     """
+    #     if q_idx is None:
+    #         self.initial_body_pose = q
+    #     else:
+    #         self.initial_body_pose[q_idx] = q
 
-    def cache_forward_kinematics(self, q: np.ndarray, auto_clip=True) -> None:
-        """
-        Perform forward kinematics to update the pose of every joint and frame
-        in the Pinocchio data structures for the given configuration `q`.
+    # def cache_forward_kinematics(self, q: np.ndarray, auto_clip=True) -> None:
+    #     """
+    #     Perform forward kinematics to update the pose of every joint and frame
+    #     in the Pinocchio data structures for the given configuration `q`.
 
-        :param q: A numpy array of shape (num_dofs,) representing the robot configuration.
-        """
-        if q.shape[0] != self.num_dofs:
-            raise ValueError(f"Expected q of length {self.num_dofs}, got {q.shape[0]} instead.")
+    #     :param q: A numpy array of shape (num_dofs,) representing the robot configuration.
+    #     """
+    #     if q.shape[0] != self.num_dofs:
+    #         raise ValueError(f"Expected q of length {self.num_dofs}, got {q.shape[0]} instead.")
 
-        # Apply auto-clip if enabled
-        if auto_clip:
-            q = self.clip_configuration(q)
+    #     # Apply auto-clip if enabled
+    #     if auto_clip:
+    #         q = self.clip_configuration(q)
 
-        pin.framesForwardKinematics(self.pinocchio_wrapper.model, self.pinocchio_wrapper.data, q)
+    #     pin.framesForwardKinematics(self.pinocchio_wrapper.model, self.pinocchio_wrapper.data, q)
 
-    def clip_configuration(self, q: np.ndarray, margin: float = 1e-6) -> np.ndarray:
-        """
-        Clip the configuration to stay within joint limits with a small tolerance.
+    # def clip_configuration(self, q: np.ndarray, margin: float = 1e-6) -> np.ndarray:
+    #     """
+    #     Clip the configuration to stay within joint limits with a small tolerance.
 
-        :param q: Configuration to clip
-        :param margin: Tolerance to keep away from joint limits
-        :return: Clipped configuration
-        """
-        q_clipped = q.copy()
+    #     :param q: Configuration to clip
+    #     :param margin: Tolerance to keep away from joint limits
+    #     :return: Clipped configuration
+    #     """
+    #     q_clipped = q.copy()
 
-        # Only clip joint positions, not floating base
-        root_nq = 7 if self.is_floating_base_model else 0
-        q_clipped[root_nq:] = np.clip(
-            q[root_nq:], self.lower_joint_limits + margin, self.upper_joint_limits - margin
-        )
+    #     # Only clip joint positions, not floating base
+    #     root_nq = 7 if self.is_floating_base_model else 0
+    #     q_clipped[root_nq:] = np.clip(
+    #         q[root_nq:], self.lower_joint_limits + margin, self.upper_joint_limits - margin
+    #     )
 
-        return q_clipped
+    #     return q_clipped
 
 
 
