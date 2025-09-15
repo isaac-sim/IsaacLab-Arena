@@ -15,20 +15,18 @@
 from dataclasses import dataclass
 
 import numpy as np
-from isaac_arena.embodiments.g1.wbc_policy.utils.robot_supplemental_info import (
-    RobotSupplementalInfo
-)
 
-
+# NOTE(xinjie.yao, 9.11.2025): consider inheritating from a base class `RobotSupplementalInfo`
 @dataclass
-class G1SupplementalInfo(RobotSupplementalInfo):
+class G1SupplementalInfo:
     """
     Supplemental information for the G1 robot.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # Define all actuated joints
-        body_actuated_joints = [
+        self.body_actuated_joints = [
             # Left leg
             "left_hip_pitch_joint",
             "left_hip_roll_joint",
@@ -65,7 +63,7 @@ class G1SupplementalInfo(RobotSupplementalInfo):
             "right_wrist_yaw_joint",
         ]
 
-        left_hand_actuated_joints = [
+        self.left_hand_actuated_joints = [
             # Left hand
             "left_hand_thumb_0_joint",
             "left_hand_thumb_1_joint",
@@ -76,7 +74,7 @@ class G1SupplementalInfo(RobotSupplementalInfo):
             "left_hand_middle_1_joint",
         ]
 
-        right_hand_actuated_joints = [
+        self.right_hand_actuated_joints = [
             # Right hand
             "right_hand_thumb_0_joint",
             "right_hand_thumb_1_joint",
@@ -88,7 +86,7 @@ class G1SupplementalInfo(RobotSupplementalInfo):
         ]
 
         # Define joint limits from URDF
-        joint_limits = {
+        self.joint_limits = {
             # Left leg
             "left_hip_pitch_joint": [-2.5307, 2.8798],
             "left_hip_roll_joint": [-0.5236, 2.9671],
@@ -142,7 +140,7 @@ class G1SupplementalInfo(RobotSupplementalInfo):
         }
 
         # Define joint groups
-        joint_groups = {
+        self.joint_groups = {
             # Body groups
             "waist": {
                 "joints": ["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
@@ -232,7 +230,7 @@ class G1SupplementalInfo(RobotSupplementalInfo):
         }
 
         # Define joint name mapping from generic types to robot-specific names
-        joint_name_mapping = {
+        self.joint_name_mapping = {
             # Waist joints
             "waist_pitch": "waist_pitch_joint",
             "waist_roll": "waist_roll_joint",
@@ -258,21 +256,10 @@ class G1SupplementalInfo(RobotSupplementalInfo):
             "wrist_yaw": {"left": "left_wrist_yaw_joint", "right": "right_wrist_yaw_joint"},
         }
 
-        root_frame_name = "pelvis"
-        hand_frame_names = {"left": "left_wrist_yaw_link", "right": "right_wrist_yaw_link"}
-        default_joint_q = {}
+        self.root_frame_name = "pelvis"
+        self.hand_frame_names = {"left": "left_wrist_yaw_link", "right": "right_wrist_yaw_link"}
+        self.default_joint_q = {}
 
-        super().__init__(
-            body_actuated_joints=body_actuated_joints,
-            left_hand_actuated_joints=left_hand_actuated_joints,
-            right_hand_actuated_joints=right_hand_actuated_joints,
-            joint_limits=joint_limits,
-            default_joint_q=default_joint_q,
-            joint_groups=joint_groups,
-            hand_frame_names=hand_frame_names,
-            root_frame_name=root_frame_name,
-            joint_name_mapping=joint_name_mapping,
-        )
 
 
 @dataclass

@@ -48,19 +48,18 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
 
         Args:
             goal: Command from the planners
-            goal["target_upper_body_pose"]: Target pose for the upper body policy
             goal["navigate_cmd"]: Target navigation velocities for the lower body policy
             goal["base_height_command"]: Target base height for the lower body policy
         """
-        upper_body_goal = {}
+        # upper_body_goal = {}
         lower_body_goal = {}
-        # Upper body goal keys
-        upper_body_keys = [
-            "target_upper_body_pose",
-        ]
-        for key in upper_body_keys:
-            if key in goal:
-                upper_body_goal[key] = goal[key]
+        # # Upper body goal keys
+        # upper_body_keys = [
+        #     "target_upper_body_pose",
+        # ]
+        # for key in upper_body_keys:
+        #     if key in goal:
+        #         upper_body_goal[key] = goal[key]
 
         # Lower body goal keys
         lower_body_keys = [
@@ -73,7 +72,7 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
             if key in goal:
                 lower_body_goal[key] = goal[key]
 
-        self.upper_body_policy.set_goal(upper_body_goal)
+        # self.upper_body_policy.set_goal(upper_body_goal)
         self.lower_body_policy.set_goal(lower_body_goal)
 
     def get_action(self, upper_body_target_pose_mujoco: Optional[np.ndarray] = None):
@@ -89,6 +88,6 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
             q[:, upper_body_indices] = upper_body_action["q"]
 
         lower_body_action = self.lower_body_policy.get_action()
-        q[:, lower_body_indices] = lower_body_action["body_action"][0][:, :len(lower_body_indices)]
+        q[:, lower_body_indices] = lower_body_action["body_action"][:, :len(lower_body_indices)]
 
         return {"q": q}

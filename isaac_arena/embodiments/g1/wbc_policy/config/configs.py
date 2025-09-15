@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, MISSING
 import os
 from pathlib import Path
 from typing import Literal, Optional
@@ -42,44 +42,27 @@ class ArgsConfig:
     def to_dict(self):
         return asdict(self)
 
-def override_wbc_config(
-    wbc_config: dict, config: "BaseConfig", missed_keys_only: bool = False
-) -> dict:
-    """Override WBC YAML values with dataclass values.
-
-    Args:
-        wbc_config: The loaded WBC YAML configuration dictionary
-        config: The BaseConfig dataclass instance with override values
-        missed_keys_only: If True, only add keys that don't exist in wbc_config.
-                         If False, validate all keys exist and override all.
-
-    Returns:
-        Updated wbc_config dictionary with overridden values
-
-    Raises:
-        KeyError: If any required keys are missing from the WBC YAML configuration
-                  (only when missed_keys_only=False)
-    """
-    # Override yaml values with dataclass values
-    key_to_value = {
-        "VERSION": config.wbc_version,
-        "model_path": config.wbc_model_path,
-    }
-
-    if missed_keys_only:
-        # Only add keys that don't exist in wbc_config
-        for key in key_to_value:
-            if key not in wbc_config:
-                wbc_config[key] = key_to_value[key]
-    else:
-        # Set all keys (overwrite existing)
-        for key in key_to_value:
-            wbc_config[key] = key_to_value[key]
-
-    return wbc_config
 
 @dataclass
 class BaseConfig(ArgsConfig):
+    """Base config inherited by all G1 control loops"""
+
+    # WBC Configuration
+    wbc_version: str = MISSING
+    """Version of the whole body controller."""
+
+    wbc_model_path: str = MISSING
+    """Path to WBC model file"""
+
+    policy_config_path: str = MISSING
+    """Policy related configuration to specify inputs/outputs dim"""
+
+    # Robot Configuration
+    enable_waist: bool = False
+    """Whether to include waist joints in IK."""
+
+@dataclass
+class HomieV2Config(BaseConfig):
     """Base config inherited by all G1 control loops"""
 
     # WBC Configuration
@@ -89,31 +72,9 @@ class BaseConfig(ArgsConfig):
     wbc_model_path: str = "models/homie_v2/stand.onnx,models/homie_v2/walk.onnx"
     """Path to WBC model file"""
 
-    wbc_policy_class: str = "G1DecoupledWholeBodyPolicy"
-    """Whole body policy class."""
-
     # Robot Configuration
     enable_waist: bool = False
     """Whether to include waist joints in IK."""
 
-
-    def load_wbc_yaml(self) -> dict:
-        """Load and merge wbc yaml with dataclass overrides"""
-        # Get the base path to groot and convert to Path object
-        current_path = Path(os.path.dirname(__file__))
-
-        if self.wbc_version == "homie_v2":
-            config_path = str(current_path / "g1_29dof_homie_v2.yaml")
-        else:
-            raise ValueError(
-                f"Invalid wbc_version: {self.wbc_version}, please use one of: "
-                f"homie_v2"
-            )
-
-        with open(config_path) as file:
-            wbc_config = yaml.load(file, Loader=yaml.FullLoader)
-
-        # Override yaml values with dataclass values
-        wbc_config = override_wbc_config(wbc_config, self)
-
-        return wbc_config
+    policy_config_path: str = "config/g1_homie_v2.yaml"
+    """Policy related configuration to specify inputs/outputs dim"""

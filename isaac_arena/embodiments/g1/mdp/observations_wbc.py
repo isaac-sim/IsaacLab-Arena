@@ -18,10 +18,11 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab.managers import SceneEntityCfg
-
+import isaaclab.utils.math as PoseUtils
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv,ManagerBasedRLEnv
+    from isaaclab.assets import Articulation
 
 
 def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):

@@ -1,17 +1,3 @@
-# Simulation parameters
-simulation_duration: 1000.0
-simulation_dt: 0.005
-control_decimation: 4
-
-# PD gains
-# PD gains
-kps: [150, 150, 150, 200, 40, 40,
-      150, 150, 150, 200, 40, 40, 
-      250.0, 250.0, 250.0]
-kds: [2.0, 2.0, 2.0, 4.0, 2.0, 2.0,
-      2.0, 2.0, 2.0, 4.0, 2.0, 2.0, 
-      5.0, 5.0, 5.0]
-
 # Default joint angles for legs
 default_angles: [-0.1, 0.0, 0.0, 0.3, -0.2, 0.0,
                  -0.1, 0.0, 0.0, 0.3, -0.2, 0.0, 
