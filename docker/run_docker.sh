@@ -82,60 +82,6 @@ done
 # Display the values being used
 echo "Using Docker name: $DOCKER_IMAGE_NAME"
 
-# This portion of the script will only be executed *inside* the docker when
-# this script is used as entrypoint further down. It will setup an user account for
-# the host user inside the docker s.t. created files will have correct ownership.
-if [ -f /.dockerenv ]
-then
-    set -euo pipefail
-
-    # Make sure that all shared libs are found. This should normally not be needed, but resolves a
-    # problem with the opencv installation. For unknown reasons, the command doesn't bite if placed
-    # at the end of the dockerfile
-    ldconfig
-
-    # Add the group of the user. User/group ID of the host user are set through env variables when calling docker run further down.
-    groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
-
-    # Re-add the user
-    userdel "$DOCKER_RUN_USER_NAME" || true
-    userdel ubuntu || true
-    useradd --no-log-init \
-            --uid "$DOCKER_RUN_USER_ID" \
-            --gid "$DOCKER_RUN_GROUP_NAME" \
-            --groups sudo \
-            --shell /bin/bash \
-            $DOCKER_RUN_USER_NAME
-    chown $DOCKER_RUN_USER_NAME /home/$DOCKER_RUN_USER_NAME
-
-    # Change the root user password (so we can su root)
-    echo 'root:root' | chpasswd
-    echo "$DOCKER_RUN_USER_NAME:root" | chpasswd
-
-    # Allow sudo without password
-    echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-    # Re-install isaaclab (note that the deps have been installed in the Dockerfile)
-    echo "Re-installing isaaclab packages from mounted repo"
-    for DIR in /workspaces/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do
-        echo "Installing $DIR"
-        pip install --no-deps -e "$DIR"
-    done
-    # Re-doing symlink (we do this in the Dockerfile, but we overwrite with the mapping).
-    if [ ! -d "/workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim" ]; then
-        ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
-    fi
-
-    # change prompt so it's obvious we're inside the arena container
-    echo "PS1='[Isaac Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-
-    set +x
-
-    su $DOCKER_RUN_USER_NAME
-
-    exit
-fi
-
 # Build the Docker image with the specified or default name
 echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
 if [ "$INSTALL_GROOT" = "true" ]; then
@@ -199,7 +145,7 @@ else
                     # as a user inside the container, not root. I've left it in for now, but we should
                     # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
-                    "--entrypoint" "/workspaces/isaac_arena/docker/run_docker.sh"
+                    "--entrypoint" "/workspaces/isaac_arena/docker/res/entrypoint.sh"
                     )
 
     # map omniverse auth or config so we have connection to the dev nucleus
