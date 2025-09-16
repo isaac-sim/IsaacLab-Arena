@@ -202,6 +202,16 @@ else
                     "--entrypoint" "/workspaces/isaac_arena/docker/run_docker.sh"
                     )
 
+    # map omniverse auth or config so we have connection to the dev nucleus
+    if [ -n "$OMNI_PASS" ]; then
+        DOCKER_RUN_ARGS+=("--env" "OMNI_USER=\$omni-api-token")
+        DOCKER_RUN_ARGS+=("--env" "OMNI_PASS=$OMNI_PASS")
+    else
+        if [ -d "$HOME/.nvidia-omniverse" ]; then
+            DOCKER_RUN_ARGS+=("-v" "$HOME/.nvidia-omniverse:/home/$(id -un)/.nvidia-omniverse")
+        fi
+    fi
+
     # Allow X11 connections
     xhost +local:docker
 
