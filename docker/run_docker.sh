@@ -80,7 +80,7 @@ while getopts ":d:m:e:hn:rn:vn:g:G:" OPTION; do
 done
 
 # Display the values being used
-echo "Using Docker name: $DOCKER_IMAGE_NAME"
+echo "Using Docker image: $DOCKER_IMAGE_NAME"
 
 # Build the Docker image with the specified or default name
 echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
