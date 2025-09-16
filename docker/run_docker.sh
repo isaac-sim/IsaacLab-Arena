@@ -13,8 +13,11 @@ EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 # Default GR00T installation settings (false means no GR00T installation)
 INSTALL_GROOT="false"
 GROOT_DEPS_GROUP="base"
+# Whether to forcefully rebuild the docker image
+# (it takes a while to re-build, but for testing is not really necessary)
+FORCE_REBUILD=false
 
-while getopts ":d:m:e:hn:g:G:" OPTION; do
+while getopts ":d:m:e:hn:r:vn:g:G:" OPTION; do
     case $OPTION in
 
         d)
@@ -28,6 +31,9 @@ while getopts ":d:m:e:hn:g:G:" OPTION; do
             ;;
         n)
             DOCKER_IMAGE_NAME=${OPTARG}
+            ;;
+        r)
+            FORCE_REBUILD=true
             ;;
         g)
             INSTALL_GROOT="true"
@@ -44,6 +50,7 @@ while getopts ":d:m:e:hn:g:G:" OPTION; do
             echo "$script_name -m <models directory>"
             echo "$script_name -e <evaluation directory>"
             echo "$script_name -n <docker name>"
+            echo "$script_name -r (force rebuilding of the docker image)"
             echo "$script_name -g (install GR00T with 'base' dependencies)"
             echo "$script_name -G <deps_group> (install GR00T with specific dependency group)"
             echo ""
@@ -51,6 +58,7 @@ while getopts ":d:m:e:hn:g:G:" OPTION; do
             echo "  -m <models directory> (default is $MODELS_HOST_MOUNT_DIRECTORY)"
             echo "  -e <evaluation directory> (default is $EVAL_HOST_MOUNT_DIRECTORY)"
             echo "  -n <docker name> (default is $DOCKER_IMAGE_NAME)"
+            echo "  -r force rebuilding of the docker image"
             echo "  -g install GR00T with base dependencies"
             echo "  -G <deps_group> install GR00T with dependency group: base, dev, orin, thor, deploy"
             exit 0
@@ -125,12 +133,19 @@ echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
 if [ "$INSTALL_GROOT" = "true" ]; then
     echo "GR00T dependency group: $GROOT_DEPS_GROUP"
 fi
-docker build --pull \
-    --build-arg INSTALL_GROOT=$INSTALL_GROOT \
-    --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
-    -t ${DOCKER_IMAGE_NAME} \
-    --file $SCRIPT_DIR/Dockerfile.isaac_arena \
-    $SCRIPT_DIR/..
+
+if [ "$(docker images -q $DOCKER_IMAGE_NAME 2> /dev/null)" ] && \
+    [ "$FORCE_REBUILD" = false ]; then
+    echo "Docker image $DOCKER_IMAGE_NAME already exists. Not rebuilding."
+    echo "Use -r option to force the rebuild."
+else
+    docker build --pull \
+        --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+        --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
+        -t ${DOCKER_IMAGE_NAME} \
+        --file $SCRIPT_DIR/Dockerfile.isaac_arena \
+        $SCRIPT_DIR/..
+fi
 
 # Remove any exited containers
 if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME)" ]; then
