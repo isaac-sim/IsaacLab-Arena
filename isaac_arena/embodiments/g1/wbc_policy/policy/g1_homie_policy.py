@@ -14,11 +14,12 @@
 
 import collections
 import numpy as np
-import onnxruntime as ort
 import pathlib
 import torch
 from collections.abc import Callable
 from typing import Any
+
+import onnxruntime as ort
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 from isaac_arena.embodiments.g1.wbc_policy.utils.homie_utils import get_gravity_orientation, load_config
