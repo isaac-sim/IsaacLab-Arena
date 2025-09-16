@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-from pathlib import Path
+
 from typing import Literal
 
 from isaac_arena.embodiments.g1.g1_supplemental_info import (
@@ -38,13 +37,6 @@ def instantiate_g1_robot_model(
     Returns:
         RobotModel: Configured G1 robot model
     """
-    # groot_root = Path(__file__).resolve().parent.parent
-    # robot_model_config = {
-    #     "asset_path": os.path.join(groot_root, "robot_model/g1"),
-    #     "urdf_path": os.path.join(
-    #         groot_root, "robot_model/g1/g1_29dof_with_hand.urdf"
-    #     ),
-    # }
 
     assert waist_location in [
         "lower_body",

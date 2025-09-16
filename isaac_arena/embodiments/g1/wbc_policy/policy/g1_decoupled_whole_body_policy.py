@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import numpy as np
-from typing import Optional
 
+from isaac_arena.embodiments.g1.robot_model import RobotModel
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 
 
@@ -27,7 +27,7 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
 
     def __init__(
         self,
-        robot_model,
+        robot_model: RobotModel,
         lower_body_policy: WBCPolicy,
         upper_body_policy: WBCPolicy,
         num_envs=1,
@@ -37,44 +37,43 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
         self.upper_body_policy = upper_body_policy
         self.num_envs = num_envs
 
-    def set_observation(self, observation):
+    def set_observation(self, observation: dict[str, np.ndarray]):
         # NOTE(xinjie.yao): Upper body policy is pass-through, so we don't need to set the observation
         self.lower_body_policy.set_observation(observation)
 
-    def set_goal(self, goal):
+    def set_goal(self, goal: dict[str, np.ndarray]):
         """
         Set the goal for both upper and lower body policies.
 
         Args:
             goal: Command from the planners
-            goal["navigate_cmd"]: Target navigation velocities for the lower body policy
+            goal["navigate_cmd"]: Target base navigation velocities for the lower body policy
             goal["base_height_command"]: Target base height for the lower body policy
+            goal["torso_orientation_rpy_cmd"]: Target torso orientation for the lower body policy (optional)
         """
-        # upper_body_goal = {}
         lower_body_goal = {}
-        # # Upper body goal keys
-        # upper_body_keys = [
-        #     "target_upper_body_pose",
-        # ]
-        # for key in upper_body_keys:
-        #     if key in goal:
-        #         upper_body_goal[key] = goal[key]
 
         # Lower body goal keys
         lower_body_keys = [
             "navigate_cmd",
             "base_height_command",
-            # only used in homie_v2
             "torso_orientation_rpy_cmd",
         ]
         for key in lower_body_keys:
             if key in goal:
                 lower_body_goal[key] = goal[key]
 
-        # self.upper_body_policy.set_goal(upper_body_goal)
         self.lower_body_policy.set_goal(lower_body_goal)
 
-    def get_action(self, upper_body_target_pose_mujoco: np.ndarray | None = None):
+    def get_action(self, upper_body_target_pose_mujoco: np.ndarray | None = None) -> dict[str, np.ndarray]:
+        """Get the action for the whole body policy.
+
+        Args:
+            upper_body_target_pose_mujoco: The target pose for the upper body policy (optional)
+
+        Returns:
+            The action for the whole body policy in dictionary format
+        """
         # Get indices for groups
         lower_body_indices = self.robot_model.get_joint_group_indices("lower_body")
         upper_body_indices = self.robot_model.get_joint_group_indices("upper_body")

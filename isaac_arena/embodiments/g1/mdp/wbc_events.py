@@ -14,8 +14,6 @@
 
 from __future__ import annotations
 
-import copy
-import numpy as np
 import torch
 from typing import TYPE_CHECKING
 
@@ -24,6 +22,6 @@ if TYPE_CHECKING:
 
 
 def reset_decoupled_wbc_policy(env: ManagerBasedRLenv, env_ids: torch.Tensor):
+    """Reset the decoupled WBC policy."""
     policy = env.action_manager.get_term("g1_action").get_wbc_policy
-
     policy.lower_body_policy.reset(env_ids)

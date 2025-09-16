@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import yaml
 from dataclasses import MISSING, asdict, dataclass
-from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 
 @dataclass
