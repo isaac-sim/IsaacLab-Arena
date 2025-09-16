@@ -18,7 +18,7 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
 # Optional: Install CUDA 12.8
 ################################
 # Copy CUDA 12.8 installation script
-COPY docker/res/install_cuda.sh /tmp/install_cuda.sh
+COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
 RUN chmod +x /tmp/install_cuda.sh
 
 # If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
@@ -72,7 +72,7 @@ RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
 ################################
 
 # Copy GR00T dependencies installation script
-COPY docker/res/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
+COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
 RUN chmod +x /tmp/install_gr00t_deps.sh
 
 # Install GR00T dependencies if requested
