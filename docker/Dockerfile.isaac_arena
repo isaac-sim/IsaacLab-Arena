@@ -63,9 +63,9 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   /isaac-sim/python.sh -m pip install \
   pytest \
   jupyter \
-  # NOTE(xinjieyao, 2025-09-15): Needed for torch
+  # NOTE(xinjieyao, 2025-09-15): Needed for inheritance of torch nn.module, saving/loading model
   typing_extensions \
-  # NOTE(xinjieyao, 2025-09-15): Needed for onnx runtime policy
+  # NOTE(xinjieyao, 2025-09-15): Needed for WBC running onnx compiled policy
   onnxruntime
 
 # Install isaac-arena
