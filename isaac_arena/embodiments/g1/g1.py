@@ -253,7 +253,7 @@ class G1SceneCfg:
                 effort_limit=2.0,
                 velocity_limit=10.0,
                 stiffness=4.0,
-                damping=0.2,
+                damping=0.5,
                 armature=0.03,
                 friction=0.03,
             ),
