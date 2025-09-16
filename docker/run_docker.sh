@@ -160,7 +160,7 @@ else
     fi
 
     # Allow X11 connections
-    xhost +local:docker
+    xhost +local:docker > /dev/null
 
     docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}
 fi
