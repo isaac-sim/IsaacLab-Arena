@@ -17,7 +17,7 @@ import numpy as np
 import onnxruntime as ort
 import pathlib
 import torch
-from typing import Any, Dict, Optional
+from typing import Any
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 from isaac_arena.embodiments.g1.wbc_policy.utils.homie_utils import get_gravity_orientation, load_config
@@ -26,20 +26,23 @@ from isaac_arena.embodiments.g1.wbc_policy.utils.homie_utils import get_gravity_
 class G1HomiePolicyV2(WBCPolicy):
     """Simple G1 robot policy using OpenHomie trained neural network."""
 
-    def __init__(self, robot_model, config: str, model_path: str, num_envs: int = 1):
+    def __init__(self, robot_model, config_path: str, model_path: str, num_envs: int = 1):
         """Initialize G1HomiePolicy.
 
         Args:
-            config_path: Path to homie YAML configuration file
+            robot_model: Robot model containing supplemental info
+            config_path: Path to policy YAML configuration file
+            model_path: Path to policy ONNX model file
+            num_envs: Number of environments
         """
-        groot_path = pathlib.Path(__file__).parent.parent
-        self.config = load_config(str(groot_path / config))
+        parent_dir = pathlib.Path(__file__).parent.parent
+        self.config = load_config(str(parent_dir / config_path))
         self.robot_model = robot_model
 
         model_path_1, model_path_2 = model_path.split(",")
 
-        self.policy_1 = self.load_onnx_policy(str(groot_path / model_path_1))
-        self.policy_2 = self.load_onnx_policy(str(groot_path / model_path_2))
+        self.policy_1 = self.load_onnx_policy(str(parent_dir / model_path_1))
+        self.policy_2 = self.load_onnx_policy(str(parent_dir / model_path_2))
 
         # Initialize observation history buffer
         self.observation = None
@@ -50,7 +53,7 @@ class G1HomiePolicyV2(WBCPolicy):
         self.use_policy_action = True
         self.action = np.zeros((num_envs, self.config["num_actions"]), dtype=np.float32)
         self.target_dof_pos = self.config["default_angles"].copy()
-        self.cmd = self.config["cmd_init"]
+        self.cmd = self.config["cmd_init"].copy()
         self.height_cmd = self.config["height_cmd"]
         self.freq_cmd = self.config["freq_cmd"]
         self.roll_cmd = self.config["rpy_cmd"][0]
@@ -59,6 +62,11 @@ class G1HomiePolicyV2(WBCPolicy):
         self.gait_indices = torch.zeros((num_envs, 1), dtype=torch.float32)
 
     def reset(self, env_ids: torch.Tensor):
+        """Reset the policy.
+
+        Args:
+            env_ids: The environment ids to reset
+        """
         num_envs = env_ids.shape[0]
         self.gait_indices = torch.zeros((num_envs, 1), dtype=torch.float32)
         # Initialize observation history buffer
@@ -70,7 +78,7 @@ class G1HomiePolicyV2(WBCPolicy):
         self.use_policy_action = True
         self.action = np.zeros((num_envs, self.config["num_actions"]), dtype=np.float32)
         self.target_dof_pos = self.config["default_angles"].copy()
-        self.cmd = self.config["cmd_init"]  # Copy values from config
+        self.cmd = self.config["cmd_init"].copy()
         self.height_cmd = self.config["height_cmd"]
         self.freq_cmd = self.config["freq_cmd"]
         self.roll_cmd = self.config["rpy_cmd"][0]
@@ -78,7 +86,14 @@ class G1HomiePolicyV2(WBCPolicy):
         self.yaw_cmd = self.config["rpy_cmd"][2]
 
     def load_onnx_policy(self, model_path: str):
-        print(f"Loading ONNX policy from {model_path}")
+        """Load the ONNX policy from the model path.
+
+        Args:
+            model_path: The path to the ONNX policy model
+
+        Returns:
+            The ONNX policy model runnable for forward pass.
+        """
         model = ort.InferenceSession(model_path)
 
         def run_inference(input_tensor):

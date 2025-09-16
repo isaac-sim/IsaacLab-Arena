@@ -22,10 +22,10 @@ from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
-    from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLEnv
+    from isaaclab.envs import ManagerBasedRLEnv
 
 
-def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
+def joint_acc(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """The joint accelerations of the asset.
 
     Note: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their accelerations returned.
@@ -35,9 +35,11 @@ def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("
     return asset.data.joint_acc[:, asset_cfg.joint_ids]
 
 
-def eef_pose_pelvis_frame(env: ManagerBasedEnv, eef_name, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
+def eef_pose_pelvis_frame(
+    env: ManagerBasedRLEnv, eef_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Get the pose of the end-effector in the pelvis frame."""
     asset: Articulation = env.scene[asset_cfg.name]
-    body_state_w = asset.data.body_state_w
 
     eef_pose_w = asset.data.body_link_state_w[:, asset.data.body_names.index(eef_name), :]
     pelvis_pose_w = asset.data.body_link_state_w[:, asset.data.body_names.index("pelvis"), :]
@@ -66,6 +68,7 @@ def get_eef_pose(
     eef_name: str = "left_wrist_yaw_link",
     mode: str = "pos",
 ) -> torch.Tensor:
+    """Get the pose of the end-effector in the pelvis frame."""
     asset: Articulation = env.scene[asset_cfg.name]
 
     eef_pose_w = asset.data.body_link_state_w[:, asset.data.body_names.index(eef_name), :]
@@ -100,14 +103,16 @@ def get_eef_pose(
 
 def get_navigate_cmd(
     env: ManagerBasedRLEnv,
-):
+) -> torch.Tensor:
+    """Get the navigate command."""
     return env.action_manager.get_term("g1_action").navigate_cmd.clone()
 
 
 def get_robot_pos(
     env: ManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-):
+) -> torch.Tensor:
+    """Get the robot position."""
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.root_pos_w
 
@@ -115,6 +120,7 @@ def get_robot_pos(
 def get_robot_quat(
     env: ManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-):
+) -> torch.Tensor:
+    """Get the robot quaternion."""
     asset: Articulation = env.scene[asset_cfg.name]
     return asset.data.root_quat_w
