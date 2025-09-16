@@ -22,10 +22,10 @@ from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
-    from isaaclab.envs import ManagerBasedRLEnv
+    from isaaclab.envs import ManagerBasedEnv
 
 
-def joint_acc(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+def joint_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """The joint accelerations of the asset.
 
     Note: Only the joints configured in :attr:`asset_cfg.joint_ids` will have their accelerations returned.
@@ -36,7 +36,7 @@ def joint_acc(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg
 
 
 def eef_pose_pelvis_frame(
-    env: ManagerBasedRLEnv, eef_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+    env: ManagerBasedEnv, eef_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Get the pose of the end-effector in the pelvis frame."""
     asset: Articulation = env.scene[asset_cfg.name]
@@ -63,7 +63,7 @@ def eef_pose_pelvis_frame(
 
 
 def get_eef_pose(
-    env: ManagerBasedRLEnv,
+    env: ManagerBasedEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     eef_name: str = "left_wrist_yaw_link",
     mode: str = "pos",
@@ -102,14 +102,14 @@ def get_eef_pose(
 
 
 def get_navigate_cmd(
-    env: ManagerBasedRLEnv,
+    env: ManagerBasedEnv,
 ) -> torch.Tensor:
     """Get the navigate command."""
     return env.action_manager.get_term("g1_action").navigate_cmd.clone()
 
 
 def get_robot_pos(
-    env: ManagerBasedRLEnv,
+    env: ManagerBasedEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
     """Get the robot position."""
@@ -118,7 +118,7 @@ def get_robot_pos(
 
 
 def get_robot_quat(
-    env: ManagerBasedRLEnv,
+    env: ManagerBasedEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
     """Get the robot quaternion."""

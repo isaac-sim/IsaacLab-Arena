@@ -20,6 +20,7 @@ import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.devices.openxr import XrCfg
+from isaaclab.envs import ManagerBasedRLMimicEnv  # noqa: F401
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -64,6 +65,7 @@ class G1Embodiment(EmbodimentBase):
 class G1SceneCfg:
 
     # Gear'WBC G1 config, used in WBC training
+    # TODO(xinjie.yao, 2025.09.15): Add G1 USD to isaac arena assets
     robot: ArticulationCfg = ArticulationCfg(
         spawn=sim_utils.UsdFileCfg(
             usd_path="omniverse://isaac-dev.ov.nvidia.com/Isaac/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
@@ -79,7 +81,6 @@ class G1SceneCfg:
                 solver_position_iteration_count=4,
                 solver_velocity_iteration_count=0,
             ),
-            # collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.01, rest_offset=0.0),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 enabled_self_collisions=False, solver_position_iteration_count=4, solver_velocity_iteration_count=0
             ),
@@ -156,12 +157,12 @@ class G1SceneCfg:
             "feet": IdealPDActuatorCfg(
                 joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
                 stiffness={
-                    ".*_ankle_pitch_joint": 40.0,  # 20.0,
-                    ".*_ankle_roll_joint": 40.0,  # 20.0,
+                    ".*_ankle_pitch_joint": 40.0,
+                    ".*_ankle_roll_joint": 40.0,
                 },
                 damping={
-                    ".*_ankle_pitch_joint": 2,  # 0.2,
-                    ".*_ankle_roll_joint": 2,  # 0.1,
+                    ".*_ankle_pitch_joint": 2,
+                    ".*_ankle_roll_joint": 2,
                 },
                 effort_limit={
                     ".*_ankle_pitch_joint": 50.0,
@@ -188,11 +189,10 @@ class G1SceneCfg:
                     "waist_roll_joint": 37.0,
                     "waist_pitch_joint": 37.0,
                 },
-                # changing from 400 to 200
                 stiffness={
-                    "waist_yaw_joint": 250.0,  # 300.0,
-                    "waist_roll_joint": 250.0,  # 300.0,
-                    "waist_pitch_joint": 250.0,  # 300.0,
+                    "waist_yaw_joint": 250.0,
+                    "waist_roll_joint": 250.0,
+                    "waist_pitch_joint": 250.0,
                 },
                 damping={
                     "waist_yaw_joint": 5.0,
@@ -229,18 +229,18 @@ class G1SceneCfg:
                     ".*_wrist_yaw_joint": 22.0,
                 },
                 stiffness={
-                    ".*_shoulder_pitch_joint": 100.0,  # 90.0,
-                    ".*_shoulder_roll_joint": 100.0,  # 60.0,
-                    ".*_shoulder_yaw_joint": 40.0,  # 20.0,
-                    ".*_elbow_joint": 40.0,  # 60.0,
-                    ".*_wrist_.*_joint": 20.0,  # 10.0,
+                    ".*_shoulder_pitch_joint": 100.0,
+                    ".*_shoulder_roll_joint": 100.0,
+                    ".*_shoulder_yaw_joint": 40.0,
+                    ".*_elbow_joint": 40.0,
+                    ".*_wrist_.*_joint": 20.0,
                 },
                 damping={
-                    ".*_shoulder_pitch_joint": 5.0,  # 2.0,
-                    ".*_shoulder_roll_joint": 5.0,  # 1.0,
-                    ".*_shoulder_yaw_joint": 2.0,  # 0.4,
-                    ".*_elbow_joint": 2.0,  # 1.0,
-                    ".*_wrist_.*_joint": 2.0,  # 0.2,
+                    ".*_shoulder_pitch_joint": 5.0,
+                    ".*_shoulder_roll_joint": 5.0,
+                    ".*_shoulder_yaw_joint": 2.0,
+                    ".*_elbow_joint": 2.0,
+                    ".*_wrist_.*_joint": 2.0,
                 },
                 armature={".*_shoulder_.*": 0.03, ".*_elbow_.*": 0.03, ".*_wrist_.*_joint": 0.03},
                 friction=0.03,
