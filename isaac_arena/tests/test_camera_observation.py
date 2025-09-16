@@ -19,6 +19,7 @@ from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_se
 
 NUM_STEPS = 2
 HEADLESS = True
+ENABLE_CAMERAS = True
 
 
 def _test_camera_observation(simulation_app) -> bool:
@@ -33,8 +34,7 @@ def _test_camera_observation(simulation_app) -> bool:
     from isaac_arena.tasks.dummy_task import DummyTask
 
     args_parser = get_isaac_arena_cli_parser()
-    args_cli = args_parser.parse_args(["--camera_tag", "teleop"])
-    # args_cli.enable_cameras = True
+    args_cli = args_parser.parse_args(["--camera_tag", "teleop", "--enable_cameras"])
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()
@@ -74,7 +74,7 @@ def test_camera_observation():
     result = run_simulation_app_function_in_separate_process(
         _test_camera_observation,
         headless=HEADLESS,
-        enable_cameras=True,
+        enable_cameras=ENABLE_CAMERAS,
     )
     assert result, "Test failed"
 

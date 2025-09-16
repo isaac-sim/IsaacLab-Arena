@@ -54,14 +54,12 @@ def runner(
     # Simulation app args. For now, we just make these default + headless.
     # TODO(alexmillane, 2025.09.01): We're eventually going to want a way to override the args.
     parser = get_isaac_arena_cli_parser()
-    if enable_cameras:
-        simulation_app_args = parser.parse_args(["--enable_cameras"])
-    else:
-        simulation_app_args = parser.parse_args()
+    simulation_app_args = parser.parse_args([])
     simulation_app_args.headless = headless
+    simulation_app_args.enable_cameras = enable_cameras
     # Launch the simulator
     with SimulationAppContext(simulation_app_args) as simulation_app:
-        # Run the function
+        # Run the functionWW
         try:
             test_passed = function(simulation_app, **kwargs)
         except Exception as e:
