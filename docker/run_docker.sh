@@ -126,6 +126,9 @@ then
         ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
     fi
 
+    # change prompt so it's obvious we're inside the arena container
+    echo "PS1='[Isaac Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
+
     set +x
 
     su $DOCKER_RUN_USER_NAME
