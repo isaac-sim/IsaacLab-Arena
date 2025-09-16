@@ -146,7 +146,7 @@ else
                     # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
                     "--env" "ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab"
-                    "--entrypoint" "/workspaces/isaac_arena/docker/res/entrypoint.sh"
+                    "--entrypoint" "/workspaces/isaac_arena/docker/setup/entrypoint.sh"
                     )
 
     # map omniverse auth or config so we have connection to the dev nucleus
