@@ -18,10 +18,10 @@ import torch
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab.envs import ManagerBasedRLenv
+    from isaaclab.envs import ManagerBasedEnv
 
 
-def reset_decoupled_wbc_policy(env: ManagerBasedRLenv, env_ids: torch.Tensor):
+def reset_decoupled_wbc_policy(env: ManagerBasedEnv, env_ids: torch.Tensor):
     """Reset the decoupled WBC policy."""
     policy = env.action_manager.get_term("g1_action").get_wbc_policy
     policy.lower_body_policy.reset(env_ids)

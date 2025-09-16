@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import numpy as np
 import yaml
+from typing import Any
 
 
-def load_config(config_path):
+def load_config(config_path: str) -> dict[str, Any]:
     """Load and process the YAML configuration file"""
     with open(config_path) as f:
         config = yaml.safe_load(f)
@@ -31,7 +31,7 @@ def load_config(config_path):
     return config
 
 
-def quat_rotate_inverse(q, v):
+def quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:
     """Rotate vector v by the inverse of quaternion q"""
     w = q[..., 0]
     x = q[..., 1]
@@ -53,7 +53,7 @@ def quat_rotate_inverse(q, v):
     ])
 
 
-def get_gravity_orientation(quat):
+def get_gravity_orientation(quat: np.ndarray) -> np.ndarray:
     """Get gravity vector in body frame"""
     gravity_vec = np.array([0.0, 0.0, -1.0])
     return quat_rotate_inverse(quat, gravity_vec)

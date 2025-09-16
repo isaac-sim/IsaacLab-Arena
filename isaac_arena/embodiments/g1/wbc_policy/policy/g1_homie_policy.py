@@ -17,6 +17,7 @@ import numpy as np
 import onnxruntime as ort
 import pathlib
 import torch
+from collections.abc import Callable
 from typing import Any
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
@@ -85,7 +86,7 @@ class G1HomiePolicyV2(WBCPolicy):
         self.pitch_cmd = self.config["rpy_cmd"][1]
         self.yaw_cmd = self.config["rpy_cmd"][2]
 
-    def load_onnx_policy(self, model_path: str):
+    def load_onnx_policy(self, model_path: str) -> Callable[[torch.Tensor], torch.Tensor]:
         """Load the ONNX policy from the model path.
 
         Args:

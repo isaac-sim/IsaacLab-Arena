@@ -26,7 +26,7 @@ def instantiate_g1_robot_model(
     waist_location: Literal["lower_body", "upper_body"] = "lower_body",
 ):
     """
-    Instantiate a G1 robot model with configurable waist location.
+    Instantiate a G1 robot model with configurable waist location, and summarize the supplemental info.
 
     Args:
         waist_location: Whether to put waist in "lower_body" (default G1 behavior),
@@ -52,8 +52,6 @@ def instantiate_g1_robot_model(
         robot_model_supplemental_info = G1SupplementalInfoWaistLowerAndUpperBody()
 
     robot_model = RobotModel(
-        # robot_model_config["urdf_path"],
-        # robot_model_config["asset_path"],
         supplemental_info=robot_model_supplemental_info,
     )
     return robot_model
