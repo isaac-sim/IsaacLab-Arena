@@ -65,11 +65,11 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
 
         self.lower_body_policy.set_goal(lower_body_goal)
 
-    def get_action(self, upper_body_target_pose_mujoco: np.ndarray | None = None) -> dict[str, np.ndarray]:
+    def get_action(self, upper_body_target_pose: np.ndarray | None = None) -> dict[str, np.ndarray]:
         """Get the action for the whole body policy.
 
         Args:
-            upper_body_target_pose_mujoco: The target pose for the upper body policy (optional)
+            upper_body_target_pose: The target pose for the upper body policy (optional)
 
         Returns:
             The action for the whole body policy in dictionary format
@@ -80,8 +80,8 @@ class G1DecoupledWholeBodyPolicy(WBCPolicy):
 
         # Initialize full configuration with zeros
         q = np.zeros([self.num_envs, self.robot_model.num_dofs])
-        if upper_body_target_pose_mujoco is not None:
-            upper_body_action = self.upper_body_policy.get_action(upper_body_target_pose_mujoco)
+        if upper_body_target_pose is not None:
+            upper_body_action = self.upper_body_policy.get_action(upper_body_target_pose)
             assert upper_body_action["q"].shape[-1] == len(upper_body_indices), (
                 f"Upper body action has {upper_body_action['q'].shape[-1]} dofs, but upper body has"
                 f" {len(upper_body_indices)} dofs"
