@@ -17,11 +17,15 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-
 def reset_decoupled_wbc_policy(env: ManagerBasedEnv, env_ids: torch.Tensor):
-    """Reset the decoupled WBC policy."""
+    # Reset upper body IK solver
+    env.action_manager.get_term("g1_action").upperbody_controller.body_ik_solver.initialize()
+    env.action_manager.get_term("g1_action").upperbody_controller.in_warmup = True
+
     policy = env.action_manager.get_term("g1_action").get_wbc_policy
+
     policy.lower_body_policy.reset(env_ids)
