@@ -48,15 +48,9 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 
 # Set CUDA environment variables
-export CUDA_HOME=/usr/local/cuda-12.8
-export PATH=/usr/local/cuda-12.8/bin:${PATH}
-export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-}
-export TORCH_CUDA_ARCH_LIST=8.0+PTX
-
-echo "CUDA environment variables set:"
-echo "  CUDA_HOME=$CUDA_HOME"
-echo "  PATH=$PATH"
-echo "  LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-echo "  TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
+echo 'export CUDA_HOME=/usr/local/cuda-12.8' >> /etc/environment
+echo 'export PATH=/usr/local/cuda-12.8/bin:${PATH}' >> /etc/environment
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-}' >> /etc/environment
+echo 'export TORCH_CUDA_ARCH_LIST=8.0+PTX' >> /etc/environment
 
 echo "CUDA 12.8 installation completed successfully"
