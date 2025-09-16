@@ -19,8 +19,19 @@ import isaaclab.utils.math as math_utils
 from isaaclab.assets import ArticulationData
 
 
-def convert_sim_joint_to_wbc_joint(sim_joint_data: np.ndarray, sim_joint_names: list, wbc_joints_order: dict):
-    """Convert sim joint observations to WBC joint observations."""
+def convert_sim_joint_to_wbc_joint(
+    sim_joint_data: np.ndarray, sim_joint_names: list[str], wbc_joints_order: dict[str, int]
+) -> np.ndarray:
+    """Convert sim joint observations to WBC joint observations.
+
+    Args:
+        sim_joint_data: Sim joint data in Lab's order
+        sim_joint_names: Sim joint names in Lab's order
+        wbc_joints_order: WBC joint order in policy config yaml
+
+    Returns:
+        WBC joint data in WBC joint order
+    """
     num_joints = len(wbc_joints_order)
     num_envs = sim_joint_data.shape[0]
     wbc_joint_data = np.zeros((num_envs, num_joints))
@@ -37,15 +48,33 @@ def convert_sim_joint_to_wbc_joint(sim_joint_data: np.ndarray, sim_joint_names: 
     return wbc_joint_data
 
 
-def prepare_observations(num_envs: int, robot_data: ArticulationData, wbc_joints_order: dict):
-    """Prepare observations for the policy."""
+def prepare_observations(
+    num_envs: int, robot_data: ArticulationData, wbc_joints_order: dict[str, int]
+) -> dict[str, np.ndarray]:
+    """Prepare observations for the policy.
+
+    Args:
+        num_envs: Number of environments
+        robot_data: Robot data
+        wbc_joints_order: WBC joint order in policy config yaml
+
+    Returns:
+        Observations for the policy
+        - q: Joint positions
+        - dq: Joint velocities
+        - ddq: Joint accelerations
+        - floating_base_pose: Floating base pose
+        - floating_base_vel: Floating base velocity
+        - floating_base_acc: Floating base acceleration
+        - torso_quat: Torso quaternion
+        - torso_ang_vel: Torso angular velocity
+    """
     # Get robot joint observations
     sim_joint_pos = robot_data.joint_pos.cpu().numpy()
     sim_joint_vel = robot_data.joint_vel.cpu().numpy()
     num_joints = len(robot_data.joint_names)
 
     # Convert joints data from Lab's order to GR00T's order saved in config yaml
-    assert num_joints == 43
     wbc_joint_pos = np.zeros((num_envs, num_joints))
     wbc_joint_vel = np.zeros((num_envs, num_joints))
     wbc_joint_acc = np.zeros((num_envs, num_joints))
@@ -85,8 +114,11 @@ def prepare_observations(num_envs: int, robot_data: ArticulationData, wbc_joints
 
 
 def postprocess_actions(
-    wbc_action: dict, robot_data: ArticulationData, wbc_g1_joints_order: dict, device: torch.device
-):
+    wbc_action: dict[str, np.ndarray],
+    robot_data: ArticulationData,
+    wbc_g1_joints_order: dict[str, int],
+    device: torch.device,
+) -> torch.Tensor:
     """Postprocess actions for the policy."""
     num_envs = wbc_action["q"].shape[0]
     num_joints = len(robot_data.joint_names)
@@ -94,7 +126,7 @@ def postprocess_actions(
     wbc_joints_pos_action = torch.from_numpy(wbc_action["q"])
     # Convert wbc gr00t joints order to Lab joints order
     for wbc_joint_name, wbc_joint_index in wbc_g1_joints_order.items():
-        if not wbc_joint_name in robot_data.joint_names:
+        if wbc_joint_name not in robot_data.joint_names:
             print(f"Joint {wbc_joint_name} not found in asset")
             continue
         sim_joint_index = robot_data.joint_names.index(wbc_joint_name)

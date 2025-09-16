@@ -12,17 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
-import time
 
+from isaac_arena.embodiments.g1.wbc_policy.config.configs import BaseConfig
+from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 from isaac_arena.embodiments.g1.wbc_policy.policy.g1_decoupled_whole_body_policy import G1DecoupledWholeBodyPolicy
 from isaac_arena.embodiments.g1.wbc_policy.policy.g1_homie_policy import G1HomiePolicyV2
 from isaac_arena.embodiments.g1.wbc_policy.policy.identity_policy import IdentityPolicy
+from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import RobotModel
 
 
-def get_wbc_policy(robot_type, robot_model, wbc_config):
-    # current_upper_body_pose = robot_model.get_initial_upper_body_pose()
+def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseConfig) -> WBCPolicy:
+    """Get the WBC policy for the given robot type and configuration.
 
+    Args:
+        robot_type: The type of robot to get the WBC policy for. Only "g1" is supported.
+        robot_model: The robot model to use for the WBC policy
+        wbc_config: The configuration for the WBC policy
+
+    Returns:
+        The WBC policy for the given robot type and configuration
+    """
     if robot_type == "g1":
         # Only one mode for upper body -- passing thru, no interpolation
         upper_body_policy = IdentityPolicy()
@@ -32,7 +41,7 @@ def get_wbc_policy(robot_type, robot_model, wbc_config):
         if lower_body_policy_type == "homie_v2":
             lower_body_policy = G1HomiePolicyV2(
                 robot_model=robot_model,
-                config=wbc_config.policy_config_path,
+                config_path=wbc_config.policy_config_path,
                 model_path=wbc_config.wbc_model_path,
             )
         else:
