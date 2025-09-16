@@ -38,6 +38,9 @@ RUN apt-get update && apt-get install -y \
   sudo \
   python3-pip
 
+# update pip
+RUN pip3 install --upgrade pip
+
 WORKDIR /workspaces/isaac_arena
 
 # Copy files to /build folder during docker build phase, different from workspace
