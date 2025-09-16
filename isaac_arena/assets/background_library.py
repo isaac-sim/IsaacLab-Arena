@@ -20,7 +20,7 @@ from isaac_arena.geometry.pose import Pose
 @register_asset
 class KitchenBackground(Background):
     """
-    Encapsulates the background scene and destination-object config for a kitchen pick-and-place environment.
+    Encapsulates the background scene for the kitchen.
     """
 
     name = "kitchen"
@@ -37,7 +37,7 @@ class KitchenBackground(Background):
 @register_asset
 class PackingTableBackground(Background):
     """
-    Encapsulates the background scene and destination-object config for a packing table pick-and-place environment.
+    Encapsulates the background scene for the packing table.
     """
 
     name = "packing_table"
@@ -54,7 +54,7 @@ class PackingTableBackground(Background):
 @register_asset
 class GalileoBackground(Background):
     """
-    Encapsulates the background scene and destination-object config for a galileo pick-and-place environment.
+    Encapsulates the background scene for the galileo room.
     """
 
     name = "galileo"
@@ -65,4 +65,27 @@ class GalileoBackground(Background):
     object_min_z = -0.2
 
     def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
+        super().__init__(robot_initial_pose)
+
+
+# NOTE(alexmillane, 2025.09.15): I am adding this background such that we can use
+# it during development. We DO NOT intend to ship this background publicly. It
+# is kitchen and should only be usable through `lwlab`.
+# TODO(alexmillane, 2025.09.15): Remove this background once we get up and running
+# with lightwheel.
+@register_asset
+class LightwheelKitchenBackground(Background):
+    """
+    Encapsulates the background scene for the lightwheel kitchen.
+    """
+
+    name = "lightwheel_kitchen"
+    tags = ["background"]
+    default_robot_initial_pose = Pose.identity()
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/lightwheel_assets_for_deletion/robocasakitchen-4-2/scene.usd"
+    initial_pose = Pose(position_xyz=(-1.20, 1.70, -0.92), rotation_wxyz=(1.0, 0, 0, 0))
+    object_min_z = -0.2
+
+    def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
+        print(f"DO NOT SHIP THIS ASSET: {self.name}")
         super().__init__(robot_initial_pose)

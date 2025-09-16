@@ -57,7 +57,6 @@ class SugarBox(Object):
 
     name = "sugar_box"
     tags = ["object"]
-    prim_path = ("{ENV_REGEX_NS}/target_sugar_box",)
     usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd"
     default_prim_path = "{ENV_REGEX_NS}/target_sugar_box"
 
@@ -73,7 +72,6 @@ class TomatoSoupCan(Object):
 
     name = "tomato_soup_can"
     tags = ["object"]
-    prim_path = ("{ENV_REGEX_NS}/target_tomato_soup_can",)
     usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd"
     default_prim_path = "{ENV_REGEX_NS}/target_tomato_soup_can"
 
@@ -89,9 +87,23 @@ class LightWheelKettle21(Object):
 
     name = "lightwheel_kettle_21"
     tags = ["object"]
-    prim_path = ("{ENV_REGEX_NS}/target_lightwheel_kettle_21",)
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/lightwheel/kettle/Kettle021/Kettle021.usd"
     default_prim_path = "{ENV_REGEX_NS}/target_lightwheel_kettle_21"
+
+    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class LightWheelPot51(Object):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "lightwheel_pot_51"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/lightwheel/pot/Pot051/Pot051.usd"
+    default_prim_path = "{ENV_REGEX_NS}/target_lightwheel_pot_51"
 
     def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
@@ -121,7 +133,6 @@ class PowerDrill(Object):
 
     name = "power_drill"
     tags = ["object"]
-    prim_path = ("{ENV_REGEX_NS}/target_power_drill",)
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/power_drill_physics.usd"
     default_prim_path = "{ENV_REGEX_NS}/target_power_drill"
 
