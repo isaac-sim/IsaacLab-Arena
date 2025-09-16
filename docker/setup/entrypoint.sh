@@ -14,7 +14,7 @@ ldconfig
 groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
 
 # Re-add the user
-userdel "$DOCKER_RUN_USER_NAME" || true
+userdel "$DOCKER_RUN_USER_NAME" 2>/dev/null || true
 userdel ubuntu || true
 useradd --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
@@ -35,7 +35,7 @@ echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 echo "Re-installing isaaclab packages from mounted repo"
 for DIR in /workspaces/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do
     echo "Installing $DIR"
-    pip install --no-deps -e "$DIR"
+    pip install --root-user-action=ignore --quiet --no-deps -e "$DIR"
 done
 # Re-doing symlink (we do this in the Dockerfile, but we overwrite with the mapping).
 if [ ! -d "/workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim" ]; then
@@ -50,6 +50,9 @@ echo "alias ll='ls -alF --color=auto'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
 echo "alias ..='cd ..'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
 
 set +x
+
+# supress sudo hint message
+touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful
 
 su $DOCKER_RUN_USER_NAME
 
