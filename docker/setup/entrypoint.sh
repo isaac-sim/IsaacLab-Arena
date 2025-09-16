@@ -32,7 +32,7 @@ echo "$DOCKER_RUN_USER_NAME:root" | chpasswd
 echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 # Re-install isaaclab (note that the deps have been installed in the Dockerfile)
-echo "Re-installing isaaclab packages from mounted repo"
+echo "Re-installing isaaclab packages from mounted repo..."
 for DIR in /workspaces/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do
     echo "Installing $DIR"
     pip install --root-user-action=ignore --quiet --no-deps -e "$DIR"
