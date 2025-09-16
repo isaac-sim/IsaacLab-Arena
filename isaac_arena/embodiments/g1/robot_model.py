@@ -97,8 +97,6 @@ class RobotModel:
                         self.lower_joint_limits[idx] = limits[0]
                         self.upper_joint_limits[idx] = limits[1]
 
-        self.initial_body_pose = None
-
     @property
     def num_dofs(self) -> int:
         """Get the number of degrees of freedom of the robot (floating base pose + joints)."""
@@ -108,8 +106,7 @@ class RobotModel:
     @property
     def q_default(self) -> np.ndarray:
         """Get the zero pose of the robot."""
-        # return self.pinocchio_wrapper.q0
-        return self.initial_body_pose
+        return self.pinocchio_wrapper.q0
 
     @property
     def joint_names(self) -> list[str]:
@@ -193,6 +190,25 @@ class RobotModel:
 
         return sorted(all_indices)
 
+    def frame_placement(self, frame_name: str) -> pin.SE3:
+        """
+        Returns the SE3 transform of the specified frame in the world coordinate system.
+        Note: make sure cache_forward_kinematics() has been previously called.
+
+        :param frame_name: Name of the frame, e.g. "link_elbow_frame", "hand_imu_frame", etc.
+        :return: A pin.SE3 object representing the pose of the frame.
+        """
+        model = self.pinocchio_wrapper.model
+        data = self.pinocchio_wrapper.data
+
+        frame_id = model.getFrameId(frame_name)
+        if frame_id < 0 or frame_id >= len(model.frames):
+            valid_frames = [f.name for f in model.frames]
+            raise ValueError(f"Unknown frame '{frame_name}'. Valid frames: {valid_frames}")
+
+        # Pinocchio's data.oMf[frame_id] is a pin.SE3.
+        return data.oMf[frame_id].copy()
+
     def get_body_actuated_joints(self, q: np.ndarray) -> np.ndarray:
         """
         Get the configuration of body actuated joints from a full configuration.
@@ -273,6 +289,12 @@ class RobotModel:
         )
 
         return q_clipped
+
+    def reset_forward_kinematics(self) -> None:
+        """
+        Reset the forward kinematics to the initial configuration.
+        """
+        self.cache_forward_kinematics(self.q_default)
 
 
 class ReducedRobotModel:

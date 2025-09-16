@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 from dataclasses import dataclass
-
 
 # NOTE(xinjie.yao, 9.11.2025): consider inheritating from a base class `RobotSupplementalInfo`
 @dataclass
@@ -257,6 +257,8 @@ class G1SupplementalInfo:
 
         self.root_frame_name = "pelvis"
         self.hand_frame_names = {"left": "left_wrist_yaw_link", "right": "right_wrist_yaw_link"}
+        self.elbow_calibration_joint_angles = {"left": 0.0, "right": 0.0}
+        self.hand_rotation_correction = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
         self.default_joint_q = {}
 
 
