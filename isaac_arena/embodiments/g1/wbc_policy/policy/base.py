@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 
 class WBCPolicy(ABC):

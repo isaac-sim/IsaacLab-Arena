@@ -14,16 +14,13 @@
 
 from __future__ import annotations
 
-import copy
 import numpy as np
 import os
-import time
 import torch
 import yaml
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-import isaaclab.utils.math as math_utils
 from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
@@ -37,7 +34,7 @@ from isaac_arena.embodiments.g1.wbc_policy.run_policy import (
 from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
 
 if TYPE_CHECKING:
-    from isaaclab.envs import ManagerBasedEnv
+    from isaaclab.envs import ManagerBasedRLEnv
 
     from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
 
@@ -50,7 +47,7 @@ class G1DecoupledWBCAction(ActionTerm):
     _asset: Articulation
     """The articulation asset to which the action term is applied."""
 
-    def __init__(self, cfg: G1DecoupledWBCActionCfg, env: ManagerBasedEnv):
+    def __init__(self, cfg: G1DecoupledWBCActionCfg, env: ManagerBasedRLEnv):
         """Initialize the action term.
 
         Args:
