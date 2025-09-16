@@ -21,7 +21,11 @@ from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaac_arena.assets.asset import Asset
+
+# from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.geometry.pose import Pose
+
+# from isaac_arena.assets.object_utils import detect_object_type
 
 
 class ObjectType(Enum):
@@ -33,21 +37,16 @@ class ObjectType(Enum):
 class ObjectBase(Asset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
-    # Defined in Asset, restated here for clariry
-    # tags: list[str] | None = None
-
     def __init__(
         self,
         name: str,
         prim_path: str,
-        # initial_pose: Pose | None = None,
-        object_type: ObjectType = ObjectType.RIGID,
+        object_type: ObjectType = ObjectType.BASE,
         **kwargs,
     ):
         super().__init__(name=name, **kwargs)
         self.prim_path = prim_path
         self.object_type = object_type
-        # self.initial_pose = initial_pose
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path

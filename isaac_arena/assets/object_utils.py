@@ -14,12 +14,27 @@
 
 from pxr import Usd
 
+# from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.usd.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
 
 
-def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = None):
-    """Detect the object type of the asset"""
+def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = None) -> ObjectType:
+    """Detect the object type of the asset
+
+    Goes through the USD tree and detects the object type. The detection is based
+    on the presence of a RigidBodyAPI or ArticulationRootAPI at the shallowest depth
+    in which one of these APIs is present.
+
+    Note that if more than one API is present on that shallowest depth, we raise an error.
+
+    Args:
+        usd_path: The path to the USD file to inspect. Either this or stage must be provided.
+        stage: The stage to inspect. Either this or usd_path must be provided.
+
+    Returns:
+        The object type of the asset.
+    """
     assert usd_path is not None or stage is not None, "Either usd_path or stage must be provided"
     assert usd_path is None or stage is None, "Either usd_path or stage must be provided"
     if usd_path is not None:

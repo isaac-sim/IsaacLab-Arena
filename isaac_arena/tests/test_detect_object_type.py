@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
+import tqdm
+
 import pytest
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
 HEADLESS = True
+NUM_STEPS = 10
 
 
 def _test_detect_object_type(simulation_app):
@@ -79,6 +83,75 @@ def _test_detect_object_type_for_all_objects(simulation_app):
     return True
 
 
+def _test_auto_object_type(simulation_app):
+
+    from isaac_arena.assets.asset_registry import AssetRegistry
+
+    # from isaac_arena.assets.object_base import ObjectType
+    from isaac_arena.assets.object import Object
+    from isaac_arena.assets.object_base import ObjectType
+    from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+    from isaac_arena.environments.compile_env import ArenaEnvBuilder
+    from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
+    from isaac_arena.scene.scene import Scene
+    from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
+
+    asset_registry = AssetRegistry()
+
+    background = asset_registry.get_asset_by_name("kitchen")()
+    embodiment = asset_registry.get_asset_by_name("franka")()
+
+    try:
+        # Try out an auto object.
+        cracker_box = Object(
+            name="cracker_box",
+            prim_path="{ENV_REGEX_NS}/cracker_box",
+            object_type=None,
+            usd_path=asset_registry.get_asset_by_name("cracker_box")().usd_path,
+        )
+
+        microwave = Object(
+            name="microwave",
+            prim_path="{ENV_REGEX_NS}/microwave",
+            object_type=None,
+            usd_path=asset_registry.get_asset_by_name("microwave")().usd_path,
+        )
+
+        scene = Scene(assets=[background, cracker_box, microwave])
+        isaac_arena_environment = IsaacArenaEnvironment(
+            name="auto_object_type_test",
+            embodiment=embodiment,
+            scene=scene,
+            # NOTE(alexmillane, 2025-09-16): We use the pick and place task to ensure
+            # that we can use an auto-detected ridid-object in a task.
+            task=PickAndPlaceTask(cracker_box, cracker_box, background),
+        )
+
+        args_cli = get_isaac_arena_cli_parser().parse_args([])
+        env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
+        env = env_builder.make_registered()
+        env.reset()
+
+        # Run some zero actions.
+        for _ in tqdm.tqdm(range(NUM_STEPS)):
+            with torch.inference_mode():
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                env.step(actions)
+
+        # Check that we detect the correct object type.
+        assert cracker_box.object_type == ObjectType.RIGID
+        assert microwave.object_type == ObjectType.ARTICULATION
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
 def test_detect_object_type():
     result = run_simulation_app_function_in_separate_process(
         _test_detect_object_type,
@@ -95,6 +168,15 @@ def test_detect_object_type_for_all_objects():
     assert result, "Test failed"
 
 
+def test_auto_object_type():
+    result = run_simulation_app_function_in_separate_process(
+        _test_auto_object_type,
+        headless=HEADLESS,
+    )
+    assert result, "Test failed"
+
+
 if __name__ == "__main__":
     test_detect_object_type()
     test_detect_object_type_for_all_objects()
+    test_auto_object_type()
