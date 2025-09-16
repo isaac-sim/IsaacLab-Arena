@@ -26,13 +26,13 @@ def get_test_environment(num_envs: int):
     """Returns a scene which we use for these tests."""
 
     from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.assets.object_reference import ObjectReference
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.g1.g1 import G1Embodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.scene.scene import Scene
     from isaac_arena.geometry.pose import Pose
-    from isaac_arena.assets.object_reference import ObjectReference
+    from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
     args_parser = get_isaac_arena_cli_parser()
@@ -59,7 +59,7 @@ def get_test_environment(num_envs: int):
         name="pick_and_place",
         embodiment=G1Embodiment(),
         scene=scene,
-        task=PickAndPlaceTask(pick_up_object, destination_location, background)
+        task=PickAndPlaceTask(pick_up_object, destination_location, background),
     )
 
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
@@ -95,6 +95,7 @@ def _test_standing_idle_actions(simulation_app) -> bool:
         print(f"robot_init_base_pose: {robot_init_base_pose}")
         # check if robot base pose is close to initial base pose
         assert torch.allclose(robot_base_pose, robot_init_base_pose, atol=1e-2)
+
     try:
         # get robot init base pose
         robot_init_base_pose = env.scene.robot.get_init_base_pose()
@@ -110,6 +111,7 @@ def _test_standing_idle_actions(simulation_app) -> bool:
 
     return True
 
+
 def test_standing_idle_actions_single_env():
     result = run_simulation_app_function_in_separate_process(
         _test_standing_idle_actions,
@@ -117,5 +119,6 @@ def test_standing_idle_actions_single_env():
     )
     assert result, f"Test {_test_standing_idle_actions.__name__} failed"
 
+
 if __name__ == "__main__":
-   test_standing_idle_actions_single_env()
+    test_standing_idle_actions_single_env()
