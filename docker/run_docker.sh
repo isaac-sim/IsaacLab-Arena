@@ -136,8 +136,6 @@ else
                     "--env" "DOCKER_RUN_USER_NAME=$(id -un)"
                     "--env" "DOCKER_RUN_GROUP_ID=$(id -g)"
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
-                    "--env" "OMNI_USER=\$omni-api-token"
-                    "--env" "OMNI_PASS=$OMNI_PASS"
                     # Setting envs for XR: https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#run-isaac-lab-with-the-cloudxr-runtime
                     "--env" "XDG_RUNTIME_DIR=/workspaces/isaac_arena/submodules/IsaacLab/openxr/run"
                     "--env" "XR_RUNTIME_JSON=/workspaces/isaac_arena/submodules/IsaacLab/openxr/share/openxr/1/openxr_cloudxr.json"
