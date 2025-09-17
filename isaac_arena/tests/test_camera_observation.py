@@ -72,6 +72,8 @@ def _test_camera_observation(simulation_app) -> bool:
             # Make sure the camera observation contains values other than 0
             assert camera_observation.any() != 0, "Camera observation contains only 0s"
 
+    # Close the environment.
+    env.close()
     return True
 
 
