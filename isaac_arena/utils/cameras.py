@@ -32,7 +32,9 @@ def make_camera_observation_cfg(
 ):
     """
     Build a configclass instance that adds one ObsTerm per selected camera.
-    The SceneEntity name equals the camera field name used in the Scene.
+    The SceneEntity name equals the camera field name plus the data type used in the Scene.
+    For example, if the camera field name is "robot_pov_cam" and the data type is "rgb", the SceneEntity name will be "robot_pov_cam_rgb".
+    We create a class which has a member pointing to another class which is based on the ObsGroup class.
     """
 
     # If they passed the class, instantiate it so we can read values
