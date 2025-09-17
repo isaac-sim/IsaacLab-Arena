@@ -35,8 +35,6 @@ class Registry(metaclass=SingletonMeta):
         """
         assert component.name not in self.components, f"component {component.name} already registered"
         assert component.name is not None, "component name is not set"
-        if component.tagged:
-            assert component.tags is not None, "Asset tags are not set"
         self.components[component.name] = component
 
     def is_registered(self, name: str) -> bool:

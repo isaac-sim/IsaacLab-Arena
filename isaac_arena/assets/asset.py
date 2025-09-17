@@ -18,11 +18,6 @@ class Asset:
     Base class for all assets.
     """
 
-    # TODO(alexmillane, 2025.09.08): Get rid of this flag.
-    # We should be able to use the tags attribute directly.
-    # A "None" tag should be treated as "untagged".
-    tagged: bool = True
-
     def __init__(self, name: str, tags: list[str] | None = None, **kwargs):
         # NOTE: Cooperative Multiple Inheritance Pattern.
         # Calling super even though this is a base class to support
