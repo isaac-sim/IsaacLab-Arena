@@ -43,4 +43,3 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable Pinocchio.",
     )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
-    isaac_lab_group.add_argument("--camera_tag", type=str, default=None, help="Name of the camera tag.")

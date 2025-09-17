@@ -12,57 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from contextlib import suppress
-from copy import deepcopy
+from dataclasses import fields, is_dataclass
 from typing import Any
 
 from isaaclab.envs import mdp
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors import CameraCfg  # noqa: F401
 
-# if you already have these utilities in your repo, reuse them
 from isaac_arena.utils.configclass import make_configclass
 
 
-def add_camera_to_environment_cfg(
-    scene_cfg: Any,
-    enable_cameras: bool,
-    tag: str,
-):
-    """
-    Build a configclass instance that adds the selected cameras to the Scene.
-    We will also add the observation config if we are enabling cameras.
-    camera_defs: mapping like { "agentview_left_camera": {"camera_cfg": TiledCameraCfg(...), "tags": ["teleop"]}, ... }
-    """
-    if not enable_cameras or not hasattr(scene_cfg, "observation_cameras"):
-        return make_configclass("EmptyCamerasSceneCfg", [])(), make_configclass("EmptyCameraObsCfg", [])()
-
-    camera_defs: dict[str, dict[str, Any]] = scene_cfg.observation_cameras
-    fields_spec = []
-    observation_dict = {}
-    for name, meta in camera_defs.items():
-        tags: list[str] = meta.get("tags", [])
-        # If a tag is provided, only add the camera if it has that tag.
-        # If no tag is provided, add all cameras.
-        if tag is not None:
-            if tag not in tags:
-                continue
-        cam_cfg = deepcopy(meta["camera_cfg"])
-        observation_dict[name] = meta
-        # each camera becomes a field on the Scene config
-        fields_spec.append((name, type(cam_cfg), cam_cfg))
-
-    if not fields_spec:
-        return make_configclass("EmptyCamerasSceneCfg", [])(), make_configclass("EmptyCameraObsCfg", [])()
-
-    CamerasSceneCfg = make_configclass("CamerasSceneCfg", fields_spec)
-
-    return CamerasSceneCfg(), make_camera_observations_cfg(registered_cameras=observation_dict)
-
-
-def make_camera_observations_cfg(
-    registered_cameras: dict[str, dict[str, Any]],
+def make_camera_observation_cfg(
+    camera_cfg: Any,
     normalize: bool = False,
 ):
     """
@@ -70,18 +35,32 @@ def make_camera_observations_cfg(
     The SceneEntity name equals the camera field name used in the Scene.
     """
 
+    # If they passed the class, instantiate it so we can read values
+    if inspect.isclass(camera_cfg):
+        camera_cfg = camera_cfg()
+
+    if not is_dataclass(camera_cfg):
+        raise TypeError("camera_cfg must be a dataclass/configclass class or instance")
+
     obs_fields = []
-    for name, meta in registered_cameras.items():
-        # Remove this for now.
-        # data_type: list[str] = getattr(meta["camera_cfg"], "data_types", ["rgb"])
-        # For now we only support rgb.
-        # TODO(Vik): Support other data types.
-        term = ObsTerm(
-            func=mdp.image,
-            params={"sensor_cfg": SceneEntityCfg(name), "data_type": "rgb", "normalize": normalize},
-        )
-        # Field name on ObservationsCfg: use the camera name (or add suffix if you like)
-        obs_fields.append((name, ObsTerm, term))
+    for f in fields(camera_cfg):
+        name = f.name
+        cam = getattr(camera_cfg, name)
+        # Skip non-camera fields
+        if not isinstance(cam, CameraCfg):
+            continue
+
+        # Get modalities from the camera cfg (fallback to rgb)
+        dtypes = getattr(cam, "data_types", None) or ["rgb"]
+        # one ObsTerm per modality
+        for dt in dtypes:
+            field_name = f"{name}_{dt}"
+            term = ObsTerm(
+                func=mdp.image,
+                params={"sensor_cfg": SceneEntityCfg(name), "data_type": dt, "normalize": normalize},
+            )
+            # Field name on ObservationsCfg: use the camera name (or add suffix if you like)
+            obs_fields.append((field_name, ObsTerm, term))
 
     if not obs_fields:
         EmptyCameraObsCfg = make_configclass("EmptyCameraObsCfg", [], bases=(ObsGroup,))

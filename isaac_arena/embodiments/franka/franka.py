@@ -46,8 +46,8 @@ class FrankaEmbodiment(EmbodimentBase):
 
     name = "franka"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, enable_cameras: bool = False):
+        super().__init__(enable_cameras)
         self.scene_config = FrankaSceneCfg()
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()

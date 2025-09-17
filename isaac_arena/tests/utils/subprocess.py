@@ -59,7 +59,7 @@ def runner(
     simulation_app_args.enable_cameras = enable_cameras
     # Launch the simulator
     with SimulationAppContext(simulation_app_args) as simulation_app:
-        # Run the functionWW
+        # Run the function
         try:
             test_passed = function(simulation_app, **kwargs)
         except Exception as e:

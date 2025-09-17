@@ -19,6 +19,8 @@ from isaaclab.envs import ManagerBasedRLMimicEnv
 
 from isaac_arena.assets.asset import Asset
 from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.cameras import make_camera_observation_cfg
+from isaac_arena.utils.configclass import combine_configclass_instances
 
 
 class EmbodimentBase(Asset):
@@ -26,7 +28,8 @@ class EmbodimentBase(Asset):
     name: str | None = None
     tags: list[str] = ["embodiment"]
 
-    def __init__(self):
+    def __init__(self, enable_cameras: bool = False):
+        self.enable_cameras = enable_cameras
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
         self.action_config: Any | None = None
@@ -36,12 +39,27 @@ class EmbodimentBase(Asset):
         self.xr: Any | None = None
 
     def get_scene_cfg(self) -> Any:
+        if self.enable_cameras:
+            if self.camera_config is not None:
+                return combine_configclass_instances(
+                    "SceneCfg",
+                    self.scene_config,
+                    self.camera_config,
+                )
         return self.scene_config
 
     def get_action_cfg(self) -> Any:
         return self.action_config
 
     def get_observation_cfg(self) -> Any:
+        if self.enable_cameras:
+            if self.camera_config is not None:
+                camera_observation_config = make_camera_observation_cfg(self.camera_config)
+                return combine_configclass_instances(
+                    "ObservationCfg",
+                    self.observation_config,
+                    camera_observation_config,
+                )
         return self.observation_config
 
     def get_event_cfg(self) -> Any:

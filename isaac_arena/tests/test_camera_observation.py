@@ -34,7 +34,7 @@ def _test_camera_observation(simulation_app) -> bool:
     from isaac_arena.tasks.dummy_task import DummyTask
 
     args_parser = get_isaac_arena_cli_parser()
-    args_cli = args_parser.parse_args(["--camera_tag", "teleop", "--enable_cameras"])
+    args_cli = args_parser.parse_args(["--enable_cameras"])
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()
@@ -51,7 +51,7 @@ def _test_camera_observation(simulation_app) -> bool:
 
     isaac_arena_environment = IsaacArenaEnvironment(
         name="camera_observation_test",
-        embodiment=GR1T2Embodiment(),
+        embodiment=GR1T2Embodiment(enable_cameras=True),
         scene=scene,
         task=DummyTask(),
     )
@@ -65,7 +65,12 @@ def _test_camera_observation(simulation_app) -> bool:
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.device)
             obs, _, _, _, _ = env.step(actions)
-            print("obs", obs)
+            # Get the camera observation
+            camera_observation = obs["camera_obs"]["robot_pov_cam_rgb"]
+            # Assert that the camera rgb observation has three channels
+            assert camera_observation.shape[3] == 3, "Camera rgb observation does not have three channels"
+            # Make sure the camera observation contains values other than 0
+            assert camera_observation.any() != 0, "Camera observation contains only 0s"
 
     return True
 
