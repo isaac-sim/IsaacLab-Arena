@@ -22,8 +22,7 @@ class G1SupplementalInfo:
     Supplemental information for the G1 robot.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self):
         # Define all actuated joints
         self.body_actuated_joints = [
             # Left leg

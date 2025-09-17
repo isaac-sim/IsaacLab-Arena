@@ -31,6 +31,7 @@ from isaaclab.utils import configclass
 
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+# TODO(xinjieyao, 2025-09-15): Consider moving to IsaacLab repo
 from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
@@ -344,18 +345,12 @@ class G1WBCActionCfg:
     g1_action: ActionTermCfg = G1DecoupledWBCActionCfg(asset_name="robot", joint_names=[".*"])
 
 
-# NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py
-# The EventCfg definition in that file contains events from the robot and
-# the scene e.g. object randomization. So here we copy out just the robot events
-# to allow composition with other scenes.
 @configclass
 class G1EventCfg:
     """Configuration for events."""
 
-    # NOTE(alexmillane, 2025-07-28): I removed this event term because it was resetting
-    # elements of the scene not related to the robot. However, this causes the humanoid
-    # to not go to it's initial pose... Need to figure out what's going on here.
+    # NOTE(xinjieyao, 2025-09-15): This will reset all the articulation joints to the initial state,
+    # e.g. the robot will go to the initial pose, the microwave will return to init state, etc.
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
 
     reset_wbc_policy = EventTerm(func=wbc_events_mdp.reset_decoupled_wbc_policy, mode="reset")
-    # NOTE(xinjie.yao, 2025.09.09): Commented out P-control reset for Mimic loco-manip
