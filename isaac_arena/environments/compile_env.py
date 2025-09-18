@@ -42,7 +42,7 @@ class ArenaEnvBuilder:
     def compose_manager_cfg(self) -> tuple[IsaacArenaManagerBasedRLEnvCfg, str | type[ManagerBasedRLMimicEnv]]:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
-        # Construction the environment by combining inputs from the scene, embodiment, and task.
+        # Constructing the environment by combining inputs from the scene, embodiment, and task.
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.DEFAULT_SCENE_CFG,
