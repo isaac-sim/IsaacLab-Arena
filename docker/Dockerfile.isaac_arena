@@ -45,7 +45,7 @@ WORKDIR /workspaces/isaac_arena
 
 # Copy files to /build folder during docker build phase, different from workspace
 # location to avoid conflicts and allow changes detection upon container start.
-# Additionally, split copying into separate instuctions for Arena and submodules
+# Additionally, split copying into separate instructions for Arena and submodules
 # to avoid docker cache invalidation on code edits.
 RUN mkdir -p /build/isaac_arena
 COPY ./submodules /build/isaac_arena/submodules

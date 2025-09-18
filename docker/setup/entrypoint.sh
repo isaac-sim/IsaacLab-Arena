@@ -51,7 +51,7 @@ echo "alias ..='cd ..'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
 
 set +x
 
-# supress sudo hint message
+# Suppress sudo hint message
 touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful
 
 su $DOCKER_RUN_USER_NAME
