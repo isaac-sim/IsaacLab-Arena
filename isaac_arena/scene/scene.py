@@ -19,7 +19,6 @@ from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaac_arena.assets.asset import Asset
-from isaac_arena.geometry.pose import Pose
 from isaac_arena.utils.configclass import make_configclass
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -50,12 +49,6 @@ class Scene:
         NewConfigClass = make_configclass("SceneCfg", fields)
         new_config_class = NewConfigClass()
         return new_config_class
-
-    def get_robot_initial_pose(self) -> Pose:
-        # TODO(alexmillane, 2025.09.02): This is a hack. Fix.
-        # We need to make a decision on whether the background should specify
-        # a default robot initial pose.
-        return Pose.identity()
 
     def get_observation_cfg(self) -> Any:
         pass

@@ -25,13 +25,12 @@ class KitchenBackground(Background):
 
     name = "kitchen"
     tags = ["background"]
-    default_robot_initial_pose = Pose.identity()
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/kitchen_scene_teleop_v3.usd"
     initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
     object_min_z = -0.2
 
-    def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
-        super().__init__(robot_initial_pose)
+    def __init__(self):
+        super().__init__()
 
 
 @register_asset
@@ -42,13 +41,12 @@ class PackingTableBackground(Background):
 
     name = "packing_table"
     tags = ["background"]
-    default_robot_initial_pose = Pose.identity()
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/packing_table_arena.usd"
     initial_pose = Pose(position_xyz=(0.72193, -0.04727, -0.92512), rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711))
     object_min_z = -0.2
 
-    def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
-        super().__init__(robot_initial_pose)
+    def __init__(self):
+        super().__init__()
 
 
 @register_asset
@@ -59,13 +57,12 @@ class GalileoBackground(Background):
 
     name = "galileo"
     tags = ["background"]
-    default_robot_initial_pose = Pose.identity()
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/galileo_simplified.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
     object_min_z = -0.2
 
-    def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
-        super().__init__(robot_initial_pose)
+    def __init__(self):
+        super().__init__()
 
 
 # NOTE(alexmillane, 2025.09.15): I am adding this background such that we can use
@@ -81,11 +78,10 @@ class LightwheelKitchenBackground(Background):
 
     name = "lightwheel_kitchen"
     tags = ["background"]
-    default_robot_initial_pose = Pose.identity()
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/lightwheel_assets_for_deletion/robocasakitchen-4-2/scene.usd"
     initial_pose = Pose(position_xyz=(-1.20, 1.70, -0.92), rotation_wxyz=(1.0, 0, 0, 0))
     object_min_z = -0.2
 
-    def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
+    def __init__(self):
         print(f"DO NOT SHIP THIS ASSET: {self.name}")
-        super().__init__(robot_initial_pose)
+        super().__init__()

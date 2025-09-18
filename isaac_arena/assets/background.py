@@ -33,13 +33,8 @@ class Background(Asset):
     initial_pose: Pose | None = None
     object_min_z: float | None = None
 
-    def __init__(self, robot_initial_pose: Pose):
+    def __init__(self):
         super().__init__(self.name)
-        self.robot_initial_pose = robot_initial_pose
-
-    def get_robot_initial_pose(self) -> Pose:
-        """Return the configured robot initial pose."""
-        return self.robot_initial_pose
 
     def get_cfgs(self) -> dict[str, Any]:
         assert self.name is not None, "Background name is not set"

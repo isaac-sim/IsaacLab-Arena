@@ -14,6 +14,7 @@
 
 import torch
 from collections.abc import Sequence
+from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.utils.math as PoseUtils
@@ -54,12 +55,15 @@ class FrankaEmbodiment(EmbodimentBase):
         self.event_config = FrankaEventCfg()
         self.mimic_env = FrankaMimicEnv
 
-    def set_robot_initial_pose(self, pose: Pose):
+    def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # We override the default initial pose setting function in order to also set
         # the initial pose of the stand.
-        super().set_robot_initial_pose(pose)
-        self.scene_config.stand.init_state.pos = pose.position_xyz
-        self.scene_config.stand.init_state.rot = pose.rotation_wxyz
+        scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
+        if scene_config is None or not hasattr(scene_config, "robot"):
+            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
+        scene_config.stand.init_state.pos = pose.position_xyz
+        scene_config.stand.init_state.rot = pose.rotation_wxyz
+        return scene_config
 
 
 @configclass

@@ -35,13 +35,12 @@ def get_test_background():
 
         name = "kitchen"
         tags = ["background", "pick_and_place"]
-        default_robot_initial_pose = Pose.identity()
         usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd"
         initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
         object_min_z = -0.2
 
         def __init__(self):
-            super().__init__(robot_initial_pose=self.default_robot_initial_pose)
+            super().__init__()
 
     return ObjectReferenceTestKitchenBackground()
 
