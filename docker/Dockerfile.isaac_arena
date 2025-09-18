@@ -99,5 +99,15 @@ RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 
+# Debugging with debugpy
+# Usage:
+# 1) Set your breakpoints
+# 2) Start the script you want to debug with "debugpy" instead of "python".
+#    It will pause waiting for the debugger to attach.
+# 3) Attach to the running container with VSCode using the "Attach to debugpy session"
+#    configuration from the Run and Debug panel.
+RUN pip3 install debugpy
+RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
+
 # Remove the entrypoint from the base image.
 ENTRYPOINT []
