@@ -89,3 +89,20 @@ class LightwheelKitchenBackground(Background):
     def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
         print(f"DO NOT SHIP THIS ASSET: {self.name}")
         super().__init__(robot_initial_pose)
+
+
+@register_asset
+class GalileoLocomanipBackground(Background):
+    """
+    Encapsulates the background scene for the galileo room for locomanip.
+    """
+
+    name = "galileo_locomanip"
+    tags = ["background"]
+    default_robot_initial_pose = Pose.identity()
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/galileo_locomanip.usd"
+    initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    object_min_z = -0.2
+
+    def __init__(self, robot_initial_pose: Pose = default_robot_initial_pose):
+        super().__init__(robot_initial_pose)

@@ -33,9 +33,8 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("galileo")()
+        background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        office_table = self.asset_registry.get_asset_by_name("office_table")()
         blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
@@ -48,18 +47,6 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             Pose(
                 position_xyz=(0.55, -0.04, 0.2259),
                 rotation_wxyz=(0.0, 0.0, 1.0, 0.0),
-            )
-        )
-        # pick_up_object.set_initial_pose(
-        #     Pose(
-        #         position_xyz=(-0.2450, -1.5815, 0.13),
-        #         rotation_wxyz=(0.0, 0.0, 0.7071068, -0.7071068),
-        #     )
-        # )
-        office_table.set_initial_pose(
-            Pose(
-                position_xyz=(-0.2080, -1.7560, -0.7950),
-                rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
             )
         )
         blue_sorting_bin.set_initial_pose(
@@ -82,7 +69,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         #     parent_asset=background,
         # )
 
-        scene = Scene(assets=[background, pick_up_object, office_table, blue_sorting_bin])
+        scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
