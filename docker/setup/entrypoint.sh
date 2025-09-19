@@ -45,8 +45,10 @@ fi
 # change prompt so it's obvious we're inside the arena container
 echo "PS1='[Isaac Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
 
-# useful aliases
+# useful aliases:
+# list files as a table, with colors, show hidden, append indicators (/ for dirs, * for executables, @ for symlinks)
 echo "alias ll='ls -alF --color=auto'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
+# go one level up
 echo "alias ..='cd ..'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
 
 set +x
