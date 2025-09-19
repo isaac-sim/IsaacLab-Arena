@@ -66,10 +66,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_mimic_env_cfg(self, embodiment_name: str):
-        return PickPlaceMimicEnvCfg(
-            embodiment_name=embodiment_name,
-            pick_up_object_name=self.pick_up_object.name,
-        )
+        return G1LocomanipPickPlaceMimicEnvCfg()
 
 
 @configclass
@@ -121,14 +118,10 @@ class EventsCfg:
 
 
 @configclass
-class PickPlaceMimicEnvCfg(MimicEnvCfg):
+class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
     """
-    Isaac Lab Mimic environment config class for Pick and Place env.
+    Isaac Lab Mimic environment config class for G1 Locomanip Pick and Place env.
     """
-
-    embodiment_name: str = "franka"
-
-    pick_up_object_name: str = "pick_up_object"
 
     def __post_init__(self):
         # post init of parents
@@ -138,7 +131,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
         # # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
 
         # Override the existing values
-        self.datagen_config.name = "demo_src_pickplace_isaac_lab_task_D0"
+        self.datagen_config.name = "g1_locomanip_pick_and_place_D0"
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
         self.datagen_config.generation_num_trials = 100
@@ -156,21 +149,21 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref=self.pick_up_object_name,
+                object_ref="blue_exhaust_pipe",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
-                subtask_term_signal="grasp_1",
-                # Specifies time offsets for data generation when splitting a trajectory into
-                # subtask segments. Random offsets are added to the termination boundary.
-                subtask_term_offset_range=(10, 20),
+                subtask_term_signal="idle_right",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
                 # Selection strategy for the source subtask segment during data generation
                 selection_strategy="nearest_neighbor_object",
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.03,
+                action_noise=0.003,
                 # Number of interpolation steps to bridge to this subtask segment
-                num_interpolation_steps=5,
+                num_interpolation_steps=0,
                 # Additional fixed steps for the robot to reach the necessary pose
                 num_fixed_steps=0,
                 # If True, apply action noise during the interpolation phase and execution
@@ -180,58 +173,177 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                # TODO(alexmillane, 2025.09.02): This is currently broken. FIX.
-                # We need a way to pass in a reference to an object that exists in the
-                # scene.
-                object_ref="destination_object",
-                # End of final subtask does not need to be detected
-                subtask_term_signal=None,
-                # No time offsets for the final subtask
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                subtask_term_signal="grasp_and_idle_right",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
                 subtask_term_offset_range=(0, 0),
-                # Selection strategy for source subtask segment
+                # Selection strategy for the source subtask segment during data generation
                 selection_strategy="nearest_neighbor_object",
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.03,
+                action_noise=0.003,
                 # Number of interpolation steps to bridge to this subtask segment
-                num_interpolation_steps=5,
+                num_interpolation_steps=0,
                 # Additional fixed steps for the robot to reach the necessary pose
                 num_fixed_steps=0,
                 # If True, apply action noise during the interpolation phase and execution
                 apply_noise_during_interpolation=False,
             )
         )
-        if self.embodiment_name == "franka":
-            self.subtask_configs["robot"] = subtask_configs
-        # We need to add the left and right subtasks for GR1.
-        elif self.embodiment_name == "gr1":
-            self.subtask_configs["right"] = subtask_configs
-            # EEF on opposite side (arm is static)
-            subtask_configs = []
-            subtask_configs.append(
-                SubTaskConfig(
-                    # Each subtask involves manipulation with respect to a single object frame.
-                    object_ref=self.pick_up_object_name,
-                    # Corresponding key for the binary indicator in "datagen_info" for completion
-                    subtask_term_signal=None,
-                    # Time offsets for data generation when splitting a trajectory
-                    subtask_term_offset_range=(0, 0),
-                    # Selection strategy for source subtask segment
-                    selection_strategy="nearest_neighbor_object",
-                    # Optional parameters for the selection strategy function
-                    selection_strategy_kwargs={"nn_k": 3},
-                    # Amount of action noise to apply during this subtask
-                    action_noise=0.005,
-                    # Number of interpolation steps to bridge to this subtask segment
-                    num_interpolation_steps=0,
-                    # Additional fixed steps for the robot to reach the necessary pose
-                    num_fixed_steps=0,
-                    # If True, apply action noise during the interpolation phase and execution
-                    apply_noise_during_interpolation=False,
-                )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.003,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
             )
-            self.subtask_configs["left"] = subtask_configs
+        )
+        self.subtask_configs["right"] = subtask_configs
 
-        else:
-            raise ValueError(f"Embodiment name {self.embodiment_name} not supported")
+
+        # Left arm subtasks
+        subtask_configs = []
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.003,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        self.subtask_configs["left"] = subtask_configs
+
+
+        # Body subtasks (used for navigation)
+        subtask_configs = []
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                subtask_term_signal="navigate_to_table",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.0,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                subtask_term_signal="navigate_turn_inplace",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.0,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                subtask_term_signal="navigate_to_bin",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.0,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="blue_exhaust_pipe",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.0,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        self.subtask_configs["body"] = subtask_configs
+        

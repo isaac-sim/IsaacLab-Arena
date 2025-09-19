@@ -37,6 +37,11 @@ from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
 from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
 
+import torch
+from collections.abc import Sequence
+
+import isaaclab.utils.math as PoseUtils
+
 
 @register_asset
 class G1Embodiment(EmbodimentBase):
@@ -51,7 +56,7 @@ class G1Embodiment(EmbodimentBase):
         self.action_config = G1WBCActionCfg()
         self.observation_config = G1ObservationsCfg()
         self.event_config = G1EventCfg()
-        self.mimic_env = MISSING
+        self.mimic_env = G1MimicEnv
 
         # XR settings
         # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
@@ -318,6 +323,39 @@ class G1ObservationsCfg:
             func=wbc_observations_mdp.eef_pose_pelvis_frame,
             params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "left_wrist_yaw_link"},
         )
+        # Mimic required observations
+        left_eef_pos = ObsTerm(
+            func=wbc_observations_mdp.get_eef_pose,
+            params={"mode": "pos", "eef_name": "left_wrist_yaw_link"},
+        )
+        left_eef_quat = ObsTerm(
+            func=wbc_observations_mdp.get_eef_pose,
+            params={"mode": "quat", "eef_name": "left_wrist_yaw_link"},
+        )
+        right_eef_pos = ObsTerm(
+            func=wbc_observations_mdp.get_eef_pose,
+            params={"mode": "pos", "eef_name": "right_wrist_yaw_link"},
+        )
+        right_eef_quat = ObsTerm(
+            func=wbc_observations_mdp.get_eef_pose,
+            params={"mode": "quat", "eef_name": "right_wrist_yaw_link"},
+        )
+        # Body eefs are not used for transforms so values are not important,
+        # but they must be present for datagen to run since "body" is considered an eef
+        body_eef_pos = ObsTerm(
+            func=wbc_observations_mdp.get_eef_pose,
+            params={"mode": "pos", "eef_name": "right_wrist_yaw_link"},
+        )
+        body_eef_quat = ObsTerm(
+            func=wbc_observations_mdp.get_eef_pose,
+            params={"mode": "quat", "eef_name": "right_wrist_yaw_link"},
+        )
+        robot_pos = ObsTerm(
+            func=wbc_observations_mdp.get_robot_pos,
+        )
+        robot_quat = ObsTerm(
+            func=wbc_observations_mdp.get_robot_quat,
+        )
         # robot_head_cam = ObsTerm(
         #     func=mdp.image,
         #     params={"sensor_cfg": SceneEntityCfg("robot_head_cam"), "data_type": "rgb", "normalize": False},
@@ -373,3 +411,181 @@ class G1EventCfg:
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
 
     reset_wbc_policy = EventTerm(func=wbc_events_mdp.reset_decoupled_wbc_policy, mode="reset")
+
+
+class G1MimicEnv(ManagerBasedRLMimicEnv):
+    """Configuration for G1 Mimic."""
+
+    def get_robot_eef_pose(self, eef_name: str, env_ids: Sequence[int] | None = None) -> torch.Tensor:
+        """
+        Get current robot end effector pose. Should be the same frame as used by the robot end-effector controller.
+
+        Args:
+            eef_name: Name of the end effector.
+            env_ids: Environment indices to get the pose for. If None, all envs are considered.
+
+        Returns:
+            A torch.Tensor eef pose matrix. Shape is (len(env_ids), 4, 4)
+        """
+        if env_ids is None:
+            env_ids = slice(None)
+
+        eef_pos_name = f"{eef_name}_eef_pos"
+        eef_quat_name = f"{eef_name}_eef_quat"
+
+        target_wrist_position = self.obs_buf["policy"][eef_pos_name][env_ids]
+        target_rot_mat = PoseUtils.matrix_from_quat(self.obs_buf["policy"][eef_quat_name][env_ids])
+
+        return PoseUtils.make_pose(target_wrist_position, target_rot_mat)
+
+    def target_eef_pose_to_action(
+        self,
+        target_eef_pose_dict: dict,
+        gripper_action_dict: dict,
+        action_noise_dict: dict | None = None,
+        env_id: int = 0,
+    ) -> torch.Tensor:
+        """
+        Takes a target pose and gripper action for the end effector controller and returns an action
+        (usually a normalized delta pose action) to try and achieve that target pose.
+        Noise is added to the target pose action if specified.
+
+        Args:
+            target_eef_pose_dict: Dictionary of 4x4 target eef pose for each end-effector.
+            gripper_action_dict: Dictionary of gripper actions for each end-effector.
+            noise: Noise to add to the action. If None, no noise is added.
+            env_id: Environment index to get the action for.
+
+        Returns:
+            An action torch.Tensor that's compatible with env.step().
+        """
+
+        target_left_eef_pos, left_target_rot = PoseUtils.unmake_pose(target_eef_pose_dict["left"])
+        target_right_eef_pos, right_target_rot = PoseUtils.unmake_pose(target_eef_pose_dict["right"])
+
+        target_left_eef_rot_quat = PoseUtils.quat_from_matrix(left_target_rot)
+        target_right_eef_rot_quat = PoseUtils.quat_from_matrix(right_target_rot)
+
+        # # target position and rotation
+        # target_left_pose = target_eef_pose_dict["left"].clone()
+        # target_right_pose = target_eef_pose_dict["right"].clone()
+
+        # gripper actions
+        left_gripper_action = gripper_action_dict["left"]
+        right_gripper_action = gripper_action_dict["right"]
+
+        # body gripper action is lower body control commands
+        body_gripper_action = gripper_action_dict["body"]
+
+        if action_noise_dict is not None:
+            pos_noise_left = action_noise_dict["left"] * torch.randn_like(target_left_eef_pos)
+            pos_noise_right = action_noise_dict["right"] * torch.randn_like(target_right_eef_pos)
+            quat_noise_left = action_noise_dict["left"] * torch.randn_like(target_left_eef_rot_quat)
+            quat_noise_right = action_noise_dict["right"] * torch.randn_like(target_right_eef_rot_quat)
+
+            target_left_eef_pos += pos_noise_left
+            target_right_eef_pos += pos_noise_right
+            target_left_eef_rot_quat += quat_noise_left
+            target_right_eef_rot_quat += quat_noise_right
+
+        return torch.cat(
+            (
+                left_gripper_action,
+                right_gripper_action,
+                target_left_eef_pos,
+                target_left_eef_rot_quat,
+                target_right_eef_pos,
+                target_right_eef_rot_quat,
+                body_gripper_action
+            ),
+            dim=0,
+        )
+
+    def action_to_target_eef_pose(self, action: torch.Tensor) -> dict[str, torch.Tensor]:
+        """
+        Converts action (compatible with env.step) to a target pose for the end effector controller.
+        Inverse of @target_eef_pose_to_action. Usually used to infer a sequence of target controller poses
+        from a demonstration trajectory using the recorded actions.
+
+        Args:
+            action: Environment action. Shape is (num_envs, action_dim).
+
+        Returns:
+            A dictionary of eef pose torch.Tensor that @action corresponds to.
+        """
+
+        target_poses = {}
+
+        target_left_wrist_position = action[:, 2:5]
+        target_left_rot_mat = PoseUtils.matrix_from_quat(action[:, 5:9])
+        target_pose_left = PoseUtils.make_pose(target_left_wrist_position, target_left_rot_mat)
+        target_poses["left"] = target_pose_left
+
+        target_right_wrist_position = action[:, 9:12]
+        target_right_rot_mat = PoseUtils.matrix_from_quat(action[:, 12:16])
+        target_pose_right = PoseUtils.make_pose(target_right_wrist_position, target_right_rot_mat)
+        target_poses["right"] = target_pose_right
+
+        target_poses["body"] = torch.zeros_like(target_pose_left)
+
+        return target_poses
+
+    def actions_to_gripper_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:
+        """
+        Extracts the gripper actuation part from a sequence of env actions (compatible with env.step).
+
+        Args:
+            actions: environment actions. The shape is (num_envs, num steps in a demo, action_dim).
+
+        Returns:
+            A dictionary of torch.Tensor gripper actions. Key to each dict is an eef_name.
+        """
+
+        '''
+        Shape of actions:
+            left_gripper_action shape: (1,)
+            right_gripper_action shape: (1,)
+            left_wrist_pos shape: (3,)
+            left_wrist_quat shape: (4,)
+            right_wrist_pos shape: (3,)
+            right_wrist_quat shape: (4,)
+            navigate_cmd shape: (3,)
+            base_height_cmd shape: (1,)
+            torso_orientation_rpy_cmd shape: (3,)
+
+            Size of left/right gripper actions = 400
+            Note: the base commands are passed through as a "gripper" action along with right hand
+        '''
+        return {"left": actions[:, 0], "right": actions[:, 1], "body": actions[:, -7:]}
+    
+
+    def get_object_poses(self, env_ids: Sequence[int] | None = None):
+        """
+        Gets the pose of each object relevant to Isaac Lab Mimic data generation in the current scene.
+
+        Args:
+            env_ids: Environment indices to get the pose for. If None, all envs are considered.
+
+        Returns:
+            A dictionary that maps object names to object pose matrix in pelvis frame (4x4 torch.Tensor)
+        """
+        if env_ids is None:
+            env_ids = slice(None)
+
+        # Get pelvis inverse transform to convert from world to pelvis frame
+        pelvis_pose_w = self.scene["robot"].data.body_link_state_w[:, self.scene["robot"].data.body_names.index("pelvis"), :]
+        pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins
+        pelvis_rot_mat_w = PoseUtils.matrix_from_quat(pelvis_pose_w[:, 3:7])
+        pelvis_pose_mat_w = PoseUtils.make_pose(pelvis_position_w, pelvis_rot_mat_w)
+        pelvis_pose_inv = PoseUtils.pose_inv(pelvis_pose_mat_w)
+
+        rigid_object_states = self.scene.get_state(is_relative=True)["rigid_object"]
+        object_pose_matrix = dict()
+        for obj_name, obj_state in rigid_object_states.items():
+            object_pose_mat_w = PoseUtils.make_pose(
+                obj_state["root_pose"][env_ids, :3], PoseUtils.matrix_from_quat(obj_state["root_pose"][env_ids, 3:7])
+            )
+            object_pose_pelvis_frame = torch.matmul(pelvis_pose_inv, object_pose_mat_w)
+            object_pose_matrix[obj_name] = object_pose_pelvis_frame
+
+        return object_pose_matrix
