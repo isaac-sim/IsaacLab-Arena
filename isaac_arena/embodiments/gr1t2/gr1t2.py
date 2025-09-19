@@ -44,8 +44,8 @@ class GR1T2Embodiment(EmbodimentBase):
 
     name = "gr1"
 
-    def __init__(self, enable_cameras: bool = False):
-        super().__init__(enable_cameras)
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.camera_config = GR1T2CameraCfg()
