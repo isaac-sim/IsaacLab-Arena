@@ -17,8 +17,31 @@ from isaac_arena.assets.register import register_asset
 from isaac_arena.geometry.pose import Pose
 
 
+class LibraryBackground(Background):
+    """
+    Base class for objects in the library which are defined in this file.
+    These objects have class attributes (rather than instance attributes).
+    """
+
+    name: str
+    tags: list[str]
+    usd_path: str
+    initial_pose: Pose
+    object_min_z: float
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            name=self.name,
+            tags=self.tags,
+            usd_path=self.usd_path,
+            initial_pose=self.initial_pose,
+            object_min_z=self.object_min_z,
+            **kwargs,
+        )
+
+
 @register_asset
-class KitchenBackground(Background):
+class KitchenBackground(LibraryBackground):
     """
     Encapsulates the background scene for the kitchen.
     """
@@ -34,7 +57,7 @@ class KitchenBackground(Background):
 
 
 @register_asset
-class PackingTableBackground(Background):
+class PackingTableBackground(LibraryBackground):
     """
     Encapsulates the background scene for the packing table.
     """
@@ -50,7 +73,7 @@ class PackingTableBackground(Background):
 
 
 @register_asset
-class GalileoBackground(Background):
+class GalileoBackground(LibraryBackground):
     """
     Encapsulates the background scene for the galileo room.
     """
@@ -71,7 +94,7 @@ class GalileoBackground(Background):
 # TODO(alexmillane, 2025.09.15): Remove this background once we get up and running
 # with lightwheel.
 @register_asset
-class LightwheelKitchenBackground(Background):
+class LightwheelKitchenBackground(LibraryBackground):
     """
     Encapsulates the background scene for the lightwheel kitchen.
     """

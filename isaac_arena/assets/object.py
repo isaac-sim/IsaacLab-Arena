@@ -29,7 +29,7 @@ class Object(ObjectBase):
     def __init__(
         self,
         name: str,
-        prim_path: str,
+        prim_path: str | None = None,
         object_type: ObjectType | None = None,
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
