@@ -31,6 +31,7 @@ from isaaclab.utils import configclass
 
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+
 # TODO(xinjieyao, 2025-09-15): Consider moving to IsaacLab repo
 from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
