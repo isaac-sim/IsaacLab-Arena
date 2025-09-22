@@ -26,12 +26,19 @@ if TYPE_CHECKING:
 
 
 def transform_pose_from_world_to_target_frame(
-    env: ManagerBasedEnv, target_link_name: str, target_frame_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+    env: ManagerBasedEnv,
+    target_link_name: str,
+    target_frame_name: str,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
     """Get the pose of the target link in the specified target frame."""
     asset: Articulation = env.scene[asset_cfg.name]
-    assert target_link_name in asset.data.body_names, f"Target link {target_link_name} not found in asset {asset_cfg.name}"
-    assert target_frame_name in asset.data.body_names, f"Target frame {target_frame_name} not found in asset {asset_cfg.name}"
+    assert (
+        target_link_name in asset.data.body_names
+    ), f"Target link {target_link_name} not found in asset {asset_cfg.name}"
+    assert (
+        target_frame_name in asset.data.body_names
+    ), f"Target frame {target_frame_name} not found in asset {asset_cfg.name}"
 
     target_link_pose_w = asset.data.body_link_state_w[:, asset.data.body_names.index(target_link_name), :]
     target_frame_pose_w = asset.data.body_link_state_w[:, asset.data.body_names.index(target_frame_name), :]
@@ -64,8 +71,11 @@ def get_target_link_position_in_target_frame(
     target_link_pose_target_frame = transform_pose_from_world_to_target_frame(
         env, target_link_name, target_frame_name, asset_cfg
     )
-    target_link_position_target_frame, left_target_link_rot_target_frame = PoseUtils.unmake_pose(target_link_pose_target_frame)
+    target_link_position_target_frame, left_target_link_rot_target_frame = PoseUtils.unmake_pose(
+        target_link_pose_target_frame
+    )
     return target_link_position_target_frame
+
 
 def get_target_link_quaternion_in_target_frame(
     env: ManagerBasedEnv,
@@ -77,7 +87,9 @@ def get_target_link_quaternion_in_target_frame(
     target_link_pose_target_frame = transform_pose_from_world_to_target_frame(
         env, target_link_name, target_frame_name, asset_cfg
     )
-    target_link_position_target_frame, left_target_link_rot_target_frame = PoseUtils.unmake_pose(target_link_pose_target_frame)
+    target_link_position_target_frame, left_target_link_rot_target_frame = PoseUtils.unmake_pose(
+        target_link_pose_target_frame
+    )
     target_link_quat_target_frame = PoseUtils.quat_from_matrix(left_target_link_rot_target_frame)
     return target_link_quat_target_frame
 
