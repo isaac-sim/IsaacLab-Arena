@@ -32,8 +32,7 @@ from isaaclab.utils import configclass
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 
-# TODO(xinjieyao, 2025-09-15): Consider moving to IsaacLab repo
-from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
+import isaac_arena.terms.trasnforms as transforms_terms
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
 from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
@@ -297,12 +296,12 @@ class G1ObservationsCfg:
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         right_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "right_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={"asset_cfg": SceneEntityCfg("robot"), "target_link_name": "right_wrist_yaw_link", "target_frame_name": "pelvis"},
         )
         left_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "left_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={"asset_cfg": SceneEntityCfg("robot"), "target_link_name": "left_wrist_yaw_link", "target_frame_name": "pelvis"},
         )
 
         def __post_init__(self):
@@ -322,12 +321,12 @@ class G1ObservationsCfg:
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         right_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "right_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={"asset_cfg": SceneEntityCfg("robot"), "target_link_name": "right_wrist_yaw_link", "target_frame_name": "pelvis"},
         )
         left_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "left_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={"asset_cfg": SceneEntityCfg("robot"), "target_link_name": "left_wrist_yaw_link", "target_frame_name": "pelvis"},
         )
 
         def __post_init__(self):

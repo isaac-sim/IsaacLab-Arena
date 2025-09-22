@@ -36,6 +36,9 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     def __post_init__(self):
         """Post initialization."""
+        # NOTE(xinjieyao, 2025-09-22): decimation & sim.dt are set to match the WBC policy trained frequency.
+        # Any changes to these settings shall impact G1-WBC performance, therefore should be carefully considered.
+        # Especially, any settings slower than 200Hz & 4 decimation shall impact G1-WBC performance.
         # general settings
         self.decimation = 4
         self.episode_length_s = 30.0
