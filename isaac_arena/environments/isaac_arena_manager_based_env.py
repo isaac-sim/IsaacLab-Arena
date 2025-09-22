@@ -44,7 +44,8 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = 30.0
         # simulation settings
         self.sim.dt = 1 / 200  # 200Hz
-        self.sim.render_interval = 2
+        # NOTE(xinjieyao, 2025-09-22): render_interval is set to match the decimation.
+        self.sim.render_interval = 4
 
         # Add teleop device here as we need access to xr and sim device.
         if self.teleop_devices is not None:
