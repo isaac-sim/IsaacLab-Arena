@@ -143,16 +143,6 @@ jobs:
         # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
         run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
-      - name: Find PR for this commit
-        id: findpr
-        uses: peter-evans/find-pull-request@v3
-        with:
-          commit: ${{ github.sha }}
-
-      - name: Skip if no PR found
-        if: steps.findpr.outputs.number == ''
-        run: echo "No merged PR associated with this commit; skipping push." && exit 0
-
       - name: Build & push image to NGC
         run: |
           chmod +x ./docker/push_to_ngc* || true
