@@ -21,17 +21,19 @@ from isaac_arena.embodiments.g1.wbc_policy.policy.identity_policy import Identit
 from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import RobotModel
 
 
-def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseConfig) -> WBCPolicy:
+def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseConfig, num_envs: int = 1) -> WBCPolicy:
     """Get the WBC policy for the given robot type and configuration.
 
     Args:
         robot_type: The type of robot to get the WBC policy for. Only "g1" is supported.
         robot_model: The robot model to use for the WBC policy
         wbc_config: The configuration for the WBC policy
+        num_envs: The number of environments to use in IsaacLab
 
     Returns:
         The WBC policy for the given robot type and configuration
     """
+    assert num_envs > 0, f"num_envs must be greater than 0, got {num_envs}"
     if robot_type == "g1":
         # Only one mode for upper body -- passing thru, no interpolation
         upper_body_policy = IdentityPolicy()
@@ -53,6 +55,7 @@ def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseCon
             robot_model=robot_model,
             upper_body_policy=upper_body_policy,
             lower_body_policy=lower_body_policy,
+            num_envs=num_envs,
         )
     else:
         raise ValueError(f"Invalid robot type: {robot_type}. Supported robot types: g1")
