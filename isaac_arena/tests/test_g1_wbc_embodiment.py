@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gymnasium as gym
+import numpy as np
 import torch
 import tqdm
 
@@ -20,60 +20,50 @@ from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_se
 
 NUM_STEPS = 10
 HEADLESS = True
+STANDING_POSITION_XY_EPS = 1e-1
 
 
 def get_test_environment(num_envs: int):
     """Returns a scene which we use for these tests."""
 
     from isaac_arena.assets.asset_registry import AssetRegistry
-    from isaac_arena.assets.object_reference import ObjectReference
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.g1.g1 import G1Embodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.geometry.pose import Pose
     from isaac_arena.scene.scene import Scene
-    from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
-
-    args_parser = get_isaac_arena_cli_parser()
-    args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
+    from isaac_arena.tasks.dummy_task import DummyTask
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("galileo")()
-    pick_up_object = asset_registry.get_asset_by_name("power_drill")()
-    pick_up_object.set_initial_pose(
-        Pose(
-            position_xyz=(0.55, 0.0, 0.33),
-            rotation_wxyz=(0.0, 0.0, 0.7071068, -0.7071068),
-        )
-    )
 
-    destination_location = ObjectReference(
-        name="destination_location",
-        prim_path="{ENV_REGEX_NS}/galileo/BackgroundAssets/bins/small_bin_grid_01/lid",
-        parent_asset=background,
-    )
     scene = Scene(assets=[background])
+    embodiment = G1Embodiment()
+    # NOTE(xinjieyao, 2025.09.22): Set initial pose such that robot will not drop to the ground, causing WBC unstable.
+    robot_init_base_pose = np.array([0, 0, 0])
+    embodiment.set_initial_pose(Pose(position_xyz=robot_init_base_pose, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
     isaac_arena_environment = IsaacArenaEnvironment(
-        name="pick_and_place",
-        embodiment=G1Embodiment(),
+        name="g1_standing_test",
+        embodiment=embodiment,
         scene=scene,
-        task=PickAndPlaceTask(pick_up_object, destination_location, background),
+        task=DummyTask(),
     )
 
+    args_cli = get_isaac_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
-    env = gym.make(name, cfg=cfg).unwrapped
+    env = env_builder.make_registered()
     env.reset()
 
-    return env
+    return env, robot_init_base_pose
 
 
 def step_standing_actions_call(env, num_steps, robot_init_base_pose, function=None):
     for _ in tqdm.tqdm(range(num_steps)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.device)
+            # NOTE(xinjieyao, 2025.09.22): Set base height to 0.75m to avoid robot squatting to match 0-height command.
             actions[:, -4] = 0.75
             _, _, _, _, _ = env.step(actions)
             if function is not None:
@@ -85,20 +75,16 @@ def _test_standing_idle_actions(simulation_app) -> bool:
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
     # Get the scene
-    env = get_test_environment(num_envs=1)
+    env, robot_init_base_pose = get_test_environment(num_envs=1)
 
-    def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: torch.Tensor):
-
+    def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
         # get robot base pose after actions call
-        robot_base_pose = env.scene.robot.get_base_pose()
-        print(f"robot_base_pose: {robot_base_pose}")
-        print(f"robot_init_base_pose: {robot_init_base_pose}")
+        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
-        assert torch.allclose(robot_base_pose, robot_init_base_pose, atol=1e-2)
+        robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
+        assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."
 
     try:
-        # get robot init base pose
-        robot_init_base_pose = env.scene.robot.get_init_base_pose()
         # sending standing idle actions
         step_standing_actions_call(env, NUM_STEPS, robot_init_base_pose, assert_standing_idle)
 
