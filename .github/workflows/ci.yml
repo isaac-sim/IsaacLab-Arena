@@ -22,10 +22,10 @@ env:
   OMNI_USER: ${{ secrets.OMNI_USER }}
 
 jobs:
-  timeout-minutes: 30
   test:
     name: Run pre commit checks and tests
     runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
@@ -75,6 +75,7 @@ jobs:
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
     runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
@@ -119,6 +120,7 @@ jobs:
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
     needs: [test, test_policy]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
