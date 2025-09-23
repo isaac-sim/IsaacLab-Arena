@@ -51,7 +51,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     )
     cracker_box.set_initial_pose(
         Pose(
-            position_xyz=(0.0758066475391388, -0.5088448524475098, 0.0),
+            position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
             rotation_wxyz=(1, 0, 0, 0),
         )
     )
