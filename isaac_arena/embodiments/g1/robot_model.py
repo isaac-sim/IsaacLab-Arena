@@ -14,11 +14,10 @@
 
 import numpy as np
 import os
+import yaml
 from copy import deepcopy
-import yaml
-import pinocchio as pin
 
-import yaml
+import pinocchio as pin
 
 from isaac_arena.embodiments.g1.g1_supplemental_info import G1SupplementalInfo
 
@@ -39,9 +38,11 @@ class RobotModel:
 
         self.is_floating_base_model = set_floating_base
 
-        joints_order_path = os.path.join(os.path.dirname(__file__), "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml")
+        joints_order_path = os.path.join(
+            os.path.dirname(__file__), "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml"
+        )
 
-        with open(joints_order_path, "r") as f:
+        with open(joints_order_path) as f:
             self.wbc_g1_joints_order = yaml.safe_load(f)
 
         self.joint_to_dof_index = {}
@@ -57,7 +58,9 @@ class RobotModel:
         # Set up supplemental info if provided
         self.supplemental_info = supplemental_info
         self.num_dofs_body = len(self.supplemental_info.body_actuated_joints)
-        self.num_dofs_hands = len(self.supplemental_info.left_hand_actuated_joints) + len(self.supplemental_info.right_hand_actuated_joints)
+        self.num_dofs_hands = len(self.supplemental_info.left_hand_actuated_joints) + len(
+            self.supplemental_info.right_hand_actuated_joints
+        )
         self.lower_joint_limits = np.zeros(self.num_dofs)
         self.upper_joint_limits = np.zeros(self.num_dofs)
         if self.supplemental_info is not None:
@@ -88,10 +91,7 @@ class RobotModel:
                 self._joint_group_indices[group_name] = sorted(set(indices))
 
             # Update joint limits from supplemental info if available
-            if (
-                hasattr(self.supplemental_info, "joint_limits")
-                and self.supplemental_info.joint_limits
-            ):
+            if hasattr(self.supplemental_info, "joint_limits") and self.supplemental_info.joint_limits:
                 for joint_name, limits in self.supplemental_info.joint_limits.items():
                     if joint_name in self.joint_to_dof_index:
                         idx = self.joint_to_dof_index[joint_name] - root_nq
@@ -126,8 +126,7 @@ class RobotModel:
         """
         if joint_name not in self.joint_to_dof_index:
             raise ValueError(
-                f"Unknown joint name: '{joint_name}'. "
-                f"Available joints: {list(self.joint_to_dof_index.keys())}"
+                f"Unknown joint name: '{joint_name}'. Available joints: {list(self.joint_to_dof_index.keys())}"
             )
         return self.joint_to_dof_index[joint_name]
 
@@ -232,7 +231,6 @@ class RobotModel:
         indices = self.get_hand_actuated_joint_indices(side)
         return q[indices]
 
-
     def get_initial_upper_body_pose(self) -> np.ndarray:
         """
         Get the default upper body pose of the robot.
@@ -285,9 +283,7 @@ class RobotModel:
 
         # Only clip joint positions, not floating base
         root_nq = 7 if self.is_floating_base_model else 0
-        q_clipped[root_nq:] = np.clip(
-            q[root_nq:], self.lower_joint_limits + margin, self.upper_joint_limits - margin
-        )
+        q_clipped[root_nq:] = np.clip(q[root_nq:], self.lower_joint_limits + margin, self.upper_joint_limits - margin)
 
         return q_clipped
 
@@ -390,12 +386,8 @@ class ReducedRobotModel:
 
         # Initialize joint limits
         root_nq = 7 if self.full_robot.is_floating_base_model else 0
-        self.lower_joint_limits = deepcopy(
-            self.pinocchio_wrapper.model.lowerPositionLimit[root_nq:]
-        )
-        self.upper_joint_limits = deepcopy(
-            self.pinocchio_wrapper.model.upperPositionLimit[root_nq:]
-        )
+        self.lower_joint_limits = deepcopy(self.pinocchio_wrapper.model.lowerPositionLimit[root_nq:])
+        self.upper_joint_limits = deepcopy(self.pinocchio_wrapper.model.upperPositionLimit[root_nq:])
 
         # Update joint limits from supplemental info if available
         if self.supplemental_info is not None:
@@ -686,13 +678,9 @@ class ReducedRobotModel:
         else:
             # Use separate hand configurations
             if left_hand_actuated_joint_values is not None:
-                q_reduced[self.get_hand_actuated_joint_indices("left")] = (
-                    left_hand_actuated_joint_values
-                )
+                q_reduced[self.get_hand_actuated_joint_indices("left")] = left_hand_actuated_joint_values
             if right_hand_actuated_joint_values is not None:
-                q_reduced[self.get_hand_actuated_joint_indices("right")] = (
-                    right_hand_actuated_joint_values
-                )
+                q_reduced[self.get_hand_actuated_joint_indices("right")] = right_hand_actuated_joint_values
 
         return q_reduced
 
@@ -704,9 +692,7 @@ class ReducedRobotModel:
         :return: Configuration in full space with fixed joints set to their fixed values
         """
         if q_reduced.shape[0] != self.num_dofs:
-            raise ValueError(
-                f"Expected q_reduced of length {self.num_dofs}, got {q_reduced.shape[0]} instead"
-            )
+            raise ValueError(f"Expected q_reduced of length {self.num_dofs}, got {q_reduced.shape[0]} instead")
 
         q_full = np.zeros(self.full_robot.num_dofs)
 
@@ -729,9 +715,7 @@ class ReducedRobotModel:
         :return: Configuration in reduced space
         """
         if q_full.shape[0] != self.full_robot.num_dofs:
-            raise ValueError(
-                f"Expected q_full of length {self.full_robot.num_dofs}, got {q_full.shape[0]} instead"
-            )
+            raise ValueError(f"Expected q_full of length {self.full_robot.num_dofs}, got {q_full.shape[0]} instead")
 
         q_reduced = np.zeros(self.num_dofs)
 
@@ -752,9 +736,7 @@ class ReducedRobotModel:
         self.full_robot.cache_forward_kinematics(q_full, auto_clip)
 
         # Then update the reduced model's forward kinematics
-        pin.framesForwardKinematics(
-            self.pinocchio_wrapper.model, self.pinocchio_wrapper.data, q_reduced
-        )
+        pin.framesForwardKinematics(self.pinocchio_wrapper.model, self.pinocchio_wrapper.data, q_reduced)
 
     def clip_configuration(self, q_reduced: np.ndarray, margin: float = 1e-6) -> np.ndarray:
         """
@@ -780,5 +762,3 @@ class ReducedRobotModel:
 
     def reset_forward_kinematics(self):
         self.full_robot.reset_forward_kinematics()
-
-

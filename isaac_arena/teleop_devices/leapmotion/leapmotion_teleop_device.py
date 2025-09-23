@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
 import numpy as np
-from collections.abc import Callable
 import torch
+from collections.abc import Callable
+from dataclasses import dataclass
 from scipy.spatial.transform import Rotation as R
 
-from isaac_arena.embodiments.g1.robot_model import RobotModel, ReducedRobotModel
-from isaac_arena.teleop_devices.leapmotion.leapmotion_streamer import LeapMotionStreamer
+from isaaclab.devices.device_base import DeviceBase, DeviceCfg
 
+from isaac_arena.embodiments.g1.robot_model import ReducedRobotModel, RobotModel
+from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
+from isaac_arena.teleop_devices.leapmotion.leapmotion_streamer import LeapMotionStreamer
 from isaac_arena.teleop_devices.leapmotion.preprocesors.fingers import FingersPreProcessor
 from isaac_arena.teleop_devices.leapmotion.preprocesors.wrists import WristsPreProcessor
 
-from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
-
-from isaaclab.devices.device_base import DeviceBase, DeviceCfg
 
 class LeapmotionTeleopDevice:
     """
@@ -81,9 +80,7 @@ class LeapmotionTeleopDevice:
 
     def calibrate(self):
         """Calibrate the pre-processors."""
-        assert (
-            self.body_streamer
-        ), "Real device is enabled, but no streamer is initialized."
+        assert self.body_streamer, "Real device is enabled, but no streamer is initialized."
         raw_data = self.get_streamer_raw_data()
 
         if self.body_pre_processor:
@@ -132,14 +129,14 @@ class LeapmotionTeleopDevice:
         body_data, left_hand_data, right_hand_data = self.pre_process(raw_action)
 
         # Original variables
-        left_wrist_action = np.array(body_data['left_wrist_yaw_link'])
-        right_wrist_action = np.array(body_data['right_wrist_yaw_link'])
+        left_wrist_action = np.array(body_data["left_wrist_yaw_link"])
+        right_wrist_action = np.array(body_data["right_wrist_yaw_link"])
 
         # Extract position and quaternion from left wrist 4x4 pose matrix
         left_wrist_pos = torch.from_numpy(left_wrist_action[:3, 3])
         left_wrist_rot_matrix = left_wrist_action[:3, :3]
         left_wrist_quat = R.from_matrix(left_wrist_rot_matrix).as_quat()
-        
+
         # Extract position and quaternion from right wrist 4x4 pose matrix
         right_wrist_pos = torch.from_numpy(right_wrist_action[:3, 3])
         right_wrist_rot_matrix = right_wrist_action[:3, :3]
@@ -154,20 +151,24 @@ class LeapmotionTeleopDevice:
         right_hand_state = torch.from_numpy(np.array([self.get_g1_gripper_state(right_hand_data)]))
 
         # Assemble into upper body env action
-        upperbody_action = torch.cat([left_hand_state,
-                            right_hand_state,
-                            left_wrist_pos,
-                            left_wrist_quat_wxyz,
-                            right_wrist_pos,
-                            right_wrist_quat_wxyz])
+        upperbody_action = torch.cat([
+            left_hand_state,
+            right_hand_state,
+            left_wrist_pos,
+            left_wrist_quat_wxyz,
+            right_wrist_pos,
+            right_wrist_quat_wxyz,
+        ])
 
         return upperbody_action
+
 
 @dataclass
 class LeapmotionCfg(DeviceCfg):
     """Configuration for the Leapmotion teleop device."""
 
     body_control_device: str = "leapmotion"
+
 
 class Leapmotion(DeviceBase):
 
@@ -195,8 +196,7 @@ class Leapmotion(DeviceBase):
         self.device_streamer.calibrate()
 
     def add_callback(self, key: str, func: Callable):
-        """Add additional functions.
-        """
+        """Add additional functions."""
         self._additional_callbacks[key] = func
 
     def advance(self) -> torch.Tensor:

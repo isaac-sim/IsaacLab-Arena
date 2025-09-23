@@ -19,6 +19,7 @@ from isaaclab.utils import configclass
 
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action import G1DecoupledWBCPinkAction
 
+
 @configclass
 class G1DecoupledWBCPinkActionCfg(ActionTermCfg):
     class_type: type[ActionTerm] = G1DecoupledWBCPinkAction
@@ -28,4 +29,3 @@ class G1DecoupledWBCPinkActionCfg(ActionTermCfg):
     joint_names: list[str] = MISSING
 
     wbc_version: str = "homie_v2"
-    

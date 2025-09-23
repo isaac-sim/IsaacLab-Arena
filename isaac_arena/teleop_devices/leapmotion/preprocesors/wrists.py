@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
-
 import numpy as np
+from copy import deepcopy
 
 from isaac_arena.teleop_devices.leapmotion.preprocesors.pre_processor import PreProcessor
 
@@ -31,9 +30,7 @@ class WristsPreProcessor(PreProcessor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.pose = {}  # poses to calibrate the robot
-        self.ee_name_list = (
-            []
-        )  # name of the end-effector "link_head_pitch", "link_LArm7", "link_RArm7"
+        self.ee_name_list = []  # name of the end-effector "link_head_pitch", "link_LArm7", "link_RArm7"
         self.init_ee_pose = {}  # initial end-effector pose of the robot
         self.T_init_inv = {}  # initial transformation matrix
         self.R = {}  # relative transformation matrix
@@ -42,22 +39,14 @@ class WristsPreProcessor(PreProcessor):
         self.latest_data = None
 
     def calibrate(self, data):
-        left_elbow_joint_name = self.robot.supplemental_info.joint_name_mapping["elbow_pitch"][
-            "left"
-        ]
-        right_elbow_joint_name = self.robot.supplemental_info.joint_name_mapping["elbow_pitch"][
-            "right"
-        ]
+        left_elbow_joint_name = self.robot.supplemental_info.joint_name_mapping["elbow_pitch"]["left"]
+        right_elbow_joint_name = self.robot.supplemental_info.joint_name_mapping["elbow_pitch"]["right"]
         if "left_wrist" in data:
             self.ee_name_list.append(self.robot.supplemental_info.hand_frame_names["left"])
-            self.pose[left_elbow_joint_name] = (
-                self.robot.supplemental_info.elbow_calibration_joint_angles["left"]
-            )
+            self.pose[left_elbow_joint_name] = self.robot.supplemental_info.elbow_calibration_joint_angles["left"]
         if "right_wrist" in data:
             self.ee_name_list.append(self.robot.supplemental_info.hand_frame_names["right"])
-            self.pose[right_elbow_joint_name] = (
-                self.robot.supplemental_info.elbow_calibration_joint_angles["right"]
-            )
+            self.pose[right_elbow_joint_name] = self.robot.supplemental_info.elbow_calibration_joint_angles["right"]
 
         if self.pose:
             q = deepcopy(self.robot.q_default)
@@ -66,14 +55,10 @@ class WristsPreProcessor(PreProcessor):
                 joint_idx = self.robot.joint_to_dof_index[joint]
                 q[joint_idx] = np.deg2rad(degree)
             self.robot.cache_forward_kinematics(q)
-            target_ee_poses = [
-                self.robot.frame_placement(ee_name).np for ee_name in self.ee_name_list
-            ]
+            target_ee_poses = [self.robot.frame_placement(ee_name).np for ee_name in self.ee_name_list]
             self.robot.reset_forward_kinematics()
         else:
-            target_ee_poses = [
-                self.robot.frame_placement(ee_name).np for ee_name in self.ee_name_list
-            ]
+            target_ee_poses = [self.robot.frame_placement(ee_name).np for ee_name in self.ee_name_list]
 
         for ee_name in self.ee_name_list:
             self.init_ee_pose[ee_name] = deepcopy(target_ee_poses[self.ee_name_list.index(ee_name)])

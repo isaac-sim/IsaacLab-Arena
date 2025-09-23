@@ -52,6 +52,7 @@ def object_on_destination(
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
     return condition_met
 
+
 # NOTE(peterd): Contact sensor filter not working for destination prim. Filtered forces always reporting 0.
 # Falling back to success term form groot locomanip repo
 # def object_on_destination_g1_locomanip(
@@ -81,6 +82,7 @@ def object_on_destination(
 #     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
 #     return condition_met
 
+
 def object_on_destination_g1_locomanip(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
@@ -89,7 +91,6 @@ def object_on_destination_g1_locomanip(
     # max_object_to_bin_y: float = 0.120,
     # max_object_to_bin_x: float = 0.300,
     # max_object_to_bin_z: float = 0.080,
-
     # For box task
     max_object_to_bin_y: float = 0.150,
     max_object_to_bin_x: float = 0.300,

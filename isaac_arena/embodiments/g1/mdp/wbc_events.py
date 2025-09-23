@@ -17,9 +17,9 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
+
 
 def reset_decoupled_wbc_policy(env: ManagerBasedEnv, env_ids: torch.Tensor):
     # Reset upper body IK solver

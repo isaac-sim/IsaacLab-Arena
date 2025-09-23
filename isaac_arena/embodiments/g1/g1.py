@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
+from collections.abc import Sequence
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
+import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
@@ -29,17 +32,12 @@ from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 
-# TODO(xinjieyao, 2025-09-15): Consider moving to IsaacLab repo
-from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
-
-import torch
-from collections.abc import Sequence
-
-import isaaclab.utils.math as PoseUtils
-
 import isaac_arena.terms.transforms as transforms_terms
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+
+# TODO(xinjieyao, 2025-09-15): Consider moving to IsaacLab repo
+from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
@@ -69,6 +67,7 @@ class G1EmbodimentBase(EmbodimentBase):
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
 
+
 @register_asset
 class G1WBCJointEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with WBC policy and direct joint upperbody control."""
@@ -78,6 +77,7 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
+
 
 @register_asset
 class G1WBCPinkEmbodiment(G1EmbodimentBase):
@@ -298,10 +298,12 @@ class G1SceneCfg:
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=0.169,  # Changed focal length to 1.69 mm, FOVs preserved by scaling apertures
             horizontal_aperture=0.693,  # Scaled to preserve 128 horizontal FOV
-            vertical_aperture=0.284,    # Scaled to preserve 80 vertical FOV
-            clipping_range=(0.1, 5)
+            vertical_aperture=0.284,  # Scaled to preserve 80 vertical FOV
+            clipping_range=(0.1, 5),
         ),
-        offset=CameraCfg.OffsetCfg(pos=(0.04485, 0.0, 0.35325), rot=(0.32651, -0.62721, 0.62721, -0.32651), convention="ros"),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.04485, 0.0, 0.35325), rot=(0.32651, -0.62721, 0.62721, -0.32651), convention="ros"
+        ),
     )
 
     # TODO(vik: Fix camera and xr issues)
@@ -542,7 +544,7 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
                 target_left_eef_rot_quat,
                 target_right_eef_pos,
                 target_right_eef_rot_quat,
-                body_gripper_action
+                body_gripper_action,
             ),
             dim=0,
         )
@@ -587,7 +589,7 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             A dictionary of torch.Tensor gripper actions. Key to each dict is an eef_name.
         """
 
-        '''
+        """
         Shape of actions:
             left_gripper_action shape: (1,)
             right_gripper_action shape: (1,)
@@ -601,9 +603,8 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
 
             Size of left/right gripper actions = 400
             Note: the base commands are passed through as a "gripper" action along with right hand
-        '''
+        """
         return {"left": actions[:, 0], "right": actions[:, 1], "body": actions[:, -7:]}
-    
 
     def get_object_poses(self, env_ids: Sequence[int] | None = None):
         """
@@ -619,7 +620,9 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             env_ids = slice(None)
 
         # Get pelvis inverse transform to convert from world to pelvis frame
-        pelvis_pose_w = self.scene["robot"].data.body_link_state_w[:, self.scene["robot"].data.body_names.index("pelvis"), :]
+        pelvis_pose_w = self.scene["robot"].data.body_link_state_w[
+            :, self.scene["robot"].data.body_names.index("pelvis"), :
+        ]
         pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins
         pelvis_rot_mat_w = PoseUtils.matrix_from_quat(pelvis_pose_w[:, 3:7])
         pelvis_pose_mat_w = PoseUtils.make_pose(pelvis_position_w, pelvis_rot_mat_w)
@@ -635,5 +638,6 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             object_pose_matrix[obj_name] = object_pose_pelvis_frame
 
         return object_pose_matrix
+
 
 from isaac_arena.utils.locomanip_mimic_patch import patch_generate

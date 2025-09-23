@@ -14,9 +14,10 @@
 
 import asyncio
 import torch
-from isaaclab.managers import TerminationTermCfg
 
 from isaaclab.envs import SubTaskConstraintType
+from isaaclab.managers import TerminationTermCfg
+
 
 def patch_generate():
     from isaaclab_mimic.datagen.data_generator import DataGenerator
@@ -183,10 +184,10 @@ def patch_generate():
                 env_action_queue=env_action_queue,
             )
 
-            obs = exec_results["observations"][0]['wbc']
-            if 'is_navigating' in obs and 'navigation_goal_reached' in obs:
-                is_navigating = obs['is_navigating']
-                navigation_goal_reached = obs['navigation_goal_reached']
+            obs = exec_results["observations"][0]["wbc"]
+            if "is_navigating" in obs and "navigation_goal_reached" in obs:
+                is_navigating = obs["is_navigating"]
+                navigation_goal_reached = obs["navigation_goal_reached"]
             else:
                 is_navigating = False
                 navigation_goal_reached = False
@@ -203,23 +204,21 @@ def patch_generate():
                 generated_actions.extend(exec_results["actions"])
                 generated_success = generated_success or exec_results["success"]
 
-            
             if "body" in self.env_cfg.subtask_configs.keys():
-                eef_names = ['body', 'right', 'left']
+                eef_names = ["body", "right", "left"]
             else:
-                eef_names = ['right', 'left']
-
+                eef_names = ["right", "left"]
 
             # Force ordering of the eefs to be body, then right and left
             processed_nav_subtask = False
-            for eef_name in eef_names: # self.env_cfg.subtask_configs.keys():
+            for eef_name in eef_names:  # self.env_cfg.subtask_configs.keys():
                 current_eef_subtask_step_indices[eef_name] += 1
 
-                '''
+                """
                 Note: The following code sets the eef indicies accordingly for the navigation subtask.
                 The eef index buffers are updated twice due to the existing outer for loop.
                 After the first eef is handled, both eefs index buffers will be updated.
-                '''
+                """
                 # if current_eef_subtask_step_indices[eef_name] == len(current_eef_subtask_trajectories[eef_name]) - 1:
                 #     if is_navigating and not navigation_goal_reached:
                 #         print(f'is_navigating and not navigation_goal_reached')
@@ -245,36 +244,46 @@ def patch_generate():
 
                 if "body" in eef_names:
                     # Repeat the last nav subtask action if the robot is navigating and hasn't reached the waypoint goal
-                    if current_eef_subtask_step_indices['body'] == len(current_eef_subtask_trajectories['body']) - 1 and not processed_nav_subtask:
+                    if (
+                        current_eef_subtask_step_indices["body"] == len(current_eef_subtask_trajectories["body"]) - 1
+                        and not processed_nav_subtask
+                    ):
                         if is_navigating and not navigation_goal_reached:
                             # print(f'is_navigating and not navigation_goal_reached')
                             # print(f"current_eef_subtask_step_indices['body']: {current_eef_subtask_step_indices['body']}")
                             # print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}\n")
-                            current_eef_subtask_step_indices['body'] -= 1
-                            current_eef_subtask_step_indices['right'] -= 1
-                            current_eef_subtask_step_indices['left'] -= 1
-                            
-                            processed_nav_subtask = True
+                            current_eef_subtask_step_indices["body"] -= 1
+                            current_eef_subtask_step_indices["right"] -= 1
+                            current_eef_subtask_step_indices["left"] -= 1
 
+                            processed_nav_subtask = True
 
                     # Skip to the end of the nav subtask if the robot has reached the waypoint goal before the end of the human recorded trajectory
                     elif was_navigating and not is_navigating and not processed_nav_subtask:
-                        print(f'Navigation subtask completed before end of human recorded trajectory:')
+                        print(f"Navigation subtask completed before end of human recorded trajectory:")
 
-                        print(f'was_navigating: {was_navigating}')
-                        print(f'is_navigating: {is_navigating}')
-                        print(f'navigation_goal_reached: {navigation_goal_reached}')
+                        print(f"was_navigating: {was_navigating}")
+                        print(f"is_navigating: {is_navigating}")
+                        print(f"navigation_goal_reached: {navigation_goal_reached}")
 
-                        number_of_steps_to_skip = len(current_eef_subtask_trajectories['body']) - (current_eef_subtask_step_indices['body'] + 1)
-                        print('number_of_steps_to_skip', number_of_steps_to_skip)
+                        number_of_steps_to_skip = len(current_eef_subtask_trajectories["body"]) - (
+                            current_eef_subtask_step_indices["body"] + 1
+                        )
+                        print("number_of_steps_to_skip", number_of_steps_to_skip)
                         print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}")
                         print(f"length of left trajectory: {len(current_eef_subtask_trajectories['left'])}")
                         print(f"current_eef_subtask_step_indices['right']: {current_eef_subtask_step_indices['right']}")
                         print(f"length of right trajectory: {len(current_eef_subtask_trajectories['right'])}\n")
-                        
-                        current_eef_subtask_step_indices['left'] = current_eef_subtask_step_indices['left'] + number_of_steps_to_skip
-                        current_eef_subtask_step_indices['right'] = current_eef_subtask_step_indices['right'] + number_of_steps_to_skip
-                        current_eef_subtask_step_indices['body'] = current_eef_subtask_step_indices['body'] + number_of_steps_to_skip
+
+                        current_eef_subtask_step_indices["left"] = (
+                            current_eef_subtask_step_indices["left"] + number_of_steps_to_skip
+                        )
+                        current_eef_subtask_step_indices["right"] = (
+                            current_eef_subtask_step_indices["right"] + number_of_steps_to_skip
+                        )
+                        current_eef_subtask_step_indices["body"] = (
+                            current_eef_subtask_step_indices["body"] + number_of_steps_to_skip
+                        )
 
                         processed_nav_subtask = True
 
@@ -345,7 +354,7 @@ def patch_generate():
             success=generated_success,
         )
         return results
-        
+
     DataGenerator.generate = generate
 
     print("\nPatched generate function for Locomanip Mimic\n")

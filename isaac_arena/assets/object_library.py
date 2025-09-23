@@ -178,6 +178,7 @@ class Microwave(LibraryObject, Openable):
             openable_open_threshold=self.openable_open_threshold,
         )
 
+
 @register_asset
 class OfficeTable(LibraryObject):
     """
@@ -192,6 +193,7 @@ class OfficeTable(LibraryObject):
 
     def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
 
 @register_asset
 class BlueSortingBin(LibraryObject):
@@ -208,6 +210,7 @@ class BlueSortingBin(LibraryObject):
     def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
+
 @register_asset
 class BlueExhaustPipe(LibraryObject):
     """
@@ -222,6 +225,7 @@ class BlueExhaustPipe(LibraryObject):
 
     def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
 
 @register_asset
 class BrownBox(LibraryObject):

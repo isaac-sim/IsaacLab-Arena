@@ -42,9 +42,7 @@ def instantiate_g1_robot_model(
     robot_model_root = Path(__file__).resolve().parent.parent
     robot_model_config = {
         "asset_path": os.path.join(robot_model_root, "robot_model/g1"),
-        "urdf_path": os.path.join(
-            robot_model_root, "robot_model/g1/g1_29dof_with_hand.urdf"
-        ),
+        "urdf_path": os.path.join(robot_model_root, "robot_model/g1/g1_29dof_with_hand.urdf"),
     }
 
     assert waist_location in [

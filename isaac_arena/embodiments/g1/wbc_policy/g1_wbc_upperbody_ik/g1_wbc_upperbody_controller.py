@@ -12,21 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 from copy import deepcopy
 from typing import Dict, List, Optional
 
-import numpy as np
-import pinocchio as pin
 import pink
+import pinocchio as pin
 from pink.tasks import FrameTask, PostureTask
 
 # Local imports
-from isaac_arena.embodiments.g1.robot_model import RobotModel, ReducedRobotModel
+from isaac_arena.embodiments.g1.robot_model import ReducedRobotModel, RobotModel
+
 
 class G1BodyIKSolverSettings:
-    """ 
+    """
     G1 body IK solver settings.
     """
+
     def __init__(self):
         self.dt = 0.01
         self.num_step_per_frame = 1
@@ -41,25 +43,25 @@ class G1BodyIKSolverSettings:
             "shoulder_yaw": 2.0,
         }
 
+
 class WeightedPostureTask(PostureTask):
     """
     Weighted posture task for G1 body IK PINK solver.
     """
-    def __init__(
-        self, cost: float, weights: np.ndarray, lm_damping: float = 0.0, gain: float = 1.0
-    ) -> None:
+
+    def __init__(self, cost: float, weights: np.ndarray, lm_damping: float = 0.0, gain: float = 1.0) -> None:
         """Create weighted posture task.
 
         Args:
             cost: value used to cast joint angle differences to a homogeneous
-                cost, in :math:`[\mathrm{cost}] / [\mathrm{rad}]`.
+                cost, in :math:`[\\mathrm{cost}] / [\\mathrm{rad}]`.
             weights: vector of weights for each joint.
             lm_damping: Unitless scale of the Levenberg-Marquardt (only when
                 the error is large) regularization term, which helps when
                 targets are unfeasible. Increase this value if the task is too
                 jerky under unfeasible targets, but beware that too large a
                 damping can slow down the task.
-            gain: Task gain :math:`\alpha \in [0, 1]` for additional low-pass
+            gain: Task gain :math:`\alpha \\in [0, 1]` for additional low-pass
                 filtering. Defaults to 1.0 (no filtering) for dead-beat
                 control.
         """
@@ -83,11 +85,13 @@ class WeightedPostureTask(PostureTask):
             f"gain={self.gain}, "
             f"lm_damping={self.lm_damping})"
         )
-    
+
+
 class G1BodyIKSolver:
     """
     G1 body inverse kinematics solver.
     """
+
     def __init__(self, ik_solver_settings: G1BodyIKSolverSettings):
         self.dt = ik_solver_settings.dt
         self.num_step_per_frame = ik_solver_settings.num_step_per_frame
@@ -167,13 +171,11 @@ class G1BodyIKSolver:
                 lm_damping=self.posture_lm_damping,
             )
         else:
-            self.tasks["posture"] = PostureTask(
-                cost=self.posture_cost, lm_damping=self.posture_lm_damping
-            )
+            self.tasks["posture"] = PostureTask(cost=self.posture_cost, lm_damping=self.posture_lm_damping)
         for task in self.tasks.values():
             task.set_target_from_configuration(self.configuration)
 
-    def __call__(self, target_pose: Dict):
+    def __call__(self, target_pose: dict):
         for link_name, pose in target_pose.items():
             if link_name not in self.tasks:
                 continue
@@ -202,10 +204,12 @@ class G1BodyIKSolver:
             if "orientation_cost" in weight:
                 self.tasks[link_name].set_orientation_cost(weight["orientation_cost"])
 
+
 class G1GripperIKSolver:
     """
     G1 gripper inverse kinematics solver.
     """
+
     def __init__(self, side) -> None:
         self.side = "L" if side.lower() == "left" else "R"
         self.dist_threshold = 0.05
@@ -242,6 +246,7 @@ class G1GripperIKSolver:
 
         return q_desired if self.side == "L" else -q_desired
 
+
 class G1WBCUpperbodyController:
     """
     G1 PINK upper body controller for GR00T WBC.
@@ -250,7 +255,7 @@ class G1WBCUpperbodyController:
     def __init__(
         self,
         robot_model: RobotModel,
-        body_active_joint_groups: Optional[List[str]] = None,
+        body_active_joint_groups: list[str] | None = None,
     ):
         # initialize the body
         if body_active_joint_groups is not None:
@@ -304,20 +309,14 @@ class G1WBCUpperbodyController:
             G1 joint position vector that achieves the target poses.
         """
         if self.using_reduced_robot_model:
-            body_q = self.body.reduced_to_full_configuration(
-                self.body_ik_solver(body_target_pose)
-            )
+            body_q = self.body.reduced_to_full_configuration(self.body_ik_solver(body_target_pose))
         else:
             body_q = self.body_ik_solver(body_target_pose)
 
         left_hand_joint_pos = self.get_hand_joint_pos(left_hand_state)
         right_hand_joint_pos = -self.get_hand_joint_pos(right_hand_state)
 
-        body_q[self.full_robot.get_hand_actuated_joint_indices(side="left")] = (left_hand_joint_pos)
-        body_q[self.full_robot.get_hand_actuated_joint_indices(side="right")] = (right_hand_joint_pos)
+        body_q[self.full_robot.get_hand_actuated_joint_indices(side="left")] = left_hand_joint_pos
+        body_q[self.full_robot.get_hand_actuated_joint_indices(side="right")] = right_hand_joint_pos
 
         return body_q
-
-
-
- 

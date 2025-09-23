@@ -26,7 +26,9 @@ from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
 from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
-from isaac_arena.embodiments.g1.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import G1WBCUpperbodyController
+from isaac_arena.embodiments.g1.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
+    G1WBCUpperbodyController,
+)
 from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
@@ -43,6 +45,7 @@ from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
+
     from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
 
 
@@ -178,10 +181,17 @@ class G1DecoupledWBCPinkAction(ActionTerm):
     @property
     def action_dim(self) -> int:
         """Dimension of the action space (based on number of tasks and pose dimension)."""
-        return self.left_hand_state_dim + self.right_hand_state_dim + \
-            self.left_wrist_pos_dim + self.left_wrist_quat_dim + \
-            self.right_wrist_pos_dim + self.right_wrist_quat_dim + \
-            self.navigate_cmd_dim + self.base_height_cmd_dim + self.torso_orientation_rpy_cmd_dim
+        return (
+            self.left_hand_state_dim
+            + self.right_hand_state_dim
+            + self.left_wrist_pos_dim
+            + self.left_wrist_quat_dim
+            + self.right_wrist_pos_dim
+            + self.right_wrist_quat_dim
+            + self.navigate_cmd_dim
+            + self.base_height_cmd_dim
+            + self.torso_orientation_rpy_cmd_dim
+        )
 
     @property
     def raw_actions(self) -> torch.Tensor:
@@ -205,14 +215,17 @@ class G1DecoupledWBCPinkAction(ActionTerm):
     def get_wbc_goal(self):
         return self._wbc_goal
 
-
     def compute_upperbody_joint_positions(self, body_data, left_hand_state, right_hand_state):
         if self.upperbody_controller.in_warmup:
             for _ in range(50):
-                target_robot_joints = self.upperbody_controller.inverse_kinematics(body_data, left_hand_state, right_hand_state)
+                target_robot_joints = self.upperbody_controller.inverse_kinematics(
+                    body_data, left_hand_state, right_hand_state
+                )
             self.upperbody_controller.in_warmup = False
         else:
-            target_robot_joints = self.upperbody_controller.inverse_kinematics(body_data, left_hand_state, right_hand_state)
+            target_robot_joints = self.upperbody_controller.inverse_kinematics(
+                body_data, left_hand_state, right_hand_state
+            )
         return target_robot_joints
 
     def set_wbc_goal(
@@ -309,12 +322,13 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         # Assemble data format for runnning IK
         body_data = {"left_wrist_yaw_link": left_arm_pose, "right_wrist_yaw_link": right_arm_pose}
 
-        target_robot_joints_mujoco = self.compute_upperbody_joint_positions(body_data, left_hand_state, right_hand_state)
+        target_robot_joints_mujoco = self.compute_upperbody_joint_positions(
+            body_data, left_hand_state, right_hand_state
+        )
         self._target_robot_joints_mujoco = torch.tensor(target_robot_joints_mujoco).unsqueeze(0)
 
         # Reformat the joint position tensor to the correct order for G1 robot
         target_upper_body_joints = target_robot_joints_mujoco[self.robot_model.get_joint_group_indices("upper_body")]
-
 
         """
         **************************************************
@@ -349,7 +363,9 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         self.wbc_policy.set_observation(wbc_obs)
 
         wbc_action = self.wbc_policy.get_action(target_upper_body_joints)
-        self._processed_actions = postprocess_actions(wbc_action, self._asset.data, self.wbc_g1_joints_order, self.device)
+        self._processed_actions = postprocess_actions(
+            wbc_action, self._asset.data, self.wbc_g1_joints_order, self.device
+        )
         # sim_target_full_body_joints = actions_clone[:, : self._num_joints]
         # wbc_target_full_body_joints = convert_sim_joint_to_wbc_joint(
         #     sim_target_full_body_joints, self._asset.data.joint_names, self.wbc_g1_joints_order
@@ -358,7 +374,6 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         # wbc_target_upper_body_joints = wbc_target_full_body_joints[
         #     :, self.robot_model.get_joint_group_indices("upper_body")
         # ]
-
 
         # # TODO: add batched dimension
         # wbc_action = self.wbc_policy.get_action(wbc_target_upper_body_joints)

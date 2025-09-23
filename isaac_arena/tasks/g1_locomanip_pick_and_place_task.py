@@ -68,6 +68,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
     def get_mimic_env_cfg(self, embodiment_name: str):
         return G1LocomanipPickPlaceMimicEnvCfg()
 
+
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
@@ -218,7 +219,6 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         )
         self.subtask_configs["right"] = subtask_configs
 
-
         # Left arm subtasks
         subtask_configs = []
         subtask_configs.append(
@@ -293,7 +293,6 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
             )
         )
         self.subtask_configs["left"] = subtask_configs
-
 
         # Body subtasks (used for navigation)
         subtask_configs = []
@@ -393,4 +392,3 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
             )
         )
         self.subtask_configs["body"] = subtask_configs
-        

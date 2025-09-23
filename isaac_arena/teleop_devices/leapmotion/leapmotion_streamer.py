@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
+import numpy as np
 import pickle
 import queue
 import threading
 import time
+from copy import deepcopy
+from scipy.spatial.transform import Rotation as R
 from typing import Dict, List, Tuple
 
 import leap
 import leap.events
-import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 
 def xyz2np_array(position: leap.datatypes.Vector) -> np.ndarray:
@@ -65,12 +65,10 @@ def get_raw_finger_points(hand: leap.datatypes.Hand) -> np.ndarray:
     return target_points
 
 
-def get_raw_wrist_pose(hand: leap.datatypes.Hand) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def get_raw_wrist_pose(hand: leap.datatypes.Hand) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     hand_palm_position = xyz2np_array(hand.palm.position)
     hand_palm_normal = np.array([-hand.palm.normal.z, -hand.palm.normal.x, hand.palm.normal.y])
-    hand_palm_direction = np.array(
-        [-hand.palm.direction.z, -hand.palm.direction.x, hand.palm.direction.y]
-    )
+    hand_palm_direction = np.array([-hand.palm.direction.z, -hand.palm.direction.x, hand.palm.direction.y])
 
     return hand_palm_position, hand_palm_normal, hand_palm_direction
 
@@ -118,7 +116,7 @@ def get_wrist_transformation(
     return T
 
 
-def get_raw_data(hands: List[leap.datatypes.Hand]) -> Dict[str, np.ndarray]:
+def get_raw_data(hands: list[leap.datatypes.Hand]) -> dict[str, np.ndarray]:
     data = {}
     for hand in hands:
         hand_type = "left" if str(hand.type) == "HandType.Left" else "right"
@@ -127,15 +125,11 @@ def get_raw_data(hands: List[leap.datatypes.Hand]) -> Dict[str, np.ndarray]:
     return data
 
 
-def process_data(raw_data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+def process_data(raw_data: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     data = {}
     for hand_type in ["left", "right"]:
-        data[hand_type + "_wrist"] = get_wrist_transformation(
-            *raw_data[hand_type + "_wrist"], hand_type
-        )
-        data[hand_type + "_fingers"] = {
-            "position": get_finger_transform(raw_data[hand_type + "_fingers"], hand_type)
-        }
+        data[hand_type + "_wrist"] = get_wrist_transformation(*raw_data[hand_type + "_wrist"], hand_type)
+        data[hand_type + "_fingers"] = {"position": get_finger_transform(raw_data[hand_type + "_fingers"], hand_type)}
     return data
 
 
@@ -165,7 +159,7 @@ class LeapMotionListener(leap.Listener):
     def on_tracking_event(self, event: leap.events.TrackingEvent):
         if len(event.hands) == 2:  # only when two hands are detected, we update the data
             with self.data_lock:
-                self.data: Dict[str, np.ndarray] = get_raw_data(event.hands)
+                self.data: dict[str, np.ndarray] = get_raw_data(event.hands)
         if self.verbose:
             for hand in event.hands:
                 hand_type = "left" if str(hand.type) == "HandType.Left" else "right"
@@ -205,7 +199,7 @@ class LeapMotionStreamer:
     def stop_streaming(self):
         self.connection.disconnect()
 
-    def get(self) -> Dict[str, np.ndarray]:
+    def get(self) -> dict[str, np.ndarray]:
         raw_data = self.listener.get_data()
         self.data_queue.put(raw_data)
         return process_data(raw_data)

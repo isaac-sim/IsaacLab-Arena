@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import torch
 import tqdm
-import numpy as np
+from scipy.spatial.transform import Rotation as R
+
 from isaac_arena.examples.example_environments.cli import get_arena_builder_from_cli
 from isaac_arena.examples.policy_runner_cli import create_policy, setup_policy_argument_parser
 from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
 from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import LeapmotionTeleopDevice
 
-from scipy.spatial.transform import Rotation as R
 
 def main():
     """Script to run an Isaac Arena environment with a zero-action agent."""
@@ -31,8 +32,8 @@ def main():
     # Create policy
     policy, num_steps = create_policy(args_cli)
 
-
     from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
+
     # robot_model = instantiate_g1_robot_model()
     # device_streamer = LeapmotionTeleopDevice(
     #     robot_model=robot_model,
@@ -43,11 +44,9 @@ def main():
     #     body_active_joint_groups=["arms"],
     # )
     # device_streamer.calibrate()
-
     # navigate_cmd=torch.tensor([0, 0, 0])
     # base_height_cmd=torch.tensor([0.75])
     # torso_orientation_rpy_cmd=torch.tensor([0, 0, 0])
-
     # Start the simulation app
     with SimulationAppContext(args_cli):
         # Build scene
@@ -66,9 +65,9 @@ def main():
         )
         device_streamer.calibrate()
 
-        navigate_cmd=torch.tensor([0, 0, 0])
-        base_height_cmd=torch.tensor([0.75])
-        torso_orientation_rpy_cmd=torch.tensor([0, 0, 0])
+        navigate_cmd = torch.tensor([0, 0, 0])
+        base_height_cmd = torch.tensor([0.75])
+        torso_orientation_rpy_cmd = torch.tensor([0, 0, 0])
 
         for _ in tqdm.tqdm(range(num_steps)):
             with torch.inference_mode():

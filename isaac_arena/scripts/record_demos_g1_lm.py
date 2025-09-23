@@ -96,12 +96,12 @@ import isaaclab_mimic.envs  # noqa: F401
 import omni.log
 import omni.ui as ui
 import omni.usd
-from omni.kit.viewport.utility import get_viewport_from_window_name
-
 from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
 from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
+from omni.kit.viewport.utility import get_viewport_from_window_name
+
 from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import Leapmotion
 
 # Imports have to follow simulation startup.
@@ -120,10 +120,10 @@ from isaaclab.managers import DatasetExportMode
 
 def set_viewport_to_camera(camera_prim_path: str):
     """Set the viewport camera to a specific camera prim path.
-    
+
     Args:
         camera_prim_path: The prim path of the camera to set as the viewport camera.
-        
+
     Returns:
         bool: True if successful, False otherwise.
     """
@@ -133,22 +133,23 @@ def set_viewport_to_camera(camera_prim_path: str):
         if viewport is None:
             omni.log.error("Could not find viewport window")
             return False
-        
+
         # Set the active camera to the specified camera
         viewport.set_active_camera(camera_prim_path)
         omni.log.info(f"Set viewport camera to: {camera_prim_path}")
         return True
-        
+
     except Exception as e:
         omni.log.error(f"Could not set viewport camera: {e}")
         return False
 
+
 def find_and_set_camera(camera_paths_to_try):
     """Find a camera from a list of possible paths and set it as the viewport camera.
-    
+
     Args:
         camera_paths_to_try: List of camera prim paths to try.
-        
+
     Returns:
         bool: True if successful, False otherwise.
     """
@@ -156,13 +157,13 @@ def find_and_set_camera(camera_paths_to_try):
     if stage is None:
         omni.log.error("No USD stage found")
         return False
-    
+
     # Try each camera path
     for path in camera_paths_to_try:
         if stage.GetPrimAtPath(path):
             omni.log.info(f"Found camera at: {path}")
             return set_viewport_to_camera(path)
-    
+
     omni.log.warn("Could not find any of the specified cameras")
     return False
 
@@ -326,7 +327,9 @@ def setup_teleop_device(callbacks: dict[str, Callable]) -> object:
             if args_cli.teleop_device.lower() == "leapmotion":
                 teleop_interface = Leapmotion(env_cfg.teleop_devices.devices["leapmotion"])
             else:
-                teleop_interface = create_teleop_device(args_cli.teleop_device, env_cfg.teleop_devices.devices, callbacks)
+                teleop_interface = create_teleop_device(
+                    args_cli.teleop_device, env_cfg.teleop_devices.devices, callbacks
+                )
         else:
             omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
             # Create fallback teleop device
@@ -438,14 +441,14 @@ def handle_reset(
     return success_step_count
 
 
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """"""
+"""""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """"""
 """
 Lower body keyboard control
 """
 lin_vel_x = 0.0
 lin_vel_y = 0.0
-ang_vel = 0.
+ang_vel = 0.0
 standing = 0
 base_height = 0.75
 reset_wbc_flag = False
@@ -454,25 +457,31 @@ torso_orientation_roll = 0.0
 torso_orientation_pitch = 0.0
 torso_orientation_yaw = 0.0
 
+
 def reset_wbc():
     global reset_wbc_flag
     reset_wbc_flag = True
+
 
 def increase_linear_vel_x():
     global lin_vel_x
     lin_vel_x += 0.1
 
+
 def decrease_linear_vel_x():
     global lin_vel_x
     lin_vel_x -= 0.1
+
 
 def increase_angular_vel():
     global ang_vel
     ang_vel += 0.1
 
+
 def decrease_angular_vel():
     global ang_vel
     ang_vel -= 0.1
+
 
 def toggle_standing():
     global standing
@@ -483,52 +492,64 @@ def toggle_standing():
     else:
         base_height = 0.75
 
+
 def increase_linear_vel_y():
     global lin_vel_y
     lin_vel_y += 0.1
+
 
 def decrease_linear_vel_y():
     global lin_vel_y
     lin_vel_y -= 0.1
 
+
 def increase_base_height():
     global base_height
     base_height += 0.01
+
 
 def decrease_base_height():
     global base_height
     base_height -= 0.01
 
+
 def increase_torso_orientation_roll():
     global torso_orientation_roll
     torso_orientation_roll += 0.1
+
 
 def decrease_torso_orientation_roll():
     global torso_orientation_roll
     torso_orientation_roll -= 0.1
 
+
 def increase_torso_orientation_pitch():
     global torso_orientation_pitch
     torso_orientation_pitch += 0.1
+
 
 def decrease_torso_orientation_pitch():
     global torso_orientation_pitch
     torso_orientation_pitch -= 0.1
 
+
 def increase_torso_orientation_yaw():
     global torso_orientation_yaw
     torso_orientation_yaw += 0.1
+
 
 def decrease_torso_orientation_yaw():
     global torso_orientation_yaw
     torso_orientation_yaw -= 0.1
 
+
 def pause():
     global pause_flag
     pause_flag = True
 
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """"""
+"""""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """"""
 
 
 def run_simulation_loop(
@@ -629,11 +650,13 @@ def run_simulation_loop(
         while simulation_app.is_running():
             # Get upper body command
             action = teleop_interface.advance()
-            
+
             # Get lower body command
-            navigate_cmd=torch.tensor([lin_vel_x, lin_vel_y, ang_vel])
-            base_height_cmd=torch.tensor([base_height])
-            torso_orientation_rpy_cmd=torch.tensor([torso_orientation_roll, torso_orientation_pitch, torso_orientation_yaw])
+            navigate_cmd = torch.tensor([lin_vel_x, lin_vel_y, ang_vel])
+            base_height_cmd = torch.tensor([base_height])
+            torso_orientation_rpy_cmd = torch.tensor(
+                [torso_orientation_roll, torso_orientation_pitch, torso_orientation_yaw]
+            )
             action = torch.cat([action, navigate_cmd, base_height_cmd, torso_orientation_rpy_cmd])
 
             print(f"navigatie_cmd: {navigate_cmd}")
