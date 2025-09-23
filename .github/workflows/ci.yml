@@ -114,3 +114,36 @@ jobs:
 
       - name: Run policy-related pytest
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
+
+  build_and_push_image_post_merge:
+    name: Build & push NGC image (post-merge)
+    runs-on: [self-hosted, zurich]
+    needs: [test, test_policy]       # only push if tests passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    env:
+      # already defined at top, but keep here for clarity/local override if needed
+      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          submodules: recursive
+
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
+
+      - name: Pull Git LFS files
+        run: git lfs pull
+
+      - name: Docker login to NGC
+        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
+        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Build & push image to NGC
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p

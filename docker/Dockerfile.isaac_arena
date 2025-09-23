@@ -18,7 +18,7 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
 # Optional: Install CUDA 12.8
 ################################
 # Copy CUDA 12.8 installation script
-COPY docker/install_cuda.sh /tmp/install_cuda.sh
+COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
 RUN chmod +x /tmp/install_cuda.sh
 
 # If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
@@ -38,22 +38,29 @@ RUN apt-get update && apt-get install -y \
   sudo \
   python3-pip
 
+# update pip
+RUN pip3 install --upgrade pip
+
 WORKDIR /workspaces/isaac_arena
 
-COPY . /workspaces/isaac_arena
+# Copy files to /build folder during docker build phase, different from workspace
+# location to avoid conflicts and allow changes detection upon container start.
+# Additionally, split copying into separate instructions for Arena and submodules
+# to avoid docker cache invalidation on code edits.
+RUN mkdir -p /build/isaac_arena
+COPY ./submodules /build/isaac_arena/submodules
 
-# Set the ISAACLAB_PATH environment variable
-ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab
 ENV TERM=xterm
 
 # Symlink isaac sim to IsaacLab
-RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
+RUN ln -s /isaac-sim/ /build/isaac_arena/submodules/IsaacLab/_isaac_sim
 
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
 
 # Install isaaclab
-RUN ${ISAACLAB_PATH}/isaaclab.sh -i
+RUN /build/isaac_arena/submodules/IsaacLab/isaaclab.sh -i
+RUN for DIR in /build/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
 
 ################################
 # INSTALL PIP DEPS
@@ -69,14 +76,16 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   onnxruntime
 
 # Install isaac-arena
-RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
+COPY ./isaac_arena /build/isaac_arena/isaac_arena
+COPY setup.py /build/isaac_arena/setup.py
+RUN /isaac-sim/python.sh -m pip install -e /build/isaac_arena/
 
 ################################
 # OPTIONAL GR00T Policy Deps
 ################################
 
 # Copy GR00T dependencies installation script
-COPY docker/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
+COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
 RUN chmod +x /tmp/install_gr00t_deps.sh
 
 # Install GR00T dependencies if requested
@@ -93,6 +102,16 @@ RUN if [ "$INSTALL_GROOT" = "true" ]; then \
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
+
+# Debugging with debugpy
+# Usage:
+# 1) Set your breakpoints
+# 2) Start the script you want to debug with "debugpy" instead of "python".
+#    It will pause waiting for the debugger to attach.
+# 3) Attach to the running container with VSCode using the "Attach to debugpy session"
+#    configuration from the Run and Debug panel.
+RUN pip3 install debugpy
+RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
 # Remove the entrypoint from the base image.
 ENTRYPOINT []
