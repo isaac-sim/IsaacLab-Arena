@@ -275,6 +275,7 @@ class G1SupplementalInfo:
         default_factory=lambda: {"left": "left_wrist_yaw_link", "right": "right_wrist_yaw_link"}
     )
     default_joint_q: dict[str, float] = field(default_factory=lambda: {})
+    elbow_calibration_joint_angles = {"left": 0.0, "right": 0.0}
 
 
 @dataclass

@@ -13,14 +13,11 @@
 # limitations under the License.
 
 import numpy as np
-from copy import deepcopy
-from typing import Dict, List, Optional
 
 import pink
 import pinocchio as pin
 from pink.tasks import FrameTask, PostureTask
 
-# Local imports
 from isaac_arena.embodiments.g1.robot_model import ReducedRobotModel, RobotModel
 
 
@@ -46,7 +43,7 @@ class G1BodyIKSolverSettings:
 
 class WeightedPostureTask(PostureTask):
     """
-    Weighted posture task for G1 body IK PINK solver.
+    Weighted posture task for G1 body PINK IK solver.
     """
 
     def __init__(self, cost: float, weights: np.ndarray, lm_damping: float = 0.0, gain: float = 1.0) -> None:
@@ -138,7 +135,7 @@ class G1BodyIKSolver:
                 )
                 self.tasks[link_name] = task
 
-        # add posture task
+        # Add posture task
         if self.posture_weight is not None:
             weight = np.ones(self.robot.num_dofs)
 
@@ -205,48 +202,6 @@ class G1BodyIKSolver:
                 self.tasks[link_name].set_orientation_cost(weight["orientation_cost"])
 
 
-class G1GripperIKSolver:
-    """
-    G1 gripper inverse kinematics solver.
-    """
-
-    def __init__(self, side) -> None:
-        self.side = "L" if side.lower() == "left" else "R"
-        self.dist_threshold = 0.05
-
-    def __call__(self, finger_data):
-        q_desired = np.deg2rad([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        fingertips = finger_data["position"]
-
-        # Extract X, Y, Z positions of fingertips from the transformation matrices
-        positions = np.array([finger[:3, 3] for finger in fingertips])
-
-        # Ensure the positions are 2D arrays (N, 3)
-        positions = np.reshape(positions, (-1, 3))  # Ensure 2D array with shape (N, 3)
-
-        thumb_pos = positions[4, :]
-        index_pos = positions[4 + 5, :]
-        dist = np.linalg.norm(thumb_pos - index_pos)
-
-        hand_close = dist < self.dist_threshold
-
-        if hand_close:
-            amp = 0.7
-
-            q_desired[1] += amp
-            q_desired[2] += amp
-
-            ampA = 0.6
-            ampB = 1.2
-
-            q_desired[3] -= ampA
-            q_desired[4] -= ampB
-            q_desired[5] -= ampA
-            q_desired[6] -= ampB
-
-        return q_desired if self.side == "L" else -q_desired
-
-
 class G1WBCUpperbodyController:
     """
     G1 PINK upper body controller for GR00T WBC.
@@ -257,7 +212,7 @@ class G1WBCUpperbodyController:
         robot_model: RobotModel,
         body_active_joint_groups: list[str] | None = None,
     ):
-        # initialize the body
+        # Initialize the body
         if body_active_joint_groups is not None:
             self.body = ReducedRobotModel.from_active_groups(robot_model, body_active_joint_groups)
             self.full_robot = self.body.full_robot
@@ -280,13 +235,11 @@ class G1WBCUpperbodyController:
             return hand_q_desired
         else:
             amp = 0.7
-
             hand_q_desired[1] += amp
             hand_q_desired[2] += amp
 
             ampA = 0.6
             ampB = 1.2
-
             hand_q_desired[3] -= ampA
             hand_q_desired[4] -= ampB
             hand_q_desired[5] -= ampA
@@ -303,11 +256,12 @@ class G1WBCUpperbodyController:
         Solve the inverse kinematics problem for the given target poses.
         Args:
             body_target_pose: Dictionary of link names and their corresponding target pose.
-            Optional: left_hand_target_pose: (25, 4, 4) np.ndarray from raw teleop device data
-            Optional: right_hand_target_pose: (25, 4, 4) np.ndarray from raw teleop device data
+            left_hand_target_pose: Binary gripper state (0 for open, 1 for close).
+            right_hand_target_pose: Binary gripper state (0 for open, 1 for close).
         Returns:
             G1 joint position vector that achieves the target poses.
         """
+
         if self.using_reduced_robot_model:
             body_q = self.body.reduced_to_full_configuration(self.body_ik_solver(body_target_pose))
         else:

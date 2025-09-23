@@ -57,6 +57,7 @@ class RobotModel:
 
         # Set up supplemental info if provided
         self.supplemental_info = supplemental_info
+        print(f"self.supplemental_info: {self.supplemental_info}")
         self.num_dofs_body = len(self.supplemental_info.body_actuated_joints)
         self.num_dofs_hands = len(self.supplemental_info.left_hand_actuated_joints) + len(
             self.supplemental_info.right_hand_actuated_joints
@@ -101,7 +102,6 @@ class RobotModel:
     @property
     def num_dofs(self) -> int:
         """Get the number of degrees of freedom of the robot (floating base pose + joints)."""
-        # return self.pinocchio_wrapper.model.nq
         return self.num_dofs_body + self.num_dofs_hands
 
     @property

@@ -174,11 +174,6 @@ def main():
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    # if args_cli.task is not None:
-    #     env_name = args_cli.task
-    # if env_name is None:
-    #     raise ValueError("Task/env name was not specified nor found in the dataset.")
-
     # Compile an IsaacLab compatible arena environment configuration
     arena_builder = get_arena_builder_from_cli(args_cli)
     env_name, env_cfg = arena_builder.build_registered()

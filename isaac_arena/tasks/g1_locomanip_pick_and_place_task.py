@@ -18,7 +18,6 @@ from dataclasses import MISSING
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
@@ -90,10 +89,6 @@ class EventsCfg:
         initial_pose = pick_up_object.get_initial_pose()
         if initial_pose is not None:
             roll, pitch, yaw = euler_xyz_from_quat(torch.tensor(initial_pose.rotation_wxyz).reshape(1, 4))
-            # NOTE: We use a randomize term but set the pose range to the same value to
-            # achieve constant pose for now.
-            # TODO(alexmillane, 2025.09.04): Find or write an event term that resets
-            # the pose to a constant value.
             self.reset_pick_up_object_pose = EventTermCfg(
                 func=franka_stack_events.randomize_object_pose,
                 mode="reset",
@@ -126,11 +121,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
-        # # TODO: Figure out how we can move this to the MimicEnvCfg class
-        # # The __post_init__() above only calls the init for FrankaCubeStackEnvCfg and not MimicEnvCfg
-        # # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
 
-        # Override the existing values
         self.datagen_config.name = "g1_locomanip_pick_and_place_D0"
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
@@ -144,7 +135,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         self.datagen_config.max_num_failures = 25
         self.datagen_config.seed = 1
 
-        # The following are the subtask configurations for the pick and place task.
+        # Right arm subtasks
         subtask_configs = []
         subtask_configs.append(
             SubTaskConfig(
