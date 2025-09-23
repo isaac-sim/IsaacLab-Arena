@@ -35,7 +35,12 @@ echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 echo "Re-installing isaaclab packages from mounted repo..."
 for DIR in /workspaces/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do
     echo "Installing $DIR"
-    pip install --root-user-action=ignore --quiet --no-deps -e "$DIR"
+    # NOTE(xinjieyao, 2025-09-23): root-user-action was introduced in pip 22.1, which can be used to ignore the warning when installing as root
+    if pip install --help | grep -q "root-user-action"; then
+        pip install --root-user-action=ignore --quiet --no-deps -e "$DIR"
+    else
+        pip install --quiet --no-deps -e "$DIR"
+    fi
 done
 # Re-doing symlink (we do this in the Dockerfile, but we overwrite with the mapping).
 if [ ! -d "/workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim" ]; then
