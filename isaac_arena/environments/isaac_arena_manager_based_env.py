@@ -28,6 +28,7 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # actions: object
     # events: object
     # terminations: object
+    # recorders: object
 
     # Kill the unused managers
     commands = None

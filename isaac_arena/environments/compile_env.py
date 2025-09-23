@@ -65,6 +65,7 @@ class ArenaEnvBuilder:
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
         teleop_device = self.arena_env.teleop_device
+        recorder_cfg = self.arena_env.recorder_cfg
 
         # Build the environment configuration
         if not self.args.mimic:
@@ -77,6 +78,7 @@ class ArenaEnvBuilder:
                 terminations=termination_cfg,
                 xr=xr_cfg,
                 teleop_devices=teleop_device,
+                recorders=recorder_cfg,
             )
         else:
             entry_point = self.arena_env.embodiment.get_mimic_env()

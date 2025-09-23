@@ -39,6 +39,47 @@ cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
+# %%
+
+from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+from isaaclab.managers import DatasetExportMode
+
+recorder_cfg = ActionStateRecorderManagerCfg()
+recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
+
+# %%
+
+from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
+from isaaclab.utils import configclass
+
+
+class PrintingRecorder(RecorderTerm):
+
+    def record_post_step(self):
+        print("Recording post step")
+        return "printing", torch.zeros(self._env.num_envs, 1, device=self._env.device)
+        # return "states", self._env.scene.get_state(is_relative=True)
+
+
+@configclass
+class PrintingRecorderCfg(RecorderTermCfg):
+
+    class_type: type[RecorderTerm] = PrintingRecorder
+
+
+@configclass
+class PrintingRecorderManagerCfg(RecorderManagerBaseCfg):
+
+    record_post_step_term = PrintingRecorderCfg()
+
+
+recorder_cfg = PrintingRecorderManagerCfg()
+recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
+
+
+# %%
+
+
 scene = Scene(assets=[background, cracker_box])
 isaac_arena_environment = IsaacArenaEnvironment(
     name="reference_object_test",
@@ -46,12 +87,14 @@ isaac_arena_environment = IsaacArenaEnvironment(
     scene=scene,
     task=DummyTask(),
     teleop_device=None,
+    recorder_cfg=recorder_cfg,
 )
 
 args_cli = get_isaac_arena_cli_parser().parse_args([])
 env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
+
 
 # %%
 
