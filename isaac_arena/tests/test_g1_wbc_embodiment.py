@@ -36,7 +36,7 @@ def get_test_environment(num_envs: int):
     from isaac_arena.tasks.dummy_task import DummyTask
 
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("galileo")()
+    background = asset_registry.get_asset_by_name("kitchen")()
 
     scene = Scene(assets=[background])
     embodiment = G1Embodiment()
