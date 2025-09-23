@@ -41,13 +41,13 @@ import isaac_arena.terms.transforms as transforms_terms
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
 
 
-@register_asset
-class G1Embodiment(EmbodimentBase):
+class G1EmbodimentBase(EmbodimentBase):
     """Embodiment for the G1 robot."""
 
     name = "g1"
@@ -56,7 +56,7 @@ class G1Embodiment(EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = G1SceneCfg()
-        self.action_config = G1WBCActionCfg()
+        self.action_config = MISSING
         self.observation_config = G1ObservationsCfg()
         self.event_config = G1EventCfg()
         self.mimic_env = G1MimicEnv
@@ -68,6 +68,26 @@ class G1Embodiment(EmbodimentBase):
             anchor_pos=(0.0, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
+
+@register_asset
+class G1WBCJointEmbodiment(G1EmbodimentBase):
+    """Embodiment for the G1 robot with WBC policy and direct joint upperbody control."""
+
+    name = "g1_wbc_joint"
+
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
+        self.action_config = G1WBCJointActionCfg()
+
+@register_asset
+class G1WBCPinkEmbodiment(G1EmbodimentBase):
+    """Embodiment for the G1 robot with WBC policy and PINK IK upperbody control."""
+
+    name = "g1_wbc_pink"
+
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
+        self.action_config = G1WBCPinkActionCfg()
 
 
 @configclass
@@ -415,10 +435,17 @@ class G1ObservationsCfg:
 
 
 @configclass
-class G1WBCActionCfg:
+class G1WBCJointActionCfg:
     """Action specifications for the MDP, for G1 WBC action."""
 
-    g1_action: ActionTermCfg = G1DecoupledWBCActionCfg(asset_name="robot", joint_names=[".*"])
+    g1_action: ActionTermCfg = G1DecoupledWBCJointActionCfg(asset_name="robot", joint_names=[".*"])
+
+
+@configclass
+class G1WBCPinkActionCfg:
+    """Action specifications for the MDP, for G1 WBC action."""
+
+    g1_action: ActionTermCfg = G1DecoupledWBCPinkActionCfg(asset_name="robot", joint_names=[".*"])
 
 
 @configclass

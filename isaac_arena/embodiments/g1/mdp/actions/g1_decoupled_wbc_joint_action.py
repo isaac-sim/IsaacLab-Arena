@@ -19,14 +19,12 @@ import os
 import torch
 import yaml
 from collections.abc import Sequence
-from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
 from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
 from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
-from isaac_arena.embodiments.g1.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import G1WBCUpperbodyController
 from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
@@ -43,10 +41,11 @@ from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
+
     from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
 
 
-class G1DecoupledWBCAction(ActionTerm):
+class G1DecoupledWBCJointAction(ActionTerm):
     """Action term for the G1 decoupled WBC policy. Upper body direct joint position control, lower body RL-based policy."""
 
     cfg: G1DecoupledWBCActionCfg
@@ -108,16 +107,6 @@ class G1DecoupledWBCAction(ActionTerm):
         except FileNotFoundError:
             raise FileNotFoundError(f"File not found: {wbc_g1_joints_order_path}")
 
-        self.upperbody_controller = G1WBCUpperbodyController(
-            robot_model=self.robot_model,
-            body_active_joint_groups=["arms"],
-        )
-
-        self.left_hand_gripper_pos_start_idx = 0
-        self.right_hand_gripper_pos_start_idx = 1
-        self.left_wrist_action_start_idx = 2
-        self.right_wrist_action_start_idx = 9
-
     # Properties.
     # """
     @property
@@ -129,36 +118,6 @@ class G1DecoupledWBCAction(ActionTerm):
     def navigation_goal_reached(self) -> bool:
         """Get the navigation goal reached tensor."""
         return self._navigation_goal_reached
-
-    @property
-    def left_wrist_pos_dim(self) -> int:
-        """Dimension of left wrist position command."""
-        return 3
-
-    @property
-    def left_wrist_quat_dim(self) -> int:
-        """Dimension of left wrist quaternion command."""
-        return 4
-
-    @property
-    def right_wrist_pos_dim(self) -> int:
-        """Dimension of right wrist position command."""
-        return 3
-
-    @property
-    def right_wrist_quat_dim(self) -> int:
-        """Dimension of right wrist quaternion command."""
-        return 4
-
-    @property
-    def left_hand_state_dim(self) -> int:
-        """Dimension of left hand state command."""
-        return 1
-
-    @property
-    def right_hand_state_dim(self) -> int:
-        """Dimension of right hand state command."""
-        return 1
 
     @property
     def navigate_cmd_dim(self) -> int:
@@ -178,10 +137,7 @@ class G1DecoupledWBCAction(ActionTerm):
     @property
     def action_dim(self) -> int:
         """Dimension of the action space (based on number of tasks and pose dimension)."""
-        return self.left_hand_state_dim + self.right_hand_state_dim + \
-            self.left_wrist_pos_dim + self.left_wrist_quat_dim + \
-            self.right_wrist_pos_dim + self.right_wrist_quat_dim + \
-            self.navigate_cmd_dim + self.base_height_cmd_dim + self.torso_orientation_rpy_cmd_dim
+        return G1_NUM_JOINTS + NUM_NAVIGATE_CMD + NUM_BASE_HEIGHT_CMD + NUM_TORSO_ORIENTATION_RPY_CMD
 
     @property
     def raw_actions(self) -> torch.Tensor:
@@ -204,16 +160,6 @@ class G1DecoupledWBCAction(ActionTerm):
     @property
     def get_wbc_goal(self):
         return self._wbc_goal
-
-
-    def compute_upperbody_joint_positions(self, body_data, left_hand_state, right_hand_state):
-        if self.upperbody_controller.in_warmup:
-            for _ in range(50):
-                target_robot_joints = self.upperbody_controller.inverse_kinematics(body_data, left_hand_state, right_hand_state)
-            self.upperbody_controller.in_warmup = False
-        else:
-            target_robot_joints = self.upperbody_controller.inverse_kinematics(body_data, left_hand_state, right_hand_state)
-        return target_robot_joints
 
     def set_wbc_goal(
         self, navigate_cmd: torch.Tensor, base_height_cmd: torch.Tensor, torso_orientation_rpy_cmd: torch.Tensor = None
@@ -253,17 +199,6 @@ class G1DecoupledWBCAction(ActionTerm):
 
         Args:
             actions: The input actions tensor.
-
-            action tensor layout:
-            action = [left_hand_state: dim=1, 0 for open, 1 for close,
-                      right_hand_state: dim=1, 0 for open, 1 for close,
-                      left_arm_pos: dim=3, xyz position,
-                      left_arm_quat: dim=4, wxyz quaternion,
-                      right_arm_pos: dim=3, xyz position,
-                      right_arm_quat: dim=4, wxyz quaternion,
-                      navigate_cmd: dim=3, xyz velocity,
-                      base_height_cmd: dim=1, height,
-                      torso_orientation_rpy_cmd: dim=3, rpy]
         """
 
         # Store the raw actions
@@ -271,60 +206,6 @@ class G1DecoupledWBCAction(ActionTerm):
 
         # Make a copy of actions before modifying so that raw actions are not modified
         actions_clone = actions.clone()
-
-        """
-        **************************************************
-        Upper body PINK controller
-        **************************************************
-        """
-        # Extract upper body left/right arm pos/quat from actions
-        left_arm_pos = actions_clone[:, 2:5].squeeze(0)
-        left_arm_quat = actions_clone[:, 5:9].squeeze(0)
-        right_arm_pos = actions_clone[:, 9:12].squeeze(0)
-        right_arm_quat = actions_clone[:, 12:16].squeeze(0)
-
-        # Convert from pos/quat to 4x4 transform matrix
-        # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
-        left_arm_quat = np.roll(left_arm_quat, -1)
-        right_arm_quat = np.roll(right_arm_quat, -1)
-        left_rotmat = R.from_quat(left_arm_quat).as_matrix()
-        right_rotmat = R.from_quat(right_arm_quat).as_matrix()
-
-        left_arm_pose = np.eye(4)
-        left_arm_pose[:3, :3] = left_rotmat
-        left_arm_pose[:3, 3] = left_arm_pos
-
-        right_arm_pose = np.eye(4)
-        right_arm_pose[:3, :3] = right_rotmat
-        right_arm_pose[:3, 3] = right_arm_pos
-
-        # Extract left/right hand state from actions
-        left_hand_state = actions_clone[:, 0].squeeze(0)
-        right_hand_state = actions_clone[:, 1].squeeze(0)
-
-        # # Reshape from the flattened isaaclab format to 4x4 transform matrix
-        # left_fingers_position = left_fingers_position.reshape(25, 4, 4)
-        # right_fingers_position = right_fingers_position.reshape(25, 4, 4)
-
-        # Assemble data format for runnning IK
-        body_data = {"left_wrist_yaw_link": left_arm_pose, "right_wrist_yaw_link": right_arm_pose}
-
-        target_robot_joints_mujoco = self.compute_upperbody_joint_positions(body_data, left_hand_state, right_hand_state)
-        self._target_robot_joints_mujoco = torch.tensor(target_robot_joints_mujoco).unsqueeze(0)
-
-        # Reformat the joint position tensor to the correct order for G1 robot
-        target_upper_body_joints = target_robot_joints_mujoco[self.robot_model.get_joint_group_indices("upper_body")]
-
-
-        """
-        **************************************************
-        Extract WBC keyboard commands
-        **************************************************
-        """
-        # extract navigate_cmd  base_height_cmd, and torso_orientation_rpy_cmd from actions
-        navigate_cmd = actions_clone[:, -7:-4]
-        base_height_cmd = actions_clone[:, -4:-3]
-        torso_orientation_rpy_cmd = actions_clone[:, -3:]
         # NOTE (xinjie.yao, 9.22.2025): for multi-env, wbc policy supports multi-env inference,
         # we expect actions containing multiple sets of commands for each env
         """
@@ -332,10 +213,10 @@ class G1DecoupledWBCAction(ActionTerm):
         WBC closedloop
         **************************************************
         """
-        # # extract navigate_cmd  base_height_cmd, and torso_orientation_rpy_cmd from actions
-        # navigate_cmd = self.get_navigation_cmd_from_actions(actions_clone)
-        # base_height_cmd = self.get_base_height_cmd_from_actions(actions_clone)
-        # torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone)
+        # extract navigate_cmd  base_height_cmd, and torso_orientation_rpy_cmd from actions
+        navigate_cmd = self.get_navigation_cmd_from_actions(actions_clone)
+        base_height_cmd = self.get_base_height_cmd_from_actions(actions_clone)
+        torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone)
 
         self.set_wbc_goal(navigate_cmd, base_height_cmd, torso_orientation_rpy_cmd)
         self.wbc_policy.set_goal(self._wbc_goal)
@@ -346,25 +227,20 @@ class G1DecoupledWBCAction(ActionTerm):
         **************************************************
         """
         wbc_obs = prepare_observations(self.num_envs, self._asset.data, self.wbc_g1_joints_order)
+        sim_target_full_body_joints = actions_clone[:, : self._num_joints]
+        wbc_target_full_body_joints = convert_sim_joint_to_wbc_joint(
+            sim_target_full_body_joints, self._asset.data.joint_names, self.wbc_g1_joints_order
+        )
+        wbc_target_upper_body_joints = wbc_target_full_body_joints[
+            :, self.robot_model.get_joint_group_indices("upper_body")
+        ]
+
         self.wbc_policy.set_observation(wbc_obs)
 
-        wbc_action = self.wbc_policy.get_action(target_upper_body_joints)
-        self._processed_actions = postprocess_actions(wbc_action, self._asset.data, self.wbc_g1_joints_order, self.device)
-        # sim_target_full_body_joints = actions_clone[:, : self._num_joints]
-        # wbc_target_full_body_joints = convert_sim_joint_to_wbc_joint(
-        #     sim_target_full_body_joints, self._asset.data.joint_names, self.wbc_g1_joints_order
-        # )
-        # wbc_target_full_body_joints[:, self.robot_model.get_joint_group_indices("upper_body_no_hands")] = target_upper_body_joints
-        # wbc_target_upper_body_joints = wbc_target_full_body_joints[
-        #     :, self.robot_model.get_joint_group_indices("upper_body")
-        # ]
-
-
-        # # TODO: add batched dimension
-        # wbc_action = self.wbc_policy.get_action(wbc_target_upper_body_joints)
-        # self._processed_actions = postprocess_actions(
-        #     wbc_action, self._asset.data, self.wbc_g1_joints_order, self.device
-        # )
+        wbc_action = self.wbc_policy.get_action(wbc_target_upper_body_joints)
+        self._processed_actions = postprocess_actions(
+            wbc_action, self._asset.data, self.wbc_g1_joints_order, self.device
+        )
 
     def apply_actions(self):
         """Apply the computed joint positions based on the WBC solution."""
