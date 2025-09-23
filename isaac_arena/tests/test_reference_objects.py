@@ -18,7 +18,9 @@ import tqdm
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
-NUM_STEPS = 20
+# NOTE(xinjieyao, 2025-09-23): More than double the num of steps as sim.dt is changed from 0.01 to 0.005
+# Give more steps to let the object fall down to the drawer
+NUM_STEPS = 50
 HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
