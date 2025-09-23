@@ -70,7 +70,8 @@ jobs:
           pre-commit run --all-files
 
       - name: Run pytest excluding policy-related tests
-        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests --ignore=isaac_arena/tests/policy/
+        run: timeout 1200 /isaac-sim/python.sh -m pytest -sv isaac_arena/tests --ignore=isaac_arena/tests/policy/
+        timeout-minutes: 30
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
