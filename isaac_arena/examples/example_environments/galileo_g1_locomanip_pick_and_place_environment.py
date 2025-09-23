@@ -16,6 +16,7 @@ import argparse
 
 from isaac_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
 
+
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
@@ -57,7 +58,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
             teleop_device=teleop_device,
-        )d
+        )
         return isaac_arena_environment
 
     @staticmethod

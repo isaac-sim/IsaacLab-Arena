@@ -36,14 +36,12 @@ from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
 from isaac_arena.embodiments.g1.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
-from isaac_arena.embodiments.g1.wbc_policy.run_policy import (
-    postprocess_actions,
-    prepare_observations,
-)
+from isaac_arena.embodiments.g1.wbc_policy.run_policy import postprocess_actions, prepare_observations
 from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
+
     from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
 
@@ -325,9 +323,7 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         body_data = {"left_wrist_yaw_link": left_arm_pose, "right_wrist_yaw_link": right_arm_pose}
 
         # Run IK
-        target_robot_joints = self.compute_upperbody_joint_positions(
-            body_data, left_hand_state, right_hand_state
-        )
+        target_robot_joints = self.compute_upperbody_joint_positions(body_data, left_hand_state, right_hand_state)
 
         # Reformat the joint position tensor to the correct order for G1 upper  body
         target_upper_body_joints = target_robot_joints[self.robot_model.get_joint_group_indices("upper_body")]

@@ -417,6 +417,7 @@ class G1ObservationsCfg:
     @configclass
     class ActionGN2Cfg(ObsGroup):
         """Observations for post step policy group"""
+
         left_eef_pos = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
             params={"mode": "left_eef_pos"},
@@ -444,6 +445,7 @@ class G1ObservationsCfg:
             func=observations_wbc_mdp.extract_action_components,
             params={"mode": "torso_orientation_rpy_cmd"},
         )
+
         def __post_init__(self):
             self.enable_corruption = False
             self.concatenate_terms = False
@@ -647,5 +649,6 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             object_pose_matrix[obj_name] = object_pose_pelvis_frame
 
         return object_pose_matrix
+
 
 from isaac_arena.utils.locomanip_mimic_patch import patch_generate

@@ -24,11 +24,13 @@ if TYPE_CHECKING:
     from isaaclab.assets import Articulation
     from isaaclab.envs import ManagerBasedEnv
 
+
 def get_navigate_cmd(
     env: ManagerBasedEnv,
 ) -> torch.Tensor:
     """Get the P-controller navigate command."""
     return env.action_manager.get_term("g1_action").navigate_cmd.clone()
+
 
 def extract_action_components(
     env: ManagerBasedEnv,
@@ -37,7 +39,7 @@ def extract_action_components(
     """Extract the individual components of the G1 WBC PINK action."""
     # get the current action
     current_action = env.action_manager.action.clone()
-    
+
     if mode == "left_eef_pos":
         left_wrist_pos = current_action[:, 2:5]
         return left_wrist_pos
