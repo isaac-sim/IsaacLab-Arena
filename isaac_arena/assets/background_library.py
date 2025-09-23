@@ -64,7 +64,7 @@ class PackingTableBackground(LibraryBackground):
 
     name = "packing_table"
     tags = ["background"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/packing_table_arena.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/packing_table.usd"
     initial_pose = Pose(position_xyz=(0.72193, -0.04727, -0.92512), rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711))
     object_min_z = -0.2
 
