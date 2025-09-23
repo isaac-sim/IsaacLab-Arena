@@ -148,7 +148,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="idle_right",
@@ -172,7 +172,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="grasp_and_idle_right",
@@ -196,7 +196,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 first_subtask_start_offset_range=(0, 0),
@@ -224,7 +224,55 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                subtask_term_signal="idle_left",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.003,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="brown_box",
+                # This key corresponds to the binary indicator in "datagen_info" that signals
+                # when this subtask is finished (e.g., on a 0 to 1 edge).
+                subtask_term_signal="grasp_and_idle_left",
+                first_subtask_start_offset_range=(0, 0),
+                # Randomization range for starting index of the first subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for the source subtask segment during data generation
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.003,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=0,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 first_subtask_start_offset_range=(0, 0),
@@ -252,7 +300,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_to_table",
@@ -276,7 +324,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_turn_inplace",
@@ -300,7 +348,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_to_bin",
@@ -324,7 +372,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="blue_exhaust_pipe",
+                object_ref="brown_box",
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 first_subtask_start_offset_range=(0, 0),
