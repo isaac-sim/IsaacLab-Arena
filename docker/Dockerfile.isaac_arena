@@ -43,24 +43,24 @@ RUN pip3 install --upgrade pip
 
 WORKDIR /workspaces/isaac_arena
 
+COPY . /workspaces/isaac_arena
 # Copy files to /build folder during docker build phase, different from workspace
 # location to avoid conflicts and allow changes detection upon container start.
 # Additionally, split copying into separate instructions for Arena and submodules
 # to avoid docker cache invalidation on code edits.
-RUN mkdir -p /build/isaac_arena
-COPY ./submodules /build/isaac_arena/submodules
 
+# Set the ISAACLAB_PATH environment variable
+ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab
 ENV TERM=xterm
 
 # Symlink isaac sim to IsaacLab
-RUN ln -s /isaac-sim/ /build/isaac_arena/submodules/IsaacLab/_isaac_sim
+RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
 
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
 
 # Install isaaclab
-RUN /build/isaac_arena/submodules/IsaacLab/isaaclab.sh -i
-RUN for DIR in /build/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
+RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 ################################
 # INSTALL PIP DEPS
@@ -76,9 +76,7 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   onnxruntime
 
 # Install isaac-arena
-COPY ./isaac_arena /build/isaac_arena/isaac_arena
-COPY setup.py /build/isaac_arena/setup.py
-RUN /isaac-sim/python.sh -m pip install -e /build/isaac_arena/
+RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaac_arena/
 
 ################################
 # OPTIONAL GR00T Policy Deps
