@@ -13,7 +13,10 @@
 # limitations under the License.
 
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+import isaac_arena.embodiments.g1.g1_constants as g1_constants
+
 
 # NOTE(xinjie.yao, 9.11.2025): consider inheritating from a base class `RobotSupplementalInfo`
 @dataclass
@@ -22,9 +25,12 @@ class G1SupplementalInfo:
     Supplemental information for the G1 robot.
     """
 
-    def __init__(self):
-        # Define all actuated joints
-        self.body_actuated_joints = [
+    # Define all actuated joints
+    # NOTE(xinjie.yao, 9.22.2025): dataclass doesn't support mutable objects as default value, to
+    # prevent modification that would share among all instances.
+    # Using the default factory to create a new instance of the list each dataclass instance
+    body_actuated_joints: list[str] = field(
+        default_factory=lambda: [
             # Left leg
             "left_hip_pitch_joint",
             "left_hip_roll_joint",
@@ -60,8 +66,10 @@ class G1SupplementalInfo:
             "right_wrist_pitch_joint",
             "right_wrist_yaw_joint",
         ]
+    )
 
-        self.left_hand_actuated_joints = [
+    left_hand_actuated_joints: list[str] = field(
+        default_factory=lambda: [
             # Left hand
             "left_hand_thumb_0_joint",
             "left_hand_thumb_1_joint",
@@ -71,8 +79,10 @@ class G1SupplementalInfo:
             "left_hand_middle_0_joint",
             "left_hand_middle_1_joint",
         ]
+    )
 
-        self.right_hand_actuated_joints = [
+    right_hand_actuated_joints: list[str] = field(
+        default_factory=lambda: [
             # Right hand
             "right_hand_thumb_0_joint",
             "right_hand_thumb_1_joint",
@@ -82,63 +92,67 @@ class G1SupplementalInfo:
             "right_hand_middle_0_joint",
             "right_hand_middle_1_joint",
         ]
+    )
 
-        # Define joint limits from URDF
-        self.joint_limits = {
+    # Define joint limits from URDF
+    joint_limits: dict[str, list[float]] = field(
+        default_factory=lambda: {
             # Left leg
-            "left_hip_pitch_joint": [-2.5307, 2.8798],
-            "left_hip_roll_joint": [-0.5236, 2.9671],
-            "left_hip_yaw_joint": [-2.7576, 2.7576],
-            "left_knee_joint": [-0.087267, 2.8798],
-            "left_ankle_pitch_joint": [-0.87267, 0.5236],
-            "left_ankle_roll_joint": [-0.2618, 0.2618],
+            "left_hip_pitch_joint": g1_constants.G1_LEFT_HIP_PITCH_LIMITS,
+            "left_hip_roll_joint": g1_constants.G1_LEFT_HIP_ROLL_LIMITS,
+            "left_hip_yaw_joint": g1_constants.G1_LEFT_HIP_YAW_LIMITS,
+            "left_knee_joint": g1_constants.G1_LEFT_KNEE_LIMITS,
+            "left_ankle_pitch_joint": g1_constants.G1_LEFT_ANKLE_PITCH_LIMITS,
+            "left_ankle_roll_joint": g1_constants.G1_LEFT_ANKLE_ROLL_LIMITS,
             # Right leg
-            "right_hip_pitch_joint": [-2.5307, 2.8798],
-            "right_hip_roll_joint": [-2.9671, 0.5236],
-            "right_hip_yaw_joint": [-2.7576, 2.7576],
-            "right_knee_joint": [-0.087267, 2.8798],
-            "right_ankle_pitch_joint": [-0.87267, 0.5236],
-            "right_ankle_roll_joint": [-0.2618, 0.2618],
+            "right_hip_pitch_joint": g1_constants.G1_RIGHT_HIP_PITCH_LIMITS,
+            "right_hip_roll_joint": g1_constants.G1_RIGHT_HIP_ROLL_LIMITS,
+            "right_hip_yaw_joint": g1_constants.G1_RIGHT_HIP_YAW_LIMITS,
+            "right_knee_joint": g1_constants.G1_RIGHT_KNEE_LIMITS,
+            "right_ankle_pitch_joint": g1_constants.G1_RIGHT_ANKLE_PITCH_LIMITS,
+            "right_ankle_roll_joint": g1_constants.G1_RIGHT_ANKLE_ROLL_LIMITS,
             # Waist
-            "waist_yaw_joint": [-2.618, 2.618],
-            "waist_roll_joint": [-0.52, 0.52],
-            "waist_pitch_joint": [-0.52, 0.52],
+            "waist_yaw_joint": g1_constants.G1_WAIST_YAW_LIMITS,
+            "waist_roll_joint": g1_constants.G1_WAIST_ROLL_LIMITS,
+            "waist_pitch_joint": g1_constants.G1_WAIST_PITCH_LIMITS,
             # Left arm
-            "left_shoulder_pitch_joint": [-3.0892, 2.6704],
-            "left_shoulder_roll_joint": [-1.5882, 2.2515],
-            "left_shoulder_yaw_joint": [-2.618, 2.618],
-            "left_elbow_joint": [-1.0472, 2.0944],
-            "left_wrist_roll_joint": [-1.972222054, 1.972222054],
-            "left_wrist_pitch_joint": [-1.614429558, 1.614429558],
-            "left_wrist_yaw_joint": [-1.614429558, 1.614429558],
+            "left_shoulder_pitch_joint": g1_constants.G1_LEFT_SHOULDER_PITCH_LIMITS,
+            "left_shoulder_roll_joint": g1_constants.G1_LEFT_SHOULDER_ROLL_LIMITS,
+            "left_shoulder_yaw_joint": g1_constants.G1_LEFT_SHOULDER_YAW_LIMITS,
+            "left_elbow_joint": g1_constants.G1_LEFT_ELBOW_LIMITS,
+            "left_wrist_roll_joint": g1_constants.G1_LEFT_WRIST_ROLL_LIMITS,
+            "left_wrist_pitch_joint": g1_constants.G1_LEFT_WRIST_PITCH_LIMITS,
+            "left_wrist_yaw_joint": g1_constants.G1_LEFT_WRIST_YAW_LIMITS,
             # Right arm
-            "right_shoulder_pitch_joint": [-3.0892, 2.6704],
-            "right_shoulder_roll_joint": [-2.2515, 1.5882],
-            "right_shoulder_yaw_joint": [-2.618, 2.618],
-            "right_elbow_joint": [-1.0472, 2.0944],
-            "right_wrist_roll_joint": [-1.972222054, 1.972222054],
-            "right_wrist_pitch_joint": [-1.614429558, 1.614429558],
-            "right_wrist_yaw_joint": [-1.614429558, 1.614429558],
+            "right_shoulder_pitch_joint": g1_constants.G1_RIGHT_SHOULDER_PITCH_LIMITS,
+            "right_shoulder_roll_joint": g1_constants.G1_RIGHT_SHOULDER_ROLL_LIMITS,
+            "right_shoulder_yaw_joint": g1_constants.G1_RIGHT_SHOULDER_YAW_LIMITS,
+            "right_elbow_joint": g1_constants.G1_RIGHT_ELBOW_LIMITS,
+            "right_wrist_roll_joint": g1_constants.G1_RIGHT_WRIST_ROLL_LIMITS,
+            "right_wrist_pitch_joint": g1_constants.G1_RIGHT_WRIST_PITCH_LIMITS,
+            "right_wrist_yaw_joint": g1_constants.G1_RIGHT_WRIST_YAW_LIMITS,
             # Left hand
-            "left_hand_thumb_0_joint": [-1.04719755, 1.04719755],
-            "left_hand_thumb_1_joint": [-0.72431163, 1.04719755],
-            "left_hand_thumb_2_joint": [0, 1.74532925],
-            "left_hand_index_0_joint": [-1.57079632, 0],
-            "left_hand_index_1_joint": [-1.74532925, 0],
-            "left_hand_middle_0_joint": [-1.57079632, 0],
-            "left_hand_middle_1_joint": [-1.74532925, 0],
+            "left_hand_thumb_0_joint": g1_constants.G1_LEFT_HAND_THUMB_0_LIMITS,
+            "left_hand_thumb_1_joint": g1_constants.G1_LEFT_HAND_THUMB_1_LIMITS,
+            "left_hand_thumb_2_joint": g1_constants.G1_LEFT_HAND_THUMB_2_LIMITS,
+            "left_hand_index_0_joint": g1_constants.G1_LEFT_HAND_INDEX_0_LIMITS,
+            "left_hand_index_1_joint": g1_constants.G1_LEFT_HAND_INDEX_1_LIMITS,
+            "left_hand_middle_0_joint": g1_constants.G1_LEFT_HAND_MIDDLE_0_LIMITS,
+            "left_hand_middle_1_joint": g1_constants.G1_LEFT_HAND_MIDDLE_1_LIMITS,
             # Right hand
-            "right_hand_thumb_0_joint": [-1.04719755, 1.04719755],
-            "right_hand_thumb_1_joint": [-0.72431163, 1.04719755],
-            "right_hand_thumb_2_joint": [0, 1.74532925],
-            "right_hand_index_0_joint": [-1.57079632, 0],
-            "right_hand_index_1_joint": [-1.74532925, 0],
-            "right_hand_middle_0_joint": [-1.57079632, 0],
-            "right_hand_middle_1_joint": [-1.74532925, 0],
+            "right_hand_thumb_0_joint": g1_constants.G1_RIGHT_HAND_THUMB_0_LIMITS,
+            "right_hand_thumb_1_joint": g1_constants.G1_RIGHT_HAND_THUMB_1_LIMITS,
+            "right_hand_thumb_2_joint": g1_constants.G1_RIGHT_HAND_THUMB_2_LIMITS,
+            "right_hand_index_0_joint": g1_constants.G1_RIGHT_HAND_INDEX_0_LIMITS,
+            "right_hand_index_1_joint": g1_constants.G1_RIGHT_HAND_INDEX_1_LIMITS,
+            "right_hand_middle_0_joint": g1_constants.G1_RIGHT_HAND_MIDDLE_0_LIMITS,
+            "right_hand_middle_1_joint": g1_constants.G1_RIGHT_HAND_MIDDLE_1_LIMITS,
         }
+    )
 
-        # Define joint groups
-        self.joint_groups = {
+    # Define joint groups
+    joint_groups: dict[str, dict[str, list[str]]] = field(
+        default_factory=lambda: {
             # Body groups
             "waist": {
                 "joints": ["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
@@ -226,9 +240,11 @@ class G1SupplementalInfo:
             "body": {"joints": [], "groups": ["lower_body", "upper_body_no_hands"]},
             "upper_body": {"joints": [], "groups": ["upper_body_no_hands", "hands"]},
         }
+    )
 
-        # Define joint name mapping from generic types to robot-specific names
-        self.joint_name_mapping = {
+    # Define joint name mapping from generic types to robot-specific names
+    joint_name_mapping: dict[str, dict[str, str]] = field(
+        default_factory=lambda: {
             # Waist joints
             "waist_pitch": "waist_pitch_joint",
             "waist_roll": "waist_roll_joint",
@@ -253,12 +269,13 @@ class G1SupplementalInfo:
             "wrist_roll": {"left": "left_wrist_roll_joint", "right": "right_wrist_roll_joint"},
             "wrist_yaw": {"left": "left_wrist_yaw_joint", "right": "right_wrist_yaw_joint"},
         }
+    )
 
-        self.root_frame_name = "pelvis"
-        self.hand_frame_names = {"left": "left_wrist_yaw_link", "right": "right_wrist_yaw_link"}
-        self.elbow_calibration_joint_angles = {"left": 0.0, "right": 0.0}
-        self.hand_rotation_correction = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
-        self.default_joint_q = {}
+    root_frame_name: str = "pelvis"
+    hand_frame_names: dict[str, str] = field(
+        default_factory=lambda: {"left": "left_wrist_yaw_link", "right": "right_wrist_yaw_link"}
+    )
+    default_joint_q: dict[str, float] = field(default_factory=lambda: {})
 
 
 @dataclass
@@ -268,10 +285,7 @@ class G1SupplementalInfoWaistUpperBody(G1SupplementalInfo):
     This version moves the waist joints from lower_body to upper_body_no_hands.
     """
 
-    def __init__(self):
-        # Initialize with the base G1 configuration
-        super().__init__()
-
+    def __post_init__(self):
         # Modify joint groups to move waist from lower_body to upper_body_no_hands
         modified_joint_groups = self.joint_groups.copy()
 
@@ -292,10 +306,7 @@ class G1SupplementalInfoWaistLowerAndUpperBody(G1SupplementalInfo):
     This version includes the waist joints in both upper_body_no_hands and lower_body.
     """
 
-    def __init__(self):
-        # Initialize with the base G1 configuration
-        super().__init__()
-
+    def __post_init__(self):
         # Modify joint groups to include waist in both upper_body_no_hands and lower_body
         modified_joint_groups = self.joint_groups.copy()
 

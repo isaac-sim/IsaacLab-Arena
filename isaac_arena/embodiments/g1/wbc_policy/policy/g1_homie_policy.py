@@ -158,10 +158,11 @@ class G1HomiePolicyV2(WBCPolicy):
         single_obs_dim = 3 + 1 + 3 + 3 + 3 + n_joints + n_joints + 15
 
         # Create single observation
+
         single_obs = np.zeros((num_envs, single_obs_dim), dtype=np.float32)
         single_obs[:, 0:3] = self.cmd[:3] * self.config["cmd_scale"]
         single_obs[:, 3:4] = np.array([self.height_cmd])
-        single_obs[:, 4:7] = np.concatenate([self.roll_cmd, self.pitch_cmd, self.yaw_cmd], axis=0)
+        single_obs[:, 4:7] = np.stack([self.roll_cmd, self.pitch_cmd, self.yaw_cmd], axis=1)
         single_obs[:, 7:10] = omega_scaled
         single_obs[:, 10:13] = gravity_orientation.T
         single_obs[:, 13 : 13 + n_joints] = qj_scaled

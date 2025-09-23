@@ -18,7 +18,9 @@ import tqdm
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
-NUM_STEPS = 20
+# NOTE(xinjieyao, 2025-09-23): More than double the num of steps as sim.dt is changed from 0.01 to 0.005
+# Give more steps to let the object fall down to the drawer
+NUM_STEPS = 50
 HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
@@ -33,20 +35,19 @@ def get_test_background():
         Encapsulates the background scene and destination-object config for a kitchen pick-and-place environment.
         """
 
-        name = "kitchen"
-        tags = ["background", "pick_and_place"]
-        default_robot_initial_pose = Pose.identity()
-        usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd"
-        initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
-        object_min_z = -0.2
-
         def __init__(self):
-            super().__init__(robot_initial_pose=self.default_robot_initial_pose)
+            super().__init__(
+                name="kitchen",
+                tags=["background", "pick_and_place"],
+                usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd",
+                initial_pose=Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711)),
+                object_min_z=-0.2,
+            )
 
     return ObjectReferenceTestKitchenBackground()
 
 
-def _test_object_on_destination_termination(simulation_app) -> bool:
+def _test_reference_objects(simulation_app) -> bool:
 
     from isaaclab.managers import SceneEntityCfg
 
@@ -153,13 +154,13 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     return True
 
 
-def test_object_on_destination_termination():
+def test_reference_objects():
     result = run_simulation_app_function_in_separate_process(
-        _test_object_on_destination_termination,
+        _test_reference_objects,
         headless=HEADLESS,
     )
     assert result, "Test failed"
 
 
 if __name__ == "__main__":
-    test_object_on_destination_termination()
+    test_reference_objects()

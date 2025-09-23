@@ -16,7 +16,7 @@
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
-from isaac_arena.assets.affordances import Openable
+from isaac_arena.affordances.openable import Openable
 from isaac_arena.assets.asset import Asset
 from isaac_arena.assets.object_base import ObjectBase, ObjectType
 

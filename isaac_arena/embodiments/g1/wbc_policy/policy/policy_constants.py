@@ -12,22 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Constants for the WBC policy."""
 
-class Asset:
-    """
-    Base class for all assets.
-    """
-
-    def __init__(self, name: str, tags: list[str] | None = None, **kwargs):
-        # NOTE: Cooperative Multiple Inheritance Pattern.
-        # Calling super even though this is a base class to support
-        # multiple inheritance of inheriting classes.
-        super().__init__(**kwargs)
-        # self.name = name
-        self._name = name
-        self.tags = tags
-
-    # name is a read-only property
-    @property
-    def name(self) -> str:
-        return self._name
+G1_NUM_JOINTS = 43
+NUM_NAVIGATE_CMD = 3
+NUM_BASE_HEIGHT_CMD = 1
+NUM_TORSO_ORIENTATION_RPY_CMD = 3

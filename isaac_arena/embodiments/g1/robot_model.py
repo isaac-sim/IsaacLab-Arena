@@ -18,6 +18,7 @@ from copy import deepcopy
 import yaml
 import pinocchio as pin
 
+import yaml
 
 from isaac_arena.embodiments.g1.g1_supplemental_info import G1SupplementalInfo
 

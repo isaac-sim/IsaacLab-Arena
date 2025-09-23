@@ -12,22 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import ABC, abstractmethod
 
-class Asset:
-    """
-    Base class for all assets.
-    """
 
-    def __init__(self, name: str, tags: list[str] | None = None, **kwargs):
-        # NOTE: Cooperative Multiple Inheritance Pattern.
-        # Calling super even though this is a base class to support
-        # multiple inheritance of inheriting classes.
-        super().__init__(**kwargs)
-        # self.name = name
-        self._name = name
-        self.tags = tags
+class AffordanceBase(ABC):
+    """Base class for affordances."""
 
-    # name is a read-only property
     @property
+    @abstractmethod
     def name(self) -> str:
-        return self._name
+        # NOTE(alexmillane, 2025.09.19) Affordances always have be combined with
+        # an Asset which has a "name" property. By declaring this property
+        # abstract here, we enforce this.
+        pass

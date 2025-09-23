@@ -35,6 +35,7 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cf
 
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+from isaac_arena.geometry.pose import Pose
 from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
 
 
@@ -44,10 +45,11 @@ class GR1T2Embodiment(EmbodimentBase):
 
     name = "gr1"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
+        self.camera_config = GR1T2CameraCfg()
         self.action_config = GR1T2ActionsCfg()
         self.observation_config = GR1T2ObservationsCfg()
         self.event_config = GR1T2EventCfg()
@@ -114,20 +116,24 @@ class GR1T2SceneCfg:
         ),
     )
 
-    # TODO(vik: Fix camera and xr issues)
-    # robot_pov_cam: CameraCfg = CameraCfg(
-    #         prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
-    #         update_period=0.0,
-    #         height=512,
-    #         width=512,
-    #         data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
-    #         spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
-    #         offset=CameraCfg.OffsetCfg(
-    #             pos=(0.12515, 0.0, 0.06776),
-    #             rot=(0.62, 0.32, -0.32, -0.63),
-    #             convention="opengl",
-    #         ),
-    #     )
+
+@configclass
+class GR1T2CameraCfg:
+    """Configuration for cameras."""
+
+    robot_pov_cam: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+        update_period=0.0,
+        height=512,
+        width=512,
+        data_types=["rgb", "distance_to_image_plane"],
+        spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.12515, 0.0, 0.06776),
+            rot=(0.62, 0.32, -0.32, -0.63),
+            convention="opengl",
+        ),
+    )
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py

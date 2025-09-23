@@ -13,8 +13,11 @@ EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 # Default GR00T installation settings (false means no GR00T installation)
 INSTALL_GROOT="false"
 GROOT_DEPS_GROUP="base"
+# Whether to forcefully rebuild the docker image
+# (it takes a while to re-build, but for testing is not really necessary)
+FORCE_REBUILD=false
 
-while getopts ":d:m:e:hn:g:G:" OPTION; do
+while getopts ":d:m:e:hn:rn:vn:g:G:" OPTION; do
     case $OPTION in
 
         d)
@@ -29,6 +32,12 @@ while getopts ":d:m:e:hn:g:G:" OPTION; do
         n)
             DOCKER_IMAGE_NAME=${OPTARG}
             ;;
+        r)
+            FORCE_REBUILD=true
+            ;;
+        v)
+            set -x
+            ;;
         g)
             INSTALL_GROOT="true"
             ;;
@@ -37,22 +46,21 @@ while getopts ":d:m:e:hn:g:G:" OPTION; do
             INSTALL_GROOT="true"
             ;;
         h)
-            echo "Helper script to build $DOCKER_IMAGE_NAME (default)"
-            echo "Usage:"
-            echo "$script_name -h"
-            echo "$script_name -d <datasets directory>"
-            echo "$script_name -m <models directory>"
-            echo "$script_name -e <evaluation directory>"
-            echo "$script_name -n <docker name>"
-            echo "$script_name -g (install GR00T with 'base' dependencies)"
-            echo "$script_name -G <deps_group> (install GR00T with specific dependency group)"
+            script_name=$(basename "$0")
+            echo "Helper script to build and Isaac Arena docker environment."
             echo ""
-            echo "  -d <datasets directory> (default is $DATASETS_HOST_MOUNT_DIRECTORY)"
-            echo "  -m <models directory> (default is $MODELS_HOST_MOUNT_DIRECTORY)"
-            echo "  -e <evaluation directory> (default is $EVAL_HOST_MOUNT_DIRECTORY)"
-            echo "  -n <docker name> (default is $DOCKER_IMAGE_NAME)"
-            echo "  -g install GR00T with base dependencies"
-            echo "  -G <deps_group> install GR00T with dependency group: base, dev, orin, thor, deploy"
+            echo "Usage:"
+            echo "$script_name [options]"
+            echo ""
+            echo "Options:"
+            echo "  -v (Verbose output)"
+            echo "  -d <datasets directory> (Path to datasets on the host. Default is \"$DATASETS_HOST_MOUNT_DIRECTORY\".)"
+            echo "  -m <models directory> (Path to models on the host. Default is \"$MODELS_HOST_MOUNT_DIRECTORY\".)"
+            echo "  -e <evaluation directory> (Path to evaluation data on the host. Default is \"$EVAL_HOST_MOUNT_DIRECTORY\".)"
+            echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
+            echo "  -r (Force rebuilding of the docker image.)"
+            echo "  -g (Install GR00T with base dependencies.)"
+            echo "  -G <deps_group> (Install GR00T with dependency group: base, dev, orin, thor, deploy.)"
             exit 0
             ;;
         \?)
@@ -67,70 +75,26 @@ while getopts ":d:m:e:hn:g:G:" OPTION; do
 done
 
 # Display the values being used
-echo "Using Docker name: $DOCKER_IMAGE_NAME"
-
-# This portion of the script will only be executed *inside* the docker when
-# this script is used as entrypoint further down. It will setup an user account for
-# the host user inside the docker s.t. created files will have correct ownership.
-if [ -f /.dockerenv ]
-then
-    set -euo pipefail
-
-    # Make sure that all shared libs are found. This should normally not be needed, but resolves a
-    # problem with the opencv installation. For unknown reasons, the command doesn't bite if placed
-    # at the end of the dockerfile
-    ldconfig
-
-    # Add the group of the user. User/group ID of the host user are set through env variables when calling docker run further down.
-    groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
-
-    # Re-add the user
-    userdel "$DOCKER_RUN_USER_NAME" || true
-    userdel ubuntu || true
-    useradd --no-log-init \
-            --uid "$DOCKER_RUN_USER_ID" \
-            --gid "$DOCKER_RUN_GROUP_NAME" \
-            --groups sudo \
-            --shell /bin/bash \
-            $DOCKER_RUN_USER_NAME
-    chown $DOCKER_RUN_USER_NAME /home/$DOCKER_RUN_USER_NAME
-
-    # Change the root user password (so we can su root)
-    echo 'root:root' | chpasswd
-    echo "$DOCKER_RUN_USER_NAME:root" | chpasswd
-
-    # Allow sudo without password
-    echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-    # Re-install isaaclab (note that the deps have been installed in the Dockerfile)
-    echo "Re-installing isaaclab packages from mounted repo"
-    for DIR in /workspaces/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do
-        echo "Installing $DIR"
-        pip install --no-deps -e "$DIR"
-    done
-    # Re-doing symlink (we do this in the Dockerfile, but we overwrite with the mapping).
-    if [ ! -d "/workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim" ]; then
-        ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
-    fi
-
-    set +x
-
-    su $DOCKER_RUN_USER_NAME
-
-    exit
-fi
+echo "Using Docker image: $DOCKER_IMAGE_NAME"
 
 # Build the Docker image with the specified or default name
 echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
 if [ "$INSTALL_GROOT" = "true" ]; then
     echo "GR00T dependency group: $GROOT_DEPS_GROUP"
 fi
-docker build --pull \
-    --build-arg INSTALL_GROOT=$INSTALL_GROOT \
-    --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
-    -t ${DOCKER_IMAGE_NAME} \
-    --file $SCRIPT_DIR/Dockerfile.isaac_arena \
-    $SCRIPT_DIR/..
+
+if [ "$(docker images -q $DOCKER_IMAGE_NAME 2> /dev/null)" ] && \
+    [ "$FORCE_REBUILD" = false ]; then
+    echo "Docker image $DOCKER_IMAGE_NAME already exists. Not rebuilding."
+    echo "Use -r option to force the rebuild."
+else
+    docker build --pull \
+        --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+        --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
+        -t ${DOCKER_IMAGE_NAME} \
+        --file $SCRIPT_DIR/Dockerfile.isaac_arena \
+        $SCRIPT_DIR/..
+fi
 
 # Remove any exited containers
 if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME)" ]; then
@@ -167,8 +131,6 @@ else
                     "--env" "DOCKER_RUN_USER_NAME=$(id -un)"
                     "--env" "DOCKER_RUN_GROUP_ID=$(id -g)"
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
-                    "--env" "OMNI_USER=\$omni-api-token"
-                    "--env" "OMNI_PASS=$OMNI_PASS"
                     # Setting envs for XR: https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#run-isaac-lab-with-the-cloudxr-runtime
                     "--env" "XDG_RUNTIME_DIR=/workspaces/isaac_arena/submodules/IsaacLab/openxr/run"
                     "--env" "XR_RUNTIME_JSON=/workspaces/isaac_arena/submodules/IsaacLab/openxr/share/openxr/1/openxr_cloudxr.json"
@@ -176,11 +138,22 @@ else
                     # as a user inside the container, not root. I've left it in for now, but we should
                     # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
-                    "--entrypoint" "/workspaces/isaac_arena/docker/run_docker.sh"
+                    "--env" "ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab"
+                    "--entrypoint" "/workspaces/isaac_arena/docker/setup/entrypoint.sh"
                     )
 
+    # map omniverse auth or config so we have connection to the dev nucleus
+    if [ -n "$OMNI_PASS" ]; then
+        DOCKER_RUN_ARGS+=("--env" "OMNI_USER=\$omni-api-token")
+        DOCKER_RUN_ARGS+=("--env" "OMNI_PASS=$OMNI_PASS")
+    else
+        if [ -d "$HOME/.nvidia-omniverse" ]; then
+            DOCKER_RUN_ARGS+=("-v" "$HOME/.nvidia-omniverse:/home/$(id -un)/.nvidia-omniverse")
+        fi
+    fi
+
     # Allow X11 connections
-    xhost +local:docker
+    xhost +local:docker > /dev/null
 
     docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}
 fi

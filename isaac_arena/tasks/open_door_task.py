@@ -15,33 +15,38 @@
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
-from isaac_arena.assets.affordances import Openable
+from isaac_arena.affordances.openable import Openable
 from isaac_arena.tasks.task import TaskBase
 
 
 class OpenDoorTask(TaskBase):
-    def __init__(self, openable_object: Openable):
+    def __init__(
+        self, openable_object: Openable, openness_threshold: float | None = None, reset_openness: float | None = None
+    ):
         super().__init__()
         assert isinstance(openable_object, Openable), "Openable object must be an instance of Openable"
         self.openable_object = openable_object
+        self.openness_threshold = openness_threshold
+        self.reset_openness = reset_openness
 
     def get_scene_cfg(self):
         pass
 
     def get_termination_cfg(self):
+        params = {}
+        if self.openness_threshold is not None:
+            params["threshold"] = self.openness_threshold
         success = TerminationTermCfg(
             func=self.openable_object.is_open,
-            params={
-                "asset_cfg": SceneEntityCfg(self.openable_object.name),
-            },
+            params=params,
         )
         return TerminationsCfg(success=success)
 
     def get_events_cfg(self):
-        return OpenDoorEventCfg(self.openable_object)
+        return OpenDoorEventCfg(self.openable_object, reset_openness=self.reset_openness)
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
@@ -67,12 +72,13 @@ class OpenDoorEventCfg:
 
     reset_door_state: EventTermCfg = MISSING
 
-    def __init__(self, openable_object: Openable):
+    def __init__(self, openable_object: Openable, reset_openness: float | None):
         assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
+        params = {}
+        if reset_openness is not None:
+            params["percentage"] = reset_openness
         self.reset_door_state = EventTermCfg(
             func=openable_object.close,
             mode="reset",
-            params={
-                "asset_cfg": SceneEntityCfg(openable_object.name),
-            },
+            params=params,
         )

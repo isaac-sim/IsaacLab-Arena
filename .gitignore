@@ -69,9 +69,17 @@ TAGS
 
 # Models
 *models/
+!isaac_arena/embodiments/g1/wbc_policy/models/
 
 # Training logs and outputs
 *wandb/
 
 # Ignore plots
 *.png
+
+# Ignore temporary files and directories starting with __
+**/__*
+
+# Ignore core dumps produced by debugpy
+core
+core.*

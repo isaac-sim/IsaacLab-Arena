@@ -29,18 +29,21 @@ from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 
-from isaac_arena.assets.register import register_asset
-from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 # TODO(xinjieyao, 2025-09-15): Consider moving to IsaacLab repo
 from isaac_arena.embodiments.g1.mdp import observations_wbc as wbc_observations_mdp
-from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
-from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
 
 import torch
 from collections.abc import Sequence
 
 import isaaclab.utils.math as PoseUtils
+
+import isaac_arena.terms.transforms as transforms_terms
+from isaac_arena.assets.register import register_asset
+from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
+from isaac_arena.geometry.pose import Pose
+from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
 
 
 @register_asset
@@ -49,8 +52,8 @@ class G1Embodiment(EmbodimentBase):
 
     name = "g1"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.action_config = G1WBCActionCfg()
@@ -113,13 +116,13 @@ class G1SceneCfg:
                 "waist_roll_joint": 0.0,
                 "waist_pitch_joint": 0.0,
                 "left_shoulder_pitch_joint": 0.0,
-                "left_shoulder_roll_joint": 0.0,  # 0.3,
+                "left_shoulder_roll_joint": 0.0,
                 "left_shoulder_yaw_joint": 0.0,
-                "left_elbow_joint": 0.0,  # 1.0,
+                "left_elbow_joint": 0.0,
                 "right_shoulder_pitch_joint": 0.0,
-                "right_shoulder_roll_joint": 0,  # -0.3,
+                "right_shoulder_roll_joint": 0,
                 "right_shoulder_yaw_joint": 0.0,
-                "right_elbow_joint": 0.0,  # 1.0,
+                "right_elbow_joint": 0.0,
             },
             joint_vel={".*": 0.0},
         ),
@@ -144,16 +147,16 @@ class G1SceneCfg:
                     ".*_knee_joint": 20.0,
                 },
                 stiffness={
-                    ".*_hip_yaw_joint": 150.0,  # 100.0,
-                    ".*_hip_roll_joint": 150.0,  # 100.0,
-                    ".*_hip_pitch_joint": 150.0,  # 100.0
-                    ".*_knee_joint": 300.0,  # 200.0,
+                    ".*_hip_yaw_joint": 150.0,
+                    ".*_hip_roll_joint": 150.0,
+                    ".*_hip_pitch_joint": 150.0,
+                    ".*_knee_joint": 300.0,
                 },
                 damping={
-                    ".*_hip_yaw_joint": 2.0,  # 2.5,
-                    ".*_hip_roll_joint": 2.0,  # 2.5,
-                    ".*_hip_pitch_joint": 2.0,  # 2.5,
-                    ".*_knee_joint": 4.0,  # 5.0,
+                    ".*_hip_yaw_joint": 2.0,
+                    ".*_hip_roll_joint": 2.0,
+                    ".*_hip_pitch_joint": 2.0,
+                    ".*_knee_joint": 4.0,
                 },
                 armature={
                     ".*_hip_.*": 0.03,
@@ -316,12 +319,20 @@ class G1ObservationsCfg:
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         right_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "right_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={
+                "asset_cfg": SceneEntityCfg("robot"),
+                "target_link_name": "right_wrist_yaw_link",
+                "target_frame_name": "pelvis",
+            },
         )
         left_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "left_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={
+                "asset_cfg": SceneEntityCfg("robot"),
+                "target_link_name": "left_wrist_yaw_link",
+                "target_frame_name": "pelvis",
+            },
         )
         # Mimic required observations
         left_eef_pos = ObsTerm(
@@ -378,12 +389,20 @@ class G1ObservationsCfg:
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         right_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "right_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={
+                "asset_cfg": SceneEntityCfg("robot"),
+                "target_link_name": "right_wrist_yaw_link",
+                "target_frame_name": "pelvis",
+            },
         )
         left_wrist_pose_pelvis_frame = ObsTerm(
-            func=wbc_observations_mdp.eef_pose_pelvis_frame,
-            params={"asset_cfg": SceneEntityCfg("robot"), "eef_name": "left_wrist_yaw_link"},
+            func=transforms_terms.transform_pose_from_world_to_target_frame,
+            params={
+                "asset_cfg": SceneEntityCfg("robot"),
+                "target_link_name": "left_wrist_yaw_link",
+                "target_frame_name": "pelvis",
+            },
         )
 
         def __post_init__(self):
