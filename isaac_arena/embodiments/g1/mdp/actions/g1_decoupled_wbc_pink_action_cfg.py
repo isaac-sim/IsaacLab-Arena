@@ -29,3 +29,20 @@ class G1DecoupledWBCPinkActionCfg(ActionTermCfg):
     joint_names: list[str] = MISSING
 
     wbc_version: str = "homie_v2"
+    # Navigation Segment: P-controller parameters
+    distance_error_threshold: float = 0.06
+    heading_diff_threshold: float = 0.1
+    kp_angular_turning_only: float = 0.4
+    kp_linear_x: float = 0.2
+    kp_linear_y: float = 0.2
+    kp_angular: float = 0.05
+    min_vel: float = -1
+    max_vel: float = 1
+    # Navigation Segment: Target xy and heading subgoals
+    navigation_target_xy_heading: list[tuple[list[float], bool]] = MISSING
+    # Navigation Segment: Use P-controller
+    use_p_control: bool = True
+    # Navigation Segment: Turning first
+    turning_first: bool = False
+    # Navigation Segment: Max navigation steps
+    max_navigation_steps: int = 100

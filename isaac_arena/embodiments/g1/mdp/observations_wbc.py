@@ -17,11 +17,8 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-import isaaclab.utils.math as PoseUtils
-from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
-    from isaaclab.assets import Articulation
     from isaaclab.envs import ManagerBasedEnv
 
 
