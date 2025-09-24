@@ -57,50 +57,47 @@ cracker_box.set_initial_pose(
 
 # %%
 
+import gym
+
 from isaaclab.managers import DatasetExportMode
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
 
-class PrintingRecorder(RecorderTerm):
+class SuccessRateMetric:
 
-    def record_post_step(self):
-        print("Recording post step")
-        return "printing", torch.zeros(self._env.num_envs, 1, device=self._env.device)
+    def __init__(self):
+        self.name = "success"
+
+    def get_recorder_manager_cfg(self):
+        return RecorderManagerCfg()
+
+    def get_metric(self, env: gym.Env) -> float:
+        return 0.0
 
 
-class PreResetPrintingRecorder(RecorderTerm):
+class SuccessRecorder(RecorderTerm):
 
     def record_pre_reset(self, env_ids):
-        print("Recording pre reset")
-        # Set task success values for the relevant episodes
+        assert hasattr(self._env, "termination_manager")
+        assert "success" in self._env.termination_manager.active_terms
         success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)
-        # Check success indicator from termination terms
-        if hasattr(self._env, "termination_manager"):
-            if "success" in self._env.termination_manager.active_terms:
-                success_results |= self._env.termination_manager.get_term("success")[env_ids]
-        print(f"success_results: {success_results}")
-        return "printing pre reset", torch.zeros(self._env.num_envs, 1, device=self._env.device)
+        success_results |= self._env.termination_manager.get_term("success")[env_ids]
+        print(f"SuccessRecorder: {success_results}")
+        return "success", success_results
 
 
 @configclass
-class PrintingRecorderCfg(RecorderTermCfg):
-    class_type: type[RecorderTerm] = PrintingRecorder
+class SuccessRecorderCfg(RecorderTermCfg):
+    class_type: type[RecorderTerm] = SuccessRecorder
 
 
 @configclass
-class PreResetPrintingRecorderCfg(RecorderTermCfg):
-    class_type: type[RecorderTerm] = PreResetPrintingRecorder
+class RecorderManagerCfg(RecorderManagerBaseCfg):
+    record_pre_reset_term = SuccessRecorderCfg()
 
 
-@configclass
-class PrintingRecorderManagerCfg(RecorderManagerBaseCfg):
-
-    record_post_step_term = PrintingRecorderCfg()
-    record_pre_reset_term = PreResetPrintingRecorderCfg()
-
-
-recorder_cfg = PrintingRecorderManagerCfg()
+recorder_cfg = RecorderManagerCfg()
 recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_ALL
 
 # %%
@@ -118,6 +115,7 @@ isaac_arena_environment = IsaacArenaEnvironment(
 )
 
 args_cli = get_isaac_arena_cli_parser().parse_args([])
+args_cli.num_envs = 2
 env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
@@ -127,16 +125,16 @@ env.reset()
 
 # Run some zero actions.
 NUM_STEPS = 100
+num_resets = 0
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-        env.step(actions)
+        _, _, terminated, _, _ = env.step(actions)
+        # print(torch.sum(terminated))
+        num_resets += torch.sum(terminated).item()
+        # print(f"terminated: {terminated}")
+print(f"num_resets: {num_resets}")
 
-# %%
-
-for i in range(10):
-    print(i)
-    print(env.recorder_manager.get_episode(i).data["printing"].shape)
 
 # %%
 
@@ -150,8 +148,86 @@ with h5py.File(dataset_path, "r") as f:
     print(f.keys())
     print(f["data"].keys())
     print(f["data"]["demo_2"].keys())
-    print(f["data"]["demo_2"]["printing pre reset"][:])
-    print(f["data"]["demo_2"]["printing"][:])
+    print(f["data"]["demo_2"]["success"][:])
+
+# %%
+
+import numpy as np
+
+
+# Extract recorded data for a metric
+def get_recorded_metric_data(dataset_path: pathlib.Path, metric_name: str) -> list[np.ndarray]:
+    """Gets the recorded metric data for a given metric name."""
+    recorded_metric_data_per_demo: list[np.ndarray] = []
+    with h5py.File(dataset_path, "r") as f:
+        demos = f["data"]
+        for demo in demos:
+            recorded_metric_data_per_demo.append(demos[demo][metric_name][:])
+    return recorded_metric_data_per_demo
+
+
+# Average success rate
+def get_average_success_rate(recorded_metric_data: list[np.ndarray]) -> float:
+    """Gets the average success rate from a list of recorded success flags."""
+    num_demos = len(recorded_metric_data)
+    all_demos_success_flags = np.concatenate(recorded_metric_data)
+    assert all_demos_success_flags.ndim == 1
+    assert all_demos_success_flags.shape[0] == num_demos
+    success_rate = np.mean(all_demos_success_flags)
+    return success_rate
+
+
+recorded_metric_data = get_recorded_metric_data(dataset_path, "success")
+print(f"Recorded metric data: {recorded_metric_data}")
+
+average_success_rate = get_average_success_rate(recorded_metric_data)
+print(f"Average success rate: {average_success_rate}")
+
+# %%
+
+
+# from isaaclab.managers import DatasetExportMode
+# from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
+# from isaaclab.utils import configclass
+
+
+# class PrintingRecorder(RecorderTerm):
+
+#     def record_post_step(self):
+#         print("Recording post step")
+#         return "printing", torch.zeros(self._env.num_envs, 1, device=self._env.device)
+
+
+# class SuccessRecorder(RecorderTerm):
+
+#     def record_pre_reset(self, env_ids):
+#         assert hasattr(self._env, "termination_manager")
+#         assert "success" in self._env.termination_manager.active_terms
+#         success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)
+#         success_results |= self._env.termination_manager.get_term("success")[env_ids]
+#         print(f"SuccessRecorder: {success_results}")
+#         return "success", success_results
+
+
+# @configclass
+# class PrintingRecorderCfg(RecorderTermCfg):
+#     class_type: type[RecorderTerm] = PrintingRecorder
+
+
+# @configclass
+# class PreResetPrintingRecorderCfg(RecorderTermCfg):
+#     class_type: type[RecorderTerm] = PreResetPrintingRecorder
+
+
+# @configclass
+# class PrintingRecorderManagerCfg(RecorderManagerBaseCfg):
+
+#     record_post_step_term = PrintingRecorderCfg()
+#     record_pre_reset_term = PreResetPrintingRecorderCfg()
+
+
+# recorder_cfg = PrintingRecorderManagerCfg()
+# recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_ALL
 
 
 # %%
