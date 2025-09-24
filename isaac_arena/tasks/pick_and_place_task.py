@@ -76,6 +76,9 @@ class PickAndPlaceTask(TaskBase):
             embodiment_name=embodiment_name,
             pick_up_object_name=self.pick_up_object.name,
         )
+    
+    def get_metrics(self):
+        pass
 
 
 @configclass

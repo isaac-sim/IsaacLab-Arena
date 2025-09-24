@@ -12,8 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC
+from abc import ABC, abstractmethod
+
+import numpy as np
+
+from isaaclab.managers.recorder_manager import RecorderTermCfg
 
 
-class MetricsBase(ABC):
-    pass
+class MetricBase(ABC):
+
+    metric_name: str
+
+    @abstractmethod
+    def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+        raise NotImplementedError("Function not implemented yet.")
