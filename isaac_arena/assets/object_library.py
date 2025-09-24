@@ -177,3 +177,19 @@ class Microwave(LibraryObject, Openable):
             openable_joint_name=self.openable_joint_name,
             openable_open_threshold=self.openable_open_threshold,
         )
+
+
+# TODO(alexmillane, 2025.09.24): Make the toaster pressable.
+@register_asset
+class Toaster(LibraryObject):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "toaster"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/interactable_objects/toaster.usd"
+    object_type = ObjectType.ARTICULATION
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
