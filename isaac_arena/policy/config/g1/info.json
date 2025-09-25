@@ -1,0 +1,17 @@
+{
+    "codebase_version": "v2.1",
+    "robot_type": null,
+    "total_episodes": null,
+    "total_frames": null,
+    "total_tasks": null,
+    "total_videos": null,
+    "total_chunks": null,
+    "chunks_size": 1000,
+    "fps": null,
+    "splits": {
+        "train": "0:100"
+    },
+    "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
+    "video_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4",
+    "features": null
+}

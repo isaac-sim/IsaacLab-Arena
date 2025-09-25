@@ -1,0 +1,114 @@
+{
+    "state": {
+        "left_leg": {
+            "start": 0,
+            "end": 6,
+            "original_key": "observation.state"
+        },
+        "right_leg": {
+            "start": 6,
+            "end": 12,
+            "original_key": "observation.state"
+        },
+        "waist": {
+            "start": 12,
+            "end": 15,
+            "original_key": "observation.state"
+        },
+        "left_arm": {
+            "start": 15,
+            "end": 22,
+            "original_key": "observation.state"
+        },
+        "left_hand": {
+            "start": 22,
+            "end": 29,
+            "original_key": "observation.state"
+        },
+        "right_arm": {
+            "start": 29,
+            "end": 36,
+            "original_key": "observation.state"
+        },
+        "right_hand": {
+            "start": 36,
+            "end": 43,
+            "original_key": "observation.state"
+        },
+        "left_wrist_pose": {
+            "start": 0,
+            "end": 7,
+            "original_key": "observation.eef_pose"
+        },
+        "right_wrist_pose": {
+            "start": 7,
+            "end": 14,
+            "original_key": "observation.eef_pose"
+        }
+    },
+    "action": {
+        "left_leg": {
+            "start": 0,
+            "end": 6
+        },
+        "right_leg": {
+            "start": 6,
+            "end": 12
+        },
+        "waist": {
+            "start": 12,
+            "end": 15
+        },
+        "left_arm": {
+            "start": 15,
+            "end": 22
+        },
+        "left_hand": {
+            "start": 22,
+            "end": 29
+        },
+        "right_arm": {
+            "start": 29,
+            "end": 36
+        },
+        "right_hand": {
+            "start": 36,
+            "end": 43
+        },
+        "left_wrist_pose": {
+            "start": 0,
+            "end": 7,
+            "original_key": "action.eef_pose"
+        },
+        "right_wrist_pose": {
+            "start": 7,
+            "end": 14,
+            "original_key": "action.eef_pose"
+        },
+        "base_height_command": {
+            "start": 0,
+            "end": 1,
+            "original_key": "teleop.base_height_command"
+        },
+        "navigate_command": {
+            "start": 0,
+            "end": 3,
+            "original_key": "teleop.navigate_command"
+        },
+        "torso_orientation_rpy_command": {
+            "start": 0,
+            "end": 3,
+            "original_key":"teleop.torso_orientation_rpy_command"
+        }
+    },
+    "video": {
+        "ego_view": {
+            "original_key": "observation.images.ego_view"
+        }
+    },
+    "annotation": {
+        "human.task_description": {
+            "original_key": "task_index"
+        }
+    }
+}
