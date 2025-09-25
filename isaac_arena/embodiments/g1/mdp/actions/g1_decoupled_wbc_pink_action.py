@@ -29,6 +29,21 @@ from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
 from isaac_arena.embodiments.g1.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
     G1WBCUpperbodyController,
 )
+from isaac_arena.embodiments.g1.wbc_policy.policy.action_constants import (
+    LEFT_HAND_STATE_IDX,
+    LEFT_WRIST_LINK_NAME,
+    LEFT_WRIST_POS_END_IDX,
+    LEFT_WRIST_POS_START_IDX,
+    LEFT_WRIST_QUAT_END_IDX,
+    LEFT_WRIST_QUAT_START_IDX,
+    NAVIGATE_THRESHOLD,
+    RIGHT_HAND_STATE_IDX,
+    RIGHT_WRIST_LINK_NAME,
+    RIGHT_WRIST_POS_END_IDX,
+    RIGHT_WRIST_POS_START_IDX,
+    RIGHT_WRIST_QUAT_END_IDX,
+    RIGHT_WRIST_QUAT_START_IDX,
+)
 from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
@@ -44,6 +59,7 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
+
 
 # TODO: Refactor such that WBCPinkAction and WBCJointAction such that they derive from the same base class
 class G1DecoupledWBCPinkAction(ActionTerm):
@@ -317,10 +333,10 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         **************************************************
         """
         # Extract upper body left/right arm pos/quat from actions
-        left_arm_pos = actions_clone[:, 2:5].squeeze(0).cpu()
-        left_arm_quat = actions_clone[:, 5:9].squeeze(0).cpu()
-        right_arm_pos = actions_clone[:, 9:12].squeeze(0).cpu()
-        right_arm_quat = actions_clone[:, 12:16].squeeze(0).cpu()
+        left_arm_pos = actions_clone[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX].squeeze(0).cpu()
+        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+        right_arm_pos = actions_clone[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX].squeeze(0).cpu()
+        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
 
         # Convert from pos/quat to 4x4 transform matrix
         # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
@@ -338,11 +354,11 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         right_arm_pose[:3, 3] = right_arm_pos
 
         # Extract left/right hand state from actions
-        left_hand_state = actions_clone[:, 0].squeeze(0).cpu()
-        right_hand_state = actions_clone[:, 1].squeeze(0).cpu()
+        left_hand_state = actions_clone[:, LEFT_HAND_STATE_IDX].squeeze(0).cpu()
+        right_hand_state = actions_clone[:, RIGHT_HAND_STATE_IDX].squeeze(0).cpu()
 
         # Assemble data format for running IK
-        body_data = {"left_wrist_yaw_link": left_arm_pose, "right_wrist_yaw_link": right_arm_pose}
+        body_data = {LEFT_WRIST_LINK_NAME: left_arm_pose, RIGHT_WRIST_LINK_NAME: right_arm_pose}
 
         # Run IK
         target_robot_joints = self.compute_upperbody_joint_positions(body_data, left_hand_state, right_hand_state)
@@ -365,7 +381,7 @@ class G1DecoupledWBCPinkAction(ActionTerm):
                 self._navigation_goal_reached = False
 
             # Set flag for mimic to indicate that the robot has entered a navigation segment
-            if not self._is_navigating and (np.abs(navigate_cmd) > 1e-4).any():
+            if not self._is_navigating and (np.abs(navigate_cmd) > NAVIGATE_THRESHOLD).any():
                 self._is_navigating = True
                 self._navigation_step_counter = 0
                 self.navigation_p_controller.set_navigation_step_counter(self._navigation_step_counter)
