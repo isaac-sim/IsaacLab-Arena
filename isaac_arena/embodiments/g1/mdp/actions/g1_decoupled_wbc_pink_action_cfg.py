@@ -30,23 +30,23 @@ class G1DecoupledWBCPinkActionCfg(ActionTermCfg):
 
     wbc_version: str = "homie_v2"
     # Navigation Segment: P-controller parameters
-    distance_error_threshold: float = 0.06
-    heading_diff_threshold: float = 0.12
+    distance_error_threshold: float = 0.05
+    heading_diff_threshold: float = 0.15
     kp_angular_turning_only: float = 0.4
-    kp_linear_x: float = 0.2
-    kp_linear_y: float = 0.2
+    kp_linear_x: float = 2.0
+    kp_linear_y: float = 2.0
     kp_angular: float = 0.05
-    min_vel: float = -1
-    max_vel: float = 1
+    min_vel: float = -0.4
+    max_vel: float = 0.4
     # Navigation Segment: Target xy and heading subgoals
     # navigation_target_xy_heading: list[tuple[list[float], bool]] = MISSING
     navigation_target_xy_heading: list[tuple[list[float], bool]] =[([0.18, 0.0, 0.0], False),
                                                                     ([0.18, 0.0, -1.74], True),
-                                                                    ([-0.0955, -1.0170, -1.74], False),
-                                                                    ([-0.0955, -1.0170, -1.74], False)]
+                                                                    ([-0.0955, -1.0670, -1.74], False),
+                                                                    ([-0.0955, -1.0670, -1.74], False)]
     # Navigation Segment: Use P-controller
-    use_p_control: bool = False
+    use_p_control: bool = True
     # Navigation Segment: Turning first
     turning_first: bool = False
     # Navigation Segment: Max navigation steps
-    max_navigation_steps: int = 2000
+    max_navigation_steps: int = 700

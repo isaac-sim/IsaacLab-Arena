@@ -35,3 +35,8 @@ def reset_decoupled_wbc_pink_policy(env: ManagerBasedEnv, env_ids: torch.Tensor)
     # Reset lower body RL-based policy
     policy = env.action_manager.get_term("g1_action").get_wbc_policy
     policy.lower_body_policy.reset(env_ids)
+
+    # Reset P-controller
+    env.action_manager.get_term("g1_action")._is_navigating = False
+    env.action_manager.get_term("g1_action")._navigation_goal_reached = False
+    env.action_manager.get_term("g1_action")._num_navigation_subgoals_reached = -1

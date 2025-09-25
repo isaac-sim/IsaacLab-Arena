@@ -192,10 +192,6 @@ def patch_generate():
                 is_navigating = False
                 navigation_goal_reached = False
 
-            # print(f'is_navigating: {is_navigating}')
-            # print(f'navigation_goal_reached: {navigation_goal_reached}')
-            # print(' ')
-
             # update execution state buffers
             if len(exec_results["states"]) > 0:
                 generated_states.extend(exec_results["states"])
@@ -221,8 +217,8 @@ def patch_generate():
                         and not processed_nav_subtask
                     ):
                         if is_navigating and not navigation_goal_reached:
-                            for eef_name in self.env_cfg.subtask_configs.keys():
-                                current_eef_subtask_step_indices[eef_name] -= 1
+                            for name in self.env_cfg.subtask_configs.keys():
+                                current_eef_subtask_step_indices[name] -= 1
                             processed_nav_subtask = True
                     # Skip to the end of the nav subtask if the robot has reached the waypoint goal before the end 
                     # of the human recorded trajectory
@@ -230,10 +226,13 @@ def patch_generate():
                         number_of_steps_to_skip = len(current_eef_subtask_trajectories["body"]) - (
                             current_eef_subtask_step_indices["body"] + 1
                         )
-                        for eef_name in self.env_cfg.subtask_configs.keys():
-                            current_eef_subtask_step_indices[eef_name] = (
-                                current_eef_subtask_step_indices[eef_name] + number_of_steps_to_skip
-                            )
+                        for name in self.env_cfg.subtask_configs.keys():
+                            if current_eef_subtask_step_indices[name] + number_of_steps_to_skip < len(current_eef_subtask_trajectories[name]):
+                                current_eef_subtask_step_indices[name] = (
+                                    current_eef_subtask_step_indices[name] + number_of_steps_to_skip
+                                )
+                            else:
+                               current_eef_subtask_step_indices[name] = len(current_eef_subtask_trajectories[name]) - 1
                         processed_nav_subtask = True
 
                 subtask_ind = current_eef_subtask_indices[eef_name]

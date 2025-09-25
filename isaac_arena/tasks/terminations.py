@@ -56,7 +56,7 @@ def object_on_destination_g1_locomanip(
     destination_bin_cfg: SceneEntityCfg = SceneEntityCfg("blue_sorting_bin"),
     max_object_to_bin_y: float = 0.130,
     max_object_to_bin_x: float = 0.260,
-    max_object_to_bin_z: float = 0.132,
+    max_object_to_bin_z: float = 0.135,
 ) -> torch.Tensor:
     """Determine if the task is complete.
 
