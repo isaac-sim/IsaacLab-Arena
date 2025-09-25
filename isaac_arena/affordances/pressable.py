@@ -33,7 +33,6 @@ class Pressable(AffordanceBase):
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is pressed."""
-        print("is_pressed() called")
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         # We allow for overriding the object-level threshold by passing an argument to this
@@ -42,7 +41,6 @@ class Pressable(AffordanceBase):
             pressable_pressed_threshold = threshold
         else:
             pressable_pressed_threshold = self.pressable_pressed_threshold
-        print(f"pressable_pressed_threshold: {pressable_pressed_threshold}")
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
         return get_normalized_joint_position(env, asset_cfg) > pressable_pressed_threshold
 
