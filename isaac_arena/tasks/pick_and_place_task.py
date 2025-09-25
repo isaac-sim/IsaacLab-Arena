@@ -35,15 +35,21 @@ class PickAndPlaceTask(TaskBase):
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-
-    def get_scene_cfg(self):
-        return SceneCfg(
+        self.scene_config = SceneCfg(
             pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
+        self.events_cfg = EventsCfg(pick_up_object=self.pick_up_object)
+        self.termination_cfg = self.make_termination_cfg()
+
+    def get_scene_cfg(self):
+        return self.scene_config
 
     def get_termination_cfg(self):
+        return self.termination_cfg
+
+    def make_termination_cfg(self):
         success = TerminationTermCfg(
             func=object_on_destination,
             params={
@@ -66,7 +72,7 @@ class PickAndPlaceTask(TaskBase):
         )
 
     def get_events_cfg(self):
-        return EventsCfg(pick_up_object=self.pick_up_object)
+        return self.events_cfg
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
@@ -75,6 +81,7 @@ class PickAndPlaceTask(TaskBase):
         return PickPlaceMimicEnvCfg(
             embodiment_name=embodiment_name,
             pick_up_object_name=self.pick_up_object.name,
+            destination_location_name=self.destination_location.name,
         )
 
 
@@ -143,6 +150,8 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
 
     pick_up_object_name: str = "pick_up_object"
 
+    destination_location_name: str = "destination_location"
+
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
@@ -193,7 +202,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # TODO(alexmillane, 2025.09.02): This is currently broken. FIX.
                 # We need a way to pass in a reference to an object that exists in the
                 # scene.
-                object_ref="destination_location",
+                object_ref=self.destination_location_name,
                 # End of final subtask does not need to be detected
                 subtask_term_signal=None,
                 # No time offsets for the final subtask

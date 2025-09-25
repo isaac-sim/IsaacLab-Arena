@@ -18,9 +18,9 @@ from typing import Any
 from isaaclab.envs import ManagerBasedRLMimicEnv
 
 from isaac_arena.assets.asset import Asset
-from isaac_arena.geometry.pose import Pose
 from isaac_arena.utils.cameras import make_camera_observation_cfg
 from isaac_arena.utils.configclass import combine_configclass_instances
+from isaac_arena.utils.pose import Pose
 
 
 class EmbodimentBase(Asset):
@@ -69,7 +69,7 @@ class EmbodimentBase(Asset):
                 )
         return self.observation_config
 
-    def get_event_cfg(self) -> Any:
+    def get_events_cfg(self) -> Any:
         return self.event_config
 
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:

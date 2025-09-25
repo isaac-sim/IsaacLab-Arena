@@ -18,14 +18,7 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
 from isaac_arena.affordances.affordance_base import AffordanceBase
-
-
-def normalize_value(value: torch.Tensor, min_value: float, max_value: float):
-    return (value - min_value) / (max_value - min_value)
-
-
-def unnormalize_value(value: float, min_value: float, max_value: float):
-    return min_value + (max_value - min_value) * value
+from isaac_arena.utils.math import normalize_value, unnormalize_value
 
 
 def get_normalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg):
