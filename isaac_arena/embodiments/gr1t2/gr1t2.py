@@ -34,6 +34,7 @@ from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 
 from isaac_arena.assets.register import register_asset
+from isaac_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.geometry.pose import Pose
 from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
@@ -287,8 +288,8 @@ class GR1T2MimicEnv(ManagerBasedRLMimicEnv):
         target_pose_left = PoseUtils.make_pose(target_left_wrist_position, target_left_rot_mat)
         target_poses["left"] = target_pose_left
 
-        target_right_wrist_position = action[:, 0:3]
-        target_right_rot_mat = PoseUtils.matrix_from_quat(action[:, 3:7])
+        target_right_wrist_position = action[:, 7:10]
+        target_right_rot_mat = PoseUtils.matrix_from_quat(action[:, 10:14])
         target_pose_right = PoseUtils.make_pose(target_right_wrist_position, target_right_rot_mat)
         target_poses["right"] = target_pose_right
 
@@ -305,3 +306,21 @@ class GR1T2MimicEnv(ManagerBasedRLMimicEnv):
             A dictionary of torch.Tensor gripper actions. Key to each dict is an eef_name.
         """
         return {"left": actions[:, 14:25], "right": actions[:, 25:]}
+
+    # Implemented this to consider articulated objects as well
+    def get_object_poses(self, env_ids: Sequence[int] | None = None):
+        """
+        Gets the pose of each object(rigid and articulated) in the current scene.
+        Args:
+            env_ids: Environment indices to get the pose for. If None, all envs are considered.
+        Returns:
+            A dictionary that maps object names to object pose matrix (4x4 torch.Tensor)
+        """
+        if env_ids is None:
+            env_ids = slice(None)
+
+        state = self.scene.get_state(is_relative=True)
+
+        object_pose_matrix = get_rigid_and_articulated_object_poses(state, env_ids)
+
+        return object_pose_matrix

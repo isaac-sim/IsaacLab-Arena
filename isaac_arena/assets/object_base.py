@@ -34,11 +34,13 @@ class ObjectBase(Asset, ABC):
     def __init__(
         self,
         name: str,
-        prim_path: str,
+        prim_path: str | None = None,
         object_type: ObjectType = ObjectType.BASE,
         **kwargs,
     ):
         super().__init__(name=name, **kwargs)
+        if prim_path is None:
+            prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
 

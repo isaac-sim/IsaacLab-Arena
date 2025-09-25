@@ -42,7 +42,8 @@ if args_cli.enable_pinocchio:
     import pinocchio  # noqa: F401
 
     # Keep this on if we use pinocchio as we will use AVP for the humanoid
-    app_launcher_args["xr"] = True
+    if "handtracking" in args_cli.teleop_device.lower():
+        app_launcher_args["xr"] = True
 
 # launch omniverse app
 app_launcher = AppLauncher(app_launcher_args)

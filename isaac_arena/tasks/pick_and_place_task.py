@@ -152,9 +152,6 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
-        # # TODO: Figure out how we can move this to the MimicEnvCfg class
-        # # The __post_init__() above only calls the init for FrankaCubeStackEnvCfg and not MimicEnvCfg
-        # # https://stackoverflow.com/questions/59986413/achieving-multiple-inheritance-using-python-dataclasses
 
         # Override the existing values
         self.datagen_config.name = "demo_src_pickplace_isaac_lab_task_D0"
@@ -187,7 +184,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.03,
+                action_noise=0.005,
                 # Number of interpolation steps to bridge to this subtask segment
                 num_interpolation_steps=5,
                 # Additional fixed steps for the robot to reach the necessary pose
@@ -202,7 +199,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # TODO(alexmillane, 2025.09.02): This is currently broken. FIX.
                 # We need a way to pass in a reference to an object that exists in the
                 # scene.
-                object_ref="destination_object",
+                object_ref="destination_location",
                 # End of final subtask does not need to be detected
                 subtask_term_signal=None,
                 # No time offsets for the final subtask
@@ -212,7 +209,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.03,
+                action_noise=0.005,
                 # Number of interpolation steps to bridge to this subtask segment
                 num_interpolation_steps=5,
                 # Additional fixed steps for the robot to reach the necessary pose

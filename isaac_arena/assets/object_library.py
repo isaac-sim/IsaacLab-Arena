@@ -31,7 +31,7 @@ class LibraryObject(Object):
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
-    def __init__(self, prim_path: str, initial_pose: Pose | None = None, **kwargs):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs):
         super().__init__(
             name=self.name,
             prim_path=prim_path,
@@ -53,9 +53,8 @@ class CrackerBox(LibraryObject):
     name = "cracker_box"
     tags = ["object"]
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/NVIDIA/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_cracker_box"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -68,9 +67,8 @@ class MustardBottle(LibraryObject):
     name = "mustard_bottle"
     tags = ["object"]
     usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_mustard_bottle"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -83,9 +81,8 @@ class SugarBox(LibraryObject):
     name = "sugar_box"
     tags = ["object"]
     usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_sugar_box"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -98,9 +95,8 @@ class TomatoSoupCan(LibraryObject):
     name = "tomato_soup_can"
     tags = ["object"]
     usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_tomato_soup_can"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -113,9 +109,8 @@ class LightWheelKettle21(LibraryObject):
     name = "lightwheel_kettle_21"
     tags = ["object"]
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/lightwheel/kettle/Kettle021/Kettle021.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_lightwheel_kettle_21"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -128,9 +123,8 @@ class LightWheelPot51(LibraryObject):
     name = "lightwheel_pot_51"
     tags = ["object"]
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/lightwheel/pot/Pot051/Pot051.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_lightwheel_pot_51"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -144,9 +138,8 @@ class SketchFabSprayCan3(LibraryObject):
     tags = ["object"]
     prim_path = ("{ENV_REGEX_NS}/target_sketchfab_spray_can_3",)
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/sample_assets/sketchfab/spray_bottle/spray_bottle_3/spray_bottle_3.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_sketchfab_spray_can_3"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -158,10 +151,9 @@ class PowerDrill(LibraryObject):
 
     name = "power_drill"
     tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/mindmap/power_drill_physics.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_power_drill"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/power_drill_physics.usd"
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -172,17 +164,32 @@ class Microwave(LibraryObject, Openable):
     name = "microwave"
     tags = ["object", "openable"]
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/interactable_objects/microwave.usd"
-    default_prim_path = "{ENV_REGEX_NS}/target_microwave"
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
     openable_joint_name = "microjoint"
     openable_open_threshold = 0.5
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(
             prim_path=prim_path,
             initial_pose=initial_pose,
             openable_joint_name=self.openable_joint_name,
             openable_open_threshold=self.openable_open_threshold,
         )
+
+
+# TODO(alexmillane, 2025.09.24): Make the toaster pressable.
+@register_asset
+class Toaster(LibraryObject):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "toaster"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/interactable_objects/toaster.usd"
+    object_type = ObjectType.ARTICULATION
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)

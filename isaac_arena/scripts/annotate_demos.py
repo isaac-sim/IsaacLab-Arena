@@ -70,7 +70,7 @@ if args_cli.enable_pinocchio:
 
 # Only enables inputs if this script is NOT headless mode
 if not args_cli.headless and not os.environ.get("HEADLESS", 0):
-    from isaaclab.devices import Se3Keyboard
+    from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -160,7 +160,6 @@ def main():
         raise FileNotFoundError(f"The input dataset file {args_cli.input_file} does not exist.")
     dataset_file_handler = HDF5DatasetFileHandler()
     dataset_file_handler.open(args_cli.input_file)
-    env_name = dataset_file_handler.get_env_name()
     episode_count = dataset_file_handler.get_num_episodes()
 
     if episode_count == 0:
@@ -173,11 +172,6 @@ def main():
     # create output directory if it does not exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
-    if args_cli.task is not None:
-        env_name = args_cli.task
-    if env_name is None:
-        raise ValueError("Task/env name was not specified nor found in the dataset.")
 
     # Compile an IsaacLab compatible arena environment configuration
     arena_builder = get_arena_builder_from_cli(args_cli)
@@ -233,7 +227,7 @@ def main():
 
     # Only enables inputs if this script is NOT headless mode
     if not args_cli.headless and not os.environ.get("HEADLESS", 0):
-        keyboard_interface = Se3Keyboard(pos_sensitivity=0.1, rot_sensitivity=0.1)
+        keyboard_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.1, rot_sensitivity=0.1))
         keyboard_interface.add_callback("N", play_cb)
         keyboard_interface.add_callback("B", pause_cb)
         keyboard_interface.add_callback("Q", skip_episode_cb)

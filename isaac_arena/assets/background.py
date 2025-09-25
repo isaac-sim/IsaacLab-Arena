@@ -12,43 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
-
-from isaaclab.assets import AssetBaseCfg
-from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
-
-from isaac_arena.assets.asset import Asset
+from isaac_arena.assets.object import Object
+from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.geometry.pose import Pose
 
 
-class Background(Asset):
+class Background(Object):
     """
-    Encapsulates the background scene config for a environment.
+    Encapsulates the background scene for a environment.
     """
 
-    # Defined in Asset, restated here for clariry
-    # name: str | None = None
-    # tags: list[str] | None = None
-    usd_path: str | None = None
-    initial_pose: Pose | None = None
-    object_min_z: float | None = None
-
-    def __init__(self):
-        super().__init__(self.name)
-
-    def get_cfgs(self) -> dict[str, Any]:
-        assert self.name is not None, "Background name is not set"
-        background_scene_cfg = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/" + self.name,
-            spawn=UsdFileCfg(usd_path=self.usd_path),
+    def __init__(
+        self,
+        name: str,
+        usd_path: str,
+        object_min_z: float,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        **kwargs
+    ):
+        super().__init__(
+            name=name,
+            usd_path=usd_path,
+            initial_pose=initial_pose,
+            prim_path=prim_path,
+            # Backgrounds don't have physics (at the moment)
+            object_type=ObjectType.BASE,
+            **kwargs,
         )
-        background_scene_cfg = self._add_initial_pose_to_cfg(background_scene_cfg)
-        return {
-            self.name: background_scene_cfg,
-        }
-
-    def _add_initial_pose_to_cfg(self, background_scene_cfg: AssetBaseCfg) -> AssetBaseCfg:
-        if self.initial_pose is not None:
-            background_scene_cfg.init_state.pos = self.initial_pose.position_xyz
-            background_scene_cfg.init_state.rot = self.initial_pose.rotation_wxyz
-        return background_scene_cfg
+        # We use this to define reset terms for when objects are dropped.
+        # NOTE(alexmillane, 2025.09.19): This is a global z height. If you shift the
+        # background, by using initial_pose, this height doesn't shift with it.
+        # TODO(alexmillane, 2025.09.19): Make this value relative to the background
+        # prim origin.
+        self.object_min_z = object_min_z

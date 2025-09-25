@@ -19,6 +19,9 @@ from isaac_arena.assets.asset import Asset
 from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 from isaac_arena.utils.singleton import SingletonMeta
 
+# TODO(alexmillane, 2025.09.19): Before release we should sort out this
+# circular import issue.
+
 
 # Have to define all classes here in order to avoid circular import.
 class Registry(metaclass=SingletonMeta):
@@ -110,58 +113,13 @@ class DeviceRegistry(Registry):
         return self.get_component_by_name(name)
 
 
-def get_environment_configuration_from_asset_registry(
-    background_name: str | None = None,
-    object_name: str | None = None,
-    embodiment_name: str | None = None,
-) -> dict[str, type["Asset"]]:
-
-    asset_registry = AssetRegistry()
-    if background_name:
-        background = asset_registry.get_asset_by_name(background_name)()
-    else:
-        background = asset_registry.get_random_asset_by_tag("background")()
-    if object_name:
-        pick_up_object = asset_registry.get_asset_by_name(object_name)()
-    else:
-        pick_up_object = asset_registry.get_random_asset_by_tag("object")()
-    if embodiment_name:
-        embodiment = asset_registry.get_asset_by_name(embodiment_name)()
-    else:
-        embodiment = asset_registry.get_random_asset_by_tag("embodiment")()
-
-    environment_configuration = {
-        "background": background,
-        "object": pick_up_object,
-        "embodiment": embodiment,
-    }
-
-    return environment_configuration
-
-
-def get_environment_configuration_from_device_registry(
-    device_name: str | None = None,
-) -> dict[str, type["TeleopDeviceBase"]]:
-
-    device_registry = DeviceRegistry()
-    if device_name:
-        print(f"Getting device {device_name} from device registry")
-        assert device_registry.is_registered(device_name), f"Device {device_name} not registered"
-        device = device_registry.get_device_by_name(device_name)()
-    else:
-        device = None
-
-    return {
-        "device": device,
-    }
-
-
 # Register all the assets. Down here at the bottom of the file because
 # the assets use the AssetRegistry class in order to register themselves,
 # so it needs to be fully defined to avoid a circular import.
 from isaac_arena.assets.background_library import *  # noqa: F403, F401
 from isaac_arena.assets.object_library import *  # noqa: F403, F401
 from isaac_arena.embodiments.franka.franka import *  # noqa: F403, F401
+from isaac_arena.embodiments.g1.g1 import *  # noqa: F403, F401
 from isaac_arena.embodiments.gr1t2.gr1t2 import *  # noqa: F403, F401
 from isaac_arena.teleop_devices.avp_handtracking import *  # noqa: F403, F401
 from isaac_arena.teleop_devices.keyboard import *  # noqa: F403, F401

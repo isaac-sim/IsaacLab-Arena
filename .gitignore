@@ -69,6 +69,7 @@ TAGS
 
 # Models
 *models/
+!isaac_arena/embodiments/g1/wbc_policy/models/
 
 # Training logs and outputs
 *wandb/

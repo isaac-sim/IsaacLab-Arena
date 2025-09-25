@@ -69,7 +69,8 @@ if args_cli.enable_pinocchio:
     # pinocchio is required by the Pink IK controllers and the GR1T2 retargeter
     import pinocchio  # noqa: F401
 
-    app_launcher_args["xr"] = True
+    if "handtracking" in args_cli.teleop_device.lower():
+        app_launcher_args["xr"] = True
 
 # launch the simulator
 app_launcher = AppLauncher(args_cli)
