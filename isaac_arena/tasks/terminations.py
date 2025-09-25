@@ -54,14 +54,9 @@ def object_on_destination_g1_locomanip(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
     destination_bin_cfg: SceneEntityCfg = SceneEntityCfg("blue_sorting_bin"),
-    # For exhaust pipe task
-    # max_object_to_bin_y: float = 0.120,
-    # max_object_to_bin_x: float = 0.300,
-    # max_object_to_bin_z: float = 0.080,
-    # For box task
-    max_object_to_bin_y: float = 0.150,
-    max_object_to_bin_x: float = 0.300,
-    max_object_to_bin_z: float = 0.135,
+    max_object_to_bin_y: float = 0.130,
+    max_object_to_bin_x: float = 0.260,
+    max_object_to_bin_z: float = 0.132,
 ) -> torch.Tensor:
     """Determine if the task is complete.
 

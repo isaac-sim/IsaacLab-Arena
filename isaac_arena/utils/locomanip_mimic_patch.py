@@ -201,7 +201,7 @@ def patch_generate():
                 generated_states.extend(exec_results["states"])
                 generated_obs.extend(exec_results["observations"])
                 generated_actions.extend(exec_results["actions"])
-                generated_success = generated_success or exec_results["success"]
+                generated_success = exec_results["success"]
 
             processed_nav_subtask = False
             for eef_name in self.env_cfg.subtask_configs.keys():

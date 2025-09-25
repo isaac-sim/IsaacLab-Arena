@@ -353,86 +353,86 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         WBC closedloop
         **************************************************
         """
-
-        if not self._is_navigating and self._navigation_goal_reached:
-            self._navigation_goal_reached = False
-
         # Extract navigate_cmd  base_height_cmd, and torso_orientation_rpy_cmd from actions
         navigate_cmd = self.get_navigation_cmd_from_actions(actions_clone)
         base_height_cmd = self.get_base_height_cmd_from_actions(actions_clone)
         torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone)
 
-        # Set flag for mimic to indicate that the robot has entered a navigation segment
-        if self.cfg.use_p_control and not self._is_navigating and (np.abs(navigate_cmd) > 1e-4).any():
-            self._is_navigating = True
-            self._navigation_step_counter = 0
-            self.navigation_p_controller.set_navigation_step_counter(self._navigation_step_counter)
+        if self.cfg.use_p_control:
+            if not self._is_navigating and self._navigation_goal_reached:
+                self._navigation_goal_reached = False
+            
+            # Set flag for mimic to indicate that the robot has entered a navigation segment
+            if not self._is_navigating and (np.abs(navigate_cmd) > 1e-4).any():
+                self._is_navigating = True
+                self._navigation_step_counter = 0
+                self.navigation_p_controller.set_navigation_step_counter(self._navigation_step_counter)
 
-        # Start applying navigation P-controller if conditions are met
-        if self._is_navigating and self.cfg.use_p_control:
-            assert self.cfg.navigation_target_xy_heading is not None
-            assert len(self.cfg.navigation_target_xy_heading) > 0
-            self._navigation_step_counter = self.navigation_p_controller.navigation_step_counter
+            # Start applying navigation P-controller if conditions are met
+            if self._is_navigating:
+                assert self.cfg.navigation_target_xy_heading is not None
+                assert len(self.cfg.navigation_target_xy_heading) > 0
+                self._navigation_step_counter = self.navigation_p_controller.navigation_step_counter
 
-            # No more subgoals to navigate to, stop navigation
-            if (
-                self._num_navigation_subgoals_reached == len(self.cfg.navigation_target_xy_heading) - 1
-            ) or self._navigation_step_counter > self.cfg.max_navigation_steps:
-                computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
-                self._is_navigating = False
-                self._navigation_goal_reached = True
-            else:
-                target_xy_heading = self.cfg.navigation_target_xy_heading[self._num_navigation_subgoals_reached + 1][0]
-                self.navigation_p_controller.set_inplace_turning_flag(
-                    self.cfg.navigation_target_xy_heading[self._num_navigation_subgoals_reached + 1][1]
-                )
-
-                target_xy = torch.tensor(target_xy_heading[:2])
-                target_heading = torch.tensor(target_xy_heading[2])
-                current_xy = self._asset.data.root_link_pos_w
-                current_heading = self._asset.data.heading_w
-
-                check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
-                check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(
-                    target_heading, current_heading
-                )
-
-                if check_xy_reached and check_heading_reached:
-                    self._num_navigation_subgoals_reached += 1
+                # No more subgoals to navigate to, stop navigation
+                if (
+                    self._num_navigation_subgoals_reached == len(self.cfg.navigation_target_xy_heading) - 1
+                ) or self._navigation_step_counter > self.cfg.max_navigation_steps:
                     computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
-
                     self._is_navigating = False
                     self._navigation_goal_reached = True
-
-                # only turing in place, but may be deviated from the command xy position
-                elif check_heading_reached and self.navigation_p_controller.inplace_turning_flag:
-                    computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
-
-                    self._num_navigation_subgoals_reached += 1
-                    self._is_navigating = False
-                    self._navigation_goal_reached = True
-
                 else:
-
-                    computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = (
-                        self.navigation_p_controller.run_p_controller(
-                            target_heading=target_heading,
-                            current_heading=current_heading,
-                            target_xy=target_xy,
-                            current_xy=current_xy,
-                        )
+                    target_xy_heading = self.cfg.navigation_target_xy_heading[self._num_navigation_subgoals_reached + 1][0]
+                    self.navigation_p_controller.set_inplace_turning_flag(
+                        self.cfg.navigation_target_xy_heading[self._num_navigation_subgoals_reached + 1][1]
                     )
-                    # get single value out from the tensor
-                    if isinstance(computed_lin_vel_x, torch.Tensor):
-                        computed_lin_vel_x = computed_lin_vel_x.item()
-                    if isinstance(computed_lin_vel_y, torch.Tensor):
-                        computed_lin_vel_y = computed_lin_vel_y.item()
-                    if isinstance(computed_ang_vel, torch.Tensor):
-                        computed_ang_vel = computed_ang_vel.item()
 
-            navigate_cmd[:, 0] = computed_lin_vel_x
-            navigate_cmd[:, 1] = computed_lin_vel_y
-            navigate_cmd[:, 2] = computed_ang_vel
+                    target_xy = torch.tensor(target_xy_heading[:2])
+                    target_heading = torch.tensor(target_xy_heading[2])
+                    current_xy = self._asset.data.root_link_pos_w
+                    current_heading = self._asset.data.heading_w
+
+                    check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
+                    check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(
+                        target_heading, current_heading
+                    )
+
+                    if check_xy_reached and check_heading_reached:
+                        self._num_navigation_subgoals_reached += 1
+                        computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
+
+                        self._is_navigating = False
+                        self._navigation_goal_reached = True
+
+                    # only turing in place, but may be deviated from the command xy position
+                    elif check_heading_reached and self.navigation_p_controller.inplace_turning_flag:
+                        computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
+
+                        self._num_navigation_subgoals_reached += 1
+                        self._is_navigating = False
+                        self._navigation_goal_reached = True
+
+                    else:
+
+                        computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = (
+                            self.navigation_p_controller.run_p_controller(
+                                target_heading=target_heading,
+                                current_heading=current_heading,
+                                target_xy=target_xy,
+                                current_xy=current_xy,
+                            )
+                        )
+                        # get single value out from the tensor
+                        if isinstance(computed_lin_vel_x, torch.Tensor):
+                            computed_lin_vel_x = computed_lin_vel_x.item()
+                        if isinstance(computed_lin_vel_y, torch.Tensor):
+                            computed_lin_vel_y = computed_lin_vel_y.item()
+                        if isinstance(computed_ang_vel, torch.Tensor):
+                            computed_ang_vel = computed_ang_vel.item()
+
+                navigate_cmd[:, 0] = computed_lin_vel_x
+                navigate_cmd[:, 1] = computed_lin_vel_y
+                navigate_cmd[:, 2] = computed_ang_vel
 
         self._navigate_cmd = torch.tensor(navigate_cmd)
 

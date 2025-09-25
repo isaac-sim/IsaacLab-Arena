@@ -94,8 +94,8 @@ class EventsCfg:
                 mode="reset",
                 params={
                     "pose_range": {
-                        "x": (initial_pose.position_xyz[0], initial_pose.position_xyz[0]),
-                        "y": (initial_pose.position_xyz[1], initial_pose.position_xyz[1]),
+                        "x": (initial_pose.position_xyz[0] - 0.025, initial_pose.position_xyz[0] + 0.025),
+                        "y": (initial_pose.position_xyz[1] - 0.025, initial_pose.position_xyz[1] + 0.025),
                         "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
                         "roll": (roll, roll),
                         "pitch": (pitch, pitch),
