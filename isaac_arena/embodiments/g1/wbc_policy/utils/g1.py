@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from pathlib import Path
 from typing import Literal
 
 from isaaclab.utils.assets import retrieve_file_path
@@ -41,8 +39,8 @@ def instantiate_g1_robot_model(
     Returns:
         RobotModel: Configured G1 robot model
     """
-    
-    # NOTE(peterd, 9/25/2025): Update OV paths once release location is finalized 
+
+    # NOTE(peterd, 9/25/2025): Update OV paths once release location is finalized
     robot_model_config = {
         "asset_path": "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/robot_model/g1/",
         "urdf_path": "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/robot_model/g1/g1_29dof_with_hand.urdf",

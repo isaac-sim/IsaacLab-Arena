@@ -21,7 +21,7 @@ from isaaclab.managers import TerminationTermCfg
 from isaaclab_mimic.datagen.waypoint import MultiWaypoint
 
 
-def patch_generate():
+def patch_generate():  # noqa: C901
     from isaaclab_mimic.datagen.data_generator import DataGenerator
 
     async def generate(
@@ -204,7 +204,7 @@ def patch_generate():
                 current_eef_subtask_step_indices[eef_name] += 1
 
                 """
-                Note: The following code sets the eef indicies accordingly for the navigation subtask.
+                Note: The following code sets the eef indices accordingly for the navigation subtask.
                 The eef index buffers are updated twice due to the existing outer for loop.
                 After the first eef is handled, both eefs index buffers will be updated.
                 """
@@ -220,19 +220,21 @@ def patch_generate():
                             for name in self.env_cfg.subtask_configs.keys():
                                 current_eef_subtask_step_indices[name] -= 1
                             processed_nav_subtask = True
-                    # Skip to the end of the nav subtask if the robot has reached the waypoint goal before the end 
+                    # Skip to the end of the nav subtask if the robot has reached the waypoint goal before the end
                     # of the human recorded trajectory
                     elif was_navigating and not is_navigating and not processed_nav_subtask:
                         number_of_steps_to_skip = len(current_eef_subtask_trajectories["body"]) - (
                             current_eef_subtask_step_indices["body"] + 1
                         )
                         for name in self.env_cfg.subtask_configs.keys():
-                            if current_eef_subtask_step_indices[name] + number_of_steps_to_skip < len(current_eef_subtask_trajectories[name]):
+                            if current_eef_subtask_step_indices[name] + number_of_steps_to_skip < len(
+                                current_eef_subtask_trajectories[name]
+                            ):
                                 current_eef_subtask_step_indices[name] = (
                                     current_eef_subtask_step_indices[name] + number_of_steps_to_skip
                                 )
                             else:
-                               current_eef_subtask_step_indices[name] = len(current_eef_subtask_trajectories[name]) - 1
+                                current_eef_subtask_step_indices[name] = len(current_eef_subtask_trajectories[name]) - 1
                         processed_nav_subtask = True
 
                 subtask_ind = current_eef_subtask_indices[eef_name]
@@ -306,6 +308,3 @@ def patch_generate():
     DataGenerator.generate = generate
 
     print("\nPatched generate function for Locomanip Mimic\n")
-
-
-patch_generate()

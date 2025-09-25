@@ -19,7 +19,6 @@ import threading
 import time
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as R
-from typing import Dict, List, Tuple
 
 import leap
 import leap.events

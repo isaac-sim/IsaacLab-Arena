@@ -361,7 +361,7 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         if self.cfg.use_p_control:
             if not self._is_navigating and self._navigation_goal_reached:
                 self._navigation_goal_reached = False
-            
+
             # Set flag for mimic to indicate that the robot has entered a navigation segment
             if not self._is_navigating and (np.abs(navigate_cmd) > 1e-4).any():
                 self._is_navigating = True

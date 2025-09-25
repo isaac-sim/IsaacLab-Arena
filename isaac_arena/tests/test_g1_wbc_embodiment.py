@@ -23,15 +23,31 @@ HEADLESS = True
 ENABLE_CAMERAS = True
 STANDING_POSITION_XY_EPS = 1e-1
 WBC_PINK_IDLE_ACTION = [
-    0.0, 0.0,
-    0.201,0.145,0.101,
-    1.000,0.010,-0.008,-0.011,
-    0.201,-0.145,0.101,
-    1.000,-0.010,-0.008,-0.011,
-    0.0, 0.0, 0.0,
+    0.0,
+    0.0,
+    0.201,
+    0.145,
+    0.101,
+    1.000,
+    0.010,
+    -0.008,
+    -0.011,
+    0.201,
+    -0.145,
+    0.101,
+    1.000,
+    -0.010,
+    -0.008,
+    -0.011,
+    0.0,
+    0.0,
+    0.0,
     0.75,
-    0.0, 0.0, 0.0,
+    0.0,
+    0.0,
+    0.0,
 ]
+
 
 def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     """Returns a scene which we use for these tests."""

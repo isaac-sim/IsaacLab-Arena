@@ -12,14 +12,26 @@
 # limitations under the License.
 
 import torch
-import math
 
 import isaaclab.utils.math as math_utils
 
 
 class PController:
     """P-controller for turning/navigation."""
-    def __init__(self, distance_error_threshold: float = 0.1, heading_diff_threshold: float = 0.1, kp_angular_turning_only: float = 0.4, kp_linear_x: float = 0.2, kp_linear_y: float = 0.2, kp_angular: float = 0.05, min_vel: float = -1, max_vel: float = 1, num_envs: int = 1, inplace_turning_flag: bool = False):
+
+    def __init__(
+        self,
+        distance_error_threshold: float = 0.1,
+        heading_diff_threshold: float = 0.1,
+        kp_angular_turning_only: float = 0.4,
+        kp_linear_x: float = 0.2,
+        kp_linear_y: float = 0.2,
+        kp_angular: float = 0.05,
+        min_vel: float = -1,
+        max_vel: float = 1,
+        num_envs: int = 1,
+        inplace_turning_flag: bool = False,
+    ):
         self._distance_error_threshold = distance_error_threshold
         self._heading_diff_threshold = heading_diff_threshold
         self._kp_angular_turning_only = kp_angular_turning_only
@@ -46,10 +58,14 @@ class PController:
     def set_inplace_turning_flag(self, inplace_turning_flag: bool) -> None:
         self._inplace_turning_flag = inplace_turning_flag
 
-    def get_pos_diff(self, target_xy: torch.Tensor, current_xy: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get_pos_diff(
+        self, target_xy: torch.Tensor, current_xy: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get the position difference between the target and current position."""
         # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
-        assert current_xy.shape[0] == self._num_envs, f"Current position shape must be {self._num_envs}, got {current_xy.shape[0]}"
+        assert (
+            current_xy.shape[0] == self._num_envs
+        ), f"Current position shape must be {self._num_envs}, got {current_xy.shape[0]}"
         dx = target_xy[0] - current_xy[:, 0]
         dy = target_xy[1] - current_xy[:, 1]
         distance_error = torch.sqrt(dx**2 + dy**2)
@@ -58,23 +74,19 @@ class PController:
     def get_heading_diff(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
         """Get the heading difference between the target and current heading."""
         # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
-        assert current_heading.shape[0] == self._num_envs, f"Current heading shape must be {self._num_envs}, got {current_heading.shape[0]}"
+        assert (
+            current_heading.shape[0] == self._num_envs
+        ), f"Current heading shape must be {self._num_envs}, got {current_heading.shape[0]}"
         heading_error = math_utils.wrap_to_pi(target_heading - math_utils.wrap_to_pi(current_heading))
         return heading_error
 
     def check_xy_within_threshold(self, target_xy: torch.Tensor, current_xy: torch.Tensor) -> bool:
         dx, dy, distance_error = self.get_pos_diff(target_xy, current_xy)
-        if distance_error < self._distance_error_threshold:
-            return True
-        else:
-            return False
+        return distance_error < self._distance_error_threshold
 
     def check_heading_within_threshold(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> bool:
         heading_error = self.get_heading_diff(target_heading, current_heading)
-        if torch.abs(heading_error) < self._heading_diff_threshold:
-            return True
-        else:
-            return False
+        return torch.abs(heading_error) < self._heading_diff_threshold
 
     def turning_p_controller(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
         """P-controller for (theoretically) in-place turning."""
@@ -83,7 +95,9 @@ class PController:
         ang_vel = max(min(angular_velocity[0], self._max_vel), self._min_vel)
         return ang_vel
 
-    def navigation_p_controller(self, target_xy: torch.Tensor, current_xy: torch.Tensor, current_theta: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def navigation_p_controller(
+        self, target_xy: torch.Tensor, current_xy: torch.Tensor, current_theta: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """P-controller for x & y & yaw control."""
         # apply a P controller such that the robot can stay along the command velocity
         dx, dy, distance_error = self.get_pos_diff(target_xy, current_xy)
@@ -113,14 +127,19 @@ class PController:
         ang_vel = max(min(angular_velocity[0], self._max_vel), self._min_vel)
         return lin_vel_x, lin_vel_y, ang_vel
 
-    def run_p_controller(self, target_heading: torch.Tensor, target_xy: torch.Tensor, current_heading: torch.Tensor, current_xy: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def run_p_controller(
+        self,
+        target_heading: torch.Tensor,
+        target_xy: torch.Tensor,
+        current_heading: torch.Tensor,
+        current_xy: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Run the P-controller for navigatiion and/or turning."""
 
         lin_vel_x = 0.0
         lin_vel_y = 0.0
         ang_vel = 0.0
 
-        wrapped_theta = math_utils.wrap_to_pi(current_heading)
         xy_reached = self.check_xy_within_threshold(target_xy, current_xy)
         heading_reached = self.check_heading_within_threshold(target_heading, current_heading)
         if not xy_reached and not self.inplace_turning_flag:

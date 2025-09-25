@@ -584,7 +584,7 @@ def run_simulation_loop(
         should_reset_recording_instance = True
         print("Recording instance reset requested")
         reset_wbc()
-        print("WBC reseted")
+        print("WBC reset")
 
     def start_recording_instance():
         nonlocal running_recording_instance

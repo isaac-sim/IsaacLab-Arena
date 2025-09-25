@@ -742,4 +742,8 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
 
         return object_pose_matrix
 
+
+# Patch the Mimic generate function for locomanip use case
 from isaac_arena.utils.locomanip_mimic_patch import patch_generate
+
+patch_generate()

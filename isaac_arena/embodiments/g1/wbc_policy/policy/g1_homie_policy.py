@@ -20,7 +20,6 @@ from collections.abc import Callable
 from typing import Any
 
 import onnxruntime as ort
-
 from isaaclab.utils.assets import retrieve_file_path
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
