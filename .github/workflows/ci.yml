@@ -122,7 +122,7 @@ jobs:
     runs-on: [self-hosted, zurich]
     timeout-minutes: 30
     needs: [test, test_policy]       # only push if tests passed
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     env:
       # already defined at top, but keep here for clarity/local override if needed
@@ -155,4 +155,4 @@ jobs:
       - name: Build & push image to NGC
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p
+          ./docker/push_to_ngc.sh -p -t test
