@@ -59,31 +59,16 @@ cracker_box.set_initial_pose(
 
 import numpy as np
 
-from isaac_arena.metrics.metric_base import MetricBase
-
 from isaaclab.managers import DatasetExportMode
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
-
-class SuccessRateMetric(MetricBase):
-
-    name = "success"
-
-    def get_recorder_term_cfg(self):
-        return SuccessRecorderCfg()
-
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        """Gets the average success rate from a list of recorded success flags."""
-        num_demos = len(recorded_metric_data)
-        all_demos_success_flags = np.concatenate(recorded_metric_data)
-        assert all_demos_success_flags.ndim == 1
-        assert all_demos_success_flags.shape[0] == num_demos
-        success_rate = np.mean(all_demos_success_flags)
-        return success_rate
+from isaac_arena.metrics.metric_base import MetricBase
 
 
 class SuccessRecorder(RecorderTerm):
+
+    name = "success"
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
@@ -104,8 +89,25 @@ class SuccessRecorder(RecorderTerm):
         success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)
         success_results |= self._env.termination_manager.get_term("success")[env_ids]
         print(f"SuccessRecorder. env_ids: {env_ids}. success_results: {success_results}")
-        return "success", success_results
+        return self.name, success_results
 
+
+class SuccessRateMetric(MetricBase):
+
+    name = "success"
+    recorder_term_name = SuccessRecorder.name
+
+    def get_recorder_term_cfg(self):
+        return SuccessRecorderCfg()
+
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+        """Gets the average success rate from a list of recorded success flags."""
+        num_demos = len(recorded_metric_data)
+        all_demos_success_flags = np.concatenate(recorded_metric_data)
+        assert all_demos_success_flags.ndim == 1
+        assert all_demos_success_flags.shape[0] == num_demos
+        success_rate = np.mean(all_demos_success_flags)
+        return success_rate
 
 
 @configclass
@@ -113,13 +115,20 @@ class SuccessRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = SuccessRecorder
 
 
-success_metric = SuccessRateMetric()
+class ObjectVelocityRecorder(RecorderTerm):
 
-#%
+    name = "object_linear_velocity"
+
+    def record_post_step(self):
+        object_linear_velocity = self._env.scene["cracker_box"].data.root_link_vel_w[:, :3]
+        assert object_linear_velocity.shape == (self._env.num_envs, 3)
+        return self.name, object_linear_velocity
+
 
 class ObjectMovedRateMetric(MetricBase):
 
     name = "object_moved"
+    recorder_term_name = ObjectVelocityRecorder.name
 
     def __init__(self, object_velocity_threshold: float = 0.5):
         super().__init__()
@@ -141,36 +150,34 @@ class ObjectMovedRateMetric(MetricBase):
         return object_moved_rate
 
 
-class ObjectVelocityRecorder(RecorderTerm):
-
-    def record_post_step(self):
-        object_linear_velocity = self._env.scene["cracker_box"].data.root_link_vel_w[:, :3]
-        assert object_linear_velocity.shape == (self._env.num_envs, 3)
-        return "object_linear_velocity", object_linear_velocity
-
-
 @configclass
 class ObjectVelocityRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = ObjectVelocityRecorder
 
+
+success_metric = SuccessRateMetric()
 object_moved_rate_metric = ObjectMovedRateMetric()
 
-#%%
+# metrics: dict[str, MetricBase] = {
+#     success_metric.name: success_metric,
+#     object_moved_rate_metric.name: object_moved_rate_metric,
+# }
+metrics: list[MetricBase] = [success_metric, object_moved_rate_metric]
 
 from isaac_arena.utils.configclass import make_configclass
 
-success_recorder_cfg = success_metric.get_recorder_term_cfg()
-object_velocity_recorder_cfg = object_moved_rate_metric.get_recorder_term_cfg()
 
-recorder_cfg_cls = make_configclass(
-    "RecorderManagerCfg", [
-        ("success_recorder", type(success_recorder_cfg), success_recorder_cfg),
-        ("object_velocity_recorder", type(object_velocity_recorder_cfg), object_velocity_recorder_cfg),
-    ],
-    bases=(RecorderManagerBaseCfg,)
-)
-recorder_cfg = recorder_cfg_cls()
-recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_ALL
+def metrics_to_recorder_manager_cfg(metrics: list[MetricBase]) -> RecorderManagerBaseCfg:
+    configclass_fields: list[tuple[str, type, object]] = []
+    for metric in metrics:
+        configclass_fields.append((metric.name, type(metric.get_recorder_term_cfg()), metric.get_recorder_term_cfg()))
+    recorder_cfg_cls = make_configclass("RecorderManagerCfg", configclass_fields, bases=(RecorderManagerBaseCfg,))
+    recorder_cfg = recorder_cfg_cls()
+    recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_ALL
+    return recorder_cfg
+
+
+recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
 # %%
 
@@ -183,7 +190,7 @@ isaac_arena_environment = IsaacArenaEnvironment(
     # task=DummyTask(),
     task=PickAndPlaceTask(cracker_box, destination_location, background),
     teleop_device=None,
-    recorder_cfg=recorder_cfg,
+    recorder_cfg=recorder_manager_cfg,
 )
 
 args_cli = get_isaac_arena_cli_parser().parse_args([])
@@ -230,14 +237,31 @@ import numpy as np
 
 
 # Extract recorded data for a metric
-def get_recorded_metric_data(dataset_path: pathlib.Path, metric_name: str) -> list[np.ndarray]:
+def get_recorded_metric_data(dataset_path: pathlib.Path, recorder_term_name: str) -> list[np.ndarray]:
     """Gets the recorded metric data for a given metric name."""
     recorded_metric_data_per_demo: list[np.ndarray] = []
     with h5py.File(dataset_path, "r") as f:
         demos = f["data"]
         for demo in demos:
-            recorded_metric_data_per_demo.append(demos[demo][metric_name][:])
+            print(f"demo data: {demos[demo].keys()}")
+            print(f"metric name: {recorder_term_name}")
+            recorded_metric_data_per_demo.append(demos[demo][recorder_term_name][:])
     return recorded_metric_data_per_demo
+
+
+# Compute all mertics
+def compute_metrics(metrics: list[MetricBase], dataset_path: pathlib.Path) -> dict[str, float]:
+    metrics_data = {}
+    for metric in metrics:
+        recorded_metric_data = get_recorded_metric_data(dataset_path, metric.recorder_term_name)
+        metrics_data[metric.name] = metric.compute_metric_from_recording(recorded_metric_data)
+    return metrics_data
+
+
+metrics_data = compute_metrics(metrics, dataset_path)
+print(f"Metrics data: {metrics_data}")
+
+# %%
 
 
 recorded_success_rate_data = get_recorded_metric_data(dataset_path, "success")
@@ -255,7 +279,6 @@ print(f"Average object moved rate: {average_object_moved_rate}")
 
 # Calculate the average object velocity
 # TODO: CHANGE FOR A THRESHOLD!
-
 
 
 # recorded_metric_data = get_recorded_metric_data(dataset_path, "object_velocity")
@@ -284,7 +307,7 @@ print(f"Average object moved rate: {average_object_moved_rate}")
 # print(f"Object velocity: {object_velocity}")
 # print(f"Object velocity magnitude: {object_velocity_magnitude}")
 
-#%%
+# %%
 
 # from isaaclab.managers import DatasetExportMode
 # from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg

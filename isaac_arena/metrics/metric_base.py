@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
-
 import numpy as np
+from abc import ABC, abstractmethod
 
 from isaaclab.managers.recorder_manager import RecorderTermCfg
 
 
 class MetricBase(ABC):
 
-    metric_name: str
+    name: str
+    recorder_term_name: str
 
     @abstractmethod
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
