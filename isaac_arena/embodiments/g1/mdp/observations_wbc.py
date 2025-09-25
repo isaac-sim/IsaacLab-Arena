@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import copy
 import torch
 from typing import TYPE_CHECKING
 
@@ -58,3 +59,14 @@ def extract_action_components(
     elif mode == "torso_orientation_rpy_cmd":
         torso_orientation_rpy_cmd = current_action[:, 20:23]
         return torso_orientation_rpy_cmd
+        
+
+def is_navigating(
+    env: ManagerBasedEnv,
+):
+    return torch.tensor([copy.deepcopy(env.action_manager.get_term("g1_action").is_navigating)])
+
+def navigation_goal_reached(
+    env: ManagerBasedEnv,
+):
+    return torch.tensor([copy.deepcopy(env.action_manager.get_term("g1_action").navigation_goal_reached)])

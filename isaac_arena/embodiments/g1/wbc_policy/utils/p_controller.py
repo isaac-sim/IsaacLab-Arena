@@ -19,7 +19,7 @@ import isaaclab.utils.math as math_utils
 
 class PController:
     """P-controller for turning/navigation."""
-    def __init__(self, distance_error_threshold: float = 0.1, heading_diff_threshold: float = 0.1, kp_angular_turning_only: float = 0.4, kp_linear_x: float = 0.2, kp_linear_y: float = 0.2, kp_angular: float = 0.05, min_vel: float = -1, max_vel: float = 1, num_envs: int = 1):
+    def __init__(self, distance_error_threshold: float = 0.1, heading_diff_threshold: float = 0.1, kp_angular_turning_only: float = 0.4, kp_linear_x: float = 0.2, kp_linear_y: float = 0.2, kp_angular: float = 0.05, min_vel: float = -1, max_vel: float = 1, num_envs: int = 1, inplace_turning_flag: bool = False):
         self._distance_error_threshold = distance_error_threshold
         self._heading_diff_threshold = heading_diff_threshold
         self._kp_angular_turning_only = kp_angular_turning_only
@@ -29,22 +29,22 @@ class PController:
         self._min_vel = min_vel
         self._max_vel = max_vel
         self._num_envs = num_envs
-        self.inplace_turning_flag = False
-        self.navigation_step_counter = 0
+        self._inplace_turning_flag = inplace_turning_flag
+        self._navigation_step_counter = 0
 
     @property
     def inplace_turning_flag(self) -> bool:
-        return self.inplace_turning_flag
+        return self._inplace_turning_flag
 
     @property
     def navigation_step_counter(self) -> int:
-        return self.navigation_step_counter
+        return self._navigation_step_counter
 
     def set_navigation_step_counter(self, navigation_step_counter: int) -> None:
-        self.navigation_step_counter = navigation_step_counter
+        self._navigation_step_counter = navigation_step_counter
 
     def set_inplace_turning_flag(self, inplace_turning_flag: bool) -> None:
-        self.inplace_turning_flag = inplace_turning_flag
+        self._inplace_turning_flag = inplace_turning_flag
 
     def get_pos_diff(self, target_xy: torch.Tensor, current_xy: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get the position difference between the target and current position."""
@@ -55,7 +55,7 @@ class PController:
         distance_error = torch.sqrt(dx**2 + dy**2)
         return dx, dy, distance_error
 
-    def get_heading_diff(self, current_heading: torch.Tensor, target_heading: torch.Tensor) -> torch.Tensor:
+    def get_heading_diff(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
         """Get the heading difference between the target and current heading."""
         # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
         assert current_heading.shape[0] == self._num_envs, f"Current heading shape must be {self._num_envs}, got {current_heading.shape[0]}"
@@ -132,7 +132,7 @@ class PController:
         else:
             return 0, 0, 0
 
-        self.navigation_step_counter += 1
+        self._navigation_step_counter += 1
 
         if lin_vel_x > 0.005 and lin_vel_x < 0.1:
             lin_vel_x = 0.1

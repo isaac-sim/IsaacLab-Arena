@@ -143,6 +143,11 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         return G1_NUM_JOINTS
 
     @property
+    def is_navigating(self) -> bool:
+        """Get the is navigating flag."""
+        return self._is_navigating
+
+    @property
     def navigation_goal_reached(self) -> bool:
         """Get the navigation goal reached tensor."""
         return self._navigation_goal_reached
@@ -297,7 +302,7 @@ class G1DecoupledWBCPinkAction(ActionTerm):
                       base_height_cmd: dim=1, height,
                       torso_orientation_rpy_cmd: dim=3, rpy]
         """
-        
+
         # Store the raw actions
         self._raw_actions[:] = actions[:, : self.action_dim]
 
@@ -348,13 +353,17 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         WBC closedloop
         **************************************************
         """
+
+        if not self._is_navigating and self._navigation_goal_reached:
+            self._navigation_goal_reached = False
+
         # Extract navigate_cmd  base_height_cmd, and torso_orientation_rpy_cmd from actions
         navigate_cmd = self.get_navigation_cmd_from_actions(actions_clone)
         base_height_cmd = self.get_base_height_cmd_from_actions(actions_clone)
         torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone)
 
         # Set flag for mimic to indicate that the robot has entered a navigation segment
-        if not self._is_navigating and (np.abs(navigate_cmd) > 1e-4).any():
+        if self.cfg.use_p_control and not self._is_navigating and (np.abs(navigate_cmd) > 1e-4).any():
             self._is_navigating = True
             self._navigation_step_counter = 0
             self.navigation_p_controller.set_navigation_step_counter(self._navigation_step_counter)
@@ -364,16 +373,14 @@ class G1DecoupledWBCPinkAction(ActionTerm):
             assert self.cfg.navigation_target_xy_heading is not None
             assert len(self.cfg.navigation_target_xy_heading) > 0
             self._navigation_step_counter = self.navigation_p_controller.navigation_step_counter
-            # No more subgoals to navigate to, stop navigation
 
+            # No more subgoals to navigate to, stop navigation
             if (
                 self._num_navigation_subgoals_reached == len(self.cfg.navigation_target_xy_heading) - 1
             ) or self._navigation_step_counter > self.cfg.max_navigation_steps:
                 computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
-
                 self._is_navigating = False
                 self._navigation_goal_reached = True
-
             else:
                 target_xy_heading = self.cfg.navigation_target_xy_heading[self._num_navigation_subgoals_reached + 1][0]
                 self.navigation_p_controller.set_inplace_turning_flag(
@@ -382,9 +389,9 @@ class G1DecoupledWBCPinkAction(ActionTerm):
 
                 target_xy = torch.tensor(target_xy_heading[:2])
                 target_heading = torch.tensor(target_xy_heading[2])
-
                 current_xy = self._asset.data.root_link_pos_w
                 current_heading = self._asset.data.heading_w
+
                 check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
                 check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(
                     target_heading, current_heading

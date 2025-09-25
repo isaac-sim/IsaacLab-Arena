@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import asyncio
+import copy
 import torch
 
 from isaaclab.envs import SubTaskConstraintType
 from isaaclab.managers import TerminationTermCfg
+from isaaclab_mimic.datagen.waypoint import MultiWaypoint
 
 
 def patch_generate():
@@ -87,9 +89,7 @@ def patch_generate():
             eef_subtasks_done[eef_name] = False
 
         prev_src_demo_datagen_info_pool_size = 0
-        # While loop that runs per time step
 
-        test_count = 0
         was_navigating = False
         while True:
             async with self.src_demo_datagen_info_pool.asyncio_lock:
@@ -191,11 +191,10 @@ def patch_generate():
             else:
                 is_navigating = False
                 navigation_goal_reached = False
+
             # print(f'is_navigating: {is_navigating}')
             # print(f'navigation_goal_reached: {navigation_goal_reached}')
             # print(' ')
-
-            # test_count += 1
 
             # update execution state buffers
             if len(exec_results["states"]) > 0:
@@ -204,14 +203,8 @@ def patch_generate():
                 generated_actions.extend(exec_results["actions"])
                 generated_success = generated_success or exec_results["success"]
 
-            if "body" in self.env_cfg.subtask_configs.keys():
-                eef_names = ["body", "right", "left"]
-            else:
-                eef_names = ["right", "left"]
-
-            # Force ordering of the eefs to be body, then right and left
             processed_nav_subtask = False
-            for eef_name in eef_names:  # self.env_cfg.subtask_configs.keys():
+            for eef_name in self.env_cfg.subtask_configs.keys():
                 current_eef_subtask_step_indices[eef_name] += 1
 
                 """
@@ -219,72 +212,28 @@ def patch_generate():
                 The eef index buffers are updated twice due to the existing outer for loop.
                 After the first eef is handled, both eefs index buffers will be updated.
                 """
-                # if current_eef_subtask_step_indices[eef_name] == len(current_eef_subtask_trajectories[eef_name]) - 1:
-                #     if is_navigating and not navigation_goal_reached:
-                #         print(f'is_navigating and not navigation_goal_reached')
-                #         print(f"current_eef_subtask_step_indices[{eef_name}]: {current_eef_subtask_step_indices[eef_name]}")
-                #         # print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}\n")
-                #         current_eef_subtask_step_indices[eef_name] -= 1
 
-                # # Repeat the last nav subtask action if the robot is navigating and hasn't reached the waypoint goal
-                # if current_eef_subtask_step_indices['right'] == len(current_eef_subtask_trajectories['right']) - 1:
-                #     if is_navigating and not navigation_goal_reached:
-                #         print(f'is_navigating and not navigation_goal_reached')
-                #         print(f"current_eef_subtask_step_indices['right']: {current_eef_subtask_step_indices['right']}")
-                #         # print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}\n")
-                #         current_eef_subtask_step_indices['right'] -= 1
-                #         # current_eef_subtask_step_indices['left'] -= 1
-                # elif current_eef_subtask_step_indices['left'] == len(current_eef_subtask_trajectories['left']) - 1:
-                #     if is_navigating and not navigation_goal_reached:
-                #         print(f'is_navigating and not navigation_goal_reached')
-                #         # print(f"current_eef_subtask_step_indices['right']: {current_eef_subtask_step_indices['right']}")
-                #         print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}\n")
-                #         # current_eef_subtask_step_indices['right'] -= 1
-                #         current_eef_subtask_step_indices['left'] -= 1
-
-                if "body" in eef_names:
+                # Execute locomanip navigation p-controller if it is enabled via the is_navigating flag
+                if "body" in self.env_cfg.subtask_configs.keys():
                     # Repeat the last nav subtask action if the robot is navigating and hasn't reached the waypoint goal
                     if (
                         current_eef_subtask_step_indices["body"] == len(current_eef_subtask_trajectories["body"]) - 1
                         and not processed_nav_subtask
                     ):
                         if is_navigating and not navigation_goal_reached:
-                            # print(f'is_navigating and not navigation_goal_reached')
-                            # print(f"current_eef_subtask_step_indices['body']: {current_eef_subtask_step_indices['body']}")
-                            # print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}\n")
-                            current_eef_subtask_step_indices["body"] -= 1
-                            current_eef_subtask_step_indices["right"] -= 1
-                            current_eef_subtask_step_indices["left"] -= 1
-
+                            for eef_name in self.env_cfg.subtask_configs.keys():
+                                current_eef_subtask_step_indices[eef_name] -= 1
                             processed_nav_subtask = True
-
-                    # Skip to the end of the nav subtask if the robot has reached the waypoint goal before the end of the human recorded trajectory
+                    # Skip to the end of the nav subtask if the robot has reached the waypoint goal before the end 
+                    # of the human recorded trajectory
                     elif was_navigating and not is_navigating and not processed_nav_subtask:
-                        print(f"Navigation subtask completed before end of human recorded trajectory:")
-
-                        print(f"was_navigating: {was_navigating}")
-                        print(f"is_navigating: {is_navigating}")
-                        print(f"navigation_goal_reached: {navigation_goal_reached}")
-
                         number_of_steps_to_skip = len(current_eef_subtask_trajectories["body"]) - (
                             current_eef_subtask_step_indices["body"] + 1
                         )
-                        print("number_of_steps_to_skip", number_of_steps_to_skip)
-                        print(f"current_eef_subtask_step_indices['left']: {current_eef_subtask_step_indices['left']}")
-                        print(f"length of left trajectory: {len(current_eef_subtask_trajectories['left'])}")
-                        print(f"current_eef_subtask_step_indices['right']: {current_eef_subtask_step_indices['right']}")
-                        print(f"length of right trajectory: {len(current_eef_subtask_trajectories['right'])}\n")
-
-                        current_eef_subtask_step_indices["left"] = (
-                            current_eef_subtask_step_indices["left"] + number_of_steps_to_skip
-                        )
-                        current_eef_subtask_step_indices["right"] = (
-                            current_eef_subtask_step_indices["right"] + number_of_steps_to_skip
-                        )
-                        current_eef_subtask_step_indices["body"] = (
-                            current_eef_subtask_step_indices["body"] + number_of_steps_to_skip
-                        )
-
+                        for eef_name in self.env_cfg.subtask_configs.keys():
+                            current_eef_subtask_step_indices[eef_name] = (
+                                current_eef_subtask_step_indices[eef_name] + number_of_steps_to_skip
+                            )
                         processed_nav_subtask = True
 
                 subtask_ind = current_eef_subtask_indices[eef_name]

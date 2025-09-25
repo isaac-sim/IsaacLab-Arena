@@ -399,7 +399,6 @@ class G1WBCPinkObservationsCfg:
             func=base_mdp.joint_pos,
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
-        # TODO(xinjie.yao, 2025.09.09): Add robot pov camera
         robot_joint_vel = ObsTerm(
             func=base_mdp.joint_vel,
             params={"asset_cfg": SceneEntityCfg("robot")},
@@ -489,6 +488,12 @@ class G1WBCPinkObservationsCfg:
                 "target_link_name": "left_wrist_yaw_link",
                 "target_frame_name": "pelvis",
             },
+        )
+        is_navigating = ObsTerm(
+            func=observations_wbc_mdp.is_navigating,
+        )
+        navigation_goal_reached = ObsTerm(
+            func=observations_wbc_mdp.navigation_goal_reached,
         )
 
         def __post_init__(self):
@@ -597,6 +602,7 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
         target_eef_pose_dict: dict,
         gripper_action_dict: dict,
         action_noise_dict: dict | None = None,
+        env_id: int = 0,
     ) -> torch.Tensor:
         """
         Takes a target pose and gripper action for the end effector controller and returns
@@ -612,16 +618,15 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
         Returns:
             An action torch.Tensor that's compatible with env.step().
         """
-
-        target_left_eef_pos, left_target_rot = PoseUtils.unmake_pose(target_eef_pose_dict["left"])
-        target_right_eef_pos, right_target_rot = PoseUtils.unmake_pose(target_eef_pose_dict["right"])
+        target_left_eef_pos, left_target_rot = PoseUtils.unmake_pose(target_eef_pose_dict["left"].clone())
+        target_right_eef_pos, right_target_rot = PoseUtils.unmake_pose(target_eef_pose_dict["right"].clone())
 
         target_left_eef_rot_quat = PoseUtils.quat_from_matrix(left_target_rot)
         target_right_eef_rot_quat = PoseUtils.quat_from_matrix(right_target_rot)
 
         # gripper actions
-        left_gripper_action = gripper_action_dict["left"]
-        right_gripper_action = gripper_action_dict["right"]
+        left_gripper_action = gripper_action_dict["left"].unsqueeze(0)
+        right_gripper_action = gripper_action_dict["right"].unsqueeze(0)
 
         # body gripper action is lower body control commands (nav_cmd, base_height_cmd, torso_orientation_rpy_cmd)
         body_gripper_action = gripper_action_dict["body"]
@@ -736,3 +741,5 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             object_pose_matrix[obj_name] = object_pose_pelvis_frame
 
         return object_pose_matrix
+
+from isaac_arena.utils.locomanip_mimic_patch import patch_generate
