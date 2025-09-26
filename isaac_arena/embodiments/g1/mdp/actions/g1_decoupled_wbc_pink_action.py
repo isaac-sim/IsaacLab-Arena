@@ -452,7 +452,7 @@ class G1DecoupledWBCPinkAction(ActionTerm):
                 navigate_cmd[:, 1] = computed_lin_vel_y
                 navigate_cmd[:, 2] = computed_ang_vel
 
-        self._navigate_cmd = torch.tensor(navigate_cmd)
+        self._navigate_cmd = navigate_cmd.clone()
 
         self.set_wbc_goal(navigate_cmd, base_height_cmd, torso_orientation_rpy_cmd)
         self.wbc_policy.set_goal(self._wbc_goal)

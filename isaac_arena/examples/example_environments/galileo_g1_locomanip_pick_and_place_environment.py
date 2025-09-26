@@ -23,9 +23,9 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     def get_env(self, args_cli: argparse.Namespace):
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-        from isaac_arena.geometry.pose import Pose
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
+        from isaac_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
