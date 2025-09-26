@@ -25,9 +25,9 @@ class Gr00tDatasetConfig:
         metadata={"description": "Root directory for all data storage."},
     )
     language_instruction: str = field(
-        default="", metadata={"description": "Instruction given to the policy in natural language."}
+        default=None, metadata={"description": "Instruction given to the policy in natural language."}
     )
-    hdf5_name: str = field(default="", metadata={"description": "Name of the HDF5 file to use for the dataset."})
+    hdf5_name: str = field(default=None, metadata={"description": "Name of the HDF5 file to use for the dataset."})
 
     # Mimic-generated HDF5 datafield
     # NOTE(xinjieyao, 2025-09-25): robot joint position must exist in the HDF5 file
@@ -35,25 +35,25 @@ class Gr00tDatasetConfig:
         default="robot_joint_pos", metadata={"description": "Name of the state in the HDF5 file."}
     )
     left_eef_pos_name_sim: str = field(
-        default="", metadata={"description": "Name of the left eef position in the HDF5 file(optional)."}
+        default=None, metadata={"description": "Name of the left eef position in the HDF5 file(optional)."}
     )
     left_eef_quat_name_sim: str = field(
-        default="", metadata={"description": "Name of the left eef quaternion in the HDF5 file(optional)."}
+        default=None, metadata={"description": "Name of the left eef quaternion in the HDF5 file(optional)."}
     )
     right_eef_pos_name_sim: str = field(
-        default="", metadata={"description": "Name of the right eef position in the HDF5 file(optional)."}
+        default=None, metadata={"description": "Name of the right eef position in the HDF5 file(optional)."}
     )
     right_eef_quat_name_sim: str = field(
-        default="", metadata={"description": "Name of the right eef quaternion in the HDF5 file(optional)."}
+        default=None, metadata={"description": "Name of the right eef quaternion in the HDF5 file(optional)."}
     )
     teleop_base_height_command_name_sim: str = field(
-        default="", metadata={"description": "Name of the teleop base height command in the HDF5 file."}
+        default=None, metadata={"description": "Name of the teleop base height command in the HDF5 file."}
     )
     teleop_navigate_command_name_sim: str = field(
-        default="", metadata={"description": "Name of the teleop navigate command in the HDF5 file."}
+        default=None, metadata={"description": "Name of the teleop navigate command in the HDF5 file."}
     )
     teleop_torso_orientation_rpy_command_name_sim: str = field(
-        default="", metadata={"description": "Name of the teleop waist roll pitch yaw command in the HDF5 file."}
+        default=None, metadata={"description": "Name of the teleop waist roll pitch yaw command in the HDF5 file."}
     )
     action_name_sim: str = field(
         default="processed_actions", metadata={"description": "Name of the action in the HDF5 file."}
@@ -148,44 +148,45 @@ class Gr00tDatasetConfig:
     lerobot_data_dir: Path = field(init=False)
     task_index: int = field(
         default=0, metadata={"description": "Task index for the task description in LeRobot file."}
-    )  # task index for the task description in LeRobot file
+    )
 
     def __post_init__(self):
 
         self.hdf5_file_path = self.data_root / self.hdf5_name
         self.lerobot_data_dir = self.data_root / self.hdf5_name.replace(".hdf5", "") / "lerobot"
 
-        # Assert all paths exist
-        assert self.hdf5_file_path.exists(), "hdf5_file_path does not exist"
-        assert Path(self.gr00t_joints_config_path).exists(), "gr00t_joints_config_path does not exist"
-        assert Path(self.action_joints_config_path).exists(), "action_joints_config_path does not exist"
-        assert Path(self.state_joints_config_path).exists(), "state_joints_config_path does not exist"
-        assert Path(self.info_template_path).exists(), "info_template_path does not exist"
-        assert Path(self.modality_template_path).exists(), "modality_template_path does not exist"
-        # if lerobot_data_dir not empty, throw a warning and remove
+        assert self.hdf5_file_path.exists(), f"{self.hdf5_file_path} does not exist"
+        assert Path(self.gr00t_joints_config_path).exists(), f"{self.gr00t_joints_config_path} does not exist"
+        assert Path(self.action_joints_config_path).exists(), f"{self.action_joints_config_path} does not exist"
+        assert Path(self.state_joints_config_path).exists(), f"{self.state_joints_config_path} does not exist"
+        assert Path(self.info_template_path).exists(), f"{self.info_template_path} does not exist"
+        assert Path(self.modality_template_path).exists(), f"{self.modality_template_path} does not exist"
+        # in case lerobot_data_dir already exists, may be left over from previous runs, ask for user confirmation before removing
         if self.lerobot_data_dir.exists():
-            print(f"Warning: lerobot_data_dir {self.lerobot_data_dir} already exists. Removing it.")
-            # remove directory contents and the directory itself using shutil
-            shutil.rmtree(self.lerobot_data_dir)
+            print(f"Warning: lerobot_data_dir {self.lerobot_data_dir} already exists.")
+            if input(f"Are you sure you want to remove {self.lerobot_data_dir}? (y/n): ") == "y":
+                shutil.rmtree(self.lerobot_data_dir)
+            else:
+                print(f"Skipping removal of {self.lerobot_data_dir}")
         # Prepare data keys for mimic-generated hdf5 file
         # Minimum set of keys are state & action
         self.hdf5_keys = {"state": self.state_name_sim, "action": self.action_name_sim}
         # Optional keys if provided
-        if self.left_eef_pos_name_sim != "":
+        if self.left_eef_pos_name_sim:
             self.hdf5_keys["left_eef_pos"] = self.left_eef_pos_name_sim
-        if self.left_eef_quat_name_sim != "":
+        if self.left_eef_quat_name_sim:
             self.hdf5_keys["left_eef_quat"] = self.left_eef_quat_name_sim
-        if self.right_eef_pos_name_sim != "":
+        if self.right_eef_pos_name_sim:
             self.hdf5_keys["right_eef_pos"] = self.right_eef_pos_name_sim
-        if self.right_eef_quat_name_sim != "":
+        if self.right_eef_quat_name_sim:
             self.hdf5_keys["right_eef_quat"] = self.right_eef_quat_name_sim
-        if self.teleop_base_height_command_name_sim != "":
+        if self.teleop_base_height_command_name_sim:
             self.hdf5_keys["teleop_base_height_command"] = self.teleop_base_height_command_name_sim
-        if self.teleop_navigate_command_name_sim != "":
+        if self.teleop_navigate_command_name_sim:
             self.hdf5_keys["teleop_navigate_command"] = self.teleop_navigate_command_name_sim
-        if self.teleop_torso_orientation_rpy_command_name_sim != "":
+        if self.teleop_torso_orientation_rpy_command_name_sim:
             self.hdf5_keys["teleop_torso_orientation_rpy_command"] = self.teleop_torso_orientation_rpy_command_name_sim
-        if self.action_eef_name_sim != "":
+        if self.action_eef_name_sim:
             self.hdf5_keys["action_eef_pose"] = self.action_eef_name_sim
 
         # Prepare data keys for LeRobot file

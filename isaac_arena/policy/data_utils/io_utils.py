@@ -72,8 +72,17 @@ def load_json(file_path: str | Path, **kwargs) -> dict[str, Any]:
         return json.load(fp, **kwargs)
 
 
-def load_robot_joints_config(yaml_path: str | Path) -> dict[str, Any]:
-    """Load robot joint configuration from YAML file"""
+def load_dict_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
+    """Load dictionary from YAML file"""
+    assert yaml_path.exists(), f"{yaml_path} does not exist"
+    # also return empty dict if the file is empty
+    if yaml_path.stat().st_size == 0:
+        return {}
     with open(yaml_path, encoding="utf-8") as f:
         config = yaml.safe_load(f)
+    return config
+
+def load_robot_joints_config_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
+    """Load robot joint configuration from YAML file"""
+    config = load_dict_from_yaml(yaml_path)
     return config.get("joints", {})

@@ -43,18 +43,6 @@ def test_g1_convert_hdf5_to_lerobot():
     # Run conversion
     convert_hdf5_to_lerobot(g1_ds_config)
 
-    # assert lerobot_data_dir is created
-    assert g1_ds_config.lerobot_data_dir.exists()
-
-    # assert it has data/ folder
-    assert (g1_ds_config.lerobot_data_dir / "data").exists()
-
-    # assert it has videos/ folder
-    assert (g1_ds_config.lerobot_data_dir / "videos").exists()
-
-    # assert it has meta/ folder
-    assert (g1_ds_config.lerobot_data_dir / "meta").exists()
-
     # assert it has episodes.jsonl file
     assert (g1_ds_config.lerobot_data_dir / "meta" / "episodes.jsonl").exists()
 

@@ -332,15 +332,18 @@ def convert_trajectory_to_df(
 
     """Get joints state/action/timestamp from HDF5 file"""
     length = None
+    assert "obs" in trajectory.keys()
     for key, hdf5_key_name in config.hdf5_keys.items():
         if key not in ["state", "action"]:
             continue
         lerobot_key_name = config.lerobot_keys[key]
         # state
         if key == "state":
+            assert hdf5_key_name in trajectory["obs"].keys()
             joints = trajectory["obs"][hdf5_key_name]
         # action target
         else:
+            assert hdf5_key_name in trajectory.keys()
             joints = trajectory[hdf5_key_name]
         # state
         if key == "state":
