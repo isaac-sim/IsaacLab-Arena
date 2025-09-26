@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from isaac_arena.affordances.openable import Openable
+from isaac_arena.affordances.pressable import Pressable
 from isaac_arena.assets.object import Object
 from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.assets.register import register_asset
@@ -179,17 +180,25 @@ class Microwave(LibraryObject, Openable):
         )
 
 
-# TODO(alexmillane, 2025.09.24): Make the toaster pressable.
 @register_asset
-class Toaster(LibraryObject):
+class Toaster(LibraryObject, Pressable):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
     name = "toaster"
-    tags = ["object"]
+    tags = ["object", "pressable"]
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/interactable_objects/toaster.usd"
     object_type = ObjectType.ARTICULATION
 
+    # Openable affordance parameters
+    pressable_joint_name = "button_cancel_joint"
+    pressable_pressed_threshold = 0.5
+
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+        super().__init__(
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            pressable_joint_name=self.pressable_joint_name,
+            pressable_pressed_threshold=self.pressable_pressed_threshold,
+        )

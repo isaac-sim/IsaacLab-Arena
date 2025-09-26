@@ -14,7 +14,6 @@
 
 import gymnasium as gym
 import torch
-import tqdm
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
@@ -70,18 +69,11 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     return env, microwave
 
 
-def step_zeros_and_call(env, num_steps, function=None):
-    for _ in tqdm.tqdm(range(num_steps)):
-        with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.device)
-            _, _, terminated, _, _ = env.step(actions)
-            if function is not None:
-                function(env, terminated)
-
-
 def _test_open_door_microwave(simulation_app) -> bool:
 
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
+    from isaac_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
     env, microwave = get_test_environment(remove_reset_door_state_event=True, num_envs=1)
@@ -130,6 +122,8 @@ def _test_open_door_microwave(simulation_app) -> bool:
 
 
 def _test_open_door_microwave_multiple_envs(simulation_app) -> bool:
+
+    from isaac_arena.tests.utils.simulation import step_zeros_and_call
 
     env, microwave = get_test_environment(remove_reset_door_state_event=True, num_envs=2)
 
@@ -183,6 +177,8 @@ def _test_open_door_microwave_multiple_envs(simulation_app) -> bool:
 
 def _test_open_door_microwave_reset_condition(simulation_app) -> bool:
 
+    from isaac_arena.tests.utils.simulation import step_zeros_and_call
+
     # NOTE(alexmillane, 2025-09-01): Here we DON'T remove the reset door state event,
     # and we check that when we open the door, the environment resets and we read
     # the door position as closed.
@@ -190,7 +186,6 @@ def _test_open_door_microwave_reset_condition(simulation_app) -> bool:
     env, microwave = get_test_environment(remove_reset_door_state_event=False, num_envs=2)
 
     try:
-
         # Close - Ensure that we start closed.
         microwave.close(env, None)
         step_zeros_and_call(env, NUM_STEPS)
