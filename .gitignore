@@ -87,5 +87,3 @@ TAGS
 # Ignore core dumps produced by debugpy
 core
 core.*
-
-*docker/mimic/
