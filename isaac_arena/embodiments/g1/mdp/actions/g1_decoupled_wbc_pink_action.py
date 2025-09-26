@@ -256,7 +256,9 @@ class G1DecoupledWBCPinkAction(ActionTerm):
     def navigate_cmd(self):
         return self._navigate_cmd
 
-    def compute_upperbody_joint_positions(self, body_data, left_hand_state, right_hand_state):
+    def compute_upperbody_joint_positions(
+        self, body_data: dict[str, np.ndarray], left_hand_state: torch.Tensor, right_hand_state: torch.Tensor
+    ) -> np.ndarray:
         """Run the PINK IK controller to compute the target joint positions for the upper body."""
         if self.upperbody_controller.in_warmup:
             for _ in range(50):
