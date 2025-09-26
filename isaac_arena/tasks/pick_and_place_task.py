@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -20,12 +19,11 @@ from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import euler_xyz_from_quat
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaac_arena.assets.asset import Asset
 from isaac_arena.tasks.task import TaskBase
 from isaac_arena.tasks.terminations import object_on_destination
+from isaac_arena.terms.events import set_object_pose
 
 
 class PickAndPlaceTask(TaskBase):
@@ -35,15 +33,21 @@ class PickAndPlaceTask(TaskBase):
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-
-    def get_scene_cfg(self):
-        return SceneCfg(
+        self.scene_config = SceneCfg(
             pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
+        self.events_cfg = EventsCfg(pick_up_object=self.pick_up_object)
+        self.termination_cfg = self.make_termination_cfg()
+
+    def get_scene_cfg(self):
+        return self.scene_config
 
     def get_termination_cfg(self):
+        return self.termination_cfg
+
+    def make_termination_cfg(self):
         success = TerminationTermCfg(
             func=object_on_destination,
             params={
@@ -66,7 +70,7 @@ class PickAndPlaceTask(TaskBase):
         )
 
     def get_events_cfg(self):
-        return EventsCfg(pick_up_object=self.pick_up_object)
+        return self.events_cfg
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
@@ -75,6 +79,7 @@ class PickAndPlaceTask(TaskBase):
         return PickPlaceMimicEnvCfg(
             embodiment_name=embodiment_name,
             pick_up_object_name=self.pick_up_object.name,
+            destination_location_name=self.destination_location.name,
         )
 
 
@@ -105,24 +110,12 @@ class EventsCfg:
     def __init__(self, pick_up_object: Asset):
         initial_pose = pick_up_object.get_initial_pose()
         if initial_pose is not None:
-            roll, pitch, yaw = euler_xyz_from_quat(torch.tensor(initial_pose.rotation_wxyz).reshape(1, 4))
-            # NOTE: We use a randomize term but set the pose range to the same value to
-            # achieve constant pose for now.
-            # TODO(alexmillane, 2025.09.04): Find or write an event term that resets
-            # the pose to a constant value.
             self.reset_pick_up_object_pose = EventTermCfg(
-                func=franka_stack_events.randomize_object_pose,
+                func=set_object_pose,
                 mode="reset",
                 params={
-                    "pose_range": {
-                        "x": (initial_pose.position_xyz[0], initial_pose.position_xyz[0]),
-                        "y": (initial_pose.position_xyz[1], initial_pose.position_xyz[1]),
-                        "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
-                        "roll": (roll, roll),
-                        "pitch": (pitch, pitch),
-                        "yaw": (yaw, yaw),
-                    },
-                    "asset_cfgs": [SceneEntityCfg(pick_up_object.name)],
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(pick_up_object.name),
                 },
             )
         else:
@@ -142,6 +135,8 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
     embodiment_name: str = "franka"
 
     pick_up_object_name: str = "pick_up_object"
+
+    destination_location_name: str = "destination_location"
 
     def __post_init__(self):
         # post init of parents
@@ -193,7 +188,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # TODO(alexmillane, 2025.09.02): This is currently broken. FIX.
                 # We need a way to pass in a reference to an object that exists in the
                 # scene.
-                object_ref="destination_location",
+                object_ref=self.destination_location_name,
                 # End of final subtask does not need to be detected
                 subtask_term_signal=None,
                 # No time offsets for the final subtask

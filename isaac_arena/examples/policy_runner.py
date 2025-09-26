@@ -17,7 +17,7 @@ import tqdm
 
 from isaac_arena.examples.example_environments.cli import get_arena_builder_from_cli
 from isaac_arena.examples.policy_runner_cli import create_policy, setup_policy_argument_parser
-from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
+from isaac_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 
 def main():

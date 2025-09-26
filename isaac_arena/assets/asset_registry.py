@@ -13,14 +13,13 @@
 # limitations under the License.
 
 import random
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from isaac_arena.assets.asset import Asset
-from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 from isaac_arena.utils.singleton import SingletonMeta
 
-# TODO(alexmillane, 2025.09.19): Before release we should sort out this
-# circular import issue.
+if TYPE_CHECKING:
+    from isaac_arena.assets.asset import Asset
+    from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
 # Have to define all classes here in order to avoid circular import.
@@ -118,9 +117,5 @@ class DeviceRegistry(Registry):
 # so it needs to be fully defined to avoid a circular import.
 from isaac_arena.assets.background_library import *  # noqa: F403, F401
 from isaac_arena.assets.object_library import *  # noqa: F403, F401
-from isaac_arena.embodiments.franka.franka import *  # noqa: F403, F401
-from isaac_arena.embodiments.g1.g1 import *  # noqa: F403, F401
-from isaac_arena.embodiments.gr1t2.gr1t2 import *  # noqa: F403, F401
-from isaac_arena.teleop_devices.avp_handtracking import *  # noqa: F403, F401
-from isaac_arena.teleop_devices.keyboard import *  # noqa: F403, F401
-from isaac_arena.teleop_devices.spacemouse import *  # noqa: F403, F401
+from isaac_arena.embodiments import *  # noqa: F403, F401
+from isaac_arena.teleop_devices import *  # noqa: F403, F401
