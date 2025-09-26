@@ -28,8 +28,7 @@ class JointsAbsPosition:
     @staticmethod
     def zero(joint_order_config: dict[str, int], device: torch.device):
         return JointsAbsPosition(
-            joints_pos=torch.zeros((len(joint_order_config)), device=device),
-            joints_order_config=joint_order_config
+            joints_pos=torch.zeros((len(joint_order_config)), device=device), joints_order_config=joint_order_config
         )
 
     def to_array(self) -> torch.Tensor:
@@ -37,9 +36,7 @@ class JointsAbsPosition:
 
     @staticmethod
     def from_array(array: np.ndarray, joint_order_config: dict[str, int], device: torch.device) -> "JointsAbsPosition":
-        return JointsAbsPosition(
-            joints_pos=torch.from_numpy(array).to(device), joints_order_config=joint_order_config, device=device
-        )
+        return JointsAbsPosition(joints_pos=torch.from_numpy(array).to(device), joints_order_config=joint_order_config)
 
     def set_joints_pos(self, joints_pos: torch.Tensor):
         self.joints_pos = joints_pos.to(self.device)

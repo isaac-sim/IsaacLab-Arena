@@ -146,9 +146,7 @@ class Gr00tDatasetConfig:
 
     hdf5_file_path: Path = field(init=False)
     lerobot_data_dir: Path = field(init=False)
-    task_index: int = field(
-        default=0, metadata={"description": "Task index for the task description in LeRobot file."}
-    )
+    task_index: int = field(default=0, metadata={"description": "Task index for the task description in LeRobot file."})
 
     def __post_init__(self):
 

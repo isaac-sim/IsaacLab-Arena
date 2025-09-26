@@ -82,6 +82,7 @@ def load_dict_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
         config = yaml.safe_load(f)
     return config
 
+
 def load_robot_joints_config_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
     """Load robot joint configuration from YAML file"""
     config = load_dict_from_yaml(yaml_path)
