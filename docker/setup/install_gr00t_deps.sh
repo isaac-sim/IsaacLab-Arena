@@ -18,7 +18,7 @@ echo "PATH=$PATH"
 echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 echo "TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 
-# Installing dpes for system-level media libraries
+# Installing dependencies for system-level media libraries
 echo "Installing system-level media libraries..."
 sudo apt-get update && sudo apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
