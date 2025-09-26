@@ -43,6 +43,7 @@ class EmbodimentBase(Asset):
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
 
+    @abstractmethod
     def get_scene_cfg(self) -> Any:
         if self.enable_cameras:
             if self.camera_config is not None:
@@ -55,9 +56,11 @@ class EmbodimentBase(Asset):
             self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, self.initial_pose)
         return self.scene_config
 
+    @abstractmethod
     def get_action_cfg(self) -> Any:
         return self.action_config
 
+    @abstractmethod
     def get_observation_cfg(self) -> Any:
         if self.enable_cameras:
             if self.camera_config is not None:
@@ -69,15 +72,19 @@ class EmbodimentBase(Asset):
                 )
         return self.observation_config
 
+    @abstractmethod
     def get_events_cfg(self) -> Any:
         return self.event_config
 
+    @abstractmethod
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:
         return self.mimic_env
 
+    @abstractmethod
     def get_xr_cfg(self) -> Any:
         return self.xr
 
+    @abstractmethod
     def get_camera_cfg(self) -> Any:
         return self.camera_config
 
