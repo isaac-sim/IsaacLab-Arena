@@ -49,27 +49,24 @@ class Pressable(AffordanceBase):
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
         asset_cfg: SceneEntityCfg | None = None,
-        percentage: float = 1.0,
+        pressed_percentage: float = 1.0,
     ):
-        """Open the object (in all the environments)."""
+        """Press the object (in all the environments)."""
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        print(f"Pressing {self.name} with percentage {percentage}")
-        set_normalized_joint_position(env, asset_cfg, percentage, env_ids)
+        set_normalized_joint_position(env, asset_cfg, pressed_percentage, env_ids)
 
     def unpress(
         self,
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
         asset_cfg: SceneEntityCfg | None = None,
-        percentage: float = 0.0,
+        unpressed_percentage: float = 1.0,
     ):
         """Unpress the object (in all the environments)."""
-        if asset_cfg is None:
-            asset_cfg = SceneEntityCfg(self.name)
-        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        set_normalized_joint_position(env, asset_cfg, percentage, env_ids)
+        pressed_percentage = 1.0 - unpressed_percentage
+        self.press(env, env_ids, asset_cfg, pressed_percentage)
 
     def _add_joint_name_to_scene_entity_cfg(self, asset_cfg: SceneEntityCfg) -> SceneEntityCfg:
         asset_cfg.joint_names = [self.pressable_joint_name]
