@@ -34,8 +34,8 @@ from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
-from isaac_arena.geometry.pose import Pose
-from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
+from isaac_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
+from isaac_arena.utils.pose import Pose
 
 
 @register_asset

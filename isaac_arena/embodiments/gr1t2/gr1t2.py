@@ -36,8 +36,8 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cf
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
-from isaac_arena.geometry.pose import Pose
-from isaac_arena.isaaclab_utils.resets import reset_all_articulation_joints
+from isaac_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
+from isaac_arena.utils.pose import Pose
 
 
 @register_asset

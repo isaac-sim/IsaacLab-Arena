@@ -14,7 +14,7 @@
 
 from isaac_arena.assets.background import Background
 from isaac_arena.assets.register import register_asset
-from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.pose import Pose
 
 
 class LibraryBackground(Background):

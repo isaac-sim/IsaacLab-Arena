@@ -21,56 +21,53 @@ from isaac_arena.affordances.affordance_base import AffordanceBase
 from isaac_arena.utils.joint_utils import get_normalized_joint_position, set_normalized_joint_position
 
 
-class Openable(AffordanceBase):
-    """Interface for openable objects."""
+class Pressable(AffordanceBase):
+    """Interface for pressable objects."""
 
-    def __init__(self, openable_joint_name: str, openable_open_threshold: float = 0.5, **kwargs):
+    def __init__(self, pressable_joint_name: str, pressable_pressed_threshold: float = 0.5, **kwargs):
         super().__init__(**kwargs)
-        # TODO(alexmillane, 2025.08.26): We probably want to be able to define the polarity of the joint.
-        self.openable_joint_name = openable_joint_name
-        self.openable_open_threshold = openable_open_threshold
+        self.pressable_joint_name = pressable_joint_name
+        self.pressable_pressed_threshold = pressable_pressed_threshold
 
-    def is_open(
+    def is_pressed(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
-        """Returns a boolean tensor of whether the object is open."""
+        """Returns a boolean tensor of whether the object is pressed."""
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         # We allow for overriding the object-level threshold by passing an argument to this
         # function explicitly. Otherwise we use the object-level threshold.
         if threshold is not None:
-            openable_open_threshold = threshold
+            pressable_pressed_threshold = threshold
         else:
-            openable_open_threshold = self.openable_open_threshold
+            pressable_pressed_threshold = self.pressable_pressed_threshold
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        return get_normalized_joint_position(env, asset_cfg) > openable_open_threshold
+        return get_normalized_joint_position(env, asset_cfg) > pressable_pressed_threshold
 
-    def open(
+    def press(
         self,
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
         asset_cfg: SceneEntityCfg | None = None,
-        percentage: float = 1.0,
+        pressed_percentage: float = 1.0,
     ):
-        """Open the object (in all the environments)."""
+        """Press the object (in all the environments)."""
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        set_normalized_joint_position(env, asset_cfg, percentage, env_ids)
+        set_normalized_joint_position(env, asset_cfg, pressed_percentage, env_ids)
 
-    def close(
+    def unpress(
         self,
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
         asset_cfg: SceneEntityCfg | None = None,
-        percentage: float = 0.0,
+        unpressed_percentage: float = 1.0,
     ):
-        """Close the object (in all the environments)."""
-        if asset_cfg is None:
-            asset_cfg = SceneEntityCfg(self.name)
-        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        set_normalized_joint_position(env, asset_cfg, percentage, env_ids)
+        """Unpress the object (in all the environments)."""
+        pressed_percentage = 1.0 - unpressed_percentage
+        self.press(env, env_ids, asset_cfg, pressed_percentage)
 
     def _add_joint_name_to_scene_entity_cfg(self, asset_cfg: SceneEntityCfg) -> SceneEntityCfg:
-        asset_cfg.joint_names = [self.openable_joint_name]
+        asset_cfg.joint_names = [self.pressable_joint_name]
         return asset_cfg

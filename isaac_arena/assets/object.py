@@ -18,7 +18,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaac_arena.assets.object_base import ObjectBase, ObjectType
 from isaac_arena.assets.object_utils import detect_object_type
-from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.pose import Pose
 
 
 class Object(ObjectBase):

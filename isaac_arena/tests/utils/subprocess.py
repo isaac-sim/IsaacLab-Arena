@@ -19,7 +19,7 @@ from collections.abc import Callable
 from typing import Any
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-from isaac_arena.isaaclab_utils.simulation_app import SimulationAppContext
+from isaac_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 
 def run_subprocess(cmd, env=None):

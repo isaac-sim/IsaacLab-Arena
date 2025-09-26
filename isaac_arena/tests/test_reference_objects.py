@@ -28,7 +28,7 @@ OPEN_STEP = NUM_STEPS // 2
 def get_test_background():
 
     from isaac_arena.assets.background import Background
-    from isaac_arena.geometry.pose import Pose
+    from isaac_arena.utils.pose import Pose
 
     class ObjectReferenceTestKitchenBackground(Background):
         """
