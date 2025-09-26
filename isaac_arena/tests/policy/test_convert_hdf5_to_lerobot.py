@@ -26,14 +26,7 @@ def test_g1_convert_hdf5_to_lerobot():
     # Load expected data for comparison
     expected_g1_parquet = pd.read_parquet(TestConstants.test_data_dir + "test_g1_hdf5_to_lerobot_expected.parquet")
 
-    g1_ds_config = load_config_from_yaml(TestConstants.policy_dir + "config/g1_locomanip_config.yaml")
-
-    g1_ds_config.data_root = TestConstants.test_data_dir
-
-    g1_ds_config.hdf5_name = "test_g1_hdf5_to_lerobot.hdf5"
-    g1_ds_config.lerobot_data_dir = (
-        Path(g1_ds_config.data_root) / g1_ds_config.hdf5_name.replace(".hdf5", "") / "lerobot"
-    )
+    g1_ds_config = load_config_from_yaml(TestConstants.test_data_dir + "test_g1_locomanip_config.yaml")
 
     # Clean up any existing output directory
     if g1_ds_config.lerobot_data_dir.exists():
