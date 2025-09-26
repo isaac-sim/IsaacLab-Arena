@@ -50,7 +50,7 @@ def object_on_destination(
     return condition_met
 
 
-def object_in_proximity_to_target_object(
+def objects_in_proximity(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
     target_object_cfg: SceneEntityCfg,
