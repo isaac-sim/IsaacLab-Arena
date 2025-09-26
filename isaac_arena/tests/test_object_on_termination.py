@@ -20,7 +20,7 @@ from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_se
 
 # NOTE(xinjieyao, 2025-09-23): Double the num of steps as sim.dt is changed from 0.01 to 0.005
 NUM_STEPS = 40
-HEADLESS = False  # True
+HEADLESS = True
 PLOT = False
 
 
