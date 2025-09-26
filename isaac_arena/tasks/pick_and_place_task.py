@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -20,12 +19,11 @@ from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import euler_xyz_from_quat
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaac_arena.assets.asset import Asset
 from isaac_arena.tasks.task import TaskBase
 from isaac_arena.tasks.terminations import object_on_destination
+from isaac_arena.terms.events import set_object_pose
 
 
 class PickAndPlaceTask(TaskBase):
@@ -112,24 +110,12 @@ class EventsCfg:
     def __init__(self, pick_up_object: Asset):
         initial_pose = pick_up_object.get_initial_pose()
         if initial_pose is not None:
-            roll, pitch, yaw = euler_xyz_from_quat(torch.tensor(initial_pose.rotation_wxyz).reshape(1, 4))
-            # NOTE: We use a randomize term but set the pose range to the same value to
-            # achieve constant pose for now.
-            # TODO(alexmillane, 2025.09.04): Find or write an event term that resets
-            # the pose to a constant value.
             self.reset_pick_up_object_pose = EventTermCfg(
-                func=franka_stack_events.randomize_object_pose,
+                func=set_object_pose,
                 mode="reset",
                 params={
-                    "pose_range": {
-                        "x": (initial_pose.position_xyz[0], initial_pose.position_xyz[0]),
-                        "y": (initial_pose.position_xyz[1], initial_pose.position_xyz[1]),
-                        "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
-                        "roll": (roll, roll),
-                        "pitch": (pitch, pitch),
-                        "yaw": (yaw, yaw),
-                    },
-                    "asset_cfgs": [SceneEntityCfg(pick_up_object.name)],
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(pick_up_object.name),
                 },
             )
         else:
