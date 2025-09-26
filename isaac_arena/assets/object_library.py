@@ -207,7 +207,7 @@ class OfficeTable(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/office_table"
     scale = (1.0, 1.0, 0.7)
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -223,7 +223,7 @@ class BlueSortingBin(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/blue_sorting_bin"
     scale = (4.0, 2.0, 1.0)
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -239,7 +239,7 @@ class BlueExhaustPipe(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/blue_exhaust_pipe"
     scale = (0.55, 0.55, 1.4)
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -255,5 +255,5 @@ class BrownBox(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/brown_box"
     scale = (1.0, 1.0, 1.0)
 
-    def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)

@@ -24,7 +24,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_eve
 
 from isaac_arena.assets.asset import Asset
 from isaac_arena.tasks.task import TaskBase
-from isaac_arena.tasks.terminations import object_on_destination_g1_locomanip
+from isaac_arena.tasks.terminations import object_within_target_object_vicinity
 
 
 class G1LocomanipPickAndPlaceTask(TaskBase):
@@ -40,10 +40,13 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
 
     def get_termination_cfg(self):
         success = TerminationTermCfg(
-            func=object_on_destination_g1_locomanip,
+            func=object_within_target_object_vicinity,
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "destination_bin_cfg": SceneEntityCfg(self.destination_bin.name),
+                "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
+                "max_y_separation": 0.130,
+                "max_x_separation": 0.260,
+                "max_z_separation": 0.150,
             },
         )
         object_dropped = TerminationTermCfg(

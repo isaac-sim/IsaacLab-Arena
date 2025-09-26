@@ -501,35 +501,35 @@ class G1WBCPinkObservationsCfg:
             self.concatenate_terms = False
 
     @configclass
-    class ActionGN2Cfg(ObsGroup):
+    class ActionLowerBodyCfg(ObsGroup):
         """Observations for post step policy group"""
 
         left_eef_pos = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
-            params={"mode": "left_eef_pos"},
+            params={"mode": observations_wbc_mdp.ActionComponentMode.LEFT_EEF_POS},
         )
         left_eef_quat = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
-            params={"mode": "left_eef_quat"},
+            params={"mode": observations_wbc_mdp.ActionComponentMode.LEFT_EEF_QUAT},
         )
         right_eef_pos = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
-            params={"mode": "right_eef_pos"},
+            params={"mode": observations_wbc_mdp.ActionComponentMode.RIGHT_EEF_POS},
         )
         right_eef_quat = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
-            params={"mode": "right_eef_quat"},
+            params={"mode": observations_wbc_mdp.ActionComponentMode.RIGHT_EEF_QUAT},
         )
         navigate_cmd = ObsTerm(
             func=observations_wbc_mdp.get_navigate_cmd,
         )
         base_height_cmd = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
-            params={"mode": "base_height_cmd"},
+            params={"mode": observations_wbc_mdp.ActionComponentMode.BASE_HEIGHT_CMD},
         )
         torso_orientation_rpy_cmd = ObsTerm(
             func=observations_wbc_mdp.extract_action_components,
-            params={"mode": "torso_orientation_rpy_cmd"},
+            params={"mode": observations_wbc_mdp.ActionComponentMode.TORSO_ORIENTATION_RPY_CMD},
         )
 
         def __post_init__(self):
@@ -539,7 +539,7 @@ class G1WBCPinkObservationsCfg:
     # observation groups
     policy: PolicyCfg = PolicyCfg()
     wbc: WBCObsCfg = WBCObsCfg()
-    action: ActionGN2Cfg = ActionGN2Cfg()
+    action: ActionLowerBodyCfg = ActionLowerBodyCfg()
 
 
 @configclass

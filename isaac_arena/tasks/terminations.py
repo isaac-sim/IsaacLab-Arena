@@ -50,37 +50,37 @@ def object_on_destination(
     return condition_met
 
 
-def object_on_destination_g1_locomanip(
+def object_within_target_object_vicinity(
     env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
-    destination_bin_cfg: SceneEntityCfg = SceneEntityCfg("blue_sorting_bin"),
-    max_object_to_bin_y: float = 0.130,
-    max_object_to_bin_x: float = 0.260,
-    max_object_to_bin_z: float = 0.150,
+    object_cfg: SceneEntityCfg,
+    target_object_cfg: SceneEntityCfg,
+    max_y_separation: float,
+    max_x_separation: float,
+    max_z_separation: float,
 ) -> torch.Tensor:
-    """Determine if the task is complete.
+    """Determine if two objects are within a certain vicinity of each other.
 
     Returns:
-        Boolean tensor indicating which environments have completed the task.
+        Boolean tensor indicating when objects are within a certain vicinity of each other.
     """
     # Get object entities from the scene
     object: RigidObject = env.scene[object_cfg.name]
-    destination_bin: RigidObject = env.scene[destination_bin_cfg.name]
+    target_object: RigidObject = env.scene[target_object_cfg.name]
 
     # Get positions relative to environment origin
     object_pos = object.data.root_pos_w - env.scene.env_origins
 
     # Get positions relative to environment origin
     object_pos = object.data.root_pos_w - env.scene.env_origins
-    destination_bin_pos = destination_bin.data.root_pos_w - env.scene.env_origins
+    target_object_pos = target_object.data.root_pos_w - env.scene.env_origins
 
-    # object to bin
-    object_to_bin_x = torch.abs(object_pos[:, 0] - destination_bin_pos[:, 0])
-    object_to_bin_y = torch.abs(object_pos[:, 1] - destination_bin_pos[:, 1])
-    object_to_bin_z = object_pos[:, 2] - destination_bin_pos[:, 2]
+    # object to target object
+    x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
+    y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
+    z_separation = torch.abs(object_pos[:, 2] - target_object_pos[:, 2])
 
-    done = object_to_bin_x < max_object_to_bin_x
-    done = torch.logical_and(done, object_to_bin_y < max_object_to_bin_y)
-    done = torch.logical_and(done, object_to_bin_z < max_object_to_bin_z)
+    done = x_separation < max_x_separation
+    done = torch.logical_and(done, y_separation < max_y_separation)
+    done = torch.logical_and(done, z_separation < max_z_separation)
 
     return done
