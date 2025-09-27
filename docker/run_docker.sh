@@ -19,7 +19,7 @@ GROOT_DEPS_GROUP="base"
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
 
-while getopts ":d:m:e:hn:rn:vn:g:G:" OPTION; do
+while getopts ":d:m:e:hn:rn:vn:gn:G:" OPTION; do
     case $OPTION in
 
         d)
