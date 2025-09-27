@@ -32,5 +32,7 @@ class _TestConstants:
 
         self.test_data_dir = f"{self.test_dir}/test_data/"
 
+        self.policy_dir = f"{self.repo_root}/isaac_arena/policy/"
+
 
 TestConstants = _TestConstants()
