@@ -8,6 +8,9 @@ FROM ${BASE_IMAGE}
 ARG INSTALL_GROOT=false
 ARG GROOT_DEPS_GROUP=base
 
+ARG WORKDIR="/workspace"
+ENV WORKDIR=${WORKDIR}
+WORKDIR "${WORKDIR}"
 
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
@@ -54,8 +57,7 @@ ENV ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab
 ENV TERM=xterm
 
 # Symlink isaac sim to IsaacLab
-RUN ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
-
+RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
 

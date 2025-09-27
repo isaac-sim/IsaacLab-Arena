@@ -4,6 +4,8 @@ DOCKER_IMAGE_NAME='isaac_arena'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+WORKDIR="/workspaces/isaac_arena"
+
 # Default mount directory on the host machine for the datasets
 DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 # Default mount directory on the host machine for the models
@@ -89,6 +91,7 @@ if [ "$(docker images -q $DOCKER_IMAGE_NAME 2> /dev/null)" ] && \
     echo "Use -r option to force the rebuild."
 else
     docker build --pull \
+        --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
         -t ${DOCKER_IMAGE_NAME} \
@@ -114,7 +117,7 @@ else
                     "--net=host"
                     "--runtime=nvidia"
                     "--gpus=all"
-                    "-v" ".:/workspaces/isaac_arena"
+                    "-v" "./isaac_arena:${WORKDIR}/isaac_arena"
                     "-v" "$DATASETS_HOST_MOUNT_DIRECTORY:/datasets"
                     "-v" "$MODELS_HOST_MOUNT_DIRECTORY:/models"
                     "-v" "$EVAL_HOST_MOUNT_DIRECTORY:/eval"
@@ -132,14 +135,14 @@ else
                     "--env" "DOCKER_RUN_GROUP_ID=$(id -g)"
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
                     # Setting envs for XR: https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#run-isaac-lab-with-the-cloudxr-runtime
-                    "--env" "XDG_RUNTIME_DIR=/workspaces/isaac_arena/submodules/IsaacLab/openxr/run"
-                    "--env" "XR_RUNTIME_JSON=/workspaces/isaac_arena/submodules/IsaacLab/openxr/share/openxr/1/openxr_cloudxr.json"
+                    "--env" "XDG_RUNTIME_DIR=${WORKDIR}/submodules/IsaacLab/openxr/run"
+                    "--env" "XR_RUNTIME_JSON=${WORKDIR}/submodules/IsaacLab/openxr/share/openxr/1/openxr_cloudxr.json"
                     # NOTE(alexmillane, 2025.07.23): This looks a bit suspect to me. We should be running
                     # as a user inside the container, not root. I've left it in for now, but we should
                     # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
-                    "--env" "ISAACLAB_PATH=/workspaces/isaac_arena/submodules/IsaacLab"
-                    "--entrypoint" "/workspaces/isaac_arena/docker/setup/entrypoint.sh"
+                    "--env" "ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab"
+                    "--entrypoint" "${WORKDIR}/docker/setup/entrypoint.sh"
                     )
 
     # map omniverse auth or config so we have connection to the dev nucleus
