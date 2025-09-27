@@ -21,7 +21,9 @@ from isaac_arena.examples.example_environments.cli import add_example_environmen
 
 # add argparse arguments
 parser = get_isaac_arena_cli_parser()
-parser.add_argument("--generation_num_trials", type=int, help="Number of demos to be generated.", default=None)
+parser.add_argument(
+    "--generation_num_trials", type=int, help="Number of demos to be generated.", default=None, required=True
+)
 parser.add_argument("--input_file", type=str, default=None, required=True, help="File path to the source dataset file.")
 parser.add_argument(
     "--output_file",
@@ -80,12 +82,11 @@ if args_cli.enable_pinocchio:
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab_mimic.datagen.generation import env_loop, setup_async_generation
-from isaaclab_mimic.datagen.utils import get_env_name_from_dataset, setup_output_paths
+from isaaclab_mimic.datagen.utils import setup_output_paths
 
 
 def setup_env_config(
     args_cli: Any,
-    env_name: str,
     output_dir: str,
     output_file_name: str,
     num_envs: int,
@@ -148,15 +149,10 @@ def main():
 
     # Setup output paths and get env name
     output_dir, output_file_name = setup_output_paths(args_cli.output_file)
-    task_name = args_cli.task
-    if task_name:
-        task_name = args_cli.task.split(":")[-1]
-    env_name = task_name or get_env_name_from_dataset(args_cli.input_file)
 
     # Configure environment
     env_cfg, env_name, success_term = setup_env_config(
         args_cli=args_cli,
-        env_name=env_name,
         output_dir=output_dir,
         output_file_name=output_file_name,
         num_envs=num_envs,

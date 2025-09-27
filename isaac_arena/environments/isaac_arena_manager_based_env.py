@@ -36,11 +36,16 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     def __post_init__(self):
         """Post initialization."""
+        # NOTE(xinjieyao, 2025-09-22): decimation & sim.dt are set to match the WBC policy trained frequency.
+        # Any changes to these settings shall impact G1-WBC performance, therefore should be carefully considered.
+        # Especially, any settings slower than 200Hz & 4 decimation shall impact G1-WBC performance.
         # general settings
-        self.decimation = 5
+        self.decimation = 4
         self.episode_length_s = 30.0
+        self.wait_for_textures = False
         # simulation settings
-        self.sim.dt = 0.01  # 100Hz
+        self.sim.dt = 1 / 200  # 200Hz
+        # NOTE(peterd, 2025-09-23) Set the render interval lower than decimation to smooth out the rendering.
         self.sim.render_interval = 2
 
         # Add teleop device here as we need access to xr and sim device.

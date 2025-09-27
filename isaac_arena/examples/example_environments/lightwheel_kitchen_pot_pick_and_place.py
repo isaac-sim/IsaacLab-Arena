@@ -30,9 +30,9 @@ class LightwheelKitchenPotPickAndPlaceEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
         from isaac_arena.assets.object_reference import ObjectReference
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-        from isaac_arena.geometry.pose import Pose
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaac_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("lightwheel_kitchen")()
         pot = self.asset_registry.get_asset_by_name("lightwheel_pot_51")()

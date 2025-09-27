@@ -18,7 +18,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaac_arena.assets.object_base import ObjectBase, ObjectType
 from isaac_arena.assets.object_utils import detect_object_type
-from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.pose import Pose
 
 
 class Object(ObjectBase):
@@ -29,7 +29,7 @@ class Object(ObjectBase):
     def __init__(
         self,
         name: str,
-        prim_path: str,
+        prim_path: str | None = None,
         object_type: ObjectType | None = None,
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),

@@ -15,6 +15,9 @@
 import argparse
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+from isaac_arena.examples.example_environments.galileo_g1_locomanip_pick_and_place_environment import (
+    GalileoG1LocomanipPickAndPlaceEnvironment,
+)
 from isaac_arena.examples.example_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
 from isaac_arena.examples.example_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
 from isaac_arena.examples.example_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
@@ -35,6 +38,7 @@ ExampleEnvironments = {
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     LightwheelKitchenPotPickAndPlaceEnvironment.name: LightwheelKitchenPotPickAndPlaceEnvironment,
+    GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
 }
 
 

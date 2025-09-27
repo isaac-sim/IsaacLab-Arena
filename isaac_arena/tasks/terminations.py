@@ -48,3 +48,39 @@ def object_on_destination(
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
     return condition_met
+
+
+def objects_in_proximity(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    target_object_cfg: SceneEntityCfg,
+    max_y_separation: float,
+    max_x_separation: float,
+    max_z_separation: float,
+) -> torch.Tensor:
+    """Determine if two objects are within a certain proximity of each other.
+
+    Returns:
+        Boolean tensor indicating when objects are within a certain proximity of each other.
+    """
+    # Get object entities from the scene
+    object: RigidObject = env.scene[object_cfg.name]
+    target_object: RigidObject = env.scene[target_object_cfg.name]
+
+    # Get positions relative to environment origin
+    object_pos = object.data.root_pos_w - env.scene.env_origins
+
+    # Get positions relative to environment origin
+    object_pos = object.data.root_pos_w - env.scene.env_origins
+    target_object_pos = target_object.data.root_pos_w - env.scene.env_origins
+
+    # object to target object
+    x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
+    y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
+    z_separation = torch.abs(object_pos[:, 2] - target_object_pos[:, 2])
+
+    done = x_separation < max_x_separation
+    done = torch.logical_and(done, y_separation < max_y_separation)
+    done = torch.logical_and(done, z_separation < max_z_separation)
+
+    return done

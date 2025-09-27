@@ -12,14 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from dataclasses import MISSING
+from typing import TYPE_CHECKING
 
 from isaaclab.utils import configclass
 
-from isaac_arena.embodiments.embodiment_base import EmbodimentBase
-from isaac_arena.scene.scene import Scene
-from isaac_arena.tasks.task import TaskBase
-from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
+if TYPE_CHECKING:
+    from isaac_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaac_arena.scene.scene import Scene
+    from isaac_arena.tasks.task import TaskBase
+    from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
 @configclass

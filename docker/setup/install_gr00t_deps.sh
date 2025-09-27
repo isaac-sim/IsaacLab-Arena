@@ -18,13 +18,17 @@ echo "PATH=$PATH"
 echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 echo "TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 
+# Installing dependencies for system-level media libraries
+echo "Installing system-level media libraries..."
+sudo apt-get update && sudo apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 # Upgrade packaging tools to avoid setuptools issues
 echo "Upgrading packaging tools..."
 /isaac-sim/python.sh -m pip install --upgrade setuptools packaging wheel
 
 # Install GR00T with the specified dependency group
 echo "Installing Isaac-GR00T with dependency group: $GROOT_DEPS_GROUP"
-/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e /build/isaac_arena/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP]
+/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e /workspaces/isaac_arena/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP]
 
 # Install flash-attn (specific version for compatibility)
 echo "Installing flash-attn..."

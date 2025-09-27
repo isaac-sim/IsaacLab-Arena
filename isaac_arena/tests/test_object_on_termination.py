@@ -18,7 +18,8 @@ import tqdm
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
-NUM_STEPS = 20
+# NOTE(xinjieyao, 2025-09-23): Double the num of steps as sim.dt is changed from 0.01 to 0.005
+NUM_STEPS = 40
 HEADLESS = True
 PLOT = False
 
@@ -33,10 +34,10 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.geometry.pose import Pose
     from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaac_arena.tasks.terminations import object_on_destination
+    from isaac_arena.utils.pose import Pose
 
     args_parser = get_isaac_arena_cli_parser()
     args_cli = args_parser.parse_args([])
@@ -51,7 +52,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     )
     cracker_box.set_initial_pose(
         Pose(
-            position_xyz=(0.0758066475391388, -0.5088448524475098, 0.0),
+            position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
             rotation_wxyz=(1, 0, 0, 0),
         )
     )

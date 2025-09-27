@@ -16,7 +16,7 @@ from pxr import Usd
 
 # from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.assets.object_base import ObjectType
-from isaac_arena.usd.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
+from isaac_arena.utils.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
 
 
 def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = None) -> ObjectType:
@@ -62,13 +62,10 @@ def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = No
         if found and get_prim_depth(prim) > found_depth:
             break
     if not found:
-        print("HERE: ObjectType.BASE")
         return ObjectType.BASE
     if found and is_rigid_body(interesting_prim):
-        print("HERE: ObjectType.RIGID")
         return ObjectType.RIGID
     if found and is_articulation_root(interesting_prim):
-        print("HERE: ObjectType.ARTICULATION")
         return ObjectType.ARTICULATION
     else:
         raise ValueError("This should not happen. There is an unknown USD type in the tree.")
