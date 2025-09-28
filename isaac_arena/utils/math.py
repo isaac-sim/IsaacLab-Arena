@@ -12,20 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import MISSING
-
-from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
-from isaaclab.utils import configclass
-
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action import G1DecoupledWBCAction
+import torch
 
 
-@configclass
-class G1DecoupledWBCActionCfg(ActionTermCfg):
-    class_type: type[ActionTerm] = G1DecoupledWBCAction
-    """Specifies the action term class type for G1 WBC action."""
+def normalize_value(value: torch.Tensor, min_value: float, max_value: float):
+    return (value - min_value) / (max_value - min_value)
 
-    preserve_order: bool = False
-    joint_names: list[str] = MISSING
 
-    wbc_version: str = "homie_v2"
+def unnormalize_value(value: float, min_value: float, max_value: float):
+    return min_value + (max_value - min_value) * value

@@ -13,10 +13,11 @@
 # limitations under the License.
 
 from isaac_arena.affordances.openable import Openable
+from isaac_arena.affordances.pressable import Pressable
 from isaac_arena.assets.object import Object
 from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.assets.register import register_asset
-from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.pose import Pose
 
 
 class LibraryObject(Object):
@@ -179,17 +180,89 @@ class Microwave(LibraryObject, Openable):
         )
 
 
-# TODO(alexmillane, 2025.09.24): Make the toaster pressable.
 @register_asset
-class Toaster(LibraryObject):
+class Toaster(LibraryObject, Pressable):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
     name = "toaster"
-    tags = ["object"]
+    tags = ["object", "pressable"]
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/interactable_objects/toaster.usd"
     object_type = ObjectType.ARTICULATION
+
+    # Openable affordance parameters
+    pressable_joint_name = "button_cancel_joint"
+    pressable_pressed_threshold = 0.5
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            pressable_joint_name=self.pressable_joint_name,
+            pressable_pressed_threshold=self.pressable_pressed_threshold,
+        )
+
+
+@register_asset
+class OfficeTable(LibraryObject):
+    """
+    A basic office table.
+    """
+
+    name = "office_table"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+    default_prim_path = "{ENV_REGEX_NS}/office_table"
+    scale = (1.0, 1.0, 0.7)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class BlueSortingBin(LibraryObject):
+    """
+    A blue plastic sorting bin.
+    """
+
+    name = "blue_sorting_bin"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Mimic/exhaust_pipe_task/exhaust_pipe_assets/blue_sorting_bin.usd"
+    default_prim_path = "{ENV_REGEX_NS}/blue_sorting_bin"
+    scale = (4.0, 2.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class BlueExhaustPipe(LibraryObject):
+    """
+    A blue exhaust pipe.
+    """
+
+    name = "blue_exhaust_pipe"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Mimic/exhaust_pipe_task/exhaust_pipe_assets/blue_exhaust_pipe.usd"
+    default_prim_path = "{ENV_REGEX_NS}/blue_exhaust_pipe"
+    scale = (0.55, 0.55, 1.4)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class BrownBox(LibraryObject):
+    """
+    A brown box.
+    """
+
+    name = "brown_box"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/brown_box.usd"
+    default_prim_path = "{ENV_REGEX_NS}/brown_box"
+    scale = (1.0, 1.0, 1.0)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)

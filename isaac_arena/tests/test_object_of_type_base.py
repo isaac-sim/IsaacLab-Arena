@@ -30,9 +30,9 @@ def _test_object_of_type_base(simulation_app):
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.geometry.pose import Pose
     from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.dummy_task import DummyTask
+    from isaac_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
 

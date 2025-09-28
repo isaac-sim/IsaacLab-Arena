@@ -42,18 +42,18 @@ from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action_cfg import G1DecoupledWBCActionCfg
+    from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 
 
-class G1DecoupledWBCAction(ActionTerm):
+class G1DecoupledWBCJointAction(ActionTerm):
     """Action term for the G1 decoupled WBC policy. Upper body direct joint position control, lower body RL-based policy."""
 
-    cfg: G1DecoupledWBCActionCfg
+    cfg: G1DecoupledWBCJointActionCfg
 
     _asset: Articulation
     """The articulation asset to which the action term is applied."""
 
-    def __init__(self, cfg: G1DecoupledWBCActionCfg, env: ManagerBasedEnv):
+    def __init__(self, cfg: G1DecoupledWBCJointActionCfg, env: ManagerBasedEnv):
         """Initialize the action term.
 
         Args:

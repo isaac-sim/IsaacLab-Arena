@@ -28,6 +28,10 @@ class Scene:
 
     def __init__(self, assets: list[Asset] | None = None):
         self.assets: dict[str, Asset] = {}
+        # We add these here so a user can override them if they want.
+        self.observation_cfg = None
+        self.events_cfg = None
+        self.termination_cfg = None
         if assets is not None:
             self.add_assets(assets)
 
@@ -51,10 +55,10 @@ class Scene:
         return new_config_class
 
     def get_observation_cfg(self) -> Any:
-        pass
+        return self.observation_cfg
 
     def get_events_cfg(self) -> Any:
-        pass
+        return self.events_cfg
 
     def get_termination_cfg(self) -> Any:
-        pass
+        return self.termination_cfg

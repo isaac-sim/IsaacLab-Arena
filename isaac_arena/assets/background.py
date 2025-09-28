@@ -14,7 +14,7 @@
 
 from isaac_arena.assets.object import Object
 from isaac_arena.assets.object_base import ObjectType
-from isaac_arena.geometry.pose import Pose
+from isaac_arena.utils.pose import Pose
 
 
 class Background(Object):

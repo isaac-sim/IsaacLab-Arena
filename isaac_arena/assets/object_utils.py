@@ -16,7 +16,7 @@ from pxr import Usd
 
 # from isaac_arena.assets.object_base import ObjectType
 from isaac_arena.assets.object_base import ObjectType
-from isaac_arena.usd.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
+from isaac_arena.utils.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
 
 
 def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = None) -> ObjectType:

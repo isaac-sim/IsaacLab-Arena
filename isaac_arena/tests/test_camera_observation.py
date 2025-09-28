@@ -29,9 +29,9 @@ def _test_camera_observation(simulation_app) -> bool:
     from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2Embodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.geometry.pose import Pose
     from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.dummy_task import DummyTask
+    from isaac_arena.utils.pose import Pose
 
     args_parser = get_isaac_arena_cli_parser()
     args_cli = args_parser.parse_args(["--enable_cameras"])

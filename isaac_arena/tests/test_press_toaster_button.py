@@ -1,0 +1,189 @@
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import gymnasium as gym
+import torch
+
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+
+NUM_STEPS = 10
+HEADLESS = True
+
+
+def get_test_environment(num_envs: int):
+    """Returns a scene which we use for these tests."""
+
+    from isaac_arena.assets.asset_registry import AssetRegistry
+    from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
+    from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaac_arena.environments.compile_env import ArenaEnvBuilder
+    from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
+    from isaac_arena.geometry.pose import Pose
+    from isaac_arena.scene.scene import Scene
+    from isaac_arena.tasks.dummy_task import DummyTask
+
+    args_parser = get_isaac_arena_cli_parser()
+    args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
+
+    asset_registry = AssetRegistry()
+    background = asset_registry.get_asset_by_name("packing_table")()
+    toaster = asset_registry.get_asset_by_name("toaster")()
+
+    # Put the toaster on the packing table.
+    toaster.set_initial_pose(
+        Pose(
+            position_xyz=(0.6, -0.00586, 0.22773),
+            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+        )
+    )
+
+    scene = Scene(assets=[background, toaster])
+
+    isaac_arena_environment = IsaacArenaEnvironment(
+        name="press_button_toaster",
+        embodiment=FrankaEmbodiment(),
+        scene=scene,
+        task=DummyTask(),
+    )
+
+    env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
+    name, cfg = env_builder.build_registered()
+    env = gym.make(name, cfg=cfg).unwrapped
+    env.reset()
+
+    return env, toaster
+
+
+def _test_press_button_toaster(simulation_app) -> bool:
+
+    from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
+    from isaac_arena.tests.utils.simulation import step_zeros_and_call
+
+    # Get the scene
+    env, toaster = get_test_environment(num_envs=1)
+
+    def assert_pressed(env: ManagerBasedEnv, terminated: torch.Tensor):
+        is_pressed = toaster.is_pressed(env)
+        assert is_pressed.shape == torch.Size([1])
+        assert is_pressed.item()
+        if not is_pressed.item():
+            print("Toaster is not pressed")
+
+    def assert_unpressed(env: ManagerBasedEnv, terminated: torch.Tensor):
+        is_pressed = toaster.is_pressed(env)
+        assert is_pressed.shape == torch.Size([1]), "Is pressed shape is not correct"
+        assert not is_pressed.item(), "The toaster is pressed when it should not be"
+        if is_pressed.item():
+            print("Toaster is pressed")
+
+    try:
+
+        print("Pressing toaster button")
+        toaster.press(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_pressed)
+        print("Unpressing toaster button")
+        toaster.unpress(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_unpressed)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
+def _test_press_button_toaster_multiple_envs(simulation_app) -> bool:
+
+    from isaac_arena.tests.utils.simulation import step_zeros_and_call
+
+    env, toaster = get_test_environment(num_envs=2)
+
+    try:
+
+        with torch.inference_mode():
+            # Press both
+            toaster.press(env, None)
+            step_zeros_and_call(env, NUM_STEPS)
+            is_pressed = toaster.is_pressed(env)
+            print(f"expected: [True, True]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([True, True], device=env.device))
+
+            # Unpress both
+            toaster.unpress(env, None)
+            step_zeros_and_call(env, NUM_STEPS)
+            is_pressed = toaster.is_pressed(env)
+            print(f"expected: [False, False]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([False, False], device=env.device))
+
+            # Press first
+            toaster.press(env, torch.tensor([0]))
+            step_zeros_and_call(env, NUM_STEPS)
+            is_pressed = toaster.is_pressed(env)
+            print(f"expected: [True, False]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([True, False], device=env.device))
+
+            # Press second
+            toaster.press(env, torch.tensor([1]))
+            step_zeros_and_call(env, NUM_STEPS)
+            is_pressed = toaster.is_pressed(env)
+            print(f"expected: [True, True]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([True, True], device=env.device))
+
+            # Unpress second
+            toaster.unpress(env, torch.tensor([1]))
+            step_zeros_and_call(env, NUM_STEPS)
+            is_pressed = toaster.is_pressed(env)
+            print(f"expected: [True, False]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([True, False], device=env.device))
+
+            # Unpress first
+            toaster.unpress(env, torch.tensor([0]))
+            step_zeros_and_call(env, NUM_STEPS)
+            is_pressed = toaster.is_pressed(env)
+            print(f"expected: [False, False]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([False, False], device=env.device))
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
+def test_press_button_toaster():
+    result = run_simulation_app_function_in_separate_process(
+        _test_press_button_toaster,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_press_button_toaster.__name__} failed"
+
+
+def test_press_button_toaster_multiple_envs():
+    result = run_simulation_app_function_in_separate_process(
+        _test_press_button_toaster_multiple_envs,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_press_button_toaster_multiple_envs.__name__} failed"
+
+
+if __name__ == "__main__":
+    test_press_button_toaster()
+    test_press_button_toaster_multiple_envs()

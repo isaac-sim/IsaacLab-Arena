@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
 from dataclasses import dataclass
 
 
@@ -34,3 +35,18 @@ class Pose:
     @staticmethod
     def identity() -> "Pose":
         return Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+
+    def to_tensor(self, device: torch.device) -> torch.Tensor:
+        """Convert the pose to a tensor.
+
+        The returned tensor has shape (1, 7), and is of the order (x, y, z, qw, qx, qy, qz).
+
+        Args:
+            device: The device to convert the tensor to.
+
+        Returns:
+            The pose as a tensor of shape (1, 7).
+        """
+        position_tensor = torch.tensor(self.position_xyz, device=device)
+        rotation_tensor = torch.tensor(self.rotation_wxyz, device=device)
+        return torch.cat([position_tensor, rotation_tensor])
