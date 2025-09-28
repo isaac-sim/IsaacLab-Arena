@@ -19,7 +19,7 @@ GROOT_DEPS_GROUP="base"
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
 
-while getopts ":d:m:e:hn:rn:vn:gn:G:" OPTION; do
+while getopts ":d:m:e:hn:rn:Rn:vn:gn:G:" OPTION; do
     case $OPTION in
 
         d)
@@ -36,6 +36,11 @@ while getopts ":d:m:e:hn:rn:vn:gn:G:" OPTION; do
             ;;
         r)
             FORCE_REBUILD=true
+            ;;
+
+        R)
+            FORCE_REBUILD=true
+            NO_CHACHE="--no-cache"
             ;;
         v)
             set -x
@@ -61,6 +66,7 @@ while getopts ":d:m:e:hn:rn:vn:gn:G:" OPTION; do
             echo "  -e <evaluation directory> (Path to evaluation data on the host. Default is \"$EVAL_HOST_MOUNT_DIRECTORY\".)"
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
+            echo "  -R (Force rebuilding of the docker image, without cache.)"
             echo "  -g (Install GR00T with base dependencies.)"
             echo "  -G <deps_group> (Install GR00T with dependency group: base, dev, orin, thor, deploy.)"
             exit 0
@@ -94,6 +100,7 @@ if [ "$(docker images -q $DOCKER_IMAGE_NAME 2> /dev/null)" ] && \
     echo "Use -r option to force the rebuild."
 else
     docker build --pull \
+        $NO_CHACHE \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
