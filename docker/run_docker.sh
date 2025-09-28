@@ -40,7 +40,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:G:" OPTION; do
 
         R)
             FORCE_REBUILD=true
-            NO_CHACHE="--no-cache"
+            NO_CACHE="--no-cache"
             ;;
         v)
             set -x
@@ -100,7 +100,7 @@ if [ "$(docker images -q $DOCKER_IMAGE_NAME 2> /dev/null)" ] && \
     echo "Use -r option to force the rebuild."
 else
     docker build --pull \
-        $NO_CHACHE \
+        $NO_CACHE \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
