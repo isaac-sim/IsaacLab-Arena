@@ -71,7 +71,7 @@ class TestGr00tDependencies:
 
     def test_gr00t_package_directory_exists(self):
         """Test that GR00T package directory exists."""
-        gr00t_path = f"{os.getenv("WORKDIR")}/submodules/Isaac-GR00T"
+        gr00t_path = f"{os.getenv('WORKDIR')}/submodules/Isaac-GR00T"
 
         assert os.path.exists(gr00t_path), f"GR00T directory not found at {gr00t_path}"
         assert os.path.isdir(gr00t_path), f"GR00T path exists but is not a directory: {gr00t_path}"
@@ -81,7 +81,7 @@ class TestGr00tDependencies:
     def test_gr00t_package_import(self):
         """Test that GR00T package can be imported."""
         # get workdir from env
-        gr00t_path = f"{os.getenv("WORKDIR")}/submodules/Isaac-GR00T"
+        gr00t_path = f"{os.getenv('WORKDIR')}/submodules/Isaac-GR00T"
 
         # Add GR00T path to Python path if not already there
         if gr00t_path not in sys.path:
