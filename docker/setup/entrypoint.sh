@@ -3,6 +3,8 @@
 # This script is used as entrypoint for the docker container.
 # It will setup an user account for the host user inside the docker
 # s.t. created files will have correct ownership.
+
+# Exit on error
 set -euo pipefail
 
 # Make sure that all shared libs are found. This should normally not be needed, but resolves a
@@ -30,17 +32,6 @@ echo "$DOCKER_RUN_USER_NAME:root" | chpasswd
 
 # Allow sudo without password
 echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# change prompt so it's obvious we're inside the arena container
-echo "PS1='[Isaac Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-
-# useful aliases:
-# list files as a table, with colors, show hidden, append indicators (/ for dirs, * for executables, @ for symlinks)
-echo "alias ll='ls -alF --color=auto'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-# go one level up
-echo "alias ..='cd ..'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-
-set +x
 
 # Suppress sudo hint message
 touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful

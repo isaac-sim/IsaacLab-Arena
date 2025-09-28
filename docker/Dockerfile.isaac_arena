@@ -101,9 +101,14 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 RUN pip3 install debugpy
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
-# Copy all the files.
-# We do it here to avoid cache invalidation on Gr00t and Lab install steps.
-COPY . ${WORKDIR}
+# Change prompt so it's obvious we're inside the arena container
+RUN echo "PS1='[Isaac Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /etc/bash.bashrc
+# List files as a table, with colors, show hidden, append indicators (/ for dirs, * for executables, @ for symlinks)
+RUN echo "alias ll='ls -alF --color=auto'" >> /etc/bash.bashrc
+# Go one level up
+RUN echo "alias ..='cd ..'" >> /etc/bash.bashrc
+# Change prompt to colored one for root too
+RUN cp /etc/bash.bashrc /root/.bashrc
 
 # Remove the entrypoint from the base image.
 ENTRYPOINT [""]
