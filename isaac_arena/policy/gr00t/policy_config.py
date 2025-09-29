@@ -13,7 +13,14 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+
+
+# Policy data loader and architecture configuration depend on which task to choose
+class TaskMode(Enum):
+    G1_LOCOMANIPULATION = "g1_locomanipulation"
+    GR1_TABLETOP_MANIPULATION = "gr1_tabletop_manipulation"
 
 
 @dataclass
@@ -31,9 +38,7 @@ class LerobotReplayActionPolicyConfig:
             )
         },
     )
-    video_backend: str = field(
-        default="decord", metadata={"description": "Video backend to use for the policy."}
-    )
+    video_backend: str = field(default="decord", metadata={"description": "Video backend to use for the policy."})
     data_config: str = field(
         default="unitree_g1_sim_wbc", metadata={"description": "Name of the data configuration to use for the policy."}
     )
@@ -41,8 +46,13 @@ class LerobotReplayActionPolicyConfig:
         default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "gr00t_43dof_joint_space.yaml",
         metadata={"description": "Path to the YAML file specifying the joint ordering configuration for GR00T policy."},
     )
+    task_mode_name: str = field(
+        default=TaskMode.G1_LOCOMANIPULATION.value,
+        metadata={"description": "Task option name of the policy inference."},
+    )
 
     # robot simulation specific parameters
+    # Only replay actions and set it as targets
     action_joints_config_path: Path = field(
         default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
         metadata={
@@ -51,24 +61,18 @@ class LerobotReplayActionPolicyConfig:
             )
         },
     )
-    state_joints_config_path: Path = field(
-        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
-        metadata={
-            "description": (
-                "Path to the YAML file specifying the joint ordering configuration for GR1 state space in Lab."
-            )
-        },
-    )
+    # state_joints_config_path: Path = field(
+    #     default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
+    #     metadata={
+    #         "description": (
+    #             "Path to the YAML file specifying the joint ordering configuration for GR1 state space in Lab."
+    #         )
+    #     },
+    # )
 
-    # Default to GPU policy and CPU physics simulation
-    policy_device: str = field(
-        default="cuda", metadata={"description": "Device to run the policy model on (e.g., 'cuda' or 'cpu')."}
-    )
-
-
-    # Closed loop specific parameters
+    # action chunking specific parameters
     num_feedback_actions: int = field(
-        default=16,
+        default=1,  # Replay actions from every recorded timestamp in the dataset
         metadata={
             "description": "Number of feedback actions to execute per rollout (can be less than action_horizon)."
         },
@@ -79,12 +83,25 @@ class LerobotReplayActionPolicyConfig:
             self.num_feedback_actions <= self.action_horizon
         ), "num_feedback_actions must be less than or equal to action_horizon"
         # assert all paths exist
-        assert Path(self.gr00t_joints_config_path).exists(), "gr00t_joints_config_path does not exist"
-        assert Path(self.action_joints_config_path).exists(), "action_joints_config_path does not exist"
-        assert Path(self.state_joints_config_path).exists(), "state_joints_config_path does not exist"
-        assert Path(self.dataset_path).exists(), "dataset_path does not exist. Do not use relative paths."
+        assert Path(
+            self.gr00t_joints_config_path
+        ).exists(), f"gr00t_joints_config_path does not exist: {self.gr00t_joints_config_path}"
+        assert Path(
+            self.action_joints_config_path
+        ).exists(), f"action_joints_config_path does not exist: {self.action_joints_config_path}"
+        # LeRobotSingleDataset does not take relative path
+        self.dataset_path = Path(self.dataset_path).resolve()
+        assert Path(self.dataset_path).exists(), f"dataset_path does not exist: {self.dataset_path}"
         # embodiment_tag
         assert self.embodiment_tag in [
             "gr1",
             "new_embodiment",
         ], "embodiment_tag must be one of the following: " + ", ".join(["gr1", "new_embodiment"])
+        if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
+            assert (
+                self.embodiment_tag == "new_embodiment"
+            ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
+        elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
+            assert self.embodiment_tag == "gr1", "embodiment_tag must be gr1 for GR1 tabletop manipulation"
+        else:
+            raise ValueError(f"Invalid inference mode: {self.task_mode}")

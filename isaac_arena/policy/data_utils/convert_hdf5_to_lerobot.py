@@ -30,11 +30,16 @@ import pandas as pd
 
 from isaac_arena.policy.config.dataset_config import Gr00tDatasetConfig
 from isaac_arena.policy.data_utils.image_conversion import resize_frames_with_padding
-from isaac_arena.policy.data_utils.io_utils import dump_json, dump_jsonl, load_json, load_robot_joints_config_from_yaml
+from isaac_arena.policy.data_utils.io_utils import (
+    create_config_from_yaml,
+    dump_json,
+    dump_jsonl,
+    load_json,
+    load_robot_joints_config_from_yaml,
+)
 from isaac_arena.policy.data_utils.joints_conversion import remap_sim_joints_to_policy_joints
 from isaac_arena.policy.data_utils.robot_eef_pose import EefPose
 from isaac_arena.policy.data_utils.robot_joints import JointsAbsPosition
-from isaac_arena.policy.data_utils.yaml_config_loader import load_config_from_yaml
 
 
 def wait_for_video_completion(video_path: str, max_wait_time: int = 60, check_interval: float = 0.5) -> bool:
@@ -606,7 +611,7 @@ if __name__ == "__main__":
     parser.add_argument("--yaml_file", help="Path to YAML configuration file")
     args = parser.parse_args()
 
-    config = load_config_from_yaml(args.yaml_file)
+    config = create_config_from_yaml(args.yaml_file, Gr00tDatasetConfig)
     # Print the config
     print("\n" + "=" * 50)
     print("GR00T LEROBOT DATASET CONFIGURATION:")
