@@ -24,20 +24,20 @@ from typing import TYPE_CHECKING
 from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
-from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
-from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.config.configs import HomieV2Config
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
-from isaac_arena.embodiments.g1.wbc_policy.run_policy import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.run_policy import (
     convert_sim_joint_to_wbc_joint,
     postprocess_actions,
     prepare_observations,
 )
-from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.g1 import instantiate_g1_robot_model
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv

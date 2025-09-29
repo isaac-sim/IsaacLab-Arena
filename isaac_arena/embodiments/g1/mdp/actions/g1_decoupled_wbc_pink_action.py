@@ -25,11 +25,11 @@ from typing import TYPE_CHECKING
 from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
-from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
-from isaac_arena.embodiments.g1.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.config.configs import HomieV2Config
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
     G1WBCUpperbodyController,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.action_constants import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.action_constants import (
     LEFT_HAND_STATE_IDX,
     LEFT_WRIST_LINK_NAME,
     LEFT_WRIST_POS_END_IDX,
@@ -44,16 +44,16 @@ from isaac_arena.embodiments.g1.wbc_policy.policy.action_constants import (
     RIGHT_WRIST_QUAT_END_IDX,
     RIGHT_WRIST_QUAT_START_IDX,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
-from isaac_arena.embodiments.g1.wbc_policy.run_policy import postprocess_actions, prepare_observations
-from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
-from isaac_arena.embodiments.g1.wbc_policy.utils.p_controller import PController
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.run_policy import postprocess_actions, prepare_observations
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.g1 import instantiate_g1_robot_model
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.p_controller import PController
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -131,7 +131,7 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         }
         wbc_g1_joints_order_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml",
+            "config/loco_manip_g1_joints_order_43dof.yaml",
         )
         try:
             with open(wbc_g1_joints_order_path) as f:

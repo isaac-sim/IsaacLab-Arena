@@ -14,7 +14,7 @@
 
 import numpy as np
 
-from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
 
 
 class IdentityPolicy(WBCPolicy):
