@@ -18,7 +18,7 @@ import pandas as pd
 
 from isaac_arena.policy.data_utils.convert_hdf5_to_lerobot import convert_hdf5_to_lerobot
 from isaac_arena.policy.data_utils.io_utils import create_config_from_yaml
-from isaac_arena.policy.gr00t.data_config import Gr00tDatasetConfig
+from isaac_arena.policy.config.dataset_config import Gr00tDatasetConfig
 from isaac_arena.tests.utils.constants import TestConstants
 
 
