@@ -18,6 +18,8 @@ from isaac_arena.examples.example_environments.cli import get_isaac_arena_exampl
 from isaac_arena.policy.policy_base import PolicyBase
 from isaac_arena.policy.replay_action_policy import ReplayActionPolicy
 from isaac_arena.policy.zero_action_policy import ZeroActionPolicy
+from isaac_arena.policy.gr00t.replay_lerobot_action_policy import ReplayLerobotActionPolicy
+from isaac_arena.policy.gr00t.policy_config import LerobotReplayActionPolicyConfig
 
 
 def add_zero_action_arguments(parser: argparse.ArgumentParser) -> None:
@@ -49,6 +51,16 @@ def add_replay_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
 
+def add_replay_lerobot_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add replay Lerobot action policy specific arguments to the parser."""
+    replay_lerobot_group = parser.add_argument_group("Replay Lerobot Action Policy", "Arguments for replay Lerobot action policy")
+    replay_lerobot_group.add_argument(
+        "--replay_lerobot_dataset_path",
+        type=str,
+        help="Path to the Lerobot file containing the episode (required with --policy_type replay_lerobot)",
+    )
+
+
 
 def setup_policy_argument_parser() -> argparse.ArgumentParser:
     """Set up and configure the argument parser with all policy-related arguments."""
@@ -58,18 +70,21 @@ def setup_policy_argument_parser() -> argparse.ArgumentParser:
     args_parser.add_argument(
         "--policy_type",
         type=str,
-        choices=["zero_action", "replay"],
+        choices=["zero_action", "replay", "replay_lerobot"],
         required=True,
-        help="Type of policy to use: 'zero_action' or 'replay'",
+        help="Type of policy to use: 'zero_action' or 'replay' or 'replay_lerobot'",
     )
 
     # Add policy-specific argument groups
     add_zero_action_arguments(args_parser)
     add_replay_arguments(args_parser)
+    add_replay_lerobot_arguments(args_parser)
     parsed_args = args_parser.parse_args()
 
     if parsed_args.policy_type == "replay" and parsed_args.replay_file_path is None:
         raise ValueError("--replay_file_path is required when using --policy_type replay")
+    if parsed_args.policy_type == "replay_lerobot" and parsed_args.replay_lerobot_dataset_path is None:
+        raise ValueError("--replay_lerobot_dataset_path is required when using --policy_type replay_lerobot")
 
     return args_parser
 
@@ -81,6 +96,11 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
         num_steps = len(policy)
     elif args.policy_type == "zero_action":
         policy = ZeroActionPolicy()
+        num_steps = args.num_steps
+    elif args.policy_type == "replay_lerobot":
+        # init dataset_path member in policy_cfg class
+        policy_cfg = LerobotReplayActionPolicyConfig(dataset_path=args.replay_lerobot_dataset_path)
+        policy = ReplayLerobotActionPolicy(policy_cfg)
         num_steps = args.num_steps
     else:
         raise ValueError(f"Unknown policy type: {args.type}")

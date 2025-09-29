@@ -19,9 +19,6 @@ from pathlib import Path
 @dataclass
 class LerobotReplayActionPolicyConfig:
     # model specific parameters
-    language_instruction: str = field(
-        default="", metadata={"description": "Instruction given to the policy in natural language."}
-    )
     dataset_path: str = field(default="", metadata={"description": "Full path to the dataset directory."})
     action_horizon: int = field(
         default=16, metadata={"description": "Number of actions in the policy's predictionhorizon."}
@@ -34,17 +31,20 @@ class LerobotReplayActionPolicyConfig:
             )
         },
     )
+    video_backend: str = field(
+        default="decord", metadata={"description": "Video backend to use for the policy."}
+    )
     data_config: str = field(
         default="unitree_g1_sim_wbc", metadata={"description": "Name of the data configuration to use for the policy."}
     )
     gr00t_joints_config_path: Path = field(
-        default=Path(__file__).parent.resolve() / "g1" / "gr00t_43dof_joint_space.yaml",
+        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "gr00t_43dof_joint_space.yaml",
         metadata={"description": "Path to the YAML file specifying the joint ordering configuration for GR00T policy."},
     )
 
     # robot simulation specific parameters
     action_joints_config_path: Path = field(
-        default=Path(__file__).parent.resolve() / "g1" / "43dof_joint_space.yaml",
+        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
         metadata={
             "description": (
                 "Path to the YAML file specifying the joint ordering configuration for GR1 action space in Lab."
@@ -52,7 +52,7 @@ class LerobotReplayActionPolicyConfig:
         },
     )
     state_joints_config_path: Path = field(
-        default=Path(__file__).parent.resolve() / "g1" / "43dof_joint_space.yaml",
+        default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "43dof_joint_space.yaml",
         metadata={
             "description": (
                 "Path to the YAML file specifying the joint ordering configuration for GR1 state space in Lab."
