@@ -10,35 +10,57 @@ WORKDIR="/workspaces/isaac_arena"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-while getopts ":t:g:ph" OPTION; do
+# while getopts ":t:g:ph:G" OPTION; do
+while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
     case $OPTION in
         t)
             TAG_NAME=$OPTARG
             echo "Tag name is ${TAG_NAME}."
             ;;
         g)
-            INSTALL_GROOT=true
-            GROOT_DEPS_GROUP=base
+            INSTALL_GROOT="true"
+            GROOT_DEPS_GROUP="base"
             echo "INSTALL_GROOT is ${INSTALL_GROOT}."
             echo "GROOT_DEPS_GROUP is ${GROOT_DEPS_GROUP}."
             ;;
+        G)
+            GROOT_DEPS_GROUP=${OPTARG}
+            INSTALL_GROOT="true"
+            ;;
+        v)
+            set -x
+            ;;
         p)
-            PUSH_TO_NGC=true
+            PUSH_TO_NGC="true"
             echo "PUSH_TO_NGC (build and push to ngc)."
             ;;
+        R)
+            NO_CACHE="--no-cache"
+            ;;
         h | *)
-            echo "Helper script for pushing isaac_arena images to NGC."
-            echo "Usage:"
-            echo "- pushing to NGC:"
-            echo "    push_to_ngc.sh -p -t <tag_name>"
-            echo "- pushing to NGC with GR00T installation:"
-            echo "    push_to_ngc.sh -p -t <tag_name> -g"
-            echo "- see help message:"
-            echo "    push_to_ngc.sh -h"
+            script_name=$(basename "$0")
+            echo "Helper script for pushing Isaac Arena docker image to NGC."
             echo ""
-            echo "  -p Push the image to NGC."
-            echo "  -t Tag name of the image."
-            echo "  -h help (this output)"
+            echo "Usage:"
+            echo "  ${script_name} [options]"
+            echo ""
+            echo "Examples:"
+            echo "- Build without cache and push to NGC:"
+            echo "    ${script_name} -R -p -t <tag_name>"
+            echo "- Build without cache and push to NGC with GR00T installation of "base" dependencies:"
+            echo "    ${script_name} -R -p -t <tag_name> -g"
+            echo "- See help message:"
+            echo "    ${script_name} -h"
+            echo ""
+            echo "Options:"
+            echo "  -p - Push the image to NGC."
+            echo "  -t - Tag name of the image."
+            echo "  -g - Install GR00T with base dependencies."
+            echo "  -G <group> - Install GR00T with dependency group <group>."
+            echo '               Available groups: "base", "dev", "orin", "thor", "deploy".'
+            echo '  -R - Do not use cache when building the image.'
+            echo "  -v - Verbose output."
+            echo "  -h - Help (this output)"
             exit 0
             ;;
     esac
@@ -49,12 +71,14 @@ DOCKER_IMAGE_NAME=${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME}
 NGC_PATH=nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}
 
 # Build the image.
-docker build --progress=plain --network=host \
-  --build-arg INSTALL_GROOT=$INSTALL_GROOT \
-  --build-arg WORKDIR="${WORKDIR}" \
-  -t ${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME} \
-  "${SCRIPT_DIR}/.." \
-  -f "${SCRIPT_DIR}/Dockerfile.isaac_arena"
+docker build --pull \
+    $NO_CACHE \
+    --build-arg WORKDIR="${WORKDIR}" \
+    --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+    --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
+    -t ${DOCKER_IMAGE_NAME} \
+    --file $SCRIPT_DIR/Dockerfile.isaac_arena \
+    $SCRIPT_DIR/..
 
 # Push if requested.
 if [ "$PUSH_TO_NGC" = true ]; then
