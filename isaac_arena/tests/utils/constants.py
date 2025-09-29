@@ -30,7 +30,7 @@ class _TestConstants:
 
         self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
 
-        self.test_data_dir = f"{self.test_dir}/test_data/"
+        self.test_data_dir = f"{self.test_dir}test_data/"
 
         self.policy_dir = f"{self.repo_root}/isaac_arena/policy/"
 

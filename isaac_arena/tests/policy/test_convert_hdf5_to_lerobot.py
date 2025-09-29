@@ -25,9 +25,8 @@ from isaac_arena.tests.utils.constants import TestConstants
 def test_g1_convert_hdf5_to_lerobot():
     # Load expected data for comparison
     expected_g1_parquet = pd.read_parquet(
-        TestConstants.test_data_dir + "test_g1_lcomanip_lerobot/data/chunk-000/episode_000000.parquet"
+        TestConstants.test_data_dir + "test_g1_locomanip_lerobot/data/chunk-000/episode_000000.parquet"
     )
-
     g1_ds_config = create_config_from_yaml(
         TestConstants.test_data_dir + "test_g1_locomanip_config.yaml", Gr00tDatasetConfig
     )
