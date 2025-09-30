@@ -100,7 +100,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         assert self.current_action_index < self.num_feedback_actions
 
         action = self.current_action_chunk[:, self.current_action_index]
-        assert action.shape == (self.num_envs, env.action_space.shape[0])
+        assert action.shape == env.action_space.shape, f"{action.shape=} != {env.action_space.shape=}"
 
         self.current_action_index += 1
         # reset to empty action chunk
