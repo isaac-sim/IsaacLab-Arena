@@ -27,7 +27,7 @@ def test_g1_locomanip_replay_lerobot_policy_runner_single_env():
     args.append("--policy_type")
     args.append("replay_lerobot")
     args.append("--config_yaml_path")
-    args.append(TestConstants.test_data_dir + "test_g1_locomanip_lerobot/test_g1_locomanip_replay_action_config.yaml")
+    args.append(TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_replay_action_config.yaml")
     args.append("--max_steps")
     args.append(str(NUM_STEPS))
     args.append("--trajectory_index")

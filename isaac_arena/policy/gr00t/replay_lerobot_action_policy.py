@@ -15,9 +15,9 @@
 import gymnasium as gym
 import numpy as np
 import torch
+from collections.abc import Iterator
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 from pathlib import Path
-from collections.abc import Iterator
 
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
