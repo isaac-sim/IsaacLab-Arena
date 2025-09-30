@@ -18,45 +18,7 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
 from isaac_arena.affordances.affordance_base import AffordanceBase
-
-
-def normalize_value(value: torch.Tensor, min_value: float, max_value: float):
-    return (value - min_value) / (max_value - min_value)
-
-
-def unnormalize_value(value: float, min_value: float, max_value: float):
-    return min_value + (max_value - min_value) * value
-
-
-def get_normalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg):
-    articulation = env.scene.articulations[asset_cfg.name]
-    assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
-    joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
-    joint_position = articulation.data.joint_pos[:, joint_index]
-    joint_position_limits = articulation.data.joint_pos_limits[0, joint_index, :]
-    joint_min, joint_max = joint_position_limits[0], joint_position_limits[1]
-    normalized_position = normalize_value(joint_position, joint_min, joint_max)
-    if joint_min < 0.0:
-        normalized_position = 1 - normalized_position
-    return normalized_position
-
-
-def set_normalized_joint_position(
-    env: ManagerBasedEnv, asset_cfg: SceneEntityCfg, target_joint_position: float, env_ids: torch.Tensor | None = None
-):
-    articulation = env.scene.articulations[asset_cfg.name]
-    assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
-    joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
-    joint_position_limits = articulation.data.joint_pos_limits[0, joint_index, :]
-    joint_min, joint_max = joint_position_limits[0], joint_position_limits[1]
-    if joint_min < 0.0:
-        target_joint_position = 1 - target_joint_position
-    target_joint_position_unnormlized = unnormalize_value(target_joint_position, joint_min, joint_max)
-    articulation.write_joint_position_to_sim(
-        torch.tensor([[target_joint_position_unnormlized]]).to(env.device),
-        torch.tensor([joint_index]).to(env.device),
-        env_ids=env_ids.to(env.device) if env_ids is not None else None,
-    )
+from isaac_arena.utils.joint_utils import get_normalized_joint_position, set_normalized_joint_position
 
 
 class Openable(AffordanceBase):

@@ -14,6 +14,8 @@
 
 from typing import Literal
 
+from isaaclab.utils.assets import retrieve_file_path
+
 from isaac_arena.embodiments.g1.g1_supplemental_info import (
     G1SupplementalInfo,
     G1SupplementalInfoWaistLowerAndUpperBody,
@@ -38,6 +40,15 @@ def instantiate_g1_robot_model(
         RobotModel: Configured G1 robot model
     """
 
+    # NOTE(peterd, 9/25/2025): Update OV paths once release location is finalized
+    robot_model_config = {
+        "asset_path": "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/robot_model/g1/",
+        "urdf_path": "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/robot_model/g1/g1_29dof_with_hand.urdf",
+    }
+
+    asset_path_local = retrieve_file_path(robot_model_config["asset_path"], force_download=True)
+    urdf_path_local = retrieve_file_path(robot_model_config["urdf_path"], force_download=True)
+
     assert waist_location in [
         "lower_body",
         "upper_body",
@@ -52,6 +63,8 @@ def instantiate_g1_robot_model(
         robot_model_supplemental_info = G1SupplementalInfoWaistLowerAndUpperBody()
 
     robot_model = RobotModel(
+        urdf_path_local,
+        asset_path_local,
         supplemental_info=robot_model_supplemental_info,
     )
     return robot_model

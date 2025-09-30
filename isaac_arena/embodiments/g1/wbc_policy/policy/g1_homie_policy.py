@@ -20,6 +20,7 @@ from collections.abc import Callable
 from typing import Any
 
 import onnxruntime as ort
+from isaaclab.utils.assets import retrieve_file_path
 
 from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
 from isaac_arena.embodiments.g1.wbc_policy.utils.homie_utils import get_gravity_orientation, load_config
@@ -42,9 +43,11 @@ class G1HomiePolicyV2(WBCPolicy):
         self.robot_model = robot_model
 
         model_path_1, model_path_2 = model_path.split(",")
+        model_path_1_local = retrieve_file_path(model_path_1, force_download=True)
+        model_path_2_local = retrieve_file_path(model_path_2, force_download=True)
 
-        self.policy_1 = self.load_onnx_policy(str(parent_dir / model_path_1))
-        self.policy_2 = self.load_onnx_policy(str(parent_dir / model_path_2))
+        self.policy_1 = self.load_onnx_policy(str(parent_dir / model_path_1_local))
+        self.policy_2 = self.load_onnx_policy(str(parent_dir / model_path_2_local))
 
         # Initialize observation history buffer
         self.observation = None

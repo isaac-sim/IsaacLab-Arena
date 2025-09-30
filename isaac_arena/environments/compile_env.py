@@ -40,7 +40,7 @@ class ArenaEnvBuilder:
         self.arena_env = arena_env
         self.args = args
 
-    def compose_manager_cfg(self) -> tuple[IsaacArenaManagerBasedRLEnvCfg, str | type[ManagerBasedRLMimicEnv]]:
+    def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
@@ -54,7 +54,7 @@ class ArenaEnvBuilder:
         observation_cfg = self.arena_env.embodiment.get_observation_cfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
-            self.arena_env.embodiment.get_event_cfg(),
+            self.arena_env.embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             self.arena_env.task.get_events_cfg(),
         )
@@ -72,7 +72,6 @@ class ArenaEnvBuilder:
 
         # Build the environment configuration
         if not self.args.mimic:
-            entry_point = "isaaclab.envs:ManagerBasedRLEnv"
             env_cfg = IsaacArenaManagerBasedRLEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,
@@ -85,7 +84,6 @@ class ArenaEnvBuilder:
                 metrics=metrics,
             )
         else:
-            entry_point = self.arena_env.embodiment.get_mimic_env()
             task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
@@ -104,12 +102,22 @@ class ArenaEnvBuilder:
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics,
             )
-        return env_cfg, entry_point
+        return env_cfg
 
-    def build_registered(self) -> tuple[str, IsaacArenaManagerBasedRLEnvCfg]:
+    def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
+        """Return the entry point of the environment."""
+        if self.args.mimic:
+            return self.arena_env.embodiment.get_mimic_env()
+        else:
+            return "isaaclab.envs:ManagerBasedRLEnv"
+
+    def build_registered(
+        self, env_cfg: None | IsaacArenaManagerBasedRLEnvCfg = None
+    ) -> tuple[str, IsaacArenaManagerBasedRLEnvCfg]:
         """Register Gym env and parse runtime cfg."""
         name = self.arena_env.name
-        cfg_entry, entry_point = self.compose_manager_cfg()
+        cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+        entry_point = self.get_entry_point()
         gym.register(
             id=name,
             entry_point=entry_point,
@@ -124,10 +132,12 @@ class ArenaEnvBuilder:
         )
         return name, cfg
 
-    def make_registered(self) -> ManagerBasedEnv:
-        env, _ = self.make_registered_and_return_cfg()
+    def make_registered(self, env_cfg: None | IsaacArenaManagerBasedRLEnvCfg = None) -> ManagerBasedEnv:
+        env, _ = self.make_registered_and_return_cfg(env_cfg)
         return env
 
-    def make_registered_and_return_cfg(self) -> tuple[ManagerBasedEnv, IsaacArenaManagerBasedRLEnvCfg]:
-        name, cfg = self.build_registered()
+    def make_registered_and_return_cfg(
+        self, env_cfg: None | IsaacArenaManagerBasedRLEnvCfg = None
+    ) -> tuple[ManagerBasedEnv, IsaacArenaManagerBasedRLEnvCfg]:
+        name, cfg = self.build_registered(env_cfg)
         return gym.make(name, cfg=cfg).unwrapped, cfg

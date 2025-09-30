@@ -37,11 +37,17 @@ class OpenDoorTask(TaskBase):
         self.openable_object = openable_object
         self.openness_threshold = openness_threshold
         self.reset_openness = reset_openness
+        self.scene_config = None
+        self.events_cfg = OpenDoorEventCfg(self.openable_object, reset_openness=self.reset_openness)
+        self.termination_cfg = self.make_termination_cfg()
 
     def get_scene_cfg(self):
-        pass
+        return self.scene_config
 
     def get_termination_cfg(self):
+        return self.termination_cfg
+
+    def make_termination_cfg(self):
         params = {}
         if self.openness_threshold is not None:
             params["threshold"] = self.openness_threshold
@@ -52,7 +58,7 @@ class OpenDoorTask(TaskBase):
         return TerminationsCfg(success=success)
 
     def get_events_cfg(self):
-        return OpenDoorEventCfg(self.openable_object, reset_openness=self.reset_openness)
+        return self.events_cfg
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")

@@ -30,9 +30,9 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
         from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2Embodiment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-        from isaac_arena.geometry.pose import Pose
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.open_door_task import OpenDoorTask
+        from isaac_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("packing_table")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
