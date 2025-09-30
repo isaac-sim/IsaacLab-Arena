@@ -16,16 +16,20 @@ import shutil
 
 import pandas as pd
 
+from isaac_arena.policy.config.dataset_config import Gr00tDatasetConfig
 from isaac_arena.policy.data_utils.convert_hdf5_to_lerobot import convert_hdf5_to_lerobot
-from isaac_arena.policy.data_utils.yaml_config_loader import load_config_from_yaml
+from isaac_arena.policy.data_utils.io_utils import create_config_from_yaml
 from isaac_arena.tests.utils.constants import TestConstants
 
 
 def test_g1_convert_hdf5_to_lerobot():
     # Load expected data for comparison
-    expected_g1_parquet = pd.read_parquet(TestConstants.test_data_dir + "test_g1_hdf5_to_lerobot_expected.parquet")
-
-    g1_ds_config = load_config_from_yaml(TestConstants.test_data_dir + "test_g1_locomanip_config.yaml")
+    expected_g1_parquet = pd.read_parquet(
+        TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/data/chunk-000/episode_000000.parquet"
+    )
+    g1_ds_config = create_config_from_yaml(
+        TestConstants.test_data_dir + "/test_g1_locomanip_config.yaml", Gr00tDatasetConfig
+    )
 
     # Clean up any existing output directory
     if g1_ds_config.lerobot_data_dir.exists():
