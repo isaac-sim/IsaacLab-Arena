@@ -193,14 +193,14 @@ class Toaster(LibraryObject, Pressable):
 
     # Openable affordance parameters
     pressable_joint_name = "button_cancel_joint"
-    pressable_pressed_threshold = 0.5
+    pressedness_threshold = 0.5
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(
             prim_path=prim_path,
             initial_pose=initial_pose,
             pressable_joint_name=self.pressable_joint_name,
-            pressable_pressed_threshold=self.pressable_pressed_threshold,
+            pressedness_threshold=self.pressedness_threshold,
         )
 
 

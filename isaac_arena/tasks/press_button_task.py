@@ -24,21 +24,24 @@ from isaac_arena.tasks.task import TaskBase
 
 class PressButtonTask(TaskBase):
     def __init__(
-        self, pressable_object: Pressable, pressed_threshold: float | None = None, reset_pressed: float | None = None
+        self,
+        pressable_object: Pressable,
+        pressedness_threshold: float | None = None,
+        reset_pressedness: float | None = None,
     ):
         super().__init__()
         assert isinstance(pressable_object, Pressable), "Pressable object must be an instance of Pressable"
         self.pressable_object = pressable_object
-        self.pressed_threshold = pressed_threshold
-        self.reset_pressed = reset_pressed
+        self.pressedness_threshold = pressedness_threshold
+        self.reset_pressedness = reset_pressedness
 
     def get_scene_cfg(self):
         pass
 
     def get_termination_cfg(self):
         params = {}
-        if self.pressed_threshold is not None:
-            params["threshold"] = self.pressed_threshold
+        if self.pressedness_threshold is not None:
+            params["threshold"] = self.pressedness_threshold
         success = TerminationTermCfg(
             func=self.pressable_object.is_pressed,
             params=params,
@@ -46,7 +49,7 @@ class PressButtonTask(TaskBase):
         return TerminationsCfg(success=success)
 
     def get_events_cfg(self):
-        return PressEventCfg(self.pressable_object, reset_pressed=self.reset_pressed)
+        return PressEventCfg(self.pressable_object, reset_pressedness=self.reset_pressedness)
 
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
@@ -72,11 +75,11 @@ class PressEventCfg:
 
     reset_button_state: EventTermCfg = MISSING
 
-    def __init__(self, pressable_object: Pressable, reset_pressed: float | None):
+    def __init__(self, pressable_object: Pressable, reset_pressedness: float | None):
         assert isinstance(pressable_object, Pressable), "Object pose must be an instance of Pressable"
         params = {}
-        if reset_pressed is not None:
-            params["unpressed_percentage"] = reset_pressed
+        if reset_pressedness is not None:
+            params["unpressed_percentage"] = reset_pressedness
         self.reset_button_state = EventTermCfg(
             func=pressable_object.unpress,
             mode="reset",

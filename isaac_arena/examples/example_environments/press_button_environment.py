@@ -56,7 +56,7 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=PressButtonTask(press_object, reset_pressed=0.8),
+            task=PressButtonTask(press_object, reset_pressedness=0.8),
             teleop_device=teleop_device,
         )
         return isaac_arena_environment
