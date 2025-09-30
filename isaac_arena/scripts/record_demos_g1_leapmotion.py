@@ -126,6 +126,39 @@ from isaaclab.envs.ui import EmptyWindow
 from isaaclab.managers import DatasetExportMode
 
 
+class RateLimiter:
+    """Convenience class for enforcing rates in loops."""
+
+    def __init__(self, hz: int):
+        """Initialize a RateLimiter with specified frequency.
+
+        Args:
+            hz: Frequency to enforce in Hertz.
+        """
+        self.hz = hz
+        self.last_time = time.time()
+        self.sleep_duration = 1.0 / hz
+        self.render_period = min(0.033, self.sleep_duration)
+
+    def sleep(self, env: gym.Env):
+        """Attempt to sleep at the specified rate in hz.
+
+        Args:
+            env: Environment to render during sleep periods.
+        """
+        next_wakeup_time = self.last_time + self.sleep_duration
+        while time.time() < next_wakeup_time:
+            time.sleep(self.render_period)
+            env.sim.render()
+
+        self.last_time = self.last_time + self.sleep_duration
+
+        # detect time jumping forwards (e.g. loop is too slow)
+        if self.last_time < time.time():
+            while self.last_time < time.time():
+                self.last_time += self.sleep_duration
+
+
 def set_viewport_to_camera(camera_prim_path: str):
     """Set the viewport camera to a specific camera prim path.
 
@@ -174,39 +207,6 @@ def find_and_set_camera(camera_paths_to_try):
 
     omni.log.warn("Could not find any of the specified cameras")
     return False
-
-
-class RateLimiter:
-    """Convenience class for enforcing rates in loops."""
-
-    def __init__(self, hz: int):
-        """Initialize a RateLimiter with specified frequency.
-
-        Args:
-            hz: Frequency to enforce in Hertz.
-        """
-        self.hz = hz
-        self.last_time = time.time()
-        self.sleep_duration = 1.0 / hz
-        self.render_period = min(0.033, self.sleep_duration)
-
-    def sleep(self, env: gym.Env):
-        """Attempt to sleep at the specified rate in hz.
-
-        Args:
-            env: Environment to render during sleep periods.
-        """
-        next_wakeup_time = self.last_time + self.sleep_duration
-        while time.time() < next_wakeup_time:
-            time.sleep(self.render_period)
-            env.sim.render()
-
-        self.last_time = self.last_time + self.sleep_duration
-
-        # detect time jumping forwards (e.g. loop is too slow)
-        if self.last_time < time.time():
-            while self.last_time < time.time():
-                self.last_time += self.sleep_duration
 
 
 def setup_output_directories() -> tuple[str, str]:
@@ -334,7 +334,6 @@ def setup_teleop_device(callbacks: dict[str, Callable]) -> object:
         if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
             if args_cli.teleop_device.lower() == "leapmotion":
                 from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import Leapmotion
-
                 teleop_interface = Leapmotion(env_cfg.teleop_devices.devices["leapmotion"])
             else:
                 teleop_interface = create_teleop_device(
@@ -493,16 +492,6 @@ def decrease_angular_vel():
     ang_vel -= 0.1
 
 
-def toggle_standing():
-    global standing
-    global base_height
-    standing = 1 - standing
-    if standing == 1:
-        base_height = 0.75
-    else:
-        base_height = 0.75
-
-
 def increase_linear_vel_y():
     global lin_vel_y
     lin_vel_y += 0.1
@@ -594,7 +583,8 @@ def run_simulation_loop(
         should_reset_recording_instance = True
         print("Recording instance reset requested")
         reset_wbc()
-        global lin_vel_x, lin_vel_y, ang_vel, standing, base_height, torso_orientation_roll, torso_orientation_pitch, torso_orientation_yaw
+        global lin_vel_x, lin_vel_y, ang_vel, standing, base_height, \
+            torso_orientation_roll, torso_orientation_pitch, torso_orientation_yaw
         lin_vel_x = 0.0
         lin_vel_y = 0.0
         ang_vel = 0.0
@@ -647,7 +637,6 @@ def run_simulation_loop(
     keyboard_interface.add_callback("U", decrease_torso_orientation_yaw)
     keyboard_interface.add_callback("P", pause)
     keyboard_interface.reset()
-    global reset_wbc_flag, lin_vel_x, lin_vel_y, ang_vel, standing, base_height, pause_flag, torso_orientation_roll, torso_orientation_pitch, torso_orientation_yaw
 
     # Reset before starting
     env.sim.reset()
@@ -655,11 +644,7 @@ def run_simulation_loop(
     teleop_interface.reset()
 
     # Set viewport camera
-    # Try to find and set the robot head camera as a default
-    camera_paths = [
-        "/World/envs/env_0/Robot/head_link/RobotHeadCam",
-    ]
-    find_and_set_camera(camera_paths)
+    find_and_set_camera("/World/envs/env_0/Robot/head_link/RobotHeadCam")
 
     label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
     instruction_display = setup_ui(label_text, env)
