@@ -24,6 +24,7 @@ from isaac_arena.metrics.metric_base import MetricBase
 
 
 class ObjectVelocityRecorder(RecorderTerm):
+    """Records the linear velocity of an object for each sim step of an episode."""
 
     name = "object_linear_velocity"
 
@@ -32,6 +33,7 @@ class ObjectVelocityRecorder(RecorderTerm):
         self.object_name = cfg.object_name
 
     def record_post_step(self):
+        # NOTE(alexmillane, 2025-09-30): This assumes the the object is a rigid object.
         object_linear_velocity = self._env.scene[self.object_name].data.root_link_vel_w[:, :3]
         assert object_linear_velocity.shape == (self._env.num_envs, 3)
         return self.name, object_linear_velocity
@@ -44,19 +46,40 @@ class ObjectVelocityRecorderCfg(RecorderTermCfg):
 
 
 class ObjectMovedRateMetric(MetricBase):
+    """Computes the object-moved rate.
+
+    The object-moved rate is the number of episodes in which the object moved, divided
+    by the total number of episodes.
+    """
 
     name = "object_moved_rate"
     recorder_term_name = ObjectVelocityRecorder.name
 
     def __init__(self, object: Asset, object_velocity_threshold: float = 0.5):
+        """Initializes the object-moved rate metric.
+
+        Args:
+            object(Asset): The object to compute the object-moved rate for.
+            object_velocity_threshold(float): The threshold for the object velocity to be considered moved.
+        """
         super().__init__()
         self.object = object
         self.object_velocity_threshold = object_velocity_threshold
 
-    def get_recorder_term_cfg(self):
+    def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        """Return the recorder term configuration for the object-moved rate metric."""
         return ObjectVelocityRecorderCfg(object_name=self.object.name)
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+        """Computes the object-moved rate from the recorded metric data.
+
+        Args:
+            recorded_metric_data(list[np.ndarray]): The recorded object velocity per simulated episode.
+
+        Returns:
+            The object-moved rate(float). Value between 0 and 1. The proportion of episodes
+                in which the object moved.
+        """
         object_velocity_per_demo = recorded_metric_data
         object_moved_per_demo = []
         for object_velocity in object_velocity_per_demo:

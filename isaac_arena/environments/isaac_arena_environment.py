@@ -44,6 +44,3 @@ class IsaacArenaEnvironment:
 
     teleop_device: TeleopDeviceBase | None = None
     """The teleop device to use in the environment."""
-
-    # FOR TESTING ONLY
-    # recorder_cfg: object = MISSING

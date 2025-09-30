@@ -66,7 +66,6 @@ class ArenaEnvBuilder:
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
         teleop_device = self.arena_env.teleop_device
-
         metrics = self.arena_env.task.get_metrics()
         recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
