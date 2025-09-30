@@ -77,7 +77,6 @@ class PressEventCfg:
         params = {}
         if reset_pressed is not None:
             params["unpressed_percentage"] = reset_pressed
-        print(f"params: {params}")
         self.reset_button_state = EventTermCfg(
             func=pressable_object.unpress,
             mode="reset",
