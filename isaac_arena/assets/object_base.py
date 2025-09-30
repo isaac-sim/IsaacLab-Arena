@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.envs import ManagerBasedEnv
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaac_arena.assets.asset import Asset
@@ -62,6 +64,19 @@ class ObjectBase(Asset, ABC):
         return {
             self.name: object_cfg,
         }
+
+    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True):
+        # We require that the asset has been added to the scene under its name.
+        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
+            object_pose = env.scene[self.name].data.root_pose_w.clone()
+        elif self.object_type == ObjectType.BASE:
+            object_pose = torch.cat(env.scene[self.name].get_world_poses(), dim=-1)
+        else:
+            raise ValueError(f"Function not implemented for object type: {self.object_type}")
+        if is_relative:
+            object_pose[:, :3] -= env.scene.env_origins
+        return object_pose
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
