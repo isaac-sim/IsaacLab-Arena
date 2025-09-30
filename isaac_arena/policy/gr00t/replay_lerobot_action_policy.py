@@ -17,6 +17,7 @@ import numpy as np
 import torch
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 from pathlib import Path
+from collections.abc import Iterator
 
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
@@ -36,7 +37,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         """
 
         self.policy_config = create_config_from_yaml(policy_config_yaml_path, LerobotReplayActionPolicyConfig)
-        self.policy = self.load_policy()
+        self.policy = self.load_policy(self.policy_config)
         # Start from the trajectory_index trajectory in the dataset
         self.trajectory_index = trajectory_index
         self.policy_iter = self.create_trajectory_iterator(trajectory_index)
@@ -48,50 +49,45 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.device = device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
-        self.load_policy_joints_config()
-        self.load_sim_joints_config()
+        self.policy_joints_config = self.load_policy_joints_config()
+        self.robot_action_joints_config = self.load_sim_joints_config()
 
     def load_policy_joints_config(self):
         """Load the policy joint config from the data config."""
-        self.gr00t_joints_config = load_robot_joints_config_from_yaml(self.policy_config.gr00t_joints_config_path)
+        return load_robot_joints_config_from_yaml(self.policy_config.policy_joints_config_path)
 
     def load_sim_joints_config(self):
         """Load the simulation joint config from the data config."""
+        return load_robot_joints_config_from_yaml(self.policy_config.action_joints_config_path)
 
-        self.robot_action_joints_config = load_robot_joints_config_from_yaml(
-            self.policy_config.action_joints_config_path
-        )
-
-    def load_policy(self):
+    def load_policy(self, policy_config: LerobotReplayActionPolicyConfig) -> LeRobotSingleDataset:
         """Load the dataset, whose iterator will be used as the policy."""
-        assert Path(
-            self.policy_config.dataset_path
-        ).exists(), f"Dataset path {self.policy_config.dataset_path} does not exist"
+        assert Path(policy_config.dataset_path).exists(), f"Dataset path {policy_config.dataset_path} does not exist"
 
         # Use the same data preprocessor specified in the  data config map
-        if self.policy_config.data_config in DATA_CONFIG_MAP:
-            self.data_config = DATA_CONFIG_MAP[self.policy_config.data_config]
-        elif self.policy_config.data_config == "unitree_g1_sim_wbc":
+        if policy_config.data_config in DATA_CONFIG_MAP:
+            self.data_config = DATA_CONFIG_MAP[policy_config.data_config]
+        elif policy_config.data_config == "unitree_g1_sim_wbc":
             self.data_config = load_data_config("isaac_arena.policy.gr00t.data_config:UnitreeG1SimWBCDataConfig")
         else:
-            raise ValueError(f"Invalid data config: {self.policy_config.data_config}")
+            raise ValueError(f"Invalid data config: {policy_config.data_config}")
 
         modality_config = self.data_config.modality_config()
 
         return LeRobotSingleDataset(
-            dataset_path=self.policy_config.dataset_path,
+            dataset_path=policy_config.dataset_path,
             modality_configs=modality_config,
-            video_backend=self.policy_config.video_backend,
+            video_backend=policy_config.video_backend,
             video_backend_kwargs=None,
             transforms=None,  # We'll handle transforms separately through the policy
             embodiment_tag=self.policy_config.embodiment_tag,
         )
 
-    def get_trajectory_length(self) -> int:
+    def get_trajectory_length(self, trajectory_index: int) -> int:
         """Get the number of frames in one trajectory in the dataset."""
         assert self.policy.trajectory_lengths is not None
-        assert self.trajectory_index < len(self.policy.trajectory_lengths)
-        return self.policy.trajectory_lengths[self.trajectory_index]
+        assert trajectory_index < len(self.policy.trajectory_lengths)
+        return self.policy.trajectory_lengths[trajectory_index]
 
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
         """Return action from the dataset."""
@@ -104,7 +100,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         assert self.current_action_index < self.num_feedback_actions
 
         action = self.current_action_chunk[:, self.current_action_index]
-        assert action.ndim == 2, f"Action is {action.shape} but should be (B, action_dim)"
+        assert action.shape == (self.num_envs, env.action_space.shape[0])
 
         self.current_action_index += 1
         # reset to empty action chunk
@@ -139,7 +135,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         # NOTE(xinjieyao, 2025-09-29): assume gr1 tabletop manipulation does not use waist, arms_only
 
         robot_action_sim = remap_policy_joints_to_sim_joints(
-            actions, self.gr00t_joints_config, self.robot_action_joints_config, self.device
+            actions, self.policy_joints_config, self.robot_action_joints_config, self.device
         )
 
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
@@ -166,7 +162,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.current_action_chunk = None
         self.current_action_index = 0
 
-    def create_trajectory_iterator(self, trajectory_index: int = 0):
+    def create_trajectory_iterator(self, trajectory_index: int = 0) -> Iterator[int]:
         """Create an iterator starting from a specific trajectory index."""
         num_trajectories = len(self.policy.trajectory_lengths)
         if trajectory_index >= num_trajectories:
@@ -188,3 +184,6 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.policy_iter = iter(range(trajectory_index, num_trajectories))
         self.current_action_chunk = None
         self.current_action_index = 0
+
+    def get_trajectory_index(self) -> int:
+        return self.trajectory_index

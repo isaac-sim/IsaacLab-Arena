@@ -41,8 +41,8 @@ tasks_fname: "tasks.jsonl"
 info_template_path: "isaac_arena/policy/config/gr1/info.json"
 info_fname: "info.json"
 
-# GR00T policy specific parameters
-gr00t_joints_config_path: "isaac_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml"
+# policy specific parameters (gr00t demonstration data stored in lerobot format)
+policy_joints_config_path: "isaac_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml"
 robot_type: "gr1"
 
 # Robot simulation specific parameters

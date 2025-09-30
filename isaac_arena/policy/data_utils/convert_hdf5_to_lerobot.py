@@ -183,12 +183,12 @@ def get_feature_info(
     Returns:
         Dictionary containing feature information for each column and video.
     """
-    gr00t_joints_config = load_robot_joints_config_from_yaml(config.gr00t_joints_config_path)
+    policy_joints_config = load_robot_joints_config_from_yaml(config.policy_joints_config_path)
     # flatten dict of dict into a single dict, perseving the order of the keys
-    gr00t_joints_names = []
-    for joint_group in gr00t_joints_config.keys():
-        for joint_name in gr00t_joints_config[joint_group]:
-            gr00t_joints_names.append(joint_name)
+    policy_joints_names = []
+    for joint_group in policy_joints_config.keys():
+        for joint_name in policy_joints_config[joint_group]:
+            policy_joints_names.append(joint_name)
     features = {}
     for video_key, video_path in video_paths.items():
         video_metadata = get_video_metadata(video_path)
@@ -208,8 +208,8 @@ def get_feature_info(
         # State & action
         if column in [config.lerobot_keys["state"], config.lerobot_keys["action"]]:
             dof = column_data.shape[1]
-            assert dof == len(gr00t_joints_names)
-            features[column]["names"] = [f"{gr00t_joints_names[i]}" for i in range(dof)]
+            assert dof == len(policy_joints_names)
+            features[column]["names"] = [f"{policy_joints_names[i]}" for i in range(dof)]
 
     return features
 
@@ -331,7 +331,7 @@ def convert_trajectory_to_df(
 
     gr00t_modality_config = load_json(config.modality_template_path)
 
-    gr00t_joints_config = load_robot_joints_config_from_yaml(config.gr00t_joints_config_path)
+    policy_joints_config = load_robot_joints_config_from_yaml(config.policy_joints_config_path)
     action_joints_config = load_robot_joints_config_from_yaml(config.action_joints_config_path)
     state_joints_config = load_robot_joints_config_from_yaml(config.state_joints_config_path)
 
@@ -367,7 +367,7 @@ def convert_trajectory_to_df(
 
         # 1.1. Remap the joints from Lab order to the LeRobot-GR00T order
         joints = JointsAbsPosition.from_array(joints, input_joints_config, device="cpu")
-        remapped_joints = remap_sim_joints_to_policy_joints(joints, gr00t_joints_config)
+        remapped_joints = remap_sim_joints_to_policy_joints(joints, policy_joints_config)
 
         # 1.2. Fill in the missing joints with zeros
         ordered_joints = []

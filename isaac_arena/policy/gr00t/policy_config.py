@@ -42,7 +42,7 @@ class LerobotReplayActionPolicyConfig:
     data_config: str = field(
         default="unitree_g1_sim_wbc", metadata={"description": "Name of the data configuration to use for the policy."}
     )
-    gr00t_joints_config_path: Path = field(
+    policy_joints_config_path: Path = field(
         default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "gr00t_43dof_joint_space.yaml",
         metadata={"description": "Path to the YAML file specifying the joint ordering configuration for GR00T policy."},
     )
@@ -74,8 +74,8 @@ class LerobotReplayActionPolicyConfig:
         ), "num_feedback_actions must be less than or equal to action_horizon"
         # assert all paths exist
         assert Path(
-            self.gr00t_joints_config_path
-        ).exists(), f"gr00t_joints_config_path does not exist: {self.gr00t_joints_config_path}"
+            self.policy_joints_config_path
+        ).exists(), f"policy_joints_config_path does not exist: {self.policy_joints_config_path}"
         assert Path(
             self.action_joints_config_path
         ).exists(), f"action_joints_config_path does not exist: {self.action_joints_config_path}"

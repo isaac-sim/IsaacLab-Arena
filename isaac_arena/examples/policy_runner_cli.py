@@ -119,10 +119,10 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
             args.config_yaml_path, num_envs=args.num_envs, device=args.device, trajectory_index=args.trajectory_index
         )
         # Use custom max_steps if provided to optionally playing partial sequence in one trajectory
-        if hasattr(args, "max_steps") and args.max_steps is not None:
+        if args.max_steps is not None:
             num_steps = args.max_steps
         else:
-            num_steps = policy.get_trajectory_length()
+            num_steps = policy.get_trajectory_length(policy.get_trajectory_index())
     else:
         raise ValueError(f"Unknown policy type: {args.type}")
     return policy, num_steps
