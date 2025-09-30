@@ -65,7 +65,17 @@ class ObjectBase(Asset, ABC):
             self.name: object_cfg,
         }
 
-    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True):
+    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+        """Get the pose of the object in the environment.
+
+        Args:
+            env: The environment.
+            is_relative: Whether to return the pose in the relative frame of the environment.
+
+        Returns:
+            The pose of the object in each environment. The shape is (num_envs, 7).
+            The order is (x, y, z, qw, qx, qy, qz).
+        """
         # We require that the asset has been added to the scene under its name.
         assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
