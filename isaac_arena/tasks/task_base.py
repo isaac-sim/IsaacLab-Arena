@@ -15,6 +15,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from isaac_arena.metrics.metric_base import MetricBase
+
 
 class TaskBase(ABC):
 
@@ -36,4 +38,8 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_mimic_env_cfg(self, embodiment_name: str) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def get_metrics(self) -> list[MetricBase]:
         raise NotImplementedError("Function not implemented yet.")

@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import euler_xyz_from_quat
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaac_arena.affordances.openable import Openable
-from isaac_arena.tasks.task import TaskBase
+from isaac_arena.metrics.metric_base import MetricBase
+from isaac_arena.metrics.success_rate import SuccessRateMetric
+from isaac_arena.tasks.task_base import TaskBase
+from isaac_arena.terms.events import set_object_pose
 
 
 class OpenDoorTask(TaskBase):
@@ -67,6 +67,10 @@ class OpenDoorTask(TaskBase):
             openable_object_name=self.openable_object.name,
         )
 
+    def get_metrics(self) -> list[MetricBase]:
+        # TODO(alexmillane, 2025.09.25): Add door moved metric.
+        return [SuccessRateMetric()]
+
 
 @configclass
 class TerminationsCfg:
@@ -97,23 +101,14 @@ class OpenDoorEventCfg:
             mode="reset",
             params=params,
         )
-
         initial_pose = openable_object.get_initial_pose()
         if initial_pose is not None:
-            roll, pitch, yaw = euler_xyz_from_quat(torch.tensor(initial_pose.rotation_wxyz).reshape(1, 4))
             self.reset_openable_object_pose = EventTermCfg(
-                func=franka_stack_events.randomize_object_pose,
+                func=set_object_pose,
                 mode="reset",
                 params={
-                    "pose_range": {
-                        "x": (initial_pose.position_xyz[0] - 0.1, initial_pose.position_xyz[0] + 0.1),
-                        "y": (initial_pose.position_xyz[1] - 0.1, initial_pose.position_xyz[1] + 0.1),
-                        "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
-                        "roll": (roll, roll),
-                        "pitch": (pitch, pitch),
-                        "yaw": (yaw, yaw),
-                    },
-                    "asset_cfgs": [SceneEntityCfg(openable_object.name)],
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(openable_object.name),
                 },
             )
 

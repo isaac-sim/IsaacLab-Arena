@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from isaac_arena.tasks.task import TaskBase
+from isaac_arena.tasks.task_base import TaskBase
 
 
 class DummyTask(TaskBase):
@@ -32,4 +32,7 @@ class DummyTask(TaskBase):
         pass
 
     def get_mimic_env_cfg(self, embodiment_name: str):
+        pass
+
+    def get_metrics(self):
         pass

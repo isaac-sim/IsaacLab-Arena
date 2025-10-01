@@ -21,7 +21,10 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaac_arena.assets.asset import Asset
-from isaac_arena.tasks.task import TaskBase
+from isaac_arena.metrics.metric_base import MetricBase
+from isaac_arena.metrics.object_moved import ObjectMovedRateMetric
+from isaac_arena.metrics.success_rate import SuccessRateMetric
+from isaac_arena.tasks.task_base import TaskBase
 from isaac_arena.tasks.terminations import object_on_destination
 from isaac_arena.terms.events import set_object_pose
 
@@ -81,6 +84,9 @@ class PickAndPlaceTask(TaskBase):
             pick_up_object_name=self.pick_up_object.name,
             destination_location_name=self.destination_location.name,
         )
+
+    def get_metrics(self) -> list[MetricBase]:
+        return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
 
 @configclass

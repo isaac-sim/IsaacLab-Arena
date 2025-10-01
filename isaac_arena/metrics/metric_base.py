@@ -12,16 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 from abc import ABC, abstractmethod
 
+from isaaclab.managers.recorder_manager import RecorderTermCfg
 
-class TeleopDeviceBase(ABC):
 
-    name: str | None = None
+class MetricBase(ABC):
 
-    def __init__(self, sim_device: str | None = None):
-        self.sim_device = sim_device
+    name: str
+    recorder_term_name: str
 
     @abstractmethod
-    def get_teleop_device_cfg(self, embodiment: object | None = None):
-        raise NotImplementedError
+    def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+        raise NotImplementedError("Function not implemented yet.")
