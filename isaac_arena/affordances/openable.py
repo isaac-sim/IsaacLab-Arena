@@ -29,21 +29,26 @@ class Openable(AffordanceBase):
         # TODO(alexmillane, 2025.08.26): We probably want to be able to define the polarity of the joint.
         self.openable_joint_name = openable_joint_name
         self.openable_open_threshold = openable_open_threshold
+    
+    def get_openness(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
+        """Returns a boolean tensor of whether the object is open."""
+        if asset_cfg is None:
+            asset_cfg = SceneEntityCfg(self.name)
+        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
+        return get_normalized_joint_position(env, asset_cfg)
 
     def is_open(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is open."""
-        if asset_cfg is None:
-            asset_cfg = SceneEntityCfg(self.name)
         # We allow for overriding the object-level threshold by passing an argument to this
         # function explicitly. Otherwise we use the object-level threshold.
         if threshold is not None:
             openable_open_threshold = threshold
         else:
             openable_open_threshold = self.openable_open_threshold
-        asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        return get_normalized_joint_position(env, asset_cfg) > openable_open_threshold
+        openness = self.get_openness(env, asset_cfg)
+        return openness > openable_open_threshold
 
     def open(
         self,
