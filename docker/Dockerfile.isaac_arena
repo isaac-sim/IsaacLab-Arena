@@ -111,5 +111,34 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 RUN pip3 install debugpy
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
+
+####################################################################################################
+# Install dependencies for Leapmotion teleop
+# TODO (peterd, Oct 1 2025): Remove prior to release (Leapmotion is only for internal development)
+####################################################################################################
+RUN apt install -y wget
+
+RUN wget -qO - https://repo.ultraleap.com/keys/apt/gpg | gpg --dearmor | tee /etc/apt/trusted.gpg.d/ultraleap.gpg
+RUN echo 'deb [arch=amd64] https://repo.ultraleap.com/apt stable main' | tee /etc/apt/sources.list.d/ultraleap.list
+# Pre-accept UltraLeap license and install
+RUN apt update && \
+    echo 'ultraleap-hand-tracking ultraleap-hand-tracking/license-agreement boolean true' | debconf-set-selections && \
+    DEBIAN_FRONTEND=noninteractive apt install -y ultraleap-hand-tracking
+
+# Install build module first
+RUN /isaac-sim/kit/python/bin/python3 -m pip install build
+
+# Clone and install leapc python bindings
+RUN git clone https://github.com/ultraleap/leapc-python-bindings /opt/leapc-python-bindings && \
+    cd /opt/leapc-python-bindings && \
+    /isaac-sim/kit/python/bin/python3 -m pip install -r requirements.txt && \
+    /isaac-sim/kit/python/bin/python3 -m build leapc-cffi && \
+    /isaac-sim/kit/python/bin/python3 -m pip install leapc-cffi/dist/leapc_cffi-0.0.1.tar.gz && \
+    /isaac-sim/kit/python/bin/python3 -m pip install -e leapc-python-api/
+
+RUN /isaac-sim/kit/python/bin/python3 -m pip install numpy==1.26.0
+####################################################################################################
+####################################################################################################
+
 # Remove the entrypoint from the base image.
 ENTRYPOINT []
