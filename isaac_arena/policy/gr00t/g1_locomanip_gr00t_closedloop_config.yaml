@@ -1,6 +1,6 @@
 # This file shows how to configure the Gr00tClosedloopPolicy class for G1 locomanipulation task
 # TODO(xinjie.yao, 2025-09-30): change Hardcoded model_path to some releasable path
-model_path: /datasets/ckpts/gn1_5_g1_galileo_box_npnp_ckpts/100_v2/
+model_path: /ckpts/gn1_5_g1_galileo_box_npnp/checkpoint-20000
 action_horizon: 16
 embodiment_tag: new_embodiment
 video_backend: decord

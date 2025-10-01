@@ -82,8 +82,13 @@ jobs:
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
-
+      # virtual mounted ckpts directory from the local machine
+      volumes:
+        - $HOME/ckpts:/ckpts
     steps:
+      - name: Print ckpts directory
+        run: ls -la /ckpts
+
       - name: Install git (and tools needed by hooks)
         run: |
           apt-get update
