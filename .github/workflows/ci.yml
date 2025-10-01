@@ -82,8 +82,13 @@ jobs:
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
-
+      # virtual mounted checkpoints directory from the local machine
+      volumes:
+        - /home/runner/checkpoints:/checkpoints
     steps:
+      - name: Print checkpoints directory
+        run: ls -la /checkpoints
+
       - name: Install git (and tools needed by hooks)
         run: |
           apt-get update
