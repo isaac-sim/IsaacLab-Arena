@@ -17,6 +17,8 @@ from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.utils import configclass
 
+from isaac_arena.metrics.metric_base import MetricBase
+
 
 @configclass
 class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
@@ -28,11 +30,15 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # actions: object
     # events: object
     # terminations: object
+    # recorders: object
 
     # Kill the unused managers
     commands = None
     rewards = None
     curriculum = None
+
+    # Metrics
+    metrics: list[MetricBase] | None = None
 
     def __post_init__(self):
         """Post initialization."""
@@ -47,14 +53,6 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 1 / 200  # 200Hz
         # NOTE(peterd, 2025-09-23) Set the render interval lower than decimation to smooth out the rendering.
         self.sim.render_interval = 2
-
-        # Add teleop device here as we need access to xr and sim device.
-        if self.teleop_devices is not None:
-            self.teleop_devices = self.teleop_devices.get_teleop_device_cfg(
-                sim_device=self.sim.device,
-                actions=self.actions,
-                xr_cfg=self.xr,
-            )
 
 
 @configclass
