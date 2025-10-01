@@ -24,13 +24,15 @@ class _TestConstants:
         # The root directory of the repo
         self.repo_root = os.path.realpath(os.path.join(script_dir, *([".."] * 3)))
 
-        self.examples_dir = f"{self.repo_root}/isaac_arena/examples/"
+        self.examples_dir = f"{self.repo_root}/isaac_arena/examples"
 
-        self.test_dir = f"{self.repo_root}/isaac_arena/tests/"
+        self.test_dir = f"{self.repo_root}/isaac_arena/tests"
 
         self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
 
-        self.test_data_dir = f"{self.test_dir}/test_data/"
+        self.test_data_dir = f"{self.test_dir}/test_data"
+
+        self.policy_dir = f"{self.repo_root}/isaac_arena/policy"
 
 
 TestConstants = _TestConstants()

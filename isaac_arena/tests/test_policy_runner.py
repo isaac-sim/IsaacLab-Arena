@@ -107,7 +107,7 @@ def test_zero_action_policy_gr1_open_microwave():
 def test_replay_policy_gr1_open_microwave():
     run_policy_runner(
         policy_type="replay",
-        replay_file_path=TestConstants.test_data_dir + "test_demo_gr1_open_microwave.hdf5",
+        replay_file_path=TestConstants.test_data_dir + "/test_demo_gr1_open_microwave.hdf5",
         example_environment="gr1_open_microwave",
         num_steps=NUM_STEPS,
     )

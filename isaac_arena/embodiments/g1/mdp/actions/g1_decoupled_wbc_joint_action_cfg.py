@@ -17,13 +17,13 @@ from dataclasses import MISSING
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
 
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_action import G1DecoupledWBCAction
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
 
 
 @configclass
-class G1DecoupledWBCActionCfg(ActionTermCfg):
-    class_type: type[ActionTerm] = G1DecoupledWBCAction
-    """Specifies the action term class type for G1 WBC action."""
+class G1DecoupledWBCJointActionCfg(ActionTermCfg):
+    class_type: type[ActionTerm] = G1DecoupledWBCJointAction
+    """Specifies the action term class type for G1 WBC with upper body direct joint position control."""
 
     preserve_order: bool = False
     joint_names: list[str] = MISSING
