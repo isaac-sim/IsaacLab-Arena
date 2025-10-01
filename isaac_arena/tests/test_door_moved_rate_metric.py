@@ -12,28 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import torch
 import tqdm
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
 NUM_STEPS = 100
-HEADLESS = False
+HEADLESS = True
 
 # Test description.
-# We start 2 envs. In these two envs:
-# - 1 : The object falls in the drawer resulting in a success.
-# - 2 : The object falls out of the drawer resulting in a failure.
-# We expect the success rate to be 0.5 and the object moved rate to be 1.0.
-# We allow for
-# - Success rate error: 10% because the two environments reset at different rates
-#   due to the different height that the object falls from.
-# - Object moved rate error: 5% to allow for the case where in the last run
-#   the object doesn't move much (in practice I haven't seen this happen).
-EXPECTED_SUCCESS_RATE = 0.5
-ALLOWABLE_SUCCESS_RATE_ERROR = 0.1
-EXPECTED_OBJECT_MOVED_RATE = 1.0
-ALLOWABLE_OBJECT_MOVED_RATE_ERROR = 0.05
+# We simulate for 100 steps. In the first 50, the door is closed.
+# In the second 50, the door is opened every step and the environment
+# resets every step and the door is closed again.
+# We set the max episode length small such that while the door is open,
+# the environment resets every few (currently 5) steps.
+# Therefore we get some episodes with movement and some without.
+# See the calculations below for an exact calculation.
+EXPECTED_MOVEMENT_RATE_EPS = 1e-6
 
 
 def _test_door_moved_rate(simulation_app):
@@ -86,14 +82,18 @@ def _test_door_moved_rate(simulation_app):
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
-        # assert "success_rate" in metrics
-        # assert "object_moved_rate" in metrics
-        # success_rate = metrics["success_rate"]
-        # object_moved_rate = metrics["object_moved_rate"]
-        # print(f"Success rate: {success_rate}")
-        # print(f"Object moved rate: {object_moved_rate}")
-        # assert abs(success_rate - EXPECTED_SUCCESS_RATE) < ALLOWABLE_SUCCESS_RATE_ERROR
-        # assert abs(object_moved_rate - EXPECTED_OBJECT_MOVED_RATE) < ALLOWABLE_OBJECT_MOVED_RATE_ERROR
+
+        # Calculate the expected door moved rate.
+        num_steps_per_episode = math.ceil(env_cfg.episode_length_s / (env_cfg.sim.dt * env_cfg.decimation))
+        print(f"Number of steps per episode: {num_steps_per_episode}")
+        num_steps_door_closed = NUM_STEPS / 2
+        num_episodes_no_movement = int(num_steps_door_closed / num_steps_per_episode)
+        print(f"Number of episodes no movement: {num_episodes_no_movement}")
+        num_episodes_with_movement = metrics["num_episodes"] - num_episodes_no_movement
+        expected_movement_rate = num_episodes_with_movement / metrics["num_episodes"]
+        print(f"Expected movement rate: {expected_movement_rate}")
+        print(f"Measured movement rate: {metrics['door_moved_rate']}")
+        assert abs(metrics["door_moved_rate"] - expected_movement_rate) < EXPECTED_MOVEMENT_RATE_EPS
 
     except Exception as e:
         print(f"Error: {e}")

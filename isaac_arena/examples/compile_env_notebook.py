@@ -16,6 +16,7 @@
 
 import torch
 import tqdm
+from math import ceil
 
 import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
@@ -102,7 +103,21 @@ from isaac_arena.metrics.metrics import compute_metrics
 
 print(f"Episode length buffer: {env.episode_length_buf}")
 print(f"Max episode length: {env.max_episode_length}")
-print(compute_metrics(env))
+metrics = compute_metrics(env)
+print(metrics)
 
+# %%
+
+import math
+
+num_steps_per_episode = math.ceil(env_cfg.episode_length_s / (env_cfg.sim.dt * env_cfg.decimation))
+print(f"Number of steps per episode: {num_steps_per_episode}")
+num_steps_door_closed = NUM_STEPS / 2
+num_episodes_no_movement = int(num_steps_door_closed / num_steps_per_episode)
+print(f"Number of episodes no movement: {num_episodes_no_movement}")
+
+num_episodes_with_movement = metrics["num_episodes"] - num_episodes_no_movement
+expected_no_movement_rate = num_episodes_with_movement / metrics["num_episodes"]
+print(f"Expected no movement rate: {expected_no_movement_rate}")
 
 # %%
