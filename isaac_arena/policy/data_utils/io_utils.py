@@ -16,8 +16,12 @@ import collections
 import json
 import numpy as np
 import yaml
+from dataclasses import fields
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, Union
+
+# Generic type variable for configuration classes
+ConfigType = TypeVar("ConfigType")
 
 
 def dump_jsonl(data, file_path):
@@ -87,3 +91,90 @@ def load_robot_joints_config_from_yaml(yaml_path: str | Path) -> dict[str, Any]:
     """Load robot joint configuration from YAML file"""
     config = load_dict_from_yaml(yaml_path)
     return config.get("joints", {})
+
+
+def convert_yaml_value(field_type: type, value: Any) -> Any:
+    """Convert YAML value to the appropriate type based on field type annotation."""
+    # Handle Path fields
+    if field_type == Path or (
+        hasattr(field_type, "__origin__") and field_type.__origin__ is Union and Path in field_type.__args__
+    ):
+        if isinstance(value, str):
+            return Path(value)
+        return value
+
+    # Handle tuple fields (like image size)
+    if hasattr(field_type, "__origin__") and field_type.__origin__ is tuple:
+        if isinstance(value, list):
+            return tuple(value)
+        return value
+
+    # Handle basic types
+    if field_type in (str, int, float, bool):
+        return field_type(value)
+
+    return value
+
+
+def load_config_from_yaml(yaml_path: str | Path, config_class: type[ConfigType]) -> dict[str, Any]:
+    """
+    Load configuration from a YAML file for any dataclass.
+
+    Args:
+        yaml_path: Path to the YAML configuration file
+        config_class: The dataclass type to load configuration for
+
+    Returns:
+        dict: Dictionary of converted configuration data
+
+    Example:
+        >>> data = load_config_from_yaml("my_config.yaml", Gr00tDatasetConfig)
+    """
+    yaml_path = Path(yaml_path)
+    if not yaml_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
+
+    yaml_data = load_dict_from_yaml(yaml_path)
+
+    # Get field information from dataclass
+    field_types = {field.name: field.type for field in fields(config_class)}
+
+    # Convert YAML values to appropriate types
+    converted_data = {}
+    for field_name, value in yaml_data.items():
+        if field_name in field_types:
+            try:
+                converted_data[field_name] = convert_yaml_value(field_types[field_name], value)
+            except Exception as e:
+                print(f"Warning: Failed to convert field '{field_name}' with value '{value}': {e}")
+                converted_data[field_name] = value
+        else:
+            print(f"Warning: Unknown field '{field_name}' in YAML config")
+    return converted_data
+
+
+def create_config_from_yaml(yaml_path: str | Path, config_class: type[ConfigType]) -> ConfigType:
+    """Create a configuration object from a YAML file using any dataclass.
+
+    Args:
+        yaml_path (str | Path): Path to the YAML configuration file
+        config_class (Type[ConfigType]): The dataclass type to instantiate
+
+    Returns:
+        ConfigType: Instance of the specified configuration class
+
+    Example:
+        >>> dataset_config = create_config_from_yaml("dataset.yaml", Gr00tDatasetConfig)
+        >>> policy_config = create_config_from_yaml("policy.yaml", LerobotReplayActionPolicyConfig)
+    """
+    try:
+        converted_data = load_config_from_yaml(yaml_path, config_class)
+        config = config_class(**converted_data)
+    except Exception as e:
+        print(f"Error creating {config_class.__name__}: {e}")
+        print("Available fields:")
+        for field in fields(config_class):
+            print(f"  - {field.name}: {field.type}")
+        raise
+
+    return config

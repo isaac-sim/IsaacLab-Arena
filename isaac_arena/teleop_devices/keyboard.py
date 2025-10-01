@@ -26,16 +26,18 @@ class KeyboardTeleopDevice(TeleopDeviceBase):
 
     name = "keyboard"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, sim_device: str | None = None, pos_sensitivity: float = 0.05, rot_sensitivity: float = 0.05):
+        super().__init__(sim_device=sim_device)
+        self.pos_sensitivity = pos_sensitivity
+        self.rot_sensitivity = rot_sensitivity
 
-    def build_cfg(self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None):
+    def get_teleop_device_cfg(self, embodiment: object | None = None):
         return DevicesCfg(
             devices={
                 "keyboard": Se3KeyboardCfg(
-                    pos_sensitivity=0.05,
-                    rot_sensitivity=0.05,
-                    sim_device=sim_device,
+                    pos_sensitivity=self.pos_sensitivity,
+                    rot_sensitivity=self.rot_sensitivity,
+                    sim_device=self.sim_device,
                 ),
             }
         )
