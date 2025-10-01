@@ -61,6 +61,7 @@ def get_recorded_metric_data(dataset_path: pathlib.Path, recorder_term_name: str
     with h5py.File(dataset_path, "r") as f:
         demos = f["data"]
         for demo in demos:
+            print(f"Demo: {demo}")
             recorded_metric_data_per_demo.append(demos[demo][recorder_term_name][:])
     return recorded_metric_data_per_demo
 

@@ -25,6 +25,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_eve
 from isaac_arena.affordances.openable import Openable
 from isaac_arena.metrics.metric_base import MetricBase
 from isaac_arena.metrics.success_rate import SuccessRateMetric
+from isaac_arena.metrics.door_moved_rate import DoorMovedRateMetric
 from isaac_arena.tasks.task_base import TaskBase
 
 
@@ -70,8 +71,11 @@ class OpenDoorTask(TaskBase):
         )
 
     def get_metrics(self) -> list[MetricBase]:
-        # TODO(alexmillane, 2025.09.25): Add door moved metric.
-        return [SuccessRateMetric()]
+        return [SuccessRateMetric(),
+                DoorMovedRateMetric(
+                    self.openable_object,
+                    reset_openness=self.reset_openness,
+                )]
 
 
 @configclass
@@ -112,8 +116,8 @@ class OpenDoorEventCfg:
                 mode="reset",
                 params={
                     "pose_range": {
-                        "x": (initial_pose.position_xyz[0] - 0.1, initial_pose.position_xyz[0] + 0.1),
-                        "y": (initial_pose.position_xyz[1] - 0.1, initial_pose.position_xyz[1] + 0.1),
+                        "x": (initial_pose.position_xyz[0], initial_pose.position_xyz[0]),
+                        "y": (initial_pose.position_xyz[1], initial_pose.position_xyz[1]),
                         "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
                         "roll": (roll, roll),
                         "pitch": (pitch, pitch),
