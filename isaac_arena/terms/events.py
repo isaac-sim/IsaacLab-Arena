@@ -26,7 +26,7 @@ def set_object_pose(
     env_ids: torch.Tensor,
     asset_cfg: SceneEntityCfg,
     pose: Pose,
-):
+) -> None:
     if env_ids is None:
         return
     # Grab the object
@@ -45,7 +45,7 @@ def set_object_pose_per_env(
     env_ids: torch.Tensor,
     asset_cfg: SceneEntityCfg,
     pose_list: list[Pose],
-):
+) -> None:
     if env_ids is None:
         return
 

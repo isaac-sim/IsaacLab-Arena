@@ -29,7 +29,7 @@ class Openable(AffordanceBase):
         # TODO(alexmillane, 2025.08.26): We probably want to be able to define the polarity of the joint.
         self.openable_joint_name = openable_joint_name
         self.openable_open_threshold = openable_open_threshold
-    
+
     def get_openness(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is open."""
         if asset_cfg is None:

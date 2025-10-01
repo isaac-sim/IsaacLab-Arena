@@ -53,7 +53,7 @@ isaac_arena_environment = IsaacArenaEnvironment(
 )
 
 
-#%
+# %
 
 # from dataclasses import MISSING
 
@@ -78,7 +78,7 @@ isaac_arena_environment = IsaacArenaEnvironment(
 # isaac_arena_environment.task.get_metrics = get_metrics
 # print(isaac_arena_environment.task.get_metrics())
 
-#%
+# %
 
 args_cli = get_isaac_arena_cli_parser().parse_args([])
 env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
@@ -93,7 +93,7 @@ env.reset()
 NUM_STEPS = 100
 for i in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
-        if i > NUM_STEPS/2:
+        if i > NUM_STEPS / 2:
             microwave.open(env, env_ids=None)
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
@@ -103,7 +103,6 @@ from isaac_arena.metrics.metrics import compute_metrics
 print(f"Episode length buffer: {env.episode_length_buf}")
 print(f"Max episode length: {env.max_episode_length}")
 print(compute_metrics(env))
-
 
 
 # %%

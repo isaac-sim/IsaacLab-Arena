@@ -65,7 +65,10 @@ class ArenaEnvBuilder:
         )
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
-        teleop_device = self.arena_env.teleop_device
+        if self.arena_env.teleop_device is not None:
+            teleop_device_cfg = self.arena_env.teleop_device.get_teleop_device_cfg(embodiment=self.arena_env.embodiment)
+        else:
+            teleop_device_cfg = None
         metrics = self.arena_env.task.get_metrics()
         recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
@@ -78,7 +81,7 @@ class ArenaEnvBuilder:
                 scene=scene_cfg,
                 terminations=termination_cfg,
                 xr=xr_cfg,
-                teleop_devices=teleop_device,
+                teleop_devices=teleop_device_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics,
             )
@@ -91,7 +94,7 @@ class ArenaEnvBuilder:
                 scene=scene_cfg,
                 terminations=termination_cfg,
                 xr=xr_cfg,
-                teleop_devices=teleop_device,
+                teleop_devices=teleop_device_cfg,
                 # Mimic stuff
                 datagen_config=task_mimic_env_cfg.datagen_config,
                 subtask_configs=task_mimic_env_cfg.subtask_configs,

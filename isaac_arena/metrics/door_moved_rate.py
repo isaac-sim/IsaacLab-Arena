@@ -19,8 +19,8 @@ from isaaclab.envs.manager_based_rl_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
-from isaac_arena.assets.object_base import ObjectBase
 from isaac_arena.affordances.openable import Openable
+from isaac_arena.assets.object_base import ObjectBase
 from isaac_arena.metrics.metric_base import MetricBase
 
 
@@ -54,7 +54,9 @@ class DoorMovedRateMetric(MetricBase):
     name = "door_moved_rate"
     recorder_term_name = OpennessRecorder.name
 
-    def __init__(self, object: ObjectBase, reset_openness: float, openness_delta_threshold: float = 0.05): #NEEDS TO BE RELATIVE TO THE START POSITION OF THE OBJECT
+    def __init__(
+        self, object: ObjectBase, reset_openness: float, openness_delta_threshold: float = 0.05
+    ):  # NEEDS TO BE RELATIVE TO THE START POSITION OF THE OBJECT
         """Initializes the door-moved rate metric.
 
         Args:

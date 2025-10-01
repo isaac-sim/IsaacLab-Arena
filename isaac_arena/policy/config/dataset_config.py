@@ -112,10 +112,10 @@ class Gr00tDatasetConfig:
         metadata={"description": "Path to the info template JSON file."},
     )
     info_fname: str = field(default="info.json", metadata={"description": "Filename for the info JSON file."})
-    # GR00T policy specific parameters
-    gr00t_joints_config_path: Path = field(
+    # policy specific parameters
+    policy_joints_config_path: Path = field(
         default=Path(__file__).parent.resolve() / "g1" / "gr00t_43dof_joint_space.yaml",
-        metadata={"description": "Path to the YAML file specifying the joint ordering configuration for GR00T policy."},
+        metadata={"description": "Path to the YAML file specifying the joint ordering configuration used in dataset."},
     )
     robot_type: str = field(
         default="null", metadata={"description": "Type of robot embodiment used in the policy fine-tuning."}
@@ -154,7 +154,7 @@ class Gr00tDatasetConfig:
         self.lerobot_data_dir = self.data_root / self.hdf5_name.replace(".hdf5", "") / "lerobot"
 
         assert self.hdf5_file_path.exists(), f"{self.hdf5_file_path} does not exist"
-        assert Path(self.gr00t_joints_config_path).exists(), f"{self.gr00t_joints_config_path} does not exist"
+        assert Path(self.policy_joints_config_path).exists(), f"{self.policy_joints_config_path} does not exist"
         assert Path(self.action_joints_config_path).exists(), f"{self.action_joints_config_path} does not exist"
         assert Path(self.state_joints_config_path).exists(), f"{self.state_joints_config_path} does not exist"
         assert Path(self.info_template_path).exists(), f"{self.info_template_path} does not exist"
