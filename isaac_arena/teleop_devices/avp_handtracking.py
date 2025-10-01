@@ -25,28 +25,30 @@ class HandTrackingTeleopDevice(TeleopDeviceBase):
     Teleop device for hand tracking.
     """
 
-    NUM_OPENXR_HAND_JOINTS = 26
-
     name = "avp_handtracking"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self, sim_device: str | None = None, num_open_xr_hand_joints: int = 52, enable_visualization: bool = True
+    ):
+        super().__init__(sim_device=sim_device)
+        self.num_open_xr_hand_joints = num_open_xr_hand_joints
+        self.enable_visualization = enable_visualization
 
-    def build_cfg(self, *, sim_device: str | None = None, actions: object | None = None, xr_cfg: object | None = None):
+    def get_teleop_device_cfg(self, embodiment: object | None = None):
         return DevicesCfg(
             devices={
                 "avp_handtracking": OpenXRDeviceCfg(
                     retargeters=[
                         GR1T2RetargeterCfg(
-                            enable_visualization=True,
+                            enable_visualization=self.enable_visualization,
                             # number of joints in both hands
-                            num_open_xr_hand_joints=2 * self.NUM_OPENXR_HAND_JOINTS,
-                            sim_device=sim_device,
-                            hand_joint_names=actions.pink_ik_cfg.hand_joint_names,
+                            num_open_xr_hand_joints=self.num_open_xr_hand_joints,
+                            sim_device=self.sim_device,
+                            hand_joint_names=embodiment.get_action_cfg().pink_ik_cfg.hand_joint_names,
                         ),
                     ],
-                    sim_device=sim_device,
-                    xr_cfg=xr_cfg,
+                    sim_device=self.sim_device,
+                    xr_cfg=embodiment.get_xr_cfg(),
                 ),
             }
         )
