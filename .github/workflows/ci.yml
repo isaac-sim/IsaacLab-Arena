@@ -176,6 +176,9 @@ jobs:
           apt-get install -y --no-install-recommends docker.io
           docker --version
 
+      - name: Enable BuildKit
+        run: echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+
       - name: Docker login to NGC
         # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
         run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
