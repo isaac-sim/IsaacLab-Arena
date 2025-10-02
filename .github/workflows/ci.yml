@@ -135,7 +135,7 @@ jobs:
 
 
     container:
-      image: ubuntu-latest
+      image: ubuntu:latest
       # credentials:
       #   username: $oauthtoken
       #   password: ${{ env.NGC_API_KEY }}
