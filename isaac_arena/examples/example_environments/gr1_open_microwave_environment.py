@@ -65,7 +65,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
-            embodiment=GR1T2Embodiment(),
+            embodiment=GR1T2Embodiment(enable_cameras=args_cli.enable_cameras),
             scene=scene,
             task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2),
             teleop_device=teleop_device,
