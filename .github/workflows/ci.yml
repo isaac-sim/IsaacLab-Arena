@@ -162,6 +162,9 @@ jobs:
       - name: Mark repo as safe for git
         run: git config --global --add safe.directory "$PWD"
 
+      - name: cleanup IsaacSim simlink
+        run: rm -f submodules/IsaacLab/_isaac_sim
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
