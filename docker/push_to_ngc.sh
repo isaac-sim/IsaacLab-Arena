@@ -7,7 +7,7 @@ PUSH_TO_NGC=false
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-while getopts ":t:g:ph" OPTION; do
+while getopts ":t:gph" OPTION; do
     case $OPTION in
         t)
             TAG_NAME=$OPTARG
