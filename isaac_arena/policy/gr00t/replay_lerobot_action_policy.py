@@ -16,8 +16,8 @@ import gymnasium as gym
 import numpy as np
 import torch
 from collections.abc import Iterator
-from gymnasium.spaces.dict import Dict as GymSpacesDict
 from pathlib import Path
+from typing import Any
 
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
@@ -49,16 +49,16 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.device = device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
-        self.policy_joints_config = self.load_policy_joints_config()
-        self.robot_action_joints_config = self.load_sim_joints_config()
+        self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
+        self.robot_action_joints_config = self.load_sim_joints_config(self.policy_config.action_joints_config_path)
 
-    def load_policy_joints_config(self):
+    def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
         """Load the policy joint config from the data config."""
-        return load_robot_joints_config_from_yaml(self.policy_config.policy_joints_config_path)
+        return load_robot_joints_config_from_yaml(policy_config_path)
 
-    def load_sim_joints_config(self):
+    def load_sim_joints_config(self, action_config_path: Path) -> dict[str, Any]:
         """Load the simulation joint config from the data config."""
-        return load_robot_joints_config_from_yaml(self.policy_config.action_joints_config_path)
+        return load_robot_joints_config_from_yaml(action_config_path)
 
     def load_policy(self, policy_config: LerobotReplayActionPolicyConfig) -> LeRobotSingleDataset:
         """Load the dataset, whose iterator will be used as the policy."""
@@ -89,7 +89,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         assert trajectory_index < len(self.policy.trajectory_lengths)
         return self.policy.trajectory_lengths[trajectory_index]
 
-    def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+    def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return action from the dataset."""
         # get new predictions and return the first action from the chunk
         if self.current_action_chunk is None and self.current_action_index == 0:

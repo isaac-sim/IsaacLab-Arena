@@ -322,7 +322,6 @@ class G1WBCJointObservationsCfg:
             func=base_mdp.joint_pos,
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
-        # TODO(xinjie.yao, 2025.09.09): Add robot pov camera
         robot_joint_vel = ObsTerm(
             func=base_mdp.joint_vel,
             params={"asset_cfg": SceneEntityCfg("robot")},
@@ -342,6 +341,10 @@ class G1WBCJointObservationsCfg:
                 "target_link_name": "left_wrist_yaw_link",
                 "target_frame_name": "pelvis",
             },
+        )
+        robot_head_cam = ObsTerm(
+            func=mdp.image,
+            params={"sensor_cfg": SceneEntityCfg("robot_head_cam"), "data_type": "rgb", "normalize": False},
         )
 
         def __post_init__(self):

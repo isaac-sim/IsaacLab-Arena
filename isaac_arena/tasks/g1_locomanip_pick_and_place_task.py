@@ -23,7 +23,9 @@ from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaac_arena.assets.asset import Asset
-from isaac_arena.tasks.task import TaskBase
+from isaac_arena.metrics.metric_base import MetricBase
+from isaac_arena.metrics.success_rate import SuccessRateMetric
+from isaac_arena.tasks.task_base import TaskBase
 from isaac_arena.tasks.terminations import objects_in_proximity
 
 
@@ -69,6 +71,9 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
 
     def get_mimic_env_cfg(self, embodiment_name: str):
         return G1LocomanipPickPlaceMimicEnvCfg()
+
+    def get_metrics(self) -> list[MetricBase]:
+        return [SuccessRateMetric()]
 
 
 @configclass
