@@ -31,7 +31,7 @@ def main():
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
-        env.reset()
+        obs, _ = env.reset()
 
         # NOTE(xinjieyao, 2025-09-29): General rule of thumb is to have as many non-standard python
         # library imports after app launcher as possible, otherwise they will likely stall the sim
@@ -41,9 +41,10 @@ def main():
 
         for _ in tqdm.tqdm(range(num_steps)):
             with torch.inference_mode():
-                actions = policy.get_action(env, env.observation_space)
-                env.step(actions)
-
+                actions = policy.get_action(env, obs)
+                obs, _, terminated, truncated, _ = env.step(actions)
+            if terminated.any() or truncated.any():
+                obs = env.reset()
         # Close the environment.
         env.close()
 

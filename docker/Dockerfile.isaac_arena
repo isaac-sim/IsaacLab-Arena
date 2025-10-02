@@ -34,6 +34,7 @@ RUN if [ "$INSTALL_GROOT" = "true" ]; then \
 ################################
 RUN apt-get update && apt-get install -y \
   git \
+  git-lfs \
   cmake \
   sudo \
   python3-pip
