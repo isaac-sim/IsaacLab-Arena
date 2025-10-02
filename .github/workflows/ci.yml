@@ -134,6 +134,8 @@ jobs:
       NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
     steps:
+      - name: Clean workspace
+        run: rm -rf $GITHUB_WORKSPACE/*
       - name: Checkout
         uses: actions/checkout@v4
         with:
