@@ -135,7 +135,7 @@ jobs:
 
     steps:
       - name: Clean workspace
-        run: rm -rf $GITHUB_WORKSPACE/*
+        run: sudo rm -rf $GITHUB_WORKSPACE/*
       - name: Checkout
         uses: actions/checkout@v4
         with:
