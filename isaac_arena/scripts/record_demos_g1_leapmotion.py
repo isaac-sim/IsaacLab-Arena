@@ -64,10 +64,7 @@ parser.add_argument(
     help="Enable Pinocchio.",
 )
 parser.add_argument(
-    "--enable_leapmotion",
-    action="store_true",
-    default=False,
-    help="Enable leapmotion.",
+    "--teleop_device", type=str, default="leapmotion", help="The teleop device to use."
 )
 
 # Add the example environments CLI args
@@ -310,60 +307,6 @@ def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name:
     except Exception as e:
         omni.log.error(f"Failed to create environment: {e}")
         exit(1)
-
-
-def setup_teleop_device(callbacks: dict[str, Callable]) -> object:
-    """Set up the teleoperation device based on configuration.
-
-    Attempts to create a teleoperation device based on the environment configuration.
-    Falls back to default devices if the specified device is not found in the configuration.
-
-    Args:
-        callbacks: Dictionary mapping callback keys to functions that will be
-                   attached to the teleop device
-
-    Returns:
-        object: The configured teleoperation device interface
-
-    Raises:
-        Exception: If teleop device creation fails
-    """
-
-    teleop_interface = None
-    try:
-        if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
-            if args_cli.teleop_device.lower() == "leapmotion":
-                from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import Leapmotion
-
-                teleop_interface = Leapmotion(env_cfg.teleop_devices.devices["leapmotion"])
-            else:
-                teleop_interface = create_teleop_device(
-                    args_cli.teleop_device, env_cfg.teleop_devices.devices, callbacks
-                )
-        else:
-            omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
-            # Create fallback teleop device
-            if args_cli.teleop_device.lower() == "keyboard":
-                teleop_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.2, rot_sensitivity=0.5))
-            elif args_cli.teleop_device.lower() == "spacemouse":
-                teleop_interface = Se3SpaceMouse(Se3SpaceMouseCfg(pos_sensitivity=0.2, rot_sensitivity=0.5))
-            else:
-                omni.log.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                omni.log.error("Supported devices: keyboard, spacemouse, avp_handtracking")
-                exit(1)
-
-            # Add callbacks to fallback device
-            for key, callback in callbacks.items():
-                teleop_interface.add_callback(key, callback)
-    except Exception as e:
-        omni.log.error(f"Failed to create teleop device: {e}")
-        exit(1)
-
-    if teleop_interface is None:
-        omni.log.error("Failed to create teleop interface")
-        exit(1)
-
-    return teleop_interface
 
 
 def setup_ui(label_text: str, env: gym.Env) -> InstructionDisplay:
@@ -615,8 +558,9 @@ def run_simulation_loop(
         "RESET": reset_recording_instance,
     }
 
-    teleop_interface = setup_teleop_device(teleoperation_callbacks)
-    teleop_interface.add_callback("R", reset_recording_instance)
+    # Import Leapmotion after env creation to prevent circular import
+    from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import Leapmotion, LeapmotionCfg
+    teleop_interface = Leapmotion(LeapmotionCfg())
 
     """ Lower body keyboard control """
     keyboard_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.1, rot_sensitivity=0.1))
