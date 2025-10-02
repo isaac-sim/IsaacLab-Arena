@@ -45,6 +45,8 @@ class EmbodimentBase(Asset):
 
     @abstractmethod
     def get_scene_cfg(self) -> Any:
+        if self.initial_pose is not None:
+            self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, self.initial_pose)
         if self.enable_cameras:
             if self.camera_config is not None:
                 return combine_configclass_instances(
@@ -52,8 +54,6 @@ class EmbodimentBase(Asset):
                     self.scene_config,
                     self.camera_config,
                 )
-        if self.initial_pose is not None:
-            self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, self.initial_pose)
         return self.scene_config
 
     @abstractmethod
