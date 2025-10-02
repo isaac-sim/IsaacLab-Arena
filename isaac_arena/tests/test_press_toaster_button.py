@@ -29,9 +29,9 @@ def get_test_environment(num_envs: int):
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.geometry.pose import Pose
     from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.dummy_task import DummyTask
+    from isaac_arena.utils.pose import Pose
 
     args_parser = get_isaac_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
