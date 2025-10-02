@@ -40,9 +40,9 @@ jobs:
           apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
           git --version
           git lfs version
-      
-      - name: Debug
-        run: sleep infinity
+
+      # - name: Debug
+      #   run: sleep infinity
 
       # Checkout Code
       - name: Checkout Code
@@ -50,7 +50,14 @@ jobs:
         with:
           clean: true
           fetch-depth: 0
-          lfs: true
+          # lfs: true
+
+      # git lfs
+      # NOTE(alexmillane, 2025-10-02): git lfs is not needed for the CI workflow
+      - name: Git LFS
+        run: |
+          git lfs update --force
+          git lfs install --local
 
       # Fix "detected dubious ownership in repository" inside containers
       - name: Mark repo as safe for git
