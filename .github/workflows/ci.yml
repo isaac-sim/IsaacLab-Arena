@@ -21,114 +21,115 @@ env:
   OMNI_PASS: ${{ secrets.OMNI_PASS }}
   OMNI_USER: ${{ secrets.OMNI_USER }}
 
+
 jobs:
-  # test:
-  #   name: Run pre commit checks and tests
-  #   runs-on: [self-hosted, zurich]
-  #   timeout-minutes: 30
+  test:
+    name: Run pre commit checks and tests
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
 
-  #   steps:
-  #     - name: Install git (and tools needed by hooks)
-  #       run: |
-  #         apt-get update
-  #         apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
-  #         git --version
-  #         git lfs version
+    steps:
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
+          git --version
+          git lfs version
 
-  #     # Checkout Code
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         lfs: true
+      # Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
 
-  #     # Fix "detected dubious ownership in repository" inside containers
-  #     - name: Mark repo as safe for git
-  #       run: git config --global --add safe.directory "$PWD"
+      # Fix "detected dubious ownership in repository" inside containers
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
 
-  #     # Pull LFS files explicitly (in case checkout didn't get them all)
-  #     - name: Pull Git LFS files
-  #       run: git lfs pull
+      # Pull LFS files explicitly (in case checkout didn't get them all)
+      - name: Pull Git LFS files
+        run: git lfs pull
 
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v3
+      - name: Setup Python
+        uses: actions/setup-python@v3
 
-  #     - name: Install project and link isaac-sim
-  #       run: |
-  #         pip install --no-cache-dir -e .
-  #         [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+      - name: Install project and link isaac-sim
+        run: |
+          pip install --no-cache-dir -e .
+          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-  #     - name: Run pre-commit
-  #       run: |
-  #         pip install --no-cache-dir --upgrade pip pre-commit
-  #         pre-commit run --all-files
+      - name: Run pre-commit
+        run: |
+          pip install --no-cache-dir --upgrade pip pre-commit
+          pre-commit run --all-files
 
-  #     - name: Run pytest excluding policy-related tests
-  #       run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests
+        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
 
-  # test_policy:
-  #   name: Run policy-related tests with GR00T & cuda12_8 deps
-  #   runs-on: [self-hosted, zurich]
-  #   timeout-minutes: 30
+  test_policy:
+    name: Run policy-related tests with GR00T & cuda12_8 deps
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
-  #     # virtual mounted checkpoints directory from the local machine
-  #     volumes:
-  #       - /home/runner/checkpoints:/checkpoints
-  #   steps:
-  #     - name: Print checkpoints directory
-  #       run: ls -la /checkpoints
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+      # virtual mounted checkpoints directory from the local machine
+      volumes:
+        - /home/runner/checkpoints:/checkpoints
+    steps:
+      - name: Print checkpoints directory
+        run: ls -la /checkpoints
 
-  #     - name: Install git (and tools needed by hooks)
-  #       run: |
-  #         apt-get update
-  #         apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
-  #         git --version
-  #         git lfs version
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
+          git --version
+          git lfs version
 
-  #     # Checkout Code
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         lfs: true
+      # Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
 
-  #     # Fix "detected dubious ownership in repository" inside containers
-  #     - name: Mark repo as safe for git
-  #       run: git config --global --add safe.directory "$PWD"
+      # Fix "detected dubious ownership in repository" inside containers
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
 
-  #     # Pull LFS files explicitly (in case checkout didn't get them all)
-  #     - name: Pull Git LFS files
-  #       run: git lfs pull
+      # Pull LFS files explicitly (in case checkout didn't get them all)
+      - name: Pull Git LFS files
+        run: git lfs pull
 
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v3
+      - name: Setup Python
+        uses: actions/setup-python@v3
 
-  #     - name: Install project and link isaac-sim
-  #       run: |
-  #         pip install --no-cache-dir -e .
-  #         [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+      - name: Install project and link isaac-sim
+        run: |
+          pip install --no-cache-dir -e .
+          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-  #     - name: Run policy-related pytest
-  #       run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
+      - name: Run policy-related pytest
+        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
 
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, zurich]
     timeout-minutes: 60
-    # needs: [test, test_policy]       # only push if tests passed
-    # if: github.event_name == 'push' #&& github.ref == 'refs/heads/main'
+    needs: [test, test_policy]       # only push if tests passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     container:
       image: ubuntu:latest
