@@ -54,15 +54,16 @@ jobs:
         with:
           clean: true
           fetch-depth: 0
-          lfs: true
+          # LFS checkout here somehow causes issues when LFS stuff changes over time.
+          # So I do LFS manually in a step after.
+          # lfs: true 
 
-      # # git lfs
-      # # NOTE(alexmillane, 2025-10-02): git lfs is not needed for the CI workflow
-      # - name: Git LFS
-      #   run: |
-      #     git lfs update --force
-      #     git lfs install --local
-
+      # git lfs
+      # NOTE(alexmillane, 2025-10-02): git lfs is not needed for the CI workflow
+      - name: Git LFS
+        run: |
+          git lfs update --force
+          git lfs install --local
 
       # Pull LFS files explicitly (in case checkout didn't get them all)
       - name: Pull Git LFS files
