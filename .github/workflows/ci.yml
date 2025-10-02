@@ -124,33 +124,6 @@ jobs:
 
 
   build_and_push_image_post_merge:
-    name: Run pre commit checks and tests
-    runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
-
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-
-    steps:
-      - name: Install git (and tools needed by hooks)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
-          git --version
-          git lfs version
-
-      # Checkout Code
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-
-
-  test:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, zurich]
     timeout-minutes: 30
@@ -159,12 +132,13 @@ jobs:
 
     # container:
     #   image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
-    #   credentials:
-    #     username: $oauthtoken
-    #     password: ${{ env.NGC_API_KEY }}
+
 
     container:
       image: ubuntu-latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
 
     env:
       # already defined at top, but keep here for clarity/local override if needed
