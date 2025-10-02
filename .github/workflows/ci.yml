@@ -160,7 +160,7 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-          # submodules: recursive
+          submodules: recursive
           # clean: true
 
       # Fix "detected dubious ownership in repository" inside containers
