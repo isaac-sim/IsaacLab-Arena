@@ -158,21 +158,21 @@ jobs:
       # - name: debug
       #   run: sleep infinity
 
+      # Fix "detected dubious ownership in repository" inside containers
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           clean: true
           fetch-depth: 0
           lfs: true
-          submodules: true
+          # submodules: true
           # clean: true
 
-      # - name: submodules
-      #   run: git submodule update --init
-
-      # Fix "detected dubious ownership in repository" inside containers
-      - name: Mark repo as safe for git
-        run: git config --global --add safe.directory "$PWD"
+      - name: submodules
+        run: git submodule update --init
 
       - name: debug
         run: sleep infinity
