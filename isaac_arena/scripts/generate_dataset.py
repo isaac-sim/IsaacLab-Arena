@@ -95,14 +95,14 @@ class PreStepFlatCameraObservationsRecorder(RecorderTerm):
 
 @configclass
 class PreStepFlatCameraObservationsRecorderCfg(RecorderTermCfg):
-    """Configuration for the step subtask terms observation recorder term."""
+    """Configuration for the camera observation recorder term."""
 
     class_type: type[RecorderTerm] = PreStepFlatCameraObservationsRecorder
 
 
 @configclass
 class ArenaEnvRecorderManagerCfg(ActionStateRecorderManagerCfg):
-    """Configuration for the step camera observation recorder term."""
+    """Add the camera observation recorder term."""
 
     record_pre_step_flat_camera_observations = PreStepFlatCameraObservationsRecorderCfg()
 
