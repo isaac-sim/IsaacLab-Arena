@@ -18,7 +18,7 @@ import tqdm
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
 NUM_STEPS = 100
-HEADLESS = False
+HEADLESS = True
 
 # Test description.
 # We start 2 envs. In these two envs:
@@ -36,7 +36,7 @@ EXPECTED_OBJECT_MOVED_RATE = 1.0
 ALLOWABLE_OBJECT_MOVED_RATE_ERROR = 0.05
 
 
-def _test_metrics(simulation_app):
+def _test_success_rate_metric(simulation_app):
     """Returns a scene which we use for these tests."""
 
     from isaaclab.managers import EventTermCfg, SceneEntityCfg
@@ -129,13 +129,13 @@ def _test_metrics(simulation_app):
     return True
 
 
-def test_metrics():
+def test_success_rate_metric():
     result = run_simulation_app_function_in_separate_process(
-        _test_metrics,
+        _test_success_rate_metric,
         headless=HEADLESS,
     )
-    assert result, f"Test {test_metrics.__name__} failed"
+    assert result, f"Test {test_success_rate_metric.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_metrics()
+    test_success_rate_metric()
