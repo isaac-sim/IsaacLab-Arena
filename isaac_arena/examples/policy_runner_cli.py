@@ -74,6 +74,18 @@ def add_replay_lerobot_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_gr00t_closedloop_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add gr00t closedloop policy specific arguments to the parser."""
+    gr00t_closedloop_group = parser.add_argument_group(
+        "Gr00t Closedloop Policy", "Arguments for gr00t closedloop policy"
+    )
+    gr00t_closedloop_group.add_argument(
+        "--policy_config_yaml_path",
+        type=str,
+        help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
+    )
+
+
 def setup_policy_argument_parser() -> argparse.ArgumentParser:
     """Set up and configure the argument parser with all policy-related arguments."""
     # Get the base parser from Isaac Arena
@@ -82,22 +94,24 @@ def setup_policy_argument_parser() -> argparse.ArgumentParser:
     args_parser.add_argument(
         "--policy_type",
         type=str,
-        choices=["zero_action", "replay", "replay_lerobot"],
+        choices=["zero_action", "replay", "replay_lerobot", "gr00t_closedloop"],
         required=True,
-        help="Type of policy to use: 'zero_action' or 'replay' or 'replay_lerobot'",
+        help="Type of policy to use: 'zero_action' or 'replay' or 'replay_lerobot' or 'gr00t_closedloop'",
     )
 
     # Add policy-specific argument groups
     add_zero_action_arguments(args_parser)
     add_replay_arguments(args_parser)
     add_replay_lerobot_arguments(args_parser)
+    add_gr00t_closedloop_arguments(args_parser)
     parsed_args = args_parser.parse_args()
 
     if parsed_args.policy_type == "replay" and parsed_args.replay_file_path is None:
         raise ValueError("--replay_file_path is required when using --policy_type replay")
     if parsed_args.policy_type == "replay_lerobot" and parsed_args.config_yaml_path is None:
         raise ValueError("--config_yaml_path is required when using --policy_type replay_lerobot")
-
+    if parsed_args.policy_type == "gr00t_closedloop" and parsed_args.policy_config_yaml_path is None:
+        raise ValueError("--policy_config_yaml_path is required when using --policy_type gr00t_closedloop")
     return args_parser
 
 
@@ -123,6 +137,12 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
             num_steps = args.max_steps
         else:
             num_steps = policy.get_trajectory_length(policy.get_trajectory_index())
+
+    elif args.policy_type == "gr00t_closedloop":
+        from isaac_arena.policy.gr00t.gr00t_closedloop_policy import Gr00tClosedloopPolicy
+
+        policy = Gr00tClosedloopPolicy(args.policy_config_yaml_path, num_envs=args.num_envs, device=args.device)
+        num_steps = args.num_steps
     else:
         raise ValueError(f"Unknown policy type: {args.type}")
     return policy, num_steps
