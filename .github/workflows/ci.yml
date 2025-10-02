@@ -135,10 +135,10 @@ jobs:
 
 
     container:
-      image: ubuntu:latest
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
+      image: ubuntu-latest
+      # credentials:
+      #   username: $oauthtoken
+      #   password: ${{ env.NGC_API_KEY }}
 
     env:
       # already defined at top, but keep here for clarity/local override if needed
