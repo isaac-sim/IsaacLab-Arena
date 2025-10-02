@@ -134,8 +134,16 @@ jobs:
       NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
     steps:
-      - name: Clean workspace
-        run: sudo rm -rf $GITHUB_WORKSPACE/*
+      # - name: Clean workspace
+      #   run: sudo rm -rf $GITHUB_WORKSPACE/*
+
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
+          git --version
+          git lfs version
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -144,6 +152,7 @@ jobs:
           submodules: recursive
           clean: true
 
+      # Fix "detected dubious ownership in repository" inside containers
       - name: Mark repo as safe for git
         run: git config --global --add safe.directory "$PWD"
 
