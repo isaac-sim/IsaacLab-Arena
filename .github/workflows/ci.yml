@@ -242,4 +242,4 @@ jobs:
       - name: Deploy to GitHub Pages
         run: |
           cp -r docs/_build/html/* docs/
-          touch docs/.nojekyll
+          touch docs/.nojekyll 
