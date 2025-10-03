@@ -241,5 +241,5 @@ jobs:
       # create a .nojekyll file to disable Jekyll.
       - name: Deploy to GitHub Pages
         run: |
-          cp -r docs/_build/html/* .
-          touch .nojekyll
+          cp -r docs/_build/html/* docs/
+          touch docs/.nojekyll
