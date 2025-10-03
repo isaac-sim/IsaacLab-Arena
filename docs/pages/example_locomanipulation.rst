@@ -146,19 +146,19 @@ Configuration file (``g1_locomanip_replay_action_config.yaml``):
 
    # Dataset path (LeRobot format)
    dataset_path: /datasets/Arena-G1-Loco-Manipulation-Task/lerobot/
-   
+
    # Action chunking parameters
    action_horizon: 16
    num_feedback_actions: 1
-   
+
    # Robot configuration
    embodiment_tag: new_embodiment
    data_config: unitree_g1_sim_wbc
-   
+
    # Joint mappings
    gr00t_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
    action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
-   
+
    # Task mode
    task_mode: g1_locomanipulation
 
@@ -218,16 +218,16 @@ Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    model_path: /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
    embodiment_tag: new_embodiment
    data_config: unitree_g1_sim_wbc
-   
+
    # Task configuration
    language_instruction: "Pick up the brown box and place it in the blue bin"
    task_mode: g1_locomanipulation
-   
+
    # Inference parameters
    denoising_steps: 10
    policy_device: cuda
    target_image_size: [256, 256, 3]
-   
+
    # Joint mappings
    gr00t_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
    action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
