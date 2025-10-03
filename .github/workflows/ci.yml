@@ -79,6 +79,7 @@ jobs:
       - name: Run pytest excluding policy-related tests
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
 
+
   # TODO(Vik): Reanable test
   # test_policy:
   #   name: Run policy-related tests with GR00T & cuda12_8 deps
@@ -202,3 +203,35 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+
+
+  docs_pre_merge:
+    name: Build the docs pre-merge
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
+
+    container:
+      image: python:3.11-slim
+
+    steps:
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates make
+          git --version
+          git lfs version
+
+      # Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+
+      # Build docs
+      - name: Build docs
+        run: |
+          cd docs
+          pip3 install -r requirements.txt
+          make SPHINXOPTS=-W html
+          touch ./_build/html/.nojekyll

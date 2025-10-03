@@ -87,3 +87,6 @@ TAGS
 # Ignore core dumps produced by debugpy
 core
 core.*
+
+# venvs
+**venv_docs/
