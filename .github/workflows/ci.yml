@@ -205,7 +205,7 @@ jobs:
 
 
 
-  docs pre-merge:
+  docs_pre_merge:
     name: Run pre commit checks and tests
     runs-on: [self-hosted, zurich]
     timeout-minutes: 30
