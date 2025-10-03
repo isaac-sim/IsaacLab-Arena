@@ -28,7 +28,7 @@ echo "Upgrading packaging tools..."
 
 # Install GR00T with the specified dependency group
 echo "Installing Isaac-GR00T with dependency group: $GROOT_DEPS_GROUP"
-/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e /workspaces/isaac_arena/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP]
+/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e ${WORKDIR}/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP]
 
 # Install flash-attn (specific version for compatibility)
 echo "Installing flash-attn..."

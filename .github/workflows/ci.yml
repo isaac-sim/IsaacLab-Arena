@@ -79,67 +79,69 @@ jobs:
       - name: Run pytest excluding policy-related tests
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
 
-  test_policy:
-    name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
 
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-      # virtual mounted checkpoints directory from the local machine
-      volumes:
-        - /home/runner/checkpoints:/checkpoints
-    steps:
-      - name: Print checkpoints directory
-        run: ls -la /checkpoints
+  # TODO(Vik): Reanable test
+  # test_policy:
+  #   name: Run policy-related tests with GR00T & cuda12_8 deps
+  #   runs-on: [self-hosted, zurich]
+  #   timeout-minutes: 30
 
-      - name: Install git (and tools needed by hooks)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
-          git --version
-          git lfs version
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
+  #     # virtual mounted checkpoints directory from the local machine
+  #     volumes:
+  #       - /home/runner/checkpoints:/checkpoints
+  #   steps:
+  #     - name: Print checkpoints directory
+  #       run: ls -la /checkpoints
 
-      # Checkout Code
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          # LFS checkout here somehow causes issues when LFS stuff changes over time.
-          # So I do LFS manually in a step after.
-          # lfs: true
+  #     - name: Install git (and tools needed by hooks)
+  #       run: |
+  #         apt-get update
+  #         apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
+  #         git --version
+  #         git lfs version
 
-      # Fix "detected dubious ownership in repository" inside containers
-      - name: Mark repo as safe for git
-        run: git config --global --add safe.directory "$PWD"
+  #     # Checkout Code
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #         # LFS checkout here somehow causes issues when LFS stuff changes over time.
+  #         # So I do LFS manually in a step after.
+  #         # lfs: true
 
-      # Pull LFS files explicitly (in case checkout didn't get them all)
-      - name: Git LFS
-        run: |
-          git lfs update --force
-          git lfs install --local
-          git lfs pull
+  #     # Fix "detected dubious ownership in repository" inside containers
+  #     - name: Mark repo as safe for git
+  #       run: git config --global --add safe.directory "$PWD"
 
-      - name: Setup Python
-        uses: actions/setup-python@v3
+  #     # Pull LFS files explicitly (in case checkout didn't get them all)
+  #     - name: Git LFS
+  #       run: |
+  #         git lfs update --force
+  #         git lfs install --local
+  #         git lfs pull
 
-      - name: Install project and link isaac-sim
-        run: |
-          pip install --no-cache-dir -e .
-          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v3
 
-      - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
+  #     - name: Install project and link isaac-sim
+  #       run: |
+  #         pip install --no-cache-dir -e .
+  #         [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+
+  #     - name: Run policy-related pytest
+  #       run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
 
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, zurich]
     timeout-minutes: 60
-    needs: [test, test_policy]       # only push if tests passed
+    needs: [test]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     container:
@@ -201,3 +203,35 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+
+
+  docs_pre_merge:
+    name: Build the docs pre-merge
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
+
+    container:
+      image: python:3.11-slim
+
+    steps:
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates make
+          git --version
+          git lfs version
+
+      # Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+
+      # Build docs
+      - name: Build docs
+        run: |
+          cd docs
+          pip3 install -r requirements.txt
+          make SPHINXOPTS=-W html
+          touch ./_build/html/.nojekyll

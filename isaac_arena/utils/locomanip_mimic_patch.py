@@ -184,10 +184,11 @@ def patch_generate():  # noqa: C901
                 env_action_queue=env_action_queue,
             )
 
-            obs = exec_results["observations"][0]["wbc"]
-            if "is_navigating" in obs and "navigation_goal_reached" in obs:
-                is_navigating = obs["is_navigating"]
-                navigation_goal_reached = obs["navigation_goal_reached"]
+            if "wbc" in exec_results["observations"][0]:
+                obs = exec_results["observations"][0]["wbc"]
+                if "is_navigating" in obs and "navigation_goal_reached" in obs:
+                    is_navigating = obs["is_navigating"]
+                    navigation_goal_reached = obs["navigation_goal_reached"]
             else:
                 is_navigating = False
                 navigation_goal_reached = False
