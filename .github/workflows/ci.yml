@@ -79,6 +79,7 @@ jobs:
       - name: Run pytest excluding policy-related tests
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
 
+  # TODO(Vik): Reanable test
   # test_policy:
   #   name: Run policy-related tests with GR00T & cuda12_8 deps
   #   runs-on: [self-hosted, zurich]
