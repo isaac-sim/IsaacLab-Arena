@@ -33,8 +33,8 @@ class G1DecoupledWBCPinkActionCfg(ActionTermCfg):
     # Navigation Segment: Use P-controller
     use_p_control: bool = False
     # Navigation Segment: P-controller parameters
-    distance_error_threshold: float = 0.06
-    heading_diff_threshold: float = 0.15
+    distance_error_threshold: float = 0.1
+    heading_diff_threshold: float = 0.2
     kp_angular_turning_only: float = 0.4
     kp_linear_x: float = 2.0
     kp_linear_y: float = 2.0
