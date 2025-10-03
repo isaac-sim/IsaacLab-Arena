@@ -99,7 +99,7 @@ class G1DecoupledWBCJointAction(ActionTerm):
         }
         wbc_g1_joints_order_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml",
+            "config/loco_manip_g1_joints_order_43dof.yaml",
         )
         try:
             with open(wbc_g1_joints_order_path) as f:
@@ -113,11 +113,6 @@ class G1DecoupledWBCJointAction(ActionTerm):
     def num_joints(self) -> int:
         """Get the number of joints."""
         return G1_NUM_JOINTS
-
-    @property
-    def navigation_goal_reached(self) -> bool:
-        """Get the navigation goal reached tensor."""
-        return self._navigation_goal_reached
 
     @property
     def navigate_cmd_dim(self) -> int:
