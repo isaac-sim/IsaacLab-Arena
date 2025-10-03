@@ -12,10 +12,12 @@
 
 from setuptools import find_packages, setup
 
+ISAAC_ARENA_VERSION_NUMBER = "1.0.0"
+
 setup(
     name="isaac_arena",
-    version="0.1.0",
-    description="Isaac Arena environment for Robotics Simulations. ",
+    version=ISAAC_ARENA_VERSION_NUMBER,
+    description="Isaac Lab - Arena. An Isaac Lab extension for robotic policy evaluation. ",
     packages=find_packages(),
     python_requires=">=3.10",
     zip_safe=False,
