@@ -73,7 +73,8 @@ import isaaclab_mimic.envs  # noqa: F401
 import omni
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
-from isaaclab.managers import DatasetExportMode
+from isaaclab.managers import DatasetExportMode, RecorderTerm, RecorderTermCfg
+from isaaclab.utils import configclass
 
 # Imports have to follow simulation startup.
 
@@ -83,6 +84,27 @@ if args_cli.enable_pinocchio:
 import isaaclab_tasks  # noqa: F401
 from isaaclab_mimic.datagen.generation import env_loop, setup_async_generation
 from isaaclab_mimic.datagen.utils import setup_output_paths
+
+
+class PreStepFlatCameraObservationsRecorder(RecorderTerm):
+    """Recorder term that records the camera observations in each step."""
+
+    def record_pre_step(self):
+        return "camera_obs", self._env.obs_buf["camera_obs"]
+
+
+@configclass
+class PreStepFlatCameraObservationsRecorderCfg(RecorderTermCfg):
+    """Configuration for the camera observation recorder term."""
+
+    class_type: type[RecorderTerm] = PreStepFlatCameraObservationsRecorder
+
+
+@configclass
+class ArenaEnvRecorderManagerCfg(ActionStateRecorderManagerCfg):
+    """Add the camera observation recorder term."""
+
+    record_pre_step_flat_camera_observations = PreStepFlatCameraObservationsRecorderCfg()
 
 
 def setup_env_config(
@@ -132,7 +154,10 @@ def setup_env_config(
     env_cfg.observations.policy.concatenate_terms = False
 
     # Setup recorders
-    env_cfg.recorders = ActionStateRecorderManagerCfg()
+    if args_cli.enable_cameras:
+        env_cfg.recorders = ArenaEnvRecorderManagerCfg()
+    else:
+        env_cfg.recorders = ActionStateRecorderManagerCfg()
     env_cfg.recorders.dataset_export_dir_path = output_dir
     env_cfg.recorders.dataset_filename = output_file_name
 

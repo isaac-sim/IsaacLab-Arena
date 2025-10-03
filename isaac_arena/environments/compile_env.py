@@ -27,6 +27,7 @@ from isaac_arena.environments.isaac_arena_manager_based_env import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacArenaManagerBasedRLEnvCfg,
 )
+from isaac_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaac_arena.utils.configclass import combine_configclass_instances
 
 
@@ -39,7 +40,7 @@ class ArenaEnvBuilder:
         self.arena_env = arena_env
         self.args = args
 
-    def compose_manager_cfg(self) -> tuple[IsaacArenaManagerBasedRLEnvCfg, str | type[ManagerBasedRLMimicEnv]]:
+    def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
@@ -68,6 +69,8 @@ class ArenaEnvBuilder:
             teleop_device_cfg = self.arena_env.teleop_device.get_teleop_device_cfg(embodiment=self.arena_env.embodiment)
         else:
             teleop_device_cfg = None
+        metrics = self.arena_env.task.get_metrics()
+        recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
         # Build the environment configuration
         if not self.args.mimic:
@@ -79,6 +82,8 @@ class ArenaEnvBuilder:
                 terminations=termination_cfg,
                 xr=xr_cfg,
                 teleop_devices=teleop_device_cfg,
+                recorders=recorder_manager_cfg,
+                metrics=metrics,
             )
         else:
             task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
@@ -94,6 +99,10 @@ class ArenaEnvBuilder:
                 datagen_config=task_mimic_env_cfg.datagen_config,
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
                 task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
+                # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
+                # I assume that they're not needed for the mimic env.
+                # recorders=recorder_manager_cfg,
+                # metrics=metrics,
             )
         return env_cfg
 

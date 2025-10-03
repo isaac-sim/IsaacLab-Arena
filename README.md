@@ -281,7 +281,7 @@ The built-in pick-and-place task includes:
 A task brings in the termination conditions along with mimic configurations.
 
 ```python
-from isaac_arena.tasks.task import TaskBase
+from isaac_arena.tasks.task_base import TaskBase
 
 class MyCustomTask(TaskBase):
     def get_termination_cfg(self):

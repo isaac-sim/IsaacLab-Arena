@@ -12,27 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from isaac_arena.tasks.task_base import TaskBase
+import numpy as np
+from abc import ABC, abstractmethod
+
+from isaaclab.managers.recorder_manager import RecorderTermCfg
 
 
-class DummyTask(TaskBase):
-    def __init__(self):
-        super().__init__()
+class MetricBase(ABC):
 
-    def get_scene_cfg(self):
-        pass
+    name: str
+    recorder_term_name: str
 
-    def get_termination_cfg(self):
-        pass
+    @abstractmethod
+    def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        raise NotImplementedError("Function not implemented yet.")
 
-    def get_events_cfg(self):
-        pass
-
-    def get_prompt(self):
-        pass
-
-    def get_mimic_env_cfg(self, embodiment_name: str):
-        pass
-
-    def get_metrics(self):
-        pass
+    @abstractmethod
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+        raise NotImplementedError("Function not implemented yet.")
