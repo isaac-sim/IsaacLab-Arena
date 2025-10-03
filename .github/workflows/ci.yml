@@ -217,7 +217,7 @@ jobs:
       - name: Install git (and tools needed by hooks)
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates make
           git --version
           git lfs version
 
@@ -232,7 +232,7 @@ jobs:
       - name: Mark repo as safe for git
         run: git config --global --add safe.directory "$PWD"
 
-      # Pull LFS files explicitly (in case checkout didn't get them all)
+      # Docs deps
       - name: Install docs dependencies
         run: |
           cd docs
