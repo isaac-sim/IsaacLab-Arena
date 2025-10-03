@@ -92,7 +92,9 @@ class LerobotReplayActionPolicyConfig:
                 self.embodiment_tag == "new_embodiment"
             ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
         elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
-            assert self.embodiment_tag == "gr1", "embodiment_tag must be gr1 for GR1 tabletop manipulation"
+            assert (
+                self.embodiment_tag == "gr1"
+            ), "embodiment_tag must be gr1 for GR1 tabletop manipulation. Is {self.embodiment_tag}"
         else:
             raise ValueError(f"Invalid inference mode: {self.task_mode}")
 
