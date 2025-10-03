@@ -234,21 +234,22 @@ jobs:
           cd docs
           pip3 install -r requirements.txt
           make SPHINXOPTS=-W html
+          touch docs/_build/html/.nojekyll 
 
       # Deploy to pages
       # Deploying is as simple as copying the index.html file to the root of the repository
       # Note that by default GitHub pages will assume that this is a Jekyll site, so we need to
       # create a .nojekyll file to disable Jekyll.
-      - name: Deploy to GitHub Pages
-        run: |
-          cp -r docs/_build/html/* docs/
-          touch docs/.nojekyll 
+      # - name: Deploy to GitHub Pages
+      #   run: |
+      #     cp -r docs/_build/html/* docs/
+      #     touch docs/.nojekyll 
 
       - name: Upload static files as artifact
         id: deployment
         uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
         with:
-          path: docs/html/
+          path: docs/_build/html/
 
 
 
