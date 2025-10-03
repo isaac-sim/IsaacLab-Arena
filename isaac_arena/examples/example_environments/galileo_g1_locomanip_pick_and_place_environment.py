@@ -39,7 +39,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(0.5785, 0.018 0.0707),
+                position_xyz=(0.5785, 0.018, 0.0707),
                 rotation_wxyz=(0.0, 0.0, 1.0, 0.0),
             )
         )
