@@ -30,7 +30,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -51,7 +51,18 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-        if args_cli.embodiment == "g1_wbc_pink" and args_cli.mimic:
+        if (
+            args_cli.embodiment == "g1_wbc_pink"
+            and hasattr(args_cli, "mimic")
+            and args_cli.mimic
+            and not hasattr(args_cli, "auto")
+        ):
+            # Patch the Mimic generate function for locomanip use case
+            from isaac_arena.utils.locomanip_mimic_patch import patch_generate
+
+            patch_generate()
+
+            # Set navigation p-controller for locomanip use case
             action_cfg = embodiment.get_action_cfg()
             action_cfg.g1_action.use_p_control = True
             # Set nav subgoals (x,y,heading) and turning_in_place flag for G1 WBC Pink navigation p-controller
