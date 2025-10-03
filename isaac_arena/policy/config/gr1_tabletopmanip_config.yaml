@@ -3,25 +3,25 @@
 # Example for GR1 tabletop manipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/"
+data_root: "/datasets/lerobot/"
 
 # Instruction given to the policy in natural language
 language_instruction: "Pick up the red beaker and pour the contents into the yellow bowl. Then, drop the red beaker into the blue bin. Lastly, place the yellow bowl onto the white scale."
 task_index: 0
 
 # Name of the HDF5 file to use for the dataset
-hdf5_name: "nut_pouring_task.hdf5"
+hdf5_name: "generated_record_new_format.hdf5"
 
 # Mimic-generated HDF5 datafield names
 state_name_sim: "robot_joint_pos"
 action_name_sim: "processed_actions"
-pov_cam_name_sim: "robot_pov_cam"
+pov_cam_name_sim: "robot_pov_cam_rgb"
 
 # Gr00t-LeRobot datafield names
 state_name_lerobot: "observation.state"
 action_name_lerobot: "action"
 video_name_lerobot: "observation.images.ego_view"
-task_description_lerobot: "annotation.human.task_description"
+task_description_lerobot: "human.task_description"
 
 # Parquet configuration
 chunks_size: 1000
@@ -50,5 +50,5 @@ action_joints_config_path: "isaac_arena/policy/config/gr1/36dof_joint_space.yaml
 state_joints_config_path: "isaac_arena/policy/config/gr1/54dof_joint_space.yaml"
 
 # Image configuration (height, width, channels)
-original_image_size: [160, 256, 3]
-target_image_size: [256, 256, 3]
+original_image_size: [512, 512, 3]
+target_image_size: [512, 512, 3]
