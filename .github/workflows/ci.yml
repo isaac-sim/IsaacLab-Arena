@@ -248,3 +248,4 @@ jobs:
       - name: Deploy to GitHub Pages
         run: |
           cp -r docs/_build/html/* .
+          touch .nojekyll
