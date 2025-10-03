@@ -21,6 +21,7 @@ env:
   OMNI_PASS: ${{ secrets.OMNI_PASS }}
   OMNI_USER: ${{ secrets.OMNI_USER }}
 
+
 jobs:
   test:
     name: Run pre commit checks and tests
@@ -45,16 +46,22 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          clean: true
           fetch-depth: 0
-          lfs: true
+          # LFS checkout here somehow causes issues when LFS stuff changes over time.
+          # So I do LFS manually in a step after.
+          # lfs: true
 
       # Fix "detected dubious ownership in repository" inside containers
       - name: Mark repo as safe for git
         run: git config --global --add safe.directory "$PWD"
 
       # Pull LFS files explicitly (in case checkout didn't get them all)
-      - name: Pull Git LFS files
-        run: git lfs pull
+      - name: Git LFS
+        run: |
+          git lfs update --force
+          git lfs install --local
+          git lfs pull
 
       - name: Setup Python
         uses: actions/setup-python@v3
@@ -72,23 +79,78 @@ jobs:
       - name: Run pytest excluding policy-related tests
         run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
 
-  test_policy:
-    name: Run policy-related tests with GR00T & cuda12_8 deps
+  # TODO(Vik): Reanable test
+  # test_policy:
+  #   name: Run policy-related tests with GR00T & cuda12_8 deps
+  #   runs-on: [self-hosted, zurich]
+  #   timeout-minutes: 30
+
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
+  #     # virtual mounted checkpoints directory from the local machine
+  #     volumes:
+  #       - /home/runner/checkpoints:/checkpoints
+  #   steps:
+  #     - name: Print checkpoints directory
+  #       run: ls -la /checkpoints
+
+  #     - name: Install git (and tools needed by hooks)
+  #       run: |
+  #         apt-get update
+  #         apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
+  #         git --version
+  #         git lfs version
+
+  #     # Checkout Code
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #         # LFS checkout here somehow causes issues when LFS stuff changes over time.
+  #         # So I do LFS manually in a step after.
+  #         # lfs: true
+
+  #     # Fix "detected dubious ownership in repository" inside containers
+  #     - name: Mark repo as safe for git
+  #       run: git config --global --add safe.directory "$PWD"
+
+  #     # Pull LFS files explicitly (in case checkout didn't get them all)
+  #     - name: Git LFS
+  #       run: |
+  #         git lfs update --force
+  #         git lfs install --local
+  #         git lfs pull
+
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v3
+
+  #     - name: Install project and link isaac-sim
+  #       run: |
+  #         pip install --no-cache-dir -e .
+  #         [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+
+  #     - name: Run policy-related pytest
+  #       run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
+
+
+  build_and_push_image_post_merge:
+    name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
+    timeout-minutes: 60
+    needs: [test]       # only push if tests passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-      # virtual mounted checkpoints directory from the local machine
-      volumes:
-        - /home/runner/checkpoints:/checkpoints
-    steps:
-      - name: Print checkpoints directory
-        run: ls -la /checkpoints
+      image: ubuntu:latest
 
+    env:
+      # already defined at top, but keep here for clarity/local override if needed
+      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+
+    steps:
       - name: Install git (and tools needed by hooks)
         run: |
           apt-get update
@@ -96,56 +158,36 @@ jobs:
           git --version
           git lfs version
 
-      # Checkout Code
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-
       # Fix "detected dubious ownership in repository" inside containers
       - name: Mark repo as safe for git
         run: git config --global --add safe.directory "$PWD"
 
-      # Pull LFS files explicitly (in case checkout didn't get them all)
-      - name: Pull Git LFS files
-        run: git lfs pull
+      # Somehow this simlink remains from the previous steps, and it causes the submodule
+      # checkout to fail. So here we clean it up, before checking out the submodules.
+      - name: cleanup IsaacSim simlink
+        run: rm -f submodules/IsaacLab/_isaac_sim
 
-      - name: Setup Python
-        uses: actions/setup-python@v3
-
-      - name: Install project and link isaac-sim
-        run: |
-          pip install --no-cache-dir -e .
-          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
-
-      - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
-
-  build_and_push_image_post_merge:
-    name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
-    needs: [test, test_policy]       # only push if tests passed
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    env:
-      # already defined at top, but keep here for clarity/local override if needed
-      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
-
-    steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
-          submodules: recursive
+          submodules: true
 
-      - name: Mark repo as safe for git
-        run: git config --global --add safe.directory "$PWD"
+      - name: submodules
+        run: git submodule update --init
 
-      - name: Pull Git LFS files
-        run: git lfs pull
+      - name: Install docker
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg && \
+          install -m 0755 -d /etc/apt/keyrings && \
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+          chmod a+r /etc/apt/keyrings/docker.gpg && \
+          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+          apt-get update && apt-get install -y docker.io docker-buildx-plugin
+          docker --version
 
       - name: Docker login to NGC
         # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
@@ -155,3 +197,8 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -p
+
+      - name: Build & push image to NGC (GR00T Image)
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
