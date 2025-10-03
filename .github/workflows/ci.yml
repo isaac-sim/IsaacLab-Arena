@@ -242,4 +242,10 @@ jobs:
       - name: Build docs
         run: |
           cd docs
-          make html
+          make SPHINXOPTS=-W html
+
+      # # Deploy to pages
+      # - name: Deploy to pages
+      #   run: |
+      #     cd docs
+      #     make SPHINXOPTS=-W deploy
