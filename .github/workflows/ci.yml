@@ -206,7 +206,7 @@ jobs:
 
 
   docs_pre_merge:
-    name: Run pre commit checks and tests
+    name: Build the docs pre-merge
     runs-on: [self-hosted, zurich]
     timeout-minutes: 30
 
@@ -243,3 +243,10 @@ jobs:
         run: |
           cp -r docs/_build/html/* docs/
           touch docs/.nojekyll 
+
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_build/html
