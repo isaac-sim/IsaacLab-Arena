@@ -3,6 +3,8 @@
 # This script is used as entrypoint for the docker container.
 # It will setup an user account for the host user inside the docker
 # s.t. created files will have correct ownership.
+
+# Exit on error
 set -euo pipefail
 
 # Make sure that all shared libs are found. This should normally not be needed, but resolves a
@@ -22,7 +24,8 @@ useradd --no-log-init \
         --groups sudo \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
-chown $DOCKER_RUN_USER_NAME /home/$DOCKER_RUN_USER_NAME
+chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME
+chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME $WORKDIR
 
 # Change the root user password (so we can su root)
 echo 'root:root' | chpasswd
@@ -31,36 +34,21 @@ echo "$DOCKER_RUN_USER_NAME:root" | chpasswd
 # Allow sudo without password
 echo "$DOCKER_RUN_USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Re-install isaaclab (note that the deps have been installed in the Dockerfile)
-echo "Re-installing isaaclab packages from mounted repo..."
-for DIR in /workspaces/isaac_arena/submodules/IsaacLab/source/isaaclab*/; do
-    echo "Installing $DIR"
-    # NOTE(xinjieyao, 2025-09-23): root-user-action was introduced in pip 22.1, which can be used to ignore the warning when installing as root
-    if pip install --help | grep -q "root-user-action"; then
-        pip install --root-user-action=ignore --quiet --no-deps -e "$DIR"
-    else
-        pip install --quiet --no-deps -e "$DIR"
-    fi
-done
-# Re-doing symlink (we do this in the Dockerfile, but we overwrite with the mapping).
-if [ ! -d "/workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim" ]; then
-    ln -s /isaac-sim/ /workspaces/isaac_arena/submodules/IsaacLab/_isaac_sim
-fi
-
-# change prompt so it's obvious we're inside the arena container
-echo "PS1='[Isaac Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-
-# useful aliases:
-# list files as a table, with colors, show hidden, append indicators (/ for dirs, * for executables, @ for symlinks)
-echo "alias ll='ls -alF --color=auto'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-# go one level up
-echo "alias ..='cd ..'" >> /home/$DOCKER_RUN_USER_NAME/.bashrc
-
-set +x
-
 # Suppress sudo hint message
 touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful
 
-su $DOCKER_RUN_USER_NAME
+cp /etc/bash.bashrc /home/$DOCKER_RUN_USER_NAME/.bashrc
+chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME/.bashrc
+
+# Run the passed command or just start the shell as the created user
+if [ $# -ge 1 ]; then
+    echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/aliasess.bashrc
+    # -i makes bash to expand aliases
+    # -c makes bash to run a command
+    exec sudo --preserve-env -u $DOCKER_RUN_USER_NAME \
+        -- env HOME=/home/$DOCKER_RUN_USER_NAME bash -ic "$@"
+else
+    su $DOCKER_RUN_USER_NAME
+fi
 
 exit
