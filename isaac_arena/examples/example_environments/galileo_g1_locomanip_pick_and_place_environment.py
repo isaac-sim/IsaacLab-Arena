@@ -30,7 +30,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
