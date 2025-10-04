@@ -22,8 +22,11 @@ from typing import Any
 import onnxruntime as ort
 from isaaclab.utils.assets import retrieve_file_path
 
-from isaac_arena.embodiments.g1.wbc_policy.policy.base import WBCPolicy
-from isaac_arena.embodiments.g1.wbc_policy.utils.homie_utils import get_gravity_orientation, load_config
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.homie_utils import (
+    get_gravity_orientation,
+    load_config,
+)
 
 
 class G1HomiePolicyV2(WBCPolicy):

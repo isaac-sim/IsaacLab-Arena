@@ -12,38 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import MISSING
 
-from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
+from isaaclab.managers.action_manager import ActionTerm
 from isaaclab.utils import configclass
 
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action import G1DecoupledWBCPinkAction
 
 
 @configclass
-class G1DecoupledWBCPinkActionCfg(ActionTermCfg):
+class G1DecoupledWBCPinkActionCfg(G1DecoupledWBCJointActionCfg):
     class_type: type[ActionTerm] = G1DecoupledWBCPinkAction
     """Specifies the action term class type for G1 WBC with upper body PINK IK controller."""
 
-    preserve_order: bool = False
-    joint_names: list[str] = MISSING
-
-    wbc_version: str = "homie_v2"
-
     # Navigation Segment: Use P-controller
     use_p_control: bool = False
+
     # Navigation Segment: P-controller parameters
-    distance_error_threshold: float = 0.06
-    heading_diff_threshold: float = 0.15
+    distance_error_threshold: float = 0.1
+    heading_diff_threshold: float = 0.2
     kp_angular_turning_only: float = 0.4
     kp_linear_x: float = 2.0
     kp_linear_y: float = 2.0
     kp_angular: float = 0.05
     min_vel: float = -0.4
     max_vel: float = 0.4
+
     # Navigation Segment: Target x, y, heading, and turning_in_place flag subgoals
     navigation_subgoals: list[tuple[list[float], bool]] | None = None
+
     # Navigation Segment: Turning first
     turning_first: bool = False
+
     # Navigation Segment: Max navigation steps
     max_navigation_steps: int = 700

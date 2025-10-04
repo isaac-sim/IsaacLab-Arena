@@ -24,20 +24,20 @@ from typing import TYPE_CHECKING
 from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
-from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
-from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.config.configs import HomieV2Config
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
-from isaac_arena.embodiments.g1.wbc_policy.run_policy import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.run_policy import (
     convert_sim_joint_to_wbc_joint,
     postprocess_actions,
     prepare_observations,
 )
-from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.g1 import instantiate_g1_robot_model
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -99,7 +99,7 @@ class G1DecoupledWBCJointAction(ActionTerm):
         }
         wbc_g1_joints_order_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml",
+            "config/loco_manip_g1_joints_order_43dof.yaml",
         )
         try:
             with open(wbc_g1_joints_order_path) as f:
@@ -113,11 +113,6 @@ class G1DecoupledWBCJointAction(ActionTerm):
     def num_joints(self) -> int:
         """Get the number of joints."""
         return G1_NUM_JOINTS
-
-    @property
-    def navigation_goal_reached(self) -> bool:
-        """Get the navigation goal reached tensor."""
-        return self._navigation_goal_reached
 
     @property
     def navigate_cmd_dim(self) -> int:

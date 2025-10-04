@@ -35,8 +35,8 @@ from isaaclab.utils import configclass
 import isaac_arena.terms.transforms as transforms_terms
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
-from isaac_arena.embodiments.g1.mdp import observations_wbc as observations_wbc_mdp
-from isaac_arena.embodiments.g1.mdp import wbc_events as wbc_events_mdp
+from isaac_arena.embodiments.g1.mdp import g1_events as g1_events_mdp
+from isaac_arena.embodiments.g1.mdp import g1_observations as g1_observations_mdp
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 from isaac_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
@@ -52,6 +52,7 @@ class G1EmbodimentBase(EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = G1SceneCfg()
+        self.camera_config = G1CameraCfg()
         self.action_config = MISSING
         self.observation_config = MISSING
         self.event_config = MISSING
@@ -291,6 +292,11 @@ class G1SceneCfg:
         },
     )
 
+
+@configclass
+class G1CameraCfg:
+    """Configuration for cameras."""
+
     robot_head_cam = CameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
         update_period=0.0,
@@ -455,10 +461,6 @@ class G1WBCPinkObservationsCfg:
         robot_quat = ObsTerm(
             func=transforms_terms.get_asset_quaternion,
         )
-        robot_head_cam = ObsTerm(
-            func=mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("robot_head_cam"), "data_type": "rgb", "normalize": False},
-        )
 
         def __post_init__(self):
             self.enable_corruption = False
@@ -493,10 +495,10 @@ class G1WBCPinkObservationsCfg:
             },
         )
         is_navigating = ObsTerm(
-            func=observations_wbc_mdp.is_navigating,
+            func=g1_observations_mdp.is_navigating,
         )
         navigation_goal_reached = ObsTerm(
-            func=observations_wbc_mdp.navigation_goal_reached,
+            func=g1_observations_mdp.navigation_goal_reached,
         )
 
         def __post_init__(self):
@@ -508,31 +510,31 @@ class G1WBCPinkObservationsCfg:
         """Observations for post step policy group"""
 
         left_eef_pos = ObsTerm(
-            func=observations_wbc_mdp.extract_action_components,
-            params={"mode": observations_wbc_mdp.ActionComponentMode.LEFT_EEF_POS},
+            func=g1_observations_mdp.extract_action_components,
+            params={"mode": g1_observations_mdp.ActionComponentMode.LEFT_EEF_POS},
         )
         left_eef_quat = ObsTerm(
-            func=observations_wbc_mdp.extract_action_components,
-            params={"mode": observations_wbc_mdp.ActionComponentMode.LEFT_EEF_QUAT},
+            func=g1_observations_mdp.extract_action_components,
+            params={"mode": g1_observations_mdp.ActionComponentMode.LEFT_EEF_QUAT},
         )
         right_eef_pos = ObsTerm(
-            func=observations_wbc_mdp.extract_action_components,
-            params={"mode": observations_wbc_mdp.ActionComponentMode.RIGHT_EEF_POS},
+            func=g1_observations_mdp.extract_action_components,
+            params={"mode": g1_observations_mdp.ActionComponentMode.RIGHT_EEF_POS},
         )
         right_eef_quat = ObsTerm(
-            func=observations_wbc_mdp.extract_action_components,
-            params={"mode": observations_wbc_mdp.ActionComponentMode.RIGHT_EEF_QUAT},
+            func=g1_observations_mdp.extract_action_components,
+            params={"mode": g1_observations_mdp.ActionComponentMode.RIGHT_EEF_QUAT},
         )
         navigate_cmd = ObsTerm(
-            func=observations_wbc_mdp.get_navigate_cmd,
+            func=g1_observations_mdp.get_navigate_cmd,
         )
         base_height_cmd = ObsTerm(
-            func=observations_wbc_mdp.extract_action_components,
-            params={"mode": observations_wbc_mdp.ActionComponentMode.BASE_HEIGHT_CMD},
+            func=g1_observations_mdp.extract_action_components,
+            params={"mode": g1_observations_mdp.ActionComponentMode.BASE_HEIGHT_CMD},
         )
         torso_orientation_rpy_cmd = ObsTerm(
-            func=observations_wbc_mdp.extract_action_components,
-            params={"mode": observations_wbc_mdp.ActionComponentMode.TORSO_ORIENTATION_RPY_CMD},
+            func=g1_observations_mdp.extract_action_components,
+            params={"mode": g1_observations_mdp.ActionComponentMode.TORSO_ORIENTATION_RPY_CMD},
         )
 
         def __post_init__(self):
@@ -564,7 +566,7 @@ class G1WBCJointEventCfg:
     """Configuration for events."""
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
-    reset_wbc_policy = EventTerm(func=wbc_events_mdp.reset_decoupled_wbc_joint_policy, mode="reset")
+    reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_joint_policy, mode="reset")
 
 
 @configclass
@@ -572,7 +574,7 @@ class G1WBCPinkEventCfg:
     """Configuration for events."""
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
-    reset_wbc_policy = EventTerm(func=wbc_events_mdp.reset_decoupled_wbc_pink_policy, mode="reset")
+    reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_pink_policy, mode="reset")
 
 
 class G1MimicEnv(ManagerBasedRLMimicEnv):

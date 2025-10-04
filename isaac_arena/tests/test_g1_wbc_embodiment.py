@@ -66,9 +66,9 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
 
     scene = Scene(assets=[background])
     if pink_ik_enabled:
-        embodiment = G1WBCPinkEmbodiment()
+        embodiment = G1WBCPinkEmbodiment(enable_cameras=ENABLE_CAMERAS)
     else:
-        embodiment = G1WBCJointEmbodiment()
+        embodiment = G1WBCJointEmbodiment(enable_cameras=ENABLE_CAMERAS)
     # NOTE(xinjieyao, 2025.09.22): Set initial pose such that robot will not drop to the ground, causing WBC unstable.
     robot_init_base_pose = np.array([0, 0, 0])
     embodiment.set_initial_pose(Pose(position_xyz=robot_init_base_pose, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))

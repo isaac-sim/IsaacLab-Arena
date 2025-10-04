@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-from isaac_arena.embodiments.g1.wbc_policy.policy.action_constants import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.action_constants import (
     BASE_HEIGHT_CMD_END_IDX,
     BASE_HEIGHT_CMD_START_IDX,
     LEFT_WRIST_POS_END_IDX,

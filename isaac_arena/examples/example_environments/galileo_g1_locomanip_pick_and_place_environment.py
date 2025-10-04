@@ -39,7 +39,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(0.5785, 0.0, 0.0707),
+                position_xyz=(0.5785, 0.18, 0.0707),
                 rotation_wxyz=(0.0, 0.0, 1.0, 0.0),
             )
         )
@@ -49,7 +49,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
             )
         )
-        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
         if (
             args_cli.embodiment == "g1_wbc_pink"
@@ -67,10 +67,10 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             action_cfg.g1_action.use_p_control = True
             # Set nav subgoals (x,y,heading) and turning_in_place flag for G1 WBC Pink navigation p-controller
             action_cfg.g1_action.navigation_subgoals = [
-                ([0.18, 0.0, 0.0], False),
-                ([0.18, 0.0, -1.74], True),
-                ([-0.0955, -1.0670, -1.74], False),
-                ([-0.0955, -1.0670, -1.74], False),
+                ([0.18, 0.18, 0.0], False),
+                ([0.18, 0.18, -1.78], True),
+                ([-0.0955, -1.1070, -1.78], False),
+                ([-0.0955, -1.1070, -1.78], False),
             ]
 
         scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])

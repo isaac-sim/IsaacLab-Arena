@@ -15,45 +15,43 @@
 from __future__ import annotations
 
 import numpy as np
-import os
 import torch
-import yaml
 from collections.abc import Sequence
 from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
 from isaaclab.assets.articulation import Articulation
-from isaaclab.managers.action_manager import ActionTerm
 
-from isaac_arena.embodiments.g1.wbc_policy.config.configs import HomieV2Config
-from isaac_arena.embodiments.g1.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
     G1WBCUpperbodyController,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.action_constants import (
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.action_constants import (
+    LEFT_HAND_STATE_DIM,
     LEFT_HAND_STATE_IDX,
     LEFT_WRIST_LINK_NAME,
+    LEFT_WRIST_POS_DIM,
     LEFT_WRIST_POS_END_IDX,
     LEFT_WRIST_POS_START_IDX,
+    LEFT_WRIST_QUAT_DIM,
     LEFT_WRIST_QUAT_END_IDX,
     LEFT_WRIST_QUAT_START_IDX,
     NAVIGATE_THRESHOLD,
+    RIGHT_HAND_STATE_DIM,
     RIGHT_HAND_STATE_IDX,
     RIGHT_WRIST_LINK_NAME,
+    RIGHT_WRIST_POS_DIM,
     RIGHT_WRIST_POS_END_IDX,
     RIGHT_WRIST_POS_START_IDX,
+    RIGHT_WRIST_QUAT_DIM,
     RIGHT_WRIST_QUAT_END_IDX,
     RIGHT_WRIST_QUAT_START_IDX,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.policy_constants import (
-    G1_NUM_JOINTS,
-    NUM_BASE_HEIGHT_CMD,
-    NUM_NAVIGATE_CMD,
-    NUM_TORSO_ORIENTATION_RPY_CMD,
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.run_policy import (
+    postprocess_actions,
+    prepare_observations,
 )
-from isaac_arena.embodiments.g1.wbc_policy.policy.wbc_policy_factory import get_wbc_policy
-from isaac_arena.embodiments.g1.wbc_policy.run_policy import postprocess_actions, prepare_observations
-from isaac_arena.embodiments.g1.wbc_policy.utils.g1 import instantiate_g1_robot_model
-from isaac_arena.embodiments.g1.wbc_policy.utils.p_controller import PController
+from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.p_controller import PController
+from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -61,8 +59,7 @@ if TYPE_CHECKING:
     from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
 
-# TODO: Refactor such that WBCPinkAction and WBCJointAction such that they derive from the same base class
-class G1DecoupledWBCPinkAction(ActionTerm):
+class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
     """Action term for the G1 decoupled WBC policy. Upper body PINK IK control, lower body RL-based policy."""
 
     cfg: G1DecoupledWBCPinkActionCfg
@@ -81,29 +78,6 @@ class G1DecoupledWBCPinkAction(ActionTerm):
 
         assert self.num_envs == 1, "PINK controller currently only supports single environment"
 
-        # resolve the joints over which the action term is applied
-        self._joint_ids, self._joint_names = self._asset.find_joints(
-            self.cfg.joint_names, preserve_order=self.cfg.preserve_order
-        )
-        self._num_joints = len(self._joint_ids)
-        # Avoid indexing across all joints for efficiency
-        if self._num_joints == self._asset.num_joints and not self.cfg.preserve_order:
-            self._joint_ids = slice(None)
-
-        self._raw_actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)
-        self._processed_actions = torch.zeros([self.num_envs, self._num_joints], device=self.device)
-
-        self._wbc_version = self.cfg.wbc_version
-
-        if self._wbc_version == "homie_v2":
-            wbc_config = HomieV2Config()
-        else:
-            raise ValueError(f"Invalid WBC version: {self._wbc_version}")
-
-        waist_location = "lower_and_upper_body" if wbc_config.enable_waist else "lower_body"
-        self.robot_model = instantiate_g1_robot_model(waist_location=waist_location)
-
-        assert self.num_envs == 1, "Navigation P-controller only supports single environment"
         self.navigation_p_controller = PController(
             distance_error_threshold=self.cfg.distance_error_threshold,
             heading_diff_threshold=self.cfg.heading_diff_threshold,
@@ -116,28 +90,6 @@ class G1DecoupledWBCPinkAction(ActionTerm):
             num_envs=self.num_envs,
             inplace_turning_flag=self.cfg.turning_first,
         )
-
-        self.wbc_policy = get_wbc_policy("g1", self.robot_model, wbc_config, self.num_envs)
-
-        self._wbc_goal = {
-            # lin_vel_cmd_x, lin_vel_cmd_y, ang_vel_cmd
-            "navigate_cmd": np.tile(np.array([[0.0, 0.0, 0.0]]), (self.num_envs, 1)),
-            # base_height_cmd: 0.75 as pelvis height
-            "base_height_command": np.tile(np.array([0.75]), (self.num_envs, 1)),
-            # toggle_policy_action: 0 for disable policy, 1 for enable policy
-            "toggle_policy_action": np.tile(np.array([0]), (self.num_envs, 1)),
-            # roll pitch yaw command
-            "torso_orientation_rpy_cmd": np.tile(np.array([[0.0, 0.0, 0.0]]), (self.num_envs, 1)),
-        }
-        wbc_g1_joints_order_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml",
-        )
-        try:
-            with open(wbc_g1_joints_order_path) as f:
-                self.wbc_g1_joints_order = yaml.safe_load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"File not found: {wbc_g1_joints_order_path}")
 
         # Mimic navigation P-controller variables
         self._is_navigating = False
@@ -156,11 +108,6 @@ class G1DecoupledWBCPinkAction(ActionTerm):
     # Properties.
     # """
     @property
-    def num_joints(self) -> int:
-        """Get the number of joints."""
-        return G1_NUM_JOINTS
-
-    @property
     def is_navigating(self) -> bool:
         """Get the is navigating flag."""
         return self._is_navigating
@@ -173,47 +120,32 @@ class G1DecoupledWBCPinkAction(ActionTerm):
     @property
     def left_wrist_pos_dim(self) -> int:
         """Dimension of left wrist position command."""
-        return 3
+        return LEFT_WRIST_POS_DIM
 
     @property
     def left_wrist_quat_dim(self) -> int:
         """Dimension of left wrist quaternion command."""
-        return 4
+        return LEFT_WRIST_QUAT_DIM
 
     @property
     def right_wrist_pos_dim(self) -> int:
         """Dimension of right wrist position command."""
-        return 3
+        return RIGHT_WRIST_POS_DIM
 
     @property
     def right_wrist_quat_dim(self) -> int:
         """Dimension of right wrist quaternion command."""
-        return 4
+        return RIGHT_WRIST_QUAT_DIM
 
     @property
     def left_hand_state_dim(self) -> int:
         """Dimension of left hand state command."""
-        return 1
+        return LEFT_HAND_STATE_DIM
 
     @property
     def right_hand_state_dim(self) -> int:
         """Dimension of right hand state command."""
-        return 1
-
-    @property
-    def navigate_cmd_dim(self) -> int:
-        """Dimension of navigation command."""
-        return NUM_NAVIGATE_CMD
-
-    @property
-    def base_height_cmd_dim(self) -> int:
-        """Dimension of base height command."""
-        return NUM_BASE_HEIGHT_CMD
-
-    @property
-    def torso_orientation_rpy_cmd_dim(self) -> int:
-        """Dimension of torso orientation command."""
-        return NUM_TORSO_ORIENTATION_RPY_CMD
+        return RIGHT_HAND_STATE_DIM
 
     @property
     def action_dim(self) -> int:
@@ -241,18 +173,6 @@ class G1DecoupledWBCPinkAction(ActionTerm):
         return self._processed_actions
 
     @property
-    def get_wbc_version(self):
-        return self._wbc_version
-
-    @property
-    def get_wbc_policy(self):
-        return self.wbc_policy
-
-    @property
-    def get_wbc_goal(self):
-        return self._wbc_goal
-
-    @property
     def navigate_cmd(self):
         return self._navigate_cmd
 
@@ -271,36 +191,6 @@ class G1DecoupledWBCPinkAction(ActionTerm):
                 body_data, left_hand_state, right_hand_state
             )
         return target_robot_joints
-
-    def set_wbc_goal(
-        self, navigate_cmd: torch.Tensor, base_height_cmd: torch.Tensor, torso_orientation_rpy_cmd: torch.Tensor = None
-    ):
-        """Set the WBC goal."""
-        self._wbc_goal["navigate_cmd"] = navigate_cmd.cpu().numpy()
-        self._wbc_goal["base_height_command"] = base_height_cmd.cpu().numpy()
-        if self._wbc_version == "homie_v2" and torso_orientation_rpy_cmd is not None:
-            self._wbc_goal["torso_orientation_rpy_cmd"] = torso_orientation_rpy_cmd.cpu().numpy()
-        assert self._wbc_goal["navigate_cmd"].shape == (self.num_envs, NUM_NAVIGATE_CMD)
-        assert self._wbc_goal["base_height_command"].shape == (self.num_envs, NUM_BASE_HEIGHT_CMD)
-        assert self._wbc_goal["torso_orientation_rpy_cmd"].shape == (self.num_envs, NUM_TORSO_ORIENTATION_RPY_CMD)
-
-    def get_navigation_cmd_from_actions(self, actions: torch.Tensor):
-        """Get the navigation command from the actions."""
-        return actions[
-            :,
-            -NUM_NAVIGATE_CMD
-            - NUM_BASE_HEIGHT_CMD
-            - NUM_TORSO_ORIENTATION_RPY_CMD : -NUM_BASE_HEIGHT_CMD
-            - NUM_TORSO_ORIENTATION_RPY_CMD,
-        ]
-
-    def get_base_height_cmd_from_actions(self, actions: torch.Tensor):
-        """Get the base height command from the actions."""
-        return actions[:, -NUM_BASE_HEIGHT_CMD - NUM_TORSO_ORIENTATION_RPY_CMD : -NUM_TORSO_ORIENTATION_RPY_CMD]
-
-    def get_torso_orientation_rpy_cmd_from_actions(self, actions: torch.Tensor):
-        """Get the torso orientation command from the actions."""
-        return actions[:, -NUM_TORSO_ORIENTATION_RPY_CMD:]
 
     # """
     # Operations.

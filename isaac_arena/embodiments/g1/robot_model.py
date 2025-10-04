@@ -38,9 +38,7 @@ class RobotModel:
 
         self.is_floating_base_model = set_floating_base
 
-        joints_order_path = os.path.join(
-            os.path.dirname(__file__), "wbc_policy/config/loco_manip_g1_joints_order_43dof.yaml"
-        )
+        joints_order_path = os.path.join(os.path.dirname(__file__), "config/loco_manip_g1_joints_order_43dof.yaml")
 
         with open(joints_order_path) as f:
             self.wbc_g1_joints_order = yaml.safe_load(f)
