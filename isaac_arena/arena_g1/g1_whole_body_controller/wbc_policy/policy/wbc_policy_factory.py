@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+from isaac_arena.arena_g1.g1_env.robot_model import RobotModel
 from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.config.configs import BaseConfig
 from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
 from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_decoupled_whole_body_policy import (
@@ -20,7 +21,6 @@ from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_decouple
 )
 from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_homie_policy import G1HomiePolicyV2
 from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.identity_policy import IdentityPolicy
-from isaac_arena.arena_g1.g1_env.robot_model import RobotModel
 
 
 def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseConfig, num_envs: int = 1) -> WBCPolicy:
