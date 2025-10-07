@@ -1,4 +1,0 @@
-Affordances Design
-============================
-
-TBD.

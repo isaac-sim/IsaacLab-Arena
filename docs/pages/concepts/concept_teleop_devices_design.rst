@@ -1,4 +1,0 @@
-Teleop Devices Design
-==============================
-
-TBD.

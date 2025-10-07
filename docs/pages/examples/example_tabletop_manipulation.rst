@@ -1,4 +1,0 @@
-Tabletop Manipulation
-==============================
-
-TBD.

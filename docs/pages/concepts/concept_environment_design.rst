@@ -1,4 +1,0 @@
-Environment Design
-============================
-
-TBD.
