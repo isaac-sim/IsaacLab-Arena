@@ -1,41 +1,95 @@
 Loco-Manipulation
 ==========================
 
-This example demonstrates how to work with loco-manipulation tasks in Isaac Arena, covering the complete workflow from recording demonstrations to running closed-loop policy inference.
+This example demonstrates how to work with loco-manipulation tasks in Isaac Lab - Arena, covering the complete workflow from generating demonstrations to running closed-loop policy inference.
 
 Overview
 --------
 
 The loco-manipulation pipeline includes:
 
-1. **Recording Demonstrations**: Collecting human demonstrations via teleoperation
+1. **Data Generation**: Generating demonstrations using Isaac Lab Mimic
 2. **Data Conversion**: Converting recorded data to LeRobot format for GR00T training
 3. **Replay Recorded Data**: Replaying original HDF5 demonstrations for validation
 4. **Replay LeRobot Data**: Replaying converted LeRobot dataset trajectories
 5. **Closed-loop Policy Inference**: Running trained GR00T policies in closed-loop
 
-Recording Demonstrations
-------------------------
+Data Generation
+---------------
+.. note::
+   If desired, you may skip the `Data Generation`_ step of this example and download a pre-generated dataset for use.
+   To do so, skip to the `Download Mimic Generated Data (Optional)`_ section below.
 
-Use the teleoperation interface to record human demonstrations:
+Use Isaac Lab Mimic to generate an HDF5 dataset for GR00T training. Isaac Lab Mimic automatically generates additional robot demonstrations
+from a small set of annotated demonstrations by using rigid body transformations to introduce variations to the dataset. During data generation,
+object initial poses are randomized to introduce variation and boost dataset diversity. Noise is added to the robot's actions to further
+increase diversity. For more information about Isaac Lab Mimic, please visit the Isaac Lab documentation `here <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#teleoperation-and-imitation-learning-with-isaac-lab-mimic>`_.
 
-.. TODO::
+Before proceeding, make sure you are inside the Isaac Lab - Arena docker container by running:
 
-   (xinjie.yao, 2025-10-03): add record_demos command
+.. code:: bash
 
-Mimic Generated Data
----------------------
+   ./docker/run_docker.sh
 
-Use Isaac Lab Mimic with added Mimic supports for loco-manipulation to generate demonstrations:
+Download Pre-recorded Annotated Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Download the pre-recorded annotated dataset from `TODO_INSERT_LINK <https://>`_ and place it
+under ``isaac_arena/datasets/Arena-G1-Loco-Manipulation-Task/``.
 
-.. TODO::
+.. hint::
+   The annotated dataset can be visualized using the ``replay_demos.py`` script.
+   Run the following command to play back the dataset:
 
-   (xinjie.yao, 2025-10-03): add mimic command
+   .. code:: bash
+
+      python isaac_arena/scripts/replay_demos.py \
+      --enable_cameras \
+      --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
+      --device cpu galileo_g1_locomanip_pick_and_place \
+      --object brown_box \
+      --embodiment g1_wbc_pink
+
+Mimic Data Generation
+^^^^^^^^^^^^^^^^^^^^^
+Use the annotated dataset and Isaac Lab Mimic to generate a new dataset of 100 demonstrations for GR00T training.
+
+.. code:: bash
+
+   python isaac_arena/scripts/generate_dataset.py \
+   --headless \
+   --enable_cameras \
+   --mimic \
+   --input_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
+   --output_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5 \
+   --generation_num_trials 100 \
+   --device cpu galileo_g1_locomanip_pick_and_place \
+   --object brown_box \
+   --embodiment g1_wbc_pink
+
+.. note::
+
+   The above command runs data generation in headless mode for faster execution. If you want to see the data generation process,
+   remove the ``--headless`` flag.
+
+Data generation times may vary from ~1 hour to multiple hours depending on your compute hardware.
+After the generation is complete, the dataset can be visualized using the ``replay_demos.py`` script.
+
+.. code:: bash
+
+   python isaac_arena/scripts/replay_demos.py \
+   --enable_cameras \
+   --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5 \
+   --device cpu galileo_g1_locomanip_pick_and_place \
+   --object brown_box \
+   --embodiment g1_wbc_pink
+
 
 Download Mimic Generated Data (Optional)
 ----------------------------------------
 
-Download the recorded HDF5 data from `Arena-G1-Loco-Manipulation-Task <https://huggingface.co/datasets/nvidia/Arena-G1-Loco-Manipulation-Task>`_.
+If you skipped the `Data Generation`_ step of this example, you can download a pre-generated dataset for use.
+
+Download a pre-generated HDF5 dataset from `Arena-G1-Loco-Manipulation-Task <https://huggingface.co/datasets/nvidia/Arena-G1-Loco-Manipulation-Task>`_.
 
 .. code-block:: bash
 
@@ -46,6 +100,14 @@ Download the recorded HDF5 data from `Arena-G1-Loco-Manipulation-Task <https://h
 
 Converting to LeRobot Format
 ----------------------------
+Next, we need to convert the HDF5 dataset generated by Isaac Lab Mimic to LeRobot format for GR00T training.
+To do this, we provide a script that performs the following steps:
+
+1. Loads HDF5 demonstrations
+2. Extracts robot states, actions, and camera data
+3. Applies joint remapping for GR00T compatibility
+4. Generates MP4 videos from camera observations
+5. Creates LeRobot-compatible dataset structure
 
 Make sure you are running the docker container with GR00T dependencies. You can do this by running the following command:
 
@@ -53,41 +115,35 @@ Make sure you are running the docker container with GR00T dependencies. You can 
 
     ./docker/run_docker.sh -g -G base # Include other docker arguments if needed
 
-Convert HDF5 demonstrations to LeRobot format for GR00T training:
+Convert the HDF5 demonstrations to LeRobot format for GR00T training:
 
 .. code-block:: bash
 
    python isaac_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
      --config_yaml_path isaac_arena/policy/config/g1_locomanip_config.yaml
 
-Configuration file (``g1_locomanip_config.yaml``):
+.. note::
+   Configuration file (``g1_locomanip_config.yaml``):
 
-.. code-block:: yaml
+   .. code-block:: yaml
 
-   # Input/Output paths
-   data_root: "/datasets/Arena-G1-Loco-Manipulation-Task"
-   hdf5_name: "g1_galileo_box_npnp_mimic_generated_100_v2_action_noise_003.hdf5"    # Modify this to the name of the HDF5 file you want to convert
+      # Input/Output paths
+      data_root: "/datasets/Arena-G1-Loco-Manipulation-Task"
+      hdf5_name: "g1_galileo_box_npnp_mimic_generated_100_v2_action_noise_003.hdf5"    # Modify this to the name of the HDF5 file you want to convert
 
-   # Task description
-   language_instruction: "Pick up the brown box and place it in the blue bin"
-   task_index: 2
+      # Task description
+      language_instruction: "Pick up the brown box and place it in the blue bin"
+      task_index: 2
 
-   # Data field mappings
-   state_name_sim: "robot_joint_pos"
-   action_name_sim: "processed_actions"
-   pov_cam_name_sim: "robot_head_cam"
+      # Data field mappings
+      state_name_sim: "robot_joint_pos"
+      action_name_sim: "processed_actions"
+      pov_cam_name_sim: "robot_head_cam"
 
-   # Output configuration
-   fps: 50
-   chunks_size: 1000
+      # Output configuration
+      fps: 50
+      chunks_size: 1000
 
-The conversion process:
-
-1. Loads HDF5 demonstrations
-2. Extracts robot states, actions, and camera data
-3. Applies joint remapping for GR00T compatibility
-4. Generates MP4 videos from camera observations
-5. Creates LeRobot-compatible dataset structure
 
 Downloaded converted LeRobot Data (Optional)
 --------------------------------------------
