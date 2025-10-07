@@ -3,8 +3,6 @@ name: GitHub Pages
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    types: [opened, synchronize, reopened]
 
 # Concurrency control to prevent parallel runs on the same PR
 concurrency:
