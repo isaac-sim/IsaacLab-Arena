@@ -36,7 +36,7 @@ class LightwheelKitchenPotPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("lightwheel_kitchen")()
         pot = self.asset_registry.get_asset_by_name("lightwheel_pot_51")()
-        robot = self.asset_registry.get_asset_by_name("gr1")(enable_cameras=args_cli.enable_cameras)
+        robot = self.asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()

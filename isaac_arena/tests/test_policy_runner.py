@@ -61,7 +61,7 @@ def test_zero_action_policy_kitchen_pick_and_place():
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
     example_environment = "kitchen_pick_and_place"
-    embodiments = ["franka", "gr1"]
+    embodiments = ["franka", "gr1_pink", "gr1_joint"]
     object_names = ["cracker_box", "tomato_soup_can"]
     for embodiment in embodiments:
         for object_name in object_names:
@@ -82,7 +82,7 @@ def test_zero_action_policy_galileo_pick_and_place():
     run_policy_runner(
         policy_type="zero_action",
         example_environment="galileo_pick_and_place",
-        embodiment="gr1",
+        embodiment="gr1_pink",
         object_name="power_drill",
         num_steps=NUM_STEPS,
     )
@@ -97,7 +97,7 @@ def test_zero_action_policy_gr1_open_microwave():
         run_policy_runner(
             policy_type="zero_action",
             example_environment=example_environment,
-            embodiment=None,
+            embodiment="gr1_pink",
             background=None,
             object_name=object_name,
             num_steps=NUM_STEPS,
@@ -109,5 +109,6 @@ def test_replay_policy_gr1_open_microwave():
         policy_type="replay",
         replay_file_path=TestConstants.test_data_dir + "/test_demo_gr1_open_microwave.hdf5",
         example_environment="gr1_open_microwave",
+        embodiment="gr1_pink",
         num_steps=NUM_STEPS,
     )
