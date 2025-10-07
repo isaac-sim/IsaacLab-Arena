@@ -20,9 +20,9 @@ def isaaclab_arena_git_clone_code_block(app: Sphinx, _: Any, source: list[str]) 
     """
 
     def replacer(_: Any) -> str:
-        release_state = app.config.isaac_arena_docs_config["released"]
-        internal_git_url = app.config.isaac_arena_docs_config["internal_git_url"]
-        external_git_url = app.config.isaac_arena_docs_config["external_git_url"]
+        release_state = app.config.isaaclab_arena_docs_config["released"]
+        internal_git_url = app.config.isaaclab_arena_docs_config["internal_git_url"]
+        external_git_url = app.config.isaaclab_arena_docs_config["external_git_url"]
         if release_state:
             git_clone_target = external_git_url
         else:
@@ -47,9 +47,9 @@ def isaaclab_arena_code_link(app: Sphinx, _: Any, source: list[str]) -> None:
 
     def replacer(match: re.Match) -> str:
         relative_path = match.group("relative_path")
-        release_state = app.config.isaac_arena_docs_config["released"]
-        internal_code_link_base_url = app.config.isaac_arena_docs_config["internal_code_link_base_url"]
-        external_code_link_base_url = app.config.isaac_arena_docs_config["external_code_link_base_url"]
+        release_state = app.config.isaaclab_arena_docs_config["released"]
+        internal_code_link_base_url = app.config.isaaclab_arena_docs_config["internal_code_link_base_url"]
+        external_code_link_base_url = app.config.isaaclab_arena_docs_config["external_code_link_base_url"]
         # Extract the file name
         file_name = relative_path.split("/")[-1]
         if release_state:
