@@ -17,7 +17,7 @@ from dataclasses import MISSING
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
 
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
+from isaac_arena.arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
 
 
 @configclass

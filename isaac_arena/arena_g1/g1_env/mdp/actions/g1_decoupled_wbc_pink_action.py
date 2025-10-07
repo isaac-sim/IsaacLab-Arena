@@ -22,10 +22,11 @@ from typing import TYPE_CHECKING
 
 from isaaclab.assets.articulation import Articulation
 
-from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
+from isaac_arena.arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
+from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
     G1WBCUpperbodyController,
 )
-from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.action_constants import (
+from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
     LEFT_HAND_STATE_DIM,
     LEFT_HAND_STATE_IDX,
     LEFT_WRIST_LINK_NAME,
@@ -46,12 +47,11 @@ from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.policy.action
     RIGHT_WRIST_QUAT_END_IDX,
     RIGHT_WRIST_QUAT_START_IDX,
 )
-from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.run_policy import (
+from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.run_policy import (
     postprocess_actions,
     prepare_observations,
 )
-from isaac_arena.arena_control.g1_whole_body_controller.wbc_policy.utils.p_controller import PController
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
+from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.utils.p_controller import PController
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv

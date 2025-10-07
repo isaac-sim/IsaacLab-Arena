@@ -16,12 +16,12 @@ from typing import Literal
 
 from isaaclab.utils.assets import retrieve_file_path
 
-from isaac_arena.embodiments.g1.g1_supplemental_info import (
+from isaac_arena.arena_g1.g1_env.g1_supplemental_info import (
     G1SupplementalInfo,
     G1SupplementalInfoWaistLowerAndUpperBody,
     G1SupplementalInfoWaistUpperBody,
 )
-from isaac_arena.embodiments.g1.robot_model import RobotModel
+from isaac_arena.arena_g1.g1_env.robot_model import RobotModel
 
 
 def instantiate_g1_robot_model(

@@ -18,7 +18,7 @@ import pink
 import pinocchio as pin
 from pink.tasks import FrameTask, PostureTask
 
-from isaac_arena.embodiments.g1.robot_model import ReducedRobotModel, RobotModel
+from isaac_arena.arena_g1.g1_env.robot_model import ReducedRobotModel, RobotModel
 
 
 class G1BodyIKSolverSettings:

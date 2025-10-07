@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass, field
 
-import isaac_arena.embodiments.g1.g1_constants as g1_constants
+import isaac_arena.arena_g1.g1_env.g1_constants as g1_constants
 
 
 # NOTE(xinjie.yao, 9.11.2025): consider inheritating from a base class `RobotSupplementalInfo`

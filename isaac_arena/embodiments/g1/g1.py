@@ -33,12 +33,12 @@ from isaaclab.sensors import CameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 
 import isaac_arena.terms.transforms as transforms_terms
+from isaac_arena.arena_g1.g1_env.mdp import g1_events as g1_events_mdp
+from isaac_arena.arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
+from isaac_arena.arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
+from isaac_arena.arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 from isaac_arena.assets.register import register_asset
 from isaac_arena.embodiments.embodiment_base import EmbodimentBase
-from isaac_arena.embodiments.g1.mdp import g1_events as g1_events_mdp
-from isaac_arena.embodiments.g1.mdp import g1_observations as g1_observations_mdp
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
-from isaac_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 from isaac_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaac_arena.utils.pose import Pose
 

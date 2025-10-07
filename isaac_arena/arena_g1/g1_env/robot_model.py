@@ -19,7 +19,7 @@ from copy import deepcopy
 
 import pinocchio as pin
 
-from isaac_arena.embodiments.g1.g1_supplemental_info import G1SupplementalInfo
+from isaac_arena.arena_g1.g1_env.g1_supplemental_info import G1SupplementalInfo
 
 
 class RobotModel:
