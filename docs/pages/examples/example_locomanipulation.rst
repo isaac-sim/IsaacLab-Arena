@@ -25,11 +25,6 @@ from a small set of annotated demonstrations by using rigid body transformations
 object initial poses are randomized to introduce variation and boost dataset diversity. Noise is added to the robot's actions to further
 increase diversity. For more information about Isaac Lab Mimic, please visit the Isaac Lab documentation `here <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#teleoperation-and-imitation-learning-with-isaac-lab-mimic>`_.
 
-Before proceeding, make sure you are inside the Isaac Lab - Arena docker container by running:
-
-.. code:: bash
-
-   ./docker/run_docker.sh
 
 Download Pre-recorded Annotated Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -38,6 +33,12 @@ under ``isaac_arena/datasets/Arena-G1-Loco-Manipulation-Task/``.
 
 .. hint::
    The annotated dataset can be visualized using the ``replay_demos.py`` script.
+   Enter the Isaac Lab - Arena docker container:
+
+   .. code:: bash
+
+      ./docker/run_docker.sh
+
    Run the following command to play back the dataset:
 
    .. code:: bash
@@ -52,6 +53,14 @@ under ``isaac_arena/datasets/Arena-G1-Loco-Manipulation-Task/``.
 Mimic Data Generation
 ^^^^^^^^^^^^^^^^^^^^^
 Use the annotated dataset and Isaac Lab Mimic to generate a new dataset of 100 demonstrations for GR00T training.
+
+Before proceeding, make sure you are inside the Isaac Lab - Arena docker container:
+
+.. code:: bash
+
+   ./docker/run_docker.sh
+
+Then run the following command to generate the dataset:
 
 .. code:: bash
 
