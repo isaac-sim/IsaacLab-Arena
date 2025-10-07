@@ -14,8 +14,8 @@ from typing import Any
 from sphinx.application import Sphinx
 
 
-def isaac_arena_git_clone_code_block(app: Sphinx, _: Any, source: list[str]) -> None:
-    """Replaces the :isaac_arena_git_clone_code_block: directive with a code block.
+def isaaclab_arena_git_clone_code_block(app: Sphinx, _: Any, source: list[str]) -> None:
+    """Replaces the :isaaclab_arena_git_clone_code_block: directive with a code block.
     The output git clone command depends on whether we're in release or internal mode.
     """
 
@@ -35,11 +35,11 @@ def isaac_arena_git_clone_code_block(app: Sphinx, _: Any, source: list[str]) -> 
 
 """
 
-    source[0] = re.sub(r":isaac_arena_git_clone_code_block:", replacer, source[0])
+    source[0] = re.sub(r":isaaclab_arena_git_clone_code_block:", replacer, source[0])
 
 
-def isaac_arena_code_link(app: Sphinx, _: Any, source: list[str]) -> None:
-    """Replaces the :isaac_arena_code_link: directive with a code block.
+def isaaclab_arena_code_link(app: Sphinx, _: Any, source: list[str]) -> None:
+    """Replaces the :isaaclab_arena_code_link: directive with a code block.
 
     The output link is either gitlab (internal) or github (external) depending on the release state.
 
@@ -58,10 +58,10 @@ def isaac_arena_code_link(app: Sphinx, _: Any, source: list[str]) -> None:
             code_link_base_url = internal_code_link_base_url
         return f"`{file_name} <{code_link_base_url}/{relative_path}>`_"
 
-    source[0] = re.sub(r":isaac_arena_code_link:`<(?P<relative_path>.*)>`", replacer, source[0])
+    source[0] = re.sub(r":isaaclab_arena_code_link:`<(?P<relative_path>.*)>`", replacer, source[0])
 
 
 def setup(app: Sphinx) -> None:
-    app.connect("source-read", isaac_arena_git_clone_code_block)
-    app.connect("source-read", isaac_arena_code_link)
-    app.add_config_value("isaac_arena_docs_config", {}, "env")
+    app.connect("source-read", isaaclab_arena_git_clone_code_block)
+    app.connect("source-read", isaaclab_arena_code_link)
+    app.add_config_value("isaaclab_arena_docs_config", {}, "env")

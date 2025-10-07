@@ -39,7 +39,7 @@ from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
 
 # -- Project information -----------------------------------------------------
 
-project = "isaac_arena"
+project = "isaaclab_arena"
 copyright = "2025, NVIDIA"
 author = "NVIDIA"
 released = False  # Indicates if this is a public or internal version of the repo.
@@ -60,7 +60,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx_tabs.tabs",
     "sphinx_copybutton",
-    "isaac_arena_doc_tools",
+    "isaaclab_arena_doc_tools",
 ]
 
 # put type hints inside the description instead of the signature (easier to read)
@@ -92,7 +92,7 @@ nitpick_ignore: list[str] = []  # can exclude known bad refs
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "nvidia_sphinx_theme"
-html_title = f"isaac_arena {ISAAC_ARENA_VERSION_NUMBER}"
+html_title = f"isaaclab_arena {ISAAC_ARENA_VERSION_NUMBER}"
 html_show_sphinx = False
 html_theme_options = {
     "copyright_override": {"start": 2023},
@@ -145,7 +145,7 @@ for ignore in temporary_linkcheck_ignore:
 #  Macros dependent on release state
 #####################################
 
-isaac_arena_docs_config = {
+isaaclab_arena_docs_config = {
     "released": released,
     "internal_git_url": "git@github.com:isaac-sim/isaac_arena.git",
     "external_git_url": "UNDECIDED",

@@ -1,8 +1,8 @@
-# `isaac_arena` Dox - Developer Guide
+# `isaaclab_arena` Dox - Developer Guide
 
-To build the `isaac_arena` docs locally follow the following instructions.
+To build the `isaaclab_arena` docs locally follow the following instructions.
 
-Enter the `isaac_arena` docker.
+Enter the `isaaclab_arena` docker.
 
 ```
 ./docker/run_docker.sh
