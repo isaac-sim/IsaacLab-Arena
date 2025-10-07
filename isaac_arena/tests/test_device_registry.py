@@ -30,7 +30,7 @@ def _test_all_devices_in_registry(simulation_app):
     import omni.usd
 
     from isaac_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
-    from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2Embodiment
+    from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2EmbodimentPink
     from isaac_arena.environments.compile_env import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.scene import Scene
@@ -49,7 +49,7 @@ def _test_all_devices_in_registry(simulation_app):
         teleop_device = device_registry.get_device_by_name(device_name)()
         isaac_arena_environment = IsaacArenaEnvironment(
             name="kitchen",
-            embodiment=GR1T2Embodiment(),
+            embodiment=GR1T2EmbodimentPink(),
             scene=Scene([background, asset]),
             task=DummyTask(),
             teleop_device=teleop_device,
