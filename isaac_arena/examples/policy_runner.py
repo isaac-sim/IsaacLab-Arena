@@ -43,8 +43,8 @@ def main():
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
-            if terminated.any() or truncated.any():
-                obs = env.reset()
+                if terminated.any() or truncated.any():
+                    obs, _ = env.reset()
         # Close the environment.
         env.close()
 
