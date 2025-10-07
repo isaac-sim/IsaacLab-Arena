@@ -111,7 +111,7 @@ python scripts/annotate_demos.py --dataset_file <input_hdf5_file> gr1_open_micro
 For generating a dataset
 ```bash
 python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
-    --embodiment gr1 \
+    --embodiment gr1_pink \
     --background packing_table_pick_and_place \
     --task PickPlace-GR1T2 \
     --object tomato_soup_can \
