@@ -76,7 +76,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="power_drill")
-        parser.add_argument("--embodiment", type=str, default="gr1")
+        parser.add_argument("--embodiment", type=str, default="gr1_pink")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
