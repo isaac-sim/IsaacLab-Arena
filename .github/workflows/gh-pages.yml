@@ -50,8 +50,12 @@ jobs:
         run: |
           cd docs
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W 
-          touch ./_build/.nojekyll
+          make SPHINXOPTS=-W html
+          touch ./_build/html/.nojekyll
+
+      - name: Copy redirect file
+        run: |
+          cp ./docs/_redirect/index.html ./docs/_build/index.html
 
       # Upload docs artifact
       - name: Upload docs artifact
