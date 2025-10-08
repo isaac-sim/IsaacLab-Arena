@@ -190,10 +190,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -351,107 +347,7 @@
                   
   <section id="embodiment-design">
 <h1>Embodiment Design<a class="headerlink" href="#embodiment-design" title="Link to this heading">#</a></h1>
-<p>Embodiments in Isaac Arena define robot-specific configurations and behaviors, providing a modular way to integrate different robots into environments. Each embodiment encapsulates all robot-specific aspects including kinematics, control actions, observations, and specialized behaviors.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>The embodiment system is built around the <code class="docutils literal notranslate"><span class="pre">EmbodimentBase</span></code> abstract class, which defines a standard interface for all robots:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">EmbodimentBase</span><span class="p">(</span><span class="n">Asset</span><span class="p">):</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;embodiment&quot;</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable_cameras</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">initial_pose</span><span class="p">:</span> <span class="n">Pose</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="c1"># Robot-specific configurations</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">scene_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">camera_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">action_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">observation_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">event_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mimic_env</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xr</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</pre></div>
-</div>
-</section>
-<section id="configuration-components">
-<h2>Configuration Components<a class="headerlink" href="#configuration-components" title="Link to this heading">#</a></h2>
-<p>Each embodiment provides several configuration components:</p>
-<dl class="simple">
-<dt><strong>Scene Configuration</strong></dt><dd><p>Defines the robot’s physical properties, joint actuators, initial pose, and any robot-specific scene elements (e.g., mounting stands).</p>
-</dd>
-<dt><strong>Action Configuration</strong></dt><dd><p>Specifies the robot’s control interface - joint positions, end-effector poses, or specialized controllers like whole-body control (WBC).</p>
-</dd>
-<dt><strong>Observation Configuration</strong></dt><dd><p>Defines what sensor data and state information the robot provides, including joint states, end-effector poses, and camera feeds.</p>
-</dd>
-<dt><strong>Event Configuration</strong></dt><dd><p>Handles robot initialization, resets, and any robot-specific events during simulation.</p>
-</dd>
-<dt><strong>Camera Configuration</strong> <em>(Optional)</em></dt><dd><p>Defines onboard cameras with their positions, orientations, and sensor properties. This is only used when <code class="docutils literal notranslate"><span class="pre">enable_cameras</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>. When it is used an observation term is added to the observations config for each camera.</p>
-</dd>
-<dt><strong>XR Configuration</strong> <em>(Optional)</em></dt><dd><p>Provides the location of the XR camera device.</p>
-</dd>
-</dl>
-</section>
-<section id="available-embodiments">
-<h2>Available Embodiments<a class="headerlink" href="#available-embodiments" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Franka Panda</strong> (<code class="docutils literal notranslate"><span class="pre">franka</span></code>)</dt><dd><ul class="simple">
-<li><p>7-DOF manipulator with parallel gripper</p></li>
-<li><p>Differential inverse kinematics control</p></li>
-<li><p>End-effector pose observations</p></li>
-<li><p>Suitable for manipulation tasks</p></li>
-</ul>
-</dd>
-<dt><strong>Unitree G1</strong> (<code class="docutils literal notranslate"><span class="pre">g1_wbc_joint</span></code>, <code class="docutils literal notranslate"><span class="pre">g1_wbc_pink</span></code>)</dt><dd><ul class="simple">
-<li><p>Humanoid robot with arms and dexterous hands</p></li>
-<li><p>Whole-body control (WBC) with walking capabilities</p></li>
-<li><p>Dual-arm manipulation with navigation commands</p></li>
-<li><p>Head-mounted camera support</p></li>
-<li><p>Available in joint control and IK control variants</p></li>
-</ul>
-</dd>
-<dt><strong>Fourier GR1T2</strong> (<code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code>, <code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code>)</dt><dd><ul class="simple">
-<li><p>Humanoid robot optimized for manipulation</p></li>
-<li><p>Joint position and inverse kinematics control modes</p></li>
-<li><p>Dual end-effector control with hand articulation</p></li>
-<li><p>Head-mounted cameras for perception</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="mimic-configurations">
-<h2>Mimic Configurations<a class="headerlink" href="#mimic-configurations" title="Link to this heading">#</a></h2>
-<p>Each embodiment provides a specialized <code class="docutils literal notranslate"><span class="pre">MimicEnv</span></code> class for enabling mimic components of IsaacLab to be seamlessly integrated:</p>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Basic Embodiment Usage</strong>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--embodiment<span class="w"> </span>franka
-</pre></div>
-</div>
-<p><strong>Humanoid Manipulation</strong>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--embodiment<span class="w"> </span>g1_wbc_joint
-</pre></div>
-</div>
-<p><strong>Different Control Modes</strong>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Joint control</span>
-python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span>--embodiment<span class="w"> </span>gr1_joint
-
-<span class="c1"># IK control</span>
-python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span>--embodiment<span class="w"> </span>gr1_pink
-</pre></div>
-</div>
-</section>
-<section id="creating-new-embodiments">
-<h2>Creating New Embodiments<a class="headerlink" href="#creating-new-embodiments" title="Link to this heading">#</a></h2>
-<p>To add a new robot embodiment:</p>
-<ol class="arabic simple">
-<li><p><strong>Create embodiment class</strong> inheriting from <code class="docutils literal notranslate"><span class="pre">EmbodimentBase</span></code></p></li>
-<li><p><strong>Define robot configuration</strong> with actuators, joints, and physical properties</p></li>
-<li><p><strong>Implement action space</strong> specifying control interface</p></li>
-<li><p><strong>Define observations</strong> for sensors and state information</p></li>
-<li><p><strong>Create mimic environment</strong> for demonstration learning support</p></li>
-<li><p><strong>Register embodiment</strong> using the <code class="docutils literal notranslate"><span class="pre">&#64;register_asset</span></code> decorator</p></li>
-</ol>
-<p>The modular embodiment system enables rapid integration of new robots while maintaining consistency across different robot platforms and control paradigms.</p>
-</section>
+<p>TBD.</p>
 </section>
 
 
@@ -489,30 +385,9 @@ python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration-components">Configuration Components</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-embodiments">Available Embodiments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mimic-configurations">Mimic Configurations</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-new-embodiments">Creating New Embodiments</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 
