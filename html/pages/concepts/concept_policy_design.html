@@ -190,10 +190,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -351,137 +347,7 @@
                   
   <section id="policy-design">
 <h1>Policy Design<a class="headerlink" href="#policy-design" title="Link to this heading">#</a></h1>
-<p>Policies in Isaac Arena define how agents generate actions from observations, providing a unified framework for integrating different control strategies, learning algorithms, and demonstration replay systems. The policy system supports everything from simple baselines to sophisticated neural network models, enabling seamless experimentation across different approaches.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>The policy system is built around the <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code> abstract class, which defines a standard interface for all control policies:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">PolicyBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Base class for policies.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">observation</span><span class="p">:</span> <span class="n">GymSpacesDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute an action given the environment and observation.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            env: The environment instance</span>
-<span class="sd">            observation: Observation dictionary from the environment</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            torch.Tensor: The action to take</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-</pre></div>
-</div>
-<p>This abstraction enables seamless swapping between different policy implementations while maintaining consistent integration with Isaac Arena environments.</p>
-</section>
-<section id="policy-types-and-implementations">
-<h2>Policy Types and Implementations<a class="headerlink" href="#policy-types-and-implementations" title="Link to this heading">#</a></h2>
-<p>Isaac Arena supports three main categories of policies, each addressing different use cases:</p>
-<dl>
-<dt><strong>Zero Action Policy</strong></dt><dd><p>A baseline policy that always returns zero actions, useful for testing environment mechanics, physics validation, and establishing performance baselines.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Always returns zeros for environment action space</span>
-<span class="n">policy</span> <span class="o">=</span> <span class="n">ZeroActionPolicy</span><span class="p">()</span>
-<span class="n">action</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">observation</span><span class="p">)</span>  <span class="c1"># Returns torch.zeros(env.action_space.shape)</span>
-</pre></div>
-</div>
-</dd>
-<dt><strong>Replay Action Policy</strong></dt><dd><p>Replays pre-recorded actions from HDF5 datasets, enabling demonstration replay, trajectory analysis, and data-driven evaluation.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load and replay specific episodes from demonstration data</span>
-<span class="n">policy</span> <span class="o">=</span> <span class="n">ReplayActionPolicy</span><span class="p">(</span>
-    <span class="n">replay_file_path</span><span class="o">=</span><span class="s2">&quot;path/to/demos.h5&quot;</span><span class="p">,</span>
-    <span class="n">episode_name</span><span class="o">=</span><span class="s2">&quot;episode_001&quot;</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</dd>
-<dt><strong>GR00T Neural Policies</strong></dt><dd><p>Advanced neural network policies using NVIDIA’s GR00T foundation models for visuomotor control:</p>
-<ul class="simple">
-<li><p><strong>Closed-loop Inference</strong>: Real-time policy execution with visual and proprioceptive feedback</p></li>
-<li><p><strong>Action Chunking</strong>: Generates multiple future actions per observation for temporal consistency</p></li>
-<li><p><strong>Multi-modal Input</strong>: Processes camera images, joint states, and language instructions</p></li>
-<li><p><strong>Embodiment Adaptation</strong>: Supports different robot configurations through joint remapping</p></li>
-</ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># GR00T policy with closed-loop visual control</span>
-<span class="n">policy</span> <span class="o">=</span> <span class="n">Gr00tClosedloopPolicy</span><span class="p">(</span>
-    <span class="n">policy_config_yaml_path</span><span class="o">=</span><span class="s2">&quot;config/gr00t_config.yaml&quot;</span><span class="p">,</span>
-    <span class="n">num_envs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</dd>
-</dl>
-</section>
-<section id="policy-integration-system">
-<h2>Policy Integration System<a class="headerlink" href="#policy-integration-system" title="Link to this heading">#</a></h2>
-<p>Policies integrate with Isaac Arena environments through a standardized runner system that handles policy execution, environment interaction, and data management:</p>
-<dl>
-<dt><strong>Policy Runner Framework</strong></dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> system provides a unified interface for policy execution:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Standard policy execution loop</span>
-<span class="n">arena_builder</span> <span class="o">=</span> <span class="n">get_arena_builder_from_cli</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">arena_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
-<span class="n">policy</span><span class="p">,</span> <span class="n">num_steps</span> <span class="o">=</span> <span class="n">create_policy</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_steps</span><span class="p">):</span>
-    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">():</span>
-        <span class="n">actions</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">obs</span><span class="p">)</span>
-        <span class="n">obs</span><span class="p">,</span> <span class="n">rewards</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">terminated</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">or</span> <span class="n">truncated</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-            <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-</pre></div>
-</div>
-</dd>
-<dt><strong>Command-Line Interface</strong></dt><dd><blockquote>
-<div><p>CLI support for policy configuration and execution:</p>
-</div></blockquote>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Zero action baseline</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">1000</span>
-
-<span class="c1"># Demonstration replay</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>replay<span class="w"> </span>--replay_file_path<span class="w"> </span>demos.h5<span class="w"> </span>kitchen_pick_and_place
-
-<span class="c1"># GR00T neural policy</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span>--policy_config_yaml_path<span class="w"> </span>config.yaml
-</pre></div>
-</div>
-</dd>
-</dl>
-</section>
-<section id="practical-usage-patterns">
-<h2>Practical Usage Patterns<a class="headerlink" href="#practical-usage-patterns" title="Link to this heading">#</a></h2>
-<p>Common policy usage patterns in Isaac Arena:</p>
-<dl class="simple">
-<dt><strong>Development and Testing</strong></dt><dd><p>Use zero action policies to validate environment mechanics and establish baselines before deploying learned policies.</p>
-</dd>
-<dt><strong>Demonstration Collection</strong></dt><dd><p>Record human demonstrations using teleoperation devices, then replay using replay policies for analysis and learning.</p>
-</dd>
-<dt><strong>Neural Policy Deployment</strong></dt><dd><p>Deploy pre-trained GR00T models for complex visuomotor tasks, leveraging foundation model capabilities for manipulation and locomotion.</p>
-</dd>
-</dl>
-<p><strong>Example Integration</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create environment with specific embodiment</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_manipulation&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">G1</span><span class="p">(</span><span class="n">control_mode</span><span class="o">=</span><span class="s2">&quot;joint_space&quot;</span><span class="p">),</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">KitchenScene</span><span class="p">(),</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">()</span>
-<span class="p">)</span>
-
-<span class="c1"># Load appropriate policy for the task</span>
-<span class="n">policy</span> <span class="o">=</span> <span class="n">Gr00tClosedloopPolicy</span><span class="p">(</span>
-    <span class="n">policy_config_yaml_path</span><span class="o">=</span><span class="s2">&quot;configs/g1_kitchen_manipulation.yaml&quot;</span><span class="p">,</span>
-    <span class="n">num_envs</span><span class="o">=</span><span class="n">environment</span><span class="o">.</span><span class="n">num_envs</span>
-<span class="p">)</span>
-
-<span class="c1"># Execute policy in environment</span>
-<span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">environment</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
-    <span class="n">actions</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">obs</span><span class="p">)</span>
-    <span class="n">obs</span><span class="p">,</span> <span class="n">rewards</span><span class="p">,</span> <span class="n">dones</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">environment</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>The policy system in Isaac Arena provides a flexible foundation for robotic control research, supporting everything from simple baselines to state-of-the-art foundation models while maintaining consistent interfaces and seamless integration with the broader Isaac Arena ecosystem.</p>
-</section>
+<p>TBD.</p>
 </section>
 
 
@@ -519,28 +385,9 @@ python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_t
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-types-and-implementations">Policy Types and Implementations</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-integration-system">Policy Integration System</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#practical-usage-patterns">Practical Usage Patterns</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 
