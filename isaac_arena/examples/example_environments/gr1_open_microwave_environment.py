@@ -33,13 +33,14 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         from isaac_arena.tasks.open_door_task import OpenDoorTask
         from isaac_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("packing_table")()
+        background = self.asset_registry.get_asset_by_name("kitchen")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
         assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
             args_cli.embodiment
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -48,7 +49,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         # Put the microwave on the packing table.
         microwave_pose = Pose(
-            position_xyz=(0.8, -0.00586, 0.22773),
+            position_xyz=(0.4, -0.00586, 0.22773),
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
         microwave.set_initial_pose(microwave_pose)
