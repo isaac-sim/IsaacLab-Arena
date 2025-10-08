@@ -47,6 +47,9 @@ Each embodiment provides several configuration components:
 **XR Configuration** *(Optional)*
    Provides the location of the XR camera device.
 
+**Mimic Configuration** *(Optional)*
+   Provides the configuration for the mimic environment. This is only used when ``mimic_env`` is set to ``True``.
+
 Available Embodiments
 ---------------------
 
@@ -108,8 +111,11 @@ To add a new robot embodiment:
 1. **Create embodiment class** inheriting from ``EmbodimentBase``
 2. **Define robot configuration** with actuators, joints, and physical properties
 3. **Implement action space** specifying control interface
-4. **Define observations** for sensors and state information
-5. **Create mimic environment** for demonstration learning support
+4. **Define scene configuration** for the robot
+5. **Define camera configuration** for the robot
+6. **Define observations** for sensors and state information
+6. **Define event configuration** for the robot
+5. **Create mimic environment** for using mimic support
 6. **Register embodiment** using the ``@register_asset`` decorator
 
 The modular embodiment system enables rapid integration of new robots while maintaining consistency across different robot platforms and control paradigms.
