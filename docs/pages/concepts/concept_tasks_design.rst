@@ -72,7 +72,7 @@ Tasks coordinate multiple Isaac Lab manager configurations:
 
 
 Configuration Generation
------------------------
+------------------------
 
 Tasks generate Isaac Lab configurations for environment integration:
 
@@ -119,6 +119,7 @@ Tasks generate Isaac Lab configurations for environment integration:
    Mimic environment configurations for demonstration generation:
 
 .. code-block:: python
+
    return PickAndPlaceMimicEnvCfg(
        embodiment_name=embodiment_name,
        pick_up_object_name="pick_up_object",
@@ -129,10 +130,11 @@ Tasks generate Isaac Lab configurations for environment integration:
    Performance evaluation and data collection:
 
 .. code-block:: python
+
    return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
 Environment Integration
-----------------------
+-----------------------
 
 Tasks integrate into environments through composition:
 

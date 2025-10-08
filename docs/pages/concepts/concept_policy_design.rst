@@ -72,7 +72,7 @@ Isaac Arena supports three main categories of policies, each addressing differen
 
 
 Policy Integration System
-------------------------
+-------------------------
 
 Policies integrate with Isaac Arena environments through a standardized runner system that handles policy execution, environment interaction, and data management:
 

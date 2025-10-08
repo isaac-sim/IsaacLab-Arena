@@ -67,7 +67,7 @@ Affordances integrate with objects through multiple inheritance, combining objec
            )
 
 Affordance Operations
---------------------
+---------------------
 
 **State Querying**
    Affordances provide methods to query the current state of objects:

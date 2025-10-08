@@ -114,8 +114,8 @@ To add a new robot embodiment:
 4. **Define scene configuration** for the robot
 5. **Define camera configuration** for the robot
 6. **Define observations** for sensors and state information
-6. **Define event configuration** for the robot
-5. **Create mimic environment** for using mimic support
-6. **Register embodiment** using the ``@register_asset`` decorator
+7. **Define event configuration** for the robot
+8. **Create mimic environment** for using mimic support
+9. **Register embodiment** using the ``@register_asset`` decorator
 
 The modular embodiment system enables rapid integration of new robots while maintaining consistency across different robot platforms and control paradigms.

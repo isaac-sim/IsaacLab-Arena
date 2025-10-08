@@ -184,7 +184,7 @@ Assets are composed into scenes through the Scene class, which manages collectio
    scene = Scene(assets=[background, microwave, cracker_box])
 
 Environment Integration
-----------------------
+-----------------------
 
 Assets integrate into complete environments through composition with embodiments and tasks:
 

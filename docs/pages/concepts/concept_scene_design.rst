@@ -74,7 +74,7 @@ Common patterns for scene creation:
    scene.add_assets(objects)
 
 Configuration Integration
-------------------------
+-------------------------
 
 Scenes integrate with the broader environment system:
 
@@ -127,7 +127,7 @@ Usage Examples
    scene = Scene(assets=[packing_table, microwave])
 
 Scene Configuration Management
------------------------------
+------------------------------
 
 Scenes support optional configuration overrides:
 
