@@ -84,7 +84,7 @@ if [ "$PUSH_TO_NGC" = true ]; then
 
     # Tag and push the image to NGC.
     echo "Pushing container to ${NGC_PATH}."
-    docker tag ${ISAAC_ARENA_IMAGE_NAME} ${NGC_PATH}
+    docker tag ${DOCKER_IMAGE_NAME} ${NGC_PATH}
     docker push ${NGC_PATH}
     echo "Pushing complete."
 
