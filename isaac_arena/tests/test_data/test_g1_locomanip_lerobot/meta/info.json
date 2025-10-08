@@ -2,7 +2,7 @@
     "codebase_version": "v2.1",
     "robot_type": "unitree_g1",
     "total_episodes": 1,
-    "total_frames": 850,
+    "total_frames": 852,
     "total_tasks": 1,
     "total_videos": 1,
     "total_chunks": 0,

@@ -22,7 +22,7 @@ teleop_base_height_command_name_sim: "base_height_cmd"
 teleop_navigate_command_name_sim: "navigate_cmd"
 teleop_torso_orientation_rpy_command_name_sim: "torso_orientation_rpy_cmd"
 action_name_sim: "processed_actions"
-pov_cam_name_sim: "robot_head_cam"
+pov_cam_name_sim: "robot_head_cam_rgb"
 
 # Gr00t-LeRobot datafield names
 state_name_lerobot: "observation.state"

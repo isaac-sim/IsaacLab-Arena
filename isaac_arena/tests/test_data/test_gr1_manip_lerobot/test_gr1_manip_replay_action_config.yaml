@@ -7,12 +7,8 @@ video_backend: decord
 data_config: fourier_gr1_arms_only
 
 policy_joints_config_path: isaac_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml
-task_mode: gr1_tabletop_manipulation
 action_joints_config_path: isaac_arena/policy/config/gr1/36dof_joint_space.yaml
 num_feedback_actions: 1
 task_mode_name: gr1_tabletop_manipulation
 
-# available data_config in DATA_CONFIG_MAP
-# "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
-# "fourier_gr1_arms_only": FourierGr1ArmsOnlyDataConfig(),
-# "fourier_gr1_full_upper_body": FourierGr1FullUpperBodyDataConfig(),
+pov_cam_name_sim: "robot_pov_cam_rgb"

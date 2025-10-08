@@ -1,13 +1,15 @@
 # This file shows how to configure the Gr00tClosedloopPolicy class for G1 locomanipulation task
-model_path: /checkpoints/gn1_5_g1_galileo_box_npnp/checkpoint-20000
+# model_path: /checkpoints/gn1_5_g1_galileo_box_npnp/checkpoint-20000
+model_path: /datasets/ckpts/gn1_5_g1_galileo_box_npnp_ckpts/100_v2/
 action_horizon: 16
 embodiment_tag: new_embodiment
 video_backend: decord
 data_config: unitree_g1_sim_wbc
 
 policy_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
-task_mode: g1_locomanipulation
 action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
 state_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
 num_feedback_actions: 16
 task_mode_name: g1_locomanipulation
+
+pov_cam_name_sim: "robot_head_cam_rgb"

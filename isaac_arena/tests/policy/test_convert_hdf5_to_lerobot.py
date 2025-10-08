@@ -28,7 +28,7 @@ def test_g1_convert_hdf5_to_lerobot():
         TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/data/chunk-000/episode_000000.parquet"
     )
     g1_ds_config = create_config_from_yaml(
-        TestConstants.test_data_dir + "/test_g1_locomanip_config.yaml", Gr00tDatasetConfig
+        TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_config.yaml", Gr00tDatasetConfig
     )
 
     # Clean up any existing output directory
