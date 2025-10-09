@@ -25,11 +25,11 @@ All environments inherit from ``ExampleEnvironmentBase`` and must implement two 
 
    class MyEnvironment(ExampleEnvironmentBase):
        name: str = "my_environment"
-       
+
        def get_env(self, args_cli: argparse.Namespace):
            # Create and return IsaacArenaEnvironment
            pass
-           
+
        @staticmethod
        def add_cli_args(parser: argparse.ArgumentParser) -> None:
            # Add command line arguments
@@ -62,10 +62,10 @@ The asset registry provides access to all registered backgrounds, objects, and e
    def get_env(self, args_cli: argparse.Namespace):
        # Background scene
        background = self.asset_registry.get_asset_by_name("kitchen")()
-       
+
        # Object to manipulate
        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-       
+
        # Robot embodiment
        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
            enable_cameras=args_cli.enable_cameras
@@ -130,7 +130,7 @@ Compose the scene and define the task:
 
    # Create scene with all assets
    scene = Scene(assets=[background, pick_up_object, destination_location])
-   
+
    # Define pick and place task
    task = PickAndPlaceTask(pick_up_object, destination_location, background)
 
@@ -182,7 +182,7 @@ Complete Example
    from isaac_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
 
    class MyKitchenEnvironment(ExampleEnvironmentBase):
-       
+
        name: str = "my_kitchen_environment"
 
        def get_env(self, args_cli: argparse.Namespace):

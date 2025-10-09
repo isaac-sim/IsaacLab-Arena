@@ -84,10 +84,10 @@ Environment Integration
 
    # Compile to Isaac Lab environment
    env_builder = ArenaEnvBuilder(environment, args)
-   
+
    # Register and create executable environment
    env = env_builder.make_registered()
-   
+
    # Alternative: get both environment and configuration
    env, cfg = env_builder.make_registered_and_return_cfg()
 
@@ -102,7 +102,7 @@ Usage Examples
    args.mimic = False
    env_builder = ArenaEnvBuilder(arena_environment, args)
    env = env_builder.make_registered()
-   
+
    # Environment ready for training/evaluation
    obs, _ = env.reset()
    actions = policy.get_action(env, obs)
@@ -116,7 +116,7 @@ Usage Examples
    args.mimic = True
    env_builder = ArenaEnvBuilder(arena_environment, args)
    env = env_builder.make_registered()
-   
+
    # Environment configured for mimic data generation
    mimic_env.generate_demonstrations()
 
@@ -127,7 +127,7 @@ Usage Examples
    # Examine compiled configuration before registration
    env_builder = ArenaEnvBuilder(arena_environment, args)
    cfg = env_builder.compose_manager_cfg()
-   
+
    print(f"Scene objects: {list(cfg.scene.keys())}")
    print(f"Action space: {cfg.actions}")
    print(f"Observation space: {cfg.observations}")
