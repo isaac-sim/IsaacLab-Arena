@@ -46,7 +46,7 @@ def main():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
                 if terminated.any() or truncated.any():
-                    obs, _ = env.reset()
+                    break
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
