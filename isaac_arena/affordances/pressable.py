@@ -24,25 +24,23 @@ from isaac_arena.utils.joint_utils import get_normalized_joint_position, set_nor
 class Pressable(AffordanceBase):
     """Interface for pressable objects."""
 
-    def __init__(self, pressable_joint_name: str, pressable_pressed_threshold: float = 0.5, **kwargs):
+    def __init__(self, pressable_joint_name: str, pressedness_threshold: float = 0.5, **kwargs):
         super().__init__(**kwargs)
         self.pressable_joint_name = pressable_joint_name
-        self.pressable_pressed_threshold = pressable_pressed_threshold
+        self.pressedness_threshold = pressedness_threshold
 
     def is_pressed(
-        self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
+        self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, pressedness_threshold: float | None = None
     ) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is pressed."""
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         # We allow for overriding the object-level threshold by passing an argument to this
         # function explicitly. Otherwise we use the object-level threshold.
-        if threshold is not None:
-            pressable_pressed_threshold = threshold
-        else:
-            pressable_pressed_threshold = self.pressable_pressed_threshold
+        if pressedness_threshold is None:
+            pressedness_threshold = self.pressedness_threshold
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-        return get_normalized_joint_position(env, asset_cfg) > pressable_pressed_threshold
+        return get_normalized_joint_position(env, asset_cfg) > pressedness_threshold
 
     def press(
         self,

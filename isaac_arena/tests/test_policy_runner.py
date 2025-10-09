@@ -57,6 +57,14 @@ def run_policy_runner(
     run_subprocess(args)
 
 
+def test_zero_action_policy_press_button():
+    run_policy_runner(
+        policy_type="zero_action",
+        example_environment="press_button",
+        num_steps=NUM_STEPS,
+    )
+
+
 def test_zero_action_policy_kitchen_pick_and_place():
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.

@@ -26,7 +26,7 @@ jobs:
   test:
     name: Run pre commit checks and tests
     runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
