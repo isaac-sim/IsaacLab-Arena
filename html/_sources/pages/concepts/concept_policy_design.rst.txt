@@ -1,12 +1,12 @@
 Policy Design
 =============
 
-Policies in Isaac Arena define how agents generate actions from observations, providing a unified framework for integrating different control strategies, learning algorithms, and demonstration replay systems. The policy system supports everything from simple baselines to sophisticated neural network models, enabling seamless experimentation across different approaches.
+Policies in Isaac Arena define how agents generate actions from observations, providing a unified framework for integrating different control strategies, learning algorithms, and demonstration replay systems. The policy system supports everything from simple baselines to sophisticated neural network models with consistent interfaces.
 
 Core Architecture
 -----------------
 
-The policy system is built around the ``PolicyBase`` abstract class, which defines a standard interface for all control policies:
+The policy system is built around the ``PolicyBase`` abstract class that defines a standard interface:
 
 .. code-block:: python
 
@@ -26,125 +26,87 @@ The policy system is built around the ``PolicyBase`` abstract class, which defin
                torch.Tensor: The action to take
            """
 
-This abstraction enables seamless swapping between different policy implementations while maintaining consistent integration with Isaac Arena environments.
+This abstraction enables seamless swapping between different policy implementations while maintaining consistent integration with Isaac Arena environments and the policy runner system.
 
-Policy Types and Implementations
---------------------------------
+Policies in Detail
+------------------
 
-Isaac Arena supports three main categories of policies, each addressing different use cases:
+**Policy Categories**
+   Three main types addressing different use cases:
 
-**Zero Action Policy**
-   A baseline policy that always returns zero actions, useful for testing environment mechanics, physics validation, and establishing performance baselines.
+   - **Zero Action Policy**: Baseline that returns zero actions for environment testing and physics validation
+   - **Replay Action Policy**: Replays pre-recorded demonstrations from HDF5 datasets for analysis and evaluation
+   - **GR00T Neural Policies**: Advanced foundation models for visuomotor control with multi-modal inputs
 
-   .. code-block:: python
+**Implementation Patterns**
+   Common policy implementation approaches:
 
-      # Always returns zeros for environment action space
-      policy = ZeroActionPolicy()
-      action = policy.get_action(env, observation)  # Returns torch.zeros(env.action_space.shape)
+   - **Stateless Policies**: Pure functions from observations to actions (ZeroActionPolicy)
+   - **Dataset-Driven**: Load and replay recorded trajectories (ReplayActionPolicy)
+   - **Neural Networks**: Process visual and proprioceptive inputs for learned behaviors (GR00T policies)
+   - **Action Chunking**: Generate multiple future actions per observation for temporal consistency
 
-**Replay Action Policy**
-   Replays pre-recorded actions from HDF5 datasets, enabling demonstration replay, trajectory analysis, and data-driven evaluation.
+**Integration System**
+   Policy runner framework handles execution lifecycle:
 
-   .. code-block:: python
+   - **Environment Interaction**: Standard observation-action loop with automatic resets
+   - **CLI Interface**: Command-line policy selection and configuration
+   - **Data Management**: Loading demonstration data and policy configurations
+   - **Performance Monitoring**: Step counting and execution timing
 
-      # Load and replay specific episodes from demonstration data
-      policy = ReplayActionPolicy(
-          replay_file_path="path/to/demos.h5",
-          episode_name="episode_001"
-      )
-
-**GR00T Neural Policies**
-   Advanced neural network policies using NVIDIA's GR00T foundation models for visuomotor control:
-
-   - **Closed-loop Inference**: Real-time policy execution with visual and proprioceptive feedback
-   - **Action Chunking**: Generates multiple future actions per observation for temporal consistency
-   - **Multi-modal Input**: Processes camera images, joint states, and language instructions
-   - **Embodiment Adaptation**: Supports different robot configurations through joint remapping
-
-   .. code-block:: python
-
-      # GR00T policy with closed-loop visual control
-      policy = Gr00tClosedloopPolicy(
-          policy_config_yaml_path="config/gr00t_config.yaml",
-          num_envs=1,
-          device="cuda"
-      )
-
-
-Policy Integration System
--------------------------
-
-Policies integrate with Isaac Arena environments through a standardized runner system that handles policy execution, environment interaction, and data management:
-
-**Policy Runner Framework**
-   The ``policy_runner.py`` system provides a unified interface for policy execution:
-
-   .. code-block:: python
-
-      # Standard policy execution loop
-      arena_builder = get_arena_builder_from_cli(args)
-      env = arena_builder.make_registered()
-      policy, num_steps = create_policy(args)
-
-      for step in range(num_steps):
-          with torch.inference_mode():
-              actions = policy.get_action(env, obs)
-              obs, rewards, terminated, truncated, info = env.step(actions)
-              if terminated.any() or truncated.any():
-                  obs, _ = env.reset()
-
-**Command-Line Interface**
-    CLI support for policy configuration and execution:
-
-   .. code-block:: bash
-
-      # Zero action baseline
-      python policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000
-
-      # Demonstration replay
-      python policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place
-
-      # GR00T neural policy
-      python policy_runner.py --policy_type gr00t_closedloop --policy_config_yaml_path config.yaml
-
-
-Practical Usage Patterns
-------------------------
-
-Common policy usage patterns in Isaac Arena:
-
-**Development and Testing**
-   Use zero action policies to validate environment mechanics and establish baselines before deploying learned policies.
-
-**Demonstration Collection**
-   Record human demonstrations using teleoperation devices, then replay using replay policies for analysis and learning.
-
-**Neural Policy Deployment**
-   Deploy pre-trained GR00T models for complex visuomotor tasks, leveraging foundation model capabilities for manipulation and locomotion.
-
-
-**Example Integration**
+Environment Integration
+-----------------------
 
 .. code-block:: python
 
-   # Create environment with specific embodiment
-   environment = IsaacArenaEnvironment(
-       name="kitchen_manipulation",
-       embodiment=G1(control_mode="joint_space"),
-       scene=KitchenScene(),
-       task=PickAndPlaceTask()
-   )
+   # Policy creation from CLI arguments
+   arena_builder = get_arena_builder_from_cli(args)
+   env = arena_builder.make_registered()
+   policy, num_steps = create_policy(args)
 
-   # Load appropriate policy for the task
-   policy = Gr00tClosedloopPolicy(
-       policy_config_yaml_path="configs/g1_kitchen_manipulation.yaml",
-       num_envs=environment.num_envs
-   )
+   # Standard execution loop
+   obs, _ = env.reset()
+   for step in range(num_steps):
+       with torch.inference_mode():
+           actions = policy.get_action(env, obs)
+           obs, rewards, terminated, truncated, info = env.step(actions)
+           if terminated.any() or truncated.any():
+               obs, _ = env.reset()
 
-   # Execute policy in environment
-   obs, _ = environment.reset()
-   for _ in range(1000):
-       actions = policy.get_action(environment, obs)
-       obs, rewards, dones, info = environment.step(actions)
+Usage Examples
+--------------
 
-The policy system in Isaac Arena provides a flexible foundation for robotic control research, supporting everything from simple baselines to state-of-the-art foundation models while maintaining consistent interfaces and seamless integration with the broader Isaac Arena ecosystem.
+**Baseline Testing**
+
+.. code-block:: bash
+
+   # Zero action policy for environment validation
+   python policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000
+
+**Demonstration Replay**
+
+.. code-block:: bash
+
+   # Replay recorded demonstrations
+   python policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place
+
+**Neural Policy Execution**
+
+.. code-block:: bash
+
+   # GR00T foundation model deployment
+   python policy_runner.py --policy_type gr00t_closedloop --policy_config_yaml_path config.yaml
+
+**Custom Policy Integration**
+
+.. code-block:: python
+
+   class CustomPolicy(PolicyBase):
+       def get_action(self, env, observation):
+           # Custom control logic
+           return torch.zeros(env.action_space.shape)
+
+   policy = CustomPolicy()
+   actions = policy.get_action(environment, observations)
+
+The policy system provides a flexible foundation for robotic control research, supporting diverse approaches from simple baselines to state-of-the-art foundation models while maintaining consistent interfaces across the Isaac Arena ecosystem.

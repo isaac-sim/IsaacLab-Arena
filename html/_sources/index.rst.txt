@@ -17,7 +17,7 @@ A key feature of ``Isaac Lab Arena`` is an easier, more composable interface for
 Installation
 ============
 
-``isaaclab_arena`` version ``v1.0.0`` only supports installation from source in a docker container.
+``isaaclab_arena`` version ``v0.1`` only supports installation from source in a docker container.
 See :doc:`pages/installation` for more options.
 
 Examples
@@ -25,27 +25,22 @@ Examples
 
 Below are some example environments built using ``isaaclab_arena``.
 
-.. TODO::
 
-   (alexmillane, 2025-10-03): Add examples.
+ .. list-table::
+    :class: gallery
+    :widths: auto
 
-.. .. list-table::
-..     :class: gallery
-..     :widths: auto
+    * - .. image:: images/g1_galileo_arena_box_pnp_locomanip.gif
+          :height: 400px
+          :target: pages/workflows/locomanipulation_workflow.html
+    * - .. image:: images/kitchen_gr1_arena.gif
+          :height: 400px
+          :target: pages/workflows/manipulation_workflow.html
 
-..     * - .. image:: images/3dmatch.gif
-..          :height: 200px
-..          :target: pages/torch_examples_reconstruction.html
-..       - .. image:: images/desk_radio_x2_600px.gif
-..          :height: 200px
-..          :target: pages/torch_examples_deep_features.html
 
 License
 -------
 This code is under an `open-source license <https://github.com/isaac-sim/isaac_arena/blob/main/LICENSE.md>`_ (Apache 2.0).
-
-.. TODO::
-   (alexmillane, 2025-10-03): Confirm license.
 
 .. toctree::
    :maxdepth: 1
@@ -61,6 +56,7 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
    pages/concepts/concept_assets_design
    pages/concepts/concept_embodiment_design
    pages/concepts/concept_environment_design
+   pages/concepts/concept_environment_compilation
    pages/concepts/concept_metrics_design
    pages/concepts/concept_policy_design
    pages/concepts/concept_scene_design
@@ -69,7 +65,18 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
 
 .. toctree::
    :maxdepth: 1
+   :caption: Workflows
+
+   pages/workflows/locomanipulation_workflow
+   pages/workflows/manipulation_workflow
+
+.. toctree::
+   :maxdepth: 1
    :caption: Examples
 
-   pages/examples/example_locomanipulation
-   pages/examples/example_tabletop_manipulation
+   pages/examples/create_a_new_affordance.rst
+   pages/examples/create_a_new_asset.rst
+   pages/examples/create_a_new_embodiment.rst
+   pages/examples/create_a_new_environment.rst
+   pages/examples/create_a_new_metric.rst
+   pages/examples/create_a_new_task.rst

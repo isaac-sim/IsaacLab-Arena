@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Tasks Design &#8212; isaaclab_arena 1.0.0</title>
+    <title>Tasks Design &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -124,11 +124,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 1.0.0</p>
+    <p class="title logo__title">isaaclab_arena 0.1</p>
   
 </a></div>
     
@@ -225,11 +225,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 1.0.0</p>
+    <p class="title logo__title">isaaclab_arena 0.1</p>
   
 </a>
 
@@ -288,16 +288,26 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../workflows/manipulation_workflow.html">Manipulation</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../examples/example_locomanipulation.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
 </ul>
 </div>
 </nav></div>
@@ -351,7 +361,7 @@
                   
   <section id="tasks-design">
 <h1>Tasks Design<a class="headerlink" href="#tasks-design" title="Link to this heading">#</a></h1>
-<p>Tasks in Isaac Arena define objectives, success criteria, and behavior logic for robot learning environments. They provide configurations for termination conditions, event handling, metrics collection, and mimic, integrating seamlessly with Isaac Lab’s manager-based environment system.</p>
+<p>Tasks in Isaac Arena define objectives, success criteria, and behavior logic for environments. They provide configurations for termination conditions, event handling, metrics collection, and demonstration generation, integrating seamlessly with Isaac Lab’s manager-based environment system while remaining embodiment and scene agnostic.</p>
 <section id="core-architecture">
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
 <p>The task system is built around the <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> abstract class that defines task interface requirements:</p>
@@ -377,114 +387,55 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Demonstration generation configuration.&quot;&quot;&quot;</span>
 </pre></div>
 </div>
-<p>Tasks encapsulate all task-specific logic while remaining embodiment and scene agnostic.</p>
+<p>Tasks encapsulate all task-specific logic while maintaining clear separation of concerns between objectives and physical layout, enabling reuse across different embodiments and scenes.</p>
 </section>
-<section id="task-components">
-<h2>Task Components<a class="headerlink" href="#task-components" title="Link to this heading">#</a></h2>
-<p>Tasks coordinate multiple Isaac Lab manager configurations:</p>
+<section id="tasks-in-detail">
+<h2>Tasks in Detail<a class="headerlink" href="#tasks-in-detail" title="Link to this heading">#</a></h2>
 <dl class="simple">
-<dt><strong>Scene Configuration</strong></dt><dd><p>Additional sensors and physics components required by the task:</p>
+<dt><strong>Configuration Components</strong></dt><dd><p>Tasks contribute to multiple Isaac Lab manager configurations:</p>
 <ul class="simple">
-<li><p>Contact sensors for success detection for now</p></li>
+<li><p><strong>Scene Configuration</strong>: Additional sensors and physics components (contact sensors, object interactions)</p></li>
+<li><p><strong>Termination Configuration</strong>: Success and failure conditions defining episode completion</p></li>
+<li><p><strong>Event Configuration</strong>: Reset and randomization logic for consistent episode initialization</p></li>
+<li><p><strong>Metrics Integration</strong>: Performance evaluation and data collection systems</p></li>
+<li><p><strong>Mimic Configuration</strong>: Demonstration generation with subtask decomposition</p></li>
 </ul>
 </dd>
-<dt><strong>Termination Configuration</strong></dt><dd><p>Success and failure conditions that define episode completion:</p>
+<dt><strong>Termination System</strong></dt><dd><p>Success and failure conditions that define episode completion:</p>
 <ul class="simple">
 <li><p><strong>Success Termination</strong>: Task completion criteria (object placement, door opening threshold)</p></li>
-<li><p><strong>Failure Termination</strong>: Safety conditions (object dropping, timeout)</p></li>
+<li><p><strong>Failure Termination</strong>: Safety conditions (object dropping, timeout constraints)</p></li>
 <li><p><strong>Physics-based Conditions</strong>: Contact forces, object velocities, spatial relationships</p></li>
+<li><p><strong>Threshold Logic</strong>: Configurable parameters for task-specific success criteria</p></li>
 </ul>
 </dd>
-<dt><strong>Event Configuration</strong></dt><dd><p>Reset and randomization logic for consistent episode initialization:</p>
+<dt><strong>Event Management</strong></dt><dd><p>Reset and randomization logic for consistent episode initialization:</p>
 <ul class="simple">
-<li><p><strong>Pose Resets</strong>: Return objects to initial configurations</p></li>
+<li><p><strong>Pose Resets</strong>: Return objects to initial configurations between episodes</p></li>
 <li><p><strong>State Resets</strong>: Reset affordance states (door openness, button positions)</p></li>
-<li><p><strong>Randomization</strong>: Procedural variation in object poses and properties</p></li>
+<li><p><strong>Randomization</strong>: Procedural variation in object poses and scene properties</p></li>
+<li><p><strong>Episode Triggers</strong>: Automatic handling of environment resets and state management</p></li>
 </ul>
 </dd>
-<dt><strong>Metrics Integration</strong></dt><dd><p>Performance evaluation and data collection:</p>
+<dt><strong>Available Tasks</strong></dt><dd><p>Built-in task implementations for common scenarios:</p>
 <ul class="simple">
-<li><p><strong>Success Rate</strong>: Binary task completion tracking</p></li>
-<li><p><strong>Object Movement</strong>: Spatial displacement and manipulation progress</p></li>
-<li><p><strong>Task-specific Metrics</strong>: Door movement rates, affordance interaction progress</p></li>
-</ul>
-</dd>
-<dt><strong>Mimic Integration</strong></dt><dd><p>Mimic environment configurations for demonstration generation:</p>
-<ul class="simple">
-<li><p><strong>Subtask Definitions</strong>: Multi-stage manipulation sequences with object-relative control</p></li>
-<li><p><strong>Embodiment Adaptation</strong>: Different subtask configurations for various robot morphologies (Franka, G1 dual-arm)</p></li>
+<li><p><strong>PickAndPlaceTask</strong>: Move objects between locations with contact-based success detection</p></li>
+<li><p><strong>OpenDoorTask</strong>: Affordance-based interaction with openable objects and thresholds</p></li>
+<li><p><strong>G1LocomanipPickAndPlaceTask</strong>: Combined locomotion and manipulation for humanoid robots</p></li>
+<li><p><strong>DummyTask</strong>: Empty task template for custom objective development</p></li>
 </ul>
 </dd>
 </dl>
-</section>
-<section id="configuration-generation">
-<h2>Configuration Generation<a class="headerlink" href="#configuration-generation" title="Link to this heading">#</a></h2>
-<p>Tasks generate Isaac Lab configurations for environment integration:</p>
-<dl class="simple">
-<dt><strong>Scene Configuration</strong></dt><dd><p>Additional sensors and physics components required by the task:</p>
-</dd>
-</dl>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Contact sensors for success detection</span>
-<span class="n">contact_sensor</span> <span class="o">=</span> <span class="n">pick_up_object</span><span class="o">.</span><span class="n">get_contact_sensor_cfg</span><span class="p">(</span>
-    <span class="n">contact_against_prim_paths</span><span class="o">=</span><span class="p">[</span><span class="n">destination</span><span class="o">.</span><span class="n">get_prim_path</span><span class="p">()]</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<dl class="simple">
-<dt><strong>Termination Configuration</strong></dt><dd><p>Success and failure condition specifications:</p>
-</dd>
-</dl>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">success</span> <span class="o">=</span> <span class="n">TerminationTermCfg</span><span class="p">(</span>
-    <span class="n">func</span><span class="o">=</span><span class="n">object_on_destination</span><span class="p">,</span>
-    <span class="n">params</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;object_cfg&quot;</span><span class="p">:</span> <span class="n">SceneEntityCfg</span><span class="p">(</span><span class="s2">&quot;pick_up_object&quot;</span><span class="p">),</span>
-        <span class="s2">&quot;contact_sensor_cfg&quot;</span><span class="p">:</span> <span class="n">SceneEntityCfg</span><span class="p">(</span><span class="s2">&quot;contact_sensor&quot;</span><span class="p">),</span>
-        <span class="s2">&quot;force_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
-        <span class="s2">&quot;velocity_threshold&quot;</span><span class="p">:</span> <span class="mf">0.1</span>
-    <span class="p">}</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<dl class="simple">
-<dt><strong>Events Configuration</strong></dt><dd><p>Reset behavior for consistent episode initialization:</p>
-</dd>
-</dl>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reset_object_pose</span> <span class="o">=</span> <span class="n">EventTermCfg</span><span class="p">(</span>
-    <span class="n">func</span><span class="o">=</span><span class="n">set_object_pose</span><span class="p">,</span>
-    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;reset&quot;</span><span class="p">,</span>
-    <span class="n">params</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;pose&quot;</span><span class="p">:</span> <span class="n">initial_pose</span><span class="p">,</span>
-        <span class="s2">&quot;asset_cfg&quot;</span><span class="p">:</span> <span class="n">SceneEntityCfg</span><span class="p">(</span><span class="s2">&quot;object_name&quot;</span><span class="p">)</span>
-    <span class="p">}</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<dl class="simple">
-<dt><strong>Mimic Configuration</strong></dt><dd><p>Mimic environment configurations for demonstration generation:</p>
-</dd>
-</dl>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="n">PickAndPlaceMimicEnvCfg</span><span class="p">(</span>
-    <span class="n">embodiment_name</span><span class="o">=</span><span class="n">embodiment_name</span><span class="p">,</span>
-    <span class="n">pick_up_object_name</span><span class="o">=</span><span class="s2">&quot;pick_up_object&quot;</span><span class="p">,</span>
-    <span class="n">destination_location_name</span><span class="o">=</span><span class="s2">&quot;destination_location&quot;</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<dl class="simple">
-<dt><strong>Metrics Configuration</strong></dt><dd><p>Performance evaluation and data collection:</p>
-</dd>
-</dl>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="p">[</span><span class="n">SuccessRateMetric</span><span class="p">(),</span> <span class="n">ObjectMovedRateMetric</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="p">)]</span>
-</pre></div>
-</div>
 </section>
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<p>Tasks integrate into environments through composition:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Task construction with scene assets</span>
+<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
+
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
-    <span class="n">pick_up_object</span><span class="o">=</span><span class="n">cracker_box</span><span class="p">,</span>
-    <span class="n">destination_location</span><span class="o">=</span><span class="n">kitchen_drawer</span><span class="p">,</span>
+    <span class="n">pick_up_object</span><span class="o">=</span><span class="n">pick_object</span><span class="p">,</span>
+    <span class="n">destination_location</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span>
     <span class="n">background_scene</span><span class="o">=</span><span class="n">kitchen</span>
 <span class="p">)</span>
 
@@ -493,36 +444,37 @@
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_manipulation&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>  <span class="c1"># Defines objectives and success criteria</span>
     <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span>
 <span class="p">)</span>
+
+<span class="c1"># Automatic configuration integration</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>  <span class="c1"># Task configs merged automatically</span>
 </pre></div>
 </div>
 </section>
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Kitchen Pick and Place</strong></p>
+<p><strong>Pick and Place Task</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
 <span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
 
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>Microwave Opening</strong></p>
+<p><strong>Affordance Interaction</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">reset_openness</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>Custom Task Development</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">CustomTask</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">CustomTerminationsCfg</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="n">custom_success_condition</span><span class="p">)</span>
+<p><strong>Humanoid Locomotion</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">destination_bin</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;sorting_bin&quot;</span><span class="p">)()</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">CustomMetric</span><span class="p">()]</span>
+<span class="n">task</span> <span class="o">=</span> <span class="n">G1LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination_bin</span><span class="p">,</span> <span class="n">galileo_scene</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The task system in Isaac Arena provides modular objective definitions that integrate seamlessly with embodiments and scenes while maintaining clear separation of concerns between physical layout and behavioral goals.</p>
+<p>The task system provides modular objective definitions that integrate seamlessly with embodiments and scenes while maintaining clear separation of concerns between physical layout and behavioral goals.</p>
 </section>
 </section>
 
@@ -576,8 +528,7 @@
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-components">Task Components</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration-generation">Configuration Generation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks-in-detail">Tasks in Detail</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
 </ul>

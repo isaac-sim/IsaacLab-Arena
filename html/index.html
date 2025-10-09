@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Isaac Lab Arena Documentation &#8212; isaaclab_arena 1.0.0</title>
+    <title>Isaac Lab Arena Documentation &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -123,11 +123,11 @@
       
     
     
-    <img src="_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
-    <img src="_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 1.0.0</p>
+    <p class="title logo__title">isaaclab_arena 0.1</p>
   
 </a></div>
     
@@ -224,11 +224,11 @@
       
     
     
-    <img src="_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
-    <img src="_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 1.0.0</p>
+    <p class="title logo__title">isaaclab_arena 0.1</p>
   
 </a>
 
@@ -287,16 +287,26 @@
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_tasks_design.html">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/workflows/manipulation_workflow.html">Manipulation</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="pages/examples/example_locomanipulation.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_asset.html">Creating a New Asset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_environment.html">Creating a New Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_metric.html">Creating a New Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_task.html">Creating a New Task</a></li>
 </ul>
 </div>
 </nav></div>
@@ -336,23 +346,30 @@ objects, and environments.</p>
 </section>
 <section id="installation">
 <span id="quickstart"></span><h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> version <code class="docutils literal notranslate"><span class="pre">v1.0.0</span></code> only supports installation from source in a docker container.
+<p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> version <code class="docutils literal notranslate"><span class="pre">v0.1</span></code> only supports installation from source in a docker container.
 See <a class="reference internal" href="pages/installation.html"><span class="doc">Installation</span></a> for more options.</p>
 </section>
 <section id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h1>
 <p>Below are some example environments built using <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>(alexmillane, 2025-10-03): Add examples.</p>
+<blockquote>
+<div><div class="pst-scrollable-table-container"><table class="gallery table">
+<tbody>
+<tr class="row-odd"><td><a class="reference external image-reference" href="pages/workflows/locomanipulation_workflow.html"><img alt="_images/g1_galileo_arena_box_pnp_locomanip.gif" src="_images/g1_galileo_arena_box_pnp_locomanip.gif" style="height: 400px;" />
+</a>
+</td>
+</tr>
+<tr class="row-even"><td><a class="reference external image-reference" href="pages/workflows/manipulation_workflow.html"><img alt="_images/kitchen_gr1_arena.gif" src="_images/kitchen_gr1_arena.gif" style="height: 400px;" />
+</a>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
+</div></blockquote>
 <section id="license">
 <h2>License<a class="headerlink" href="#license" title="Link to this heading">#</a></h2>
 <p>This code is under an <a class="reference external" href="https://github.com/isaac-sim/isaac_arena/blob/main/LICENSE.md">open-source license</a> (Apache 2.0).</p>
-<div class="admonition-todo admonition" id="id2">
-<p class="admonition-title">Todo</p>
-<p>(alexmillane, 2025-10-03): Confirm license.</p>
-</div>
 <div class="toctree-wrapper compound">
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
 <ul>
@@ -366,6 +383,7 @@ See <a class="reference internal" href="pages/installation.html"><span class="do
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_scene_design.html">Scene Design</a></li>
@@ -374,10 +392,21 @@ See <a class="reference internal" href="pages/installation.html"><span class="do
 </ul>
 </div>
 <div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/workflows/manipulation_workflow.html">Manipulation</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pages/examples/example_locomanipulation.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_asset.html">Creating a New Asset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_environment.html">Creating a New Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_metric.html">Creating a New Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/examples/create_a_new_task.html">Creating a New Task</a></li>
 </ul>
 </div>
 </section>

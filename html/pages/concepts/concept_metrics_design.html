@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Metrics Design &#8212; isaaclab_arena 1.0.0</title>
+    <title>Metrics Design &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -52,7 +52,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Policy Design" href="concept_policy_design.html" />
-    <link rel="prev" title="Environment Design" href="concept_environment_design.html" />
+    <link rel="prev" title="Environment Compilation Design" href="concept_environment_compilation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -124,11 +124,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 1.0.0</p>
+    <p class="title logo__title">isaaclab_arena 0.1</p>
   
 </a></div>
     
@@ -225,11 +225,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 1.0.0</p>
+    <p class="title logo__title">isaaclab_arena 0.1</p>
   
 </a>
 
@@ -288,16 +288,26 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../workflows/manipulation_workflow.html">Manipulation</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../examples/example_locomanipulation.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
 </ul>
 </div>
 </nav></div>
@@ -351,8 +361,7 @@
                   
   <section id="metrics-design">
 <h1>Metrics Design<a class="headerlink" href="#metrics-design" title="Link to this heading">#</a></h1>
-<p>THIS IS A WORK IN PROGRESS.*****VIK*****</p>
-<p>Metrics in Isaac Arena provide a systematic framework for evaluating robot performance and task completion across different simulation scenarios. The metrics system integrates seamlessly with Isaac Lab’s recorder manager to capture simulation data and compute meaningful performance indicators that support research, development, and benchmarking efforts.</p>
+<p>Metrics in Isaac Arena provide a systematic framework for evaluating robot performance and task completion across different simulation scenarios. The metrics system integrates with Isaac Lab’s recorder manager to capture simulation data and compute meaningful performance indicators that support research, development, and benchmarking efforts.</p>
 <section id="core-architecture">
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
 <p>The metrics system is built around a two-component architecture that separates data collection from metric computation:</p>
@@ -364,211 +373,61 @@
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_recorder_term_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecorderTermCfg</span><span class="p">:</span>
-        <span class="c1"># Define what data to record during simulation</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define what data to record during simulation.&quot;&quot;&quot;</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_metric_from_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recorded_metric_data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="c1"># Compute final metric from recorded data</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute final metric from recorded data.&quot;&quot;&quot;</span>
 </pre></div>
 </div>
-<p>Each metric consists of a <strong>RecorderTerm</strong> that collects data during simulation and a <strong>MetricBase</strong> implementation that processes the recorded data into meaningful performance indicators.</p>
+<p>Each metric consists of a <strong>RecorderTerm</strong> that collects data during simulation and a <strong>MetricBase</strong> implementation that processes recorded data into performance indicators.</p>
 </section>
-<section id="data-collection-pipeline">
-<h2>Data Collection Pipeline<a class="headerlink" href="#data-collection-pipeline" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>RecorderTerm Components</strong></dt><dd><p>Handle real-time data collection during simulation:</p>
+<section id="metrics-in-detail">
+<h2>Metrics in Detail<a class="headerlink" href="#metrics-in-detail" title="Link to this heading">#</a></h2>
+<dl>
+<dt><strong>Data Collection Pipeline</strong></dt><dd><p>Two-phase approach to performance evaluation:</p>
 <ul class="simple">
-<li><p><strong>Recording Triggers</strong>: Define when data is captured (pre-reset, post-step, etc.)</p></li>
+<li><p><strong>RecorderTerm Components</strong>: Real-time data collection during simulation with configurable triggers</p></li>
+<li><p><strong>Recording Modes</strong>: Pre-reset, post-step, event-triggered, and continuous monitoring patterns</p></li>
+<li><p><strong>Storage Format</strong>: HDF5 format with episode organization and parallel environment support</p></li>
 <li><p><strong>Data Extraction</strong>: Access simulation state and extract relevant measurements</p></li>
-<li><p><strong>Storage Format</strong>: Structure data for efficient storage and retrieval</p></li>
-<li><p><strong>Episode Tracking</strong>: Organize data by simulation episodes and environments</p></li>
 </ul>
 </dd>
-<dt><strong>Recording Modes</strong></dt><dd><p>Support different data collection patterns:</p>
+<dt><strong>Available Metrics</strong></dt><dd><p>Built-in metrics for common evaluation scenarios:</p>
 <ul class="simple">
-<li><p><strong>Pre-Reset Recording</strong>: Capture final episode state before environment reset</p></li>
-<li><p><strong>Post-Step Recording</strong>: Collect data after each simulation step</p></li>
-<li><p><strong>Event-Triggered Recording</strong>: Record data when specific conditions occur</p></li>
-<li><p><strong>Continuous Monitoring</strong>: Track quantities throughout episode duration</p></li>
+<li><p><strong>Success Rate Metric</strong>: Binary task completion tracking across episodes</p></li>
+<li><p><strong>Door Moved Rate Metric</strong>: Interaction progress with openable objects via joint positions</p></li>
+<li><p><strong>Object Moved Rate Metric</strong>: Manipulation assessment through object velocity tracking</p></li>
+<li><p><strong>Custom Metrics</strong>: Extensible framework for task-specific performance indicators</p></li>
 </ul>
 </dd>
-</dl>
-</section>
-<section id="available-metrics">
-<h2>Available Metrics<a class="headerlink" href="#available-metrics" title="Link to this heading">#</a></h2>
-<p>Isaac Arena provides several built-in metrics for common evaluation scenarios:</p>
-<dl class="simple">
-<dt><strong>Success Rate Metric</strong></dt><dd><p>Measures task completion across episodes:</p>
-<ul class="simple">
-<li><p><strong>Purpose</strong>: Fundamental measure of task achievement</p></li>
-<li><p><strong>Data Source</strong>: Environment termination conditions</p></li>
-<li><p><strong>Computation</strong>: Proportion of episodes ending in success</p></li>
-<li><p><strong>Use Cases</strong>: All task types requiring binary success evaluation</p></li>
-</ul>
-</dd>
-<dt><strong>Door Moved Rate Metric</strong></dt><dd><p>Evaluates interaction with openable objects:</p>
-<ul class="simple">
-<li><p><strong>Purpose</strong>: Measure physical interaction progress with affordances</p></li>
-<li><p><strong>Data Source</strong>: Object joint positions throughout episodes</p></li>
-<li><p><strong>Computation</strong>: Proportion of episodes with significant object movement</p></li>
-<li><p><strong>Use Cases</strong>: Affordance-based tasks (doors, drawers, appliances)</p></li>
-</ul>
-</dd>
-<dt><strong>Object Moved Rate Metric</strong></dt><dd><p>Tracks manipulation of objects in the environment:</p>
-<ul class="simple">
-<li><p><strong>Purpose</strong>: Assess robot’s ability to influence object states</p></li>
-<li><p><strong>Data Source</strong>: Object linear velocities during simulation</p></li>
-<li><p><strong>Computation</strong>: Proportion of episodes with object displacement</p></li>
-<li><p><strong>Use Cases</strong>: Manipulation tasks, object interaction evaluation</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="metric-integration">
-<h2>Metric Integration<a class="headerlink" href="#metric-integration" title="Link to this heading">#</a></h2>
-<p>Metrics integrate into the Isaac Arena environment system through task definitions:</p>
+<dt><strong>Integration Pattern</strong></dt><dd><p>Metrics integrate through task definitions:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">OpenDoorTask</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">[</span>
             <span class="n">SuccessRateMetric</span><span class="p">(),</span>
-            <span class="n">DoorMovedRateMetric</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">openable_object</span><span class="p">,</span>
-                <span class="n">reset_openness</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">reset_openness</span><span class="p">,</span>
-            <span class="p">),</span>
+            <span class="n">DoorMovedRateMetric</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">openable_object</span><span class="p">,</span> <span class="n">reset_openness</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">reset_openness</span><span class="p">)</span>
         <span class="p">]</span>
 </pre></div>
 </div>
-<p>Tasks specify which metrics apply to their objectives, enabling automatic performance evaluation across different scenarios and embodiments.</p>
-</section>
-<section id="recording-system-integration">
-<h2>Recording System Integration<a class="headerlink" href="#recording-system-integration" title="Link to this heading">#</a></h2>
-<p>The metrics system leverages Isaac Lab’s recorder manager for data persistence:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">metrics_to_recorder_manager_cfg</span><span class="p">(</span><span class="n">metrics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">RecorderManagerBaseCfg</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert metrics to recorder manager configuration.&quot;&quot;&quot;</span>
-    <span class="n">configclass_fields</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
-        <span class="n">recorder_cfg</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_recorder_term_cfg</span><span class="p">()</span>
-        <span class="n">configclass_fields</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">recorder_cfg</span><span class="p">),</span> <span class="n">recorder_cfg</span><span class="p">))</span>
-
-    <span class="n">recorder_cfg_cls</span> <span class="o">=</span> <span class="n">make_configclass</span><span class="p">(</span><span class="s2">&quot;RecorderManagerCfg&quot;</span><span class="p">,</span> <span class="n">configclass_fields</span><span class="p">)</span>
-    <span class="n">recorder_cfg</span> <span class="o">=</span> <span class="n">recorder_cfg_cls</span><span class="p">()</span>
-    <span class="n">recorder_cfg</span><span class="o">.</span><span class="n">dataset_export_mode</span> <span class="o">=</span> <span class="n">DatasetExportMode</span><span class="o">.</span><span class="n">EXPORT_ALL</span>
-    <span class="k">return</span> <span class="n">recorder_cfg</span>
-</pre></div>
-</div>
-<p>This automatic configuration generation ensures that all required data is captured without manual recorder setup.</p>
-</section>
-<section id="data-storage-and-retrieval">
-<h2>Data Storage and Retrieval<a class="headerlink" href="#data-storage-and-retrieval" title="Link to this heading">#</a></h2>
-<p>Recorded data is stored in HDF5 format for efficient access and processing:</p>
-<dl class="simple">
-<dt><strong>Storage Structure</strong></dt><dd><ul class="simple">
-<li><p><strong>Episodes</strong>: Data organized by simulation episode</p></li>
-<li><p><strong>Environments</strong>: Support for parallel environment execution</p></li>
-<li><p><strong>Time Series</strong>: Sequential data within episodes</p></li>
-<li><p><strong>Metadata</strong>: Episode information and configuration details</p></li>
-</ul>
 </dd>
-<dt><strong>Data Access Patterns</strong></dt><dd><ul class="simple">
-<li><p><strong>Batch Processing</strong>: Load all episodes for metric computation</p></li>
-<li><p><strong>Streaming Access</strong>: Process large datasets without memory constraints</p></li>
-<li><p><strong>Selective Loading</strong>: Access specific metric data or episode ranges</p></li>
+<dt><strong>Computation Workflow</strong></dt><dd><p>Standardized evaluation process:</p>
+<ul class="simple">
+<li><p><strong>Data Recording</strong>: Capture relevant simulation data throughout execution</p></li>
+<li><p><strong>Episode Completion</strong>: Organize and store data when episodes terminate</p></li>
+<li><p><strong>Metric Computation</strong>: Post-simulation processing of recorded data</p></li>
+<li><p><strong>Result Aggregation</strong>: Combine multiple metrics into evaluation reports</p></li>
 </ul>
 </dd>
 </dl>
 </section>
-<section id="metric-computation-workflow">
-<h2>Metric Computation Workflow<a class="headerlink" href="#metric-computation-workflow" title="Link to this heading">#</a></h2>
-<p>The system follows a standardized workflow for performance evaluation:</p>
-<ol class="arabic simple">
-<li><p><strong>Data Recording</strong>
-RecorderTerms capture relevant simulation data throughout execution.</p></li>
-<li><p><strong>Episode Completion</strong>
-Data is organized and stored when episodes terminate.</p></li>
-<li><p><strong>Metric Computation</strong>
-Post-simulation processing computes final performance indicators.</p></li>
-<li><p><strong>Result Aggregation</strong>
-Multiple metrics are combined into comprehensive evaluation reports.</p></li>
-</ol>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">compute_metrics</span><span class="p">(</span><span class="n">env</span><span class="p">:</span> <span class="n">ManagerBasedRLEnv</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute all registered metrics from recorded data.&quot;&quot;&quot;</span>
-    <span class="n">dataset_path</span> <span class="o">=</span> <span class="n">get_metric_recorder_dataset_path</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
-    <span class="n">metrics_data</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">env</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
-        <span class="n">recorded_data</span> <span class="o">=</span> <span class="n">get_recorded_metric_data</span><span class="p">(</span><span class="n">dataset_path</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">recorder_term_name</span><span class="p">)</span>
-        <span class="n">metrics_data</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">compute_metric_from_recording</span><span class="p">(</span><span class="n">recorded_data</span><span class="p">)</span>
-
-    <span class="n">metrics_data</span><span class="p">[</span><span class="s2">&quot;num_episodes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_num_episodes</span><span class="p">(</span><span class="n">dataset_path</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">metrics_data</span>
-</pre></div>
-</div>
-</section>
-<section id="performance-indicators">
-<h2>Performance Indicators<a class="headerlink" href="#performance-indicators" title="Link to this heading">#</a></h2>
-<p>Metrics provide various types of performance assessment:</p>
-<dl class="simple">
-<dt><strong>Binary Success Metrics</strong></dt><dd><p>Simple pass/fail evaluation based on task completion criteria.</p>
-</dd>
-<dt><strong>Continuous Progress Metrics</strong></dt><dd><p>Measure partial progress toward objectives (e.g., distance moved, openness achieved).</p>
-</dd>
-<dt><strong>Efficiency Metrics</strong></dt><dd><p>Evaluate resource utilization (time to completion, energy consumption).</p>
-</dd>
-<dt><strong>Robustness Metrics</strong></dt><dd><p>Assess consistency across different conditions and random seeds.</p>
-</dd>
-</dl>
-</section>
-<section id="creating-custom-metrics">
-<h2>Creating Custom Metrics<a class="headerlink" href="#creating-custom-metrics" title="Link to this heading">#</a></h2>
-<p>New metrics can be created by implementing the two-component pattern:</p>
-<ol class="arabic simple">
-<li><p><strong>Define RecorderTerm</strong>
-Specify what data to collect and when:</p></li>
-</ol>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">CustomRecorder</span><span class="p">(</span><span class="n">RecorderTerm</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;custom_data&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">record_post_step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># Extract custom measurements from simulation</span>
-        <span class="n">custom_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_custom_measurement</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">custom_data</span>
-</pre></div>
-</div>
-<ol class="arabic simple" start="2">
-<li><p><strong>Implement MetricBase</strong>
-Define how to compute the final metric:</p></li>
-</ol>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">CustomMetric</span><span class="p">(</span><span class="n">MetricBase</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;custom_metric&quot;</span>
-    <span class="n">recorder_term_name</span> <span class="o">=</span> <span class="n">CustomRecorder</span><span class="o">.</span><span class="n">name</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_recorder_term_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecorderTermCfg</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">CustomRecorderCfg</span><span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">compute_metric_from_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recorded_data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="c1"># Process recorded data into final metric value</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_custom_metric</span><span class="p">(</span><span class="n">recorded_data</span><span class="p">)</span>
-</pre></div>
-</div>
-<ol class="arabic simple" start="3">
-<li><p><strong>Register with Tasks</strong>
-Add the metric to relevant task definitions:</p></li>
-</ol>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]:</span>
-    <span class="k">return</span> <span class="p">[</span><span class="n">CustomMetric</span><span class="p">(),</span> <span class="n">SuccessRateMetric</span><span class="p">()]</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Environment Execution with Metrics</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.metrics.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_metrics</span>
-
-<span class="c1"># Run environment with metric collection enabled</span>
+<section id="environment-integration">
+<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Metric collection during environment execution</span>
 <span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">arena_environment</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>  <span class="c1"># Metrics auto-configured from task</span>
 
-<span class="c1"># Execute episodes</span>
+<span class="c1"># Execute episodes with automatic recording</span>
 <span class="k">for</span> <span class="n">episode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
     <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
     <span class="n">done</span> <span class="o">=</span> <span class="kc">False</span>
@@ -577,80 +436,42 @@ Add the metric to relevant task definitions:</p></li>
         <span class="n">obs</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
         <span class="n">done</span> <span class="o">=</span> <span class="n">terminated</span> <span class="ow">or</span> <span class="n">truncated</span>
 
-<span class="c1"># Compute final metrics</span>
+<span class="c1"># Compute final performance indicators</span>
 <span class="n">metrics_results</span> <span class="o">=</span> <span class="n">compute_metrics</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Success Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;success_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Door Moved Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;door_moved_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>Task-Specific Metrics</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Pick and place task with object interaction metrics</span>
+</section>
+<section id="usage-examples">
+<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
+<p><strong>Task-Specific Metrics</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Pick and place evaluation</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
 <span class="n">metrics</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>  <span class="c1"># [SuccessRateMetric(), ObjectMovedRateMetric()]</span>
 
-<span class="c1"># Door opening task with affordance metrics</span>
+<span class="c1"># Door opening evaluation</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 <span class="n">metrics</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>  <span class="c1"># [SuccessRateMetric(), DoorMovedRateMetric()]</span>
 </pre></div>
 </div>
-</section>
-<section id="evaluation-workflows">
-<h2>Evaluation Workflows<a class="headerlink" href="#evaluation-workflows" title="Link to this heading">#</a></h2>
-<p>The metrics system supports different evaluation patterns:</p>
-<dl class="simple">
-<dt><strong>Development Iteration</strong></dt><dd><p>Quick metrics computation during development cycles for rapid feedback.</p>
-</dd>
-<dt><strong>Benchmarking Studies</strong></dt><dd><p>Comprehensive evaluation across multiple embodiments, scenes, and conditions.</p>
-</dd>
-<dt><strong>Performance Monitoring</strong></dt><dd><p>Continuous tracking of system performance across training iterations.</p>
-</dd>
-<dt><strong>Comparative Analysis</strong></dt><dd><p>Standardized metrics enable fair comparison between different approaches.</p>
-</dd>
-</dl>
-</section>
-<section id="integration-with-environment-system">
-<h2>Integration with Environment System<a class="headerlink" href="#integration-with-environment-system" title="Link to this heading">#</a></h2>
-<p>Metrics seamlessly integrate with Isaac Arena’s environment composition:</p>
-<dl class="simple">
-<dt><strong>Task Integration</strong></dt><dd><p>Tasks specify relevant metrics for their objectives and constraints.</p>
-</dd>
-<dt><strong>Environment Builder</strong></dt><dd><p>Automatically configures recorder managers based on task metrics.</p>
-</dd>
-<dt><strong>Configuration Management</strong></dt><dd><p>Metrics configurations merge with other environment settings transparently.</p>
-</dd>
-<dt><strong>Data Management</strong></dt><dd><p>Recorded data is automatically organized and made available for analysis.</p>
-</dd>
-</dl>
-</section>
-<section id="benefits-and-applications">
-<h2>Benefits and Applications<a class="headerlink" href="#benefits-and-applications" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Research Applications</strong></dt><dd><ul class="simple">
-<li><p>Algorithm development and validation</p></li>
-<li><p>Comparative studies across different approaches</p></li>
-<li><p>Performance characterization and analysis</p></li>
-</ul>
-</dd>
-<dt><strong>Development Support</strong></dt><dd><ul class="simple">
-<li><p>Rapid iteration feedback during development</p></li>
-<li><p>Regression detection and quality assurance</p></li>
-<li><p>Progress tracking toward project objectives</p></li>
-</ul>
-</dd>
-<dt><strong>Benchmarking</strong></dt><dd><ul class="simple">
-<li><p>Standardized evaluation across different systems</p></li>
-<li><p>Fair comparison between approaches and implementations</p></li>
-<li><p>Performance baseline establishment</p></li>
-</ul>
-</dd>
-<dt><strong>Production Monitoring</strong></dt><dd><ul class="simple">
-<li><p>System performance tracking in deployment</p></li>
-<li><p>Quality assurance and validation</p></li>
-<li><p>Long-term performance trend analysis</p></li>
-</ul>
-</dd>
-</dl>
-<p>The metrics system in Isaac Arena provides a robust foundation for quantitative evaluation of robot performance. By separating data collection from metric computation and integrating seamlessly with the environment system, it enables comprehensive performance assessment while maintaining flexibility for custom evaluation requirements.</p>
+<p><strong>Results Analysis</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Performance evaluation across environments</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Success Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;success_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Object Moved Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;object_moved_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Custom Metric Creation</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">CustomMetric</span><span class="p">(</span><span class="n">MetricBase</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;custom_metric&quot;</span>
+    <span class="n">recorder_term_name</span> <span class="o">=</span> <span class="s2">&quot;custom_recorder&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_recorder_term_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecorderTermCfg</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CustomRecorderCfg</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_metric_from_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recorded_data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_custom_evaluation</span><span class="p">(</span><span class="n">recorded_data</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The metrics system provides comprehensive performance evaluation capabilities through automatic data collection and standardized computation workflows, enabling quantitative assessment of robot behavior across different tasks and embodiments.</p>
 </section>
 </section>
 
@@ -665,12 +486,12 @@ Add the metric to relevant task definitions:</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_environment_design.html"
+       href="concept_environment_compilation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Environment Design</p>
+        <p class="prev-next-title">Environment Compilation Design</p>
       </div>
     </a>
     <a class="right-next"
@@ -704,18 +525,9 @@ Add the metric to relevant task definitions:</p></li>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-collection-pipeline">Data Collection Pipeline</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-metrics">Available Metrics</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metric-integration">Metric Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recording-system-integration">Recording System Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-storage-and-retrieval">Data Storage and Retrieval</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metric-computation-workflow">Metric Computation Workflow</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#performance-indicators">Performance Indicators</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-custom-metrics">Creating Custom Metrics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics-in-detail">Metrics in Detail</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-workflows">Evaluation Workflows</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-environment-system">Integration with Environment System</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#benefits-and-applications">Benefits and Applications</a></li>
 </ul>
   </nav></div>
 

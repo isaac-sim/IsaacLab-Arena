@@ -1,7 +1,7 @@
 Installation
 ============
 
-At version ``v1.0.0`` ``Isaac Lab Arena`` only support installation from source inside a docker container.
+At version ``v0.1`` ``Isaac Lab Arena`` only support installation from source inside a docker container.
 
 As a developer, you need to launch the container and then run isaac_arena inside.
 
@@ -35,8 +35,17 @@ and then launch the container:
 
 (Optional) You can verify the installation by running our tests:
 
-.. code-block:: bash
+.. tabs::
+    .. tab:: Without GR00T
 
-   pytest -s isaac_arena/tests/
+        .. code-block:: bash
+
+            pytest -s isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
+
+    .. tab:: With GR00T
+
+        .. code-block:: bash
+
+            pytest -s isaac_arena/tests/
 
 You're all set! You can now run some examples.

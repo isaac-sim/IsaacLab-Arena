@@ -1,9 +1,7 @@
 Metrics Design
 ==============
 
-THIS IS A WORK IN PROGRESS.*****VIK*****
-
-Metrics in Isaac Arena provide a systematic framework for evaluating robot performance and task completion across different simulation scenarios. The metrics system integrates seamlessly with Isaac Lab's recorder manager to capture simulation data and compute meaningful performance indicators that support research, development, and benchmarking efforts.
+Metrics in Isaac Arena provide a systematic framework for evaluating robot performance and task completion across different simulation scenarios. The metrics system integrates with Isaac Lab's recorder manager to capture simulation data and compute meaningful performance indicators that support research, development, and benchmarking efforts.
 
 Core Architecture
 -----------------
@@ -20,222 +18,63 @@ The metrics system is built around a two-component architecture that separates d
 
        @abstractmethod
        def get_recorder_term_cfg(self) -> RecorderTermCfg:
-           # Define what data to record during simulation
+           """Define what data to record during simulation."""
 
        @abstractmethod
        def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-           # Compute final metric from recorded data
+           """Compute final metric from recorded data."""
 
-Each metric consists of a **RecorderTerm** that collects data during simulation and a **MetricBase** implementation that processes the recorded data into meaningful performance indicators.
+Each metric consists of a **RecorderTerm** that collects data during simulation and a **MetricBase** implementation that processes recorded data into performance indicators.
 
-Data Collection Pipeline
-------------------------
-
-**RecorderTerm Components**
-   Handle real-time data collection during simulation:
-
-   - **Recording Triggers**: Define when data is captured (pre-reset, post-step, etc.)
-   - **Data Extraction**: Access simulation state and extract relevant measurements
-   - **Storage Format**: Structure data for efficient storage and retrieval
-   - **Episode Tracking**: Organize data by simulation episodes and environments
-
-**Recording Modes**
-   Support different data collection patterns:
-
-   - **Pre-Reset Recording**: Capture final episode state before environment reset
-   - **Post-Step Recording**: Collect data after each simulation step
-   - **Event-Triggered Recording**: Record data when specific conditions occur
-   - **Continuous Monitoring**: Track quantities throughout episode duration
-
-Available Metrics
+Metrics in Detail
 -----------------
 
-Isaac Arena provides several built-in metrics for common evaluation scenarios:
+**Data Collection Pipeline**
+   Two-phase approach to performance evaluation:
 
-**Success Rate Metric**
-   Measures task completion across episodes:
+   - **RecorderTerm Components**: Real-time data collection during simulation with configurable triggers
+   - **Recording Modes**: Pre-reset, post-step, event-triggered, and continuous monitoring patterns
+   - **Storage Format**: HDF5 format with episode organization and parallel environment support
+   - **Data Extraction**: Access simulation state and extract relevant measurements
 
-   - **Purpose**: Fundamental measure of task achievement
-   - **Data Source**: Environment termination conditions
-   - **Computation**: Proportion of episodes ending in success
-   - **Use Cases**: All task types requiring binary success evaluation
+**Available Metrics**
+   Built-in metrics for common evaluation scenarios:
 
-**Door Moved Rate Metric**
-   Evaluates interaction with openable objects:
+   - **Success Rate Metric**: Binary task completion tracking across episodes
+   - **Door Moved Rate Metric**: Interaction progress with openable objects via joint positions
+   - **Object Moved Rate Metric**: Manipulation assessment through object velocity tracking
+   - **Custom Metrics**: Extensible framework for task-specific performance indicators
 
-   - **Purpose**: Measure physical interaction progress with affordances
-   - **Data Source**: Object joint positions throughout episodes
-   - **Computation**: Proportion of episodes with significant object movement
-   - **Use Cases**: Affordance-based tasks (doors, drawers, appliances)
+**Integration Pattern**
+   Metrics integrate through task definitions:
 
-**Object Moved Rate Metric**
-   Tracks manipulation of objects in the environment:
+   .. code-block:: python
 
-   - **Purpose**: Assess robot's ability to influence object states
-   - **Data Source**: Object linear velocities during simulation
-   - **Computation**: Proportion of episodes with object displacement
-   - **Use Cases**: Manipulation tasks, object interaction evaluation
+      class OpenDoorTask(TaskBase):
+          def get_metrics(self) -> list[MetricBase]:
+              return [
+                  SuccessRateMetric(),
+                  DoorMovedRateMetric(self.openable_object, reset_openness=self.reset_openness)
+              ]
 
-Metric Integration
-------------------
+**Computation Workflow**
+   Standardized evaluation process:
 
-Metrics integrate into the Isaac Arena environment system through task definitions:
+   - **Data Recording**: Capture relevant simulation data throughout execution
+   - **Episode Completion**: Organize and store data when episodes terminate
+   - **Metric Computation**: Post-simulation processing of recorded data
+   - **Result Aggregation**: Combine multiple metrics into evaluation reports
 
-.. code-block:: python
-
-   class OpenDoorTask(TaskBase):
-       def get_metrics(self) -> list[MetricBase]:
-           return [
-               SuccessRateMetric(),
-               DoorMovedRateMetric(
-                   self.openable_object,
-                   reset_openness=self.reset_openness,
-               ),
-           ]
-
-Tasks specify which metrics apply to their objectives, enabling automatic performance evaluation across different scenarios and embodiments.
-
-Recording System Integration
-----------------------------
-
-The metrics system leverages Isaac Lab's recorder manager for data persistence:
+Environment Integration
+-----------------------
 
 .. code-block:: python
 
-   def metrics_to_recorder_manager_cfg(metrics: list[MetricBase]) -> RecorderManagerBaseCfg:
-       """Convert metrics to recorder manager configuration."""
-       configclass_fields = []
-       for metric in metrics:
-           recorder_cfg = metric.get_recorder_term_cfg()
-           configclass_fields.append((metric.name, type(recorder_cfg), recorder_cfg))
-
-       recorder_cfg_cls = make_configclass("RecorderManagerCfg", configclass_fields)
-       recorder_cfg = recorder_cfg_cls()
-       recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_ALL
-       return recorder_cfg
-
-This automatic configuration generation ensures that all required data is captured without manual recorder setup.
-
-Data Storage and Retrieval
----------------------------
-
-Recorded data is stored in HDF5 format for efficient access and processing:
-
-**Storage Structure**
-   - **Episodes**: Data organized by simulation episode
-   - **Environments**: Support for parallel environment execution
-   - **Time Series**: Sequential data within episodes
-   - **Metadata**: Episode information and configuration details
-
-**Data Access Patterns**
-   - **Batch Processing**: Load all episodes for metric computation
-   - **Streaming Access**: Process large datasets without memory constraints
-   - **Selective Loading**: Access specific metric data or episode ranges
-
-Metric Computation Workflow
-----------------------------
-
-The system follows a standardized workflow for performance evaluation:
-
-1. **Data Recording**
-   RecorderTerms capture relevant simulation data throughout execution.
-
-2. **Episode Completion**
-   Data is organized and stored when episodes terminate.
-
-3. **Metric Computation**
-   Post-simulation processing computes final performance indicators.
-
-4. **Result Aggregation**
-   Multiple metrics are combined into comprehensive evaluation reports.
-
-.. code-block:: python
-
-   def compute_metrics(env: ManagerBasedRLEnv) -> dict[str, float]:
-       """Compute all registered metrics from recorded data."""
-       dataset_path = get_metric_recorder_dataset_path(env)
-       metrics_data = {}
-
-       for metric in env.cfg.metrics:
-           recorded_data = get_recorded_metric_data(dataset_path, metric.recorder_term_name)
-           metrics_data[metric.name] = metric.compute_metric_from_recording(recorded_data)
-
-       metrics_data["num_episodes"] = get_num_episodes(dataset_path)
-       return metrics_data
-
-Performance Indicators
-----------------------
-
-Metrics provide various types of performance assessment:
-
-**Binary Success Metrics**
-   Simple pass/fail evaluation based on task completion criteria.
-
-**Continuous Progress Metrics**
-   Measure partial progress toward objectives (e.g., distance moved, openness achieved).
-
-**Efficiency Metrics**
-   Evaluate resource utilization (time to completion, energy consumption).
-
-**Robustness Metrics**
-   Assess consistency across different conditions and random seeds.
-
-Creating Custom Metrics
-------------------------
-
-New metrics can be created by implementing the two-component pattern:
-
-1. **Define RecorderTerm**
-   Specify what data to collect and when:
-
-.. code-block:: python
-
-   class CustomRecorder(RecorderTerm):
-       name = "custom_data"
-
-       def record_post_step(self):
-           # Extract custom measurements from simulation
-           custom_data = self._extract_custom_measurement()
-           return self.name, custom_data
-
-2. **Implement MetricBase**
-   Define how to compute the final metric:
-
-.. code-block:: python
-
-   class CustomMetric(MetricBase):
-       name = "custom_metric"
-       recorder_term_name = CustomRecorder.name
-
-       def get_recorder_term_cfg(self) -> RecorderTermCfg:
-           return CustomRecorderCfg()
-
-       def compute_metric_from_recording(self, recorded_data: list[np.ndarray]) -> float:
-           # Process recorded data into final metric value
-           return self._compute_custom_metric(recorded_data)
-
-3. **Register with Tasks**
-   Add the metric to relevant task definitions:
-
-.. code-block:: python
-
-   def get_metrics(self) -> list[MetricBase]:
-       return [CustomMetric(), SuccessRateMetric()]
-
-Usage Examples
---------------
-
-**Environment Execution with Metrics**:
-
-.. code-block:: python
-
-   from isaac_arena.metrics.metrics import compute_metrics
-
-   # Run environment with metric collection enabled
+   # Metric collection during environment execution
    env_builder = ArenaEnvBuilder(arena_environment, args)
-   env = env_builder.make_registered()
+   env = env_builder.make_registered()  # Metrics auto-configured from task
 
-   # Execute episodes
+   # Execute episodes with automatic recording
    for episode in range(100):
        obs, _ = env.reset()
        done = False
@@ -244,78 +83,44 @@ Usage Examples
            obs, _, terminated, truncated, _ = env.step(actions)
            done = terminated or truncated
 
-   # Compute final metrics
+   # Compute final performance indicators
    metrics_results = compute_metrics(env)
-   print(f"Success Rate: {metrics_results['success_rate']:.2%}")
-   print(f"Door Moved Rate: {metrics_results['door_moved_rate']:.2%}")
 
-**Task-Specific Metrics**:
+Usage Examples
+--------------
+
+**Task-Specific Metrics**
 
 .. code-block:: python
 
-   # Pick and place task with object interaction metrics
+   # Pick and place evaluation
    task = PickAndPlaceTask(pick_object, destination, background)
    metrics = task.get_metrics()  # [SuccessRateMetric(), ObjectMovedRateMetric()]
 
-   # Door opening task with affordance metrics
+   # Door opening evaluation
    task = OpenDoorTask(microwave, openness_threshold=0.8)
    metrics = task.get_metrics()  # [SuccessRateMetric(), DoorMovedRateMetric()]
 
-Evaluation Workflows
---------------------
+**Results Analysis**
 
-The metrics system supports different evaluation patterns:
+.. code-block:: python
 
-**Development Iteration**
-   Quick metrics computation during development cycles for rapid feedback.
+   # Performance evaluation across environments
+   print(f"Success Rate: {metrics_results['success_rate']:.2%}")
+   print(f"Object Moved Rate: {metrics_results['object_moved_rate']:.2%}")
 
-**Benchmarking Studies**
-   Comprehensive evaluation across multiple embodiments, scenes, and conditions.
+**Custom Metric Creation**
 
-**Performance Monitoring**
-   Continuous tracking of system performance across training iterations.
+.. code-block:: python
 
-**Comparative Analysis**
-   Standardized metrics enable fair comparison between different approaches.
+   class CustomMetric(MetricBase):
+       name = "custom_metric"
+       recorder_term_name = "custom_recorder"
 
-Integration with Environment System
------------------------------------
+       def get_recorder_term_cfg(self) -> RecorderTermCfg:
+           return CustomRecorderCfg()
 
-Metrics seamlessly integrate with Isaac Arena's environment composition:
+       def compute_metric_from_recording(self, recorded_data) -> float:
+           return self._compute_custom_evaluation(recorded_data)
 
-**Task Integration**
-   Tasks specify relevant metrics for their objectives and constraints.
-
-**Environment Builder**
-   Automatically configures recorder managers based on task metrics.
-
-**Configuration Management**
-   Metrics configurations merge with other environment settings transparently.
-
-**Data Management**
-   Recorded data is automatically organized and made available for analysis.
-
-Benefits and Applications
--------------------------
-
-**Research Applications**
-   - Algorithm development and validation
-   - Comparative studies across different approaches
-   - Performance characterization and analysis
-
-**Development Support**
-   - Rapid iteration feedback during development
-   - Regression detection and quality assurance
-   - Progress tracking toward project objectives
-
-**Benchmarking**
-   - Standardized evaluation across different systems
-   - Fair comparison between approaches and implementations
-   - Performance baseline establishment
-
-**Production Monitoring**
-   - System performance tracking in deployment
-   - Quality assurance and validation
-   - Long-term performance trend analysis
-
-The metrics system in Isaac Arena provides a robust foundation for quantitative evaluation of robot performance. By separating data collection from metric computation and integrating seamlessly with the environment system, it enables comprehensive performance assessment while maintaining flexibility for custom evaluation requirements.
+The metrics system provides comprehensive performance evaluation capabilities through automatic data collection and standardized computation workflows, enabling quantitative assessment of robot behavior across different tasks and embodiments.

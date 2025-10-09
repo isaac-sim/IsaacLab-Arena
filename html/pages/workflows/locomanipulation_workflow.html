@@ -1,0 +1,768 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Loco-Manipulation &#8212; isaaclab_arena 0.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/workflows/locomanipulation_workflow';</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Manipulation" href="manipulation_workflow.html" />
+    <link rel="prev" title="Teleop Devices Design" href="../concepts/concept_teleop_devices_design.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_policy_design.html">Policy Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="manipulation_workflow.html">Manipulation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Loco-Manipulation</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="loco-manipulation">
+<h1>Loco-Manipulation<a class="headerlink" href="#loco-manipulation" title="Link to this heading">#</a></h1>
+<p>This example demonstrates how to work with loco-manipulation tasks in Isaac Lab - Arena, covering the complete workflow from generating demonstrations to running closed-loop policy inference.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>The loco-manipulation pipeline includes:</p>
+<ol class="arabic simple">
+<li><p><strong>Data Generation</strong>: Generating demonstrations using Isaac Lab Mimic</p></li>
+<li><p><strong>Data Conversion</strong>: Converting recorded data to LeRobot format for GR00T training</p></li>
+<li><p><strong>Replay Recorded Data</strong>: Replaying original HDF5 demonstrations for validation</p></li>
+<li><p><strong>Replay LeRobot Data</strong>: Replaying converted LeRobot dataset trajectories</p></li>
+<li><p><strong>Closed-loop Policy Inference</strong>: Running trained GR00T policies in closed-loop</p></li>
+</ol>
+</section>
+<section id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Link to this heading">#</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If desired, you may skip the <a class="reference internal" href="#data-generation">Data Generation</a> step of this example and download a pre-generated dataset for use.
+To do so, skip to the <a class="reference internal" href="#download-mimic-generated-data-optional">Download Mimic Generated Data (Optional)</a> section below.</p>
+</div>
+<p>Use Isaac Lab Mimic to generate an HDF5 dataset for GR00T training. Isaac Lab Mimic automatically generates additional robot demonstrations
+from a small set of annotated demonstrations by using rigid body transformations to introduce variations to the dataset. During data generation,
+object initial poses are randomized to introduce variation and boost dataset diversity. Noise is added to the robot’s actions to further
+increase diversity. For more information about Isaac Lab Mimic, please visit the Isaac Lab documentation <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#teleoperation-and-imitation-learning-with-isaac-lab-mimic">here</a>.</p>
+<section id="download-pre-recorded-annotated-dataset">
+<h3>Download Pre-recorded Annotated Dataset<a class="headerlink" href="#download-pre-recorded-annotated-dataset" title="Link to this heading">#</a></h3>
+<p>Download the pre-recorded annotated dataset from <a class="reference external" href="https://">TODO_INSERT_LINK</a> and place it
+under <code class="docutils literal notranslate"><span class="pre">isaac_arena/datasets/Arena-G1-Loco-Manipulation-Task/</span></code>.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>The annotated dataset can be visualized using the <code class="docutils literal notranslate"><span class="pre">replay_demos.py</span></code> script.
+Enter the Isaac Lab - Arena docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Run the following command to play back the dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+--enable_cameras<span class="w"> </span><span class="se">\</span>
+--dataset_file<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+--device<span class="w"> </span>cpu<span class="w"> </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+--embodiment<span class="w"> </span>g1_wbc_pink
+</pre></div>
+</div>
+</div>
+</section>
+<section id="mimic-data-generation">
+<h3>Mimic Data Generation<a class="headerlink" href="#mimic-data-generation" title="Link to this heading">#</a></h3>
+<p>Use the annotated dataset and Isaac Lab Mimic to generate a new dataset of 100 demonstrations for GR00T training.</p>
+<p>Before proceeding, make sure you are inside the Isaac Lab - Arena docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Then run the following command to generate the dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
+--headless<span class="w"> </span><span class="se">\</span>
+--enable_cameras<span class="w"> </span><span class="se">\</span>
+--mimic<span class="w"> </span><span class="se">\</span>
+--input_file<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+--output_file<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+--generation_num_trials<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+--device<span class="w"> </span>cpu<span class="w"> </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+--embodiment<span class="w"> </span>g1_wbc_pink
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The above command runs data generation in headless mode for faster execution. If you want to see the data generation process,
+remove the <code class="docutils literal notranslate"><span class="pre">--headless</span></code> flag.</p>
+</div>
+<p>Data generation times may vary from ~1 hour to multiple hours depending on your compute hardware.
+After the generation is complete, the dataset can be visualized using the <code class="docutils literal notranslate"><span class="pre">replay_demos.py</span></code> script.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+--enable_cameras<span class="w"> </span><span class="se">\</span>
+--dataset_file<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+--device<span class="w"> </span>cpu<span class="w"> </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+--embodiment<span class="w"> </span>g1_wbc_pink
+</pre></div>
+</div>
+</section>
+</section>
+<section id="download-mimic-generated-data-optional">
+<h2>Download Mimic Generated Data (Optional)<a class="headerlink" href="#download-mimic-generated-data-optional" title="Link to this heading">#</a></h2>
+<p>If you skipped the <a class="reference internal" href="#data-generation">Data Generation</a> step of this example, you can download a pre-generated dataset for use.</p>
+<p>Download a pre-generated HDF5 dataset from <a class="reference external" href="https://huggingface.co/datasets/nvidia/Arena-G1-Loco-Manipulation-Task">Arena-G1-Loco-Manipulation-Task</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task
+</pre></div>
+</div>
+</section>
+<section id="converting-to-lerobot-format">
+<h2>Converting to LeRobot Format<a class="headerlink" href="#converting-to-lerobot-format" title="Link to this heading">#</a></h2>
+<p>Next, we need to convert the HDF5 dataset generated by Isaac Lab Mimic to LeRobot format for GR00T training.
+To do this, we provide a script that performs the following steps:</p>
+<ol class="arabic simple">
+<li><p>Loads HDF5 demonstrations</p></li>
+<li><p>Extracts robot states, actions, and camera data</p></li>
+<li><p>Applies joint remapping for GR00T compatibility</p></li>
+<li><p>Generates MP4 videos from camera observations</p></li>
+<li><p>Creates LeRobot-compatible dataset structure</p></li>
+</ol>
+<p>Make sure you are running the docker container with GR00T dependencies. You can do this by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g<span class="w"> </span>-G<span class="w"> </span>base<span class="w"> </span><span class="c1"># Include other docker arguments if needed</span>
+</pre></div>
+</div>
+<p>Convert the HDF5 demonstrations to LeRobot format for GR00T training:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/policy/data_utils/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config_yaml_path<span class="w"> </span>isaac_arena/policy/config/g1_locomanip_config.yaml
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Configuration file (<code class="docutils literal notranslate"><span class="pre">g1_locomanip_config.yaml</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Input/Output paths</span>
+<span class="nt">data_root</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/datasets/Arena-G1-Loco-Manipulation-Task&quot;</span>
+<span class="nt">hdf5_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;g1_galileo_box_npnp_mimic_generated_100_v2_action_noise_003.hdf5&quot;</span><span class="w">    </span><span class="c1"># Modify this to the name of the HDF5 file you want to convert</span>
+
+<span class="c1"># Task description</span>
+<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Pick</span><span class="nv"> </span><span class="s">up</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">brown</span><span class="nv"> </span><span class="s">box</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">place</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">blue</span><span class="nv"> </span><span class="s">bin&quot;</span>
+<span class="nt">task_index</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+
+<span class="c1"># Data field mappings</span>
+<span class="nt">state_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_joint_pos&quot;</span>
+<span class="nt">action_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;processed_actions&quot;</span>
+<span class="nt">pov_cam_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_head_cam&quot;</span>
+
+<span class="c1"># Output configuration</span>
+<span class="nt">fps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="nt">chunks_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="downloaded-converted-lerobot-data-optional">
+<h2>Downloaded converted LeRobot Data (Optional)<a class="headerlink" href="#downloaded-converted-lerobot-data-optional" title="Link to this heading">#</a></h2>
+<p>Download the converted LeRobot data from <a class="reference external" href="https://huggingface.co/datasets/nvidia/Arena-G1-Loco-Manipulation-Task">huggingface: Arena-G1-Loco-Manipulation-Task</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task
+</pre></div>
+</div>
+</section>
+<section id="replaying-recorded-data">
+<h2>Replaying Recorded Data<a class="headerlink" href="#replaying-recorded-data" title="Link to this heading">#</a></h2>
+<p>Replay original HDF5 demonstrations to validate data quality:</p>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>(xinjie.yao, 2025-10-03): verify this command</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>replay<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--replay_file_path<span class="w"> </span>/datasets/my_g1_demos.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--episode_name<span class="w"> </span>episode_0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
+</pre></div>
+</div>
+<p>Options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--episode_name</span></code>: Specific episode to replay (optional, defaults to first)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--validate_states</span></code>: Enable state validation during replay</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--headless</span></code>: Run without GUI for automated validation</p></li>
+</ul>
+</section>
+<section id="replaying-lerobot-converted-data">
+<h2>Replaying LeRobot Converted Data<a class="headerlink" href="#replaying-lerobot-converted-data" title="Link to this heading">#</a></h2>
+<p>Make sure you are running the docker container with GR00T dependencies. You can do this by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g<span class="w"> </span>-G<span class="w"> </span>base<span class="w"> </span><span class="c1"># Include other docker arguments if needed</span>
+</pre></div>
+</div>
+<p>Replay trajectories from the converted LeRobot dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>replay_lerobot<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config_yaml_path<span class="w"> </span>isaac_arena/policy/gr00t/g1_locomanip_replay_action_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--trajectory_index<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
+</pre></div>
+</div>
+<p>Configuration file (<code class="docutils literal notranslate"><span class="pre">g1_locomanip_replay_action_config.yaml</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dataset path (LeRobot format)</span>
+<span class="nt">dataset_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/datasets/Arena-G1-Loco-Manipulation-Task/lerobot/</span>
+
+<span class="c1"># Action chunking parameters</span>
+<span class="nt">action_horizon</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="nt">num_feedback_actions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+
+<span class="c1"># Robot configuration</span>
+<span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">new_embodiment</span>
+<span class="nt">data_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unitree_g1_sim_wbc</span>
+
+<span class="c1"># Joint mappings</span>
+<span class="nt">gr00t_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml</span>
+<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/g1/43dof_joint_space.yaml</span>
+
+<span class="c1"># Task mode</span>
+<span class="nt">task_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">g1_locomanipulation</span>
+</pre></div>
+</div>
+<p>Key features:</p>
+<ul class="simple">
+<li><p><strong>Trajectory Selection</strong>: Choose specific trajectories with <code class="docutils literal notranslate"><span class="pre">--trajectory_index</span></code></p></li>
+<li><p><strong>Action Chunking</strong>: Executes 1 per step as replaying from the converted LeRobot dataset</p></li>
+<li><p><strong>Joint Remapping</strong>: Converts between GR00T and Isaac Lab joint orders</p></li>
+<li><p><strong>Partial Replay</strong>: Use <code class="docutils literal notranslate"><span class="pre">--max_steps</span></code> to replay only part of a trajectory</p></li>
+</ul>
+</section>
+<section id="post-training-policy">
+<h2>Post-training Policy<a class="headerlink" href="#post-training-policy" title="Link to this heading">#</a></h2>
+<p>To post-train the GR00T N1.x policy on the converted LeRobot dataset, you can use the following command:</p>
+<div class="admonition-todo admonition" id="id2">
+<p class="admonition-title">Todo</p>
+<p>(xinjie.yao, 2025-10-03): add post-training policy command</p>
+</div>
+</section>
+<section id="download-the-trained-gr00t-n1-x-checkpoints">
+<h2>Download the trained GR00T N1.x checkpoints<a class="headerlink" href="#download-the-trained-gr00t-n1-x-checkpoints" title="Link to this heading">#</a></h2>
+<p>Download the trained GR00T N1.x policy checkpoints from <a class="reference external" href="https://huggingface.co/nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation">huggingface: GN1x-Tuned-Arena-G1-Loco-Manipulation</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span>/checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
+</pre></div>
+</div>
+</section>
+<section id="closed-loop-policy-inference-and-evaluation">
+<h2>Closed-loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h2>
+<p>Make sure you are running the docker container with GR00T dependencies. You can do this by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g<span class="w"> </span>-G<span class="w"> </span>base<span class="w"> </span><span class="c1"># Include other docker arguments if needed</span>
+</pre></div>
+</div>
+<div class="admonition-todo admonition" id="id3">
+<p class="admonition-title">Todo</p>
+<p>(xinjie.yao, 2025-10-03): add evaluation command</p>
+</div>
+<p>Run trained GR00T policies in closed-loop:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaac_arena/policy/gr00t/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
+</pre></div>
+</div>
+<p>Configuration file (<code class="docutils literal notranslate"><span class="pre">g1_locomanip_gr00t_closedloop_config.yaml</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Model configuration</span>
+<span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation</span>
+<span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">new_embodiment</span>
+<span class="nt">data_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unitree_g1_sim_wbc</span>
+
+<span class="c1"># Task configuration</span>
+<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Pick</span><span class="nv"> </span><span class="s">up</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">brown</span><span class="nv"> </span><span class="s">box</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">place</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">blue</span><span class="nv"> </span><span class="s">bin&quot;</span>
+<span class="nt">task_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">g1_locomanipulation</span>
+
+<span class="c1"># Inference parameters</span>
+<span class="nt">denoising_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="nt">policy_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda</span>
+<span class="nt">target_image_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">]</span>
+
+<span class="c1"># Joint mappings</span>
+<span class="nt">gr00t_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml</span>
+<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/g1/43dof_joint_space.yaml</span>
+</pre></div>
+</div>
+<p>Policy features:</p>
+<ul class="simple">
+<li><p><strong>Vision-Language</strong>: Processes RGB camera input and language instructions</p></li>
+<li><p><strong>Action Chunking</strong>: Predicts multiple future actions for smooth control</p></li>
+<li><p><strong>Joint Space Control</strong>: Outputs joint position targets</p></li>
+<li><p><strong>Real-time Inference</strong>: Runs at simulation frequency (50Hz)</p></li>
+<li><p><strong>Whole Body Control</strong>: Uses Whole Body Control (WBC) for robot control</p></li>
+</ul>
+</section>
+<section id="advanced-usage">
+<h2>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Link to this heading">#</a></h2>
+<p>Bring your own environment &amp; policy</p>
+<div class="admonition-todo admonition" id="id4">
+<p class="admonition-title">Todo</p>
+<p>(xinjie.yao, 2025-10-03): add advanced usage command</p>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../concepts/concept_teleop_devices_design.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Teleop Devices Design</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="manipulation_workflow.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Manipulation</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-generation">Data Generation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-pre-recorded-annotated-dataset">Download Pre-recorded Annotated Dataset</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mimic-data-generation">Mimic Data Generation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#download-mimic-generated-data-optional">Download Mimic Generated Data (Optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#converting-to-lerobot-format">Converting to LeRobot Format</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#downloaded-converted-lerobot-data-optional">Downloaded converted LeRobot Data (Optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#replaying-recorded-data">Replaying Recorded Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#replaying-lerobot-converted-data">Replaying LeRobot Converted Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-training-policy">Post-training Policy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#download-the-trained-gr00t-n1-x-checkpoints">Download the trained GR00T N1.x checkpoints</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#closed-loop-policy-inference-and-evaluation">Closed-loop Policy Inference and Evaluation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#advanced-usage">Advanced Usage</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
