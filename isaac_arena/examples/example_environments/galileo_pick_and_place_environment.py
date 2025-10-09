@@ -36,7 +36,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("galileo")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -76,7 +76,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="power_drill")
-        parser.add_argument("--embodiment", type=str, default="gr1")
+        parser.add_argument("--embodiment", type=str, default="gr1_pink")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)

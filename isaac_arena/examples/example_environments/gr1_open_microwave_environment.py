@@ -28,15 +28,19 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
     name: str = "gr1_open_microwave"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacArenaEnvironment:
-        from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2Embodiment
         from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
         from isaac_arena.scene.scene import Scene
         from isaac_arena.tasks.open_door_task import OpenDoorTask
         from isaac_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("packing_table")()
+        background = self.asset_registry.get_asset_by_name("kitchen")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
+        assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
+            args_cli.embodiment
+        )
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -45,7 +49,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         # Put the microwave on the packing table.
         microwave_pose = Pose(
-            position_xyz=(0.8, -0.00586, 0.22773),
+            position_xyz=(0.4, -0.00586, 0.22773),
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
         microwave.set_initial_pose(microwave_pose)
@@ -65,7 +69,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         isaac_arena_environment = IsaacArenaEnvironment(
             name=self.name,
-            embodiment=GR1T2Embodiment(),
+            embodiment=embodiment,
             scene=scene,
             task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2),
             teleop_device=teleop_device,
@@ -79,3 +83,5 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
+        # Note (xinjieyao, 2025.10.06): Add the embodiment argument for PINK IK EEF control or Joint positional control
+        parser.add_argument("--embodiment", type=str, default="gr1_pink")

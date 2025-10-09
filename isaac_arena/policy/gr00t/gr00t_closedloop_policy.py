@@ -91,8 +91,8 @@ class Gr00tClosedloopPolicy(PolicyBase):
             device=self.policy_config.policy_device,
         )
 
-    def get_observations(self, observation: dict[str, Any]) -> dict[str, Any]:
-        rgb = observation["policy"]["robot_head_cam"]
+    def get_observations(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> dict[str, Any]:
+        rgb = observation["camera_obs"][camera_name]
         # gr00t uses numpy arrays
         rgb = rgb.cpu().numpy()
         # Apply preprocessing to rgb if size is not the same as the target size
@@ -120,15 +120,17 @@ class Gr00tClosedloopPolicy(PolicyBase):
             "state.right_arm": joint_pos_state_policy["right_arm"].reshape(self.num_envs, 1, -1),
             "state.left_hand": joint_pos_state_policy["left_hand"].reshape(self.num_envs, 1, -1),
             "state.right_hand": joint_pos_state_policy["right_hand"].reshape(self.num_envs, 1, -1),
-            "state.waist": joint_pos_state_policy["waist"].reshape(self.num_envs, 1, -1),
         }
+        # NOTE(xinjieyao, 2025-10-07): waist is not used in GR1 tabletop manipulation
+        if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
+            policy_observations["state.waist"] = joint_pos_state_policy["waist"].reshape(self.num_envs, 1, -1)
         return policy_observations
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return action from the dataset."""
         # get new predictions and return the first action from the chunk
         if self.current_action_chunk is None and self.current_action_index == 0:
-            self.current_action_chunk = self.get_action_chunk(observation)
+            self.current_action_chunk = self.get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
             assert self.current_action_chunk.shape[1] >= self.num_feedback_actions
 
         assert self.current_action_chunk is not None
@@ -144,8 +146,8 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.current_action_index = 0
         return action
 
-    def get_action_chunk(self, observation: dict[str, Any]) -> torch.Tensor:
-        policy_observations = self.get_observations(observation)
+    def get_action_chunk(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> torch.Tensor:
+        policy_observations = self.get_observations(observation, camera_name)
         robot_action_policy = self.policy.get_action(policy_observations)
         robot_action_sim = remap_policy_joints_to_sim_joints(
             robot_action_policy, self.policy_joints_config, self.robot_action_joints_config, self.device

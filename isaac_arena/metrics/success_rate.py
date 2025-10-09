@@ -77,6 +77,8 @@ class SuccessRateMetric(MetricBase):
                 which the environment was successful.
         """
         num_demos = len(recorded_metric_data)
+        if num_demos == 0:
+            return 0.0
         all_demos_success_flags = np.concatenate(recorded_metric_data)
         assert all_demos_success_flags.ndim == 1
         assert all_demos_success_flags.shape[0] == num_demos

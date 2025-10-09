@@ -292,7 +292,9 @@ def write_video_job(queue: mp.Queue, error_queue: mp.Queue, config: Gr00tDataset
             if video_type == "image":
                 # Create parent directory if it doesn't exist
                 video_path.parent.mkdir(parents=True, exist_ok=True)
-                assert frames.shape[1:] == config.original_image_size, f"Frames shape is {frames.shape}"
+                assert (
+                    frames.shape[1:] == config.original_image_size
+                ), f"frames.shape[1:] {frames.shape[1:]} != config.original_image_size {config.original_image_size}"
                 if config.target_image_size != config.original_image_size:
                     frames = resize_frames_with_padding(
                         frames, target_image_size=config.target_image_size, bgr_conversion=False, pad_img=True
@@ -539,8 +541,10 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
         new_video_path = config.lerobot_data_dir / new_video_relpath
         if config.video_name_lerobot not in video_paths.keys():
             video_paths[config.video_name_lerobot] = new_video_path
-        assert config.pov_cam_name_sim in trajectory["obs"]
-        frames = np.array(trajectory["obs"][config.pov_cam_name_sim])
+
+        assert config.pov_cam_name_sim in trajectory["camera_obs"]
+
+        frames = np.array(trajectory["camera_obs"][config.pov_cam_name_sim])
         # remove last frame due to how Lab reports observations
         frames = frames[:-1]
         assert len(frames) == length
@@ -608,7 +612,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Convert Dataset from HDF5 to GR00T LeRobot Format")
-    parser.add_argument("--yaml_file", help="Path to YAML configuration file")
+    parser.add_argument("--yaml_file", help="Path to YAML configuration file", required=True)
     args = parser.parse_args()
 
     config = create_config_from_yaml(args.yaml_file, Gr00tDatasetConfig)

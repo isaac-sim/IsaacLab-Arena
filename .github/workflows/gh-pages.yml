@@ -1,0 +1,78 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]
+
+# Concurrency control to prevent parallel runs on the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+  issues: read
+
+env:
+  NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+  OMNI_PASS: ${{ secrets.OMNI_PASS }}
+  OMNI_USER: ${{ secrets.OMNI_USER }}
+
+jobs:
+  deploy_docs:
+    name: Deploy the docs
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
+
+    container:
+      image: python:3.11-slim
+
+    steps:
+      - name: Install git (and tools needed by hooks)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates make
+          git --version
+          git lfs version
+
+      # Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+
+      # Build docs
+      - name: Build docs
+        run: |
+          cd docs
+          pip3 install -r requirements.txt
+          make SPHINXOPTS=-W html
+          touch ./_build/html/.nojekyll
+
+      - name: Copy redirect file
+        run: |
+          cp ./docs/_redirect/index.html ./docs/_build/index.html
+
+      # Upload docs artifact
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: ./docs/_build
+
+      # Download docs artifact
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-html
+          path: ./docs/_build
+
+      # Deploy to gh-pages
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_build

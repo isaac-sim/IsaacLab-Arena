@@ -15,15 +15,18 @@
 import tempfile
 import torch
 from collections.abc import Sequence
+from dataclasses import MISSING
 
 import isaaclab.controllers.utils as ControllerUtils
 import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.devices.openxr import XrCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -39,9 +42,50 @@ from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaac_arena.utils.pose import Pose
 
+ARM_JOINT_NAMES_LIST = [
+    # arm joint
+    "left_shoulder_pitch_joint",
+    "right_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "right_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "right_shoulder_yaw_joint",
+    "left_elbow_pitch_joint",
+    "right_elbow_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_wrist_yaw_joint",
+    "left_wrist_roll_joint",
+    "right_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "right_wrist_pitch_joint",
+    # hand joints
+    "L_index_proximal_joint",
+    "L_middle_proximal_joint",
+    "L_pinky_proximal_joint",
+    "L_ring_proximal_joint",
+    "L_thumb_proximal_yaw_joint",
+    "R_index_proximal_joint",
+    "R_middle_proximal_joint",
+    "R_pinky_proximal_joint",
+    "R_ring_proximal_joint",
+    "R_thumb_proximal_yaw_joint",
+    "L_index_intermediate_joint",
+    "L_middle_intermediate_joint",
+    "L_pinky_intermediate_joint",
+    "L_ring_intermediate_joint",
+    "L_thumb_proximal_pitch_joint",
+    "R_index_intermediate_joint",
+    "R_middle_intermediate_joint",
+    "R_pinky_intermediate_joint",
+    "R_ring_intermediate_joint",
+    "R_thumb_proximal_pitch_joint",
+    "L_thumb_distal_joint",
+    "R_thumb_distal_joint",
+]
+
 
 @register_asset
-class GR1T2Embodiment(EmbodimentBase):
+class GR1T2EmbodimentBase(EmbodimentBase):
     """Embodiment for the GR1T2 robot."""
 
     name = "gr1"
@@ -51,10 +95,10 @@ class GR1T2Embodiment(EmbodimentBase):
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.camera_config = GR1T2CameraCfg()
-        self.action_config = GR1T2ActionsCfg()
         self.observation_config = GR1T2ObservationsCfg()
         self.event_config = GR1T2EventCfg()
         self.mimic_env = GR1T2MimicEnv
+        self.action_config = MISSING
 
         # XR settings
         # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
@@ -62,6 +106,32 @@ class GR1T2Embodiment(EmbodimentBase):
             anchor_pos=(0.0, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
+
+
+@register_asset
+class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
+    """Embodiment for the GR1T2 robot."""
+
+    name = "gr1_joint"
+
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
+        # Joint positional control
+        self.action_config = GR1T2JointPositionActionCfg()
+        # Tuned arm joints pd gains, smoother motions and less oscillations
+        self.scene_config = GR1T2HighPDSceneCfg()
+
+
+@register_asset
+class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
+    """Embodiment for the GR1T2 robot."""
+
+    name = "gr1_pink"
+
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+        super().__init__(enable_cameras, initial_pose)
+        # Pink IK EEF control
+        self.action_config = GR1T2ActionsCfg()
 
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
@@ -77,6 +147,15 @@ class GR1T2Embodiment(EmbodimentBase):
         self.action_config.pink_ik_cfg.controller.mesh_path = temp_urdf_meshes_output_path
 
 
+@configclass
+class GR1T2JointPositionActionCfg:
+    """Configuration for the arm joint position action."""
+
+    joint_pos = JointPositionActionCfg(
+        asset_name="robot", joint_names=ARM_JOINT_NAMES_LIST, scale=1.0, use_default_offset=False
+    )
+
+
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py
 # The SceneCfg definition in that file contains both the robot and the scene. So here
 # we copy out just the robot to allow composition with other scenes.
@@ -84,6 +163,7 @@ class GR1T2Embodiment(EmbodimentBase):
 class GR1T2SceneCfg:
 
     # Humanoid robot w/ arms higher
+    # Note (xinjieyao, 2025.10.06): This is the default robot pd gains, compatible with PINK IK EEF control
     robot: ArticulationCfg = GR1T2_CFG.replace(
         prim_path="{ENV_REGEX_NS}/Robot",
         init_state=ArticulationCfg.InitialStateCfg(
@@ -115,6 +195,118 @@ class GR1T2SceneCfg:
             },
             joint_vel={".*": 0.0},
         ),
+    )
+
+
+@configclass
+class GR1T2HighPDSceneCfg:
+    """GR1T2 Robot with tuned high PD gains on arm joints, reducing joint oscillation when using joint positional controller."""
+
+    # Tune PD gains for the arm joints only, others kept as default
+    robot: ArticulationCfg = GR1T2_CFG.replace(
+        prim_path="{ENV_REGEX_NS}/Robot",
+        init_state=ArticulationCfg.InitialStateCfg(
+            joint_pos={
+                # right-arm
+                "right_shoulder_pitch_joint": 0.0,
+                "right_shoulder_roll_joint": 0.0,
+                "right_shoulder_yaw_joint": 0.0,
+                "right_elbow_pitch_joint": -1.5708,
+                "right_wrist_yaw_joint": 0.0,
+                "right_wrist_roll_joint": 0.0,
+                "right_wrist_pitch_joint": 0.0,
+                # left-arm
+                "left_shoulder_pitch_joint": 0.0,
+                "left_shoulder_roll_joint": 0.0,
+                "left_shoulder_yaw_joint": 0.0,
+                "left_elbow_pitch_joint": -1.5708,
+                "left_wrist_yaw_joint": 0.0,
+                "left_wrist_roll_joint": 0.0,
+                "left_wrist_pitch_joint": 0.0,
+                # --
+                "head_.*": 0.0,
+                "waist_.*": 0.0,
+                ".*_hip_.*": 0.0,
+                ".*_knee_.*": 0.0,
+                ".*_ankle_.*": 0.0,
+                "R_.*": 0.0,
+                "L_.*": 0.0,
+            },
+            joint_vel={".*": 0.0},
+        ),
+        actuators={
+            "head": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "head_.*",
+                ],
+                effort_limit=None,
+                velocity_limit=None,
+                stiffness=None,
+                damping=None,
+            ),
+            "trunk": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "waist_.*",
+                ],
+                effort_limit=None,
+                velocity_limit=None,
+                stiffness=None,
+                damping=None,
+            ),
+            "legs": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    ".*_hip_.*",
+                    ".*_knee_.*",
+                    ".*_ankle_.*",
+                ],
+                effort_limit=None,
+                velocity_limit=None,
+                stiffness=None,
+                damping=None,
+            ),
+            "right-arm": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "right_shoulder_.*",
+                    "right_elbow_.*",
+                    "right_wrist_.*",
+                ],
+                effort_limit=torch.inf,
+                velocity_limit=torch.inf,
+                stiffness=3000,
+                damping=100,
+                armature=0.0,
+            ),
+            "left-arm": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "left_shoulder_.*",
+                    "left_elbow_.*",
+                    "left_wrist_.*",
+                ],
+                effort_limit=torch.inf,
+                velocity_limit=torch.inf,
+                stiffness=3000,
+                damping=100,
+                armature=0.0,
+            ),
+            "right-hand": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "R_.*",
+                ],
+                effort_limit=None,
+                velocity_limit=None,
+                stiffness=None,
+                damping=None,
+            ),
+            "left-hand": ImplicitActuatorCfg(
+                joint_names_expr=[
+                    "L_.*",
+                ],
+                effort_limit=None,
+                velocity_limit=None,
+                stiffness=None,
+                damping=None,
+            ),
+        },
     )
 
 

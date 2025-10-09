@@ -92,7 +92,9 @@ class LerobotReplayActionPolicyConfig:
                 self.embodiment_tag == "new_embodiment"
             ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
         elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
-            assert self.embodiment_tag == "gr1", "embodiment_tag must be gr1 for GR1 tabletop manipulation"
+            assert (
+                self.embodiment_tag == "gr1"
+            ), "embodiment_tag must be gr1 for GR1 tabletop manipulation. Is {self.embodiment_tag}"
         else:
             raise ValueError(f"Invalid inference mode: {self.task_mode}")
 
@@ -160,7 +162,9 @@ class Gr00tClosedloopPolicyConfig:
         default="cuda", metadata={"description": "Device to run the policy model on (e.g., 'cuda' or 'cpu')."}
     )
     video_backend: str = field(default="decord", metadata={"description": "Video backend to use for evaluation."})
-
+    pov_cam_name_sim: str = field(
+        default="robot_head_cam_rgb", metadata={"description": "Name of the POV camera of the robot in simulation."}
+    )
     # Closed loop specific parameters
     num_feedback_actions: int = field(
         default=16,

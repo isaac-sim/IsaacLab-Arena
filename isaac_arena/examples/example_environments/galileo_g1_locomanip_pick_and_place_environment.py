@@ -30,7 +30,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -39,7 +39,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(0.5785, 0.0, 0.0707),
+                position_xyz=(0.5785, 0.18, 0.0707),
                 rotation_wxyz=(0.0, 0.0, 1.0, 0.0),
             )
         )
@@ -49,17 +49,28 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
             )
         )
-        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-        if args_cli.embodiment == "g1_wbc_pink" and args_cli.mimic:
+        if (
+            args_cli.embodiment == "g1_wbc_pink"
+            and hasattr(args_cli, "mimic")
+            and args_cli.mimic
+            and not hasattr(args_cli, "auto")
+        ):
+            # Patch the Mimic generate function for locomanip use case
+            from isaac_arena.utils.locomanip_mimic_patch import patch_generate
+
+            patch_generate()
+
+            # Set navigation p-controller for locomanip use case
             action_cfg = embodiment.get_action_cfg()
             action_cfg.g1_action.use_p_control = True
             # Set nav subgoals (x,y,heading) and turning_in_place flag for G1 WBC Pink navigation p-controller
             action_cfg.g1_action.navigation_subgoals = [
-                ([0.18, 0.0, 0.0], False),
-                ([0.18, 0.0, -1.74], True),
-                ([-0.0955, -1.0670, -1.74], False),
-                ([-0.0955, -1.0670, -1.74], False),
+                ([0.18, 0.18, 0.0], False),
+                ([0.18, 0.18, -1.78], True),
+                ([-0.0955, -1.1070, -1.78], False),
+                ([-0.0955, -1.1070, -1.78], False),
             ]
 
         scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])

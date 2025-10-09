@@ -216,7 +216,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
         if self.embodiment_name == "franka":
             self.subtask_configs["robot"] = subtask_configs
         # We need to add the left and right subtasks for GR1.
-        elif self.embodiment_name == "gr1":
+        elif self.embodiment_name == "gr1_pink":
             self.subtask_configs["right"] = subtask_configs
             # EEF on opposite side (arm is static)
             subtask_configs = []

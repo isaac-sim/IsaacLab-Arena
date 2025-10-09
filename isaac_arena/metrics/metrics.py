@@ -87,7 +87,12 @@ def get_metric_recorder_dataset_path(env: ManagerBasedRLEnv) -> pathlib.Path:
     Returns:
         The path to the dataset for the metric recorder.
     """
-    assert env.cfg.recorders.dataset_file_handler_class_type == HDF5DatasetFileHandler
+    # Check if the dataset file handler is HDF5DatasetFileHandler
+    # Use class name comparison instead of direct equality to handle different import contexts
+    handler_class = env.cfg.recorders.dataset_file_handler_class_type
+    assert (
+        handler_class.__name__ == HDF5DatasetFileHandler.__name__
+    ), f"Expected HDF5DatasetFileHandler, got {handler_class.__name__}"
     return pathlib.Path(env.cfg.recorders.dataset_export_dir_path) / pathlib.Path(
         env.cfg.recorders.dataset_filename + ".hdf5"
     )

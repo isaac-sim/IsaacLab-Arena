@@ -1,13 +1,12 @@
 # This file shows how to configure the ReplayLerobotActionPolicy class for G1 locomanipulation task
 # TODO(xinjie.yao, 2025-09-30): change Hardcoded dataset_path to some releasable path
-dataset_path: /datasets/g1_galileo_box_npnp_mimic_generated_100_v2_action_noise_003/lerobot/
+dataset_path: /datasets/datasets/g1_galileo_box_npnp_mimic_generated_1_demo/lerobot/
 action_horizon: 16
 embodiment_tag: new_embodiment
 video_backend: decord
 data_config: unitree_g1_sim_wbc
 
 policy_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
-task_mode: g1_locomanipulation
 action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
 num_feedback_actions: 1
 task_mode_name: g1_locomanipulation

@@ -49,7 +49,11 @@ def resize_frames_with_padding(
         )
 
     # Resize all frames at once
-    if frames.shape[1:] != target_image_size:
-        frames = np.stack([cv2.resize(f, target_image_size) for f in frames])
+    # frames.shape is (N, height, width, channels)
+    # target_image_size is (height, width)
+    # cv2.resize expects (width, height)
+    if frames.shape[1:3] != target_image_size:
+        target_size_cv2 = (target_image_size[1], target_image_size[0])  # Convert to (width, height)
+        frames = np.stack([cv2.resize(f, target_size_cv2) for f in frames])
 
     return frames

@@ -34,12 +34,10 @@ from isaac_arena.examples.example_environments.cli import add_example_environmen
 
 # add argparse arguments
 parser = get_isaac_arena_cli_parser()
-parser.add_argument(
-    "--dataset_file", type=str, default="./datasets/dataset.hdf5", help="File path to export recorded demos."
-)
+parser.add_argument("--dataset_file", type=str, required=True, help="File path to export recorded demos.")
 parser.add_argument("--step_hz", type=int, default=30, help="Environment stepping rate in Hz.")
 parser.add_argument(
-    "--num_demos", type=int, default=0, help="Number of demonstrations to record. Set to 0 for infinite."
+    "--num_demos", type=int, default=1, help="Number of demonstrations to record. Set to 0 for infinite."
 )
 parser.add_argument(
     "--num_success_steps",
