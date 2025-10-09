@@ -15,7 +15,7 @@
 """
 External data configuration module for UnitreeG1 WBC simulation.
 This module can be loaded as an external config using:
-isaac_arena.policy.gr00t.data_config:UnitreeG1SimWBCDataConfig
+isaac_arena.arena_gr00t.data_config:UnitreeG1SimWBCDataConfig
 """
 from gr00t.data.dataset import ModalityConfig
 from gr00t.data.transform.base import ComposedModalityTransform, ModalityTransform
@@ -38,7 +38,7 @@ class UnitreeG1SimWBCDataConfig(BaseDataConfig):
 
     Usage:
         Can be loaded as external config with:
-        isaac_arena.policy.gr00t.data_config:UnitreeG1SimWBCDataConfig
+        isaac_arena.arena_gr00t.data_config:UnitreeG1SimWBCDataConfig
     """
 
     video_keys = ["video.ego_view"]

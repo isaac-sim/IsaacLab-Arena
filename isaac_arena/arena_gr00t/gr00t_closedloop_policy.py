@@ -76,7 +76,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if self.policy_config.data_config in DATA_CONFIG_MAP:
             self.data_config = DATA_CONFIG_MAP[self.policy_config.data_config]
         elif self.policy_config.data_config == "unitree_g1_sim_wbc":
-            self.data_config = load_data_config("isaac_arena.policy.gr00t.data_config:UnitreeG1SimWBCDataConfig")
+            self.data_config = load_data_config("isaac_arena.arena_gr00t.data_config:UnitreeG1SimWBCDataConfig")
         else:
             raise ValueError(f"Invalid data config: {self.policy_config.data_config}")
 
