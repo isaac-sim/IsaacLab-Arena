@@ -21,6 +21,7 @@ from typing import Any
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 from gr00t.model.policy import Gr00tPolicy
 
+from isaac_arena.arena_gr00t.policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaac_arena.policy.data_utils.image_conversion import resize_frames_with_padding
 from isaac_arena.policy.data_utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
 from isaac_arena.policy.data_utils.joints_conversion import (
@@ -28,7 +29,6 @@ from isaac_arena.policy.data_utils.joints_conversion import (
     remap_sim_joints_to_policy_joints,
 )
 from isaac_arena.policy.data_utils.robot_joints import JointsAbsPosition
-from isaac_arena.policy.gr00t.policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaac_arena.policy.policy_base import PolicyBase
 
 
@@ -76,7 +76,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if self.policy_config.data_config in DATA_CONFIG_MAP:
             self.data_config = DATA_CONFIG_MAP[self.policy_config.data_config]
         elif self.policy_config.data_config == "unitree_g1_sim_wbc":
-            self.data_config = load_data_config("isaac_arena.policy.gr00t.data_config:UnitreeG1SimWBCDataConfig")
+            self.data_config = load_data_config("isaac_arena.arena_gr00t.data_config:UnitreeG1SimWBCDataConfig")
         else:
             raise ValueError(f"Invalid data config: {self.policy_config.data_config}")
 
