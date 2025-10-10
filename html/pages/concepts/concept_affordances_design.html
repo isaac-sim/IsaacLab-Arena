@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Affordances Design &#8212; isaaclab_arena 0.1</title>
+    <title>Affordances Design &#8212; isaaclab_arena 1.0.0</title>
   
   
   
@@ -124,11 +124,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a></div>
     
@@ -190,10 +190,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -225,11 +221,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a>
 
@@ -288,26 +284,16 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../workflows/manipulation_workflow.html">Manipulation</a></li>
-</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_locomanipulation.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
 </ul>
 </div>
 </nav></div>
@@ -361,107 +347,7 @@
                   
   <section id="affordances-design">
 <h1>Affordances Design<a class="headerlink" href="#affordances-design" title="Link to this heading">#</a></h1>
-<p>Affordances in Isaac Arena define object interaction capabilities, providing a standardized way to represent what actions can be performed on objects. They encapsulate specific behaviors like opening, pressing, or manipulating objects through well-defined interfaces that integrate with tasks and embodiments.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>The affordance system is built around the <code class="docutils literal notranslate"><span class="pre">AffordanceBase</span></code> abstract class and mixin pattern:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">AffordanceBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for affordances.&quot;&quot;&quot;</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">pass</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Openable</span><span class="p">(</span><span class="n">AffordanceBase</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin for objects that can be opened/closed.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">env_ids</span><span class="p">,</span> <span class="n">percentage</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set opening percentage via joint control.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query current open state.&quot;&quot;&quot;</span>
-</pre></div>
-</div>
-<p>Affordances are designed as mixin classes that combine with objects through multiple inheritance, operating on articulated objects via joint manipulation and state querying.</p>
-</section>
-<section id="affordances-in-detail">
-<h2>Affordances in Detail<a class="headerlink" href="#affordances-in-detail" title="Link to this heading">#</a></h2>
-<dl>
-<dt><strong>Openable Affordance</strong></dt><dd><p>Provides opening and closing functionality for articulated objects:</p>
-<ul class="simple">
-<li><p><strong>State Methods</strong>: <code class="docutils literal notranslate"><span class="pre">is_open()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_openness()</span></code> for querying current state</p></li>
-<li><p><strong>Control Methods</strong>: <code class="docutils literal notranslate"><span class="pre">open()</span></code>, <code class="docutils literal notranslate"><span class="pre">close()</span></code> for direct state manipulation</p></li>
-<li><p><strong>Parameters</strong>: <code class="docutils literal notranslate"><span class="pre">openable_joint_name</span></code>, <code class="docutils literal notranslate"><span class="pre">openable_open_threshold</span></code></p></li>
-<li><p><strong>Implementation</strong>: Normalized joint position control (0.0-1.0 range)</p></li>
-</ul>
-</dd>
-<dt><strong>Pressable Affordance</strong></dt><dd><p>Enables pressing and releasing functionality for button-like objects:</p>
-<ul class="simple">
-<li><p><strong>State Methods</strong>: <code class="docutils literal notranslate"><span class="pre">is_pressed()</span></code> for current button state</p></li>
-<li><p><strong>Control Methods</strong>: <code class="docutils literal notranslate"><span class="pre">press()</span></code>, <code class="docutils literal notranslate"><span class="pre">unpress()</span></code> for state changes</p></li>
-<li><p><strong>Parameters</strong>: <code class="docutils literal notranslate"><span class="pre">pressable_joint_name</span></code>, <code class="docutils literal notranslate"><span class="pre">pressable_pressed_threshold</span></code></p></li>
-<li><p><strong>Implementation</strong>: Threshold-based binary state determination</p></li>
-</ul>
-</dd>
-<dt><strong>Object Integration Pattern</strong></dt><dd><p>Affordances combine with assets through multiple inheritance:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Microwave</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">,</span> <span class="n">Openable</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;microwave&quot;</span>
-    <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">ARTICULATION</span>
-    <span class="n">openable_joint_name</span> <span class="o">=</span> <span class="s2">&quot;microjoint&quot;</span>
-    <span class="n">openable_open_threshold</span> <span class="o">=</span> <span class="mf">0.5</span>
-</pre></div>
-</div>
-</dd>
-<dt><strong>Task Integration</strong></dt><dd><p>Affordances provide termination conditions and event handling for tasks:</p>
-<ul class="simple">
-<li><p><strong>Termination</strong>: Use <code class="docutils literal notranslate"><span class="pre">is_open()</span></code> for success criteria in <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code></p></li>
-<li><p><strong>Events</strong>: Reset object states with affordance methods during episode resets</p></li>
-<li><p><strong>Metrics</strong>: Track interaction progress through state queries</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create affordance-enabled object</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-
-<span class="c1"># Use in task definition</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span>
-    <span class="n">openable_object</span><span class="o">=</span><span class="n">microwave</span><span class="p">,</span>
-    <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
-    <span class="n">reset_openness</span><span class="o">=</span><span class="mf">0.2</span>
-<span class="p">)</span>
-
-<span class="c1"># Environment composition</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;microwave_opening&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Microwave Opening Task</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Runtime State Querying</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check object state during simulation</span>
-<span class="k">if</span> <span class="n">microwave</span><span class="o">.</span><span class="n">is_open</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Microwave is open enough&quot;</span><span class="p">)</span>
-
-<span class="n">current_openness</span> <span class="o">=</span> <span class="n">microwave</span><span class="o">.</span><span class="n">get_openness</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>The affordance system provides consistent interaction abstractions that work across different object types and robot embodiments, enabling complex manipulation tasks while maintaining separation between object capabilities and task objectives.</p>
-</section>
+<p>TBD.</p>
 </section>
 
 
@@ -499,28 +385,9 @@
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#affordances-in-detail">Affordances in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 

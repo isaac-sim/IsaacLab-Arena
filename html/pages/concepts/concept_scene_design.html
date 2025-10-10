@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Scene Design &#8212; isaaclab_arena 0.1</title>
+    <title>Scene Design &#8212; isaaclab_arena 1.0.0</title>
   
   
   
@@ -124,11 +124,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a></div>
     
@@ -190,10 +190,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -225,11 +221,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a>
 
@@ -288,26 +284,16 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../workflows/manipulation_workflow.html">Manipulation</a></li>
-</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_locomanipulation.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
 </ul>
 </div>
 </nav></div>
@@ -361,107 +347,7 @@
                   
   <section id="scene-design">
 <h1>Scene Design<a class="headerlink" href="#scene-design" title="Link to this heading">#</a></h1>
-<p>Scenes in Isaac Arena manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds, objects, and interactive elements into complete environments that integrate seamlessly with Isaac Lab’s scene system.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>The scene system is built around the <code class="docutils literal notranslate"><span class="pre">Scene</span></code> class that manages asset collections and configuration generation:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Scene</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assets</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Asset</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assets</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Asset</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">observation_cfg</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">events_cfg</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">termination_cfg</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">add_asset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">:</span> <span class="n">Asset</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add single asset to scene.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assets</span><span class="p">[</span><span class="n">asset</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">asset</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate Isaac Lab scene configuration from assets.&quot;&quot;&quot;</span>
-</pre></div>
-</div>
-<p>Scenes automatically aggregate asset configurations into Isaac Lab-compatible scene configurations while maintaining asset relationships and spatial organization.</p>
-</section>
-<section id="scenes-in-detail">
-<h2>Scenes in Detail<a class="headerlink" href="#scenes-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Asset Composition</strong></dt><dd><p>Scenes organize different asset types into cohesive environments:</p>
-<ul class="simple">
-<li><p><strong>Background Assets</strong>: Environmental foundations (kitchens, laboratories) providing base geometry and context</p></li>
-<li><p><strong>Interactive Objects</strong>: Manipulable items with physics (YCB objects, tools, appliances)</p></li>
-<li><p><strong>Functional Elements</strong>: Objects with affordances (doors, drawers, buttons) for specific interactions</p></li>
-<li><p><strong>Object References</strong>: Access to embedded scene elements without separate spawning</p></li>
-</ul>
-</dd>
-<dt><strong>Configuration Management</strong></dt><dd><p>Automatic aggregation of asset configurations:</p>
-<ul class="simple">
-<li><p><strong>Scene Configuration</strong>: Physical properties, lighting, materials from all assets</p></li>
-<li><p><strong>Pose Management</strong>: Initial positioning and spatial relationships</p></li>
-<li><p><strong>Physics Integration</strong>: Collision detection and contact handling across assets</p></li>
-<li><p><strong>Isaac Lab Compatibility</strong>: Seamless integration with environment builder system</p></li>
-</ul>
-</dd>
-<dt><strong>Construction Patterns</strong></dt><dd><p>Common approaches to scene assembly:</p>
-<ul class="simple">
-<li><p><strong>Asset Selection</strong>: Registry-based asset discovery and instantiation</p></li>
-<li><p><strong>Pose Configuration</strong>: Positioning assets in 3D space with <code class="docutils literal notranslate"><span class="pre">Pose</span></code> objects</p></li>
-<li><p><strong>Sequential Assembly</strong>: Building scenes through programmatic asset addition</p></li>
-<li><p><strong>Batch Composition</strong>: Creating scenes from asset lists in single operation</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Asset creation and positioning</span>
-<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
-<span class="n">pick_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)))</span>
-
-<span class="c1"># Scene composition</span>
-<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_object</span><span class="p">])</span>
-
-<span class="c1"># Environment integration</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>  <span class="c1"># Physical environment layout</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Kitchen Pick and Place</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">mustard_bottle</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
-<span class="n">mustard_bottle</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)))</span>
-
-<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">mustard_bottle</span><span class="p">])</span>
-</pre></div>
-</div>
-<p><strong>Microwave Interaction</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-<span class="n">microwave</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.23</span><span class="p">)))</span>
-
-<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">microwave</span><span class="p">])</span>
-</pre></div>
-</div>
-<p><strong>Object References</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reference elements within larger scene assets</span>
-<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span>
-    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02&quot;</span><span class="p">,</span>
-    <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span>
-    <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The scene system provides efficient composition of simulation environments while maintaining clean separation between physical layout definition and task-specific behavior logic.</p>
-</section>
+<p>TBD.</p>
 </section>
 
 
@@ -499,28 +385,9 @@
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scenes-in-detail">Scenes in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 

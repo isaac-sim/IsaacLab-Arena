@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Embodiment Design &#8212; isaaclab_arena 0.1</title>
+    <title>Embodiment Design &#8212; isaaclab_arena 1.0.0</title>
   
   
   
@@ -124,11 +124,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a></div>
     
@@ -190,10 +190,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -225,11 +221,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a>
 
@@ -288,26 +284,16 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../workflows/manipulation_workflow.html">Manipulation</a></li>
-</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_locomanipulation.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
 </ul>
 </div>
 </nav></div>
@@ -361,114 +347,7 @@
                   
   <section id="embodiment-design">
 <h1>Embodiment Design<a class="headerlink" href="#embodiment-design" title="Link to this heading">#</a></h1>
-<p>Embodiments in Isaac Arena define robot-specific configurations and behaviors, providing a modular way to integrate different robots into environments. Each embodiment encapsulates all robot-specific aspects including kinematics, control actions, observations, specialized behaviors, and camera systems.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>The embodiment system is built around the <code class="docutils literal notranslate"><span class="pre">EmbodimentBase</span></code> abstract class that extends the asset system:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">EmbodimentBase</span><span class="p">(</span><span class="n">Asset</span><span class="p">):</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;embodiment&quot;</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable_cameras</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">initial_pose</span><span class="p">:</span> <span class="n">Pose</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">scene_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">action_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">observation_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">event_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">camera_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xr_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mimic_env_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Robot physical configuration and actuators.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_action_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Control interface definition.&quot;&quot;&quot;</span>
-</pre></div>
-</div>
-<p>Embodiments provide complete robot definitions that integrate seamlessly with Isaac Arena’s environment composition system while maintaining robot-specific behaviors and capabilities.</p>
-</section>
-<section id="embodiments-in-detail">
-<h2>Embodiments in Detail<a class="headerlink" href="#embodiments-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Configuration Components</strong></dt><dd><p>Embodiments contribute multiple configuration aspects to environments:</p>
-<ul class="simple">
-<li><p><strong>Scene Configuration</strong>: Robot physical properties, actuators, initial pose, mounting stands</p></li>
-<li><p><strong>Action Configuration</strong>: Control interface (joint positions, end-effector poses, WBC)</p></li>
-<li><p><strong>Observation Configuration</strong>: Sensor data, joint states, end-effector poses, camera feeds</p></li>
-<li><p><strong>Event Configuration</strong>: Robot initialization, resets, randomization</p></li>
-<li><p><strong>Camera Configuration</strong>: Onboard cameras with positions and sensor properties (optional)</p></li>
-<li><p><strong>XR Configuration</strong>: XR device locations for teleop integration (optional)</p></li>
-<li><p><strong>Mimic Configuration</strong>: Mimic environment support for demonstration (optional)</p></li>
-</ul>
-</dd>
-<dt><strong>Available Embodiments</strong></dt><dd><p>Robot assets with different capabilities and control modes:</p>
-<ul class="simple">
-<li><p><strong>Franka Panda</strong>: 7-DOF manipulator with differential IK control</p></li>
-<li><p><strong>Unitree G1</strong>: Humanoid with WBC, dual-arm manipulation, locomotion</p></li>
-<li><p><strong>GR1T2</strong>: Humanoid optimized for manipulation with dual end-effector control</p></li>
-<li><p><strong>Control Variants</strong>: Joint space vs. inverse kinematics control modes</p></li>
-</ul>
-</dd>
-<dt><strong>Control Interface Abstraction</strong></dt><dd><p>Standardized action spaces that work across different robot morphologies while supporting robot-specific control paradigms like whole-body control for humanoids.</p>
-</dd>
-<dt><strong>Camera Integration</strong></dt><dd><p>Optional camera systems that add observation terms when enabled, supporting both manipulation and perception tasks with head-mounted or external cameras.</p>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Embodiment creation with camera support</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span>
-    <span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span>
-<span class="p">)</span>
-
-<span class="c1"># Set robot initial pose</span>
-<span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-    <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-<span class="p">)</span>
-
-<span class="c1"># Environment composition</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>  <span class="c1"># Robot configuration</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Manipulation Robot</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">franka</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Humanoid Control Modes</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Joint space control</span>
-<span class="n">g1_joint</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;g1_wbc_joint&quot;</span><span class="p">)()</span>
-
-<span class="c1"># Inverse kinematics control</span>
-<span class="n">g1_ik</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;g1_wbc_pink&quot;</span><span class="p">)()</span>
-</pre></div>
-</div>
-<p><strong>Teleop Integration</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;gr1_pink&quot;</span><span class="p">)()</span>
-<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;avp_handtracking&quot;</span><span class="p">)()</span>
-
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The embodiment system provides consistent robot integration across different morphologies and control paradigms, enabling rapid deployment of manipulation and locomotion tasks while maintaining robot-specific capabilities and behaviors.</p>
-</section>
+<p>TBD.</p>
 </section>
 
 
@@ -506,28 +385,9 @@
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#embodiments-in-detail">Embodiments in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Policy Design &#8212; isaaclab_arena 0.1</title>
+    <title>Policy Design &#8212; isaaclab_arena 1.0.0</title>
   
   
   
@@ -124,11 +124,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a></div>
     
@@ -190,10 +190,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -225,11 +221,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 1.0.0 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 1.0.0 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 1.0.0</p>
   
 </a>
 
@@ -288,26 +284,16 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Policy Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 </ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Workflows</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../workflows/locomanipulation_workflow.html">Loco-Manipulation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../workflows/manipulation_workflow.html">Manipulation</a></li>
-</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_locomanipulation.html">Loco-Manipulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/example_tabletop_manipulation.html">Tabletop Manipulation</a></li>
 </ul>
 </div>
 </nav></div>
@@ -361,104 +347,7 @@
                   
   <section id="policy-design">
 <h1>Policy Design<a class="headerlink" href="#policy-design" title="Link to this heading">#</a></h1>
-<p>Policies in Isaac Arena define how agents generate actions from observations, providing a unified framework for integrating different control strategies, learning algorithms, and demonstration replay systems. The policy system supports everything from simple baselines to sophisticated neural network models with consistent interfaces.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>The policy system is built around the <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code> abstract class that defines a standard interface:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">PolicyBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Base class for policies.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">observation</span><span class="p">:</span> <span class="n">GymSpacesDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute an action given the environment and observation.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            env: The environment instance</span>
-<span class="sd">            observation: Observation dictionary from the environment</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            torch.Tensor: The action to take</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-</pre></div>
-</div>
-<p>This abstraction enables seamless swapping between different policy implementations while maintaining consistent integration with Isaac Arena environments and the policy runner system.</p>
-</section>
-<section id="policies-in-detail">
-<h2>Policies in Detail<a class="headerlink" href="#policies-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Policy Categories</strong></dt><dd><p>Three main types addressing different use cases:</p>
-<ul class="simple">
-<li><p><strong>Zero Action Policy</strong>: Baseline that returns zero actions for environment testing and physics validation</p></li>
-<li><p><strong>Replay Action Policy</strong>: Replays pre-recorded demonstrations from HDF5 datasets for analysis and evaluation</p></li>
-<li><p><strong>GR00T Neural Policies</strong>: Advanced foundation models for visuomotor control with multi-modal inputs</p></li>
-</ul>
-</dd>
-<dt><strong>Implementation Patterns</strong></dt><dd><p>Common policy implementation approaches:</p>
-<ul class="simple">
-<li><p><strong>Stateless Policies</strong>: Pure functions from observations to actions (ZeroActionPolicy)</p></li>
-<li><p><strong>Dataset-Driven</strong>: Load and replay recorded trajectories (ReplayActionPolicy)</p></li>
-<li><p><strong>Neural Networks</strong>: Process visual and proprioceptive inputs for learned behaviors (GR00T policies)</p></li>
-<li><p><strong>Action Chunking</strong>: Generate multiple future actions per observation for temporal consistency</p></li>
-</ul>
-</dd>
-<dt><strong>Integration System</strong></dt><dd><p>Policy runner framework handles execution lifecycle:</p>
-<ul class="simple">
-<li><p><strong>Environment Interaction</strong>: Standard observation-action loop with automatic resets</p></li>
-<li><p><strong>CLI Interface</strong>: Command-line policy selection and configuration</p></li>
-<li><p><strong>Data Management</strong>: Loading demonstration data and policy configurations</p></li>
-<li><p><strong>Performance Monitoring</strong>: Step counting and execution timing</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Policy creation from CLI arguments</span>
-<span class="n">arena_builder</span> <span class="o">=</span> <span class="n">get_arena_builder_from_cli</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">arena_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
-<span class="n">policy</span><span class="p">,</span> <span class="n">num_steps</span> <span class="o">=</span> <span class="n">create_policy</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
-
-<span class="c1"># Standard execution loop</span>
-<span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_steps</span><span class="p">):</span>
-    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">():</span>
-        <span class="n">actions</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">obs</span><span class="p">)</span>
-        <span class="n">obs</span><span class="p">,</span> <span class="n">rewards</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">terminated</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">or</span> <span class="n">truncated</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-            <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Baseline Testing</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Zero action policy for environment validation</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">1000</span>
-</pre></div>
-</div>
-<p><strong>Demonstration Replay</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay recorded demonstrations</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>replay<span class="w"> </span>--replay_file_path<span class="w"> </span>demos.h5<span class="w"> </span>kitchen_pick_and_place
-</pre></div>
-</div>
-<p><strong>Neural Policy Execution</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># GR00T foundation model deployment</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span>--policy_config_yaml_path<span class="w"> </span>config.yaml
-</pre></div>
-</div>
-<p><strong>Custom Policy Integration</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">CustomPolicy</span><span class="p">(</span><span class="n">PolicyBase</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">observation</span><span class="p">):</span>
-        <span class="c1"># Custom control logic</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-
-<span class="n">policy</span> <span class="o">=</span> <span class="n">CustomPolicy</span><span class="p">()</span>
-<span class="n">actions</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">observations</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>The policy system provides a flexible foundation for robotic control research, supporting diverse approaches from simple baselines to state-of-the-art foundation models while maintaining consistent interfaces across the Isaac Arena ecosystem.</p>
-</section>
+<p>TBD.</p>
 </section>
 
 
@@ -496,28 +385,9 @@ python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_t
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#policies-in-detail">Policies in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 
