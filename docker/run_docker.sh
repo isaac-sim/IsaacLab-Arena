@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 DOCKER_IMAGE_NAME='isaac_arena'
+DOCKER_VERSION_TAG='latest'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -47,6 +48,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:G:" OPTION; do
             ;;
         g)
             INSTALL_GROOT="true"
+            DOCKER_VERSION_TAG='cuda_gr00t'
             ;;
         G)
             GROOT_DEPS_GROUP=${OPTARG}
@@ -86,7 +88,7 @@ done
 shift $((OPTIND-1))
 
 # Display the values being used
-echo "Using Docker image: $DOCKER_IMAGE_NAME"
+echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
 
 # Build the Docker image with the specified or default name
 echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
@@ -94,9 +96,9 @@ if [ "$INSTALL_GROOT" = "true" ]; then
     echo "GR00T dependency group: $GROOT_DEPS_GROUP"
 fi
 
-if [ "$(docker images -q $DOCKER_IMAGE_NAME 2> /dev/null)" ] && \
+if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
-    echo "Docker image $DOCKER_IMAGE_NAME already exists. Not rebuilding."
+    echo "Docker image $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Not rebuilding."
     echo "Use -r option to force the rebuild."
 else
     docker build --pull \
@@ -104,22 +106,22 @@ else
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
-        -t ${DOCKER_IMAGE_NAME} \
+        -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
         --file $SCRIPT_DIR/Dockerfile.isaac_arena \
         $SCRIPT_DIR/..
 fi
 
 # Remove any exited containers
-if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME)" ]; then
-    docker rm $DOCKER_IMAGE_NAME > /dev/null
+if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG)" ]; then
+    docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG > /dev/null
 fi
 
 # If container is running, attach to it, otherwise start
-if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME 2>/dev/null)" = "true" ]; then
+if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
-  docker exec -it $DOCKER_IMAGE_NAME su $(id -un)
+  docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG su $(id -un)
 else
-    DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME"
+    DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG"
                     "--privileged"
                     "--ulimit" "memlock=-1"
                     "--ulimit" "stack=-1"
@@ -166,8 +168,12 @@ else
         fi
     fi
 
+    # if gr00t is installed, mount the gr00t directory in case anything needs to change there
+    if [ "$INSTALL_GROOT" = "true" ]; then
+        DOCKER_RUN_ARGS+=("-v" "./submodules/Isaac-GR00T:${WORKDIR}/submodules/Isaac-GR00T")
+    fi
     # Allow X11 connections
     xhost +local:docker > /dev/null
 
-    docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME} "${@}"
+    docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} "${@}"
 fi
