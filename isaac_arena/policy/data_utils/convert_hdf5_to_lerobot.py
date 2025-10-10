@@ -331,7 +331,7 @@ def convert_trajectory_to_df(
     return_dict = {}
     data = {}
 
-    gr00t_modality_config = load_json(config.modality_template_path)
+    policy_modality_config = load_json(config.modality_template_path)
 
     policy_joints_config = load_robot_joints_config_from_yaml(config.policy_joints_config_path)
     action_joints_config = load_robot_joints_config_from_yaml(config.action_joints_config_path)
@@ -373,7 +373,7 @@ def convert_trajectory_to_df(
 
         # 1.2. Fill in the missing joints with zeros
         ordered_joints = []
-        for joint_group in gr00t_modality_config[key].keys():
+        for joint_group in policy_modality_config[key].keys():
             # NOTE(xinjieyao, 2025-09-25): Those are not joint position commands, which do not need remapping orders
             if (
                 joint_group == "left_wrist_pose"
@@ -384,7 +384,7 @@ def convert_trajectory_to_df(
             ):
                 continue
             num_joints = (
-                gr00t_modality_config[key][joint_group]["end"] - gr00t_modality_config[key][joint_group]["start"]
+                policy_modality_config[key][joint_group]["end"] - policy_modality_config[key][joint_group]["start"]
             )
 
             if joint_group not in remapped_joints.keys():

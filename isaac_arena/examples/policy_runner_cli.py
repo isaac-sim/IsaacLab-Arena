@@ -127,7 +127,7 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
         # NOTE(xinjie.yao, 2025-09-28): lazy import to prevent app stalling
         # due to import GR00T py dependencies that are conflicting with omni.kit
         # see functional import sequence here https://github.com/isaac-sim/IsaacLabEvalTasks/blob/main/scripts/evaluate_gn1.py#L38
-        from isaac_arena.policy.gr00t.replay_lerobot_action_policy import ReplayLerobotActionPolicy
+        from isaac_arena.arena_gr00t.replay_lerobot_action_policy import ReplayLerobotActionPolicy
 
         policy = ReplayLerobotActionPolicy(
             args.config_yaml_path, num_envs=args.num_envs, device=args.device, trajectory_index=args.trajectory_index
@@ -139,7 +139,7 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
             num_steps = policy.get_trajectory_length(policy.get_trajectory_index())
 
     elif args.policy_type == "gr00t_closedloop":
-        from isaac_arena.policy.gr00t.gr00t_closedloop_policy import Gr00tClosedloopPolicy
+        from isaac_arena.arena_gr00t.gr00t_closedloop_policy import Gr00tClosedloopPolicy
 
         policy = Gr00tClosedloopPolicy(args.policy_config_yaml_path, num_envs=args.num_envs, device=args.device)
         num_steps = args.num_steps
