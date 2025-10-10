@@ -17,13 +17,13 @@ A key feature of ``Isaac Lab Arena`` is an easier, more composable interface for
 Installation
 ============
 
-``isaaclab_arena`` version ``v0.1`` only supports installation from source in a docker container.
+``IsaacLab-Arena`` version ``v0.1`` only supports installation from source in a docker container.
 See :doc:`pages/installation` for more options.
 
 Examples
 ========
 
-Below are some example environments built using ``isaaclab_arena``.
+Below are some example environments built using ``IsaacLab-Arena``.
 
 
  .. list-table::
@@ -40,7 +40,7 @@ Below are some example environments built using ``isaaclab_arena``.
 
 License
 -------
-This code is under an `open-source license <https://github.com/isaac-sim/isaac_arena/blob/main/LICENSE.md>`_ (Apache 2.0).
+This code is under an `open-source license <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/LICENSE.md>`_ (Apache 2.0).
 
 .. toctree::
    :maxdepth: 1

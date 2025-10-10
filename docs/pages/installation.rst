@@ -3,11 +3,11 @@ Installation
 
 Isaac Lab Arena currently only supports installation from source inside a Docker container.
 
-You'll launch the container and run isaac_arena inside it.
+You'll launch the container and run isaaclab_arena inside it.
 
 We have two container versions:
 
-- **Without GR00T:** Minimal dependencies for basic isaac_arena
+- **Without GR00T:** Minimal dependencies for basic isaaclab_arena
 - **With GR00T:** Additional dependencies for GR00T policy support
 
 First clone the repository:
@@ -38,12 +38,12 @@ Optionally verify installation by running tests:
 
         .. code-block:: bash
 
-            pytest -s isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
+            pytest -s isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
     .. tab:: With GR00T
 
         .. code-block:: bash
 
-            pytest -s isaac_arena/tests/
+            pytest -s isaaclab_arena/tests/
 
 You're ready to run examples!

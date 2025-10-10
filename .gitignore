@@ -69,8 +69,8 @@ TAGS
 
 # Models
 *models/
-*isaac_arena/embodiments/g1/wbc_policy/models/
-*isaac_arena/embodiments/g1/wbc_policy/robot_model/
+*isaaclab_arena/embodiments/g1/wbc_policy/models/
+*isaaclab_arena/embodiments/g1/wbc_policy/robot_model/
 
 # Datasets
 *datasets/

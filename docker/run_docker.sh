@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
-DOCKER_IMAGE_NAME='isaac_arena'
+DOCKER_IMAGE_NAME='isaaclab_arena'
 DOCKER_VERSION_TAG='latest'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-WORKDIR="/workspaces/isaac_arena"
+WORKDIR="/workspaces/isaaclab_arena"
 
 # Default mount directory on the host machine for the datasets
 DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
@@ -56,7 +56,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:G:" OPTION; do
             ;;
         h)
             script_name=$(basename "$0")
-            echo "Helper script to build and Isaac Arena docker environment."
+            echo "Helper script to build and IsaacLab Arena docker environment."
             echo ""
             echo "Usage:"
             echo "$script_name [options]"
@@ -107,7 +107,7 @@ else
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
-        --file $SCRIPT_DIR/Dockerfile.isaac_arena \
+        --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
         $SCRIPT_DIR/..
 fi
 
@@ -130,7 +130,7 @@ else
                     "--runtime=nvidia"
                     "--gpus=all"
                     "-v" "./docs:${WORKDIR}/docs"
-                    "-v" "./isaac_arena:${WORKDIR}/isaac_arena"
+                    "-v" "./isaaclab_arena:${WORKDIR}/isaaclab_arena"
                     "-v" "./submodules/IsaacLab:${WORKDIR}/submodules/IsaacLab"
                     "-v" "$DATASETS_HOST_MOUNT_DIRECTORY:/datasets"
                     "-v" "$MODELS_HOST_MOUNT_DIRECTORY:/models"

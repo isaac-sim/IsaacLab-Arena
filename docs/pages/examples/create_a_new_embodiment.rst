@@ -15,8 +15,8 @@ All embodiments inherit from ``EmbodimentBase`` and follow this pattern:
 
 .. code-block:: python
 
-    from isaac_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaac_arena.assets.register import register_asset
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.assets.register import register_asset
 
     @register_asset
     class MyRobotEmbodiment(EmbodimentBase):

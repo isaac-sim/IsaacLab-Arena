@@ -15,9 +15,9 @@ All tasks inherit from ``TaskBase`` and follow this pattern:
 
 .. code-block:: python
 
-    from isaac_arena.tasks.task_base import TaskBase
-    from isaac_arena.assets.asset import Asset
-    from isaac_arena.metrics.metric_base import MetricBase
+    from isaaclab_arena.tasks.task_base import TaskBase
+    from isaaclab_arena.assets.asset import Asset
+    from isaaclab_arena.metrics.metric_base import MetricBase
 
     class MyTask(TaskBase):
         def __init__(self, required_assets: Asset):

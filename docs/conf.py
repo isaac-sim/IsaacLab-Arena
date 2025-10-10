@@ -23,10 +23,10 @@ import sys
 # pylint: disable=wrong-import-position
 # path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# from setup import ISAAC_ARENA_VERSION_NUMBER
+# from setup import isaaclab_arena_VERSION_NUMBER
 
 # TODO(alexmillane, 2025-10-03): Get this programmatically, as above.
-ISAAC_ARENA_VERSION_NUMBER = "0.1"
+isaaclab_arena_VERSION_NUMBER = "0.1"
 
 
 # Modify PYTHONPATH so we can import the helpers module.
@@ -39,7 +39,7 @@ from helpers import TemporaryLinkcheckIgnore, to_datetime, is_expired
 
 # -- Project information -----------------------------------------------------
 
-project = "isaaclab_arena"
+project = "IsaacLab-Arena"
 copyright = "2025, NVIDIA"
 author = "NVIDIA"
 released = False  # Indicates if this is a public or internal version of the repo.
@@ -92,19 +92,19 @@ nitpick_ignore: list[str] = []  # can exclude known bad refs
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "nvidia_sphinx_theme"
-html_title = f"isaaclab_arena {ISAAC_ARENA_VERSION_NUMBER}"
+html_title = f"IsaacLab-Arena {isaaclab_arena_VERSION_NUMBER}"
 html_show_sphinx = False
 html_theme_options = {
     "copyright_override": {"start": 2023},
     "pygments_light_style": "tango",
     "pygments_dark_style": "monokai",
     "footer_links": {},
-    "github_url": "https://github.com/nvidia-isaac/isaac_arena",
+    "github_url": "https://github.com/nvidia-isaac/IsaacLab-Arena",
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
     #     {
     #         "name": "PyPI",
-    #         "url": "https://pypi.org/project/isaac_arena",
+    #         "url": "https://pypi.org/project/IsaacLab-Arena",
     #         "icon": "fa-brands fa-python",
     #         "type": "fontawesome",
     #     },
@@ -147,8 +147,8 @@ for ignore in temporary_linkcheck_ignore:
 
 isaaclab_arena_docs_config = {
     "released": released,
-    "internal_git_url": "git@github.com:isaac-sim/isaac_arena.git",
+    "internal_git_url": "git@github.com:isaac-sim/IsaacLab-Arena.git",
     "external_git_url": "UNDECIDED",
-    "internal_code_link_base_url": "https://github.com/isaac-sim/isaac_arena",
+    "internal_code_link_base_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     "external_code_link_base_url": "UNDECIDED",
 }

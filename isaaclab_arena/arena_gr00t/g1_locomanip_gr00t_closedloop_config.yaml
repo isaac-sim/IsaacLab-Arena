@@ -1,0 +1,17 @@
+# This file shows how to configure the Gr00tClosedloopPolicy class for G1 locomanipulation task
+# TODO(xinjie.yao, 2025-09-30): change Hardcoded model_path to some releasable path
+model_path: /datasets/ckpts/gn1_5_g1_galileo_box_npnp_ckpts/100_v2/
+language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
+action_horizon: 16
+embodiment_tag: new_embodiment
+video_backend: decord
+data_config: unitree_g1_sim_wbc
+
+policy_joints_config_path: isaaclab_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
+state_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
+
+num_feedback_actions: 16
+pov_cam_name_sim: "robot_head_cam_rgb"
+
+task_mode_name: g1_locomanipulation

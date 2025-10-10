@@ -6,7 +6,7 @@ Learn how to create custom environments using the kitchen pick and place example
 Overview
 --------
 
-Isaac Arena environments have five main components:
+IsaacLab Arena environments have five main components:
 
 1. **Background**: The scene/world where the task takes place
 2. **Objects**: Interactive objects that can be manipulated
@@ -21,7 +21,7 @@ All environments inherit from ``ExampleEnvironmentBase`` and must implement two 
 
 .. code-block:: python
 
-   from isaac_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
+   from isaaclab_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
 
    class MyEnvironment(ExampleEnvironmentBase):
        name: str = "my_environment"
@@ -45,12 +45,12 @@ Let's create a kitchen pick and place environment step by step:
 
 .. code-block:: python
 
-   from isaac_arena.assets.object_base import ObjectType
-   from isaac_arena.assets.object_reference import ObjectReference
-   from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-   from isaac_arena.scene.scene import Scene
-   from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
-   from isaac_arena.utils.pose import Pose
+   from isaaclab_arena.assets.object_base import ObjectType
+   from isaaclab_arena.assets.object_reference import ObjectReference
+   from isaaclab_arena.environments.isaaclab_arena_environment import IsaacArenaEnvironment
+   from isaaclab_arena.scene.scene import Scene
+   from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+   from isaaclab_arena.utils.pose import Pose
 
 2. **Get Assets from Registry**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -141,14 +141,14 @@ Create the final environment:
 
 .. code-block:: python
 
-   isaac_arena_environment = IsaacArenaEnvironment(
+   isaaclab_arena_environment = IsaacArenaEnvironment(
        name=self.name,
        embodiment=embodiment,
        scene=scene,
        task=task,
        teleop_device=teleop_device,
    )
-   return isaac_arena_environment
+   return isaaclab_arena_environment
 
 8. **Add CLI Arguments**
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -179,19 +179,19 @@ Complete Example
 .. code-block:: python
 
    import argparse
-   from isaac_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
+   from isaaclab_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
 
    class MyKitchenEnvironment(ExampleEnvironmentBase):
 
        name: str = "my_kitchen_environment"
 
        def get_env(self, args_cli: argparse.Namespace):
-           from isaac_arena.assets.object_base import ObjectType
-           from isaac_arena.assets.object_reference import ObjectReference
-           from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-           from isaac_arena.scene.scene import Scene
-           from isaac_arena.tasks.pick_and_place_task import PickAndPlaceTask
-           from isaac_arena.utils.pose import Pose
+           from isaaclab_arena.assets.object_base import ObjectType
+           from isaaclab_arena.assets.object_reference import ObjectReference
+           from isaaclab_arena.environments.isaaclab_arena_environment import IsaacArenaEnvironment
+           from isaaclab_arena.scene.scene import Scene
+           from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+           from isaaclab_arena.utils.pose import Pose
 
            # Get assets
            background = self.asset_registry.get_asset_by_name("kitchen")()

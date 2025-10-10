@@ -15,7 +15,7 @@ All metrics follow this two-part pattern:
 
 .. code-block:: python
 
-    from isaac_arena.metrics.metric_base import MetricBase
+    from isaaclab_arena.metrics.metric_base import MetricBase
     from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 
     class MyRecorder(RecorderTerm):

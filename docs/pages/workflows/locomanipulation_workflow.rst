@@ -29,7 +29,7 @@ increase diversity. For more information about Isaac Lab Mimic, please visit the
 Download Pre-recorded Annotated Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Download the pre-recorded annotated dataset from `TODO_INSERT_LINK <https://>`_ and place it
-under ``isaac_arena/datasets/Arena-G1-Loco-Manipulation-Task/``.
+under ``isaaclab_arena/datasets/Arena-G1-Loco-Manipulation-Task/``.
 
 .. hint::
    The annotated dataset can be visualized using the ``replay_demos.py`` script.
@@ -43,7 +43,7 @@ under ``isaac_arena/datasets/Arena-G1-Loco-Manipulation-Task/``.
 
    .. code:: bash
 
-      python isaac_arena/scripts/replay_demos.py \
+      python isaaclab_arena/scripts/replay_demos.py \
       --enable_cameras \
       --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
       --device cpu galileo_g1_locomanip_pick_and_place \
@@ -64,7 +64,7 @@ Then run the following command to generate the dataset:
 
 .. code:: bash
 
-   python isaac_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/generate_dataset.py \
    --headless \
    --enable_cameras \
    --mimic \
@@ -85,7 +85,7 @@ After the generation is complete, the dataset can be visualized using the ``repl
 
 .. code:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/replay_demos.py \
    --enable_cameras \
    --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5 \
    --device cpu galileo_g1_locomanip_pick_and_place \
@@ -128,8 +128,8 @@ Convert the HDF5 demonstrations to LeRobot format for GR00T training:
 
 .. code-block:: bash
 
-   python isaac_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
-     --config_yaml_path isaac_arena/policy/config/g1_locomanip_config.yaml
+   python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
+     --config_yaml_path isaaclab_arena/policy/config/g1_locomanip_config.yaml
 
 .. note::
    Configuration file (``g1_locomanip_config.yaml``):
@@ -176,7 +176,7 @@ Replay original HDF5 demonstrations to validate data quality:
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type replay \
      --replay_file_path /datasets/my_g1_demos.hdf5 \
      --episode_name episode_0 \
@@ -203,9 +203,9 @@ Replay trajectories from the converted LeRobot dataset:
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type replay_lerobot \
-     --config_yaml_path isaac_arena/policy/gr00t/g1_locomanip_replay_action_config.yaml \
+     --config_yaml_path isaaclab_arena/policy/gr00t/g1_locomanip_replay_action_config.yaml \
      --trajectory_index 0 \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
@@ -227,8 +227,8 @@ Configuration file (``g1_locomanip_replay_action_config.yaml``):
    data_config: unitree_g1_sim_wbc
 
    # Joint mappings
-   gr00t_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
-   action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
+   gr00t_joints_config_path: isaaclab_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
+   action_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
 
    # Task mode
    task_mode: g1_locomanipulation
@@ -275,9 +275,9 @@ Run trained GR00T policies in closed-loop:
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaac_arena/policy/gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena/policy/gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1000 \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
@@ -303,8 +303,8 @@ Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    target_image_size: [256, 256, 3]
 
    # Joint mappings
-   gr00t_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
-   action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
+   gr00t_joints_config_path: isaaclab_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
+   action_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
 
 Policy features:
 

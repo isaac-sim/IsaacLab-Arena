@@ -1,7 +1,7 @@
 Environment Compilation Design
 ================================
 
-Environment compilation transforms modular Isaac Arena components into complete Isaac Lab environment configurations. The system handles configuration merging, environment registration, and integration with Isaac Lab's architecture.
+Environment compilation transforms modular IsaacLab Arena components into complete Isaac Lab environment configurations. The system handles configuration merging, environment registration, and integration with Isaac Lab's architecture.
 
 Core Architecture
 -----------------
@@ -11,7 +11,7 @@ Compilation uses the ``ArenaEnvBuilder`` class:
 .. code-block:: python
 
    class ArenaEnvBuilder:
-       """Compose Isaac Arena → Isaac Lab configs"""
+       """Compose IsaacLab Arena → Isaac Lab configs"""
 
        def __init__(self, arena_env: IsaacArenaEnvironment, args: argparse.Namespace):
            self.arena_env = arena_env
@@ -27,7 +27,7 @@ Compilation uses the ``ArenaEnvBuilder`` class:
                self.arena_env.task.get_scene_cfg()
            )
 
-The builder transforms Isaac Arena environment definitions into Isaac Lab's configuration format through systematic component integration.
+The builder transforms IsaacLab Arena environment definitions into Isaac Lab's configuration format through systematic component integration.
 
 Compilation in Detail
 ---------------------
@@ -56,7 +56,7 @@ Environment Integration
 
 .. code-block:: python
 
-   # Create Isaac Arena environment definition
+   # Create IsaacLab Arena environment definition
    environment = IsaacArenaEnvironment(
        name="kitchen_manipulation",
        embodiment=franka_embodiment,

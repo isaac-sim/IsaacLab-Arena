@@ -15,8 +15,8 @@ All affordances inherit from ``AffordanceBase`` and follow this pattern:
 
 .. code-block:: python
 
-    from isaac_arena.affordances.affordance_base import AffordanceBase
-    from isaac_arena.utils.joint_utils import get_normalized_joint_position, set_normalized_joint_position
+    from isaaclab_arena.affordances.affordance_base import AffordanceBase
+    from isaaclab_arena.utils.joint_utils import get_normalized_joint_position, set_normalized_joint_position
 
     class MyAffordance(AffordanceBase):
         def __init__(self, joint_name: str, threshold: float = 0.5, **kwargs):

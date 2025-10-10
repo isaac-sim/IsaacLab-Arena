@@ -1,0 +1,11 @@
+# This file shows how to configure the ReplayLerobotActionPolicy class for G1 locomanipulation task
+dataset_path: isaaclab_arena/tests/test_data/test_g1_locomanip_lerobot/
+action_horizon: 16
+embodiment_tag: new_embodiment
+video_backend: decord
+data_config: unitree_g1_sim_wbc
+
+policy_joints_config_path: isaaclab_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
+num_feedback_actions: 1
+task_mode_name: g1_locomanipulation

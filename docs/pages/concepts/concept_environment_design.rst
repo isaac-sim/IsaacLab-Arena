@@ -19,7 +19,7 @@ Environments use a compositional design with four primary components:
        teleop_device: TeleopDeviceBase | None = None
 
    class ArenaEnvBuilder:
-       """Compose Isaac Arena → Isaac Lab configs."""
+       """Compose IsaacLab Arena → Isaac Lab configs."""
        def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
            # Combine configurations from all components
            scene_cfg = combine_configclass_instances(...)

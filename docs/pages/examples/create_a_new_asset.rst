@@ -15,10 +15,10 @@ All assets inherit from ``Asset`` or ``LibraryObject`` for library objects:
 
 .. code-block:: python
 
-    from isaac_arena.assets.object import Object
-    from isaac_arena.assets.object_base import ObjectType
-    from isaac_arena.assets.register import register_asset
-    from isaac_arena.utils.pose import Pose
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.register import register_asset
+    from isaaclab_arena.utils.pose import Pose
 
     @register_asset
     class MyAsset(LibraryObject):
@@ -48,13 +48,13 @@ For interactive objects:
 
 .. code-block:: python
 
-    from isaac_arena.affordances.openable import Openable
+    from isaaclab_arena.affordances.openable import Openable
 
     @register_asset
     class Microwave(LibraryObject, Openable):
         name = "microwave"
         tags = ["object", "openable"]
-        usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/interactable_objects/microwave.usd"
+        usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaaclab_arena/interactable_objects/microwave.usd"
         object_type = ObjectType.ARTICULATION
 
         openable_joint_name = "microjoint"
@@ -116,4 +116,4 @@ Usage Example
     microwave.open(env, env_ids=None, percentage=0.8)
     is_open = microwave.is_open(env)
 
-This pattern lets you quickly create assets that integrate with Isaac Arena's simulation and task systems.
+This pattern lets you quickly create assets that integrate with IsaacLab Arena's simulation and task systems.
