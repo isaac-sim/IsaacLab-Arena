@@ -546,6 +546,20 @@ Configuration file for closed-loop inference of GR00T N1.5 policy
           action_joints_config_path: isaac_arena/policy/config/gr1/36dof_joint_space.yaml
           state_joints_config_path: isaac_arena/policy/config/gr1/54dof_joint_space.yaml
 
+When the simulation app closes, you will see related metrics in the terminal.
+
+.. tabs::
+    .. tab:: G1 Loco-Manipulation
+
+       Metrics: {success_rate: 0.5, num_episodes: 2}
+
+    .. tab:: GR1 Manipulation
+
+       Metrics: {success_rate: 1.0, door_moved_rate: 1.0, num_episodes: 2}
+
+.. todo::
+   (xinjie.yao, 2025-10-13): Add parallel env metrics example.
+
 Policy features:
 
 - **Vision-Language**: Processes RGB camera input and language instructions
