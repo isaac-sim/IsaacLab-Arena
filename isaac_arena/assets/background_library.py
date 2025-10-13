@@ -48,7 +48,7 @@ class KitchenBackground(LibraryBackground):
 
     name = "kitchen"
     tags = ["background"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/kitchen_scene_teleop_v3.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/background_library/kitchen_scene_teleop_v3/kitchen_scene_teleop_v3.usd"
     initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
     object_min_z = -0.2
 
@@ -64,7 +64,7 @@ class PackingTableBackground(LibraryBackground):
 
     name = "packing_table"
     tags = ["background"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/packing_table.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/background_library/packing_table/packing_table.usd"
     initial_pose = Pose(position_xyz=(0.72193, -0.04727, -0.92512), rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711))
     object_min_z = -0.2
 
@@ -80,7 +80,7 @@ class GalileoBackground(LibraryBackground):
 
     name = "galileo"
     tags = ["background"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/galileo_simplified.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/background_library/galileo_simplified/galileo_simplified.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
     object_min_z = -0.2
 
@@ -120,7 +120,7 @@ class GalileoLocomanipBackground(LibraryBackground):
     tags = ["background"]
     default_robot_initial_pose = Pose.identity()
     usd_path = (
-        "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/galileo_locomanip.usd"
+        "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/background_library/galileo_locomanip/galileo_locomanip.usd"
     )
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
     object_min_z = -0.2
