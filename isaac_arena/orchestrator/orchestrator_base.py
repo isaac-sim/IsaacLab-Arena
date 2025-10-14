@@ -19,6 +19,7 @@ from isaac_arena.embodiments.embodiment_base import EmbodimentBase
 from isaac_arena.scene.scene import Scene
 from isaac_arena.tasks.task_base import TaskBase
 
+
 class OrchestratorBase(ABC):
     """Base class for orchestrators."""
 
