@@ -95,7 +95,7 @@ class OpenDoorEventCfg:
 
     reset_door_state: EventTermCfg = MISSING
 
-    # reset_openable_object_pose: EventTermCfg = MISSING
+    reset_openable_object_pose: EventTermCfg = MISSING
 
     def __init__(self, openable_object: Openable, reset_openness: float | None):
         assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
@@ -108,15 +108,15 @@ class OpenDoorEventCfg:
             params=params,
         )
         initial_pose = openable_object.get_initial_pose()
-        # if initial_pose is not None:
-        #     self.reset_openable_object_pose = EventTermCfg(
-        #         func=set_object_pose,
-        #         mode="reset",
-        #         params={
-        #             "pose": initial_pose,
-        #             "asset_cfg": SceneEntityCfg(openable_object.name),
-        #         },
-        #     )
+        if initial_pose is not None:
+            self.reset_openable_object_pose = EventTermCfg(
+                func=set_object_pose,
+                mode="reset",
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(openable_object.name),
+                },
+            )
 
 
 @configclass
