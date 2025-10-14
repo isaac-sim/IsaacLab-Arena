@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+import random
 import torch
 import tqdm
 
@@ -31,6 +33,13 @@ def main():
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
+
+        if args_cli.seed is not None:
+            env.seed(args_cli.seed)
+            torch.manual_seed(args_cli.seed)
+            np.random.seed(args_cli.seed)
+            random.seed(args_cli.seed)
+
         obs, _ = env.reset()
 
         # NOTE(xinjieyao, 2025-09-29): General rule of thumb is to have as many non-standard python
@@ -45,7 +54,8 @@ def main():
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
-                if terminated.any() or truncated.any():
+                # Only reset if all envs are done
+                if terminated.all() or truncated.all():
                     obs, _ = env.reset()
 
         metrics = compute_metrics(env)

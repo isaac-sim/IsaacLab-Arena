@@ -74,8 +74,8 @@ The asset registry provides access to all registered assets:
 **Available Assets:**
 
 - **Backgrounds**: ``kitchen``, ``galileo_lab``
-- **Objects**: ``cracker_box``, ``mustard_bottle``, ``sugar_box``, ``tomato_soup_can``, ``microwave``, etc.
-- **Embodiments**: ``franka``, ``gr1_pink``, ``gr1_joint``
+- **Objects**: ``cracker_box``, ``mustard_bottle``, ``sugar_box``, ``tomato_soup_can``, ``microwave``, ``brown_box``, etc.
+- **Embodiments**: ``franka``, ``gr1_pink``, ``gr1_joint``, ``g1_wbc_joint``, ``g1_wbc_pink``
 
 3. **Configure Object Positions**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

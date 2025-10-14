@@ -31,7 +31,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
@@ -94,11 +94,11 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
-        self.camera_config = GR1T2CameraCfg()
         self.observation_config = GR1T2ObservationsCfg()
         self.event_config = GR1T2EventCfg()
         self.mimic_env = GR1T2MimicEnv
         self.action_config = MISSING
+        self.camera_config = MISSING
 
         # XR settings
         # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
@@ -120,6 +120,8 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         self.action_config = GR1T2JointPositionActionCfg()
         # Tuned arm joints pd gains, smoother motions and less oscillations
         self.scene_config = GR1T2HighPDSceneCfg()
+        # Closedloop evaluation could be done in parallel environments, tiled camera is used for efficient evaluation
+        self.camera_config = GR1T2TiledCameraCfg()
 
 
 @register_asset
@@ -132,6 +134,8 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         # Pink IK EEF control
         self.action_config = GR1T2ActionsCfg()
+        # App using PINK IK EEF control runs in single environment, thus use normal camera
+        self.camera_config = GR1T2CameraCfg()
 
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
@@ -319,9 +323,28 @@ class GR1T2CameraCfg:
         update_period=0.0,
         height=512,
         width=512,
-        data_types=["rgb", "distance_to_image_plane"],
+        data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
         offset=CameraCfg.OffsetCfg(
+            pos=(0.12515, 0.0, 0.06776),
+            rot=(0.62, 0.32, -0.32, -0.63),
+            convention="opengl",
+        ),
+    )
+
+
+@configclass
+class GR1T2TiledCameraCfg:
+    """Configuration for tiled cameras."""
+
+    robot_pov_cam: TiledCameraCfg = TiledCameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+        update_period=0.0,
+        height=512,
+        width=512,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+        offset=TiledCameraCfg.OffsetCfg(
             pos=(0.12515, 0.0, 0.06776),
             rot=(0.62, 0.32, -0.32, -0.63),
             convention="opengl",
