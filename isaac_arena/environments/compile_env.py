@@ -20,6 +20,7 @@ from dataclasses import fields, is_dataclass
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
+from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
@@ -108,7 +109,15 @@ class ArenaEnvBuilder:
         else:
             teleop_device_cfg = None
         metrics = self.arena_env.task.get_metrics()
-        recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
+        metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
+
+        # Base has to be specified explicitly to avoid type errors and not lose inheritance.
+        recorder_manager_cfg = combine_configclass_instances(
+            "RecorderManagerCfg",
+            metrics_recorder_manager_cfg,
+            self.arena_env.task.get_recorder_term_cfg(),
+            bases=(RecorderManagerBaseCfg,),
+        )
 
         # Build the environment configuration
         if not self.args.mimic:
