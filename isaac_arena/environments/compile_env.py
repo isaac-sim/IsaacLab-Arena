@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import gymnasium as gym
+from dataclasses import fields
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
@@ -46,6 +47,22 @@ class ArenaEnvBuilder:
             self.arena_env.orchestrator.orchestrate(
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
+
+    # Overwrite the simulation parameters set in the environment. Not checked if the attributes are compatible.
+    # This is a workaround to allow the user to override the simulation parameters at runtime.
+    # TODO(Vik): Rework this.
+    def override_simulation_parameters(self, env_cfg: IsaacArenaManagerBasedRLEnvCfg) -> IsaacArenaManagerBasedRLEnvCfg:
+        """Override the simulation parameters"""
+        simulation_parameters = combine_configclass_instances(
+            "SimulationParameters",
+            self.arena_env.task.get_simulation_parameters(),
+            self.arena_env.embodiment.get_simulation_parameters(),
+            self.arena_env.scene.get_simulation_parameters(),
+        )
+        for f in fields(simulation_parameters):
+            setattr(env_cfg, f.name, getattr(simulation_parameters, f.name))
+
+        return env_cfg
 
     def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
@@ -111,6 +128,9 @@ class ArenaEnvBuilder:
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics,
             )
+
+        env_cfg = self.override_simulation_parameters(env_cfg)
+
         return env_cfg
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

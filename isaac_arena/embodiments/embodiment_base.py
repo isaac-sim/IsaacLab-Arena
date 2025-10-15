@@ -98,3 +98,6 @@ class EmbodimentBase(Asset):
         scene_config.robot.init_state.pos = pose.position_xyz
         scene_config.robot.init_state.rot = pose.rotation_wxyz
         return scene_config
+
+    def get_simulation_parameters(self) -> Any:
+        return None

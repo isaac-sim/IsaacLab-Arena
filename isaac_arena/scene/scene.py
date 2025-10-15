@@ -62,3 +62,6 @@ class Scene:
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
+
+    def get_simulation_parameters(self) -> Any:
+        return None

@@ -43,3 +43,6 @@ class TaskBase(ABC):
     @abstractmethod
     def get_metrics(self) -> list[MetricBase]:
         raise NotImplementedError("Function not implemented yet.")
+
+    def get_simulation_parameters(self) -> Any:
+        return None
