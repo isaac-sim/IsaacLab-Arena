@@ -45,8 +45,8 @@ class Registry(metaclass=SingletonMeta):
         Args:
             name (str): The name of the component.
         """
-        # For AssetRegistry, ensure assets are registered before checking
-        if isinstance(self, AssetRegistry):
+        # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
+        if isinstance(self, (AssetRegistry, DeviceRegistry)):
             ensure_assets_registered()
         return name in self.components
 
@@ -59,6 +59,9 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             Asset: The component.
         """
+        # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
+        if isinstance(self, (AssetRegistry, DeviceRegistry)):
+            ensure_assets_registered()
         return self.components[name]
 
 
@@ -115,6 +118,7 @@ class DeviceRegistry(Registry):
         Args:
             name (str): The name of the device.
         """
+        ensure_assets_registered()
         return self.get_component_by_name(name)
 
 
