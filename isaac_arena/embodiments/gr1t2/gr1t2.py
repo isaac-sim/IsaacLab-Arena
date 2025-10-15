@@ -107,35 +107,76 @@ class GR1T2EmbodimentBase(EmbodimentBase):
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
 
+    def _create_camera_config(self, use_tiled_camera: bool, offset: Pose | None):
+        """Helper method to create camera configuration based on tiledCamera flag and offset.
+
+        Args:
+            use_tiled_camera: If True, creates TiledCameraCfg, otherwise CameraCfg.
+            offset: Camera pose offset. If None, uses default offset.
+
+        Returns:
+            Camera configuration (GR1T2CameraCfg or GR1T2TiledCameraCfg).
+        """
+        if offset is None:
+            offset = _DEFAULT_CAMERA_OFFSET
+        if use_tiled_camera:
+            return create_gr1t2_tiled_camera_cfg(
+                position_xyz=offset.position_xyz,
+                rotation_wxyz=offset.rotation_wxyz,
+            )
+        else:
+            return create_gr1t2_camera_cfg(
+                position_xyz=offset.position_xyz,
+                rotation_wxyz=offset.rotation_wxyz,
+            )
+
 
 @register_asset
 class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
-    """Embodiment for the GR1T2 robot."""
+    """Embodiment for the GR1T2 robot with joint position control.
+
+    By default uses tiled camera for efficient parallel evaluation.
+    """
 
     name = "gr1_joint"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = None,
+        use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+    ):
         super().__init__(enable_cameras, initial_pose)
         # Joint positional control
         self.action_config = GR1T2JointPositionActionCfg()
         # Tuned arm joints pd gains, smoother motions and less oscillations
         self.scene_config = GR1T2HighPDSceneCfg()
-        # Closedloop evaluation could be done in parallel environments, tiled camera is used for efficient evaluation
-        self.camera_config = GR1T2TiledCameraCfg()
+        # Create camera config based on flag and offset
+        self.camera_config = self._create_camera_config(use_tiled_camera, camera_offset)
 
 
 @register_asset
 class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
-    """Embodiment for the GR1T2 robot."""
+    """Embodiment for the GR1T2 robot with PINK IK end-effector control.
+
+    By default uses regular camera for single-environment applications.
+    """
 
     name = "gr1_pink"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = None,
+        use_tiled_camera: bool = False,  # Default to regular for single env
+    ):
         super().__init__(enable_cameras, initial_pose)
         # Pink IK EEF control
         self.action_config = GR1T2ActionsCfg()
-        # App using PINK IK EEF control runs in single environment, thus use normal camera
-        self.camera_config = GR1T2CameraCfg()
+        # Create camera config based on flag and offset
+        self.camera_config = self._create_camera_config(use_tiled_camera, camera_offset)
 
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
@@ -314,6 +355,10 @@ class GR1T2HighPDSceneCfg:
     )
 
 
+# Default camera offset pose
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
+
+
 @configclass
 class GR1T2CameraCfg:
     """Configuration for cameras."""
@@ -349,6 +394,50 @@ class GR1T2TiledCameraCfg:
             rot=(0.62, 0.32, -0.32, -0.63),
             convention="opengl",
         ),
+    )
+
+
+def create_gr1t2_camera_cfg(
+    position_xyz: tuple[float, float, float] = _DEFAULT_CAMERA_OFFSET.position_xyz,
+    rotation_wxyz: tuple[float, float, float, float] = _DEFAULT_CAMERA_OFFSET.rotation_wxyz,
+) -> GR1T2CameraCfg:
+    """Factory function to create camera configuration with custom offset."""
+    return GR1T2CameraCfg(
+        robot_pov_cam=CameraCfg(
+            prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+            update_period=0.0,
+            height=512,
+            width=512,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+            offset=CameraCfg.OffsetCfg(
+                pos=position_xyz,
+                rot=rotation_wxyz,
+                convention="opengl",
+            ),
+        )
+    )
+
+
+def create_gr1t2_tiled_camera_cfg(
+    position_xyz: tuple[float, float, float] = _DEFAULT_CAMERA_OFFSET.position_xyz,
+    rotation_wxyz: tuple[float, float, float, float] = _DEFAULT_CAMERA_OFFSET.rotation_wxyz,
+) -> GR1T2TiledCameraCfg:
+    """Factory function to create tiled camera configuration with custom offset."""
+    return GR1T2TiledCameraCfg(
+        robot_pov_cam=TiledCameraCfg(
+            prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+            update_period=0.0,
+            height=512,
+            width=512,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+            offset=TiledCameraCfg.OffsetCfg(
+                pos=position_xyz,
+                rot=rotation_wxyz,
+                convention="opengl",
+            ),
+        )
     )
 
 

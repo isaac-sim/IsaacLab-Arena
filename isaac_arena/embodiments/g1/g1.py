@@ -67,35 +67,76 @@ class G1EmbodimentBase(EmbodimentBase):
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
 
+    def _create_camera_config(self, use_tiled_camera: bool, offset: Pose | None):
+        """Helper method to create camera configuration based on tiledCamera flag and offset.
+
+        Args:
+            use_tiled_camera: If True, creates TiledCameraCfg, otherwise CameraCfg.
+            offset: Camera pose offset. If None, uses default offset.
+
+        Returns:
+            Camera configuration (G1CameraCfg or G1TiledCameraCfg).
+        """
+        if offset is None:
+            offset = _DEFAULT_G1_CAMERA_OFFSET
+        if use_tiled_camera:
+            return create_g1_tiled_camera_cfg(
+                position_xyz=offset.position_xyz,
+                rotation_wxyz=offset.rotation_wxyz,
+            )
+        else:
+            return create_g1_camera_cfg(
+                position_xyz=offset.position_xyz,
+                rotation_wxyz=offset.rotation_wxyz,
+            )
+
 
 @register_asset
 class G1WBCJointEmbodiment(G1EmbodimentBase):
-    """Embodiment for the G1 robot with WBC policy and direct joint upperbody control."""
+    """Embodiment for the G1 robot with WBC policy and direct joint upperbody control.
+
+    By default uses tiled camera for efficient parallel evaluation.
+    """
 
     name = "g1_wbc_joint"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = None,
+        use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+    ):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.event_config = G1WBCJointEventCfg()
-        # Closedloop evaluation could be done in parallel environments, thus using tiled camera for efficient evaluation
-        self.camera_config = G1TiledCameraCfg()
+        # Create camera config based on flag and offset
+        self.camera_config = self._create_camera_config(use_tiled_camera, camera_offset)
 
 
 @register_asset
 class G1WBCPinkEmbodiment(G1EmbodimentBase):
-    """Embodiment for the G1 robot with WBC policy and PINK IK upperbody control."""
+    """Embodiment for the G1 robot with WBC policy and PINK IK upperbody control.
+
+    By default uses regular camera for single-environment applications.
+    """
 
     name = "g1_wbc_pink"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = None,
+        use_tiled_camera: bool = False,  # Default to regular for single env
+    ):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
         self.event_config = G1WBCPinkEventCfg()
-        # App using PINK IK EEF control runs in single environment, thus using normal camera
-        self.camera_config = G1CameraCfg()
+        # Create camera config based on flag and offset
+        self.camera_config = self._create_camera_config(use_tiled_camera, camera_offset)
 
 
 @configclass
@@ -297,6 +338,12 @@ class G1SceneCfg:
     )
 
 
+# Default camera offset pose
+_DEFAULT_G1_CAMERA_OFFSET = Pose(
+    position_xyz=(0.04485, 0.0, 0.35325), rotation_wxyz=(0.32651, -0.62721, 0.62721, -0.32651)
+)
+
+
 @configclass
 class G1CameraCfg:
     """Configuration for cameras."""
@@ -338,6 +385,60 @@ class G1TiledCameraCfg:
         offset=TiledCameraCfg.OffsetCfg(
             pos=(0.04485, 0.0, 0.35325), rot=(0.32651, -0.62721, 0.62721, -0.32651), convention="ros"
         ),
+    )
+
+
+def create_g1_camera_cfg(
+    position_xyz: tuple[float, float, float] = _DEFAULT_G1_CAMERA_OFFSET.position_xyz,
+    rotation_wxyz: tuple[float, float, float, float] = _DEFAULT_G1_CAMERA_OFFSET.rotation_wxyz,
+) -> G1CameraCfg:
+    """Factory function to create camera configuration with custom offset."""
+    return G1CameraCfg(
+        robot_head_cam=CameraCfg(
+            prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
+            update_period=0.0,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=0.169,
+                horizontal_aperture=0.693,
+                vertical_aperture=0.284,
+                clipping_range=(0.1, 5),
+            ),
+            offset=CameraCfg.OffsetCfg(
+                pos=position_xyz,
+                rot=rotation_wxyz,
+                convention="ros",
+            ),
+        )
+    )
+
+
+def create_g1_tiled_camera_cfg(
+    position_xyz: tuple[float, float, float] = _DEFAULT_G1_CAMERA_OFFSET.position_xyz,
+    rotation_wxyz: tuple[float, float, float, float] = _DEFAULT_G1_CAMERA_OFFSET.rotation_wxyz,
+) -> G1TiledCameraCfg:
+    """Factory function to create tiled camera configuration with custom offset."""
+    return G1TiledCameraCfg(
+        robot_head_cam=TiledCameraCfg(
+            prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
+            update_period=0.0,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=0.169,
+                horizontal_aperture=0.693,
+                vertical_aperture=0.284,
+                clipping_range=(0.1, 5),
+            ),
+            offset=TiledCameraCfg.OffsetCfg(
+                pos=position_xyz,
+                rot=rotation_wxyz,
+                convention="ros",
+            ),
+        )
     )
 
 
