@@ -187,7 +187,7 @@ class Microwave(LibraryObject, Openable):
 
 
 @register_asset
-class Toaster(LibraryObject, Pressable):
+class CoffeeMachine(LibraryObject, Pressable):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
@@ -195,16 +195,16 @@ class Toaster(LibraryObject, Pressable):
     # Only required when using Lightwheel SDK
     from lightwheel_sdk.loader import object_loader
 
-    name = "toaster"
+    name = "coffee_machine"
     tags = ["object", "pressable"]
     file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", registry_name=["electric_kettle"], file_type="USD"
+        registry_type="fixtures", registry_name=["coffee_machine"], file_type="USD"
     )
     usd_path = file_path
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
-    pressable_joint_name = "button_cancel_joint"
+    pressable_joint_name = "CoffeeMachine108_Button002_joint"
     pressedness_threshold = 0.5
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
