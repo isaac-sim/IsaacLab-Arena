@@ -70,6 +70,7 @@ class ArenaEnvBuilder:
             "TerminationCfg",
             self.arena_env.task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
+            self.arena_env.embodiment.get_termination_cfg(),
         )
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
@@ -85,6 +86,7 @@ class ArenaEnvBuilder:
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             self.arena_env.task.get_recorder_term_cfg(),
+            self.arena_env.embodiment.get_recorder_term_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
 

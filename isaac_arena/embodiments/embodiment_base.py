@@ -16,6 +16,7 @@ from abc import abstractmethod
 from typing import Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaac_arena.assets.asset import Asset
 from isaac_arena.utils.cameras import make_camera_observation_cfg
@@ -39,6 +40,7 @@ class EmbodimentBase(Asset):
         self.event_config: Any | None = None
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
+        self.termination_cfg: Any | None = None
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
@@ -98,3 +100,10 @@ class EmbodimentBase(Asset):
         scene_config.robot.init_state.pos = pose.position_xyz
         scene_config.robot.init_state.rot = pose.rotation_wxyz
         return scene_config
+
+    def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
+        return None
+
+    @abstractmethod
+    def get_termination_cfg(self) -> Any:
+        return self.termination_cfg
