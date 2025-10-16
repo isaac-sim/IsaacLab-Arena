@@ -65,9 +65,10 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
 
 .. toctree::
    :maxdepth: 1
-   :caption: Workflows
+   :caption: Sample Tasks
 
-   pages/workflows/gr00t_workflows
+   pages/Sample Tasks/g1_box_nav_pnp_task
+   pages/Sample Tasks/gr1_open_microwave_task
 
 .. toctree::
    :maxdepth: 1
