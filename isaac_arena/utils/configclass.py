@@ -147,7 +147,8 @@ def combine_configclasses(name: str, *input_configclasses: type, bases: tuple[ty
             if current_field.name in field_map:
                 previous_field = field_map[current_field.name]
                 # same → skip; different types → error; else last wins
-                if previous_field.type == current_field.type:
+                # The 1 field index is the type
+                if previous_field[1] == current_field.type:
                     continue
                 raise ValueError(f"Field {current_field.name} has different types in the input configclasses")
             field_info = get_field_info(current_field)
