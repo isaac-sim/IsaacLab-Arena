@@ -73,7 +73,6 @@ def make_configclass(
     annotations = {}
     defaults = {}
     for item in fields:
-        print(item)
         if isinstance(item, str):
             name = item
             tp = "typing.Any"
