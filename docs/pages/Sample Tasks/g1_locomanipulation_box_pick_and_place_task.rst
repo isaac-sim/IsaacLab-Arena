@@ -120,7 +120,7 @@ Make sure you setup Hugging Face CLI outside the container by following the inst
        lerobot \
        --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
 
-This dataset is converted from the Mimic generated dataset with `Step 2: Convert to LeRobot Format`.
+This dataset is converted from the Mimic generated dataset with `Step 2: Convert to LeRobot Format`_.
 To use it for policy post-training, you can continue following `Step 3: Post-Train Policy (Optional)`_ in `Workflow #3: Policy Post-Training`_.
 
 Download Trained GR00T Checkpoint
@@ -217,7 +217,7 @@ You should see the G1 robot replaying the generated demonstrations, performing b
 Workflow #2: Data Generation
 ----------------------------
 
-This workflow covers annotating and generating the demonstration dataset using `Isaac Lab Mimic` <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>_.
+This workflow covers annotating and generating the demonstration dataset using `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -332,7 +332,7 @@ Step 3: Post-train Policy (Optional)
 
 .. todo:: (xinjie.yao, 2025-10-16): include instruction about how to retrieve the training ckpt inside or outside the container
 
-Depening on your GPU memory, you can adjust training config parameters to post-train the policy. We provide an example below for reference.
+Depending on your GPU memory, you can adjust training config parameters to post-train the policy. We provide an example below for reference.
 
 .. code-block:: bash
 
@@ -494,4 +494,3 @@ Policy Not Found During Closed-Loop Policy Inference
    huggingface-cli download \
        nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
        --local-dir /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
-
