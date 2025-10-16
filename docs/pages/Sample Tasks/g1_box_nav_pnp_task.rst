@@ -167,7 +167,7 @@ The environment is composed of three main components:
 .. code-block:: python
 
    from isaac_arena.tasks import PickAndPlaceTask
-   
+
    task = PickAndPlaceTask(
        pick_object=brown_box,
        place_target=blue_bin,
@@ -458,4 +458,3 @@ Policy Not Loading
 .. code-block:: bash
 
    ls /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
-

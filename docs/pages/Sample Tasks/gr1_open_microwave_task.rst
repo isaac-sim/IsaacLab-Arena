@@ -144,7 +144,7 @@ Step 2: Understand the Environment Components
 .. code-block:: python
 
    from isaac_arena.embodiments.gr1t2 import GR1T2PinkEmbodiment
-   
+
    embodiment = GR1T2PinkEmbodiment(
        enable_cameras=True,
        use_tiled_camera=True  # For parallel evaluation
@@ -169,13 +169,13 @@ Step 2: Understand the Environment Components
 
    from isaac_arena.tasks import OpenDoorTask
    from isaac_arena.affordances import Openable
-   
+
    microwave = Openable(
        name="microwave",
        articulation_cfg=microwave_cfg,
        joint_name="door_joint"
    )
-   
+
    task = OpenDoorTask(
        openable_object=microwave,
        openness_threshold=0.8  # >80% open = success
@@ -258,10 +258,10 @@ Step 4: Connect Vision Pro and Record
 2. Enter your workstation's IP address
 3. Wait for connection (you should see the simulation in VR)
 4. Use hand tracking to control the GR1 robot:
-   
+
    - Hand positions control end-effector targets
    - Pinch gestures control grippers
-   
+
 5. Complete the task (open microwave door)
 6. Press the "Submit Demo" button in VR
 
@@ -270,7 +270,7 @@ Repeat for all demonstrations. The script will automatically save successful dem
 .. hint::
 
    For best results:
-   
+
    - Move slowly and smoothly
    - Keep hands within tracking volume
    - Ensure good lighting for hand tracking
@@ -544,4 +544,3 @@ Policy Not Loading
 .. code-block:: bash
 
    ls /checkpoints/GN1x-Tuned-Arena-GR1-Manipulation
-
