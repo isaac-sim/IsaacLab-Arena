@@ -107,8 +107,6 @@ Make sure you setup Hugging Face CLI outside the container by following the inst
        arena_gr1_manipulation_dataset_generated.hdf5 \
        --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
 
-.. todo:: (clemens.volk, 2025-10-16): rename generated dataset on HF
-
 This dataset is generated from the annotated dataset using Isaac Lab Mimic, resulting a new dataset including more demonstrations.
 To visually inspect the dataset, you can follow the steps in `Step 3: Validate Environment with Demo Replay`_ in `Workflow #1: Environment Setup and Validation`_.
 If you want to post-train a policy using the generated dataset, you can continue following the steps in `Workflow #4: Policy Post-Training`_.

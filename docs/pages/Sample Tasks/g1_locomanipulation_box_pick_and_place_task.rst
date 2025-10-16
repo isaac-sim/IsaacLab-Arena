@@ -84,7 +84,7 @@ Make sure you setup Hugging Face CLI outside the container by following the inst
 
 This dataset contains manually annotated demonstrations segmented into subtasks. To generated a new dataset with more demonstrations, continue following the steps in `Workflow #2: Data Generation`_.
 
-.. todo:: (peter.du/xinjie.yao, 2025-10-16): upload annotated dataset
+.. todo:: (peter.du, 2025-10-16): upload annotated dataset
 
 Download Generated Mimic Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -105,8 +105,6 @@ Make sure you setup Hugging Face CLI outside the container by following the inst
 This dataset is generated from the annotated dataset using Isaac Lab Mimic, resulting a new dataset including more demonstrations.
 To visually inspect the dataset, you can follow the steps in `Step 3: Validate Environment with Demo Replay`_ in `Workflow #1: Environment Setup and Validation`_.
 If you want to post-train a policy using the generated dataset, you can continue following the steps in `Workflow #3: Policy Post-Training`_.
-
-.. todo:: (peter.du/xinjie.yao, 2025-10-16): rename generated dataset on HF
 
 Download LeRobot Converted Data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
