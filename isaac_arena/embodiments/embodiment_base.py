@@ -19,6 +19,7 @@ from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaac_arena.assets.asset import Asset
+from isaac_arena.environments.isaac_arena_manager_based_env import IsaacArenaManagerBasedRLEnvCfg
 from isaac_arena.utils.cameras import make_camera_observation_cfg
 from isaac_arena.utils.configclass import combine_configclass_instances
 from isaac_arena.utils.pose import Pose
@@ -107,3 +108,7 @@ class EmbodimentBase(Asset):
     @abstractmethod
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
+
+    @abstractmethod
+    def modify_env_cfg(self, env_cfg: IsaacArenaManagerBasedRLEnvCfg) -> IsaacArenaManagerBasedRLEnvCfg:
+        return env_cfg

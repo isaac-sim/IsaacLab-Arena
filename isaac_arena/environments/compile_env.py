@@ -48,6 +48,17 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
+    # This method gives the arena environment a chance to modify the environment configuration.
+    # This is a workaround to allow user to gradually move to the new configuration system.
+    # THE ORDER MATTERS HERE.
+    # THIS WILL BE REMOVED IN THE FUTURE.
+    def modify_env_cfg(self, env_cfg: IsaacArenaManagerBasedRLEnvCfg) -> IsaacArenaManagerBasedRLEnvCfg:
+        """Modify the environment configuration."""
+        env_cfg = self.arena_env.task.modify_env_cfg(env_cfg)
+        env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
+        env_cfg = self.arena_env.scene.modify_env_cfg(env_cfg)
+        return env_cfg
+
     def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
@@ -143,6 +154,9 @@ class ArenaEnvBuilder:
         # orchestrate the environment member interaction
         self.orchestrate()
         cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+        # THIS IS A WORKAROUND TO ALLOW USER TO GRADUALLY MOVE TO THE NEW CONFIGURATION SYSTEM.
+        # THIS WILL BE REMOVED IN THE FUTURE.
+        cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
         gym.register(
             id=name,

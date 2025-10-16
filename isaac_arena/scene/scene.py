@@ -19,6 +19,7 @@ from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaac_arena.assets.asset import Asset
+from isaac_arena.environments.isaac_arena_manager_based_env import IsaacArenaManagerBasedRLEnvCfg
 from isaac_arena.utils.configclass import make_configclass
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -62,3 +63,6 @@ class Scene:
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
+
+    def modify_env_cfg(self, env_cfg: IsaacArenaManagerBasedRLEnvCfg) -> IsaacArenaManagerBasedRLEnvCfg:
+        return env_cfg
