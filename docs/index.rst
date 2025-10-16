@@ -67,7 +67,7 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
    :maxdepth: 1
    :caption: Sample Tasks
 
-   pages/Sample Tasks/g1_box_nav_pnp_task
+   pages/Sample Tasks/g1_locomanipulation_box_pick_and_place_task
    pages/Sample Tasks/gr1_open_microwave_task
 
 .. toctree::

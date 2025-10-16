@@ -1,7 +1,7 @@
 GR1 Open Microwave Door Task
 =============================
 
-This example demonstrates the complete workflow for the **GR1 manipulation task of opening a microwave door** in Isaac Lab - Arena, covering setup and validation, data collection from teleoperation, data annotation and augmentation, policy post-training, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **GR1 manipulation task of opening a microwave door** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection, data generation with Isaac Lab Mimic, policy post-training, and closed-loop evaluation.
 
 .. image:: ../../images/kitchen_gr1_arena.gif
    :align: center
@@ -25,7 +25,7 @@ Task Overview
    * - **Tags**
      - Table-top manipulation
    * - **Skills**
-     - Reach, open door
+     - Reach, Open door
    * - **Embodiment**
      - Fourier GR1T2 (54 DOF humanoid)
    * - **Interop**
@@ -37,7 +37,7 @@ Task Overview
    * - **Policy**
      - GR00T N1.5 (vision-language foundation model)
    * - **Post-training**
-     - Imitation learning
+     - Imitation Learning
    * - **Dataset**
      - `Arena-GR1-Manipulation-Task <https://huggingface.co/datasets/nvidia/Arena-GR1-Manipulation-Task>`_
    * - **Checkpoint**
@@ -55,18 +55,18 @@ Workflows
 
 The complete pipeline includes the following workflows:
 
-Workflow #1: Environment Setup and Validation
+- `Workflow #1: Environment Setup and Validation`_
 
-Workflow #2: Data Collection from Teleoperation
+- `Workflow #2: Teleoperation Data Collection`_
 
-Workflow #3: Data Annotation and Augmentation
+- `Workflow #3: Data Generation`_
 
-Workflow #4: Policy Post-Training
+- `Workflow #4: Policy Post-Training`_
 
-Workflow #5: Closed-Loop Policy Inference and Evaluation
+- `Workflow #5: Closed-Loop Policy Inference and Evaluation`_
 
 .. note::
-   You can skip workflow #2-#4 by using the provided pre-generated datasets and post-trained checkpoints. See `Download Ready-to-Use Data`_ section.
+   You can skip workflow #2-#4 by using the provided pre-generated datasets or post-trained checkpoints. See `Download Ready-to-Use Data`_ section.
 
 Download Ready-to-Use Data
 ---------------------------
@@ -76,47 +76,78 @@ Download Annotated Dataset
 
 Download the pre-recorded annotated dataset for quick start:
 
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
+
 .. code-block:: bash
+
+   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_annotated.hdf5 \
-       --local-dir /datasets/Arena-GR1-Manipulation-Task
+       --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
 
-Download Augmented Mimic Dataset
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. todo:: (clemens.volk, 2025-10-16): upload annotated dataset
 
-Download the pre-generated dataset augmented with Isaac Lab Mimic (50 demonstrations):
+This dataset contains manually annotated demonstrations segmented into subtasks. To generated a new dataset with more demonstrations, continue following the steps in `Workflow #3: Data Generation`_.
+
+Download Generated Mimic Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Download the pre-generated dataset using Isaac Lab Mimic:
+
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
+
+   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \
-       --local-dir /datasets/Arena-GR1-Manipulation-Task
+       --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+
+.. todo:: (clemens.volk, 2025-10-16): rename generated dataset on HF
+
+This dataset is generated from the annotated dataset using Isaac Lab Mimic, resulting a new dataset including more demonstrations.
+To visually inspect the dataset, you can follow the steps in `Step 3: Validate Environment with Demo Replay`_ in `Workflow #1: Environment Setup and Validation`_.
+If you want to post-train a policy using the generated dataset, you can continue following the steps in `Workflow #4: Policy Post-Training`_.
+
 
 Download LeRobot Converted Data
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Download the pre-converted LeRobot format dataset:
 
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
+
 .. code-block:: bash
+
+   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
        lerobot \
-       --local-dir /datasets/Arena-GR1-Manipulation-Task
+       --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+
+This dataset is converted from the Mimic generated dataset with `Step 2: Convert to LeRobot Format`_.
+To use it for policy post-training, you can continue following `Step 3: Post-Train Policy (Optional)`_ in `Workflow #4: Policy Post-Training`_.
+
 
 Download Trained GR00T Checkpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Download the trained GR00T N1.5 policy checkpoint:
 
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
+
 .. code-block:: bash
+
+   huggingface-cli login
 
    huggingface-cli download \
        nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
-       --local-dir /checkpoints/GN1x-Tuned-Arena-GR1-Manipulation
+       --local-dir $YOUR_LOCAL_CKPTS_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
 
 Workflow #1: Environment Setup and Validation
 ----------------------------------------------
@@ -132,9 +163,9 @@ Prerequisites
 Step 1: Start Isaac Lab - Arena
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: bash
+Start the Arena Docker container:
 
-   ./docker/run_docker.sh
+   :docker_run_default:
 
 Step 2: Understand the Environment Components
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -145,10 +176,7 @@ Step 2: Understand the Environment Components
 
    from isaac_arena.embodiments.gr1t2 import GR1T2PinkEmbodiment
 
-   embodiment = GR1T2PinkEmbodiment(
-       enable_cameras=True,
-       use_tiled_camera=True  # For parallel evaluation
-   )
+   embodiment = GR1T2PinkEmbodiment(enable_cameras=True)
 
 **Key Features:**
 
@@ -169,6 +197,7 @@ Step 2: Understand the Environment Components
 
    from isaac_arena.tasks import OpenDoorTask
    from isaac_arena.affordances import Openable
+   # define microwave object reference, and background scene
 
    microwave = Openable(
        name="microwave",
@@ -178,20 +207,24 @@ Step 2: Understand the Environment Components
 
    task = OpenDoorTask(
        openable_object=microwave,
-       openness_threshold=0.8  # >80% open = success
+       openness_threshold=0.8,  # >80% open = success
+       background_scene=background_scene
+   )
 
 Step 3: Validate Environment with Demo Replay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replay the annotated dataset:
+Replay the generated dataset to verify the environment setup:
 
 .. code-block:: bash
 
    python isaac_arena/scripts/replay_demos.py \
      --enable_cameras \
-     --dataset_file /datasets/Arena-GR1-Manipulation-Task/arena_gr1_manipulation_dataset_annotated.hdf5 \
+     --dataset_file /datasets/Arena-GR1-Manipulation-Task/arena_gr1_manipulation_dataset_generated.hdf5 \
      gr1_open_microwave \
      --embodiment gr1_pink
+
+You should see the GR1 robot replaying the generated demonstrations, performing the microwave door opening task in the kitchen environment.
 
 Workflow #2: Teleoperation Data Collection
 --------------------------------------------
@@ -240,9 +273,13 @@ Step 3: Start Isaac Lab - Arena Recording
 
 In a separate terminal, start the recording session:
 
-.. code-block:: bash
+Start the Arena Docker container:
 
-   ./docker/run_docker.sh
+   :docker_run_default:
+
+Start the recording session:
+
+.. code-block:: bash
 
    python isaac_arena/scripts/record_demos.py \
      --dataset_file /datasets/my_gr1_demos.hdf5 \
@@ -276,10 +313,10 @@ Repeat for all demonstrations. The script will automatically save successful dem
    - Ensure good lighting for hand tracking
    - Complete at least 10 successful demonstrations
 
-Workflow #3: Data Annotation and Augmentation
---------------------------------------------------------
+Workflow #3: Data Generation
+----------------------------
 
-This workflow covers annotating and augmenting the demonstration dataset using Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>, converting to LeRobot format, and post-training GR00T N1.5.
+This workflow covers generating a new dataset using `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -303,14 +340,15 @@ Segment demonstrations into subtasks (reach, grasp, pull):
 
 Follow the on-screen instructions to mark subtask boundaries:
 
-1. **Reach:** Robot moves hand toward microwave handle
-2. **Grasp:** Robot closes gripper on handle
-3. **Pull:** Robot pulls door open
+1. **Reach:** Robot reaches toward the microwave door
+2. **Open door:** Robot opens the door
 
-Step 2: Generate Augmented Dataset with Mimic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 2: Generate Augmented Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Generate 50 demonstrations from the annotated data:
+Isaac Lab Mimic automatically generates additional demonstrations from a small set of annotated demonstrations by using rigid body transformations to introduce variations.
+
+Generate the dataset:
 
 .. code-block:: bash
 
@@ -327,10 +365,10 @@ Generate 50 demonstrations from the annotated data:
 
 .. note::
 
-   - Uses 10 parallel environments for faster generation
-   - Randomizes microwave pose within workspace
-   - Adds action noise for robustness
-   - Takes approximately 30-60 minutes
+   - Remove ``--headless`` to visualize data generation
+   - Data generation takes 30-60 minutes depending on hardware
+   - Microwave poses are randomized to increase diversity
+   - Action noise is added to improve robustness
 
 Step 3: Validate Generated Data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -344,30 +382,22 @@ Step 3: Validate Generated Data
      --embodiment gr1_joint
 
 
-Workflow #4: Policy Post-Training
+Workflow #4: Policy Post-training
 ----------------------------------
 
-This workflow covers post-training an example policy using the augmented dataset,  here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as an example.
+This workflow covers post-training an example policy using the augmented dataset, here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 Step 1: Switch to Docker Container with GR00T Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Switch to the Docker container with GR00T dependencies by running the following command:
+Switch to the Docker container **with GR00T dependencies** by running the following command:
 
-.. code-block:: bash
-
-   ./docker/run_docker.sh -g -G base
+:docker_run_gr00t:
 
 Step 2: Convert to LeRobot Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Switch to the Docker container with GR00T dependencies by running the following command:
-
-.. code-block:: bash
-
-   ./docker/run_docker.sh -g -G base
-
-Then convert the HDF5 dataset to LeRobot format for policy post-training:
+Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
@@ -395,8 +425,12 @@ Then convert the HDF5 dataset to LeRobot format for policy post-training:
    fps: 50
    chunks_size: 1000
 
-Step 5: Post-Train Policy
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 3: Post-train Policy (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. todo:: (xinjie.yao, 2025-10-16): include instruction about how to retrieve the training ckpt inside or outside the container
+
+Depending on your GPU memory, you can adjust training config parameters to post-train the policy. We provide an example below for reference.
 
 .. code-block:: bash
 
@@ -431,13 +465,8 @@ Step 5: Post-Train Policy
 
    For training with fewer GPUs or limited memory, see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_.
 
-Prerequisites
-^^^^^^^^^^^^^
-
-- Annotated and augmented demonstration dataset
-
-Workflow #4: Closed-Loop Policy Inference and Evaluation
----------------------------------------------------------
+Workflow #5: Closed-Loop Policy Inference and Evaluation
+--------------------------------------------------------
 
 This workflow demonstrates running the trained GR00T policy in closed-loop and evaluating across multiple parallel environments.
 
@@ -445,7 +474,7 @@ Prerequisites
 ^^^^^^^^^^^^^
 
 - Trained GR00T policy checkpoint
-- Isaac Lab - Arena Docker container with GR00T dependencies
+- Isaac Lab - Arena Docker container **with GR00T dependencies**
 
 Step 1: Configure Closed-Loop Inference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -476,26 +505,31 @@ Step 1: Configure Closed-Loop Inference
 Step 2: Run Single Environment Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Test the policy in a single environment with visualization:
+The embodiment using in closed-loop policy inference is ``gr1_joint``, which is different from ``gr1_pink`` used in data generation.
+Instead of using the target end-effector poses with PINK IK controller for upper body manipulation, the ``gr1_joint`` uses upper body joint positions instead.
+
+Test the policy in a single environment with visualization using the ``gr1_joint`` embodiment:
 
 .. code-block:: bash
 
    python isaac_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
+     --num_steps 400 \
      --enable_cameras \
      gr1_open_microwave \
      --embodiment gr1_joint
 
 **Expected Output:**
 
+Depending on how many episodes the simulation runs (num_steps = 400 steps in this case), you will see a similar metrics output as below:
+
 .. code-block:: text
 
-   Metrics: {success_rate: 1.0, door_moved_rate: 1.0, num_episodes: 1}
+   Metrics: {success_rate: 1.0, door_moved_rate: 1.0, num_episodes: 2}
 
 Step 3: Run Parallel Evaluation (Recommended)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Evaluate the policy across multiple parallel environments:
 
@@ -504,8 +538,8 @@ Evaluate the policy across multiple parallel environments:
    python isaac_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
-     --num_envs 32 \
+     --num_steps 400 \
+     --num_envs 16 \
      --enable_cameras \
      --headless \
      gr1_open_microwave \
@@ -513,14 +547,13 @@ Evaluate the policy across multiple parallel environments:
 
 **Performance Notes:**
 
-.. TODO::
-   (xinjie.yao, 2025-10-15): Add performance notes
+.. todo:: (xinjie.yao, 2025-10-15): Add performance notes
 
 **Expected Output:**
 
 .. code-block:: text
 
-   Metrics: {success_rate: 0.9375, door_moved_rate: 1.0, num_episodes: 32}
+   Metrics: {success_rate: 0.9375, door_moved_rate: 0.9375, num_episodes: 32}
 
 Step 4: Analyze Results
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -534,13 +567,18 @@ The evaluation outputs several metrics:
 Troubleshooting
 ---------------
 
-Policy Not Loading
-^^^^^^^^^^^^^^^^^^
+Policy Not Found During Closed-Loop Policy Inference
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Error:** ``FileNotFoundError: model_path not found``
+**Error:** ``FileNotFoundError: model_path not found`` or ``OSError: [Errno 2] No such file or directory: '/checkpoints/GN1x-Tuned-Arena-GR1-Manipulation'``
 
 **Solution:** Verify the checkpoint path in the config file:
 
 .. code-block:: bash
 
+   # If the checkpoint is inside the container, you can list it:
    ls /checkpoints/GN1x-Tuned-Arena-GR1-Manipulation
+   # If the checkpoint is not found, you can download it from Hugging Face:
+   huggingface-cli download \
+       nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
+       --local-dir /checkpoints/GN1x-Tuned-Arena-GR1-Manipulation

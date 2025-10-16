@@ -1,7 +1,7 @@
 G1 Loco-Manipulation Box Pick and Place Task
 ============================================
 
-This example demonstrates the complete workflow for the **G1 loco-manipulation box pick and place task** in Isaac Lab - Arena, covering environment setup and validation, data augmentation, policy post-training, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **G1 loco-manipulation box pick and place task** in Isaac Lab - Arena, covering environment setup and validation, data generation, policy post-training, and closed-loop evaluation.
 
 .. image:: ../../images/g1_galileo_arena_box_pnp_locomanip.gif
    :align: center
@@ -10,9 +10,9 @@ This example demonstrates the complete workflow for the **G1 loco-manipulation b
 Task Overview
 -------------
 
-**Task ID:** ``galileo_g1_locomanip_pick_and_place``
+**Task Name:** ``galileo_g1_locomanip_pick_and_place``
 
-**Task Description:** The G1 humanoid robot navigates through a lab environment, picks up a brown box from a shelf, and places it into a blue bin. This task requires full-body coordination including locomotion, squatting, and bimanual manipulation.
+**Task Description:** The G1 humanoid robot navigates through a lab environment, picks up a brown box from a shelf, and places it into a blue bin. This task requires full-body coordination including lower body locomotion, squatting, and bimanual manipulation.
 
 **Key Specifications:**
 
@@ -25,7 +25,7 @@ Task Overview
    * - **Tags**
      - Room-scale loco-manipulation
    * - **Skills**
-     - Squat, turn, walk, pick, place
+     - Squat, Turn, Walk, Pick, Place
    * - **Embodiment**
      - Unitree G1 (29 DOF humanoid with Whole Body Controller)
    * - **Interop**
@@ -35,9 +35,9 @@ Task Overview
    * - **Objects**
      - Brown box (rigid body)
    * - **Policy**
-     - GR00T N1.5 (vision-language foundation model)
+     - GR00T N1.5 (vision-language-action foundation model)
    * - **Post-training**
-     - Imitation learning
+     - Imitation Learning
    * - **Dataset**
      - `Arena-G1-Loco-Manipulation-Task <https://huggingface.co/datasets/nvidia/Arena-G1-Loco-Manipulation-Task>`_
    * - **Checkpoint**
@@ -55,10 +55,10 @@ Workflows
 
 The complete pipeline includes the following workflows:
 
-workflow #1: Environment Setup and Validation
-workflow #2: Data Augmentation
-workflow #3: Policy Post-Training
-workflow #4: Closed-Loop Policy Inference and Evaluation
+- `Workflow #1: Environment Setup and Validation`_
+- `Workflow #2: Data Generation`_
+- `Workflow #3: Policy Post-Training`_
+- `Workflow #4: Closed-Loop Policy Inference and Evaluation`_
 
 .. note::
    You can skip workflow #2-#3 by using the provided pre-generated datasets or post-trained checkpoints. See `Download Ready-to-Use Data`_ section.
@@ -71,52 +71,78 @@ Download Annotated Dataset
 
 Download the pre-recorded annotated dataset for quick start:
 
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
+
 .. code-block:: bash
+
+   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_annotated.hdf5 \
-       --local-dir /datasets/Arena-G1-Loco-Manipulation-Task
+       --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
 
-This dataset contains manually annotated demonstrations segmented into subtasks.
+This dataset contains manually annotated demonstrations segmented into subtasks. To generated a new dataset with more demonstrations, continue following the steps in `Workflow #2: Data Generation`_.
 
-Download Augmented Mimic Dataset
+.. todo:: (peter.du/xinjie.yao, 2025-10-16): upload annotated dataset
+
+Download Generated Mimic Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Download the pre-generated dataset augmented with Isaac Lab Mimic (100 demonstrations):
+Download the pre-generated dataset using Isaac Lab Mimic:
+
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
+
+   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_generated.hdf5 \
-       --local-dir /datasets/Arena-G1-Loco-Manipulation-Task
+       --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+
+This dataset is generated from the annotated dataset using Isaac Lab Mimic, resulting a new dataset including more demonstrations.
+To visually inspect the dataset, you can follow the steps in `Step 3: Validate Environment with Demo Replay`_ in `Workflow #1: Environment Setup and Validation`_.
+If you want to post-train a policy using the generated dataset, you can continue following the steps in `Workflow #3: Policy Post-Training`_.
+
+.. todo:: (peter.du/xinjie.yao, 2025-10-16): rename generated dataset on HF
 
 Download LeRobot Converted Data
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Download the pre-converted LeRobot format dataset ready for GR00T training:
+Download the pre-converted LeRobot format dataset ready for policy post-training:
+
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
 
    huggingface-cli download \
        nvidia/Arena-G1-Loco-Manipulation-Task \
        lerobot \
-       --local-dir /datasets/Arena-G1-Loco-Manipulation-Task
+       --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+
+This dataset is converted from the Mimic generated dataset with `Step 2: Convert to LeRobot Format`.
+To use it for policy post-training, you can continue following `Step 3: Post-Train Policy (Optional)`_ in `Workflow #3: Policy Post-Training`_.
 
 Download Trained GR00T Checkpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Download the trained GR00T N1.5 policy checkpoint:
+
+Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
 
    huggingface-cli download \
        nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
-       --local-dir /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
+       --local-dir $YOUR_LOCAL_CKPTS_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+
+This checkpoint is post-trained using the LeRobot converted dataset with `Step 3: Post-Train Policy (Optional)`_ in `Workflow #3: Policy Post-Training`_, with GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T> as the base model.
+To use it for closed-loop policy inference, you can continue following the steps in `Step 3: Run Parallel Evaluation (Recommended)`_ in `Workflow #4: Closed-Loop Policy Inference and Evaluation`_.
 
 Workflow #1: Environment Setup and Validation
-----------------------------------------------
+---------------------------------------------
 
 This workflow sets up the G1 loco-manipulation environment in Isaac Lab - Arena and validates it by replaying existing demonstrations.
 
@@ -129,9 +155,9 @@ Prerequisites
 Step 1: Start Isaac Lab - Arena
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: bash
+Start the Arena Docker container:
 
-   ./docker/run_docker.sh
+   :docker_run_default:
 
 Step 2: Understand the Environment Components
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -144,21 +170,19 @@ The environment is composed of three main components:
 
    from isaac_arena.embodiments.g1 import G1WBCPinkEmbodiment
 
-   embodiment = G1WBCPinkEmbodiment(
-       enable_cameras=True
-   )
+   embodiment = G1WBCPinkEmbodiment(enable_cameras=True)
 
 **Key Features:**
 
 - 43 DOF control (legs, torso, arms, hands)
 - Head-mounted RGB camera (480x640, FOV 128°x80°)
-- Whole Body Controller (WBC) for locomotion
+- Whole Body Controller (WBC) for lower body locomotion
 - PINK IK controller for upper body manipulation
 - Action space: EEF poses + gripper states + navigation commands (x velocity, y velocity, yaw velocity, base height, torso pose)
 
 **Scene Configuration:**
 
-- Galileo Lab environment
+- Galileo lab environment
 - Brown box (spawned on shelf)
 - Blue bin (target location)
 
@@ -167,34 +191,35 @@ The environment is composed of three main components:
 .. code-block:: python
 
    from isaac_arena.tasks import PickAndPlaceTask
+   # define brown box, blue bin object references, and background scene
 
    task = PickAndPlaceTask(
        pick_object=brown_box,
        place_target=blue_bin,
-       success_threshold=0.1  # Within 10cm of bin center
+       background_scene=background_scene
    )
 
 Step 3: Validate Environment with Demo Replay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replay the annotated dataset to verify the environment setup:
+Replay the generated dataset to verify the environment setup:
 
 .. code-block:: bash
 
    python isaac_arena/scripts/replay_demos.py \
      --enable_cameras \
-     --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
+     --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5 \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink
 
-You should see the G1 robot replaying the recorded trajectories in the simulation.
+You should see the G1 robot replaying the generated demonstrations, performing box pick and place task in the Galileo lab environment.
 
 
-Workflow #2: Data Augmentation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Workflow #2: Data Generation
+----------------------------
 
-This workflow covers annotating and augmenting the demonstration dataset using Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>, converting to LeRobot format, and post-training GR00T N1.5.
+This workflow covers annotating and generating the demonstration dataset using `Isaac Lab Mimic` <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>_.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -202,15 +227,18 @@ Prerequisites
 - Annotated demonstration dataset
 - Isaac Lab - Arena Docker container (default)
 
-Step 1: Generate Augmented Dataset with Isaac Lab Mimic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 1: Generate Dataset with Isaac Lab Mimic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Isaac Lab Mimic automatically generates additional demonstrations from a small set of annotated demonstrations by using rigid body transformations to introduce variations.
 
-.. code-block:: bash
+Start the Arena Docker container:
 
-   # Start Isaac Lab - Arena container
-   ./docker/run_docker.sh
+   :docker_run_default:
+
+Generate the dataset:
+
+.. code-block:: bash
 
    # Generate 100 demonstrations
    python isaac_arena/scripts/generate_dataset.py \
@@ -233,7 +261,7 @@ Isaac Lab Mimic automatically generates additional demonstrations from a small s
    - Action noise is added to improve robustness
 
 Step 2: Validate Generated Dataset
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Replay the generated dataset to verify quality:
 
@@ -246,30 +274,28 @@ Replay the generated dataset to verify quality:
      --object brown_box \
      --embodiment g1_wbc_pink
 
-Workflow #3: Policy Post-Training
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Workflow #3: Policy Post-training
+---------------------------------
 
-This workflow covers post-training an example policy using the augmented dataset,  here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as an example.
+This workflow covers post-training an example policy using the generated dataset, here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 Prerequisites
 ^^^^^^^^^^^^^
 
-- Augmented demonstration dataset
-- Isaac Lab - Arena Docker container with GR00T dependencies
+- Generated demonstration dataset
+- Isaac Lab - Arena Docker container **with GR00T dependencies**
 
 Step 1: Switch to Docker Container with GR00T Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Switch to the Docker container with GR00T dependencies by running the following command:
+Switch to the Docker container **with GR00T dependencies** by running the following command:
 
-.. code-block:: bash
-
-   ./docker/run_docker.sh -g -G base
+   :docker_run_gr00t:
 
 Step 2: Convert to LeRobot Format
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Convert the HDF5 dataset to LeRobot format for GR00T training:
+Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
@@ -303,8 +329,12 @@ This creates:
 - ``/datasets/Arena-G1-Loco-Manipulation-Task/lerobot/videos/`` - MP4 camera recordings
 - ``/datasets/Arena-G1-Loco-Manipulation-Task/lerobot/meta/`` - Dataset metadata
 
-Step 3: Post-Train Policy
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 3: Post-train Policy (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. todo:: (xinjie.yao, 2025-10-16): include instruction about how to retrieve the training ckpt inside or outside the container
+
+Depening on your GPU memory, you can adjust training config parameters to post-train the policy. We provide an example below for reference.
 
 .. code-block:: bash
 
@@ -344,7 +374,7 @@ Step 3: Post-Train Policy
 Training takes approximately 4-8 hours on 8x L40s GPUs.
 
 Workflow #4: Closed-Loop Policy Inference and Evaluation
----------------------------------------------------------
+--------------------------------------------------------
 
 This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop and evaluating it across multiple parallel environments.
 
@@ -352,7 +382,7 @@ Prerequisites
 ^^^^^^^^^^^^^
 
 - Trained GR00T policy checkpoint
-- Isaac Lab - Arena Docker container with GR00T dependencies
+- Isaac Lab - Arena Docker container **with GR00T dependencies**
 - GPU with at least 24GB VRAM
 
 Step 1: Configure Closed-Loop Inference
@@ -386,10 +416,11 @@ Create or verify the inference configuration file:
 Step 2: Run Single Environment Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The embodiment using in closed-loop policy inference is ``g1_wbc_joint``, which is different from ``g1_wbc_pink`` used in data generation and policy post-training.
-Instead of using the PINK IK controller for upper body manipulation, the ``g1_wbc_joint`` embodiment uses the same WBC policy for locomotion and upper body joint positions for upper body manipulation.
+The embodiment using in closed-loop policy inference is ``g1_wbc_joint``, which is different from ``g1_wbc_pink`` used in data generation.
+Instead of using the target end-effector poses with PINK IK controller for upper body manipulation, the ``g1_wbc_joint`` uses upper body joint positions instead.
 
 Test the policy in a single environment with visualization using the ``g1_wbc_joint`` embodiment:
+
 .. code-block:: bash
 
    python isaac_arena/examples/policy_runner.py \
@@ -402,6 +433,8 @@ Test the policy in a single environment with visualization using the ``g1_wbc_jo
      --embodiment g1_wbc_joint
 
 **Expected Output:**
+
+Depending on how many episodes the simulation runs (num_steps = 1200 steps in this case), you will see a similar metrics output as below:
 
 .. code-block:: text
 
@@ -437,7 +470,7 @@ Evaluate the policy across multiple parallel environments using the ``g1_wbc_joi
    Metrics: {success_rate: 0.75, num_episodes: 16}
 
 Step 4: Analyze Results
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 The evaluation outputs several metrics:
 
@@ -448,13 +481,19 @@ The evaluation outputs several metrics:
 Troubleshooting
 ---------------
 
-Policy Not Loading
-^^^^^^^^^^^^^^^^^^
+Policy Not Found During Closed-Loop Policy Inference
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Error:** ``FileNotFoundError: model_path not found``
+**Error:** ``FileNotFoundError: model_path not found`` or ``OSError: [Errno 2] No such file or directory: '/checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation'``
 
 **Solution:** Verify the checkpoint path in the config file:
 
 .. code-block:: bash
 
+   # If the checkpoint is inside the container, you can list it:
    ls /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
+   # If the checkpoint is not found, you can download it from Hugging Face:
+   huggingface-cli download \
+       nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
+       --local-dir /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
+
