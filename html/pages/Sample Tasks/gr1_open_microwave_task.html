@@ -1,0 +1,1056 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>GR1 Open Microwave Door Task &#8212; isaaclab_arena 0.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/Sample Tasks/gr1_open_microwave_task';</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Creating a New Affordance" href="../examples/create_a_new_affordance.html" />
+    <link rel="prev" title="G1 Loco-Manipulation Box Pick and Place Task" href="g1_locomanipulation_box_pick_and_place_task.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_policy_design.html">Policy Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Sample Tasks</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="g1_locomanipulation_box_pick_and_place_task.html">G1 Loco-Manipulation Box Pick and Place Task</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">GR1 Open Microwave Door Task</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_affordance.html">Creating a New Affordance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_asset.html">Creating a New Asset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_environment.html">Creating a New Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_metric.html">Creating a New Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/create_a_new_task.html">Creating a New Task</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">GR1 Open Microwave Door Task</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="gr1-open-microwave-door-task">
+<h1>GR1 Open Microwave Door Task<a class="headerlink" href="#gr1-open-microwave-door-task" title="Link to this heading">#</a></h1>
+<p>This example demonstrates the complete workflow for the <strong>GR1 manipulation task of opening a microwave door</strong> in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection, data generation with Isaac Lab Mimic, policy post-training, and closed-loop evaluation.</p>
+<a class="reference internal image-reference" href="../../_images/kitchen_gr1_arena.gif"><img alt="../../_images/kitchen_gr1_arena.gif" class="align-center" src="../../_images/kitchen_gr1_arena.gif" style="height: 400px;" />
+</a>
+<section id="task-overview">
+<h2>Task Overview<a class="headerlink" href="#task-overview" title="Link to this heading">#</a></h2>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gr1_open_microwave</span></code></p>
+<p><strong>Task Description:</strong> The GR1T2 humanoid uses its upper body (arms and hands) to reach toward a microwave, and open the door.</p>
+<p><strong>Key Specifications:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Open door</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p>Fourier GR1T2 (54 DOF humanoid)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Interop</strong></p></td>
+<td><p>Isaac Lab Teleop, Isaac Lab Mimic</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Scene</strong></p></td>
+<td><p>Kitchen environment</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Objects</strong></p></td>
+<td><p>Microwave (articulated object)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Policy</strong></p></td>
+<td><p>GR00T N1.5 (vision-language foundation model)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Post-training</strong></p></td>
+<td><p>Imitation Learning</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Dataset</strong></p></td>
+<td><p><a class="reference external" href="https://huggingface.co/datasets/nvidia/Arena-GR1-Manipulation-Task">Arena-GR1-Manipulation-Task</a></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Checkpoint</strong></p></td>
+<td><p><a class="reference external" href="https://huggingface.co/nvidia/GN1x-Tuned-Arena-GR1-Manipulation">GN1x-Tuned-Arena-GR1-Manipulation</a></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Physics</strong></p></td>
+<td><p>PhysX (200Hz &#64; 4 decimation)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Closed-loop</strong></p></td>
+<td><p>Yes (50Hz control)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Metrics</strong></p></td>
+<td><p>Success rate, Door moved rate</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="workflows">
+<h2>Workflows<a class="headerlink" href="#workflows" title="Link to this heading">#</a></h2>
+<p>The complete pipeline includes the following workflows:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#workflow-1-environment-setup-and-validation">Workflow #1: Environment Setup and Validation</a></p></li>
+<li><p><a class="reference internal" href="#workflow-2-teleoperation-data-collection">Workflow #2: Teleoperation Data Collection</a></p></li>
+<li><p><a class="reference internal" href="#workflow-3-data-generation">Workflow #3: Data Generation</a></p></li>
+<li><p><a class="reference internal" href="#workflow-4-policy-post-training">Workflow #4: Policy Post-Training</a></p></li>
+<li><p><a class="reference internal" href="#workflow-5-closed-loop-policy-inference-and-evaluation">Workflow #5: Closed-Loop Policy Inference and Evaluation</a></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can skip workflow #2-#4 by using the provided pre-generated datasets or post-trained checkpoints. See <a class="reference internal" href="#download-ready-to-use-data">Download Ready-to-Use Data</a> section.</p>
+</div>
+</section>
+<section id="download-ready-to-use-data">
+<h2>Download Ready-to-Use Data<a class="headerlink" href="#download-ready-to-use-data" title="Link to this heading">#</a></h2>
+<section id="download-annotated-dataset">
+<h3>Download Annotated Dataset<a class="headerlink" href="#download-annotated-dataset" title="Link to this heading">#</a></h3>
+<p>Download the pre-recorded annotated dataset for quick start:</p>
+<p>Make sure you setup Hugging Face CLI outside the container by following the instructions in the <a class="reference external" href="https://huggingface.co/docs/huggingface_hub/installation">Hugging Face CLI Installation</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login
+
+huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>arena_gr1_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span><span class="nv">$YOUR_LOCAL_DATA_DIR</span><span class="w">   </span><span class="c1"># Make sure this is a directory on your local machine, and virtually mounted to the container.</span>
+</pre></div>
+</div>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>(clemens.volk, 2025-10-16): upload annotated dataset</p>
+</div>
+<p>This dataset contains manually annotated demonstrations segmented into subtasks. To generated a new dataset with more demonstrations, continue following the steps in <a class="reference internal" href="#workflow-3-data-generation">Workflow #3: Data Generation</a>.</p>
+</section>
+<section id="download-generated-mimic-dataset">
+<h3>Download Generated Mimic Dataset<a class="headerlink" href="#download-generated-mimic-dataset" title="Link to this heading">#</a></h3>
+<p>Download the pre-generated dataset using Isaac Lab Mimic:</p>
+<p>Make sure you setup Hugging Face CLI outside the container by following the instructions in the <a class="reference external" href="https://huggingface.co/docs/huggingface_hub/installation">Hugging Face CLI Installation</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login
+
+huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span><span class="nv">$YOUR_LOCAL_DATA_DIR</span><span class="w">   </span><span class="c1"># Make sure this is a directory on your local machine, and virtually mounted to the container.</span>
+</pre></div>
+</div>
+<p>This dataset is generated from the annotated dataset using Isaac Lab Mimic, resulting a new dataset including more demonstrations.
+To visually inspect the dataset, you can follow the steps in <a class="reference internal" href="#step-3-validate-environment-with-demo-replay">Step 3: Validate Environment with Demo Replay</a> in <a class="reference internal" href="#workflow-1-environment-setup-and-validation">Workflow #1: Environment Setup and Validation</a>.
+If you want to post-train a policy using the generated dataset, you can continue following the steps in <a class="reference internal" href="#workflow-4-policy-post-training">Workflow #4: Policy Post-Training</a>.</p>
+</section>
+<section id="download-lerobot-converted-data">
+<h3>Download LeRobot Converted Data<a class="headerlink" href="#download-lerobot-converted-data" title="Link to this heading">#</a></h3>
+<p>Download the pre-converted LeRobot format dataset:</p>
+<p>Make sure you setup Hugging Face CLI outside the container by following the instructions in the <a class="reference external" href="https://huggingface.co/docs/huggingface_hub/installation">Hugging Face CLI Installation</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login
+
+huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>lerobot<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span><span class="nv">$YOUR_LOCAL_DATA_DIR</span><span class="w">   </span><span class="c1"># Make sure this is a directory on your local machine, and virtually mounted to the container.</span>
+</pre></div>
+</div>
+<p>This dataset is converted from the Mimic generated dataset with <a class="reference internal" href="#step-2-convert-to-lerobot-format">Step 2: Convert to LeRobot Format</a>.
+To use it for policy post-training, you can continue following <a class="reference internal" href="#step-3-post-train-policy-optional">Step 3: Post-Train Policy (Optional)</a> in <a class="reference internal" href="#workflow-4-policy-post-training">Workflow #4: Policy Post-Training</a>.</p>
+</section>
+<section id="download-trained-gr00t-checkpoint">
+<h3>Download Trained GR00T Checkpoint<a class="headerlink" href="#download-trained-gr00t-checkpoint" title="Link to this heading">#</a></h3>
+<p>Download the trained GR00T N1.5 policy checkpoint:</p>
+<p>Make sure you setup Hugging Face CLI outside the container by following the instructions in the <a class="reference external" href="https://huggingface.co/docs/huggingface_hub/installation">Hugging Face CLI Installation</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login
+
+huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/GN1x-Tuned-Arena-GR1-Manipulation<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span><span class="nv">$YOUR_LOCAL_CKPTS_DIR</span><span class="w">   </span><span class="c1"># Make sure this is a directory on your local machine, and virtually mounted to the container.</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="workflow-1-environment-setup-and-validation">
+<h2>Workflow #1: Environment Setup and Validation<a class="headerlink" href="#workflow-1-environment-setup-and-validation" title="Link to this heading">#</a></h2>
+<p>This workflow sets up the GR1 manipulation environment in Isaac Lab - Arena and validates it by replaying existing demonstrations.</p>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Isaac Lab - Arena Docker container running</p></li>
+<li><p>At least one demonstration dataset</p></li>
+</ul>
+</section>
+<section id="step-1-start-isaac-lab-arena">
+<h3>Step 1: Start Isaac Lab - Arena<a class="headerlink" href="#step-1-start-isaac-lab-arena" title="Link to this heading">#</a></h3>
+<p>Start the Arena Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+</section>
+<section id="step-2-understand-the-environment-components">
+<h3>Step 2: Understand the Environment Components<a class="headerlink" href="#step-2-understand-the-environment-components" title="Link to this heading">#</a></h3>
+<p><strong>Embodiment Configuration:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.embodiments.gr1t2</span><span class="w"> </span><span class="kn">import</span> <span class="n">GR1T2PinkEmbodiment</span>
+
+<span class="n">embodiment</span> <span class="o">=</span> <span class="n">GR1T2PinkEmbodiment</span><span class="p">(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key Features:</strong></p>
+<ul class="simple">
+<li><p>36 DOF control (upper body: torso, arms, hands)</p></li>
+<li><p>Head-mounted RGB camera (512x512)</p></li>
+<li><p>PINK IK controller for upper body manipulation</p></li>
+<li><p>Lower body fixed in standing pose, gravity disabled</p></li>
+</ul>
+<p><strong>Scene Configuration:</strong></p>
+<ul class="simple">
+<li><p>Kitchen environment</p></li>
+<li><p>Microwave with articulated door (revolute joint)</p></li>
+<li><p>Task: Open door to 80% (success threshold)</p></li>
+</ul>
+<p><strong>Task Configuration:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenDoorTask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.affordances</span><span class="w"> </span><span class="kn">import</span> <span class="n">Openable</span>
+<span class="c1"># define microwave object reference, and background scene</span>
+
+<span class="n">microwave</span> <span class="o">=</span> <span class="n">Openable</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;microwave&quot;</span><span class="p">,</span>
+    <span class="n">articulation_cfg</span><span class="o">=</span><span class="n">microwave_cfg</span><span class="p">,</span>
+    <span class="n">joint_name</span><span class="o">=</span><span class="s2">&quot;door_joint&quot;</span>
+<span class="p">)</span>
+
+<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span>
+    <span class="n">openable_object</span><span class="o">=</span><span class="n">microwave</span><span class="p">,</span>
+    <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>  <span class="c1"># &gt;80% open = success</span>
+    <span class="n">background_scene</span><span class="o">=</span><span class="n">background_scene</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="step-3-validate-environment-with-demo-replay">
+<h3>Step 3: Validate Environment with Demo Replay<a class="headerlink" href="#step-3-validate-environment-with-demo-replay" title="Link to this heading">#</a></h3>
+<p>Replay the generated dataset to verify the environment setup:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span>/datasets/Arena-GR1-Manipulation-Task/arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>gr1_pink
+</pre></div>
+</div>
+<p>You should see the GR1 robot replaying the generated demonstrations, performing the microwave door opening task in the kitchen environment.</p>
+</section>
+</section>
+<section id="workflow-2-teleoperation-data-collection">
+<h2>Workflow #2: Teleoperation Data Collection<a class="headerlink" href="#workflow-2-teleoperation-data-collection" title="Link to this heading">#</a></h2>
+<p>This workflow covers collecting demonstrations using Isaac Lab Teleop with Apple Vision Pro.</p>
+<section id="id5">
+<h3>Prerequisites<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Apple Vision Pro with Isaac XR Teleop Sample Client installed</p></li>
+<li><p>CloudXR Runtime Docker container</p></li>
+<li><p>Isaac Lab - Arena Docker container</p></li>
+<li><p>Local network connection between workstation and Vision Pro</p></li>
+</ul>
+</section>
+<section id="step-1-install-isaac-xr-teleop-app-on-vision-pro">
+<h3>Step 1: Install Isaac XR Teleop App on Vision Pro<a class="headerlink" href="#step-1-install-isaac-xr-teleop-app-on-vision-pro" title="Link to this heading">#</a></h3>
+<p>Follow the <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro">Isaac Lab CloudXR documentation</a> to build and install the app on your Vision Pro.</p>
+</section>
+<section id="step-2-start-cloudxr-runtime-container">
+<h3>Step 2: Start CloudXR Runtime Container<a class="headerlink" href="#step-2-start-cloudxr-runtime-container" title="Link to this heading">#</a></h3>
+<p>In a terminal, start the CloudXR runtime:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/IsaacLab
+mkdir<span class="w"> </span>-p<span class="w"> </span>openxr
+
+docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span>--name<span class="w"> </span>cloudxr-runtime<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--user<span class="w"> </span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span>:<span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--gpus<span class="o">=</span>all<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="s2">&quot;ACCEPT_EULA=Y&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mount<span class="w"> </span><span class="nv">type</span><span class="o">=</span>bind,src<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/openxr,dst<span class="o">=</span>/openxr<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">48010</span>:48010<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">47998</span>:47998/udp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">47999</span>:47999/udp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">48000</span>:48000/udp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">48005</span>:48005/udp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">48008</span>:48008/udp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">48012</span>:48012/udp<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>nvcr.io/nvidia/cloudxr-runtime:5.0.0
+</pre></div>
+</div>
+</section>
+<section id="step-3-start-isaac-lab-arena-recording">
+<h3>Step 3: Start Isaac Lab - Arena Recording<a class="headerlink" href="#step-3-start-isaac-lab-arena-recording" title="Link to this heading">#</a></h3>
+<p>In a separate terminal, start the recording session:</p>
+<p>Start the Arena Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Start the recording session:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span>/datasets/my_gr1_demos.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_demos<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--teleop_device<span class="w"> </span>avp_handtracking
+</pre></div>
+</div>
+</section>
+<section id="step-4-connect-vision-pro-and-record">
+<h3>Step 4: Connect Vision Pro and Record<a class="headerlink" href="#step-4-connect-vision-pro-and-record" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p>Launch the Isaac XR Teleop app on Vision Pro</p></li>
+<li><p>Enter your workstation’s IP address</p></li>
+<li><p>Wait for connection (you should see the simulation in VR)</p></li>
+<li><p>Use hand tracking to control the GR1 robot:</p>
+<ul class="simple">
+<li><p>Hand positions control end-effector targets</p></li>
+<li><p>Pinch gestures control grippers</p></li>
+</ul>
+</li>
+<li><p>Complete the task (open microwave door)</p></li>
+<li><p>Press the “Submit Demo” button in VR</p></li>
+</ol>
+<p>Repeat for all demonstrations. The script will automatically save successful demonstrations to the HDF5 file.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>For best results:</p>
+<ul class="simple">
+<li><p>Move slowly and smoothly</p></li>
+<li><p>Keep hands within tracking volume</p></li>
+<li><p>Ensure good lighting for hand tracking</p></li>
+<li><p>Complete at least 10 successful demonstrations</p></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="workflow-3-data-generation">
+<h2>Workflow #3: Data Generation<a class="headerlink" href="#workflow-3-data-generation" title="Link to this heading">#</a></h2>
+<p>This workflow covers generating a new dataset using <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html">Isaac Lab Mimic</a>.</p>
+<section id="id6">
+<h3>Prerequisites<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Recorded demonstration dataset (10+ demos)</p></li>
+<li><p>Isaac Lab - Arena Docker container (default)</p></li>
+</ul>
+</section>
+<section id="step-1-annotate-demonstrations">
+<h3>Step 1: Annotate Demonstrations<a class="headerlink" href="#step-1-annotate-demonstrations" title="Link to this heading">#</a></h3>
+<p>Segment demonstrations into subtasks (reach, grasp, pull):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/annotate_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input_file<span class="w"> </span>/datasets/my_gr1_demos.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_file<span class="w"> </span>/datasets/my_gr1_demos_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave
+</pre></div>
+</div>
+<p>Follow the on-screen instructions to mark subtask boundaries:</p>
+<ol class="arabic simple">
+<li><p><strong>Reach:</strong> Robot reaches toward the microwave door</p></li>
+<li><p><strong>Open door:</strong> Robot opens the door</p></li>
+</ol>
+</section>
+<section id="step-2-generate-augmented-dataset">
+<h3>Step 2: Generate Augmented Dataset<a class="headerlink" href="#step-2-generate-augmented-dataset" title="Link to this heading">#</a></h3>
+<p>Isaac Lab Mimic automatically generates additional demonstrations from a small set of annotated demonstrations by using rigid body transformations to introduce variations.</p>
+<p>Generate the dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--generation_num_trials<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input_file<span class="w"> </span>/datasets/my_gr1_demos_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_file<span class="w"> </span>/datasets/my_gr1_demos_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code> to visualize data generation</p></li>
+<li><p>Data generation takes 30-60 minutes depending on hardware</p></li>
+<li><p>Microwave poses are randomized to increase diversity</p></li>
+<li><p>Action noise is added to improve robustness</p></li>
+</ul>
+</div>
+</section>
+<section id="step-3-validate-generated-data">
+<h3>Step 3: Validate Generated Data<a class="headerlink" href="#step-3-validate-generated-data" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span>/datasets/my_gr1_demos_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint
+</pre></div>
+</div>
+</section>
+</section>
+<section id="workflow-4-policy-post-training">
+<h2>Workflow #4: Policy Post-training<a class="headerlink" href="#workflow-4-policy-post-training" title="Link to this heading">#</a></h2>
+<p>This workflow covers post-training an example policy using the augmented dataset, here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.5</a> as the base model.</p>
+<section id="step-1-switch-to-docker-container-with-gr00t-dependencies">
+<h3>Step 1: Switch to Docker Container with GR00T Dependencies<a class="headerlink" href="#step-1-switch-to-docker-container-with-gr00t-dependencies" title="Link to this heading">#</a></h3>
+<p>Switch to the Docker container <strong>with GR00T dependencies</strong> by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
+</pre></div>
+</div>
+</section>
+<section id="step-2-convert-to-lerobot-format">
+<h3>Step 2: Convert to LeRobot Format<a class="headerlink" href="#step-2-convert-to-lerobot-format" title="Link to this heading">#</a></h3>
+<p>Convert the HDF5 dataset to LeRobot format for policy post-training:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/policy/data_utils/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config_yaml_path<span class="w"> </span>isaac_arena/policy/config/gr1_manip_config.yaml
+</pre></div>
+</div>
+<p><strong>Configuration</strong> (<code class="docutils literal notranslate"><span class="pre">gr1_manip_config.yaml</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Input/Output paths</span>
+<span class="nt">data_root</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/datasets/Arena-GR1-Manipulation-Task&quot;</span>
+<span class="nt">hdf5_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;my_gr1_demos_generated.hdf5&quot;</span>
+
+<span class="c1"># Task description</span>
+<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Reach</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">microwave</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">open</span><span class="nv"> </span><span class="s">it.&quot;</span>
+<span class="nt">task_index</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+
+<span class="c1"># Data field mappings</span>
+<span class="nt">state_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_joint_pos&quot;</span>
+<span class="nt">action_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;processed_actions&quot;</span>
+<span class="nt">pov_cam_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_pov_cam&quot;</span>
+
+<span class="c1"># Output configuration</span>
+<span class="nt">fps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="nt">chunks_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+</pre></div>
+</div>
+</section>
+<section id="step-3-post-train-policy-optional">
+<h3>Step 3: Post-train Policy (Optional)<a class="headerlink" href="#step-3-post-train-policy-optional" title="Link to this heading">#</a></h3>
+<div class="admonition-todo admonition" id="id7">
+<p class="admonition-title">Todo</p>
+<p>(xinjie.yao, 2025-10-16): include instruction about how to retrieve the training ckpt inside or outside the container</p>
+</div>
+<p>Depending on your GPU memory, you can adjust training config parameters to post-train the policy. We provide an example below for reference.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
+
+python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_path<span class="o">=</span>/datasets/Arena-GR1-Manipulation-Task/lerobot/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_dir<span class="o">=</span>/checkpoints/my_gr1_policy<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--data_config<span class="o">=</span>gr1_arms_only<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--max_steps<span class="o">=</span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_gpus<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--save_steps<span class="o">=</span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--base_model_path<span class="o">=</span>nvidia/GR00T-N1.5-3B<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no_tune_llm<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune_visual<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune_projector<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune_diffusion_model<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-resume<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataloader_num_workers<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--report_to<span class="o">=</span>wandb<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment_tag<span class="o">=</span>new_embodiment
+</pre></div>
+</div>
+<p><strong>Training Configuration:</strong></p>
+<ul class="simple">
+<li><p><strong>Base Model:</strong> GR00T-N1.5-3B</p></li>
+<li><p><strong>Data Config:</strong> <code class="docutils literal notranslate"><span class="pre">gr1_arms_only</span></code> (upper body control)</p></li>
+<li><p><strong>Tuned Modules:</strong> Visual, projector, diffusion</p></li>
+<li><p><strong>Training Time:</strong> ~4-6 hours on 8x L40s GPUs</p></li>
+</ul>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>For training with fewer GPUs or limited memory, see the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning">GR00T fine-tuning guidelines</a>.</p>
+</div>
+</section>
+</section>
+<section id="workflow-5-closed-loop-policy-inference-and-evaluation">
+<h2>Workflow #5: Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#workflow-5-closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h2>
+<p>This workflow demonstrates running the trained GR00T policy in closed-loop and evaluating across multiple parallel environments.</p>
+<section id="id8">
+<h3>Prerequisites<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Trained GR00T policy checkpoint</p></li>
+<li><p>Isaac Lab - Arena Docker container <strong>with GR00T dependencies</strong></p></li>
+</ul>
+</section>
+<section id="step-1-configure-closed-loop-inference">
+<h3>Step 1: Configure Closed-Loop Inference<a class="headerlink" href="#step-1-configure-closed-loop-inference" title="Link to this heading">#</a></h3>
+<p><strong>Configuration</strong> (<code class="docutils literal notranslate"><span class="pre">isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Model configuration</span>
+<span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/checkpoints/GN1x-Tuned-Arena-GR1-Manipulation</span>
+<span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1</span>
+<span class="nt">data_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1_arms_only</span>
+
+<span class="c1"># Task configuration</span>
+<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Reach</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">microwave</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">open</span><span class="nv"> </span><span class="s">it.&quot;</span>
+<span class="nt">task_mode_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1_manipulation</span>
+
+<span class="c1"># Inference parameters</span>
+<span class="nt">denoising_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="nt">policy_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda</span>
+<span class="nt">target_image_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">]</span>
+
+<span class="c1"># Joint mappings</span>
+<span class="nt">gr00t_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml</span>
+<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/gr1/36dof_joint_space.yaml</span>
+<span class="nt">state_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/gr1/54dof_joint_space.yaml</span>
+</pre></div>
+</div>
+</section>
+<section id="step-2-run-single-environment-evaluation">
+<h3>Step 2: Run Single Environment Evaluation<a class="headerlink" href="#step-2-run-single-environment-evaluation" title="Link to this heading">#</a></h3>
+<p>The embodiment using in closed-loop policy inference is <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code>, which is different from <code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code> used in data generation.
+Instead of using the target end-effector poses with PINK IK controller for upper body manipulation, the <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> uses upper body joint positions instead.</p>
+<p>Test the policy in a single environment with visualization using the <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> embodiment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint
+</pre></div>
+</div>
+<p><strong>Expected Output:</strong></p>
+<p>Depending on how many episodes the simulation runs (num_steps = 400 steps in this case), you will see a similar metrics output as below:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {success_rate: 1.0, door_moved_rate: 1.0, num_episodes: 2}
+</pre></div>
+</div>
+</section>
+<section id="step-3-run-parallel-evaluation-recommended">
+<h3>Step 3: Run Parallel Evaluation (Recommended)<a class="headerlink" href="#step-3-run-parallel-evaluation-recommended" title="Link to this heading">#</a></h3>
+<p>Evaluate the policy across multiple parallel environments:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint
+</pre></div>
+</div>
+<p><strong>Performance Notes:</strong></p>
+<div class="admonition-todo admonition" id="id9">
+<p class="admonition-title">Todo</p>
+<p>(xinjie.yao, 2025-10-15): Add performance notes</p>
+</div>
+<p><strong>Expected Output:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {success_rate: 0.9375, door_moved_rate: 0.9375, num_episodes: 32}
+</pre></div>
+</div>
+</section>
+<section id="step-4-analyze-results">
+<h3>Step 4: Analyze Results<a class="headerlink" href="#step-4-analyze-results" title="Link to this heading">#</a></h3>
+<p>The evaluation outputs several metrics:</p>
+<ul class="simple">
+<li><p><strong>Success Rate:</strong> Percentage of episodes where door was opened ≥ 80%</p></li>
+<li><p><strong>Door Moved Rate:</strong> Percentage of episodes where door moved &gt; 10%</p></li>
+<li><p><strong>Num Episodes:</strong> Total number of completed episodes</p></li>
+</ul>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h2>
+<section id="policy-not-found-during-closed-loop-policy-inference">
+<h3>Policy Not Found During Closed-Loop Policy Inference<a class="headerlink" href="#policy-not-found-during-closed-loop-policy-inference" title="Link to this heading">#</a></h3>
+<p><strong>Error:</strong> <code class="docutils literal notranslate"><span class="pre">FileNotFoundError:</span> <span class="pre">model_path</span> <span class="pre">not</span> <span class="pre">found</span></code> or <code class="docutils literal notranslate"><span class="pre">OSError:</span> <span class="pre">[Errno</span> <span class="pre">2]</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory:</span> <span class="pre">'/checkpoints/GN1x-Tuned-Arena-GR1-Manipulation'</span></code></p>
+<p><strong>Solution:</strong> Verify the checkpoint path in the config file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># If the checkpoint is inside the container, you can list it:</span>
+ls<span class="w"> </span>/checkpoints/GN1x-Tuned-Arena-GR1-Manipulation
+<span class="c1"># If the checkpoint is not found, you can download it from Hugging Face:</span>
+huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/GN1x-Tuned-Arena-GR1-Manipulation<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span>/checkpoints/GN1x-Tuned-Arena-GR1-Manipulation
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="g1_locomanipulation_box_pick_and_place_task.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">G1 Loco-Manipulation Box Pick and Place Task</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../examples/create_a_new_affordance.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Creating a New Affordance</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-overview">Task Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflows">Workflows</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#download-ready-to-use-data">Download Ready-to-Use Data</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-annotated-dataset">Download Annotated Dataset</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-generated-mimic-dataset">Download Generated Mimic Dataset</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-lerobot-converted-data">Download LeRobot Converted Data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-trained-gr00t-checkpoint">Download Trained GR00T Checkpoint</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflow-1-environment-setup-and-validation">Workflow #1: Environment Setup and Validation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-isaac-lab-arena">Step 1: Start Isaac Lab - Arena</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-understand-the-environment-components">Step 2: Understand the Environment Components</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-validate-environment-with-demo-replay">Step 3: Validate Environment with Demo Replay</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflow-2-teleoperation-data-collection">Workflow #2: Teleoperation Data Collection</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-install-isaac-xr-teleop-app-on-vision-pro">Step 1: Install Isaac XR Teleop App on Vision Pro</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-cloudxr-runtime-container">Step 2: Start CloudXR Runtime Container</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-start-isaac-lab-arena-recording">Step 3: Start Isaac Lab - Arena Recording</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-connect-vision-pro-and-record">Step 4: Connect Vision Pro and Record</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflow-3-data-generation">Workflow #3: Data Generation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-annotate-demonstrations">Step 1: Annotate Demonstrations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-generate-augmented-dataset">Step 2: Generate Augmented Dataset</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-validate-generated-data">Step 3: Validate Generated Data</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflow-4-policy-post-training">Workflow #4: Policy Post-training</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-switch-to-docker-container-with-gr00t-dependencies">Step 1: Switch to Docker Container with GR00T Dependencies</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-convert-to-lerobot-format">Step 2: Convert to LeRobot Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-post-train-policy-optional">Step 3: Post-train Policy (Optional)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflow-5-closed-loop-policy-inference-and-evaluation">Workflow #5: Closed-Loop Policy Inference and Evaluation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-configure-closed-loop-inference">Step 1: Configure Closed-Loop Inference</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-single-environment-evaluation">Step 2: Run Single Environment Evaluation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-run-parallel-evaluation-recommended">Step 3: Run Parallel Evaluation (Recommended)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-analyze-results">Step 4: Analyze Results</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-not-found-during-closed-loop-policy-inference">Policy Not Found During Closed-Loop Policy Inference</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -7,8 +7,8 @@ You'll launch the container and run isaac_arena inside it.
 
 We have two container versions:
 
-- **Without GR00T:** Minimal dependencies for basic isaac_arena
-- **With GR00T:** Additional dependencies for GR00T policy support
+- **Default:** Includes minimal dependencies for basic isaac_arena
+- **With GR00T Dependencies:** Includes additional dependencies for GR00T policy support
 
 First clone the repository:
 
@@ -16,31 +16,28 @@ First clone the repository:
 :isaaclab_arena_git_clone_code_block:
 
 
-Then launch the container:
+Launch the Container
+--------------------
 
 .. tabs::
-    .. tab:: Without GR00T
+    .. tab:: Default
 
-        .. code-block:: bash
+        :docker_run_default:
 
-            ./docker/run_docker.sh
+    .. tab:: With GR00T Dependencies
 
-    .. tab:: With GR00T
-
-        .. code-block:: bash
-
-            ./docker/run_docker.sh -g
+        :docker_run_gr00t:
 
 Optionally verify installation by running tests:
 
 .. tabs::
-    .. tab:: Without GR00T
+    .. tab:: Default
 
         .. code-block:: bash
 
             pytest -s isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
 
-    .. tab:: With GR00T
+    .. tab:: With GR00T Dependencies
 
         .. code-block:: bash
 
