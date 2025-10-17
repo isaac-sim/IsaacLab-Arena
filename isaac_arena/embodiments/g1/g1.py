@@ -29,7 +29,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.action_manager import ActionTermCfg
-from isaaclab.sensors import CameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -49,11 +49,11 @@ class G1EmbodimentBase(EmbodimentBase):
 
     name = "g1"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(self, enable_cameras: bool = False, is_tiled_camera: bool = False, initial_pose: Pose | None = None):
         super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = G1SceneCfg()
-        self.camera_config = G1CameraCfg()
+        self.camera_config = G1CameraCfg(is_tiled_camera=is_tiled_camera)
         self.action_config = MISSING
         self.observation_config = MISSING
         self.event_config = MISSING
@@ -298,22 +298,35 @@ class G1SceneCfg:
 class G1CameraCfg:
     """Configuration for cameras."""
 
-    robot_head_cam = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
-        update_period=0.0,
-        height=480,
-        width=640,
-        data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=0.169,  # Changed focal length to 1.69 mm, FOVs preserved by scaling apertures
-            horizontal_aperture=0.693,  # Scaled to preserve 128 horizontal FOV
-            vertical_aperture=0.284,  # Scaled to preserve 80 vertical FOV
-            clipping_range=(0.1, 5),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=(0.04485, 0.0, 0.35325), rot=(0.32651, -0.62721, 0.62721, -0.32651), convention="ros"
-        ),
-    )
+    is_tiled_camera = True
+
+    robot_head_cam: CameraCfg | TiledCameraCfg = MISSING
+
+    def __post_init__(self):
+        CameraClass = TiledCameraCfg if self.is_tiled_camera else CameraCfg
+        OffsetClass = CameraClass.OffsetCfg
+
+        common_kwargs = dict(
+            prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
+            update_period=0.0,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=0.169,  # 1.69 mm; FOV preserved via apertures
+                horizontal_aperture=0.693,  # preserves ~128° horiz FOV
+                vertical_aperture=0.284,  # preserves ~80° vert FOV
+                clipping_range=(0.1, 5),
+            ),
+        )
+
+        offset = OffsetClass(
+            pos=(0.04485, 0.0, 0.35325),
+            rot=(0.32651, -0.62721, 0.62721, -0.32651),
+            convention="ros",
+        )
+
+        self.robot_head_cam = CameraClass(offset=offset, **common_kwargs)
 
 
 @configclass
