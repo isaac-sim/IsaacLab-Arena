@@ -15,6 +15,7 @@
 import dataclasses
 import keyword
 import types
+from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
 
@@ -121,47 +122,39 @@ def make_configclass(
     )
 
 
-def get_field_info(config_class: configclass) -> list[tuple[str, type, Any]]:
+def get_field_info(field: dataclasses.Field) -> tuple[str, type, Any]:
     """Get the field info of a configclass.
-
     Args:
         config_class: The configclass to get the field info of.
-
     Returns:
         A list of tuples, where each tuple contains:
             - the name
       - the type
       - and the (optional) default value or default factory of a field.
     """
-    field_info_list = []
-    for f in dataclasses.fields(config_class):
-        field_info = (f.name, f.type)
-        if f.default is not dataclasses.MISSING:
-            field_info += (f.default,)
-        elif f.default_factory is not dataclasses.MISSING:
-            field_info += (f.default_factory,)
-        field_info_list.append(field_info)
-    return field_info_list
+    field_info = (field.name, field.type)
+    if field.default is not dataclasses.MISSING:
+        field_info += (field.default,)
+    elif field.default_factory is not dataclasses.MISSING:
+        field_info += (field.default_factory,)
+    return field_info
 
 
 def combine_configclasses(name: str, *input_configclasses: type, bases: tuple[type, ...] = ()) -> configclass:
-    """Combine a list of configclasses into a single configclass.
+    field_map: "OrderedDict[str, tuple]" = OrderedDict()
+    for cls in input_configclasses:
+        for current_field in dataclasses.fields(cls):
+            if current_field.name in field_map:
+                previous_field = field_map[current_field.name]
+                # same → skip; different types → error; else last wins
+                # The 1 field index is the type
+                if previous_field[1] == current_field.type:
+                    continue
+                raise ValueError(f"Field {current_field.name} has different types in the input configclasses")
+            field_info = get_field_info(current_field)
+            field_map[current_field.name] = field_info
 
-    Args:
-        name: The name of the new configclass.
-        input_configclasses: The configclasses to combine.
-
-    Returns:
-        A new configclass that is the combination of the input configclasses.
-    """
-    field_info_list = []
-    for d in input_configclasses:
-        field_info_list.extend(get_field_info(d))
-    # Check for duplicate field names
-    names = [f[0] for f in field_info_list]
-    unique_names = list(set(names))
-    assert len(unique_names) == len(names), "Duplicate field names in the input configclasses"
-    new_configclass = make_configclass(name, field_info_list, bases=bases)
+    new_configclass = make_configclass(name, list(field_map.values()), bases=bases)
     new_configclass.__post_init__ = combine_post_inits(*input_configclasses)
     return new_configclass
 
@@ -201,9 +194,16 @@ def combine_post_inits(*cls_list: type) -> Callable:
         A function that calls the __post_init__ method of each class.
     """
     post_init_list: list[Callable] = []
+    seen: set[object] = set()
     for cls in cls_list:
-        if hasattr(cls, "__post_init__"):
-            post_init_list.append(cls.__post_init__)
+        f = getattr(cls, "__post_init__", None)
+        if f is None:
+            continue
+        key = getattr(f, "__func__", f)  # handle bound methods just in case
+        if key in seen:
+            continue
+        seen.add(key)
+        post_init_list.append(f)
 
     def new_post_init(self):
         for post_init in post_init_list:

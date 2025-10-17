@@ -18,6 +18,35 @@ from isaaclab.utils import configclass
 from isaac_arena.utils.configclass import combine_configclasses
 
 
+def test_combine_configclasses_with_multiple_inheritance():
+
+    # Side A - A class with a base class
+    @configclass
+    class FooCfgBase:
+        a: int = 1
+        b: int = 2
+
+    @configclass
+    class FooCfg(FooCfgBase):
+        c: int = 3
+        a: int = 4
+
+    # Side B - A class without a base class
+    @configclass
+    class BarCfg(FooCfgBase):
+        d: int = 4
+        e: int = 5
+
+    # Combine the two classes
+    CombinedCfg = combine_configclasses("CombinedCfg", FooCfg, BarCfg, bases=(FooCfgBase,))
+    assert CombinedCfg().d() == 4
+    assert CombinedCfg().c() == 3
+    assert CombinedCfg().b() == 2
+    assert CombinedCfg().a() == 4
+    assert CombinedCfg().e() == 5
+    assert isinstance(CombinedCfg(), FooCfgBase)
+
+
 def test_combine_configclasses_with_inheritance():
 
     # Side A - A class with a base class
