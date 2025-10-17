@@ -61,7 +61,31 @@ def isaaclab_arena_code_link(app: Sphinx, _: Any, source: list[str]) -> None:
     source[0] = re.sub(r":isaaclab_arena_code_link:`<(?P<relative_path>.*)>`", replacer, source[0])
 
 
+def docker_run_command_replacer(app: Sphinx, _: Any, source: list[str]) -> None:
+    """Replaces docker run command directives with code blocks."""
+
+    # Default docker run command
+    def default_replacer(_: Any) -> str:
+        return """
+.. code-block:: bash
+
+    ./docker/run_docker.sh
+"""
+
+    # Docker run with GR00T dependencies
+    def gr00t_replacer(_: Any) -> str:
+        return """
+.. code-block:: bash
+
+    ./docker/run_docker.sh -g
+"""
+
+    source[0] = re.sub(r":docker_run_default:", default_replacer, source[0])
+    source[0] = re.sub(r":docker_run_gr00t:", gr00t_replacer, source[0])
+
+
 def setup(app: Sphinx) -> None:
     app.connect("source-read", isaaclab_arena_git_clone_code_block)
     app.connect("source-read", isaaclab_arena_code_link)
+    app.connect("source-read", docker_run_command_replacer)
     app.add_config_value("isaaclab_arena_docs_config", {}, "env")
