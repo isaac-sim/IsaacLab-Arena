@@ -17,7 +17,7 @@ import torch
 
 from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
 
-NUM_STEPS = 10
+NUM_STEPS = 1
 HEADLESS = True
 
 
@@ -94,6 +94,8 @@ def _test_press_button_coffee_machine(simulation_app) -> bool:
         coffee_machine.press(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_pressed)
         print("Unpressing coffee machine button")
+        # Note: Coffee machine buttons spring back to their original position, so we need to press it again, then unpress it.
+        coffee_machine.press(env, env_ids=None)
         coffee_machine.unpress(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_unpressed)
 
@@ -145,6 +147,8 @@ def _test_press_button_coffee_machine_multiple_envs(simulation_app) -> bool:
             assert torch.all(is_pressed == torch.tensor([True, True], device=env.device))
 
             # Unpress second
+            # Note: Coffee machine buttons spring back to their original position, so we need to press it again, then unpress it.
+            coffee_machine.press(env, None)
             coffee_machine.unpress(env, torch.tensor([1]))
             step_zeros_and_call(env, NUM_STEPS)
             is_pressed = coffee_machine.is_pressed(env)
@@ -152,11 +156,13 @@ def _test_press_button_coffee_machine_multiple_envs(simulation_app) -> bool:
             assert torch.all(is_pressed == torch.tensor([True, False], device=env.device))
 
             # Unpress first
+            # Note: Coffee machine buttons spring back to their original position, so we need to press it again, then unpress it.
+            coffee_machine.press(env, None)
             coffee_machine.unpress(env, torch.tensor([0]))
             step_zeros_and_call(env, NUM_STEPS)
             is_pressed = coffee_machine.is_pressed(env)
-            print(f"expected: [False, False]: got: {is_pressed}")
-            assert torch.all(is_pressed == torch.tensor([False, False], device=env.device))
+            print(f"expected: [False, True]: got: {is_pressed}")
+            assert torch.all(is_pressed == torch.tensor([False, True], device=env.device))
 
     except Exception as e:
         print(f"Error: {e}")

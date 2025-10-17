@@ -87,3 +87,6 @@ core.*
 
 # venvs
 **venv_docs/
+
+# Development and cache folders
+/__*
