@@ -29,7 +29,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.action_manager import ActionTermCfg
-from isaaclab.sensors import CameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -68,37 +68,66 @@ class G1EmbodimentBase(EmbodimentBase):
         )
 
 
+# Default camera offset pose
+_DEFAULT_G1_CAMERA_OFFSET = Pose(
+    position_xyz=(0.04485, 0.0, 0.35325), rotation_wxyz=(0.32651, -0.62721, 0.62721, -0.32651)
+)
+
+
 @register_asset
 class G1WBCJointEmbodiment(G1EmbodimentBase):
-    """Embodiment for the G1 robot with WBC policy and direct joint upperbody control."""
+    """Embodiment for the G1 robot with WBC policy and direct joint upperbody control.
+
+    By default uses tiled camera for efficient parallel evaluation.
+    """
 
     name = "g1_wbc_joint"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
+        use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+    ):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.event_config = G1WBCJointEventCfg()
+        # Create camera config with private attributes to avoid scene parser issues
+        self.camera_config._is_tiled_camera = use_tiled_camera
+        self.camera_config._camera_offset = camera_offset
 
 
 @register_asset
 class G1WBCPinkEmbodiment(G1EmbodimentBase):
-    """Embodiment for the G1 robot with WBC policy and PINK IK upperbody control."""
+    """Embodiment for the G1 robot with WBC policy and PINK IK upperbody control.
+
+    By default uses regular camera for single-environment applications.
+    """
 
     name = "g1_wbc_pink"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
+        use_tiled_camera: bool = False,  # Default to regular for single env
+    ):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
         self.event_config = G1WBCPinkEventCfg()
+        # Create camera config with private attributes to avoid scene parser issues
+        self.camera_config._is_tiled_camera = use_tiled_camera
+        self.camera_config._camera_offset = camera_offset
 
 
 @configclass
 class G1SceneCfg:
 
     # Gear'WBC G1 config, used in WBC training
-    # TODO(xinjie.yao, 2025.09.15): Add G1 USD to isaac arena assets
     robot: ArticulationCfg = ArticulationCfg(
         spawn=sim_utils.UsdFileCfg(
             usd_path=f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
@@ -298,22 +327,37 @@ class G1SceneCfg:
 class G1CameraCfg:
     """Configuration for cameras."""
 
-    robot_head_cam = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
-        update_period=0.0,
-        height=480,
-        width=640,
-        data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=0.169,  # Changed focal length to 1.69 mm, FOVs preserved by scaling apertures
-            horizontal_aperture=0.693,  # Scaled to preserve 128 horizontal FOV
-            vertical_aperture=0.284,  # Scaled to preserve 80 vertical FOV
-            clipping_range=(0.1, 5),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=(0.04485, 0.0, 0.35325), rot=(0.32651, -0.62721, 0.62721, -0.32651), convention="ros"
-        ),
-    )
+    robot_head_cam: CameraCfg | TiledCameraCfg = MISSING
+
+    def __post_init__(self):
+        # Get configuration from private attributes set by embodiment constructor
+        # These use getattr with defaults to avoid scene parser treating them as assets
+        is_tiled_camera = getattr(self, "_is_tiled_camera", True)
+        camera_offset = getattr(self, "_camera_offset", _DEFAULT_G1_CAMERA_OFFSET)
+
+        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
+        OffsetClass = CameraClass.OffsetCfg
+
+        common_kwargs = dict(
+            prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
+            update_period=0.0,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=0.169,  # 1.69 mm; FOV preserved via apertures
+                horizontal_aperture=0.693,  # preserves ~128° horiz FOV
+                vertical_aperture=0.284,  # preserves ~80° vert FOV
+                clipping_range=(0.1, 5),
+            ),
+        )
+        offset = OffsetClass(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_wxyz,
+            convention="ros",
+        )
+
+        self.robot_head_cam = CameraClass(offset=offset, **common_kwargs)
 
 
 @configclass

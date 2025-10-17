@@ -31,7 +31,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
@@ -83,6 +83,9 @@ ARM_JOINT_NAMES_LIST = [
     "R_thumb_distal_joint",
 ]
 
+# Default camera offset pose
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
+
 
 @register_asset
 class GR1T2EmbodimentBase(EmbodimentBase):
@@ -94,11 +97,11 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
-        self.camera_config = GR1T2CameraCfg()
         self.observation_config = GR1T2ObservationsCfg()
         self.event_config = GR1T2EventCfg()
         self.mimic_env = GR1T2MimicEnv
         self.action_config = MISSING
+        self.camera_config = GR1T2CameraCfg()
 
         # XR settings
         # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
@@ -110,28 +113,52 @@ class GR1T2EmbodimentBase(EmbodimentBase):
 
 @register_asset
 class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
-    """Embodiment for the GR1T2 robot."""
+    """Embodiment for the GR1T2 robot with joint position control.
+
+    By default uses tiled camera for efficient parallel evaluation.
+    """
 
     name = "gr1_joint"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+    ):
         super().__init__(enable_cameras, initial_pose)
         # Joint positional control
         self.action_config = GR1T2JointPositionActionCfg()
         # Tuned arm joints pd gains, smoother motions and less oscillations
         self.scene_config = GR1T2HighPDSceneCfg()
+        # Create camera config with private attributes to avoid scene parser issues
+        self.camera_config._is_tiled_camera = use_tiled_camera
+        self.camera_config._camera_offset = camera_offset
 
 
 @register_asset
 class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
-    """Embodiment for the GR1T2 robot."""
+    """Embodiment for the GR1T2 robot with PINK IK end-effector control.
+
+    By default uses regular camera for single-environment applications.
+    """
 
     name = "gr1_pink"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        use_tiled_camera: bool = False,  # Default to regular for single env
+    ):
         super().__init__(enable_cameras, initial_pose)
         # Pink IK EEF control
         self.action_config = GR1T2ActionsCfg()
+        # Create camera config with private attributes to avoid scene parser issues
+        self.camera_config._is_tiled_camera = use_tiled_camera
+        self.camera_config._camera_offset = camera_offset
 
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
@@ -314,19 +341,32 @@ class GR1T2HighPDSceneCfg:
 class GR1T2CameraCfg:
     """Configuration for cameras."""
 
-    robot_pov_cam: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
-        update_period=0.0,
-        height=512,
-        width=512,
-        data_types=["rgb", "distance_to_image_plane"],
-        spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
-        offset=CameraCfg.OffsetCfg(
-            pos=(0.12515, 0.0, 0.06776),
-            rot=(0.62, 0.32, -0.32, -0.63),
+    robot_pov_cam: CameraCfg | TiledCameraCfg = MISSING
+
+    def __post_init__(self):
+        # Get configuration from private attributes set by embodiment constructor
+        # These use getattr with defaults to avoid scene parser treating them as assets
+        is_tiled_camera = getattr(self, "_is_tiled_camera", True)
+        camera_offset = getattr(self, "_camera_offset", _DEFAULT_CAMERA_OFFSET)
+
+        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
+        OffsetClass = CameraClass.OffsetCfg
+
+        common_kwargs = dict(
+            prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+            update_period=0.0,
+            height=512,
+            width=512,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+        )
+        offset = OffsetClass(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_wxyz,
             convention="opengl",
-        ),
-    )
+        )
+
+        self.robot_pov_cam = CameraClass(offset=offset, **common_kwargs)
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py

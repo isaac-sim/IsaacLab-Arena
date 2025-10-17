@@ -108,7 +108,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # Pack inputs to dictionary and run the inference
         policy_observations = {
-            "annotation.human.task_description": [self.policy_config.language_instruction],
+            "annotation.human.task_description": [self.policy_config.language_instruction] * self.num_envs,
             "video.ego_view": rgb.reshape(
                 self.num_envs,
                 1,

@@ -44,6 +44,7 @@ class G1HomiePolicyV2(WBCPolicy):
         parent_dir = pathlib.Path(__file__).parent.parent
         self.config = load_config(str(parent_dir / config_path))
         self.robot_model = robot_model
+        self.num_envs = num_envs
 
         model_path_1, model_path_2 = model_path.split(",")
         model_path_1_local = retrieve_file_path(model_path_1, force_download=True)
@@ -55,11 +56,11 @@ class G1HomiePolicyV2(WBCPolicy):
         # Initialize observation history buffer
         self.observation = None
         self.obs_history = collections.deque(maxlen=self.config["obs_history_len"])
-        self.obs_buffer = np.zeros((num_envs, self.config["num_obs"]), dtype=np.float32)
+        self.obs_buffer = np.zeros((self.num_envs, self.config["num_obs"]), dtype=np.float32)
 
         # Initialize state variables
         self.use_policy_action = True
-        self.action = np.zeros((num_envs, self.config["num_actions"]), dtype=np.float32)
+        self.action = np.zeros((self.num_envs, self.config["num_actions"]), dtype=np.float32)
         self.target_dof_pos = self.config["default_angles"].copy()
         self.cmd = self.config["cmd_init"].copy()
         self.height_cmd = self.config["height_cmd"]
@@ -67,7 +68,7 @@ class G1HomiePolicyV2(WBCPolicy):
         self.roll_cmd = self.config["rpy_cmd"][0]
         self.pitch_cmd = self.config["rpy_cmd"][1]
         self.yaw_cmd = self.config["rpy_cmd"][2]
-        self.gait_indices = torch.zeros((num_envs, 1), dtype=torch.float32)
+        self.gait_indices = torch.zeros((self.num_envs, 1), dtype=torch.float32)
 
     def reset(self, env_ids: torch.Tensor):
         """Reset the policy.
@@ -75,16 +76,15 @@ class G1HomiePolicyV2(WBCPolicy):
         Args:
             env_ids: The environment ids to reset
         """
-        num_envs = env_ids.shape[0]
-        self.gait_indices = torch.zeros((num_envs, 1), dtype=torch.float32)
+        self.gait_indices = torch.zeros((self.num_envs, 1), dtype=torch.float32)
         # Initialize observation history buffer
         self.observation = None
         self.obs_history = collections.deque(maxlen=self.config["obs_history_len"])
-        self.obs_buffer = np.zeros((num_envs, self.config["num_obs"]), dtype=np.float32)
+        self.obs_buffer = np.zeros((self.num_envs, self.config["num_obs"]), dtype=np.float32)
 
         # Initialize state variables
         self.use_policy_action = True
-        self.action = np.zeros((num_envs, self.config["num_actions"]), dtype=np.float32)
+        self.action = np.zeros((self.num_envs, self.config["num_actions"]), dtype=np.float32)
         self.target_dof_pos = self.config["default_angles"].copy()
         self.cmd = self.config["cmd_init"].copy()
         self.height_cmd = self.config["height_cmd"]
@@ -138,7 +138,7 @@ class G1HomiePolicyV2(WBCPolicy):
         n_joints = len(body_indices)
 
         # Extract joint data
-        num_envs = observation["q"].shape[0]
+        assert self.num_envs == observation["q"].shape[0]
         qj = observation["q"][:, body_indices].copy()
         dqj = observation["dq"][:, body_indices].copy()
 
@@ -165,7 +165,7 @@ class G1HomiePolicyV2(WBCPolicy):
 
         # Create single observation
 
-        single_obs = np.zeros((num_envs, single_obs_dim), dtype=np.float32)
+        single_obs = np.zeros((self.num_envs, single_obs_dim), dtype=np.float32)
         single_obs[:, 0:3] = self.cmd[:3] * self.config["cmd_scale"]
         single_obs[:, 3:4] = np.array([self.height_cmd])
         single_obs[:, 4:7] = np.stack([self.roll_cmd, self.pitch_cmd, self.yaw_cmd], axis=1)

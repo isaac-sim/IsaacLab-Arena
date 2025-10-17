@@ -36,3 +36,9 @@ class PolicyBase(ABC):
             torch.Tensor: The action to take.
         """
         pass
+
+    def reset(self, env: gym.Env) -> None:
+        """
+        Reset the policy.
+        """
+        pass

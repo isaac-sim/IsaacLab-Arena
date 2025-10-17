@@ -47,6 +47,7 @@ def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseCon
                 robot_model=robot_model,
                 config_path=wbc_config.policy_config_path,
                 model_path=wbc_config.wbc_model_path,
+                num_envs=num_envs,
             )
         else:
             raise ValueError(

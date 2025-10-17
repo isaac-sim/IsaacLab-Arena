@@ -1,6 +1,6 @@
 # This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
 # TODO(xinjie.yao, 2025-10-07): change Hardcoded model_path to some releasable path
-model_path: /datasets/ckpts/gn1_5_gr1_microwave_open_ckpts/
+model_path: /datasets/ckpts/gn1_5_gr1_microwave_open_ckpts/v2
 language_instruction: "Reach out to the microwave and open it."
 action_horizon: 16
 embodiment_tag: gr1

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+import random
 import torch
 import tqdm
 
@@ -31,6 +33,13 @@ def main():
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
+
+        if args_cli.seed is not None:
+            env.seed(args_cli.seed)
+            torch.manual_seed(args_cli.seed)
+            np.random.seed(args_cli.seed)
+            random.seed(args_cli.seed)
+
         obs, _ = env.reset()
 
         # NOTE(xinjieyao, 2025-09-29): General rule of thumb is to have as many non-standard python
@@ -45,8 +54,11 @@ def main():
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
+                # NOTE(xinjieyao, 2025-10-13): For policy closedloop, if any env terminates (i.e. succeeds/timesout), reset the policy; As in parallel
+                # envs, each env is running async, it may be cases where one env completes when others are not done.
+                # Given GR00T policy is a single-shot policy, it is safe to reset the policy. However, for other policies, we need to be careful.
                 if terminated.any() or truncated.any():
-                    obs, _ = env.reset()
+                    policy.reset()
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
