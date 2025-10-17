@@ -31,6 +31,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg  # noqa: F401
 from isaaclab.utils import configclass
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 import isaac_arena.terms.transforms as transforms_terms
 from isaac_arena.arena_g1.g1_env.mdp import g1_events as g1_events_mdp
@@ -100,7 +101,7 @@ class G1SceneCfg:
     # TODO(xinjie.yao, 2025.09.15): Add G1 USD to isaac arena assets
     robot: ArticulationCfg = ArticulationCfg(
         spawn=sim_utils.UsdFileCfg(
-            usd_path="omniverse://isaac-dev.ov.nvidia.com/Isaac/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
+            usd_path=f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
