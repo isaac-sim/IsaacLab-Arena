@@ -29,9 +29,6 @@ def _test_default_assets_registered(simulation_app):
 
     asset_registry = AssetRegistry()
     assert asset_registry is not None
-    num_assets = len(asset_registry.components)
-    print(f"Number of assets registered: {num_assets}")
-    assert num_assets > 0
     num_background_assets = len(asset_registry.get_assets_by_tag("background"))
     print(f"Number of background assets registered: {num_background_assets}")
     assert num_background_assets > 0

@@ -19,6 +19,7 @@ import gymnasium as gym
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
+from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
@@ -47,6 +48,17 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
+    # This method gives the arena environment a chance to modify the environment configuration.
+    # This is a workaround to allow user to gradually move to the new configuration system.
+    # THE ORDER MATTERS HERE.
+    # THIS WILL BE REMOVED IN THE FUTURE.
+    def modify_env_cfg(self, env_cfg: IsaacArenaManagerBasedRLEnvCfg) -> IsaacArenaManagerBasedRLEnvCfg:
+        """Modify the environment configuration."""
+        env_cfg = self.arena_env.task.modify_env_cfg(env_cfg)
+        env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
+        env_cfg = self.arena_env.scene.modify_env_cfg(env_cfg)
+        return env_cfg
+
     def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
@@ -69,6 +81,7 @@ class ArenaEnvBuilder:
             "TerminationCfg",
             self.arena_env.task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
+            self.arena_env.embodiment.get_termination_cfg(),
         )
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
@@ -77,7 +90,18 @@ class ArenaEnvBuilder:
         else:
             teleop_device_cfg = None
         metrics = self.arena_env.task.get_metrics()
-        recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
+        metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
+
+        # Base has to be specified explicitly to avoid type errors and not lose inheritance.
+        recorder_manager_cfg = combine_configclass_instances(
+            "RecorderManagerCfg",
+            metrics_recorder_manager_cfg,
+            self.arena_env.task.get_recorder_term_cfg(),
+            self.arena_env.embodiment.get_recorder_term_cfg(),
+            bases=(RecorderManagerBaseCfg,),
+        )
+
+        isaac_arena_env = self.arena_env
 
         # Build the environment configuration
         if not self.args.mimic:
@@ -91,6 +115,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_device_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics,
+                isaac_arena_env=isaac_arena_env,
             )
         else:
             task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
@@ -110,6 +135,7 @@ class ArenaEnvBuilder:
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics,
+                isaac_arena_env=isaac_arena_env,
             )
         return env_cfg
 
@@ -128,6 +154,9 @@ class ArenaEnvBuilder:
         # orchestrate the environment member interaction
         self.orchestrate()
         cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+        # THIS IS A WORKAROUND TO ALLOW USER TO GRADUALLY MOVE TO THE NEW CONFIGURATION SYSTEM.
+        # THIS WILL BE REMOVED IN THE FUTURE.
+        cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
         gym.register(
             id=name,

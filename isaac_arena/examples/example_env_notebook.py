@@ -23,7 +23,7 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
-
+# %%
 from isaac_arena.examples.example_environments.cli import (
     get_arena_builder_from_cli,
     get_isaac_arena_example_environment_cli_parser,

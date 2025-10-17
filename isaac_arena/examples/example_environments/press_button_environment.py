@@ -36,7 +36,7 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
         background = self.asset_registry.get_asset_by_name("packing_table")()
-        press_object = self.asset_registry.get_asset_by_name("toaster")()
+        press_object = self.asset_registry.get_asset_by_name("coffee_machine")()
 
         assets = [background, press_object]
 
@@ -45,7 +45,7 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        # Put the toaster on the packing table.
+        # Put the coffee_machine on the packing table.
         press_object_pose = Pose(position_xyz=(0.7, 0.4, 0.19), rotation_wxyz=(0.7071, 0.0, 0.0, -0.7071))
         press_object.set_initial_pose(press_object_pose)
 

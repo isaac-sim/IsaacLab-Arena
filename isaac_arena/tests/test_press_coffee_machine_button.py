@@ -38,20 +38,20 @@ def get_test_environment(num_envs: int):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()
-    toaster = asset_registry.get_asset_by_name("toaster")()
+    coffee_machine = asset_registry.get_asset_by_name("coffee_machine")()
 
-    # Put the toaster on the packing table.
-    toaster.set_initial_pose(
+    # Put the coffee_machine on the packing table.
+    coffee_machine.set_initial_pose(
         Pose(
             position_xyz=(0.6, -0.00586, 0.22773),
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
     )
 
-    scene = Scene(assets=[background, toaster])
+    scene = Scene(assets=[background, coffee_machine])
 
     isaac_arena_environment = IsaacArenaEnvironment(
-        name="press_button_toaster",
+        name="press_button_coffee_machine",
         embodiment=FrankaEmbodiment(),
         scene=scene,
         task=DummyTask(),
@@ -62,39 +62,39 @@ def get_test_environment(num_envs: int):
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 
-    return env, toaster
+    return env, coffee_machine
 
 
-def _test_press_button_toaster(simulation_app) -> bool:
+def _test_press_button_coffee_machine(simulation_app) -> bool:
 
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
     from isaac_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
-    env, toaster = get_test_environment(num_envs=1)
+    env, coffee_machine = get_test_environment(num_envs=1)
 
     def assert_pressed(env: ManagerBasedEnv, terminated: torch.Tensor):
-        is_pressed = toaster.is_pressed(env)
+        is_pressed = coffee_machine.is_pressed(env)
         assert is_pressed.shape == torch.Size([1])
         assert is_pressed.item()
         if not is_pressed.item():
-            print("Toaster is not pressed")
+            print("Coffee machine is not pressed")
 
     def assert_unpressed(env: ManagerBasedEnv, terminated: torch.Tensor):
-        is_pressed = toaster.is_pressed(env)
+        is_pressed = coffee_machine.is_pressed(env)
         assert is_pressed.shape == torch.Size([1]), "Is pressed shape is not correct"
-        assert not is_pressed.item(), "The toaster is pressed when it should not be"
+        assert not is_pressed.item(), "The coffee machine is pressed when it should not be"
         if is_pressed.item():
-            print("Toaster is pressed")
+            print("Coffee machine is pressed")
 
     try:
 
-        print("Pressing toaster button")
-        toaster.press(env, env_ids=None)
+        print("Pressing coffee machine button")
+        coffee_machine.press(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_pressed)
-        print("Unpressing toaster button")
-        toaster.unpress(env, env_ids=None)
+        print("Unpressing coffee machine button")
+        coffee_machine.unpress(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_unpressed)
 
     except Exception as e:
@@ -107,54 +107,54 @@ def _test_press_button_toaster(simulation_app) -> bool:
     return True
 
 
-def _test_press_button_toaster_multiple_envs(simulation_app) -> bool:
+def _test_press_button_coffee_machine_multiple_envs(simulation_app) -> bool:
 
     from isaac_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, toaster = get_test_environment(num_envs=2)
+    env, coffee_machine = get_test_environment(num_envs=2)
 
     try:
 
         with torch.inference_mode():
             # Press both
-            toaster.press(env, None)
+            coffee_machine.press(env, None)
             step_zeros_and_call(env, NUM_STEPS)
-            is_pressed = toaster.is_pressed(env)
+            is_pressed = coffee_machine.is_pressed(env)
             print(f"expected: [True, True]: got: {is_pressed}")
             assert torch.all(is_pressed == torch.tensor([True, True], device=env.device))
 
             # Unpress both
-            toaster.unpress(env, None)
+            coffee_machine.unpress(env, None)
             step_zeros_and_call(env, NUM_STEPS)
-            is_pressed = toaster.is_pressed(env)
+            is_pressed = coffee_machine.is_pressed(env)
             print(f"expected: [False, False]: got: {is_pressed}")
             assert torch.all(is_pressed == torch.tensor([False, False], device=env.device))
 
             # Press first
-            toaster.press(env, torch.tensor([0]))
+            coffee_machine.press(env, torch.tensor([0]))
             step_zeros_and_call(env, NUM_STEPS)
-            is_pressed = toaster.is_pressed(env)
+            is_pressed = coffee_machine.is_pressed(env)
             print(f"expected: [True, False]: got: {is_pressed}")
             assert torch.all(is_pressed == torch.tensor([True, False], device=env.device))
 
             # Press second
-            toaster.press(env, torch.tensor([1]))
+            coffee_machine.press(env, torch.tensor([1]))
             step_zeros_and_call(env, NUM_STEPS)
-            is_pressed = toaster.is_pressed(env)
+            is_pressed = coffee_machine.is_pressed(env)
             print(f"expected: [True, True]: got: {is_pressed}")
             assert torch.all(is_pressed == torch.tensor([True, True], device=env.device))
 
             # Unpress second
-            toaster.unpress(env, torch.tensor([1]))
+            coffee_machine.unpress(env, torch.tensor([1]))
             step_zeros_and_call(env, NUM_STEPS)
-            is_pressed = toaster.is_pressed(env)
+            is_pressed = coffee_machine.is_pressed(env)
             print(f"expected: [True, False]: got: {is_pressed}")
             assert torch.all(is_pressed == torch.tensor([True, False], device=env.device))
 
             # Unpress first
-            toaster.unpress(env, torch.tensor([0]))
+            coffee_machine.unpress(env, torch.tensor([0]))
             step_zeros_and_call(env, NUM_STEPS)
-            is_pressed = toaster.is_pressed(env)
+            is_pressed = coffee_machine.is_pressed(env)
             print(f"expected: [False, False]: got: {is_pressed}")
             assert torch.all(is_pressed == torch.tensor([False, False], device=env.device))
 
@@ -168,22 +168,22 @@ def _test_press_button_toaster_multiple_envs(simulation_app) -> bool:
     return True
 
 
-def test_press_button_toaster():
+def test_press_button_coffee_machine():
     result = run_simulation_app_function_in_separate_process(
-        _test_press_button_toaster,
+        _test_press_button_coffee_machine,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_press_button_toaster.__name__} failed"
+    assert result, f"Test {_test_press_button_coffee_machine.__name__} failed"
 
 
-def test_press_button_toaster_multiple_envs():
+def test_press_button_coffee_machine_multiple_envs():
     result = run_simulation_app_function_in_separate_process(
-        _test_press_button_toaster_multiple_envs,
+        _test_press_button_coffee_machine_multiple_envs,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_press_button_toaster_multiple_envs.__name__} failed"
+    assert result, f"Test {_test_press_button_coffee_machine_multiple_envs.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_press_button_toaster()
-    test_press_button_toaster_multiple_envs()
+    test_press_button_coffee_machine()
+    test_press_button_coffee_machine_multiple_envs()
