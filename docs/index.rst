@@ -26,35 +26,44 @@ The key components of the workflow are:
 
 A key feature of ``Isaac Lab Arena`` is an easier, more composable interface for creating environments.
 
-The following code snippet shows a simple example(open a microwave door) of how to setup a manager based RL environment using ``isaaclab_arena``.
+Usage Example
+=============
+
+The following code snippet shows a simple example(pick up a tomato soup can and place it in the destination location) of how to setup a manager based RL environment using ``isaaclab_arena``.
 
 .. code-block:: python
 
-   embodiment = asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras) # This will pull the GR1T2 embodiment with cameras enabled.
+   embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True) # This will pull the franka embodiment with cameras enabled.
    background = asset_registry.get_asset_by_name("kitchen")() # This will pull the kitchen background.
-   microwave = asset_registry.get_asset_by_name("microwave")() # This will pull the microwave object.
+   tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")() # This will pull the tomato soup can object.
+   destination_location = ObjectReference( # This will create a reference to the destination location.
+            name="destination_location",
+            prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+            parent_asset=background,
+            object_type=ObjectType.RIGID,
+        )
+   teleop_device = device_registry.get_device_by_name("keyboard")() # This will pull the keyboard teleop device.
 
    # Compose the scene
-   scene = Scene([background, microwave]) # This will compose a scene with the background and microwave and register the microwave as an affordance.
+   scene = Scene([background, tomato_soup_can]) # This will compose a scene with the background and tomato soup can and register the tomato soup can as an affordance.
 
    isaac_arena_environment = IsaacArenaEnvironment(
-      name="gr1_open_microwave",
+      name="franka_kitchen_pickup",
       embodiment=embodiment,
       scene=scene,
-      task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2),
+      task=PickAndPlaceTask(tomato_soup_can, destination, background),
       teleop_device=teleop_device,
    )
 
    env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
    env = env_builder.make_registered() # This will register the environment with the gym registry.
 
-.. figure:: images/kitchen_gr1_arena.gif
+.. figure:: images/franka_kitchen_pickup.gif
    :height: 400px
-   :target: pages/workflows/gr00t_workflows.html
-   :alt: GR1 Open Microwave Task
+   :alt: Franka Kitchen Pickup Task
    :align: center
 
-   GR1 — Open Microwave Task
+   Franka — Kitchen Pickup Task
 
 To get started with ``isaaclab_arena``, please finish the installation process by following the instructions in :doc:`pages/installation` and refer to the :doc:`pages/examples/create_a_new_environment` example.
 
@@ -75,20 +84,21 @@ Below are some example environments built using ``isaaclab_arena``.
 
    * - .. figure:: images/g1_galileo_arena_box_pnp_locomanip.gif
         :height: 400px
-        :target: pages/workflows/gr00t_workflows.html
+        :target: pages/sample_tasks/g1_locomanipulation_box_pick_and_place_task.html
         :alt: G1 Locomanipulation Box Pick and Place Task
         :align: center
         :figclass: gallery-fig
 
         G1 — Locomanipulation: Box Pick & Place
 
-   * - .. figure:: images/franka_kitchen_pickup.gif
+   * - .. figure:: images/kitchen_gr1_arena.gif
         :height: 400px
-        :alt: Franka Kitchen Pickup Task
+        :target: pages/sample_tasks/gr1_open_microwave_task.html
+        :alt: GR1 Open Microwave Task
         :align: center
         :figclass: gallery-fig
 
-        Franka — Kitchen Pickup Task
+        GR1 — Open Microwave Task
 
 Check out more of our examples environments here: `Isaac Arena Examples <https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaac_arena/examples/example_environments>`_.
 
