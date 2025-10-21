@@ -46,6 +46,7 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
    :caption: User's Guide
 
    pages/quickstart/installation
+   pages/quickstart/first_arena_env
 
 .. toctree::
    :maxdepth: 1
