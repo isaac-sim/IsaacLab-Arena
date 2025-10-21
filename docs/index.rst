@@ -1,18 +1,61 @@
 ``Isaac Lab Arena`` Documentation
 =================================
 
-``Isaac Lab Arena`` is an extension to `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
-for providing an environment for robotic policy evaluation.
+``Isaac Lab Arena`` is an extension to `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_.
 
 Isaac Lab Arena is a comprehensive robotics simulation framework that enhances NVIDIA Isaac Lab by providing a composable,
 scalable system for creating diverse simulation environments and evaluating robot learning policies.
 The framework enables researchers and developers to rapidly prototype and test robotic tasks with various robot embodiments,
 objects, and environments.
 
+.. figure:: images/isaaclab_arena_workflow.png
+   :width: 100%
+   :alt: Isaac Lab Arena Workflow
+   :align: center
+
+   IsaacLab Arena Workflow Overview
+
+
+The key components of the workflow are:
+
+- **Scene Setup**: Define the scene layout, add asset configurations to interact with objects in interest in the scene. See :doc:`pages/concepts/concept_scene_design` for more details.
+- **Embodiment Setup**: Define the robot embodiment, its observations, actions, sensors etc. See :doc:`pages/concepts/concept_embodiment_design` for more details.
+- **Task Setup**: Define the task and its metrics. See :doc:`pages/concepts/concept_tasks_design` for more details.
+- **Affordance Setup**: Define the affordances(interactable objects) and their interactions. See :doc:`pages/concepts/concept_affordances_design` for more details.
+- **Evaluation**: Evaluate the policy and its performance in a simple and straightforward manner. See :doc:`pages/concepts/concept_metrics_design` for more details.
+
 A key feature of ``Isaac Lab Arena`` is an easier, more composable interface for creating environments.
 
+The following code snippet shows a simple example(open a microwave door) of how to setup a manager based RL environment using ``isaaclab_arena``.
 
-.. _quickstart:
+.. code-block:: python
+
+   embodiment = asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras) # This will pull the GR1T2 embodiment with cameras enabled.
+   background = asset_registry.get_asset_by_name("kitchen")() # This will pull the kitchen background.
+   microwave = asset_registry.get_asset_by_name("microwave")() # This will pull the microwave object.
+
+   # Compose the scene
+   scene = Scene([background, microwave]) # This will compose a scene with the background and microwave and register the microwave as an affordance.
+
+   isaac_arena_environment = IsaacArenaEnvironment(
+      name="gr1_open_microwave",
+      embodiment=embodiment,
+      scene=scene,
+      task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2),
+      teleop_device=teleop_device,
+   )
+
+   env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
+   env = env_builder.make_registered() # This will register the environment with the gym registry.
+
+.. figure:: images/isaaclab_arena_workflow.png
+   :width: 100%
+   :alt: GR1 Open Microwave Task
+   :align: center
+
+   GR1 — Open Microwave Task
+
+To get started with ``isaaclab_arena``, please finish the installation process by following the instructions in :doc:`pages/installation` and refer to the :doc:`pages/examples/create_a_new_environment` example.
 
 Installation
 ============
@@ -25,22 +68,34 @@ Examples
 
 Below are some example environments built using ``isaaclab_arena``.
 
+.. list-table::
+   :class: gallery
+   :widths: auto
 
- .. list-table::
-    :class: gallery
-    :widths: auto
+   * - .. figure:: images/g1_galileo_arena_box_pnp_locomanip.gif
+        :height: 400px
+        :target: pages/workflows/gr00t_workflows.html
+        :alt: G1 Locomanipulation Box Pick and Place Task
+        :align: center
+        :figclass: gallery-fig
 
-    * - .. image:: images/g1_galileo_arena_box_pnp_locomanip.gif
-          :height: 400px
-          :target: pages/workflows/gr00t_workflows.html
-    * - .. image:: images/kitchen_gr1_arena.gif
-          :height: 400px
-          :target: pages/workflows/gr00t_workflows.html
+        G1 — Locomanipulation: Box Pick & Place
 
+   * - .. figure:: images/kitchen_gr1_arena.gif
+        :height: 400px
+        :target: pages/workflows/gr00t_workflows.html
+        :alt: GR1 Open Microwave Task
+        :align: center
+        :figclass: gallery-fig
+
+        GR1 — Open Microwave Task
 
 License
 -------
-This code is under an `open-source license <https://github.com/isaac-sim/isaac_arena/blob/main/LICENSE.md>`_ (Apache 2.0).
+This code is under an `open-source license <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/LICENSE.md>`_ (Apache 2.0).
+
+TABLE OF CONTENTS
+=================
 
 .. toctree::
    :maxdepth: 1
@@ -67,8 +122,8 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
    :maxdepth: 1
    :caption: Sample Tasks
 
-   pages/Sample Tasks/g1_locomanipulation_box_pick_and_place_task
-   pages/Sample Tasks/gr1_open_microwave_task
+   pages/sample_tasks/g1_locomanipulation_box_pick_and_place_task
+   pages/sample_tasks/gr1_open_microwave_task
 
 .. toctree::
    :maxdepth: 1
