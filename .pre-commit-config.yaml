@@ -18,6 +18,7 @@ repos:
       - id: check-added-large-files
         args: ["--maxkb=2000"]  # restrict files more than 2 MB. Should use git-lfs instead.
       - id: check-yaml
+        exclude: ^osmo/
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-executables-have-shebangs
