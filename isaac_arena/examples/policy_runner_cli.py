@@ -26,7 +26,7 @@ def add_zero_action_arguments(parser: argparse.ArgumentParser) -> None:
     zero_action_group.add_argument(
         "--num_steps",
         type=int,
-        default=100,
+        default=10000,
         help="Number of steps to run the policy for (only used with zero action policy)",
     )
 
