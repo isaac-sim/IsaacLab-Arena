@@ -65,7 +65,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
 
    Franka — Kitchen Pickup Task
 
-To get started with ``isaaclab_arena``, please finish the installation process by following the instructions in :doc:`pages/installation` and refer to the :doc:`pages/examples/create_a_new_environment` example.
+To get started with ``isaaclab_arena``, please finish the installation process by following the instructions in :doc:`pages/quickstart/installation` and refer to the :doc:`pages/quickstart/first_arena_env` example.
 
 Installation
 ============
