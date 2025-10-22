@@ -18,7 +18,6 @@ Installation
 ============
 
 ``isaaclab_arena`` version ``v0.1`` only supports installation from source in a docker container.
-See :doc:`pages/installation` for more options.
 
 Examples
 ========
@@ -46,7 +45,8 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
    :maxdepth: 1
    :caption: User's Guide
 
-   pages/installation
+   pages/quickstart/installation
+   pages/quickstart/first_arena_env
 
 .. toctree::
    :maxdepth: 1
@@ -67,8 +67,8 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
    :maxdepth: 1
    :caption: Sample Tasks
 
-   pages/Sample Tasks/g1_locomanipulation_box_pick_and_place_task
-   pages/Sample Tasks/gr1_open_microwave_task
+   pages/sample_tasks/g1_locomanipulation_box_pick_and_place_task
+   pages/sample_tasks/gr1_open_microwave_task
 
 .. toctree::
    :maxdepth: 1
