@@ -22,11 +22,15 @@ Launch the Container
 .. tabs::
     .. tab:: Default
 
-        :docker_run_default:
+        .. code-block:: bash
+
+            ./docker/run_docker.sh
 
     .. tab:: With GR00T Dependencies
 
-        :docker_run_gr00t:
+        .. code-block:: bash
+
+            ./docker/run_docker.sh -g
 
 Optionally verify installation by running tests:
 
