@@ -68,8 +68,24 @@ The complete pipeline includes the following workflows:
 .. note::
    You can skip workflow #2-#4 by using the provided pre-generated datasets or post-trained checkpoints. See `Download Ready-to-Use Data`_ section.
 
+
+
 Download Ready-to-Use Data
 ---------------------------
+
+You can start at intermediate steps in the workflow by downloading an (intermediate) dataset or checkpoint.
+
+Prerequisites
+^^^^^^^^^^^^^
+
+To download the pre-made datasets and checkpoints you need to
+`install <https://huggingface.co/docs/huggingface_hub/installation>`_
+and login to Hugging Face CLI.
+
+.. code-block:: bash
+
+   pip install -U "huggingface_hub[cli]"
+   huggingface-cli login
 
 Download Annotated Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -79,8 +95,6 @@ Download the pre-recorded annotated dataset for quick start:
 Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
-
-   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
@@ -99,8 +113,6 @@ Download the pre-generated dataset using Isaac Lab Mimic:
 Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
-
-   huggingface-cli login
 
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
@@ -121,12 +133,11 @@ Make sure you setup Hugging Face CLI outside the container by following the inst
 
 .. code-block:: bash
 
-   huggingface-cli login
-
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
-       lerobot \
+       --repo-type dataset \
        --local-dir $YOUR_LOCAL_DATA_DIR   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+
 
 This dataset is converted from the Mimic generated dataset with `Step 2: Convert to LeRobot Format`_.
 To use it for policy post-training, you can continue following `Step 3: Post-Train Policy (Optional)`_ in `Workflow #4: Policy Post-Training`_.
@@ -140,8 +151,6 @@ Download the trained GR00T N1.5 policy checkpoint:
 Make sure you setup Hugging Face CLI outside the container by following the instructions in the `Hugging Face CLI Installation <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
 .. code-block:: bash
-
-   huggingface-cli login
 
    huggingface-cli download \
        nvidia/GN1x-Tuned-Arena-GR1-Manipulation \

@@ -50,6 +50,13 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
 
 .. toctree::
    :maxdepth: 1
+   :caption: Workflows
+
+   pages/workflows/g1_locomanipulation_box_pick_and_place_task
+   pages/workflows/gr1_open_microwave_task
+
+.. toctree::
+   :maxdepth: 1
    :caption: Concepts
 
    pages/concepts/concept_affordances_design
@@ -65,18 +72,11 @@ This code is under an `open-source license <https://github.com/isaac-sim/isaac_a
 
 .. toctree::
    :maxdepth: 1
-   :caption: Sample Tasks
+   :caption: Tutorials
 
-   pages/Sample Tasks/g1_locomanipulation_box_pick_and_place_task
-   pages/Sample Tasks/gr1_open_microwave_task
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Examples
-
-   pages/examples/create_a_new_affordance.rst
-   pages/examples/create_a_new_asset.rst
-   pages/examples/create_a_new_embodiment.rst
-   pages/examples/create_a_new_environment.rst
-   pages/examples/create_a_new_metric.rst
-   pages/examples/create_a_new_task.rst
+   pages/tutorials/create_a_new_affordance.rst
+   pages/tutorials/create_a_new_asset.rst
+   pages/tutorials/create_a_new_embodiment.rst
+   pages/tutorials/create_a_new_environment.rst
+   pages/tutorials/create_a_new_metric.rst
+   pages/tutorials/create_a_new_task.rst
