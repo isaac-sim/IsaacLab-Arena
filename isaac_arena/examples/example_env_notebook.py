@@ -24,6 +24,47 @@ print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
 # %%
+
+
+def reload_arena_modules():
+    import importlib
+    import os
+    import sys
+
+    # Clear Python's bytecode cache
+    if hasattr(importlib, "invalidate_caches"):
+        importlib.invalidate_caches()
+
+    # Get all isaac_arena modules currently loaded
+    isaac_arena_modules = [
+        (name, module) for name, module in sys.modules.items() if name.startswith("isaac_arena") and module is not None
+    ]
+
+    if len(isaac_arena_modules) == 0:
+        print("No isaac_arena modules found")
+        return
+
+    # We skip this step due to import issues in our asset registry
+    # # Reload modules from bottom to top (deepest/leaf modules first)
+    # isaac_arena_modules.sort(key=lambda x: x[0].count('.'), reverse=True)
+
+    for module_name, module in isaac_arena_modules:
+        try:
+            # Delete the .pyc cache file to force recompilation from source
+            module_cached = getattr(module, "__cached__", None)
+            if module_cached and os.path.exists(module_cached):
+                os.remove(module_cached)
+
+            print(f"Reloading {module_name}")
+            importlib.reload(module)
+
+        except Exception as e:
+            print(f"[WARNING] Failed to reload {module_name}: {e}")
+
+
+# %%
+
+reload_arena_modules()
 from isaac_arena.examples.example_environments.cli import (
     get_arena_builder_from_cli,
     get_isaac_arena_example_environment_cli_parser,
@@ -62,5 +103,15 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
 
-
 # %%
+
+from isaaclab.sim import SimulationContext
+
+simulation_context = SimulationContext.instance()
+simulation_context._disable_app_control_on_stop_handle = True
+simulation_context.stop()
+simulation_context.clear_instance()
+env.close()
+import omni.timeline
+
+omni.timeline.get_timeline_interface().stop()
