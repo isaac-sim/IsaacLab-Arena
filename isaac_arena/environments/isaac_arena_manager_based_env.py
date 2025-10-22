@@ -15,6 +15,7 @@
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
+from isaaclab.sim import SimulationCfg
 from isaaclab.utils import configclass
 
 from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
@@ -44,27 +45,16 @@ class IsaacArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Isaaclab Arena Env. Held as a member to allow use of internal functions
     isaac_arena_env: IsaacArenaEnvironment | None = None
 
-    def __post_init__(self):
-        """Post initialization."""
-        # NOTE(xinjieyao, 2025-09-22): decimation & sim.dt are set to match the WBC policy trained frequency.
-        # Any changes to these settings shall impact G1-WBC performance, therefore should be carefully considered.
-        # Especially, any settings slower than 200Hz & 4 decimation shall impact G1-WBC performance.
-        # general settings
-        self.decimation = 4
-        self.episode_length_s = 30.0
-        self.wait_for_textures = False
-        # simulation settings
-        self.sim.dt = 1 / 200  # 200Hz
-        # NOTE(peterd, 2025-09-23) Set the render interval lower than decimation to smooth out the rendering.
-        self.sim.render_interval = 2
+    # Overriding defaults from base class
+    sim: SimulationCfg = SimulationCfg(dt=1 / 200, render_interval=2)
+    decimation: int = 4
+    episode_length_s: float = 30.0
+    wait_for_textures: bool = False
 
 
 @configclass
 class IsaacArenaManagerBasedMimicEnvCfg(IsaacArenaManagerBasedRLEnvCfg, MimicEnvCfg):
     """Configuration for an Isaac Arena environment."""
-
-    def __post_init__(self):
-        super().__post_init__()
 
     # NOTE(alexmillane, 2025-09-10): The following members are defined in the MimicEnvCfg class.
     # Restated here for clarity.
