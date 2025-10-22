@@ -2,7 +2,7 @@ version: 2
 workflow:
   name: {{ workflow_name }}
   groups:
-  - name: microwave
+  - name: finetune
     tasks:
     - args:
       - /tmp/entry.sh
@@ -22,16 +22,16 @@ workflow:
           # Run filebrowser to access intermediate checkpoints.
           filebrowser -r / &
 
-          echo "Downloaded the following datasets:"
-
-          ls {{input:0}}/lerobot_gr1/lerobot_gr1
+          echo "The contents of the input OSMO dataset:"
+          ls {{input:0}}/{{input_dataset_name}}
 
           # Display info on the system
           nvidia-smi
           cd /workspace
 
           # List the contents of the dataset
-          ls {{input:0}}/lerobot_gr1/lerobot_gr1/gr1_open_microwave_50_generated/lerobot
+          echo "The contents of the lerobot directory:"
+          ls {{input:0}}/{{input_dataset_name}}/{{input_demo_name}}/lerobot
 
           # Set the WANDB_NAME environment variable
           # Weights and Biases naming
@@ -44,7 +44,7 @@ workflow:
 
           # Launch finetune
           HYDRA_FULL_ERROR=1 python scripts/gr00t_finetune.py \
-            --dataset_path="{{input:0}}/lerobot_gr1/lerobot_gr1/gr1_open_microwave_50_generated/lerobot" \
+            --dataset_path="{{input:0}}/{{input_dataset_name}}/{{input_demo_name}}/lerobot" \
             --output_dir={{output}} \
             --data_config=fourier_gr1_arms_only \
             --batch_size={{ batch_size }} \
@@ -68,7 +68,7 @@ workflow:
       image: nvcr.io/nvidian/gr00t_gn15:latest@sha256:8ed83caf3c08a2602bbda0f5648401194ff24ea59ebf456208a8240d750f6aa7
       inputs:
       - dataset:
-          name: isaac/lerobot_gr1
+          name: isaac/{{ input_dataset_name }}
       lead: true
       name: master
       outputs:
@@ -91,3 +91,5 @@ default-values:
   batch_size: 24
   lora_rank: 0
   max_steps: 20000
+  input_dataset_name: lerobot_gr1
+  input_demo_name: gr1_open_microwave_50_generated

@@ -18,7 +18,7 @@ repos:
       - id: check-added-large-files
         args: ["--maxkb=2000"]  # restrict files more than 2 MB. Should use git-lfs instead.
       - id: check-yaml
-        exclude: ^osmo/
+        exclude: ^osmo/  # The linter gets triggered by the jinja templates in the osmo directory.
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-executables-have-shebangs
