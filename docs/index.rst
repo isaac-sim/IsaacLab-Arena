@@ -29,23 +29,23 @@ A key feature of ``Isaac Lab Arena`` is an easier, more composable interface for
 Usage Example
 =============
 
-The following code snippet shows a simple example(pick up a tomato soup can and place it in the destination location) of how to setup a manager based RL environment using ``isaaclab_arena``.
+The following code snippet shows a simple example(pick up a tomato soup can and place it in the destination location) of how to set up a manager-based RL environment using ``isaaclab_arena``.
 
 .. code-block:: python
 
-   embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True) # This will pull the franka embodiment with cameras enabled.
-   background = asset_registry.get_asset_by_name("kitchen")() # This will pull the kitchen background.
-   tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")() # This will pull the tomato soup can object.
-   destination_location = ObjectReference( # This will create a reference to the destination location.
+   embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+   background = asset_registry.get_asset_by_name("kitchen")()
+   tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
+   destination_location = ObjectReference(
             name="destination_location",
             prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
-   teleop_device = device_registry.get_device_by_name("keyboard")() # This will pull the keyboard teleop device.
+   teleop_device = device_registry.get_device_by_name("keyboard")()
 
    # Compose the scene
-   scene = Scene([background, tomato_soup_can]) # This will compose a scene with the background and tomato soup can and register the tomato soup can as an affordance.
+   scene = Scene([background, tomato_soup_can])
 
    isaac_arena_environment = IsaacArenaEnvironment(
       name="franka_kitchen_pickup",
@@ -59,7 +59,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
    env = env_builder.make_registered() # This will register the environment with the gym registry.
 
 .. figure:: images/franka_kitchen_pickup.gif
-   :height: 400px
+   :width: 100%
    :alt: Franka Kitchen Pickup Task
    :align: center
 
