@@ -56,7 +56,7 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 100
+NUM_STEPS = 1000
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
