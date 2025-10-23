@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from isaaclab.envs.common import ViewerCfg
+
 from isaac_arena.assets.background import Background
 from isaac_arena.assets.register import register_asset
 from isaac_arena.utils.pose import Pose
@@ -28,6 +30,7 @@ class LibraryBackground(Background):
     usd_path: str
     initial_pose: Pose
     object_min_z: float
+    viewer_cfg: ViewerCfg
 
     def __init__(self, **kwargs):
         super().__init__(
@@ -36,6 +39,7 @@ class LibraryBackground(Background):
             usd_path=self.usd_path,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
+            viewer_cfg=self.viewer_cfg,
             **kwargs,
         )
 
@@ -51,6 +55,11 @@ class KitchenBackground(LibraryBackground):
     usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/background_library/kitchen_scene_teleop_v3/kitchen_scene_teleop_v3.usd"
     initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
     object_min_z = -0.2
+
+    # TODO(cvolk): Set this properly.
+    # TODO(cvolk): Figure out why this cannot be set in the base class (Background). If set there, only the
+    # default will be used.
+    viewer_cfg = ViewerCfg(eye=(70.5, 70.5, 70.5))
 
     def __init__(self):
         super().__init__()

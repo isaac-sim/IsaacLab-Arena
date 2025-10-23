@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from isaaclab.envs.common import ViewerCfg
 
 from isaac_arena.assets.object import Object
 from isaac_arena.assets.object_base import ObjectType
@@ -27,6 +28,7 @@ class Background(Object):
         name: str,
         usd_path: str,
         object_min_z: float,
+        viewer_cfg: ViewerCfg,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         **kwargs
@@ -46,3 +48,4 @@ class Background(Object):
         # TODO(alexmillane, 2025.09.19): Make this value relative to the background
         # prim origin.
         self.object_min_z = object_min_z
+        self.viewer_cfg = viewer_cfg
