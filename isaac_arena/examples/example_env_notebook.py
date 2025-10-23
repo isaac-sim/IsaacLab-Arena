@@ -23,7 +23,11 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
+
 # %%
+from isaac_arena.utils.reload_modules import reload_arena_modules
+
+reload_arena_modules()
 from isaac_arena.examples.example_environments.cli import (
     get_arena_builder_from_cli,
     get_isaac_arena_example_environment_cli_parser,
@@ -62,5 +66,15 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
 
-
 # %%
+
+from isaaclab.sim import SimulationContext
+
+simulation_context = SimulationContext.instance()
+simulation_context._disable_app_control_on_stop_handle = True
+simulation_context.stop()
+simulation_context.clear_instance()
+env.close()
+import omni.timeline
+
+omni.timeline.get_timeline_interface().stop()
