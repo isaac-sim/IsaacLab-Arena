@@ -104,6 +104,7 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
 
     This function positions the viewport camera at a location offset from an object's
     initial position, while keeping the camera focused on the object itself.
+    Returns a default ViewerCfg with standard positioning if the object has no initial pose set.
 
     Args:
         lookat_object: The asset to look at. The camera will target this object's
@@ -114,6 +115,7 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
 
     Returns:
         ViewerCfg configured with the camera position and target.
+        Default ViewerCfg with standard positioning if the object has no initial pose set.
     """
     initial_pose = lookat_object.get_initial_pose()
     if initial_pose is None:
