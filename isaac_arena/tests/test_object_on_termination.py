@@ -16,7 +16,7 @@ import os
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 # NOTE(xinjieyao, 2025-09-23): Double the num of steps as sim.dt is changed from 0.01 to 0.005
 NUM_STEPS = 40
@@ -69,6 +69,8 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env = builder.make_registered()
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:
@@ -152,7 +154,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
 
 def test_object_on_destination_termination():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_object_on_destination_termination,
         headless=HEADLESS,
     )

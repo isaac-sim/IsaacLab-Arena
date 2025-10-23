@@ -17,7 +17,7 @@ import tqdm
 
 import pytest
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
 NUM_STEPS = 10
@@ -128,6 +128,8 @@ def _test_auto_object_type(simulation_app):
         args_cli = get_isaac_arena_cli_parser().parse_args([])
         env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
         env = env_builder.make_registered()
+        # disable control on stop
+        env.unwrapped.sim._app_control_on_stop_handle = None
         env.reset()
 
         # Run some zero actions.
@@ -151,7 +153,7 @@ def _test_auto_object_type(simulation_app):
 
 
 def test_detect_object_type():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_detect_object_type,
         headless=HEADLESS,
     )
@@ -159,7 +161,7 @@ def test_detect_object_type():
 
 
 def test_detect_object_type_for_all_objects():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_detect_object_type_for_all_objects,
         headless=HEADLESS,
     )
@@ -167,7 +169,7 @@ def test_detect_object_type_for_all_objects():
 
 
 def test_auto_object_type():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_auto_object_type,
         headless=HEADLESS,
     )

@@ -16,7 +16,9 @@ import numpy as np
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+import pytest
+
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -83,6 +85,8 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     args_cli = get_isaac_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env = env_builder.make_registered()
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     return env, robot_init_base_pose
@@ -130,8 +134,9 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
     return True
 
 
+@pytest.mark.with_cameras
 def test_wbc_joint_standing_idle_actions_single_env():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_wbc_joint_standing_idle_actions,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
@@ -167,8 +172,9 @@ def _test_wbc_pink_standing_idle_actions(simulation_app) -> bool:
     return True
 
 
+@pytest.mark.with_cameras
 def test_wbc_pink_standing_idle_actions_single_env():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_wbc_pink_standing_idle_actions,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,

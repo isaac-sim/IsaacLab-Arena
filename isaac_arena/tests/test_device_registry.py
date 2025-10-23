@@ -17,7 +17,7 @@ import torch
 import tqdm
 
 from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 2
 HEADLESS = True
@@ -27,6 +27,7 @@ DEVICE_NAMES = ["avp_handtracking", "spacemouse", "keyboard"]
 def _test_all_devices_in_registry(simulation_app):
     # Import the necessary classes.
     # Needed for sim app restart.
+    import omni.timeline
     import omni.usd
 
     from isaac_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
@@ -66,9 +67,8 @@ def _test_all_devices_in_registry(simulation_app):
         builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
 
         env = builder.make_registered()
-
         # disable control on stop
-        env.sim._app_control_on_stop_handle = None  # type: ignore
+        env.unwrapped.sim._app_control_on_stop_handle = None
 
         env.reset()
         # Run some zero actions.
@@ -77,15 +77,22 @@ def _test_all_devices_in_registry(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-    # Close the environment.
-    env.close()
+        # Close the environment.
+        from isaaclab.sim import SimulationContext
+
+        simulation_context = SimulationContext.instance()
+        simulation_context._disable_app_control_on_stop_handle = True
+        simulation_context.stop()
+        simulation_context.clear_instance()
+        env.close()
+        omni.timeline.get_timeline_interface().stop()
 
     return True
 
 
 def test_all_devices_in_registry():
     # Basic test that just adds all our pick-up objects to the scene and checks that nothing crashes.
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_all_devices_in_registry,
         headless=HEADLESS,
     )

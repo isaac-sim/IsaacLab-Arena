@@ -15,7 +15,7 @@
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 100
 HEADLESS = True
@@ -98,6 +98,8 @@ def _test_success_rate_metric(simulation_app):
     )
 
     env = env_builder.make_registered(env_cfg)
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:
@@ -130,7 +132,7 @@ def _test_success_rate_metric(simulation_app):
 
 
 def test_success_rate_metric():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_success_rate_metric,
         headless=HEADLESS,
     )

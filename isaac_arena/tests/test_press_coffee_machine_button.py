@@ -15,7 +15,7 @@
 import gymnasium as gym
 import torch
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 1
 HEADLESS = True
@@ -60,6 +60,8 @@ def get_test_environment(num_envs: int):
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
     env = gym.make(name, cfg=cfg).unwrapped
+    # disable control on stop
+    env.sim._app_control_on_stop_handle = None
     env.reset()
 
     return env, coffee_machine
@@ -175,7 +177,7 @@ def _test_press_button_coffee_machine_multiple_envs(simulation_app) -> bool:
 
 
 def test_press_button_coffee_machine():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_press_button_coffee_machine,
         headless=HEADLESS,
     )
@@ -183,7 +185,7 @@ def test_press_button_coffee_machine():
 
 
 def test_press_button_coffee_machine_multiple_envs():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_press_button_coffee_machine_multiple_envs,
         headless=HEADLESS,
     )

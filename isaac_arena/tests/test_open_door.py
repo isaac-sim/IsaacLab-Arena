@@ -15,7 +15,7 @@
 import gymnasium as gym
 import torch
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -64,6 +64,8 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
         # to allow us to inspect the scene without having it reset.
         cfg.events.reset_door_state = None
     env = gym.make(name, cfg=cfg).unwrapped
+    # disable control on stop
+    env.sim._app_control_on_stop_handle = None
     env.reset()
 
     return env, microwave
@@ -218,7 +220,7 @@ def _test_open_door_microwave_reset_condition(simulation_app) -> bool:
 
 
 def test_open_door_microwave():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_open_door_microwave,
         headless=HEADLESS,
     )
@@ -226,7 +228,7 @@ def test_open_door_microwave():
 
 
 def test_open_door_microwave_multiple_envs():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_open_door_microwave_multiple_envs,
         headless=HEADLESS,
     )
@@ -234,7 +236,7 @@ def test_open_door_microwave_multiple_envs():
 
 
 def test_open_door_microwave_reset_condition():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_open_door_microwave_reset_condition,
         headless=HEADLESS,
     )
