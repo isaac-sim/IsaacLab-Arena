@@ -15,6 +15,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaac_arena.environments.isaac_arena_manager_based_env import IsaacArenaManagerBasedRLEnvCfg
@@ -52,3 +53,6 @@ class TaskBase(ABC):
 
     def modify_env_cfg(self, env_cfg: IsaacArenaManagerBasedRLEnvCfg) -> IsaacArenaManagerBasedRLEnvCfg:
         return env_cfg
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        return ViewerCfg()
