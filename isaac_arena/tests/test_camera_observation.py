@@ -29,7 +29,7 @@ def _test_camera_observation(simulation_app) -> bool:
     from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
     from isaac_arena.embodiments.gr1t2.gr1t2 import GR1T2PinkEmbodiment
-    from isaac_arena.environments.compile_env import ArenaEnvBuilder
+    from isaac_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.dummy_task import DummyTask

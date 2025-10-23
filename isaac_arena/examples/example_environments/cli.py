@@ -62,7 +62,7 @@ def get_isaac_arena_example_environment_cli_parser() -> argparse.ArgumentParser:
 
 
 def get_arena_builder_from_cli(args_cli: argparse.Namespace):  # -> tuple[ManagerBasedRLEnvCfg, str]:
-    from isaac_arena.environments.compile_env import ArenaEnvBuilder
+    from isaac_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # Get the example environment
     assert hasattr(args_cli, "example_environment"), "Example environment must be specified"

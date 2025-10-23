@@ -37,7 +37,7 @@ def _test_door_moved_rate(simulation_app):
 
     from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-    from isaac_arena.environments.compile_env import ArenaEnvBuilder
+    from isaac_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.metrics.metrics import compute_metrics
     from isaac_arena.scene.scene import Scene
