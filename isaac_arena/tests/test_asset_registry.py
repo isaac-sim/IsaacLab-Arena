@@ -51,7 +51,7 @@ def _test_all_assets_in_registry(simulation_app):
     from isaac_arena.assets.asset_registry import AssetRegistry
     from isaac_arena.assets.object import Object
     from isaac_arena.embodiments.franka.franka import FrankaEmbodiment
-    from isaac_arena.environments.compile_env import ArenaEnvBuilder
+    from isaac_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
     from isaac_arena.scene.scene import Scene
     from isaac_arena.tasks.dummy_task import DummyTask
