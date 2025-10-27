@@ -18,7 +18,45 @@ import torch
 
 from isaaclab.envs import SubTaskConstraintType
 from isaaclab.managers import TerminationTermCfg
+from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
+from isaaclab.utils import configclass
 from isaaclab_mimic.datagen.waypoint import MultiWaypoint
+
+from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
+    NAVIGATE_CMD_END_IDX,
+    NAVIGATE_CMD_START_IDX,
+)
+
+
+def patch_recorders():
+    from isaaclab.envs.mdp.recorders import PreStepActionsRecorder
+    from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+
+    # Record p-controller generated navigation commands in the action buffer
+    def record_pre_step(self):
+        actions = self._env.action_manager.action
+        for term_name in self._env.action_manager.active_terms:
+            if hasattr(self._env.action_manager.get_term(term_name), "navigate_cmd"):
+                actions[:, NAVIGATE_CMD_START_IDX:NAVIGATE_CMD_END_IDX] = self._env.action_manager.get_term(
+                    term_name
+                ).navigate_cmd
+        return "actions", actions
+
+    # Record post step action observation group
+    class PostStepFlatPolicyObservationsRecorder(RecorderTerm):
+        def record_post_step(self):
+            return "action", self._env.obs_buf["action"]
+
+    @configclass
+    class PostStepFlatPolicyObservationsRecorderCfg(RecorderTermCfg):
+        class_type: type[RecorderTerm] = PostStepFlatPolicyObservationsRecorder
+
+    ActionStateRecorderManagerCfg.record_post_step_flat_policy_observations = (
+        PostStepFlatPolicyObservationsRecorderCfg()
+    )
+    PreStepActionsRecorder.record_pre_step = record_pre_step
+
+    print("\nPatched recorders for G1 Locomanip Mimic\n")
 
 
 def patch_generate():  # noqa: C901
@@ -308,4 +346,9 @@ def patch_generate():  # noqa: C901
 
     DataGenerator.generate = generate
 
-    print("\nPatched generate function for Locomanip Mimic\n")
+    print("\nPatched generate function for G1 Locomanip Mimic\n")
+
+
+def patch_g1_locomanip_mimic():
+    patch_recorders()
+    patch_generate()
