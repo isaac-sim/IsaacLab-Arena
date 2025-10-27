@@ -1,7 +1,8 @@
 First Arena Environment
 =======================
 
-After setting up the docker container and installing ``isaac_arena``, learn how to compose your first simple Isaac Arena environment by combining assets, scenes, and tasks.
+After setting up the docker container and installing ``isaac_arena``, learn how
+to compose your first simple Isaac Arena environment by combining assets, scenes, and tasks.
 
 Once within the docker container, run the following command to compile your first Isaac Arena environment:
 
@@ -10,7 +11,8 @@ Once within the docker container, run the following command to compile your firs
     python isaac_arena/examples/compile_env_notebook.py
 
 
-The compiled environment will spawn in an Isaac Sim instance and run for some steps with zero actions. You should see the following scene:
+The compiled environment will spawn in an Isaac Sim instance and run for some steps with zero actions.
+You should see the following scene:
 
 .. image:: ../../images/franka_kitchen.png
    :align: center
@@ -20,7 +22,8 @@ The compiled environment will spawn in an Isaac Sim instance and run for some st
 Code Explanation
 ----------------
 
-The following script demonstrates how to create the simple kitchen environment from above with a Franka robot and a cracker box object using the ``isaac_arena`` API.
+The following script demonstrates how to create the simple kitchen environment from
+above with a Franka robot and a cracker box object using the ``isaac_arena`` API.
 
 .. code-block:: python
 
@@ -164,6 +167,6 @@ Now that you have created your first environment, explore:
 - :doc:`../concepts/concept_tasks_design` - Create custom tasks with rewards and terminations
 - :doc:`../concepts/concept_assets_design` - Discover available assets and create custom ones
 - :doc:`../concepts/concept_affordances_design` - Add interactive behaviors to objects
-- :doc:`../examples/create_a_new_affordance` - Implement custom affordances
+- :doc:`../tutorials/create_a_new_affordance` - Implement custom affordances
 
 Explore pre-built example environments in ``isaac_arena/examples/example_environments/`` for more complex scenarios.

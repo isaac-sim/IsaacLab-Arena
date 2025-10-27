@@ -117,6 +117,13 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
+   :caption: Example Workflows
+
+   pages/example_workflows/locomanipulation/index
+   pages/example_workflows/static_manipulation/index
+
+.. toctree::
+   :maxdepth: 1
    :caption: Concepts
 
    pages/concepts/concept_affordances_design
@@ -132,18 +139,11 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: Sample Tasks
+   :caption: Tutorials
 
-   pages/sample_tasks/g1_locomanipulation_box_pick_and_place_task
-   pages/sample_tasks/gr1_open_microwave_task
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Examples
-
-   pages/examples/create_a_new_affordance.rst
-   pages/examples/create_a_new_asset.rst
-   pages/examples/create_a_new_embodiment.rst
-   pages/examples/create_a_new_environment.rst
-   pages/examples/create_a_new_metric.rst
-   pages/examples/create_a_new_task.rst
+   pages/tutorials/create_a_new_affordance.rst
+   pages/tutorials/create_a_new_asset.rst
+   pages/tutorials/create_a_new_embodiment.rst
+   pages/tutorials/create_a_new_environment.rst
+   pages/tutorials/create_a_new_metric.rst
+   pages/tutorials/create_a_new_task.rst

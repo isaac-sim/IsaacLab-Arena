@@ -66,7 +66,6 @@ def _test_door_moved_rate(simulation_app):
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env_cfg = env_builder.compose_manager_cfg()
     env_cfg.episode_length_s = 0.10
-    # env_cfg.terminations.time_out.time_out = True
     env = env_builder.make_registered(env_cfg)
     env.reset()
 
