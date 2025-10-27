@@ -1,7 +1,8 @@
 Environment Compilation Design
 ================================
 
-Environment compilation transforms modular Isaac Arena components into complete Isaac Lab environment configurations. The system handles configuration merging, environment registration, and integration with Isaac Lab's architecture.
+Environment compilation transforms modular Isaac Arena Environment components into complete Isaac Lab Arena environment configurations.
+The system handles configuration merging, environment registration, and integration with Isaac Lab's architecture.
 
 Core Architecture
 -----------------

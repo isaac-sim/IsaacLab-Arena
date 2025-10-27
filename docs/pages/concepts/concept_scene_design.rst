@@ -1,7 +1,7 @@
 Scene Design
 ============
 
-Scenes manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds, objects, and interactive elements into complete environments.
+Scenes manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds, objects, and interactive elements.
 
 Core Architecture
 -----------------
@@ -26,19 +26,23 @@ Scenes automatically aggregate asset configurations into Isaac Lab-compatible sc
 Scenes in Detail
 ----------------
 
-**Asset Composition**
-   Scenes organize different asset types into cohesive environments:
+The main method in the scene class is ``get_scene_cfg`` which returns a configclass containing all the scene elements.
 
-   - **Background Assets**: Environmental foundations (kitchens, laboratories) providing base geometry and context
-   - **Interactive Objects**: Manipulable items with physics (YCB objects, tools, appliances)
-   - **Functional Elements**: Objects with affordances (doors, drawers, buttons) for specific interactions
-   - **Object References**: Access to embedded scene elements without separate spawning
+It reads all the registered assets and their cfgs and combines them into a configclass.
 
-**Configuration Management**
-   Automatic aggregation of asset configurations:
+.. code-block:: python
 
-   - **Scene Configuration**: Physical properties, lighting, materials from all assets
-   - **Pose Management**: Initial positioning and spatial relationships
+   def get_scene_cfg(self) -> Any:
+         """Returns a configclass containing all the scene elements."""
+         # Combine the configs into a configclass.
+         fields: list[tuple[str, type, AssetCfg]] = []
+         for asset in self.assets.values():
+               for asset_cfg_name, asset_cfg in asset.get_cfgs().items():
+                  fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+         NewConfigClass = make_configclass("SceneCfg", fields)
+         new_config_class = NewConfigClass()
+         return new_config_class
+
 
 Environment Integration
 -----------------------
@@ -96,3 +100,5 @@ Usage Examples
        parent_asset=kitchen,
        object_type=ObjectType.RIGID
    )
+
+   scene = Scene(assets=[kitchen, destination])

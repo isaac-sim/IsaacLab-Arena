@@ -106,17 +106,3 @@ Usage Examples
    # Performance evaluation across environments
    print(f"Success Rate: {metrics_results['success_rate']:.2%}")
    print(f"Object Moved Rate: {metrics_results['object_moved_rate']:.2%}")
-
-**Custom Metric Creation**
-
-.. code-block:: python
-
-   class CustomMetric(MetricBase):
-       name = "custom_metric"
-       recorder_term_name = "custom_recorder"
-
-       def get_recorder_term_cfg(self) -> RecorderTermCfg:
-           return CustomRecorderCfg()
-
-       def compute_metric_from_recording(self, recorded_data) -> float:
-           return self._compute_custom_evaluation(recorded_data)
