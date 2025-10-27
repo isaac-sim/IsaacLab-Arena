@@ -54,11 +54,8 @@ def main():
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
-                # NOTE(xinjieyao, 2025-10-13): For policy closedloop, if any env terminates (i.e. succeeds/timesout), reset the policy; As in parallel
-                # envs, each env is running async, it may be cases where one env completes when others are not done.
-                # Given GR00T policy is a single-shot policy, it is safe to reset the policy. However, for other policies, we need to be careful.
-                if terminated.any() or truncated.any():
-                    policy.reset()
+                if terminated.all() or truncated.all():
+                    break
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
