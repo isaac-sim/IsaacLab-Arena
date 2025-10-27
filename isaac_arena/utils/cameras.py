@@ -13,16 +13,19 @@
 # limitations under the License.
 
 import inspect
+import numpy as np
 from contextlib import suppress
 from dataclasses import fields, is_dataclass
 from typing import Any
 
 from isaaclab.envs import mdp
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg  # noqa: F401
 
+from isaac_arena.assets.asset import Asset
 from isaac_arena.utils.configclass import make_configclass
 
 
@@ -94,3 +97,31 @@ def make_camera_observation_cfg(
         AutoCameraObsCfg.__qualname__ = f"{WrappedCameraObsCfg.__name__}.AutoCameraObsCfg"
 
     return WrappedCameraObsCfg()
+
+
+def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> ViewerCfg:
+    """Create a viewer configuration that looks at a specific object with an offset.
+
+    This function positions the viewport camera at a location offset from an object's
+    initial position, while keeping the camera focused on the object itself.
+    Returns a default ViewerCfg with standard positioning if the object has no initial pose set.
+
+    Args:
+        lookat_object: The asset to look at. The camera will target this object's
+            initial pose position.
+        offset: 3D offset vector (x, y, z) in meters from the object's position
+            to place the camera. For example, offset=[1.0, 1.0, 1.0] places the
+            camera 1 meter away in each direction from the object.
+
+    Returns:
+        ViewerCfg configured with the camera position and target.
+        Default ViewerCfg with standard positioning if the object has no initial pose set.
+    """
+    initial_pose = lookat_object.get_initial_pose()
+    if initial_pose is None:
+        print(f"{lookat_object.name} has no initial pose set. Using default ViewerCfg.")
+        return ViewerCfg()
+
+    lookat = initial_pose.position_xyz
+    camera_position = tuple(np.array(lookat) + offset)
+    return ViewerCfg(eye=camera_position, lookat=lookat)

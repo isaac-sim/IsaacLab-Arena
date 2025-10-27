@@ -103,6 +103,8 @@ class ArenaEnvBuilder:
 
         isaac_arena_env = self.arena_env
 
+        viewer_cfg = self.arena_env.task.get_viewer_cfg()
+
         # Build the environment configuration
         if not self.args.mimic:
             env_cfg = IsaacArenaManagerBasedRLEnvCfg(
@@ -116,6 +118,7 @@ class ArenaEnvBuilder:
                 recorders=recorder_manager_cfg,
                 metrics=metrics,
                 isaac_arena_env=isaac_arena_env,
+                viewer=viewer_cfg,
             )
         else:
             task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
@@ -136,6 +139,7 @@ class ArenaEnvBuilder:
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics,
                 isaac_arena_env=isaac_arena_env,
+                viewer=viewer_cfg,
             )
         return env_cfg
 
