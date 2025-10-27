@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
@@ -25,6 +27,7 @@ from isaac_arena.metrics.metric_base import MetricBase
 from isaac_arena.metrics.success_rate import SuccessRateMetric
 from isaac_arena.tasks.task_base import TaskBase
 from isaac_arena.terms.events import set_object_pose
+from isaac_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
 class OpenDoorTask(TaskBase):
@@ -76,6 +79,9 @@ class OpenDoorTask(TaskBase):
                 reset_openness=self.reset_openness,
             ),
         ]
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.5, -1.5, 1.5]))
 
 
 @configclass
