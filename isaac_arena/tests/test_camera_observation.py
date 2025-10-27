@@ -15,7 +15,9 @@
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+import pytest
+
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 2
 HEADLESS = True
@@ -59,6 +61,8 @@ def _test_camera_observation(simulation_app) -> bool:
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env = builder.make_registered()
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     for _ in tqdm.tqdm(range(NUM_STEPS)):
@@ -72,13 +76,18 @@ def _test_camera_observation(simulation_app) -> bool:
             # Make sure the camera observation contains values other than 0
             assert camera_observation.any() != 0, "Camera observation contains only 0s"
 
-    # Close the environment.
     env.close()
+
     return True
 
 
+@pytest.mark.with_cameras
 def test_camera_observation():
-    result = run_simulation_app_function_in_separate_process(
+    # Safety: if someone runs this without the env var, skip with a helpful message
+    if not ENABLE_CAMERAS:
+        pytest.skip("This test requires cameras. Re-run with: WITH_CAMERAS=1 pytest -m with_cameras")
+
+    result = run_simulation_app_function(
         _test_camera_observation,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,

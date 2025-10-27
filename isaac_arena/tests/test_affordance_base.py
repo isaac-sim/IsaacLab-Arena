@@ -14,7 +14,7 @@
 
 import pytest
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
 
@@ -50,7 +50,7 @@ def _test_affordance_base(simulation_app):
 
 
 def test_affordance_base():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_affordance_base,
         headless=HEADLESS,
     )
