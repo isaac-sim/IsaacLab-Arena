@@ -139,6 +139,7 @@ class ArenaEnvBuilder:
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics,
                 isaac_arena_env=isaac_arena_env,
+                viewer=viewer_cfg,
             )
         return env_cfg
 
