@@ -14,8 +14,8 @@
 from isaaclab.devices.device_base import DevicesCfg
 
 from isaac_arena.assets.register import register_device
-from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import LeapmotionCfg
-from isaac_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
+from isaaclab_arena.teleop_devices.leapmotion.leapmotion_teleop_device import LeapmotionCfg
+from isaaclab_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
 @register_device

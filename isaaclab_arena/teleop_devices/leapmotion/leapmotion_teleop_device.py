@@ -20,11 +20,11 @@ from scipy.spatial.transform import Rotation as R
 
 from isaaclab.devices.device_base import DeviceBase, DeviceCfg
 
-from isaac_arena.arena_g1.g1_env.robot_model import ReducedRobotModel, RobotModel
-from isaac_arena.arena_g1.g1_whole_body_controller.wbc_policy.utils.g1 import instantiate_g1_robot_model
-from isaac_arena.teleop_devices.leapmotion.leapmotion_streamer import LeapMotionStreamer
-from isaac_arena.teleop_devices.leapmotion.preprocesors.fingers import FingersPreProcessor
-from isaac_arena.teleop_devices.leapmotion.preprocesors.wrists import WristsPreProcessor
+from isaaclab_arena_g1.g1_env.robot_model import ReducedRobotModel, RobotModel
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.g1 import instantiate_g1_robot_model
+from isaaclab_arena.teleop_devices.leapmotion.leapmotion_streamer import LeapMotionStreamer
+from isaaclab_arena.teleop_devices.leapmotion.preprocesors.fingers import FingersPreProcessor
+from isaaclab_arena.teleop_devices.leapmotion.preprocesors.wrists import WristsPreProcessor
 
 
 class LeapmotionStreamer:

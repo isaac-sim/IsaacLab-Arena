@@ -15,7 +15,7 @@
 import numpy as np
 from copy import deepcopy
 
-from isaac_arena.teleop_devices.leapmotion.preprocesors.pre_processor import PreProcessor
+from isaaclab_arena.teleop_devices.leapmotion.preprocesors.pre_processor import PreProcessor
 
 WRIST_POSITION_OFFSET = np.matrix(
     [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.01, -0.04, 0.03, 1.0]]

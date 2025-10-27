@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from isaac_arena.teleop_devices.leapmotion.preprocesors.pre_processor import PreProcessor
+from isaaclab_arena.teleop_devices.leapmotion.preprocesors.pre_processor import PreProcessor
 
 
 class FingersPreProcessor(PreProcessor):

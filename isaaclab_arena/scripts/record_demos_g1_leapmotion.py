@@ -39,11 +39,13 @@ import contextlib
 # Isaac Lab AppLauncher
 from isaaclab.app import AppLauncher
 
-from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-from isaac_arena.examples.example_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
-
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.examples.example_environments.cli import (
+    add_example_environments_cli_args,
+    get_arena_builder_from_cli,
+)
 # add argparse arguments
-parser = get_isaac_arena_cli_parser()
+parser = get_isaaclab_arena_cli_parser()
 parser.add_argument(
     "--dataset_file", type=str, default="./datasets/dataset.hdf5", help="File path to export recorded demos."
 )
@@ -515,7 +517,7 @@ def run_simulation_loop(
         print("Recording paused")
 
     # Import Leapmotion after env creation to prevent circular import
-    from isaac_arena.teleop_devices.leapmotion.leapmotion_teleop_device import Leapmotion, LeapmotionCfg
+    from isaaclab_arena.teleop_devices.leapmotion.leapmotion_teleop_device import Leapmotion, LeapmotionCfg
 
     teleop_interface = Leapmotion(LeapmotionCfg())
 
