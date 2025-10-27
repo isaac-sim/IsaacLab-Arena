@@ -58,9 +58,9 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             and not hasattr(args_cli, "auto")
         ):
             # Patch the Mimic generate function for locomanip use case
-            from isaac_arena.utils.locomanip_mimic_patch import patch_generate
+            from isaac_arena.utils.locomanip_mimic_patch import patch_g1_locomanip_mimic
 
-            patch_generate()
+            patch_g1_locomanip_mimic()
 
             # Set navigation p-controller for locomanip use case
             action_cfg = embodiment.get_action_cfg()
