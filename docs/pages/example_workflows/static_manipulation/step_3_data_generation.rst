@@ -1,14 +1,19 @@
 Data Generation
 ---------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
 This workflow covers generating a new dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Teleoperation Data Collection) <step_2_teleoperation>`.
 If you do not want to do the preceding step of recording demonstrations, you can jump to
-you can download the pre-generated dataset from Hugging Face as described below.
+you can download the pre-generated dataset either in
+:ref:`step_1_annotate_demonstrations` or :ref:`step_2_generate_augmented_dataset`
+below.
 
+.. _step_1_annotate_demonstrations:
 
 Step 1: Annotate Demonstrations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -27,10 +32,13 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
 
    To download run (replacing ``<ANNOTATED_DATASET_PATH>`` with the actual path):
 
-   huggingface-cli download \
-       nvidia/Arena-GR1-Manipulation-Task \
-       arena_gr1_manipulation_dataset_annotated.hdf5 \
-       --local-dir <ANNOTATED_DATASET_PATH>
+   .. code-block:: bash
+
+      huggingface-cli download \
+         nvidia/Arena-GR1-Manipulation-Task \
+         arena_gr1_manipulation_dataset_annotated.hdf5 \
+         --repo-type dataset \
+         --local-dir <ANNOTATED_DATASET_PATH>
 
 To start the annotation process run the following command (replace
 ``<INPUT_DATASET_PATH>`` and ``<ANNOTATED_DATASET_PATH>`` with the actual paths):
@@ -49,6 +57,7 @@ Follow the instructions described on the CLI to mark subtask boundaries:
 1. **Reach:** Robot reaches toward the microwave door
 2. **Open door:** Robot opens the door
 
+.. _step_2_generate_augmented_dataset:
 
 Step 2: Generate Augmented Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

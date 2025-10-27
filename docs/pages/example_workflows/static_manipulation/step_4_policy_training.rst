@@ -1,6 +1,8 @@
 Policy Post-training
 --------------------
 
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
@@ -21,21 +23,8 @@ pre-generated dataset from Hugging Face as described below.
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \
+       --repo-type dataset \
        --local-dir <INPUT_DATASET_PATH>
-
-.. todo:: check this command works
-
-
-Step 1: Start the Docker Container (with GR00T Dependencies)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Start the Docker container **with GR00T dependencies** by running the following command.
-
-   :docker_run_gr00t:
-
-Note that this is a different container than the one used in the preceding steps
-because it contains the dependencies required to fine-tune GR00T N1.5 policy.
-
 
 
 Step 2: Convert to LeRobot Format
