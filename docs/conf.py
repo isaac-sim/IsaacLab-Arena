@@ -100,7 +100,7 @@ html_theme_options = {
     "pygments_light_style": "tango",
     "pygments_dark_style": "monokai",
     "footer_links": {},
-    "github_url": "https://github.com/nvidia-isaac/isaac_arena",
+    "github_url": "https://github.com/isaac-sim/IsaacLab-Arena",
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
     #     {
