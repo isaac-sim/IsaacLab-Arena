@@ -10,7 +10,7 @@ Core Architecture
 .. code-block:: python
 
    @configclass
-   class IsaacArenaEnvironment:
+   class IsaacLabArenaEnvironment:
        name: str = MISSING
        embodiment: EmbodimentBase = MISSING
        scene: Scene = MISSING
@@ -18,8 +18,8 @@ Core Architecture
        teleop_device: TeleopDeviceBase | None = None
 
    class ArenaEnvBuilder:
-       """Compose Isaac Arena → Isaac Lab configs."""
-       def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
+       """Compose IsaacLab Arena → Isaac Lab configs."""
+       def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
            # Combine configurations from all components
            scene_cfg = combine_configclass_instances(...)
            observation_cfg = self.arena_env.embodiment.get_observation_cfg()
@@ -42,7 +42,7 @@ Creating an Environment Example
    scene = Scene(assets=[background, pick_object])
    task = PickAndPlaceTask(pick_object, destination, background)
 
-   arena_environment = IsaacArenaEnvironment(
+   arena_environment = IsaacLabArenaEnvironment(
        name="manipulation_task",
        embodiment=embodiment,
        scene=scene,

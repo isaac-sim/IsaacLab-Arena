@@ -37,7 +37,7 @@ To start the annotation process run the following command (replace
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/annotate_demos.py \
+   python isaaclab_arena/scripts/annotate_demos.py \
      --input_file <INPUT_DATASET_PATH> \
      --output_file <ANNOTATED_DATASET_PATH> \
      --enable_pinocchio \
@@ -79,7 +79,7 @@ Generate the dataset (replace ``<ANNOTATED_DATASET_PATH>`` and ``<GENERATED_DATA
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/generate_dataset.py \
      --generation_num_trials 50 \
      --num_envs 10 \
      --input_file <ANNOTATED_DATASET_PATH> \
@@ -104,7 +104,7 @@ To do so, run the following command (replace ``<GENERATED_DATASET_PATH>`` with t
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
      --dataset_file <GENERATED_DATASET_PATH> \
      gr1_open_microwave \

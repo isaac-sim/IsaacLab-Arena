@@ -65,7 +65,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
 
 
 We first need to modify the configuration file to point to the correct input/output paths.
-In the config file at ``isaac_arena/policy/config/gr1_manip_config.yaml``,
+In the config file at ``isaaclab_arena/policy/config/gr1_manip_config.yaml``,
 Replace ``<INPUT_DATASET_DIR>`` with the actual path.
 
 .. todo:: (alexmillane, 2025-10-23): We should move the input/output paths out of the config file
@@ -97,8 +97,8 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
-   python isaac_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
-     --config_yaml_path isaac_arena/policy/config/gr1_manip_config.yaml
+   python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
+     --config_yaml_path isaaclab_arena/policy/config/gr1_manip_config.yaml
 
 This creates:
 

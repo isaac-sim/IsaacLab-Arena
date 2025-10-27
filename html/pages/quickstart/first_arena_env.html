@@ -369,10 +369,10 @@
                   
   <section id="first-arena-environment">
 <h1>First Arena Environment<a class="headerlink" href="#first-arena-environment" title="Link to this heading">#</a></h1>
-<p>After setting up the docker container and installing <code class="docutils literal notranslate"><span class="pre">isaac_arena</span></code>, learn how
-to compose your first simple Isaac Arena environment by combining assets, scenes, and tasks.</p>
-<p>Once within the docker container, run the following command to compile your first Isaac Arena environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/compile_env_notebook.py
+<p>After setting up the docker container and installing <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>, learn how
+to compose your first simple IsaacLab Arena environment by combining assets, scenes, and tasks.</p>
+<p>Once within the docker container, run the following command to compile your first IsaacLab Arena environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/compile_env_notebook.py
 </pre></div>
 </div>
 <p>The compiled environment will spawn in an Isaac Sim instance and run for some steps with zero actions.
@@ -382,7 +382,7 @@ You should see the following scene:</p>
 <section id="code-explanation">
 <h2>Code Explanation<a class="headerlink" href="#code-explanation" title="Link to this heading">#</a></h2>
 <p>The following script demonstrates how to create the simple kitchen environment from
-above with a Franka robot and a cracker box object using the <code class="docutils literal notranslate"><span class="pre">isaac_arena</span></code> API.</p>
+above with a Franka robot and a cracker box object using the <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> API.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tqdm</span>
 
@@ -393,13 +393,13 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Launching simulation app&quot;</span><span class="p">)</span>
 <span class="n">simulation_app</span> <span class="o">=</span> <span class="n">AppLauncher</span><span class="p">()</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.assets.asset_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetRegistry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.cli.isaac_arena_cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_isaac_arena_cli_parser</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.environments.arena_env_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvBuilder</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.environments.isaac_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacArenaEnvironment</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.tasks.dummy_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">DummyTask</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.asset_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetRegistry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.cli.isaaclab_arena_cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_isaaclab_arena_cli_parser</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_env_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.dummy_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">DummyTask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
 
 <span class="c1"># Step 1: Initialize and get the assets from the registry</span>
 <span class="n">asset_registry</span> <span class="o">=</span> <span class="n">AssetRegistry</span><span class="p">()</span>
@@ -417,8 +417,8 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="c1"># Step 3: Create a task</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">DummyTask</span><span class="p">()</span>
 
-<span class="c1"># Step 4: Create the Isaac Arena environment</span>
-<span class="n">isaac_arena_environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
+<span class="c1"># Step 4: Create the IsaacLab Arena environment</span>
+<span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_first_arena_env&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
@@ -427,8 +427,8 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="p">)</span>
 
 <span class="c1"># Step 5: Build and compile the environment</span>
-<span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaac_arena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaac_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaaclab_arena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
@@ -465,8 +465,8 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 </pre></div>
 </div>
 <p>See <a class="reference internal" href="../concepts/concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for task creation details.</p>
-<p><strong>4. Create the Isaac Arena Environment</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaac_arena_environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
+<p><strong>4. Create the IsaacLab Arena Environment</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_first_arena_env&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
@@ -475,11 +475,11 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>This puts everything together into an <code class="docutils literal notranslate"><span class="pre">IsaacArenaEnvironment</span></code> object.</p>
+<p>This puts everything together into an <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> object.</p>
 <p>See <a class="reference internal" href="../concepts/concept_environment_design.html"><span class="doc">Environment Design</span></a> for environment composition details.</p>
 <p><strong>5. Build the Environment</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaac_arena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaac_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaaclab_arenaena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 </pre></div>
@@ -503,7 +503,7 @@ See <a class="reference internal" href="../concepts/concept_environment_compilat
 <li><p><a class="reference internal" href="../concepts/concept_assets_design.html"><span class="doc">Assets Design</span></a> - Discover available assets and create custom ones</p></li>
 <li><p><a class="reference internal" href="../concepts/concept_affordances_design.html"><span class="doc">Affordances Design</span></a> - Add interactive behaviors to objects</p></li>
 </ul>
-<p>Explore pre-built example environments in <code class="docutils literal notranslate"><span class="pre">isaac_arena/examples/example_environments/</span></code> for more complex scenarios.</p>
+<p>Explore pre-built example environments in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/examples/example_environments/</span></code> for more complex scenarios.</p>
 <p>To move on to data generation and training (Imitation Learning), please refer to the <a class="reference internal" href="../example_workflows/locomanipulation/index.html"><span class="doc">G1 Loco-Manipulation Box Pick and Place Task</span></a> or
 <a class="reference internal" href="../example_workflows/static_manipulation/index.html"><span class="doc">GR1 Open Microwave Door Task</span></a> pages.</p>
 </section>

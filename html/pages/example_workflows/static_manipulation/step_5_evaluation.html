@@ -394,7 +394,7 @@ This step requires the Hugging Face CLI, which can be installed by following the
 </details><section id="step-1-configure-closed-loop-inference">
 <h2>Step 1: Configure Closed-Loop Inference<a class="headerlink" href="#step-1-configure-closed-loop-inference" title="Link to this heading">#</a></h2>
 <p>Create or verify the inference configuration file:</p>
-<p><strong>Configuration</strong> (<code class="docutils literal notranslate"><span class="pre">isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml</span></code>):</p>
+<p><strong>Configuration</strong> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml</span></code>):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Model configuration</span>
 <span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/checkpoints/GN1x-Tuned-Arena-GR1-Manipulation</span>
 <span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1</span>
@@ -410,9 +410,9 @@ This step requires the Hugging Face CLI, which can be installed by following the
 <span class="nt">target_image_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">256</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3</span><span class="p p-Indicator">]</span>
 
 <span class="c1"># Joint mappings</span>
-<span class="nt">gr00t_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml</span>
-<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/gr1/36dof_joint_space.yaml</span>
-<span class="nt">state_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaac_arena/policy/config/gr1/54dof_joint_space.yaml</span>
+<span class="nt">gr00t_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml</span>
+<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena/policy/config/gr1/36dof_joint_space.yaml</span>
+<span class="nt">state_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena/policy/config/gr1/54dof_joint_space.yaml</span>
 </pre></div>
 </div>
 <div class="admonition-todo admonition" id="id1">
@@ -424,9 +424,9 @@ and onto the command line. Then change the statement above.</p>
 <section id="step-2-run-single-environment-evaluation">
 <h2>Step 2: Run Single Environment Evaluation<a class="headerlink" href="#step-2-run-single-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>Test the policy in a single environment with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
@@ -453,9 +453,9 @@ GR00T N1.5 policy is trained on upper body joint positions, so we use
 <p>IsaacLab Arena supports evaluating the policy in parallel across multiple environments.
 To perform a parallel evaluation across 16 environments, we set <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> to 16,
 by running the following command.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>

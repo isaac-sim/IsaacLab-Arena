@@ -397,7 +397,7 @@ such that the annotation step can be skipped.</p>
 </div>
 </details><p>To start the annotation process run the following command (replace
 <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;ANNOTATED_DATASET_PATH&gt;</span></code> with the actual paths):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/annotate_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/annotate_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input_file<span class="w"> </span>&lt;INPUT_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_file<span class="w"> </span>&lt;ANNOTATED_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
@@ -431,7 +431,7 @@ such that the data generation step can be skipped.</p>
 </div>
 </div>
 </details><p>Generate the dataset (replace <code class="docutils literal notranslate"><span class="pre">&lt;ANNOTATED_DATASET_PATH&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;GENERATED_DATASET_PATH&gt;</span></code> with the actual paths):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--generation_num_trials<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input_file<span class="w"> </span>&lt;ANNOTATED_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
@@ -452,7 +452,7 @@ to visualize data generation.</p>
 <p>In order to validation the generated dataset, you can replay the generated data
 through the robot, in order to check (visually) if the robot is able to perform the task successfully.
 To do so, run the following command (replace <code class="docutils literal notranslate"><span class="pre">&lt;GENERATED_DATASET_PATH&gt;</span></code> with the actual path):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span>&lt;GENERATED_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>

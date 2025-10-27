@@ -378,7 +378,7 @@ and validate that we can load it in Isaac Lab.</p>
 <h2>Environment Description<a class="headerlink" href="#environment-description" title="Link to this heading">#</a></h2>
 <p>The environment used in this example workflow has the following components:</p>
 <p><strong>Embodiment Configuration:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.embodiments.gr1t2</span><span class="w"> </span><span class="kn">import</span> <span class="n">GR1T2PinkEmbodiment</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.embodiments.gr1t2</span><span class="w"> </span><span class="kn">import</span> <span class="n">GR1T2PinkEmbodiment</span>
 
 <span class="n">embodiment</span> <span class="o">=</span> <span class="n">GR1T2PinkEmbodiment</span><span class="p">(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
@@ -397,8 +397,8 @@ and validate that we can load it in Isaac Lab.</p>
 <li><p>Task: Open door to 80% (success threshold)</p></li>
 </ul>
 <p><strong>Task Configuration:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenDoorTask</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.affordances</span><span class="w"> </span><span class="kn">import</span> <span class="n">Openable</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenDoorTask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.affordances</span><span class="w"> </span><span class="kn">import</span> <span class="n">Openable</span>
 <span class="c1"># define microwave object reference, and background scene</span>
 
 <span class="n">microwave</span> <span class="o">=</span> <span class="n">Openable</span><span class="p">(</span>
@@ -450,7 +450,7 @@ We download a pre-recorded dataset from Hugging Face (replace <code class="docut
 <section id="step-3-validate-the-environment-by-replaying-the-dataset">
 <h2>Step 3: Validate the Environment by Replaying the Dataset<a class="headerlink" href="#step-3-validate-the-environment-by-replaying-the-dataset" title="Link to this heading">#</a></h2>
 <p>Replay the downloaded dataset to verify the environment setup:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span>&lt;INPUT_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>

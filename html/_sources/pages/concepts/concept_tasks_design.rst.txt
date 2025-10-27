@@ -68,7 +68,7 @@ Environment Integration
    )
 
    # Environment composition
-   environment = IsaacArenaEnvironment(
+   environment = IsaacLabArenaEnvironment(
        name="kitchen_manipulation",
        embodiment=embodiment,
        scene=scene,

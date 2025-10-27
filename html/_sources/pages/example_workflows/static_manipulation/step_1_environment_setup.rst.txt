@@ -13,7 +13,7 @@ The environment used in this example workflow has the following components:
 
 .. code-block:: python
 
-   from isaac_arena.embodiments.gr1t2 import GR1T2PinkEmbodiment
+   from isaaclab_arena.embodiments.gr1t2 import GR1T2PinkEmbodiment
 
    embodiment = GR1T2PinkEmbodiment(enable_cameras=True)
 
@@ -34,8 +34,8 @@ The environment used in this example workflow has the following components:
 
 .. code-block:: python
 
-   from isaac_arena.tasks import OpenDoorTask
-   from isaac_arena.affordances import Openable
+   from isaaclab_arena.tasks import OpenDoorTask
+   from isaaclab_arena.affordances import Openable
    # define microwave object reference, and background scene
 
    microwave = Openable(
@@ -88,7 +88,7 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
      --dataset_file <INPUT_DATASET_PATH> \
      gr1_open_microwave \

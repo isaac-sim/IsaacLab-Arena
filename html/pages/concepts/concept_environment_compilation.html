@@ -369,19 +369,19 @@
                   
   <section id="environment-compilation-design">
 <h1>Environment Compilation Design<a class="headerlink" href="#environment-compilation-design" title="Link to this heading">#</a></h1>
-<p>Environment compilation transforms modular Isaac Arena Environment components into complete Isaac Lab Arena environment configurations.
+<p>Environment compilation transforms modular IsaacLab Arena Environment components into complete Isaac Lab Arena environment configurations.
 The system handles configuration merging, environment registration, and integration with Isaac Lab’s architecture.</p>
 <section id="core-architecture">
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
 <p>Compilation uses the <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> class:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ArenaEnvBuilder</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compose Isaac Arena → Isaac Lab configs&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compose IsaacLab Arena → Isaac Lab configs&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arena_env</span><span class="p">:</span> <span class="n">IsaacArenaEnvironment</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arena_env</span><span class="p">:</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">arena_env</span> <span class="o">=</span> <span class="n">arena_env</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">compose_manager_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacArenaManagerBasedRLEnvCfg</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compose_manager_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaManagerBasedRLEnvCfg</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Combine configurations from all components.&quot;&quot;&quot;</span>
         <span class="n">scene_cfg</span> <span class="o">=</span> <span class="n">combine_configclass_instances</span><span class="p">(</span>
             <span class="s2">&quot;SceneCfg&quot;</span><span class="p">,</span>
@@ -392,7 +392,7 @@ The system handles configuration merging, environment registration, and integrat
         <span class="p">)</span>
 </pre></div>
 </div>
-<p>The builder transforms Isaac Arena environment definitions into Isaac Lab’s configuration format through systematic component integration.</p>
+<p>The builder transforms IsaacLab Arena environment definitions into Isaac Lab’s configuration format through systematic component integration.</p>
 </section>
 <section id="compilation-in-detail">
 <h2>Compilation in Detail<a class="headerlink" href="#compilation-in-detail" title="Link to this heading">#</a></h2>
@@ -420,8 +420,8 @@ The system handles configuration merging, environment registration, and integrat
 </section>
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create Isaac Arena environment definition</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create IsaacLab Arena environment definition</span>
+<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_manipulation&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">franka_embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">kitchen_scene</span><span class="p">,</span>

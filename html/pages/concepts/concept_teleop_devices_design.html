@@ -415,7 +415,7 @@ We define this wrapper to allow for easy registration and discovery of teleop de
 <span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
 
 <span class="c1"># Environment composition with teleop support</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
+<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
@@ -432,17 +432,17 @@ We define this wrapper to allow for easy registration and discovery of teleop de
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Keyboard Teleoperation</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic keyboard control</span>
-python<span class="w"> </span>isaac_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span>kitchen_pick_and_place
+python<span class="w"> </span>isaaclab_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span>kitchen_pick_and_place
 </pre></div>
 </div>
 <p><strong>SpaceMouse Control</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Precise manipulation with SpaceMouse</span>
-python<span class="w"> </span>isaac_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--sensitivity<span class="w"> </span><span class="m">2</span>.0
+python<span class="w"> </span>isaaclab_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--sensitivity<span class="w"> </span><span class="m">2</span>.0
 </pre></div>
 </div>
 <p><strong>Hand Tracking</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># VR hand tracking for humanoid control</span>
-python<span class="w"> </span>isaac_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>avp_handtracking<span class="w"> </span>gr1_open_microwave
+python<span class="w"> </span>isaaclab_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>avp_handtracking<span class="w"> </span>gr1_open_microwave
 </pre></div>
 </div>
 </section>

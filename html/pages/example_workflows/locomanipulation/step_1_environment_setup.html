@@ -378,7 +378,7 @@ and validate that we can load it in Isaac Lab.</p>
 <h2>Environment Description<a class="headerlink" href="#environment-description" title="Link to this heading">#</a></h2>
 <p>The environment used in this example workflow has the following components:</p>
 <p><strong>Embodiment Configuration:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.embodiments.g1</span><span class="w"> </span><span class="kn">import</span> <span class="n">G1WBCPinkEmbodiment</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.embodiments.g1</span><span class="w"> </span><span class="kn">import</span> <span class="n">G1WBCPinkEmbodiment</span>
 
 <span class="n">embodiment</span> <span class="o">=</span> <span class="n">G1WBCPinkEmbodiment</span><span class="p">(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
@@ -398,7 +398,7 @@ and validate that we can load it in Isaac Lab.</p>
 <li><p>Blue bin (target location)</p></li>
 </ul>
 <p><strong>Task Configuration:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaac_arena.tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
 <span class="c1"># define brown box, blue bin object references, and background scene</span>
 
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
@@ -428,7 +428,7 @@ environment description in its entirety.</p>
 <section id="step-3-validate-environment-with-demo-replay">
 <h2>Step 3: Validate Environment with Demo Replay<a class="headerlink" href="#step-3-validate-environment-with-demo-replay" title="Link to this heading">#</a></h2>
 <p>Replay the generated dataset to verify the environment setup:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>

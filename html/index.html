@@ -384,7 +384,7 @@ The key components of the workflow are:</p>
 <span class="c1"># Compose the scene</span>
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">([</span><span class="n">background</span><span class="p">,</span> <span class="n">tomato_soup_can</span><span class="p">])</span>
 
-<span class="n">isaac_arena_environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
+<span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;franka_kitchen_pickup&quot;</span><span class="p">,</span>
    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
@@ -392,7 +392,7 @@ The key components of the workflow are:</p>
    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaac_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span> <span class="c1"># This will register the environment with the gym registry.</span>
 </pre></div>
 </div>
@@ -435,7 +435,7 @@ The key components of the workflow are:</p>
 </tbody>
 </table>
 </div>
-<p>Check out more of our examples environments here: <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaac_arena/examples/example_environments">Isaac Arena Examples</a>.</p>
+<p>Check out more of our examples environments here: <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/examples/example_environments">IsaacLab Arena Examples</a>.</p>
 </section>
 <section id="license">
 <h1>License<a class="headerlink" href="#license" title="Link to this heading">#</a></h1>

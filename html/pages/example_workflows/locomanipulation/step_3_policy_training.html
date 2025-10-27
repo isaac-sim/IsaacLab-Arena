@@ -426,7 +426,7 @@ such that the conversion step can be skipped.</p>
 <p class="sd-card-text">If you download this dataset, you can skip the conversion step below and continue to the next step.</p>
 </div>
 </details><p>We first need to modify the configuration file to point to the correct input/output paths.
-In the config file at <code class="docutils literal notranslate"><span class="pre">isaac_arena/policy/config/g1_locomanip_config.yaml</span></code>,
+In the config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/policy/config/g1_locomanip_config.yaml</span></code>,
 Replace <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> with the actual path.</p>
 <div class="admonition-todo admonition" id="id2">
 <p class="admonition-title">Todo</p>
@@ -453,8 +453,8 @@ and onto the command line. Then change the statement above.</p>
 </pre></div>
 </div>
 <p>Convert the HDF5 dataset to LeRobot format for policy post-training:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/policy/data_utils/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--config_yaml_path<span class="w"> </span>isaac_arena/policy/config/g1_locomanip_config.yaml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config_yaml_path<span class="w"> </span>isaaclab_arena/policy/config/g1_locomanip_config.yaml
 </pre></div>
 </div>
 <p>This creates:</p>

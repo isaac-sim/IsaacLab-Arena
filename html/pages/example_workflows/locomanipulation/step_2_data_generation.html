@@ -402,7 +402,7 @@ data variations.</p>
 </div>
 <p>Generate the dataset (replace <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;OUTPUT_DATASET_PATH&gt;</span></code> with the actual paths):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate 100 demonstrations</span>
-python<span class="w"> </span>isaac_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>isaaclab_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
@@ -427,7 +427,7 @@ python<span class="w"> </span>isaac_arena/scripts/generate_dataset.py<span class
 <h2>Step 2: Validate Generated Dataset (Optional)<a class="headerlink" href="#step-2-validate-generated-dataset-optional" title="Link to this heading">#</a></h2>
 <p>To visualize the data produced, you can replay the dataset using the following command:
 (replace <code class="docutils literal notranslate"><span class="pre">&lt;OUTPUT_DATASET_PATH&gt;</span></code> with the actual path):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaac_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span>&lt;OUTPUT_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>

@@ -30,7 +30,7 @@ Step 1: Configure Closed-Loop Inference
 
 Create or verify the inference configuration file:
 
-**Configuration** (``isaac_arena/arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml``):
+**Configuration** (``isaaclab_arena/arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml``):
 
 .. code-block:: yaml
 
@@ -49,9 +49,9 @@ Create or verify the inference configuration file:
    target_image_size: [256, 256, 3]
 
    # Joint mappings
-   gr00t_joints_config_path: isaac_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
-   action_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
-   state_joints_config_path: isaac_arena/policy/config/g1/43dof_joint_space.yaml
+   gr00t_joints_config_path: isaaclab_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
+   action_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
+   state_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
 
 .. todo:: (alexmillane, 2025-10-23): See if we can move the model path out of the config file
    and onto the command line. Then change the statement above.
@@ -64,9 +64,9 @@ Test the policy in a single environment with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaac_arena/arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena/arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
@@ -99,9 +99,9 @@ by running the following command.
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaac_arena/arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena/arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
      --num_envs 16 \
      --enable_cameras \
