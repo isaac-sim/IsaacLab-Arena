@@ -53,8 +53,8 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Environment Compilation Design" href="concept_environment_compilation.html" />
-    <link rel="prev" title="Embodiment Design" href="concept_embodiment_design.html" />
+    <link rel="next" title="Embodiment Design" href="concept_embodiment_design.html" />
+    <link rel="prev" title="Concept Overview" href="concept_overview.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -171,7 +171,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -263,7 +263,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -305,25 +305,17 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 </ul>
 </div>
 </nav></div>
@@ -377,10 +369,10 @@
                   
   <section id="environment-design">
 <h1>Environment Design<a class="headerlink" href="#environment-design" title="Link to this heading">#</a></h1>
-<p>Environments are the top-level abstraction that combines all components for simulation and learning. They unify embodiments, scenes, tasks, and teleoperation devices into complete simulation experiences that integrate with Isaac Lab.</p>
+<p>IsaacLab Arena environment contains the main components used to create a manager-based RL environment.
+This includes the embodiment, scene, task and teleop device.</p>
 <section id="core-architecture">
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>Environments use a compositional design with four primary components:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@configclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">IsaacArenaEnvironment</span><span class="p">:</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">MISSING</span>
@@ -400,21 +392,8 @@
 </div>
 <p>Each component contributes to the final environment configuration, with automatic integration handled by the environment builder.</p>
 </section>
-<section id="environments-in-detail">
-<h2>Environments in Detail<a class="headerlink" href="#environments-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Component Integration</strong></dt><dd><p>Four primary components combine to create complete environments:</p>
-<ul class="simple">
-<li><p><strong>Embodiment</strong>: Robot configuration, action/observation spaces, specialized behaviors</p></li>
-<li><p><strong>Scene</strong>: Physical asset layout, spatial relationships, physics properties</p></li>
-<li><p><strong>Task</strong>: Objectives, success criteria, termination conditions, performance metrics</p></li>
-<li><p><strong>Teleop Device</strong>: Human input interfaces for demonstration and control (optional)</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
+<section id="creating-an-environment-example">
+<h2>Creating an Environment Example<a class="headerlink" href="#creating-an-environment-example" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Component creation</span>
 <span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)()</span>
 <span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
@@ -425,7 +404,7 @@
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_object</span><span class="p">])</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
 
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
+<span class="n">arena_environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
@@ -434,45 +413,11 @@
 <span class="p">)</span>
 
 <span class="c1"># Build and execute</span>
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">arena_environment</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 </pre></div>
 </div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Kitchen Manipulation</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">franka</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)()</span>
-<span class="n">kitchen</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
-<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
-
-<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">cracker_box</span><span class="p">])</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">cracker_box</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
-
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_manipulation&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">franka</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Affordance Interaction</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">g1</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;g1_wbc_joint&quot;</span><span class="p">)()</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span><span class="n">embodiment</span><span class="o">=</span><span class="n">g1</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span> <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Command Line Usage</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic manipulation</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--embodiment<span class="w"> </span>franka
-
-<span class="c1"># Teleop demonstration</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--object<span class="w"> </span>mustard_bottle
-</pre></div>
-</div>
+<p>To see how the manager-based RL environment configuration is compiled, please refer to the <a class="reference internal" href="concept_environment_compilation.html"><span class="doc">Environment Compilation Design</span></a> page.</p>
 </section>
 </section>
 
@@ -487,20 +432,20 @@ python<span class="w"> </span>policy_runner.py<span class="w"> </span>--teleop_d
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_embodiment_design.html"
+       href="concept_overview.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Embodiment Design</p>
+        <p class="prev-next-title">Concept Overview</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_environment_compilation.html"
+       href="concept_embodiment_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Environment Compilation Design</p>
+        <p class="prev-next-title">Embodiment Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -526,9 +471,7 @@ python<span class="w"> </span>policy_runner.py<span class="w"> </span>--teleop_d
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environments-in-detail">Environments in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-an-environment-example">Creating an Environment Example</a></li>
 </ul>
   </nav></div>
 

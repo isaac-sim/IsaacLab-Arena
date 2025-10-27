@@ -53,8 +53,8 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Teleop Devices Design" href="concept_teleop_devices_design.html" />
-    <link rel="prev" title="Scene Design" href="concept_scene_design.html" />
+    <link rel="next" title="Scene Design" href="concept_scene_design.html" />
+    <link rel="prev" title="Embodiment Design" href="concept_embodiment_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -171,7 +171,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -263,7 +263,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -305,25 +305,17 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 </ul>
 </div>
 </nav></div>
@@ -403,7 +395,6 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Demonstration generation configuration.&quot;&quot;&quot;</span>
 </pre></div>
 </div>
-<p>Tasks encapsulate task-specific logic while maintaining separation between objectives and physical layout, enabling reuse across different embodiments and scenes.</p>
 </section>
 <section id="tasks-in-detail">
 <h2>Tasks in Detail<a class="headerlink" href="#tasks-in-detail" title="Link to this heading">#</a></h2>
@@ -415,22 +406,6 @@
 <li><p><strong>Event Configuration</strong>: Reset and randomization logic for consistent episode initialization</p></li>
 <li><p><strong>Metrics Integration</strong>: Performance evaluation and data collection systems</p></li>
 <li><p><strong>Mimic Configuration</strong>: Demonstration generation with subtask decomposition</p></li>
-</ul>
-</dd>
-<dt><strong>Termination System</strong></dt><dd><p>Success and failure conditions that define episode completion:</p>
-<ul class="simple">
-<li><p><strong>Success Termination</strong>: Task completion criteria (object placement, door opening threshold)</p></li>
-<li><p><strong>Failure Termination</strong>: Safety conditions (object dropping, timeout constraints)</p></li>
-<li><p><strong>Physics-based Conditions</strong>: Contact forces, object velocities, spatial relationships</p></li>
-<li><p><strong>Threshold Logic</strong>: Configurable parameters for task-specific success criteria</p></li>
-</ul>
-</dd>
-<dt><strong>Event Management</strong></dt><dd><p>Reset and randomization logic for consistent episode initialization:</p>
-<ul class="simple">
-<li><p><strong>Pose Resets</strong>: Return objects to initial configurations between episodes</p></li>
-<li><p><strong>State Resets</strong>: Reset affordance states (door openness, button positions)</p></li>
-<li><p><strong>Randomization</strong>: Procedural variation in object poses and scene properties</p></li>
-<li><p><strong>Episode Triggers</strong>: Automatic handling of environment resets and state management</p></li>
 </ul>
 </dd>
 <dt><strong>Available Tasks</strong></dt><dd><p>Built-in task implementations for common scenarios:</p>
@@ -478,11 +453,6 @@
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>Affordance Interaction</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">reset_openness</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
-</pre></div>
-</div>
 <p><strong>Humanoid Locomotion</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
 <span class="n">destination_bin</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;sorting_bin&quot;</span><span class="p">)()</span>
@@ -504,20 +474,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_scene_design.html"
+       href="concept_embodiment_design.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Scene Design</p>
+        <p class="prev-next-title">Embodiment Design</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_teleop_devices_design.html"
+       href="concept_scene_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Teleop Devices Design</p>
+        <p class="prev-next-title">Scene Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -15,7 +15,7 @@ objects, and environments.
 
    IsaacLab Arena Workflow Overview
 
-
+For a detailed overview of the workflow, please refer to the :doc:`pages/concepts/concept_overview` page.
 The key components of the workflow are:
 
 - **Scene Setup**: Define the scene layout, add asset configurations to interact with objects in interest in the scene. See :doc:`pages/concepts/concept_scene_design` for more details.
@@ -126,24 +126,14 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Concepts
 
-   pages/concepts/concept_affordances_design
-   pages/concepts/concept_assets_design
-   pages/concepts/concept_embodiment_design
+   pages/concepts/concept_overview
    pages/concepts/concept_environment_design
-   pages/concepts/concept_environment_compilation
-   pages/concepts/concept_metrics_design
-   pages/concepts/concept_policy_design
-   pages/concepts/concept_scene_design
+   pages/concepts/concept_embodiment_design
    pages/concepts/concept_tasks_design
+   pages/concepts/concept_scene_design
+   pages/concepts/concept_metrics_design
    pages/concepts/concept_teleop_devices_design
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
-
-   pages/tutorials/create_a_new_affordance.rst
-   pages/tutorials/create_a_new_asset.rst
-   pages/tutorials/create_a_new_embodiment.rst
-   pages/tutorials/create_a_new_environment.rst
-   pages/tutorials/create_a_new_metric.rst
-   pages/tutorials/create_a_new_task.rst
+   pages/concepts/concept_environment_compilation
+   pages/concepts/concept_assets_design
+   pages/concepts/concept_affordances_design
+   pages/concepts/concept_policy_design

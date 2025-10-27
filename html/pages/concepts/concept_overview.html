@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; isaaclab_arena 0.1</title>
+    <title>Concept Overview &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -49,12 +49,12 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/quickstart/installation';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/concept_overview';</script>
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="First Arena Environment" href="first_arena_env.html" />
-    <link rel="prev" title="Isaac Lab Arena Documentation" href="../../index.html" />
+    <link rel="next" title="Environment Design" href="concept_environment_design.html" />
+    <link rel="prev" title="Closed-Loop Policy Inference and Evaluation" href="../example_workflows/static_manipulation/step_5_evaluation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -277,9 +277,9 @@
      aria-label="Table of Contents">
   <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="first_arena_env.html">First Arena Environment</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="nav bd-sidenav">
@@ -300,18 +300,18 @@
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_tasks_design.html">Tasks Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_scene_design.html">Scene Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_policy_design.html">Policy Design</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 </ul>
 </div>
 </nav></div>
@@ -346,7 +346,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Installation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Concept Overview</span></li>
   </ul>
 </nav>
 </div>
@@ -363,31 +363,40 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>Isaac Lab Arena supports installation from source inside a Docker container.</p>
-<ol class="arabic simple">
-<li><p><strong>Clone the repository and initialize submodules:</strong></p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:isaac-sim/isaac_arena.git
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
-</pre></div>
-</div>
-<ol class="arabic simple" start="2">
-<li><p><strong>Launch the docker container:</strong></p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
-</pre></div>
-</div>
-<ol class="arabic simple" start="3">
-<li><p><strong>Optionally verify installation by running tests:</strong></p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-s<span class="w"> </span>isaac_arena/tests/
-</pre></div>
-</div>
-<p>With <code class="docutils literal notranslate"><span class="pre">isaac_arena</span></code> installed and the docker running, you’re ready to build your first IsaacLab-Arena Environment. See <a class="reference internal" href="first_arena_env.html"><span class="doc">First Arena Environment</span></a> to get started.</p>
+  <section id="concept-overview">
+<h1>Concept Overview<a class="headerlink" href="#concept-overview" title="Link to this heading">#</a></h1>
+<p>This section provides an overview of the core concepts in Isaac Lab Arena.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/isaaclab_arena_core_framework.png"><img alt="Isaac Lab Arena Workflow" src="../../_images/isaaclab_arena_core_framework.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">IsaacLab Arena Workflow Overview</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>In the core of the workflow, we have three main components, <strong>Scene</strong>, <strong>Embodiment</strong>, and <strong>Task</strong>. We compile most of the managers of the
+manager-based RL environment from these three components. We strongly incline towards keeping these components as independent as possible. This
+allows us to reuse the components in different environments and tasks, thus making the framework more modular and easier to extend.</p>
+<p><strong>Embodiment</strong></p>
+<p>Embodiments define robot-specific configurations and behaviors. They provide a modular way to integrate different robots into environments,
+encapsulating kinematics, control actions, observations, terminations and camera systems. See <a class="reference internal" href="concept_embodiment_design.html"><span class="doc">Embodiment Design</span></a> for more details.</p>
+<p><strong>Task</strong></p>
+<p>Tasks define objectives, success criteria, and behavior logic for environments. They provide configurations for termination conditions, event handling,
+metrics collection, and mimic components. See <a class="reference internal" href="concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for more details.</p>
+<p><strong>Scene</strong></p>
+<p>Scenes manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds,
+objects, and interactive elements. See <a class="reference internal" href="concept_scene_design.html"><span class="doc">Scene Design</span></a> for more details.</p>
+<p>When combining these three components we create the observation, action, event, termination, metrics, mimic components of the manager-based RL environment.
+For more details on how to combine these components, see <a class="reference internal" href="concept_environment_compilation.html"><span class="doc">Environment Compilation Design</span></a>.</p>
+<p>Other components of interest are the <strong>Affordances</strong> and the <strong>Metrics</strong>.</p>
+<p><strong>Affordances</strong></p>
+<p>Affordances define what interactions objects can perform - opening doors, pressing buttons, manipulating objects.
+They provide standardized interfaces that integrate with tasks and embodiments. See <a class="reference internal" href="concept_affordances_design.html"><span class="doc">Affordances Design</span></a> for more details.</p>
+<p><strong>Metrics</strong></p>
+<p>Metrics define the performance evaluation metrics for the environment.
+Some metrics are independent of the task and the embodiment, such as the success rate metric,
+while others are task-specific, such as open door rate metric. See <a class="reference internal" href="concept_metrics_design.html"><span class="doc">Metrics Design</span></a> for more details.</p>
+<p>These components together with teleoperation devices form the manager-based RL environment.
+See <a class="reference internal" href="concept_environment_design.html"><span class="doc">Environment Design</span></a> for more details on how these components are easily combined to create our environments.</p>
 </section>
 
 
@@ -401,20 +410,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../../index.html"
+       href="../example_workflows/static_manipulation/step_5_evaluation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">Isaac</span> <span class="pre">Lab</span> <span class="pre">Arena</span></code> Documentation</p>
+        <p class="prev-next-title">Closed-Loop Policy Inference and Evaluation</p>
       </div>
     </a>
     <a class="right-next"
-       href="first_arena_env.html"
+       href="concept_environment_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">First Arena Environment</p>
+        <p class="prev-next-title">Environment Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

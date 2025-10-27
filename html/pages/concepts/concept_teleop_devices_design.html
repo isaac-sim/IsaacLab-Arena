@@ -53,8 +53,8 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Creating a New Affordance" href="../tutorials/create_a_new_affordance.html" />
-    <link rel="prev" title="Tasks Design" href="concept_tasks_design.html" />
+    <link rel="next" title="Environment Compilation Design" href="concept_environment_compilation.html" />
+    <link rel="prev" title="Metrics Design" href="concept_metrics_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -171,7 +171,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -263,7 +263,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -305,25 +305,17 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Teleop Devices Design</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 </ul>
 </div>
 </nav></div>
@@ -377,7 +369,8 @@
                   
   <section id="teleop-devices-design">
 <h1>Teleop Devices Design<a class="headerlink" href="#teleop-devices-design" title="Link to this heading">#</a></h1>
-<p>Teleop devices provide a unified interface for different input devices used in teleoperation and demonstration collection. They enable seamless switching between keyboard, spacemouse, and hand tracking devices.</p>
+<p>Teleop devices defined in Arena are a thin wrapper around the Isaac Lab teleop devices.
+We define this wrapper to allow for easy registration and discovery of teleop devices.</p>
 <section id="core-architecture">
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
 <p>Teleop devices use the <code class="docutils literal notranslate"><span class="pre">TeleopDeviceBase</span></code> abstract class with automatic registration:</p>
@@ -408,14 +401,6 @@
 <li><p><strong>Hand Tracking</strong>: OpenXR-based hand tracking with GR1T2 retargeting for humanoid control</p></li>
 </ul>
 </dd>
-<dt><strong>Configuration System</strong></dt><dd><p>Each device generates Isaac Lab <code class="docutils literal notranslate"><span class="pre">DevicesCfg</span></code> objects:</p>
-<ul class="simple">
-<li><p><strong>Device-Specific Parameters</strong>: Sensitivity settings, joint mappings, visualization options</p></li>
-<li><p><strong>Embodiment Integration</strong>: Optional embodiment parameter for robot-specific customization</p></li>
-<li><p><strong>Automatic Configuration</strong>: Seamless integration with Isaac Lab device factory system</p></li>
-<li><p><strong>Callback Support</strong>: Automatic binding of device inputs to robot actions</p></li>
-</ul>
-</dd>
 <dt><strong>Registration and Discovery</strong></dt><dd><p>Decorator-based system for automatic device management:</p>
 <ul class="simple">
 <li><p><strong>&#64;register_device</strong>: Automatic registration during module import</p></li>
@@ -427,9 +412,7 @@
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Device selection during environment creation</span>
-<span class="n">teleop_device</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="k">if</span> <span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
 
 <span class="c1"># Environment composition with teleop support</span>
 <span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
@@ -462,18 +445,6 @@ python<span class="w"> </span>isaac_arena/scripts/teleop.py<span class="w"> </sp
 python<span class="w"> </span>isaac_arena/scripts/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>avp_handtracking<span class="w"> </span>gr1_open_microwave
 </pre></div>
 </div>
-<p><strong>Environment Integration</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Programmatic teleop device usage</span>
-<span class="n">keyboard_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;keyboard&quot;</span><span class="p">)()</span>
-
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacArenaEnvironment</span><span class="p">(</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">franka_embodiment</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">kitchen_scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">pick_and_place_task</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="n">keyboard_device</span>
-<span class="p">)</span>
-</pre></div>
-</div>
 </section>
 </section>
 
@@ -488,20 +459,20 @@ python<span class="w"> </span>isaac_arena/scripts/teleop.py<span class="w"> </sp
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_tasks_design.html"
+       href="concept_metrics_design.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Tasks Design</p>
+        <p class="prev-next-title">Metrics Design</p>
       </div>
     </a>
     <a class="right-next"
-       href="../tutorials/create_a_new_affordance.html"
+       href="concept_environment_compilation.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Creating a New Affordance</p>
+        <p class="prev-next-title">Environment Compilation Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

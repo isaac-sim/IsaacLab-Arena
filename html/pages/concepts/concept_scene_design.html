@@ -53,8 +53,8 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Tasks Design" href="concept_tasks_design.html" />
-    <link rel="prev" title="Policy Design" href="concept_policy_design.html" />
+    <link rel="next" title="Metrics Design" href="concept_metrics_design.html" />
+    <link rel="prev" title="Tasks Design" href="concept_tasks_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -171,7 +171,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -263,7 +263,7 @@
           
           
           
-          <a href="https://github.com/nvidia-isaac/isaac_arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
@@ -305,25 +305,17 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_affordance.html">Creating a New Affordance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_asset.html">Creating a New Asset</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_embodiment.html">Creating a New Embodiment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_environment.html">Creating a New Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_metric.html">Creating a New Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/create_a_new_task.html">Creating a New Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
 </ul>
 </div>
 </nav></div>
@@ -377,7 +369,7 @@
                   
   <section id="scene-design">
 <h1>Scene Design<a class="headerlink" href="#scene-design" title="Link to this heading">#</a></h1>
-<p>Scenes manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds, objects, and interactive elements into complete environments.</p>
+<p>Scenes manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds, objects, and interactive elements.</p>
 <section id="core-architecture">
 <h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
 <p>Scenes use the <code class="docutils literal notranslate"><span class="pre">Scene</span></code> class that manages asset collections:</p>
@@ -397,22 +389,20 @@
 </section>
 <section id="scenes-in-detail">
 <h2>Scenes in Detail<a class="headerlink" href="#scenes-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Asset Composition</strong></dt><dd><p>Scenes organize different asset types into cohesive environments:</p>
-<ul class="simple">
-<li><p><strong>Background Assets</strong>: Environmental foundations (kitchens, laboratories) providing base geometry and context</p></li>
-<li><p><strong>Interactive Objects</strong>: Manipulable items with physics (YCB objects, tools, appliances)</p></li>
-<li><p><strong>Functional Elements</strong>: Objects with affordances (doors, drawers, buttons) for specific interactions</p></li>
-<li><p><strong>Object References</strong>: Access to embedded scene elements without separate spawning</p></li>
-</ul>
-</dd>
-<dt><strong>Configuration Management</strong></dt><dd><p>Automatic aggregation of asset configurations:</p>
-<ul class="simple">
-<li><p><strong>Scene Configuration</strong>: Physical properties, lighting, materials from all assets</p></li>
-<li><p><strong>Pose Management</strong>: Initial positioning and spatial relationships</p></li>
-</ul>
-</dd>
-</dl>
+<p>The main method in the scene class is <code class="docutils literal notranslate"><span class="pre">get_scene_cfg</span></code> which returns a configclass containing all the scene elements.</p>
+<p>It reads all the registered assets and their cfgs and combines them into a configclass.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot;Returns a configclass containing all the scene elements.&quot;&quot;&quot;</span>
+      <span class="c1"># Combine the configs into a configclass.</span>
+      <span class="n">fields</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">AssetCfg</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="k">for</span> <span class="n">asset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">assets</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">asset_cfg_name</span><span class="p">,</span> <span class="n">asset_cfg</span> <span class="ow">in</span> <span class="n">asset</span><span class="o">.</span><span class="n">get_cfgs</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+               <span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">asset_cfg_name</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">asset_cfg</span><span class="p">),</span> <span class="n">asset_cfg</span><span class="p">))</span>
+      <span class="n">NewConfigClass</span> <span class="o">=</span> <span class="n">make_configclass</span><span class="p">(</span><span class="s2">&quot;SceneCfg&quot;</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span>
+      <span class="n">new_config_class</span> <span class="o">=</span> <span class="n">NewConfigClass</span><span class="p">()</span>
+      <span class="k">return</span> <span class="n">new_config_class</span>
+</pre></div>
+</div>
 </section>
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
@@ -461,6 +451,8 @@
     <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span>
     <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span>
 <span class="p">)</span>
+
+<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">destination</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
@@ -477,20 +469,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_policy_design.html"
+       href="concept_tasks_design.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Policy Design</p>
+        <p class="prev-next-title">Tasks Design</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_tasks_design.html"
+       href="concept_metrics_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Tasks Design</p>
+        <p class="prev-next-title">Metrics Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

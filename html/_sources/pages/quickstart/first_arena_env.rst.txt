@@ -167,6 +167,8 @@ Now that you have created your first environment, explore:
 - :doc:`../concepts/concept_tasks_design` - Create custom tasks with rewards and terminations
 - :doc:`../concepts/concept_assets_design` - Discover available assets and create custom ones
 - :doc:`../concepts/concept_affordances_design` - Add interactive behaviors to objects
-- :doc:`../tutorials/create_a_new_affordance` - Implement custom affordances
 
 Explore pre-built example environments in ``isaac_arena/examples/example_environments/`` for more complex scenarios.
+
+To move on to data generation and training (Imitation Learning), please refer to the :doc:`../example_workflows/locomanipulation/index` or
+:doc:`../example_workflows/static_manipulation/index` pages.

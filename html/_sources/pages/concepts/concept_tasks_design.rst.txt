@@ -31,8 +31,6 @@ Tasks use the ``TaskBase`` abstract class:
        def get_mimic_env_cfg(self, embodiment_name: str) -> Any:
            """Demonstration generation configuration."""
 
-Tasks encapsulate task-specific logic while maintaining separation between objectives and physical layout, enabling reuse across different embodiments and scenes.
-
 Tasks in Detail
 ---------------
 
@@ -44,22 +42,6 @@ Tasks in Detail
    - **Event Configuration**: Reset and randomization logic for consistent episode initialization
    - **Metrics Integration**: Performance evaluation and data collection systems
    - **Mimic Configuration**: Demonstration generation with subtask decomposition
-
-**Termination System**
-   Success and failure conditions that define episode completion:
-
-   - **Success Termination**: Task completion criteria (object placement, door opening threshold)
-   - **Failure Termination**: Safety conditions (object dropping, timeout constraints)
-   - **Physics-based Conditions**: Contact forces, object velocities, spatial relationships
-   - **Threshold Logic**: Configurable parameters for task-specific success criteria
-
-**Event Management**
-   Reset and randomization logic for consistent episode initialization:
-
-   - **Pose Resets**: Return objects to initial configurations between episodes
-   - **State Resets**: Reset affordance states (door openness, button positions)
-   - **Randomization**: Procedural variation in object poses and scene properties
-   - **Episode Triggers**: Automatic handling of environment resets and state management
 
 **Available Tasks**
    Built-in task implementations for common scenarios:
@@ -108,13 +90,6 @@ Usage Examples
    destination = ObjectReference("kitchen_drawer", parent_asset=kitchen)
 
    task = PickAndPlaceTask(pick_object, destination, kitchen)
-
-**Affordance Interaction**
-
-.. code-block:: python
-
-   microwave = asset_registry.get_asset_by_name("microwave")()
-   task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
 
 **Humanoid Locomotion**
 

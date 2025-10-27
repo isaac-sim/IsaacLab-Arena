@@ -1,7 +1,8 @@
 Teleop Devices Design
 ======================
 
-Teleop devices provide a unified interface for different input devices used in teleoperation and demonstration collection. They enable seamless switching between keyboard, spacemouse, and hand tracking devices.
+Teleop devices defined in Arena are a thin wrapper around the Isaac Lab teleop devices.
+We define this wrapper to allow for easy registration and discovery of teleop devices.
 
 Core Architecture
 -----------------
@@ -36,14 +37,6 @@ Teleop Devices in Detail
    - **SpaceMouse**: 6DOF precise spatial control for manipulation tasks
    - **Hand Tracking**: OpenXR-based hand tracking with GR1T2 retargeting for humanoid control
 
-**Configuration System**
-   Each device generates Isaac Lab ``DevicesCfg`` objects:
-
-   - **Device-Specific Parameters**: Sensitivity settings, joint mappings, visualization options
-   - **Embodiment Integration**: Optional embodiment parameter for robot-specific customization
-   - **Automatic Configuration**: Seamless integration with Isaac Lab device factory system
-   - **Callback Support**: Automatic binding of device inputs to robot actions
-
 **Registration and Discovery**
    Decorator-based system for automatic device management:
 
@@ -56,9 +49,7 @@ Environment Integration
 .. code-block:: python
 
    # Device selection during environment creation
-   teleop_device = None
-   if args_cli.teleop_device is not None:
-       teleop_device = device_registry.get_device_by_name(args_cli.teleop_device)()
+   teleop_device = device_registry.get_device_by_name(args_cli.teleop_device)()
 
    # Environment composition with teleop support
    environment = IsaacArenaEnvironment(
@@ -95,17 +86,3 @@ Usage Examples
 
    # VR hand tracking for humanoid control
    python isaac_arena/scripts/teleop.py --teleop_device avp_handtracking gr1_open_microwave
-
-**Environment Integration**
-
-.. code-block:: python
-
-   # Programmatic teleop device usage
-   keyboard_device = device_registry.get_device_by_name("keyboard")()
-
-   environment = IsaacArenaEnvironment(
-       embodiment=franka_embodiment,
-       scene=kitchen_scene,
-       task=pick_and_place_task,
-       teleop_device=keyboard_device
-   )
