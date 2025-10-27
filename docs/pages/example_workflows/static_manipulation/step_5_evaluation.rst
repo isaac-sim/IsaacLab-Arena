@@ -31,7 +31,7 @@ Step 1: Configure Closed-Loop Inference
 
 Create or verify the inference configuration file:
 
-**Configuration** (``isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``):
+**Configuration** (``isaaclab_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``):
 
 .. code-block:: yaml
 
@@ -50,9 +50,9 @@ Create or verify the inference configuration file:
    target_image_size: [256, 256, 3]
 
    # Joint mappings
-   gr00t_joints_config_path: isaac_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml
-   action_joints_config_path: isaac_arena/policy/config/gr1/36dof_joint_space.yaml
-   state_joints_config_path: isaac_arena/policy/config/gr1/54dof_joint_space.yaml
+   gr00t_joints_config_path: isaaclab_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml
+   action_joints_config_path: isaaclab_arena/policy/config/gr1/36dof_joint_space.yaml
+   state_joints_config_path: isaaclab_arena/policy/config/gr1/54dof_joint_space.yaml
 
 
 .. todo:: (alexmillane, 2025-10-23): See if we can move the model path out of the config file
@@ -67,9 +67,9 @@ Test the policy in a single environment with visualization via the GUI run:
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 400 \
      --enable_cameras \
      gr1_open_microwave \
@@ -102,9 +102,9 @@ by running the following command.
 
 .. code-block:: bash
 
-   python isaac_arena/examples/policy_runner.py \
+   python isaaclab_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaac_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena/arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 400 \
      --num_envs 16 \
      --enable_cameras \

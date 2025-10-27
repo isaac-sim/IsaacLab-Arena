@@ -69,7 +69,7 @@ Environment Integration
    )
 
    # Environment composition
-   environment = IsaacArenaEnvironment(
+   environment = IsaacLabArenaEnvironment(
        name="manipulation_task",
        embodiment=embodiment,  # Robot configuration
        scene=scene,
@@ -104,7 +104,7 @@ Usage Examples
    embodiment = asset_registry.get_asset_by_name("gr1_pink")()
    teleop_device = device_registry.get_device_by_name("avp_handtracking")()
 
-   environment = IsaacArenaEnvironment(
+   environment = IsaacLabArenaEnvironment(
        embodiment=embodiment,
        teleop_device=teleop_device,
        scene=scene,

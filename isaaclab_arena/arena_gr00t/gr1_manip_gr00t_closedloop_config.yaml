@@ -1,0 +1,19 @@
+# This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
+# TODO(xinjie.yao, 2025-10-07): change Hardcoded model_path to some releasable path
+model_path: /datasets/ckpts/gn1_5_gr1_microwave_open_ckpts/v2
+language_instruction: "Reach out to the microwave and open it."
+action_horizon: 16
+embodiment_tag: gr1
+video_backend: decord
+data_config: fourier_gr1_arms_only
+
+policy_joints_config_path: isaaclab_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena/policy/config/gr1/36dof_joint_space.yaml
+state_joints_config_path: isaaclab_arena/policy/config/gr1/54dof_joint_space.yaml
+num_feedback_actions: 16
+task_mode_name: gr1_tabletop_manipulation
+
+pov_cam_name_sim: "robot_pov_cam_rgb"
+
+original_image_size: [512, 512, 3]
+target_image_size: [512, 512, 3]

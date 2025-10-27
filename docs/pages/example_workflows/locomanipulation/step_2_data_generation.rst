@@ -42,7 +42,7 @@ Generate the dataset (replace ``<INPUT_DATASET_PATH>`` and ``<OUTPUT_DATASET_PAT
 .. code-block:: bash
 
    # Generate 100 demonstrations
-   python isaac_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/generate_dataset.py \
      --headless \
      --enable_cameras \
      --mimic \
@@ -69,7 +69,7 @@ To visualize the data produced, you can replay the dataset using the following c
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
      --dataset_file <OUTPUT_DATASET_PATH> \
      galileo_g1_locomanip_pick_and_place \

@@ -1,0 +1,55 @@
+# Gr00tDatasetConfig Example Configuration
+# This file shows how to configure the Gr00tDatasetConfig dataclass using YAML
+# Example for GR1 tabletop manipulation task
+
+# Root directory for all data storage
+data_root: "/datasets/datasets/gr1_open_microwave/lerobot_gr1/lerobot_gr1/"
+
+# Instruction given to the policy in natural language
+language_instruction: "Reach out to the microwave and open it."
+task_index: 0
+
+# Name of the HDF5 file to use for the dataset
+# TODO(xinjieyao, 2025-10-07): change Hardcoded hdf5_name to some releasable path
+hdf5_name: "gr1_open_microwave_50_generated.hdf5"
+
+# Mimic-generated HDF5 datafield names
+state_name_sim: "robot_joint_pos"
+action_name_sim: "processed_actions"
+pov_cam_name_sim: "robot_pov_cam_rgb"
+
+# Gr00t-LeRobot datafield names
+state_name_lerobot: "observation.state"
+action_name_lerobot: "action"
+video_name_lerobot: "observation.images.ego_view"
+task_description_lerobot: "annotation.human.action.task_description"
+
+# Parquet configuration
+chunks_size: 1000
+
+# Video configuration
+fps: 50
+
+# File path templates
+data_path: "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet"
+video_path: "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4"
+
+# Configuration file paths
+modality_template_path: "isaaclab_arena/policy/config/gr1/modality.json"
+modality_fname: "modality.json"
+episodes_fname: "episodes.jsonl"
+tasks_fname: "tasks.jsonl"
+info_template_path: "isaaclab_arena/policy/config/gr1/info.json"
+info_fname: "info.json"
+
+# policy specific parameters (gr00t demonstration data stored in lerobot format)
+policy_joints_config_path: "isaaclab_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml"
+robot_type: "gr1"
+
+# Robot simulation specific parameters
+action_joints_config_path: "isaaclab_arena/policy/config/gr1/36dof_joint_space.yaml"
+state_joints_config_path: "isaaclab_arena/policy/config/gr1/54dof_joint_space.yaml"
+
+# Image configuration (height, width, channels)
+original_image_size: [512, 512, 3]
+target_image_size: [512, 512, 3]

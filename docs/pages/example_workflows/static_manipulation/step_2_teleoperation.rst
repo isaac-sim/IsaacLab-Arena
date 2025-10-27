@@ -54,7 +54,7 @@ Start the recording session (replace ``<OUTPUT_DATASET_PATH>`` with the actual p
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/record_demos.py \
+   python isaaclab_arena/scripts/record_demos.py \
      --dataset_file <OUTPUT_DATASET_PATH> \
      --num_demos 10 \
      --num_success_steps 2 \
