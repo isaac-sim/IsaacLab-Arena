@@ -16,7 +16,7 @@ import math
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 100
 HEADLESS = True
@@ -66,8 +66,9 @@ def _test_door_moved_rate(simulation_app):
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env_cfg = env_builder.compose_manager_cfg()
     env_cfg.episode_length_s = 0.10
-    # env_cfg.terminations.time_out.time_out = True
     env = env_builder.make_registered(env_cfg)
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:
@@ -106,7 +107,7 @@ def _test_door_moved_rate(simulation_app):
 
 
 def test_door_moved_rate_metric():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_door_moved_rate,
         headless=HEADLESS,
     )

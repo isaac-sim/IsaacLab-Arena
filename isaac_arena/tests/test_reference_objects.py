@@ -16,7 +16,7 @@ import numpy as np
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 # NOTE(xinjieyao, 2025-09-23): More than double the num of steps as sim.dt is changed from 0.01 to 0.005
 # Give more steps to let the object fall down to the drawer
@@ -103,6 +103,8 @@ def _test_reference_objects(simulation_app) -> bool:
     args_cli = get_isaac_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env = env_builder.make_registered()
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:
@@ -155,7 +157,7 @@ def _test_reference_objects(simulation_app) -> bool:
 
 
 def test_reference_objects():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_reference_objects,
         headless=HEADLESS,
     )

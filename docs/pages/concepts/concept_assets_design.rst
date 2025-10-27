@@ -1,7 +1,8 @@
 Assets Design
 =============
 
-Assets are the building blocks of simulation environments - robots, objects, backgrounds, and scene elements. The asset system provides a unified framework for managing these components through a hierarchical architecture.
+Assets are the building blocks of simulation environments - robots, objects, backgrounds, and scene elements.
+The asset system provides a registry system for managing these components.
 
 Core Architecture
 -----------------

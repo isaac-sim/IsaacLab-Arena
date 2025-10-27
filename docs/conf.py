@@ -59,6 +59,7 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.githubpages",
     "sphinx_tabs.tabs",
+    "sphinx_design",
     "sphinx_copybutton",
     "isaaclab_arena_doc_tools",
 ]

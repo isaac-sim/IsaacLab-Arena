@@ -16,7 +16,7 @@ import numpy as np
 import torch
 import tqdm
 
-from isaac_arena.tests.utils.subprocess import run_simulation_app_function_in_separate_process
+from isaac_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -57,6 +57,8 @@ def _test_robot_initial_position(simulation_app):
     args_cli = get_isaac_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
     env = env_builder.make_registered()
+    # disable control on stop
+    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:
@@ -90,7 +92,7 @@ def _test_robot_initial_position(simulation_app):
 
 
 def test_robot_initial_position():
-    result = run_simulation_app_function_in_separate_process(
+    result = run_simulation_app_function(
         _test_robot_initial_position,
         headless=HEADLESS,
     )

@@ -28,8 +28,6 @@ Embodiments use the ``EmbodimentBase`` abstract class that extends the asset sys
        def get_action_cfg(self) -> Any:
            """Control interface definition."""
 
-Embodiments provide complete robot definitions that integrate with Isaac Arena's environment composition system while maintaining robot-specific behaviors.
-
 Embodiments in Detail
 ---------------------
 
