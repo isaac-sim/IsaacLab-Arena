@@ -15,7 +15,7 @@ The environment used in this example workflow has the following components:
 
 .. code-block:: python
 
-   from isaac_arena.embodiments.g1 import G1WBCPinkEmbodiment
+   from isaaclab_arena.embodiments.g1 import G1WBCPinkEmbodiment
 
    embodiment = G1WBCPinkEmbodiment(enable_cameras=True)
 
@@ -37,7 +37,7 @@ The environment used in this example workflow has the following components:
 
 .. code-block:: python
 
-   from isaac_arena.tasks import PickAndPlaceTask
+   from isaaclab_arena.tasks import PickAndPlaceTask
    # define brown box, blue bin object references, and background scene
 
    task = PickAndPlaceTask(
@@ -84,7 +84,7 @@ Replay the downloaded dataset to verify the environment setup
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
      --dataset_file <INPUT_DATASET_PATH> \
      galileo_g1_locomanip_pick_and_place \

@@ -4,7 +4,7 @@
 version = "0.1.0"
 
 # Description
-title = "Isaac Arena"
+title = "IsaacLab Arena"
 description="Evaluation framework for Isaac Lab"
 readme  = "README.md"
 repository = ""
@@ -27,4 +27,4 @@ modules = [
 use_online_index=true
 
 [[python.module]]
-name = "isaac_arena"
+name = "isaaclab_arena"

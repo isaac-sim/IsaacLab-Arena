@@ -47,7 +47,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
    # Compose the scene
    scene = Scene([background, tomato_soup_can])
 
-   isaac_arena_environment = IsaacArenaEnvironment(
+   isaaclab_arena_environment = IsaacLabArenaEnvironment(
       name="franka_kitchen_pickup",
       embodiment=embodiment,
       scene=scene,
@@ -55,7 +55,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
       teleop_device=teleop_device,
    )
 
-   env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
+   env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
    env = env_builder.make_registered() # This will register the environment with the gym registry.
 
 .. figure:: images/franka_kitchen_pickup.gif
@@ -99,7 +99,7 @@ Below are some example environments built using ``isaaclab_arena``.
 
         GR1 — Open Microwave Task
 
-Check out more of our examples environments here: `Isaac Arena Examples <https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaac_arena/examples/example_environments>`_.
+Check out more of our examples environments here: `IsaacLab Arena Examples <https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/examples/example_environments>`_.
 
 License
 ========

@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
 
-ISAAC_ARENA_IMAGE_NAME='isaac_arena'
+ISAACLAB_ARENA_IMAGE_NAME='isaaclab_arena'
 TAG_NAME=latest
 CONTAINER_ID=""
 PUSH_TO_NGC=false
 INSTALL_GROOT="false"
-WORKDIR="/workspaces/isaac_arena"
+WORKDIR="/workspaces/isaaclab_arena"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -38,7 +38,7 @@ while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
             ;;
         h | *)
             script_name=$(basename "$0")
-            echo "Helper script for pushing Isaac Arena docker image to NGC."
+            echo "Helper script for pushing IsaacLab Arena docker image to NGC."
             echo ""
             echo "Usage:"
             echo "  ${script_name} [options]"
@@ -66,7 +66,7 @@ while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
 done
 
 # Get the NGC path.
-DOCKER_IMAGE_NAME=${ISAAC_ARENA_IMAGE_NAME}:${TAG_NAME}
+DOCKER_IMAGE_NAME=${ISAACLAB_ARENA_IMAGE_NAME}:${TAG_NAME}
 NGC_PATH=nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}
 
 # Build the image.
@@ -76,7 +76,7 @@ docker build --pull \
     --build-arg INSTALL_GROOT=$INSTALL_GROOT \
     --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
     -t ${DOCKER_IMAGE_NAME} \
-    --file $SCRIPT_DIR/Dockerfile.isaac_arena \
+    --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
     $SCRIPT_DIR/..
 
 # Push if requested.
