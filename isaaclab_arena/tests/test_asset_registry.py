@@ -96,8 +96,6 @@ def _test_all_assets_in_registry(simulation_app):
 
     builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = builder.make_registered()
-    # disable control on stop
-    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     # Run

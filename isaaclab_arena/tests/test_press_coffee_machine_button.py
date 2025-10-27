@@ -60,8 +60,6 @@ def get_test_environment(num_envs: int):
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
     env = gym.make(name, cfg=cfg).unwrapped
-    # disable control on stop
-    env.sim._app_control_on_stop_handle = None
     env.reset()
 
     return env, coffee_machine

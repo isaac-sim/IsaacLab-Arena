@@ -17,7 +17,7 @@ import torch
 import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, safe_teardown
 
 NUM_STEPS = 2
 HEADLESS = True
@@ -26,9 +26,6 @@ DEVICE_NAMES = ["avp_handtracking", "spacemouse", "keyboard"]
 
 def _test_all_devices_in_registry(simulation_app):
     # Import the necessary classes.
-    # Needed for sim app restart.
-    import omni.timeline
-    import omni.usd
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
     from isaaclab_arena.embodiments.gr1t2.gr1t2 import GR1T2PinkEmbodiment
@@ -44,8 +41,6 @@ def _test_all_devices_in_registry(simulation_app):
     asset = asset_registry.get_asset_by_name("cracker_box")()
 
     for device_name in DEVICE_NAMES:
-        # We do a reset to start sim only once.
-        omni.usd.get_context().new_stage()
 
         teleop_device = device_registry.get_device_by_name(device_name)()
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -67,8 +62,6 @@ def _test_all_devices_in_registry(simulation_app):
         builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
         env = builder.make_registered()
-        # disable control on stop
-        env.unwrapped.sim._app_control_on_stop_handle = None
 
         env.reset()
         # Run some zero actions.
@@ -77,15 +70,9 @@ def _test_all_devices_in_registry(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        # Close the environment.
-        from isaaclab.sim import SimulationContext
-
-        simulation_context = SimulationContext.instance()
-        simulation_context._disable_app_control_on_stop_handle = True
-        simulation_context.stop()
-        simulation_context.clear_instance()
-        env.close()
-        omni.timeline.get_timeline_interface().stop()
+        # Close the environment using safe teardown
+        # Also creates a new stage for the next test
+        safe_teardown()
 
     return True
 

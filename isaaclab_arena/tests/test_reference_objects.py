@@ -103,8 +103,6 @@ def _test_reference_objects(simulation_app) -> bool:
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = env_builder.make_registered()
-    # disable control on stop
-    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:

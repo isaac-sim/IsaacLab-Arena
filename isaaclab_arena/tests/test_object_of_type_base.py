@@ -76,8 +76,6 @@ def _test_object_of_type_base(simulation_app):
         args_cli = get_isaaclab_arena_cli_parser().parse_args([])
         env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
         env = env_builder.make_registered()
-        # disable control on stop
-        env.unwrapped.sim._app_control_on_stop_handle = None
         env.reset()
 
         position_before_simulation = torch.tensor(cracker_box.get_initial_pose().position_xyz)

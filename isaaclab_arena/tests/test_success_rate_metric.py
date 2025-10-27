@@ -98,8 +98,6 @@ def _test_success_rate_metric(simulation_app):
     )
 
     env = env_builder.make_registered(env_cfg)
-    # disable control on stop
-    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:

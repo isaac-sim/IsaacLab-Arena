@@ -67,8 +67,6 @@ def _test_door_moved_rate(simulation_app):
     env_cfg = env_builder.compose_manager_cfg()
     env_cfg.episode_length_s = 0.10
     env = env_builder.make_registered(env_cfg)
-    # disable control on stop
-    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     try:

@@ -61,8 +61,6 @@ def _test_camera_observation(simulation_app) -> bool:
     # Compile an IsaacLab compatible arena environment configuration
     builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = builder.make_registered()
-    # disable control on stop
-    env.unwrapped.sim._app_control_on_stop_handle = None
     env.reset()
 
     for _ in tqdm.tqdm(range(NUM_STEPS)):
@@ -83,9 +81,6 @@ def _test_camera_observation(simulation_app) -> bool:
 
 @pytest.mark.with_cameras
 def test_camera_observation():
-    # Safety: if someone runs this without the env var, skip with a helpful message
-    if not ENABLE_CAMERAS:
-        pytest.skip("This test requires cameras. Re-run with: WITH_CAMERAS=1 pytest -m with_cameras")
 
     result = run_simulation_app_function(
         _test_camera_observation,

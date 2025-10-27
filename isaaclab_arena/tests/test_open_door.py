@@ -64,8 +64,6 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
         # to allow us to inspect the scene without having it reset.
         cfg.events.reset_door_state = None
     env = gym.make(name, cfg=cfg).unwrapped
-    # disable control on stop
-    env.sim._app_control_on_stop_handle = None
     env.reset()
 
     return env, microwave
