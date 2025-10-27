@@ -131,6 +131,8 @@ else
                     "--gpus=all"
                     "-v" "./docs:${WORKDIR}/docs"
                     "-v" "./isaaclab_arena:${WORKDIR}/isaaclab_arena"
+                    "-v" "./isaaclab_arena_g1:${WORKDIR}/isaaclab_arena_g1"
+                    "-v" "./isaaclab_arena_gr00t:${WORKDIR}/isaaclab_arena_gr00t"
                     "-v" "./submodules/IsaacLab:${WORKDIR}/submodules/IsaacLab"
                     "-v" "$DATASETS_HOST_MOUNT_DIRECTORY:/datasets"
                     "-v" "$MODELS_HOST_MOUNT_DIRECTORY:/models"
