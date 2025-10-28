@@ -14,6 +14,7 @@
 
 import argparse
 import importlib
+from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.examples.example_environments.galileo_g1_locomanip_pick_and_place_environment import (
@@ -49,7 +50,7 @@ ExampleEnvironments = {
 }
 
 
-def add_external_environments_to_example_environments(environment_path) -> None:
+def parse_and_return_external_environment_from_string(environment_path) -> dict[str, Any]:
     # Parse a string and import the environment class
     # We assume the environment path is in the format "module_path:class_name"
     module_path, class_name = environment_path.split(":", 1)
@@ -65,7 +66,7 @@ def add_example_environments_cli_args(parser: argparse.ArgumentParser) -> argpar
     environment = getattr(args, "environment", None)
     if environment is not None:
         # Update the ExampleEnvironments dictionary with the new external environment
-        ExampleEnvironments.update(add_external_environments_to_example_environments(environment))
+        ExampleEnvironments.update(parse_and_return_external_environment_from_string(environment))
     subparsers = parser.add_subparsers(dest="example_environment", required=True, help="Example environment to run")
     for example_environment in ExampleEnvironments.values():
         subparser = subparsers.add_parser(example_environment.name)
