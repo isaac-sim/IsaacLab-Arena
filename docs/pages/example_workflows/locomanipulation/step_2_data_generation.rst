@@ -83,5 +83,5 @@ You should see the robot successfully perform the task.
 
    The dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
 
-
-.. todo:: (amillane, 2025-10-22): add screenshot
+.. image:: ../../../images/g1_locomanip_galileo_pnp_datagen.png
+   :align: center

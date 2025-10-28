@@ -98,4 +98,5 @@ You should see the G1 robot replaying the generated demonstrations, performing b
 
    The downloaded dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
 
-.. todo:: (amillane, 2025-10-22): screenshot
+.. image:: ../../../images/g1_locomanip_galileo_pnp_env_setup_and_validation.png
+   :align: center
