@@ -1,6 +1,8 @@
 Data Generation
 ---------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
 This workflow covers annotating and generating the demonstration dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
@@ -9,7 +11,7 @@ Step 1: Download Human Demonstration Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For this tutorial we will use the pre-recorded human demonstrations.
-Note that, in contrast, in the the :doc:`static manipulation workflow <../static_manipulation/index>`,
+Note that, in contrast, in the :doc:`static manipulation workflow <../static_manipulation/index>`,
 we support recording your own demonstrations.
 
 .. note::
@@ -23,7 +25,8 @@ Download the pre-recorded human demonstrations (replace ``<INPUT_DATASET_PATH>``
    huggingface-cli download \
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_annotated.hdf5 \
-       --local-dir <YOUR_LOCAL_DATA_DIR>   # Make sure this is a directory on your local machine, and virtually mounted to the container.
+       --repo-type dataset \
+       --local-dir <INPUT_DATASET_PATH>
 
 
 Step 2: Generate Dataset with Isaac Lab Mimic
@@ -55,13 +58,10 @@ Generate the dataset (replace ``<INPUT_DATASET_PATH>`` and ``<OUTPUT_DATASET_PAT
      --embodiment g1_wbc_pink
 
 Data generation takes 1-4 hours depending on your CPU/GPU.
-
-.. note::
-
-   - Remove ``--headless`` to visualize data generation
+You can remove ``--headless`` to visualize during data generation.
 
 
-Step 2: Validate Generated Dataset (Optional)
+Step 3: Validate Generated Dataset (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To visualize the data produced, you can replay the dataset using the following command:

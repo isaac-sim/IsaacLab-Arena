@@ -1,6 +1,8 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
 This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
 and evaluating it across multiple parallel environments.
 
@@ -13,8 +15,6 @@ pre-trained model checkpoint below:
 
    These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
    such that the preceding steps can be skipped.
-   This step requires the Hugging Face CLI, which can be installed by following the
-   `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
    To download run (replacing ``<CHECKPOINTS_DIR>`` with the actual path):
 

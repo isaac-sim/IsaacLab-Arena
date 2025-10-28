@@ -114,6 +114,7 @@ TABLE OF CONTENTS
 
    pages/quickstart/installation
    pages/quickstart/first_arena_env
+   pages/quickstart/docker_containers
 
 .. toctree::
    :maxdepth: 1

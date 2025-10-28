@@ -89,4 +89,9 @@ core.*
 **venv_docs/
 
 # Development and cache folders
+# Development and cache folders
 /__*
+
+*mimic/
+*tools/
+*isaac_arena/wbc_policy/

@@ -1,6 +1,8 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
 This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
 and evaluating it across multiple parallel environments.
 
