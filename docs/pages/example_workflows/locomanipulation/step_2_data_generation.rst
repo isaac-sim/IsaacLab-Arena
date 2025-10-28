@@ -79,4 +79,9 @@ To visualize the data produced, you can replay the dataset using the following c
 
 You should see the robot successfully perform the task.
 
+.. note::
+
+   The dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
+
+
 .. todo:: (amillane, 2025-10-22): add screenshot
