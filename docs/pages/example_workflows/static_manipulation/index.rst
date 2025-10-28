@@ -50,8 +50,8 @@ Task Overview
      - Success rate, Door moved rate
 
 
-Workflows
----------
+Workflow
+--------
 
 This tutorial covers the pipeline between creating an environment, generating training data,
 fine-tuning a policy (GR00T N1.5), and evaluating the policy in closed-loop.
@@ -59,24 +59,31 @@ A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).
 
-This example workflow involves the following steps:
+
+We store data on Hugging Face, so you'll need log in to Hugging Face
+(see the `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_
+for more details).
+
+.. code:: bash
+
+    hf auth login
+
+Create the folders for the data and models:
+
+.. code:: bash
+
+    export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
+    mkdir -p $DATASET_DIR
+    export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
+    mkdir -p $MODELS_DIR
+
+Follow the following steps to complete the workflow:
 
 - :doc:`step_1_environment_setup`
 - :doc:`step_2_teleoperation`
 - :doc:`step_3_data_generation`
 - :doc:`step_4_policy_training`
 - :doc:`step_5_evaluation`
-
-.. note::
-
-   We store data on Hugging Face, so you'll need to install the Hugging Face CLI to download the data.
-   You can install the Hugging Face CLI by following the
-   `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_.
-
-   .. code-block:: bash
-
-      pip install -U "huggingface_hub[cli]"
-      huggingface-cli login
 
 
 .. toctree::

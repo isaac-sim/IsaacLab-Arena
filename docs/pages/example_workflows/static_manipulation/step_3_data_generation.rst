@@ -34,9 +34,6 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
 
    .. code-block:: bash
 
-      export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-      mkdir -p $DATASET_DIR
-
       hf download \
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_annotated.hdf5 \
@@ -86,7 +83,7 @@ This step can be skipped by downloading the pre-generated dataset from Hugging F
          --local-dir $DATASET_DIR
 
 
-Generate the dataset (replace ``<ANNOTATED_DATASET_PATH>`` and ``<GENERATED_DATASET_PATH>`` with the actual paths):
+Generate the dataset:
 
 .. code-block:: bash
 

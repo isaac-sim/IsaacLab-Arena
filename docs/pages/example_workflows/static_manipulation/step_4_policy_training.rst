@@ -20,9 +20,6 @@ pre-generated dataset from Hugging Face as described below.
 
    .. code-block:: bash
 
-      export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-      mkdir -p $DATASET_DIR
-
       hf download \
          nvidia/Arena-GR1-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
@@ -46,9 +43,6 @@ Note that this conversion step can be skipped by downloading the pre-converted L
 
    .. code-block:: bash
 
-      export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-      mkdir -p $DATASET_DIR
-
       hf download \
          nvidia/Arena-GR1-Manipulation-Task \
          --include lerobot/* \
@@ -60,10 +54,6 @@ Note that this conversion step can be skipped by downloading the pre-converted L
 
 We first need to modify the configuration file to point to the correct input/output paths.
 In the config file at ``isaaclab_arena/policy/config/gr1_manip_config.yaml``,
-
-
-.. todo:: (alexmillane, 2025-10-23): We should move the input/output paths out of the config file
-   and onto the command line. Then change the statement above.
 
 
 **Configuration file** (``gr1_manip_config.yaml``):

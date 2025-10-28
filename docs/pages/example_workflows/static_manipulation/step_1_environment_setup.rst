@@ -65,9 +65,6 @@ We download a pre-recorded dataset from Hugging Face.
 
 .. code-block:: bash
 
-   export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-   mkdir -p $DATASET_DIR
-
    hf download \
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \

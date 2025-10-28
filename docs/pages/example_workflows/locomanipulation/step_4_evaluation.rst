@@ -22,9 +22,6 @@ pre-trained model checkpoint below:
 
    .. code-block:: bash
 
-      export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
-      mkdir -p $MODELS_DIR
-
       hf download \
          nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
          --local-dir $MODELS_DIR
