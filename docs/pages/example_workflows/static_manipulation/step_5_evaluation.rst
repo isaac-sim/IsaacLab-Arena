@@ -16,13 +16,14 @@ pre-trained model checkpoint below:
    These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
    such that the preceding steps can be skipped.
 
-   To download run (replacing ``<CHECKPOINTS_DIR>`` with the actual path):
-
    .. code-block:: bash
 
-      huggingface-cli download \
+      export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
+      mkdir -p $MODELS_DIR
+
+      hf download \
          nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
-         --local-dir <CHECKPOINTS_DIR>
+         --local-dir $MODELS_DIR
 
 
 
@@ -36,7 +37,7 @@ Create or verify the inference configuration file:
 .. code-block:: yaml
 
    # Model configuration
-   model_path: /checkpoints/GN1x-Tuned-Arena-GR1-Manipulation
+   model_path: /models/isaaclab_arena/static_manipulation_tutorial
    embodiment_tag: gr1
    data_config: gr1_arms_only
 

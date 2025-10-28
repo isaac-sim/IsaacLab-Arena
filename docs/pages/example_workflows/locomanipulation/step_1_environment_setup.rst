@@ -6,6 +6,7 @@ Environment Setup and Validation
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
+
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -50,17 +51,7 @@ The environment used in this example workflow has the following components:
     environment description in its entirety.
 
 
-Step 1: Start Isaac Lab - Arena
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Start the Arena Docker container:
-
-   :docker_run_default:
-
-
-.. todo:: (alexmillane, 2025-10-23): Unify the docker start-up specification.
-
-Step 2: Download a test dataset
+Step 1: Download a test dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To run a robot in the environment we need some recorded demonstration data that
@@ -69,14 +60,17 @@ We download a pre-recorded dataset from Hugging Face (replace ``<INPUT_DATASET_P
 
 .. code-block:: bash
 
-   huggingface-cli download \
+   export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
+   mkdir -p $DATASET_DIR
+
+   hf download \
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \
        --repo-type dataset \
-       --local-dir <INPUT_DATASET_PATH>
+       --local-dir $DATASET_DIR
 
 
-Step 3: Validate Environment with Demo Replay
+Step 2: Validate Environment with Demo Replay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Replay the downloaded dataset to verify the environment setup

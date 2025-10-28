@@ -18,13 +18,16 @@ pre-trained model checkpoint below:
    This step requires the Hugging Face CLI, which can be installed by following the
    `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_.
 
-   To download run (replacing ``<CHECKPOINTS_DIR>`` with the actual path):
+   To download run:
 
    .. code-block:: bash
 
-      huggingface-cli download \
+      export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+      mkdir -p $MODELS_DIR
+
+      hf download \
          nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
-         --local-dir <CHECKPOINTS_DIR>
+         --local-dir $MODELS_DIR
 
 
 Step 1: Configure Closed-Loop Inference
@@ -37,7 +40,7 @@ Create or verify the inference configuration file:
 .. code-block:: yaml
 
    # Model configuration
-   model_path: /checkpoints/GN1x-Tuned-Arena-G1-Loco-Manipulation
+   model_path: /models/isaaclab_arena/locomanipulation_tutorial
    embodiment_tag: new_embodiment
    data_config: unitree_g1_sim_wbc
 
