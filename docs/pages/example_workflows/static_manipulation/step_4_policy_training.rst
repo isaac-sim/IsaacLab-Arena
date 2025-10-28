@@ -20,11 +20,11 @@ pre-generated dataset from Hugging Face as described below.
 
    .. code-block:: bash
 
-   huggingface-cli download \
-       nvidia/Arena-GR1-Manipulation-Task \
-       arena_gr1_manipulation_dataset_generated.hdf5 \
-       --repo-type dataset \
-       --local-dir <INPUT_DATASET_PATH>
+      huggingface-cli download \
+          nvidia/Arena-GR1-Manipulation-Task \
+          arena_gr1_manipulation_dataset_generated.hdf5 \
+          --repo-type dataset \
+          --local-dir <INPUT_DATASET_PATH>
 
 
 Step 2: Convert to LeRobot Format
