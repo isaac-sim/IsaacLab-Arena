@@ -71,7 +71,7 @@ We download a pre-recorded dataset from Hugging Face (replace ``<INPUT_DATASET_P
 
    huggingface-cli download \
        nvidia/Arena-GR1-Manipulation-Task \
-       arena_gr1_manipulation_dataset_generated.hdf5 \
+       arena_gr1_manipulation_dataset_generated_small.hdf5 \
        --repo-type dataset \
        --local-dir <INPUT_DATASET_PATH>
 
