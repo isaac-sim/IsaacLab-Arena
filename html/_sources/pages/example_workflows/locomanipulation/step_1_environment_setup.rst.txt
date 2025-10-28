@@ -1,6 +1,8 @@
 Environment Setup and Validation
 --------------------------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
@@ -56,22 +58,35 @@ Start the Arena Docker container:
    :docker_run_default:
 
 
+.. todo:: (alexmillane, 2025-10-23): Unify the docker start-up specification.
+
 Step 2: Download a test dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TBD
+To run a robot in the environment we need some recorded demonstration data that
+can be fed to the robot to control its actions.
+We download a pre-recorded dataset from Hugging Face (replace ``<INPUT_DATASET_PATH>`` with the actual path):
+
+.. code-block:: bash
+
+   huggingface-cli download \
+       nvidia/Arena-GR1-Manipulation-Task \
+       arena_gr1_manipulation_dataset_generated.hdf5 \
+       --repo-type dataset \
+       --local-dir <INPUT_DATASET_PATH>
 
 
 Step 3: Validate Environment with Demo Replay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replay the generated dataset to verify the environment setup:
+Replay the downloaded dataset to verify the environment setup
+(replace ``<INPUT_DATASET_PATH>`` with the actual path):
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
-     --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5 \
+     --dataset_file <INPUT_DATASET_PATH> \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink

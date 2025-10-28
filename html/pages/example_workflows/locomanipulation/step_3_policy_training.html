@@ -286,6 +286,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/docker_containers.html">Docker Containers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
@@ -374,6 +375,7 @@
                   
   <section id="policy-post-training">
 <h1>Policy Post-Training<a class="headerlink" href="#policy-post-training" title="Link to this heading">#</a></h1>
+<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <p>This workflow covers post-training an example policy using the generated dataset,
 here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.5</a> as the base model.</p>
 <p>Note that this tutorial assumes that you’ve completed the
@@ -392,21 +394,8 @@ such that the preceding steps can be skipped.</p>
 </pre></div>
 </div>
 </div>
-</details><div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>check this command works</p>
-</div>
-<section id="step-1-start-the-docker-container-with-gr00t-dependencies">
-<h2>Step 1: Start the Docker Container (with GR00T Dependencies)<a class="headerlink" href="#step-1-start-the-docker-container-with-gr00t-dependencies" title="Link to this heading">#</a></h2>
-<p>Start the Docker container <strong>with GR00T dependencies</strong> by running the following command.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
-</pre></div>
-</div>
-<p>Note that this is a different container than the one used in the preceding steps
-because it contains the dependencies required to fine-tune GR00T N1.5 policy.</p>
-</section>
-<section id="step-2-convert-to-lerobot-format">
-<h2>Step 2: Convert to LeRobot Format<a class="headerlink" href="#step-2-convert-to-lerobot-format" title="Link to this heading">#</a></h2>
+</details><section id="step-1-convert-to-lerobot-format">
+<h2>Step 1: Convert to LeRobot Format<a class="headerlink" href="#step-1-convert-to-lerobot-format" title="Link to this heading">#</a></h2>
 <p>GR00T N1.5 requires the dataset to be in LeRobot format.
 We provide a script to convert from the IsaacLab Mimic generated HDF5 dataset to LeRobot format.
 Note that this conversion step can be skipped by downloading the pre-converted LeRobot format dataset.</p>
@@ -428,7 +417,7 @@ such that the conversion step can be skipped.</p>
 </details><p>We first need to modify the configuration file to point to the correct input/output paths.
 In the config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/policy/config/g1_locomanip_config.yaml</span></code>,
 Replace <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> with the actual path.</p>
-<div class="admonition-todo admonition" id="id2">
+<div class="admonition-todo admonition" id="id1">
 <p class="admonition-title">Todo</p>
 <p>(alexmillane, 2025-10-23): We should move the input/output paths out of the config file
 and onto the command line. Then change the statement above.</p>
@@ -464,8 +453,8 @@ and onto the command line. Then change the statement above.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;/lerobot/meta/</span></code> - Dataset metadata</p></li>
 </ul>
 </section>
-<section id="step-3-post-train-policy">
-<h2>Step 3: Post-train Policy<a class="headerlink" href="#step-3-post-train-policy" title="Link to this heading">#</a></h2>
+<section id="step-2-post-train-policy">
+<h2>Step 2: Post-train Policy<a class="headerlink" href="#step-2-post-train-policy" title="Link to this heading">#</a></h2>
 <p>We post-train the GR00T N1.5 policy on the task.</p>
 <p>The GR00T N1.5 policy has 3 billion parameters so post training is an an expensive operation.
 We provide two post-training options:
@@ -562,9 +551,8 @@ the best results.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-docker-container-with-gr00t-dependencies">Step 1: Start the Docker Container (with GR00T Dependencies)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-convert-to-lerobot-format">Step 2: Convert to LeRobot Format</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-post-train-policy">Step 3: Post-train Policy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-convert-to-lerobot-format">Step 1: Convert to LeRobot Format</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-post-train-policy">Step 2: Post-train Policy</a></li>
 </ul>
   </nav></div>
 

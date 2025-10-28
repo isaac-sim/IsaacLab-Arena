@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Tasks Design &#8212; isaaclab_arena 0.1</title>
+    <title>Docker Containers &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -35,6 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
@@ -49,12 +50,13 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/concept_tasks_design';</script>
+    <script src="../../_static/tabs.js?v=3030b3cb"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/quickstart/docker_containers';</script>
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Scene Design" href="concept_scene_design.html" />
-    <link rel="prev" title="Embodiment Design" href="concept_embodiment_design.html" />
+    <link rel="next" title="G1 Loco-Manipulation Box Pick and Place Task" href="../example_workflows/locomanipulation/index.html" />
+    <link rel="prev" title="First Arena Environment" href="first_arena_env.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -281,10 +283,10 @@
      aria-label="Table of Contents">
   <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../quickstart/docker_containers.html">Docker Containers</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Docker Containers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="nav bd-sidenav">
@@ -305,18 +307,18 @@
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Tasks Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_policy_design.html">Policy Design</a></li>
 </ul>
 </div>
 </nav></div>
@@ -351,7 +353,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Tasks Design</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Docker Containers</span></li>
   </ul>
 </nav>
 </div>
@@ -368,99 +370,40 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tasks-design">
-<h1>Tasks Design<a class="headerlink" href="#tasks-design" title="Link to this heading">#</a></h1>
-<p>Tasks define objectives, success criteria, and behavior logic for environments. They provide configurations for termination conditions, event handling, metrics collection, and demonstration generation.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>Tasks use the <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> abstract class:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">TaskBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Additional scene configurations.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Success and failure conditions.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_events_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset and randomization handling.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Performance evaluation metrics.&quot;&quot;&quot;</span>
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_mimic_env_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embodiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Demonstration generation configuration.&quot;&quot;&quot;</span>
-</pre></div>
-</div>
-</section>
-<section id="tasks-in-detail">
-<h2>Tasks in Detail<a class="headerlink" href="#tasks-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt><strong>Configuration Components</strong></dt><dd><p>Tasks contribute to multiple Isaac Lab manager configurations:</p>
+  <section id="docker-containers">
+<h1>Docker Containers<a class="headerlink" href="#docker-containers" title="Link to this heading">#</a></h1>
+<p>This first version of Isaac Lab Arena is designed to run inside a Docker container.</p>
+<p>We provide two docker containers for Isaac Lab Arena:</p>
 <ul class="simple">
-<li><p><strong>Scene Configuration</strong>: Additional sensors and physics components (contact sensors, object interactions)</p></li>
-<li><p><strong>Termination Configuration</strong>: Success and failure conditions defining episode completion</p></li>
-<li><p><strong>Event Configuration</strong>: Reset and randomization logic for consistent episode initialization</p></li>
-<li><p><strong>Metrics Integration</strong>: Performance evaluation and data collection systems</p></li>
-<li><p><strong>Mimic Configuration</strong>: Demonstration generation with subtask decomposition</p></li>
+<li><p><strong>Base</strong>: Contains the Isaac Lab Arena code and all its dependencies.</p></li>
+<li><p><strong>Base + GR00T</strong>: Additionally includes GR00T and its dependencies.</p></li>
 </ul>
-</dd>
-<dt><strong>Available Tasks</strong></dt><dd><p>Built-in task implementations for common scenarios:</p>
+<p>We include the two containers such that the user can choose between container with minimal
+dependencies (<strong>Base</strong>) or container with all dependencies (<strong>Base + GR00T</strong>).</p>
+<p>In order to start the containers run:</p>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Base</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Base + GR00T</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
+</pre></div>
+</div>
+</div></div>
+<p>The run docker will build the container and then enter in interactive mode.</p>
+<section id="mounted-directories">
+<h2>Mounted Directories<a class="headerlink" href="#mounted-directories" title="Link to this heading">#</a></h2>
+<p>The run docker script will mount the following directories on the host machine to the container:</p>
 <ul class="simple">
-<li><p><strong>PickAndPlaceTask</strong>: Move objects between locations with contact-based success detection</p></li>
-<li><p><strong>OpenDoorTask</strong>: Affordance-based interaction with openable objects and thresholds</p></li>
-<li><p><strong>G1LocomanipPickAndPlaceTask</strong>: Combined locomotion and manipulation for humanoid robots</p></li>
-<li><p><strong>DummyTask</strong>: Empty task template for custom objective development</p></li>
+<li><p><strong>Datasets</strong>: from host: <code class="docutils literal notranslate"><span class="pre">$HOME/datasets</span></code> to container: <code class="docutils literal notranslate"><span class="pre">/datasets</span></code></p></li>
+<li><p><strong>Models</strong>: from host: <code class="docutils literal notranslate"><span class="pre">$HOME/models</span></code> to container: <code class="docutils literal notranslate"><span class="pre">/models</span></code></p></li>
+<li><p><strong>Evaluation</strong>: from host: <code class="docutils literal notranslate"><span class="pre">$HOME/eval</span></code> to container: <code class="docutils literal notranslate"><span class="pre">/eval</span></code></p></li>
 </ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Task construction with scene assets</span>
-<span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
-<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
-
-<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
-    <span class="n">pick_up_object</span><span class="o">=</span><span class="n">pick_object</span><span class="p">,</span>
-    <span class="n">destination_location</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span>
-    <span class="n">background_scene</span><span class="o">=</span><span class="n">kitchen</span>
-<span class="p">)</span>
-
-<span class="c1"># Environment composition</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;kitchen_manipulation&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>  <span class="c1"># Defines objectives and success criteria</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span>
-<span class="p">)</span>
-
-<span class="c1"># Automatic configuration integration</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>  <span class="c1"># Task configs merged automatically</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Pick and Place Task</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
-<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;kitchen_drawer&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
-
-<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Humanoid Locomotion</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
-<span class="n">destination_bin</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;sorting_bin&quot;</span><span class="p">)()</span>
-
-<span class="n">task</span> <span class="o">=</span> <span class="n">G1LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination_bin</span><span class="p">,</span> <span class="n">galileo_scene</span><span class="p">)</span>
-</pre></div>
-</div>
+<p>In our examples, we download input datasets and pre-trained models.
+It is useful to download these to a folder mapped on the host machine to avoid re-downloading
+between restarts of the container.
+These directories are configurable through argument to the run docker script.</p>
+<p>For a full list of arguments see the <code class="docutils literal notranslate"><span class="pre">run_docker.sh</span></code> script at
+<code class="docutils literal notranslate"><span class="pre">isaac_arena/docker/run_docker.sh</span></code>.</p>
 </section>
 </section>
 
@@ -475,20 +418,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_embodiment_design.html"
+       href="first_arena_env.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Embodiment Design</p>
+        <p class="prev-next-title">First Arena Environment</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_scene_design.html"
+       href="../example_workflows/locomanipulation/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Scene Design</p>
+        <p class="prev-next-title">G1 Loco-Manipulation Box Pick and Place Task</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -513,10 +456,7 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks-in-detail">Tasks in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mounted-directories">Mounted Directories</a></li>
 </ul>
   </nav></div>
 

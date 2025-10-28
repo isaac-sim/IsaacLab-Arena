@@ -284,6 +284,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/docker_containers.html">Docker Containers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
@@ -372,14 +373,17 @@
                   
   <section id="data-generation">
 <h1>Data Generation<a class="headerlink" href="#data-generation" title="Link to this heading">#</a></h1>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <p>This workflow covers generating a new dataset using
 <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html">Isaac Lab Mimic</a>.</p>
 <p>Note that this tutorial assumes that you’ve completed the
 <a class="reference internal" href="step_2_teleoperation.html"><span class="doc">preceding step (Teleoperation Data Collection)</span></a>.
 If you do not want to do the preceding step of recording demonstrations, you can jump to
-you can download the pre-generated dataset from Hugging Face as described below.</p>
+you can download the pre-generated dataset either in
+<a class="reference internal" href="#step-1-annotate-demonstrations"><span class="std std-ref">Step 1: Annotate Demonstrations</span></a> or <a class="reference internal" href="#step-2-generate-augmented-dataset"><span class="std std-ref">Step 2: Generate Augmented Dataset</span></a>
+below.</p>
 <section id="step-1-annotate-demonstrations">
-<h2>Step 1: Annotate Demonstrations<a class="headerlink" href="#step-1-annotate-demonstrations" title="Link to this heading">#</a></h2>
+<span id="id1"></span><h2>Step 1: Annotate Demonstrations<a class="headerlink" href="#step-1-annotate-demonstrations" title="Link to this heading">#</a></h2>
 <p>This step describes how to annotate the demonstrations recorded in the preceding step
 such that they can be used by Isaac Lab Mimic.
 The process of annotation involves segmenting demonstrations into subtasks (reach, grasp, pull):</p>
@@ -390,10 +394,13 @@ The process of annotation involves segmenting demonstrations into subtasks (reac
 <p class="sd-card-text">These commands can be used to download the pre-annotated dataset,
 such that the annotation step can be skipped.</p>
 <p class="sd-card-text">To download run (replacing <code class="docutils literal notranslate"><span class="pre">&lt;ANNOTATED_DATASET_PATH&gt;</span></code> with the actual path):</p>
-<dl class="simple">
-<dt>huggingface-cli download </dt><dd><p class="sd-card-text">nvidia/Arena-GR1-Manipulation-Task arena_gr1_manipulation_dataset_annotated.hdf5 –local-dir &lt;ANNOTATED_DATASET_PATH&gt;</p>
-</dd>
-</dl>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>arena_gr1_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span>&lt;ANNOTATED_DATASET_PATH&gt;
+</pre></div>
+</div>
 </div>
 </details><p>To start the annotation process run the following command (replace
 <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;ANNOTATED_DATASET_PATH&gt;</span></code> with the actual paths):</p>
@@ -412,7 +419,7 @@ such that the annotation step can be skipped.</p>
 </ol>
 </section>
 <section id="step-2-generate-augmented-dataset">
-<h2>Step 2: Generate Augmented Dataset<a class="headerlink" href="#step-2-generate-augmented-dataset" title="Link to this heading">#</a></h2>
+<span id="id2"></span><h2>Step 2: Generate Augmented Dataset<a class="headerlink" href="#step-2-generate-augmented-dataset" title="Link to this heading">#</a></h2>
 <p>Isaac Lab Mimic generates additional demonstrations from a small set of
 annotated demonstrations by using rigid body transformations to introduce variations.</p>
 <p>This step can be skipped by downloading the pre-generated dataset from Hugging Face as described below.</p>
@@ -460,7 +467,7 @@ To do so, run the following command (replace <code class="docutils literal notra
 </pre></div>
 </div>
 <p>You should see the robot successfully perform the task.</p>
-<div class="admonition-todo admonition" id="id1">
+<div class="admonition-todo admonition" id="id3">
 <p class="admonition-title">Todo</p>
 <p>(amillane, 2025-10-22): add screenshot</p>
 </div>

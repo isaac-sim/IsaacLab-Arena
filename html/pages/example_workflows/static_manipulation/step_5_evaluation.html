@@ -284,6 +284,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/docker_containers.html">Docker Containers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
@@ -372,6 +373,7 @@
                   
   <section id="closed-loop-policy-inference-and-evaluation">
 <h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
+<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <p>This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
 and evaluating it across multiple parallel environments.</p>
 <p>Note that this tutorial assumes that you’ve completed the
@@ -381,9 +383,7 @@ pre-trained model checkpoint below:</p>
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-trained Model (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
-such that the preceding steps can be skipped.
-This step requires the Hugging Face CLI, which can be installed by following the
-<a class="reference external" href="https://huggingface.co/docs/huggingface_hub/installation">official instructions</a>.</p>
+such that the preceding steps can be skipped.</p>
 <p class="sd-card-text">To download run (replacing <code class="docutils literal notranslate"><span class="pre">&lt;CHECKPOINTS_DIR&gt;</span></code> with the actual path):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/GN1x-Tuned-Arena-GR1-Manipulation<span class="w"> </span><span class="se">\</span>

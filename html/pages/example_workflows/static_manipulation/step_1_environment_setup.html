@@ -284,6 +284,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/docker_containers.html">Docker Containers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
@@ -372,6 +373,7 @@
                   
   <section id="environment-setup-and-validation">
 <h1>Environment Setup and Validation<a class="headerlink" href="#environment-setup-and-validation" title="Link to this heading">#</a></h1>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <p>On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.</p>
 <section id="environment-description">
@@ -428,16 +430,9 @@ We download a pre-recorded dataset from Hugging Face (replace <code class="docut
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--local-dir<span class="w"> </span>&lt;INPUT_DATASET_PATH&gt;
 </pre></div>
-</div>
-<div class="admonition-todo admonition" id="id2">
-<p class="admonition-title">Todo</p>
-<p>(alexmillane, 2025-10-23): Check this command works</p>
-</div>
-<div class="admonition-todo admonition" id="id3">
-<p class="admonition-title">Todo</p>
-<p>(alexmillane, 2025-10-23): Move to specified paths.</p>
 </div>
 </section>
 <section id="step-2-start-isaac-lab-arena">
@@ -449,7 +444,8 @@ We download a pre-recorded dataset from Hugging Face (replace <code class="docut
 </section>
 <section id="step-3-validate-the-environment-by-replaying-the-dataset">
 <h2>Step 3: Validate the Environment by Replaying the Dataset<a class="headerlink" href="#step-3-validate-the-environment-by-replaying-the-dataset" title="Link to this heading">#</a></h2>
-<p>Replay the downloaded dataset to verify the environment setup:</p>
+<p>Replay the downloaded dataset to verify the environment setup
+(replace <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> with the actual path):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span>&lt;INPUT_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
@@ -459,7 +455,7 @@ We download a pre-recorded dataset from Hugging Face (replace <code class="docut
 </div>
 <p>You should see the GR1 robot replaying the demonstrations, performing the microwave door
 opening task in the kitchen environment.</p>
-<div class="admonition-todo admonition" id="id4">
+<div class="admonition-todo admonition" id="id2">
 <p class="admonition-title">Todo</p>
 <p>(amillane, 2025-10-22): screenshot</p>
 </div>

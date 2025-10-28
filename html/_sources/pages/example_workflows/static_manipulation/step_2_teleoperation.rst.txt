@@ -1,6 +1,9 @@
 Teleoperation Data Collection
 -----------------------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
++ CloudXR Runtime: Nvidia CloudXR Runtime (see below for details)
+
 This workflow covers collecting demonstrations using Isaac Lab Teleop with an Apple Vision Pro.
 
 .. note::
@@ -12,7 +15,8 @@ This workflow covers collecting demonstrations using Isaac Lab Teleop with an Ap
 Step 1: Install Isaac XR Teleop App on Vision Pro
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Follow the `Isaac Lab CloudXR documentation <https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro>`_
+Follow the `Isaac Lab CloudXR documentation
+<https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro>`_
 to build and install the app on your Apple Vision Pro.
 
 

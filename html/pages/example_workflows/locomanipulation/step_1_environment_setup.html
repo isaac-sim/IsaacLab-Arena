@@ -284,6 +284,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/docker_containers.html">Docker Containers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
@@ -372,6 +373,7 @@
                   
   <section id="environment-setup-and-validation">
 <h1>Environment Setup and Validation<a class="headerlink" href="#environment-setup-and-validation" title="Link to this heading">#</a></h1>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <p>On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.</p>
 <section id="environment-description">
@@ -420,24 +422,38 @@ environment description in its entirety.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
+<div class="admonition-todo admonition" id="id2">
+<p class="admonition-title">Todo</p>
+<p>(alexmillane, 2025-10-23): Unify the docker start-up specification.</p>
+</div>
 </section>
 <section id="step-2-download-a-test-dataset">
 <h2>Step 2: Download a test dataset<a class="headerlink" href="#step-2-download-a-test-dataset" title="Link to this heading">#</a></h2>
-<p>TBD</p>
+<p>To run a robot in the environment we need some recorded demonstration data that
+can be fed to the robot to control its actions.
+We download a pre-recorded dataset from Hugging Face (replace <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> with the actual path):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span>&lt;INPUT_DATASET_PATH&gt;
+</pre></div>
+</div>
 </section>
 <section id="step-3-validate-environment-with-demo-replay">
 <h2>Step 3: Validate Environment with Demo Replay<a class="headerlink" href="#step-3-validate-environment-with-demo-replay" title="Link to this heading">#</a></h2>
-<p>Replay the generated dataset to verify the environment setup:</p>
+<p>Replay the downloaded dataset to verify the environment setup
+(replace <code class="docutils literal notranslate"><span class="pre">&lt;INPUT_DATASET_PATH&gt;</span></code> with the actual path):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--dataset_file<span class="w"> </span>/datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span>&lt;INPUT_DATASET_PATH&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_pink
 </pre></div>
 </div>
 <p>You should see the G1 robot replaying the generated demonstrations, performing box pick and place task in the Galileo lab environment.</p>
-<div class="admonition-todo admonition" id="id2">
+<div class="admonition-todo admonition" id="id3">
 <p class="admonition-title">Todo</p>
 <p>(amillane, 2025-10-22): screenshot</p>
 </div>
