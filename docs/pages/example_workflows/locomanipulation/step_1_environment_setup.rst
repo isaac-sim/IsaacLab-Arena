@@ -56,12 +56,9 @@ Step 1: Download a test dataset
 
 To run a robot in the environment we need some recorded demonstration data that
 can be fed to the robot to control its actions.
-We download a pre-recorded dataset from Hugging Face (replace ``<INPUT_DATASET_PATH>`` with the actual path):
+We download a pre-recorded dataset from Hugging Face:
 
 .. code-block:: bash
-
-   export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-   mkdir -p $DATASET_DIR
 
    hf download \
        nvidia/Arena-GR1-Manipulation-Task \
@@ -74,7 +71,6 @@ Step 2: Validate Environment with Demo Replay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Replay the downloaded dataset to verify the environment setup
-(replace ``<INPUT_DATASET_PATH>`` with the actual path):
 
 .. code-block:: bash
 

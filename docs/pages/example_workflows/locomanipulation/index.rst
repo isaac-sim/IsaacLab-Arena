@@ -62,6 +62,8 @@ A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).
 
+Prerequisites
+^^^^^^^^^^^^^
 
 We store data on Hugging Face, so you'll need log in to Hugging Face
 (see the `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_
@@ -79,6 +81,9 @@ Create the folders for the data and models:
     mkdir -p $DATASET_DIR
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
     mkdir -p $MODELS_DIR
+
+Workflow Steps
+^^^^^^^^^^^^^^
 
 Follow the following steps to complete the workflow:
 

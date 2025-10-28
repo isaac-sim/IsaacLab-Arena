@@ -52,9 +52,18 @@ Note that this conversion step can be skipped by downloading the pre-converted L
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
 
-The converter is controlled by a config file at ``isaaclab_arena/policy/config/gr1_manip_config.yaml``.
+Convert the HDF5 dataset to LeRobot format for policy post-training:
 
-.. dropdown:: Configuration file (``gr1_manip_config.yaml``):
+.. code-block:: bash
+
+   python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
+     --config_yaml_path isaaclab_arena/policy/config/gr1_manip_config.yaml
+
+This creates a folder ``$DATASET_DIR/lerobot`` containing parquet files with states/actions,
+MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
+``isaaclab_arena/policy/config/gr1_manip_config.yaml``.
+
+.. dropdown:: Configuration file (``gr1_manip_config.yaml``)
    :animate: fade-in
 
    .. code-block:: yaml
@@ -75,20 +84,6 @@ The converter is controlled by a config file at ``isaaclab_arena/policy/config/g
       # Output configuration
       fps: 50
       chunks_size: 1000
-
-Convert the HDF5 dataset to LeRobot format for policy post-training:
-
-.. code-block:: bash
-
-   python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
-     --config_yaml_path isaaclab_arena/policy/config/gr1_manip_config.yaml
-
-This creates:
-
-- ``$DATASET_DIR/lerobot/data/`` - Parquet files with states/actions
-- ``$DATASET_DIR/lerobot/videos/`` - MP4 camera recordings
-- ``$DATASET_DIR/lerobot/meta/`` - Dataset metadata
-
 
 
 Step 3: Post-train Policy
@@ -122,9 +117,6 @@ We provide two post-training options:
       .. code-block:: bash
 
          cd submodules/Isaac-GR00T
-
-         export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
-         mkdir -p $MODELS_DIR
 
          python scripts/gr00t_finetune.py \
          --dataset_path=$DATASET_DIR/lerobot \

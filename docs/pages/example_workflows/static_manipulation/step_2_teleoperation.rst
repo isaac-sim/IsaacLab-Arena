@@ -48,13 +48,12 @@ In a terminal, outside the Isaac Lab - Arena Docker container, start the CloudXR
 Step 3: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In a separate terminal, start the recording session:
-
-Start the Arena Docker container:
-
-   :docker_run_default:
+To start the recording session, open another terminal, start the Arena Docker container,
+and run the recording script.
 
 .. code-block:: bash
+
+   ./docker/run_docker.sh
 
    python isaaclab_arena/scripts/record_demos.py \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \

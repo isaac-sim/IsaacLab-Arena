@@ -22,9 +22,6 @@ Download the pre-recorded human demonstrations:
 
 .. code-block:: bash
 
-   export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-   mkdir -p $DATASET_DIR
-
    hf download \
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_annotated.hdf5 \
@@ -46,9 +43,6 @@ Start the Arena Docker container, if you haven't already:
 Generate the dataset:
 
 .. code-block:: bash
-
-   export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-   mkdir -p $DATASET_DIR
 
    # Generate 100 demonstrations
    python isaaclab_arena/scripts/generate_dataset.py \

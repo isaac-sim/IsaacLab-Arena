@@ -36,6 +36,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
 
 .. dropdown:: Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
+
    .. code-block:: yaml
 
       # Model configuration

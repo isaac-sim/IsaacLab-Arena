@@ -72,15 +72,7 @@ We download a pre-recorded dataset from Hugging Face.
        --local-dir $DATASET_DIR
 
 
-Step 2: Start Isaac Lab - Arena
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Start the Arena Docker container:
-
-   :docker_run_default:
-
-
-Step 3: Validate the Environment by Replaying the Dataset
+Step 2: Validate the Environment by Replaying the Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Replay the downloaded dataset to verify the environment setup:
