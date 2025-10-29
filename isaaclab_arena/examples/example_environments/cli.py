@@ -50,7 +50,7 @@ ExampleEnvironments = {
 }
 
 
-def parse_and_return_external_environment_from_string(environment_path) -> dict[str, Any]:
+def parse_and_return_external_environment_from_string(environment_path: str) -> dict[str, Any]:
     """Parse a string and import the environment class
 
     Args:
