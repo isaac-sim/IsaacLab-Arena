@@ -26,7 +26,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 def main():
     """Script to run an IsaacLab Arena environment with a zero-action agent."""
     args_parser = get_isaaclab_arena_cli_parser(before_lauching_app=True)
-    args_cli = args_parser.parse_args()
+    args_cli, unknown = args_parser.parse_known_args()
 
     # Start the simulation app
     with SimulationAppContext(args_cli):
