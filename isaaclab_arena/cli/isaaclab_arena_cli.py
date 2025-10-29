@@ -17,12 +17,14 @@ import argparse
 from isaaclab.app import AppLauncher
 
 
-def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
+def get_isaaclab_arena_cli_parser(before_lauching_app: bool = False) -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
+    if before_lauching_app:
+        AppLauncher.add_app_launcher_args(parser)
+        return parser
     add_isaac_lab_cli_args(parser)
     add_external_environments_cli_args(parser)
-    AppLauncher.add_app_launcher_args(parser)
     return parser
 
 

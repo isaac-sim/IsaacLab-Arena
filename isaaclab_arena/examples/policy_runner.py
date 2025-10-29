@@ -17,6 +17,7 @@ import random
 import torch
 import tqdm
 
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.examples.example_environments.cli import get_arena_builder_from_cli
 from isaaclab_arena.examples.policy_runner_cli import create_policy, setup_policy_argument_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -24,12 +25,14 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 
 def main():
     """Script to run an IsaacLab Arena environment with a zero-action agent."""
-    # Set up argument parser
-    args_parser = setup_policy_argument_parser()
+    args_parser = get_isaaclab_arena_cli_parser(before_lauching_app=True)
     args_cli = args_parser.parse_args()
 
     # Start the simulation app
     with SimulationAppContext(args_cli):
+        # Set up argument parser
+        args_parser = setup_policy_argument_parser()
+        args_cli = args_parser.parse_args()
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
