@@ -107,8 +107,7 @@ currently set manually to create an achievable task.
 
     scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
 
-Now we bring everything together into a IsaacLab-Arena scene. The ``Scene`` object manages all the
-physical objects in our simulation world.
+Now we bring everything together into a IsaacLab-Arena scene.
 See :doc:`../../concepts/concept_scene_design` for scene composition details.
 
 **4. Create the Locomanip Pick and Place Task**
