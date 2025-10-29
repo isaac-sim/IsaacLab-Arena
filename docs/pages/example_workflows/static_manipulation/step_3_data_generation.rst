@@ -51,6 +51,7 @@ To start the annotation process run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/annotate_demos.py \
+     --device cpu \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
      --enable_pinocchio \
@@ -94,6 +95,7 @@ Generate the dataset:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/generate_dataset.py \
+     --device cpu \
      --generation_num_trials 50 \
      --num_envs 10 \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
@@ -119,6 +121,7 @@ To do so, run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/replay_demos.py \
+     --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
      gr1_open_microwave \
