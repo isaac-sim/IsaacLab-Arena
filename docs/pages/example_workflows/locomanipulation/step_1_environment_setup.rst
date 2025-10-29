@@ -75,7 +75,6 @@ Step-by-Step Breakdown
 
 Here, we're selecting the specific pieces we need for our locomanipulation task: the Galileo arena as our background environment,
 an object to pick up, a blue sorting bin as our goal location, and the G1 embodiment.
-We also grab a teleoperation device so we can control the robot interactively if needed.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
 See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
 

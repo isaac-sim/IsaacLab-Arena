@@ -71,7 +71,6 @@ Step-by-Step Breakdown
 
 Here, we're selecting the components needed for our static manipulation task: the kitchen environment as our background,
 a microwave with an openable door, and the GR1 embodiment (our robot).
-We also grab a teleoperation device for interactive control.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
 See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
 
