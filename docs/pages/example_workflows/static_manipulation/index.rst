@@ -62,15 +62,20 @@ by downloading the pre-generated output of the preceding step(s), which we provi
 Prerequisites
 ^^^^^^^^^^^^^
 
-We store data on Hugging Face, so you'll need log in to Hugging Face
-(see the `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_
-for more details).
+Start the isaaclab docker container
 
-.. code:: bash
+.. code-block:: bash
+
+    ./docker/run_docker.sh
+
+We store data on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
+
+.. code-block:: bash
 
     hf auth login
 
-Create the folders for the data and models:
+You'll also need to create the folders for the data and models.
+Create the folders for the data and models with:
 
 .. code:: bash
 

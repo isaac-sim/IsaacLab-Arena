@@ -47,7 +47,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-G1-Loco-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
-         --local-dir $LEROBOT_DATASET_DIR
+         --local-dir $DATASET_DIR
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
