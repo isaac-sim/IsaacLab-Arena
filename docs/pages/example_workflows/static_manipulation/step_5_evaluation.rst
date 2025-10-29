@@ -1,8 +1,6 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
-
 This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
 and evaluating it across multiple parallel environments.
 
@@ -22,6 +20,12 @@ pre-trained model checkpoint below:
          nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
          --local-dir $MODELS_DIR
 
+
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh -g
 
 
 Step 1: Run Single Environment Evaluation

@@ -1,15 +1,21 @@
 Teleoperation Data Collection
 -----------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
-+ CloudXR Runtime: Nvidia CloudXR Runtime (see below for details)
-
 This workflow covers collecting demonstrations using Isaac Lab Teleop with an Apple Vision Pro.
+
+This workflow requires two containers to run:
+
+* **Nvidia CloudXR Runtime**: For connection with the Apple Vision Pro.
+* **Arena Docker container**: For running the Isaac Lab simulation.
+
+This will be described below.
+
 
 .. note::
 
     For this workflow you will need an Apple Vision Pro.
     In ``v0.2`` we will support further teleoperation devices.
+
 
 
 Step 1: Install Isaac XR Teleop App on Vision Pro
@@ -48,12 +54,16 @@ In a terminal, outside the Isaac Lab - Arena Docker container, start the CloudXR
 Step 3: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-To start the recording session, open another terminal, start the Arena Docker container,
-and run the recording script.
+To start the recording session, open another terminal, start the Arena Docker container
+if not already running:
 
 .. code-block:: bash
 
    ./docker/run_docker.sh
+
+Run the recording script:
+
+.. code-block:: bash
 
    python isaaclab_arena/scripts/record_demos.py \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
