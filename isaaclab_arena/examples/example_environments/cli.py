@@ -53,6 +53,9 @@ ExampleEnvironments = {
 def parse_and_return_external_environment_from_string(environment_path) -> dict[str, Any]:
     # Parse a string and import the environment class
     # We assume the environment path is in the format "module_path:class_name"
+    # Add a check for the format
+    if ":" not in environment_path:
+        raise ValueError(f"Invalid environment path: {environment_path}. Expected format: 'module_path:class_name'")
     module_path, class_name = environment_path.split(":", 1)
     module = importlib.import_module(module_path)
     environment_class = getattr(module, class_name)
