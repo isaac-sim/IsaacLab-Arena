@@ -47,7 +47,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-G1-Loco-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
@@ -120,7 +120,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/lerobot \
+         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=unitree_g1_sim_wbc \
          --batch_size=24 \
