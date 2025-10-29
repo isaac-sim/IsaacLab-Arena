@@ -60,27 +60,32 @@ def parse_and_return_external_environment_from_string(environment_path) -> dict[
     return {name: environment_class}
 
 
-def add_example_environments_cli_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     # Parse the parser once here to add the external environments to the example environments
-    args, unknown = parser.parse_known_args()
+    args, unknown = args_parser.parse_known_args()
     environment = getattr(args, "environment", None)
     if environment is not None:
         # Update the ExampleEnvironments dictionary with the new external environment
         ExampleEnvironments.update(parse_and_return_external_environment_from_string(environment))
-    subparsers = parser.add_subparsers(dest="example_environment", required=True, help="Example environment to run")
+    subparsers = args_parser.add_subparsers(
+        dest="example_environment", required=True, help="Example environment to run"
+    )
     for example_environment in ExampleEnvironments.values():
         subparser = subparsers.add_parser(example_environment.name)
         example_environment.add_cli_args(subparser)
 
-    return parser
+    return args_parser
 
 
-def get_isaaclab_arena_example_environment_cli_parser() -> argparse.ArgumentParser:
-    parser = get_isaaclab_arena_cli_parser()
+def get_isaaclab_arena_example_environment_cli_parser(
+    args_parser: argparse.ArgumentParser | None = None,
+) -> argparse.ArgumentParser:
+    if args_parser is None:
+        args_parser = get_isaaclab_arena_cli_parser()
     # NOTE(alexmillane, 2025.09.04): This command adds subparsers for each example environment.
     # So it has to be added last, because the subparser flags are parsed after the others.
-    add_example_environments_cli_args(parser)
-    return parser
+    args_parser = add_example_environments_cli_args(args_parser)
+    return args_parser
 
 
 def get_arena_builder_from_cli(args_cli: argparse.Namespace):  # -> tuple[ManagerBasedRLEnvCfg, str]:
