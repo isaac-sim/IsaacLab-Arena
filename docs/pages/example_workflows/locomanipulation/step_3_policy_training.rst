@@ -12,18 +12,18 @@ Note that this tutorial assumes that you've completed the
 .. dropdown:: Download Pre-generated Dataset (skip preceding steps)
    :animate: fade-in
 
-   These commands can be used to download the LeRobot-formatted dataset ready for policy post-training,
+   These commands can be used to download the mimic-generated HDF5 dataset ready for policy post-training,
    such that the preceding steps can be skipped.
 
-   To download run (replacing ``<INPUT_DATASET_PATH>`` with the actual path):
+   To download run:
 
    .. code-block:: bash
 
-      huggingface-cli download \
+      hf download \
          nvidia/Arena-G1-Loco-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
-         --local-dir <INPUT_DATASET_PATH>
+         --local-dir $DATASET_DIR
 
 
 Step 1: Convert to LeRobot Format
@@ -39,47 +39,17 @@ Note that this conversion step can be skipped by downloading the pre-converted L
    These commands can be used to download the pre-converted LeRobot format dataset,
    such that the conversion step can be skipped.
 
-   To download run (replacing ``<LEROBOT_DATASET_PATH>`` with the actual path):
+   To download run:
 
    .. code-block:: bash
 
-      huggingface-cli download \
+      hf download \
          nvidia/Arena-G1-Loco-Manipulation-Task \
-         lerobot \
+         --include lerobot/* \
          --repo-type dataset \
-         --local-dir <LEROBOT_DATASET_PATH>
+         --local-dir $DATASET_DIR
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
-
-
-We first need to modify the configuration file to point to the correct input/output paths.
-In the config file at ``isaaclab_arena/policy/config/g1_locomanip_config.yaml``,
-Replace ``<INPUT_DATASET_PATH>`` with the actual path.
-
-.. todo:: (alexmillane, 2025-10-23): We should move the input/output paths out of the config file
-   and onto the command line. Then change the statement above.
-
-
-**Configuration file** (``g1_locomanip_config.yaml``):
-
-.. code-block:: yaml
-
-   # Input/Output paths
-   data_root: <INPUT_DATASET_PATH>
-   hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
-
-   # Task description
-   language_instruction: "Pick up the brown box and place it in the blue bin"
-   task_index: 2
-
-   # Data field mappings
-   state_name_sim: "robot_joint_pos"
-   action_name_sim: "processed_actions"
-   pov_cam_name_sim: "robot_head_cam"
-
-   # Output configuration
-   fps: 50
-   chunks_size: 1000
 
 Convert the HDF5 dataset to LeRobot format for policy post-training:
 
@@ -88,12 +58,32 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
    python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
      --config_yaml_path isaaclab_arena/policy/config/g1_locomanip_config.yaml
 
-This creates:
+This creates a folder ``$DATASET_DIR/lerobot`` containing parquet files with states/actions,
+MP4 camera recordings, and dataset metadata.
 
-- ``<INPUT_DATASET_PATH>/lerobot/data/`` - Parquet files with states/actions
-- ``<INPUT_DATASET_PATH>/lerobot/videos/`` - MP4 camera recordings
-- ``<INPUT_DATASET_PATH>/lerobot/meta/`` - Dataset metadata
+The converter is controlled by a config file at ``isaaclab_arena/policy/config/g1_locomanip_config.yaml``.
 
+.. dropdown:: Configuration file (``g1_locomanip_config.yaml``)
+   :animate: fade-in
+
+   .. code-block:: yaml
+
+      # Input/Output paths
+      data_root: /datasets/isaaclab_arena/locomanipulation_tutorial
+      hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
+
+      # Task description
+      language_instruction: "Pick up the brown box and place it in the blue bin"
+      task_index: 2
+
+      # Data field mappings
+      state_name_sim: "robot_joint_pos"
+      action_name_sim: "processed_actions"
+      pov_cam_name_sim: "robot_head_cam"
+
+      # Output configuration
+      fps: 50
+      chunks_size: 1000
 
 
 Step 2: Post-train Policy
@@ -103,8 +93,9 @@ We post-train the GR00T N1.5 policy on the task.
 
 The GR00T N1.5 policy has 3 billion parameters so post training is an an expensive operation.
 We provide two post-training options:
-* Best Quality: 8 GPUs with 48GB memory
-* Low Hardware Requirements: 1 GPU with 24GB memory
+
+* **Best Quality:** 8 GPUs with 48GB memory
+* **Low Hardware Requirements:** 1 GPU with 24GB memory
 
 
 .. tabs::
@@ -123,15 +114,14 @@ We provide two post-training options:
       - **GPUs:** 8 (multi-GPU training)
 
       To post-train the policy, run the following command
-      (replacing ``<LEROBOT_DATASET_PATH>`` and ``<OUTPUT_DIR>`` with the actual paths):
 
       .. code-block:: bash
 
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=<LEROBOT_DATASET_PATH> \
-         --output_dir=<OUTPUT_DIR> \
+         --dataset_path=$DATASET_DIR/lerobot \
+         --output_dir=$MODELS_DIR \
          --data_config=unitree_g1_sim_wbc \
          --batch_size=24 \
          --max_steps=20000 \
@@ -150,6 +140,12 @@ We provide two post-training options:
    .. tab:: Low Hardware Requirements
 
       TBD
+
+
+.. todo::
+
+   (alexmillane, 2025-10-23): Check that the resulting model matches
+   the folder structure that we download from Hugging Face.
 
 
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_

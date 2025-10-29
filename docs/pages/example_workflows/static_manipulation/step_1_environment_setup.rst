@@ -61,36 +61,27 @@ Step 1: Download a Test Dataset
 
 To run a robot in the environment we need some recorded demonstration data that
 can be fed to the robot to control its actions.
-We download a pre-recorded dataset from Hugging Face (replace ``<INPUT_DATASET_PATH>`` with the actual path):
+We download a pre-recorded dataset from Hugging Face.
 
 .. code-block:: bash
 
-   huggingface-cli download \
+   hf download \
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \
        --repo-type dataset \
-       --local-dir <INPUT_DATASET_PATH>
+       --local-dir $DATASET_DIR
 
 
-Step 2: Start Isaac Lab - Arena
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Start the Arena Docker container:
-
-   :docker_run_default:
-
-
-Step 3: Validate the Environment by Replaying the Dataset
+Step 2: Validate the Environment by Replaying the Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replay the downloaded dataset to verify the environment setup
-(replace ``<INPUT_DATASET_PATH>`` with the actual path):
+Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
-     --dataset_file <INPUT_DATASET_PATH> \
+     --dataset_file $DATASET_DIR \
      gr1_open_microwave \
      --embodiment gr1_pink
 

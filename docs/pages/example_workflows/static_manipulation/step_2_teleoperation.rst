@@ -48,18 +48,15 @@ In a terminal, outside the Isaac Lab - Arena Docker container, start the CloudXR
 Step 3: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In a separate terminal, start the recording session:
-
-Start the Arena Docker container:
-
-   :docker_run_default:
-
-Start the recording session (replace ``<OUTPUT_DATASET_PATH>`` with the actual path):
+To start the recording session, open another terminal, start the Arena Docker container,
+and run the recording script.
 
 .. code-block:: bash
 
+   ./docker/run_docker.sh
+
    python isaaclab_arena/scripts/record_demos.py \
-     --dataset_file <OUTPUT_DATASET_PATH> \
+     --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --num_demos 10 \
      --num_success_steps 2 \
      gr1_open_microwave \
@@ -83,7 +80,7 @@ Follow these steps to record teleoperation demonstrations:
 .. todo:: (alexmillane, 2025-10-23): Check that you don't need to press the "Submit Demo" button in VR.
 
 The script will automatically save successful demonstrations to an HDF5 file
-at ``<OUTPUT_DATASET_PATH>``.
+at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
 
 .. hint::
 

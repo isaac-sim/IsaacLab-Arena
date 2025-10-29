@@ -18,15 +18,15 @@ we support recording your own demonstrations.
 
    Recording your own demonstrations for loco-manipulation workflows will be supported in a future release.
 
-Download the pre-recorded human demonstrations (replace ``<INPUT_DATASET_PATH>`` with the actual path):
+Download the pre-recorded human demonstrations:
 
 .. code-block:: bash
 
-   huggingface-cli download \
+   hf download \
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_annotated.hdf5 \
        --repo-type dataset \
-       --local-dir <INPUT_DATASET_PATH>
+       --local-dir $DATASET_DIR
 
 
 Step 2: Generate Dataset with Isaac Lab Mimic
@@ -40,7 +40,7 @@ Start the Arena Docker container, if you haven't already:
 
    :docker_run_default:
 
-Generate the dataset (replace ``<INPUT_DATASET_PATH>`` and ``<OUTPUT_DATASET_PATH>`` with the actual paths):
+Generate the dataset:
 
 .. code-block:: bash
 
@@ -49,8 +49,8 @@ Generate the dataset (replace ``<INPUT_DATASET_PATH>`` and ``<OUTPUT_DATASET_PAT
      --headless \
      --enable_cameras \
      --mimic \
-     --input_file <INPUT_DATASET_PATH> \
-     --output_file <OUTPUT_DATASET_PATH> \
+     --input_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
+     --output_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \
      --generation_num_trials 100 \
      --device cpu \
      galileo_g1_locomanip_pick_and_place \
@@ -65,17 +65,22 @@ Step 3: Validate Generated Dataset (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To visualize the data produced, you can replay the dataset using the following command:
-(replace ``<OUTPUT_DATASET_PATH>`` with the actual path):
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/replay_demos.py \
+     --device cpu \
      --enable_cameras \
-     --dataset_file <OUTPUT_DATASET_PATH> \
+     --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink
 
 You should see the robot successfully perform the task.
+
+.. note::
+
+   The dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
+
 
 .. todo:: (amillane, 2025-10-22): add screenshot
