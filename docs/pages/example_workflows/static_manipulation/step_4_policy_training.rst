@@ -22,7 +22,7 @@ pre-generated dataset from Hugging Face as described below.
 
       hf download \
          nvidia/Arena-GR1-Manipulation-Task \
-         arena_g1_loco_manipulation_dataset_generated.hdf5 \
+         arena_gr1_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
          --local-dir $DATASET_DIR
 
