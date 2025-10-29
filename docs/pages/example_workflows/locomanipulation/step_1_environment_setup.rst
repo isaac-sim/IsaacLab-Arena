@@ -10,7 +10,7 @@ and validate that we can load it in Isaac Lab.
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. dropdown:: Create a Simple Environment
+.. dropdown:: The Galileo G1 Locomanip Pick and Place Environment
    :animate: fade-in
 
    .. code-block:: python
@@ -79,7 +79,29 @@ We also grab a teleoperation device so we can control the robot interactively if
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
 See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
 
-**2. Compose the Scene**
+
+**2. Position the Objects**
+
+.. code-block:: python
+
+   pick_up_object.set_initial_pose(
+       Pose(
+           position_xyz=(0.5785, 0.18, 0.0707),
+           rotation_wxyz=(0.0, 0.0, 1.0, 0.0),
+       )
+   )
+   blue_sorting_bin.set_initial_pose(
+       Pose(
+           position_xyz=(-0.2450, -1.6272, -0.2641),
+           rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
+       )
+   )
+
+Before we create the scene, we need to place our objects in the right locations. These initial poses are
+currently set manually to create an achievable task.
+
+
+**3. Compose the Scene**
 
 .. code-block:: python
 
@@ -89,7 +111,7 @@ Now we bring everything together into a IsaacLab-Arena scene. The ``Scene`` obje
 physical objects in our simulation world.
 See :doc:`../../concepts/concept_scene_design` for scene composition details.
 
-**3. Create the Locomanip Pick and Place Task**
+**4. Create the Locomanip Pick and Place Task**
 
 .. code-block:: python
 
@@ -102,7 +124,7 @@ The task knows about the key objects involved (what to pick, where to place it, 
 provide rewards, compute observations, and determine when the episode should end.
 See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
-**4. Create the IsaacLab Arena Environment**
+**5. Create the IsaacLab Arena Environment**
 
 .. code-block:: python
 
