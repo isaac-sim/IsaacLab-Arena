@@ -20,8 +20,9 @@ from isaaclab.app import AppLauncher
 def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
-    add_isaac_lab_cli_args(parser)
     AppLauncher.add_app_launcher_args(parser)
+    add_isaac_lab_cli_args(parser)
+    add_external_environments_cli_args(parser)
     return parser
 
 
@@ -46,3 +47,16 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable Pinocchio.",
     )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+
+
+def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Add external environments specific command line arguments to the given parser."""
+    external_environments_group = parser.add_argument_group(
+        "External Environments Arguments", "Arguments specific to external environments"
+    )
+    external_environments_group.add_argument(
+        "--environment",
+        type=str,
+        default=None,
+        help="Name of the external environment to run",
+    )
