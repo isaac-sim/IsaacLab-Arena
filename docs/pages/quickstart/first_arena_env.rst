@@ -25,63 +25,67 @@ Code Explanation
 The following script demonstrates how to create the simple kitchen environment from
 above with a Franka robot and a cracker box object using the ``isaaclab_arena`` API.
 
-.. code-block:: python
 
-    import torch
-    import tqdm
+.. dropdown:: Create a Simple Environment
+   :animate: fade-in
 
-    import pinocchio  # noqa: F401
-    from isaaclab.app import AppLauncher
+   .. code-block:: python
 
-    # Launch the Isaac Sim application
-    print("Launching simulation app")
-    simulation_app = AppLauncher()
+       import torch
+       import tqdm
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
-    from isaaclab_arena.utils.pose import Pose
+       import pinocchio  # noqa: F401
+       from isaaclab.app import AppLauncher
 
-    # Step 1: Initialize and get the assets from the registry
-    asset_registry = AssetRegistry()
+       # Launch the Isaac Sim application
+       print("Launching simulation app")
+       simulation_app = AppLauncher()
 
-    background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
-    cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-    cracker_box.set_initial_pose(
-        Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
+       from isaaclab_arena.assets.asset_registry import AssetRegistry
+       from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+       from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+       from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+       from isaaclab_arena.scene.scene import Scene
+       from isaaclab_arena.tasks.dummy_task import DummyTask
+       from isaaclab_arena.utils.pose import Pose
 
-    # Step 2: Create a scene with the assets
-    scene = Scene(assets=[background, cracker_box])
+       # Step 1: Initialize and get the assets from the registry
+       asset_registry = AssetRegistry()
 
-    # Step 3: Create a task
-    task = DummyTask()
+       background = asset_registry.get_asset_by_name("kitchen")()
+       embodiment = asset_registry.get_asset_by_name("franka")()
+       cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+       cracker_box.set_initial_pose(
+           Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+       )
 
-    # Step 4: Create the IsaacLab Arena environment
-    isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="my_first_arena_env",
-        embodiment=embodiment,
-        scene=scene,
-        task=task,
-        teleop_device=None,
-    )
+       # Step 2: Create a scene with the assets
+       scene = Scene(assets=[background, cracker_box])
 
-    # Step 5: Build and compile the environment
-    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    env = env_builder.make_registered()
-    env.reset()
+       # Step 3: Create a task
+       task = DummyTask()
 
-    # Step 6: Run the simulation with zero actions
-    NUM_STEPS = 1000
-    for _ in tqdm.tqdm(range(NUM_STEPS)):
-        with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            env.step(actions)
+       # Step 4: Create the IsaacLab Arena environment
+       isaaclab_arena_environment = IsaacLabArenaEnvironment(
+           name="my_first_arena_env",
+           embodiment=embodiment,
+           scene=scene,
+           task=task,
+           teleop_device=None,
+       )
+
+       # Step 5: Build and compile the environment
+       args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+       env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+       env = env_builder.make_registered()
+       env.reset()
+
+       # Step 6: Run the simulation with zero actions
+       NUM_STEPS = 1000
+       for _ in tqdm.tqdm(range(NUM_STEPS)):
+           with torch.inference_mode():
+               actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+               env.step(actions)
 
 Step-by-Step Breakdown
 -----------------------
