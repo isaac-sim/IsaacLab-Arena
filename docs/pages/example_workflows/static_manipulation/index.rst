@@ -68,7 +68,11 @@ Start the isaaclab docker container
 
     ./docker/run_docker.sh
 
-We store data on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
+We store data on Hugging Face, so you'll need the Hugging Face CLI installed and be logged in for this tutorial.
+
+.. code-block:: bash
+
+    pip install -U "huggingface_hub[cli]"
 
 .. code-block:: bash
 
