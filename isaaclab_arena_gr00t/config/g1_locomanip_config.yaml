@@ -3,14 +3,14 @@
 # Example for G1 locomanipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/datasets"
+data_root: "/datasets/isaaclab_arena/locomanipulation_tutorial"
 
 # Instruction given to the policy in natural language
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
 task_index: 2
 
 # Name of the HDF5 file to use for the dataset
-hdf5_name: "g1_galileo_box_npnp_mimic_generated_1_demo.hdf5"
+hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
 
 # Mimic-generated HDF5 datafield names
 state_name_sim: "robot_joint_pos"
