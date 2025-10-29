@@ -61,8 +61,8 @@ We download a pre-recorded dataset from Hugging Face:
 .. code-block:: bash
 
    hf download \
-       nvidia/Arena-GR1-Manipulation-Task \
-       arena_gr1_manipulation_dataset_generated_small.hdf5 \
+       nvidia/Arena-G1-Loco-Manipulation-Task \
+       arena_g1_loco_manipulation_dataset_generated_small.hdf5 \
        --repo-type dataset \
        --local-dir $DATASET_DIR
 
