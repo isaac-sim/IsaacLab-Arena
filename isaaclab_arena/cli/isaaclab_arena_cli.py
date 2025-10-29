@@ -57,7 +57,6 @@ def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
     external_environments_group.add_argument(
         "--environment",
         type=str,
-        required=False,
         default=None,
         help="Name of the external environment to run",
     )
