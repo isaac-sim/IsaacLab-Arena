@@ -1,7 +1,7 @@
 Environment Compilation Design
 ================================
 
-Environment compilation transforms modular Isaac Arena Environment components into complete Isaac Lab Arena environment configurations.
+Environment compilation transforms modular IsaacLab Arena Environment components into complete Isaac Lab Arena environment configurations.
 The system handles configuration merging, environment registration, and integration with Isaac Lab's architecture.
 
 Core Architecture
@@ -12,13 +12,13 @@ Compilation uses the ``ArenaEnvBuilder`` class:
 .. code-block:: python
 
    class ArenaEnvBuilder:
-       """Compose Isaac Arena → Isaac Lab configs"""
+       """Compose IsaacLab Arena → Isaac Lab configs"""
 
-       def __init__(self, arena_env: IsaacArenaEnvironment, args: argparse.Namespace):
+       def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
            self.arena_env = arena_env
            self.args = args
 
-       def compose_manager_cfg(self) -> IsaacArenaManagerBasedRLEnvCfg:
+       def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
            """Combine configurations from all components."""
            scene_cfg = combine_configclass_instances(
                "SceneCfg",
@@ -28,7 +28,7 @@ Compilation uses the ``ArenaEnvBuilder`` class:
                self.arena_env.task.get_scene_cfg()
            )
 
-The builder transforms Isaac Arena environment definitions into Isaac Lab's configuration format through systematic component integration.
+The builder transforms IsaacLab Arena environment definitions into Isaac Lab's configuration format through systematic component integration.
 
 Compilation in Detail
 ---------------------
@@ -57,8 +57,8 @@ Environment Integration
 
 .. code-block:: python
 
-   # Create Isaac Arena environment definition
-   environment = IsaacArenaEnvironment(
+   # Create IsaacLab Arena environment definition
+   environment = IsaacLabArenaEnvironment(
        name="kitchen_manipulation",
        embodiment=franka_embodiment,
        scene=kitchen_scene,

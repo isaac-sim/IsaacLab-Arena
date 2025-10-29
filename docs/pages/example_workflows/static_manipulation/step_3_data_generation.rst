@@ -1,14 +1,19 @@
 Data Generation
 ---------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
 This workflow covers generating a new dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Teleoperation Data Collection) <step_2_teleoperation>`.
 If you do not want to do the preceding step of recording demonstrations, you can jump to
-you can download the pre-generated dataset from Hugging Face as described below.
+you can download the pre-generated dataset either in
+:ref:`step_1_annotate_demonstrations` or :ref:`step_2_generate_augmented_dataset`
+below.
 
+.. _step_1_annotate_demonstrations:
 
 Step 1: Annotate Demonstrations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -25,21 +30,23 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
    These commands can be used to download the pre-annotated dataset,
    such that the annotation step can be skipped.
 
-   To download run (replacing ``<ANNOTATED_DATASET_PATH>`` with the actual path):
+   To download run:
 
-   huggingface-cli download \
-       nvidia/Arena-GR1-Manipulation-Task \
-       arena_gr1_manipulation_dataset_annotated.hdf5 \
-       --local-dir <ANNOTATED_DATASET_PATH>
+   .. code-block:: bash
 
-To start the annotation process run the following command (replace
-``<INPUT_DATASET_PATH>`` and ``<ANNOTATED_DATASET_PATH>`` with the actual paths):
+      hf download \
+         nvidia/Arena-GR1-Manipulation-Task \
+         arena_gr1_manipulation_dataset_annotated.hdf5 \
+         --repo-type dataset \
+         --local-dir $DATASET_DIR
+
+To start the annotation process run the following command:
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/annotate_demos.py \
-     --input_file <INPUT_DATASET_PATH> \
-     --output_file <ANNOTATED_DATASET_PATH> \
+   python isaaclab_arena/scripts/annotate_demos.py \
+     --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
+     --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
      --enable_pinocchio \
      --mimic \
      gr1_open_microwave
@@ -49,6 +56,9 @@ Follow the instructions described on the CLI to mark subtask boundaries:
 1. **Reach:** Robot reaches toward the microwave door
 2. **Open door:** Robot opens the door
 
+
+
+.. _step_2_generate_augmented_dataset:
 
 Step 2: Generate Augmented Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -64,26 +74,24 @@ This step can be skipped by downloading the pre-generated dataset from Hugging F
    These commands can be used to download the pre-generated dataset,
    such that the data generation step can be skipped.
 
-   To download run (replacing ``<GENERATED_DATASET_PATH>`` with the actual path):
-
    .. code-block:: bash
 
-      huggingface-cli download \
+      hf download \
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
-         --local-dir <GENERATED_DATASET_PATH>
+         --local-dir $DATASET_DIR
 
 
-Generate the dataset (replace ``<ANNOTATED_DATASET_PATH>`` and ``<GENERATED_DATASET_PATH>`` with the actual paths):
+Generate the dataset:
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/generate_dataset.py \
      --generation_num_trials 50 \
      --num_envs 10 \
-     --input_file <ANNOTATED_DATASET_PATH> \
-     --output_file <GENERATED_DATASET_PATH> \
+     --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
+     --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
      --enable_pinocchio \
      --enable_cameras \
      --headless \
@@ -100,13 +108,13 @@ Step 3: Validate Generated Data (Optional)
 
 In order to validation the generated dataset, you can replay the generated data
 through the robot, in order to check (visually) if the robot is able to perform the task successfully.
-To do so, run the following command (replace ``<GENERATED_DATASET_PATH>`` with the actual path):
+To do so, run the following command:
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/replay_demos.py \
      --enable_cameras \
-     --dataset_file <GENERATED_DATASET_PATH> \
+     --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
      gr1_open_microwave \
      --embodiment gr1_joint
 

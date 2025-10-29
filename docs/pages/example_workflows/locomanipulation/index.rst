@@ -52,7 +52,8 @@ including lower body locomotion, squatting, and bimanual manipulation.
      - Success rate
 
 
-Pipeline
+
+Workflow
 --------
 
 This tutorial covers the pipeline between creating an environment, generating training data,
@@ -61,23 +62,39 @@ A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).
 
-This example workflow involves the following steps:
+Prerequisites
+^^^^^^^^^^^^^
+
+Start the isaaclab docker container
+
+.. code-block:: bash
+
+    ./docker/run_docker.sh
+
+We store data on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
+
+.. code-block:: bash
+
+    hf auth login
+
+Create the folders for the data and models:
+
+.. code:: bash
+
+    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
+    mkdir -p $DATASET_DIR
+    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+    mkdir -p $MODELS_DIR
+
+Workflow Steps
+^^^^^^^^^^^^^^
+
+Follow the following steps to complete the workflow:
 
 - :doc:`step_1_environment_setup`
 - :doc:`step_2_data_generation`
 - :doc:`step_3_policy_training`
 - :doc:`step_4_evaluation`
-
-.. note::
-
-   We store data on Hugging Face, so you'll need to install the Hugging Face CLI to download the data.
-   You can install the Hugging Face CLI by following the
-   `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_.
-
-   .. code-block:: bash
-
-      pip install -U "huggingface_hub[cli]"
-      huggingface-cli login
 
 
 .. toctree::

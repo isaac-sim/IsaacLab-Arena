@@ -80,7 +80,7 @@ Environment Integration
    )
 
    # Environment composition
-   environment = IsaacArenaEnvironment(
+   environment = IsaacLabArenaEnvironment(
        name="microwave_opening",
        embodiment=embodiment,
        scene=scene,

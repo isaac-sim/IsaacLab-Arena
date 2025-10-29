@@ -1,14 +1,14 @@
 First Arena Environment
 =======================
 
-After setting up the docker container and installing ``isaac_arena``, learn how
-to compose your first simple Isaac Arena environment by combining assets, scenes, and tasks.
+After setting up the docker container and installing ``isaaclab_arena``, learn how
+to compose your first simple IsaacLab Arena environment by combining assets, scenes, and tasks.
 
-Once within the docker container, run the following command to compile your first Isaac Arena environment:
+Once within the docker container, run the following command to compile your first IsaacLab Arena environment:
 
 .. code-block:: bash
 
-    python isaac_arena/examples/compile_env_notebook.py
+    python isaaclab_arena/examples/compile_env_notebook.py
 
 
 The compiled environment will spawn in an Isaac Sim instance and run for some steps with zero actions.
@@ -23,7 +23,7 @@ Code Explanation
 ----------------
 
 The following script demonstrates how to create the simple kitchen environment from
-above with a Franka robot and a cracker box object using the ``isaac_arena`` API.
+above with a Franka robot and a cracker box object using the ``isaaclab_arena`` API.
 
 .. code-block:: python
 
@@ -37,13 +37,13 @@ above with a Franka robot and a cracker box object using the ``isaac_arena`` API
     print("Launching simulation app")
     simulation_app = AppLauncher()
 
-    from isaac_arena.assets.asset_registry import AssetRegistry
-    from isaac_arena.cli.isaac_arena_cli import get_isaac_arena_cli_parser
-    from isaac_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaac_arena.environments.isaac_arena_environment import IsaacArenaEnvironment
-    from isaac_arena.scene.scene import Scene
-    from isaac_arena.tasks.dummy_task import DummyTask
-    from isaac_arena.utils.pose import Pose
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.dummy_task import DummyTask
+    from isaaclab_arena.utils.pose import Pose
 
     # Step 1: Initialize and get the assets from the registry
     asset_registry = AssetRegistry()
@@ -61,8 +61,8 @@ above with a Franka robot and a cracker box object using the ``isaac_arena`` API
     # Step 3: Create a task
     task = DummyTask()
 
-    # Step 4: Create the Isaac Arena environment
-    isaac_arena_environment = IsaacArenaEnvironment(
+    # Step 4: Create the IsaacLab Arena environment
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="my_first_arena_env",
         embodiment=embodiment,
         scene=scene,
@@ -71,8 +71,8 @@ above with a Franka robot and a cracker box object using the ``isaac_arena`` API
     )
 
     # Step 5: Build and compile the environment
-    args_cli = get_isaac_arena_cli_parser().parse_args([])
-    env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = env_builder.make_registered()
     env.reset()
 
@@ -120,11 +120,11 @@ A task defines the objective, success criteria, and behavior logic for the envir
 
 See :doc:`../concepts/concept_tasks_design` for task creation details.
 
-**4. Create the Isaac Arena Environment**
+**4. Create the IsaacLab Arena Environment**
 
 .. code-block:: python
 
-    isaac_arena_environment = IsaacArenaEnvironment(
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="my_first_arena_env",
         embodiment=embodiment,
         scene=scene,
@@ -132,7 +132,7 @@ See :doc:`../concepts/concept_tasks_design` for task creation details.
         teleop_device=None,
     )
 
-This puts everything together into an ``IsaacArenaEnvironment`` object.
+This puts everything together into an ``IsaacLabArenaEnvironment`` object.
 
 See :doc:`../concepts/concept_environment_design` for environment composition details.
 
@@ -140,8 +140,8 @@ See :doc:`../concepts/concept_environment_design` for environment composition de
 
 .. code-block:: python
 
-    args_cli = get_isaac_arena_cli_parser().parse_args([])
-    env_builder = ArenaEnvBuilder(isaac_arena_environment, args_cli)
+    args_cli = get_isaaclab_arenaena_cli_parser().parse_args([])
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = env_builder.make_registered()
     env.reset()
 
@@ -168,7 +168,7 @@ Now that you have created your first environment, explore:
 - :doc:`../concepts/concept_assets_design` - Discover available assets and create custom ones
 - :doc:`../concepts/concept_affordances_design` - Add interactive behaviors to objects
 
-Explore pre-built example environments in ``isaac_arena/examples/example_environments/`` for more complex scenarios.
+Explore pre-built example environments in ``isaaclab_arena/examples/example_environments/`` for more complex scenarios.
 
 To move on to data generation and training (Imitation Learning), please refer to the :doc:`../example_workflows/locomanipulation/index` or
 :doc:`../example_workflows/static_manipulation/index` pages.

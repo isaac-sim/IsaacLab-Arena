@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
 # property and proprietary rights in and to this material, related
@@ -8,17 +8,17 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 #
-"""Installation script for the 'isaac_arena' python package."""
+"""Installation script for the 'isaaclab_arena' python package."""
 
 from setuptools import find_packages, setup
 
-ISAAC_ARENA_VERSION_NUMBER = "1.0.0"
+ISAACLAB_ARENA_VERSION_NUMBER = "1.0.0"
 
 setup(
-    name="isaac_arena",
-    version=ISAAC_ARENA_VERSION_NUMBER,
+    name="isaaclab_arena",
+    version=ISAACLAB_ARENA_VERSION_NUMBER,
     description="Isaac Lab - Arena. An Isaac Lab extension for robotic policy evaluation. ",
-    packages=find_packages(),
+    packages=find_packages(include=["isaaclab_arena*", "isaaclab_arena_g1*", "isaaclab_arena_gr00t*"]),
     python_requires=">=3.10",
     zip_safe=False,
 )

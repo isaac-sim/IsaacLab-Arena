@@ -58,7 +58,7 @@ Environment Integration
    scene = Scene(assets=[background, pick_object])
 
    # Environment integration
-   environment = IsaacArenaEnvironment(
+   environment = IsaacLabArenaEnvironment(
        name="manipulation_task",
        embodiment=embodiment,
        scene=scene,  # Physical environment layout

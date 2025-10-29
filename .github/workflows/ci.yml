@@ -1,4 +1,4 @@
-name: Isaac Arena CI
+name: IsaacLab Arena CI
 
 on:
   pull_request:
@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 45
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:latest
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -77,10 +77,10 @@ jobs:
           pre-commit run --all-files
 
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
       - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaac_arena/tests/ --ignore=isaac_arena/tests/policy/
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
 
   test_policy:
@@ -89,7 +89,7 @@ jobs:
     timeout-minutes: 30
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaac_arena:cuda_gr00t
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -136,7 +136,7 @@ jobs:
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaac_arena/tests/policy/
+        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)

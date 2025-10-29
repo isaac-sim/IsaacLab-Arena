@@ -1,6 +1,9 @@
 Teleoperation Data Collection
 -----------------------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
++ CloudXR Runtime: Nvidia CloudXR Runtime (see below for details)
+
 This workflow covers collecting demonstrations using Isaac Lab Teleop with an Apple Vision Pro.
 
 .. note::
@@ -12,7 +15,8 @@ This workflow covers collecting demonstrations using Isaac Lab Teleop with an Ap
 Step 1: Install Isaac XR Teleop App on Vision Pro
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Follow the `Isaac Lab CloudXR documentation <https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro>`_
+Follow the `Isaac Lab CloudXR documentation
+<https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro>`_
 to build and install the app on your Apple Vision Pro.
 
 
@@ -44,18 +48,15 @@ In a terminal, outside the Isaac Lab - Arena Docker container, start the CloudXR
 Step 3: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In a separate terminal, start the recording session:
-
-Start the Arena Docker container:
-
-   :docker_run_default:
-
-Start the recording session (replace ``<OUTPUT_DATASET_PATH>`` with the actual path):
+To start the recording session, open another terminal, start the Arena Docker container,
+and run the recording script.
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/record_demos.py \
-     --dataset_file <OUTPUT_DATASET_PATH> \
+   ./docker/run_docker.sh
+
+   python isaaclab_arena/scripts/record_demos.py \
+     --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --num_demos 10 \
      --num_success_steps 2 \
      gr1_open_microwave \
@@ -79,7 +80,7 @@ Follow these steps to record teleoperation demonstrations:
 .. todo:: (alexmillane, 2025-10-23): Check that you don't need to press the "Submit Demo" button in VR.
 
 The script will automatically save successful demonstrations to an HDF5 file
-at ``<OUTPUT_DATASET_PATH>``.
+at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
 
 .. hint::
 

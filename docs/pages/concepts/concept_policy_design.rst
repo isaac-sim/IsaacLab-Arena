@@ -24,7 +24,7 @@ Policies use the ``PolicyBase`` abstract class:
                torch.Tensor: The action to take
            """
 
-This enables seamless swapping between different policy implementations while maintaining consistent integration with Isaac Arena environments.
+This enables seamless swapping between different policy implementations while maintaining consistent integration with IsaacLab Arena environments.
 
 Policies in Detail
 ------------------

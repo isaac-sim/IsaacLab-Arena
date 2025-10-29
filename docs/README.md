@@ -33,4 +33,4 @@ Make the docs
 make html
 ```
 
-To view the docs, navigationl to `isaac_arena/docs/_build/html/index.html`, and double-click.
+To view the docs, navigationl to `isaaclab_arena/docs/_build/html/index.html`, and double-click.

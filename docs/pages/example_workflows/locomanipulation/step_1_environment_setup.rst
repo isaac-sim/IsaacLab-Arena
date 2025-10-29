@@ -1,8 +1,11 @@
 Environment Setup and Validation
 --------------------------------
 
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
+
 
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -13,7 +16,7 @@ The environment used in this example workflow has the following components:
 
 .. code-block:: python
 
-   from isaac_arena.embodiments.g1 import G1WBCPinkEmbodiment
+   from isaaclab_arena.embodiments.g1 import G1WBCPinkEmbodiment
 
    embodiment = G1WBCPinkEmbodiment(enable_cameras=True)
 
@@ -35,7 +38,7 @@ The environment used in this example workflow has the following components:
 
 .. code-block:: python
 
-   from isaac_arena.tasks import PickAndPlaceTask
+   from isaaclab_arena.tasks import PickAndPlaceTask
    # define brown box, blue bin object references, and background scene
 
    task = PickAndPlaceTask(
@@ -48,34 +51,41 @@ The environment used in this example workflow has the following components:
     environment description in its entirety.
 
 
-Step 1: Start Isaac Lab - Arena
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Start the Arena Docker container:
-
-   :docker_run_default:
-
-
-Step 2: Download a test dataset
+Step 1: Download a test dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TBD
-
-
-Step 3: Validate Environment with Demo Replay
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Replay the generated dataset to verify the environment setup:
+To run a robot in the environment we need some recorded demonstration data that
+can be fed to the robot to control its actions.
+We download a pre-recorded dataset from Hugging Face:
 
 .. code-block:: bash
 
-   python isaac_arena/scripts/replay_demos.py \
+   hf download \
+       nvidia/Arena-GR1-Manipulation-Task \
+       arena_gr1_manipulation_dataset_generated_small.hdf5 \
+       --repo-type dataset \
+       --local-dir $DATASET_DIR
+
+
+Step 2: Validate Environment with Demo Replay
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Replay the downloaded dataset to verify the environment setup
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/replay_demos.py \
+     --device cpu \
      --enable_cameras \
-     --dataset_file /datasets/Arena-G1-Loco-Manipulation-Task/arena_g1_loco_manipulation_dataset_generated.hdf5 \
+     --dataset_file <INPUT_DATASET_PATH> \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink
 
 You should see the G1 robot replaying the generated demonstrations, performing box pick and place task in the Galileo lab environment.
+
+.. note::
+
+   The downloaded dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
 
 .. todo:: (amillane, 2025-10-22): screenshot
