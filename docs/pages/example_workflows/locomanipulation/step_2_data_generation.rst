@@ -1,10 +1,14 @@
 Data Generation
 ---------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
-
 This workflow covers annotating and generating the demonstration dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
+
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh
 
 
 Step 1: Download Human Demonstration Dataset
