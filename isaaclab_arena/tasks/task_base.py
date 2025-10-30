@@ -37,6 +37,22 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
+    def get_observation_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def get_rewards_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def get_curriculum_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
+    def get_commands_cfg(self) -> Any:
+        raise NotImplementedError("Function not implemented yet.")
+
+    @abstractmethod
     def get_prompt(self) -> str:
         raise NotImplementedError("Function not implemented yet.")
 

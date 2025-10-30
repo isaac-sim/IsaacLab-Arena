@@ -39,6 +39,9 @@ class EmbodimentBase(Asset):
         self.action_config: Any | None = None
         self.observation_config: Any | None = None
         self.event_config: Any | None = None
+        self.reward_config: Any | None = None
+        self.curriculum_config: Any | None = None
+        self.command_config: Any | None = None
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
@@ -74,6 +77,18 @@ class EmbodimentBase(Asset):
                     camera_observation_config,
                 )
         return self.observation_config
+
+    @abstractmethod
+    def get_rewards_cfg(self) -> Any:
+        return self.reward_config
+
+    @abstractmethod
+    def get_curriculum_cfg(self) -> Any:
+        return self.curriculum_config
+
+    @abstractmethod
+    def get_commands_cfg(self) -> Any:
+        return self.command_config
 
     @abstractmethod
     def get_events_cfg(self) -> Any:

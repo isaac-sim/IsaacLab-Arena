@@ -70,7 +70,12 @@ class ArenaEnvBuilder:
             self.arena_env.embodiment.get_scene_cfg(),
             self.arena_env.task.get_scene_cfg(),
         )
-        observation_cfg = self.arena_env.embodiment.get_observation_cfg()
+        observation_cfg = combine_configclass_instances(
+            "ObservationCfg",
+            self.arena_env.scene.get_observation_cfg(),
+            self.arena_env.embodiment.get_observation_cfg(),
+            self.arena_env.task.get_observation_cfg(),
+        )
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             self.arena_env.embodiment.get_events_cfg(),
@@ -101,6 +106,27 @@ class ArenaEnvBuilder:
             bases=(RecorderManagerBaseCfg,),
         )
 
+        rewards_cfg = combine_configclass_instances(
+            "RewardsCfg",
+            self.arena_env.scene.get_rewards_cfg(),
+            self.arena_env.embodiment.get_rewards_cfg(),
+            self.arena_env.task.get_rewards_cfg(),
+        )
+
+        curriculum_cfg = combine_configclass_instances(
+            "CurriculumCfg",
+            self.arena_env.scene.get_curriculum_cfg(),
+            self.arena_env.embodiment.get_curriculum_cfg(),
+            self.arena_env.task.get_curriculum_cfg(),
+        )
+
+        commands_cfg = combine_configclass_instances(
+            "CommandsCfg",
+            self.arena_env.scene.get_commands_cfg(),
+            self.arena_env.embodiment.get_commands_cfg(),
+            self.arena_env.task.get_commands_cfg(),
+        )
+
         isaaclab_arena_env = self.arena_env
 
         viewer_cfg = self.arena_env.task.get_viewer_cfg()
@@ -113,6 +139,9 @@ class ArenaEnvBuilder:
                 events=events_cfg,
                 scene=scene_cfg,
                 terminations=termination_cfg,
+                rewards=rewards_cfg,
+                curriculum=curriculum_cfg,
+                commands=commands_cfg,
                 xr=xr_cfg,
                 teleop_devices=teleop_device_cfg,
                 recorders=recorder_manager_cfg,
@@ -128,6 +157,9 @@ class ArenaEnvBuilder:
                 events=events_cfg,
                 scene=scene_cfg,
                 terminations=termination_cfg,
+                rewards=rewards_cfg,
+                curriculum=curriculum_cfg,
+                commands=commands_cfg,
                 xr=xr_cfg,
                 teleop_devices=teleop_device_cfg,
                 # Mimic stuff
