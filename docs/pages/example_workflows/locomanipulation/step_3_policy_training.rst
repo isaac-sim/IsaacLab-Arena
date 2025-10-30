@@ -1,8 +1,6 @@
 Policy Post-Training
 --------------------
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
-
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
@@ -24,6 +22,13 @@ Note that this tutorial assumes that you've completed the
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
          --local-dir $DATASET_DIR
+
+
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh -g
 
 
 Step 1: Convert to LeRobot Format
