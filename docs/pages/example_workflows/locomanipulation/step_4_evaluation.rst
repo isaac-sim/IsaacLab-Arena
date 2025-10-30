@@ -92,31 +92,3 @@ You should see similar metrics.
    which are realized by using the PINK IK controller.
    GR00T N1.5 policy is trained on upper body joint positions, so we use
    ``g1_wbc_joint`` for closed-loop policy inference.
-
-
-Step 2: Run Parallel Evaluation (Recommended)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-IsaacLab Arena supports evaluating the policy in parallel across multiple environments.
-To perform a parallel evaluation across 16 environments, we set ``num_envs`` to 16,
-by running the following command.
-
-.. code-block:: bash
-
-   python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
-     --num_envs 16 \
-     --enable_cameras \
-     --headless \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
-
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.
-
-.. code-block:: text
-
-   Metrics: {success_rate: 0.75, num_episodes: 16}
