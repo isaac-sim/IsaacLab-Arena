@@ -166,12 +166,10 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         temp_urdf_output_path, temp_urdf_meshes_output_path = ControllerUtils.convert_usd_to_urdf(
             self.scene_config.robot.spawn.usd_path, self.temp_urdf_dir, force_conversion=True
         )
-        ControllerUtils.change_revolute_to_fixed(
-            temp_urdf_output_path, self.action_config.pink_ik_cfg.ik_urdf_fixed_joint_names
-        )
+
         # Set the URDF and mesh paths for the IK controller
-        self.action_config.pink_ik_cfg.controller.urdf_path = temp_urdf_output_path
-        self.action_config.pink_ik_cfg.controller.mesh_path = temp_urdf_meshes_output_path
+        self.action_config.upper_body_ik.controller.urdf_path = temp_urdf_output_path
+        self.action_config.upper_body_ik.controller.mesh_path = temp_urdf_meshes_output_path
 
 
 @configclass
@@ -390,13 +388,16 @@ class GR1T2ObservationsCfg:
         robot_root_rot = ObsTerm(func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("robot")})
         robot_links_state = ObsTerm(func=mdp.get_all_robot_link_state)
 
-        left_eef_pos = ObsTerm(func=mdp.get_left_eef_pos)
-        left_eef_quat = ObsTerm(func=mdp.get_left_eef_quat)
-        right_eef_pos = ObsTerm(func=mdp.get_right_eef_pos)
-        right_eef_quat = ObsTerm(func=mdp.get_right_eef_quat)
+        left_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "left_hand_roll_link"})
+        left_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "left_hand_roll_link"})
+        right_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "right_hand_roll_link"})
+        right_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "right_hand_roll_link"})
 
-        hand_joint_state = ObsTerm(func=mdp.get_hand_state)
-        head_joint_state = ObsTerm(func=mdp.get_head_state)
+        hand_joint_state = ObsTerm(func=mdp.get_robot_joint_state, params={"joint_names": ["R_.*", "L_.*"]})
+        head_joint_state = ObsTerm(
+            func=mdp.get_robot_joint_state,
+            params={"joint_names": ["head_pitch_joint", "head_roll_joint", "head_yaw_joint"]},
+        )
 
         def __post_init__(self):
             self.enable_corruption = False

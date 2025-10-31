@@ -52,7 +52,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-G1-Loco-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
@@ -60,13 +60,13 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
-   python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
-     --config_yaml_path isaaclab_arena/policy/config/g1_locomanip_config.yaml
+   python isaaclab_arena_gr00t/data_utils/convert_hdf5_to_lerobot.py \
+     --yaml_file isaaclab_arena_gr00t/config/g1_locomanip_config.yaml
 
 This creates a folder ``$DATASET_DIR/lerobot`` containing parquet files with states/actions,
 MP4 camera recordings, and dataset metadata.
 
-The converter is controlled by a config file at ``isaaclab_arena/policy/config/g1_locomanip_config.yaml``.
+The converter is controlled by a config file at ``isaaclab_arena_gr00t/config/g1_locomanip_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_config.yaml``)
    :animate: fade-in
@@ -125,7 +125,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/lerobot \
+         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
          --batch_size=24 \
