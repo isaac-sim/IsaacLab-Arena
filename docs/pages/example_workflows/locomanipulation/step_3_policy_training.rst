@@ -1,8 +1,6 @@
 Policy Post-Training
 --------------------
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
-
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
@@ -26,6 +24,13 @@ Note that this tutorial assumes that you've completed the
          --local-dir $DATASET_DIR
 
 
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh -g
+
+
 Step 1: Convert to LeRobot Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -47,7 +52,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-G1-Loco-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
@@ -55,13 +60,13 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
-   python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
-     --config_yaml_path isaaclab_arena/policy/config/g1_locomanip_config.yaml
+   python isaaclab_arena_gr00t/data_utils/convert_hdf5_to_lerobot.py \
+     --yaml_file isaaclab_arena_gr00t/config/g1_locomanip_config.yaml
 
 This creates a folder ``$DATASET_DIR/lerobot`` containing parquet files with states/actions,
 MP4 camera recordings, and dataset metadata.
 
-The converter is controlled by a config file at ``isaaclab_arena/policy/config/g1_locomanip_config.yaml``.
+The converter is controlled by a config file at ``isaaclab_arena_gr00t/config/g1_locomanip_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_config.yaml``)
    :animate: fade-in
@@ -120,7 +125,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/lerobot \
+         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=unitree_g1_sim_wbc \
          --batch_size=24 \

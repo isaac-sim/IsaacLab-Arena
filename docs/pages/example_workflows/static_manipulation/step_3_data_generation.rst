@@ -1,8 +1,6 @@
 Data Generation
 ---------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
-
 This workflow covers generating a new dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
@@ -12,6 +10,14 @@ If you do not want to do the preceding step of recording demonstrations, you can
 you can download the pre-generated dataset either in
 :ref:`step_1_annotate_demonstrations` or :ref:`step_2_generate_augmented_dataset`
 below.
+
+
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh
+
 
 .. _step_1_annotate_demonstrations:
 
@@ -45,6 +51,7 @@ To start the annotation process run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/annotate_demos.py \
+     --device cpu \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
      --enable_pinocchio \
@@ -88,6 +95,7 @@ Generate the dataset:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/generate_dataset.py \
+     --device cpu \
      --generation_num_trials 50 \
      --num_envs 10 \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
@@ -113,6 +121,7 @@ To do so, run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/replay_demos.py \
+     --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
      gr1_open_microwave \

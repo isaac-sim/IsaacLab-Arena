@@ -1,8 +1,6 @@
 Policy Post-training
 --------------------
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
-
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
@@ -27,8 +25,14 @@ pre-generated dataset from Hugging Face as described below.
          --local-dir $DATASET_DIR
 
 
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
 
-Step 2: Convert to LeRobot Format
+.. code-block:: bash
+
+   ./docker/run_docker.sh -g
+
+
+Step 1: Convert to LeRobot Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 GR00T N1.5 requires the dataset to be in LeRobot format.
@@ -86,7 +90,7 @@ MP4 camera recordings, and dataset metadata. The converter is controlled by a co
       chunks_size: 1000
 
 
-Step 3: Post-train Policy
+Step 2: Post-train Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We post-train the GR00T N1.5 policy on the task.

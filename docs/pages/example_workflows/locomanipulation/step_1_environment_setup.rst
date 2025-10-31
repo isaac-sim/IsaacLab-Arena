@@ -1,10 +1,15 @@
 Environment Setup and Validation
 --------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
 
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
+
+**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh
 
 
 Environment Description
@@ -170,10 +175,16 @@ Replay the downloaded dataset to verify the environment setup
      --object brown_box \
      --embodiment g1_wbc_pink
 
-You should see the G1 robot replaying the generated demonstrations, performing box pick and place task in the Galileo lab environment.
-
 .. note::
 
    The downloaded dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
 
-.. todo:: (amillane, 2025-10-22): screenshot
+You should see the G1 robot replaying the generated demonstrations, performing box pick and place task in the Galileo lab environment.
+
+
+.. figure:: ../../../images/g1_locomanip_pick_and_place_task_view.png
+   :width: 100%
+   :alt: G1 Locomanip Pick and Place Task View
+   :align: center
+
+   IsaacLab Arena G1 Locomanip Pick and Place Task View
