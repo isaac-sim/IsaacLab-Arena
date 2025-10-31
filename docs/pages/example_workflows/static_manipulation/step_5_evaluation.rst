@@ -18,7 +18,7 @@ pre-trained model checkpoint below:
 
       hf download \
          nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
-         --local-dir $MODELS_DIR
+         --local-dir $MODELS_DIR/checkpoint-20000
 
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
@@ -40,24 +40,24 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/gr1_man
 
    .. code-block:: yaml
 
-      # Model configuration
-      model_path: /models/isaaclab_arena/static_manipulation_tutorial
-      embodiment_tag: gr1
-      data_config: gr1_arms_only
+      model_path: /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000
 
-      # Task configuration
       language_instruction: "Reach out to the microwave and open it."
-      task_mode_name: gr1_manipulation
+      action_horizon: 16
+      embodiment_tag: gr1
+      video_backend: decord
+      data_config: fourier_gr1_arms_only
 
-      # Inference parameters
-      denoising_steps: 10
-      policy_device: cuda
-      target_image_size: [256, 256, 3]
+      policy_joints_config_path: isaaclab_arena_gr00t/config/gr1/gr00t_26dof_joint_space.yaml
+      action_joints_config_path: isaaclab_arena_gr00t/config/gr1/36dof_joint_space.yaml
+      state_joints_config_path: isaaclab_arena_gr00t/config/gr1/54dof_joint_space.yaml
+      num_feedback_actions: 16
+      task_mode_name: gr1_tabletop_manipulation
 
-      # Joint mappings
-      gr00t_joints_config_path: isaaclab_arena/policy/config/gr1/gr00t_26dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena/policy/config/gr1/36dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena/policy/config/gr1/54dof_joint_space.yaml
+      pov_cam_name_sim: "robot_pov_cam_rgb"
+
+      original_image_size: [512, 512, 3]
+      target_image_size: [512, 512, 3]
 
 
 Test the policy in a single environment with visualization via the GUI run:

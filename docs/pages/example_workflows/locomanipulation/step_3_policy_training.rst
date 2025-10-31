@@ -127,7 +127,7 @@ We provide two post-training options:
          python scripts/gr00t_finetune.py \
          --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
-         --data_config=unitree_g1_sim_wbc \
+         --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
          --batch_size=24 \
          --max_steps=20000 \
          --num_gpus=8 \
@@ -144,13 +144,43 @@ We provide two post-training options:
 
    .. tab:: Low Hardware Requirements
 
-      TBD
+      Training takes approximately 2-3 hours on 1x Ada6000 GPU.
 
+      Training Configuration:
 
-.. todo::
+      - **Base Model:** GR00T-N1.5-3B (foundation model)
+      - **Tuned Modules:** Visual backbone, projector, diffusion model
+      - **Frozen Modules:** LLM (language model)
+      - **Batch Size:** 24 (adjust based on GPU memory)
+      - **Training Steps:** 20,000
+      - **GPUs:** 1 (single-GPU training)
+      - **LoRA Fine-tuning:** Enabled
+      - **LoRA Rank:** 128
 
-   (alexmillane, 2025-10-23): Check that the resulting model matches
-   the folder structure that we download from Hugging Face.
+      To post-train the policy, run the following command
+
+      .. code-block:: bash
+
+         cd submodules/Isaac-GR00T
+
+         python scripts/gr00t_finetune.py \
+         --dataset_path=$DATASET_DIR/lerobot \
+         --output_dir=$MODELS_DIR \
+         --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
+         --batch_size=24 \
+         --max_steps=20000 \
+         --num_gpus=1 \
+         --save_steps=5000 \
+         --base_model_path=nvidia/GR00T-N1.5-3B \
+         --no_tune_llm \
+         --tune_visual \
+         --tune_projector \
+         --tune_diffusion_model \
+         --no-resume \
+         --dataloader_num_workers=16 \
+         --report_to=wandb \
+         --embodiment_tag=new_embodiment \
+         --lora_rank=128
 
 
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_

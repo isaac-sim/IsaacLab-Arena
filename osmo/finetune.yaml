@@ -50,7 +50,7 @@ workflow:
             --batch_size={{ batch_size }} \
             --max_steps={{ max_steps }} \
             --num_gpus={{ gpus }} \
-            --save_steps=1000 \
+            --save_steps=5000 \
             --base_model_path=/workspace/pretrained_ckpts/GR00T-N1.5-3B \
             --no-tune_llm  \
             --tune_visual \
