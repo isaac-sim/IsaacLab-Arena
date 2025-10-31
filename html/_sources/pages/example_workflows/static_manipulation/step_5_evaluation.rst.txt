@@ -67,7 +67,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/examples/policy_runner.py \
      --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
-     --num_steps 400 \
+     --num_steps 2000 \
      --enable_cameras \
      gr1_open_microwave \
      --embodiment gr1_joint
@@ -87,31 +87,3 @@ You should see similar metrics.
    which are realized by using the PINK IK controller.
    GR00T N1.5 policy is trained on upper body joint positions, so we use
    ``gr1_joint`` for closed-loop policy inference.
-
-
-
-Step 2: Run Parallel Evaluation (Recommended)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-IsaacLab Arena supports evaluating the policy in parallel across multiple environments.
-To perform a parallel evaluation across 16 environments, we set ``num_envs`` to 16,
-by running the following command.
-
-.. code-block:: bash
-
-   python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
-     --num_steps 400 \
-     --num_envs 16 \
-     --enable_cameras \
-     --headless \
-     gr1_open_microwave \
-     --embodiment gr1_joint
-
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.
-
-.. code-block:: text
-
-   Metrics: {success_rate: 0.9375, door_moved_rate: 0.9375, num_episodes: 32}

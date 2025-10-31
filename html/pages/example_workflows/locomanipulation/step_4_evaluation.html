@@ -450,29 +450,6 @@ GR00T N1.5 policy is trained on upper body joint positions, so we use
 <code class="docutils literal notranslate"><span class="pre">g1_wbc_joint</span></code> for closed-loop policy inference.</p>
 </div>
 </section>
-<section id="step-2-run-parallel-evaluation-recommended">
-<h2>Step 2: Run Parallel Evaluation (Recommended)<a class="headerlink" href="#step-2-run-parallel-evaluation-recommended" title="Link to this heading">#</a></h2>
-<p>IsaacLab Arena supports evaluating the policy in parallel across multiple environments.
-To perform a parallel evaluation across 16 environments, we set <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> to 16,
-by running the following command.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1200</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
-</pre></div>
-</div>
-<p>The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {success_rate: 0.75, num_episodes: 16}
-</pre></div>
-</div>
-</section>
 </section>
 
 
@@ -525,7 +502,6 @@ You should see similar metrics.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-run-single-environment-evaluation">Step 1: Run Single Environment Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-evaluation-recommended">Step 2: Run Parallel Evaluation (Recommended)</a></li>
 </ul>
   </nav></div>
 

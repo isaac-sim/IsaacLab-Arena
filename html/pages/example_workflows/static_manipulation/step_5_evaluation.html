@@ -425,7 +425,7 @@ such that the preceding steps can be skipped.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint
@@ -444,28 +444,6 @@ This is because during tele-operation, the robot is controlled via target end-ef
 which are realized by using the PINK IK controller.
 GR00T N1.5 policy is trained on upper body joint positions, so we use
 <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> for closed-loop policy inference.</p>
-</div>
-</section>
-<section id="step-2-run-parallel-evaluation-recommended">
-<h2>Step 2: Run Parallel Evaluation (Recommended)<a class="headerlink" href="#step-2-run-parallel-evaluation-recommended" title="Link to this heading">#</a></h2>
-<p>IsaacLab Arena supports evaluating the policy in parallel across multiple environments.
-To perform a parallel evaluation across 16 environments, we set <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> to 16,
-by running the following command.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>gr00t_closedloop<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>gr1_open_microwave<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint
-</pre></div>
-</div>
-<p>The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {success_rate: 0.9375, door_moved_rate: 0.9375, num_episodes: 32}
-</pre></div>
 </div>
 </section>
 </section>
@@ -520,7 +498,6 @@ You should see similar metrics.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-run-single-environment-evaluation">Step 1: Run Single Environment Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-evaluation-recommended">Step 2: Run Parallel Evaluation (Recommended)</a></li>
 </ul>
   </nav></div>
 
