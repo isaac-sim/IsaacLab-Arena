@@ -20,7 +20,7 @@ from isaaclab.envs import SubTaskConstraintType
 from isaaclab.managers import TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
-from isaaclab_mimic.datagen.waypoint import MultiWaypoint
+from isaaclab_mimic.datagen.waypoint import MultiWaypoint, Waypoint
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
     NAVIGATE_CMD_END_IDX,
@@ -62,7 +62,7 @@ def patch_recorders():
 def patch_generate():  # noqa: C901
     from isaaclab_mimic.datagen.data_generator import DataGenerator
 
-    async def generate(
+    async def generate(  # noqa: C901
         self,
         env_id: int,
         success_term: TerminationTermCfg,
@@ -70,20 +70,22 @@ def patch_generate():  # noqa: C901
         env_action_queue: asyncio.Queue | None = None,
         pause_subtask: bool = False,
         export_demo: bool = True,
+        motion_planner=None,
     ) -> dict:
         """
         Attempt to generate a new demonstration.
 
         Args:
-            env_id: environment index
+            env_id: environment ID
             success_term: success function to check if the task is successful
             env_reset_queue: queue to store environment IDs for reset
             env_action_queue: queue to store actions for each environment
-            pause_subtask: if True, pause after every subtask during generation, for debugging
-            export_demo: if True, export the generated demonstration
+            pause_subtask: whether to pause the subtask generation
+            export_demo: whether to export the demo
+            motion_planner: motion planner to use for motion planning
 
         Returns:
-            results: dictionary with the following items:
+            results (dict): dictionary with the following items:
                 initial_state (dict): initial simulator state for the executed trajectory
                 states (list): simulator state at each timestep
                 observations (list): observation dictionary at each timestep
@@ -93,6 +95,9 @@ def patch_generate():  # noqa: C901
                 src_demo_inds (list): list of selected source demonstration indices for each subtask
                 src_demo_labels (np.array): same as @src_demo_inds, but repeated to have a label for each timestep of the trajectory
         """
+        # With skillgen, a motion planner is required to generate collision-free transitions between subtasks.
+        if self.env_cfg.datagen_config.use_skillgen and motion_planner is None:
+            raise ValueError("motion_planner must be provided if use_skillgen is True")
 
         # reset the env to create a new task demo instance
         env_id_tensor = torch.tensor([env_id], dtype=torch.int64, device=self.env.device)
@@ -114,54 +119,143 @@ def patch_generate():  # noqa: C901
 
         # some eef-specific state variables used during generation
         current_eef_selected_src_demo_indices = {}
-        current_eef_subtask_trajectories = {}
+        current_eef_subtask_trajectories: dict[str, list[Waypoint]] = {}
         current_eef_subtask_indices = {}
+        next_eef_subtask_indices_after_motion = {}
+        next_eef_subtask_trajectories_after_motion = {}
         current_eef_subtask_step_indices = {}
         eef_subtasks_done = {}
         for eef_name in self.env_cfg.subtask_configs.keys():
             current_eef_selected_src_demo_indices[eef_name] = None
-            # prev_eef_executed_traj[eef_name] = None  # type of list of Waypoint
-            current_eef_subtask_trajectories[eef_name] = None  # type of list of Waypoint
+            current_eef_subtask_trajectories[eef_name] = []  # type of list of Waypoint
             current_eef_subtask_indices[eef_name] = 0
+            next_eef_subtask_indices_after_motion[eef_name] = None
+            next_eef_subtask_trajectories_after_motion[eef_name] = None
             current_eef_subtask_step_indices[eef_name] = None
             eef_subtasks_done[eef_name] = False
 
         prev_src_demo_datagen_info_pool_size = 0
 
         was_navigating = False
+        # While loop that runs per time step
         while True:
             async with self.src_demo_datagen_info_pool.asyncio_lock:
                 if len(self.src_demo_datagen_info_pool.datagen_infos) > prev_src_demo_datagen_info_pool_size:
                     # src_demo_datagen_info_pool at this point may be updated with new demos,
-                    # so we need to updaet subtask boundaries again
+                    # So we need to update subtask boundaries again
                     randomized_subtask_boundaries = (
                         self.randomize_subtask_boundaries()
                     )  # shape [N, S, 2], last dim is start and end action lengths
                     prev_src_demo_datagen_info_pool_size = len(self.src_demo_datagen_info_pool.datagen_infos)
 
-                # generate trajectory for a subtask for the eef that is currently at the beginning of a subtask
+                # Generate trajectory for a subtask for the eef that is currently at the beginning of a subtask
                 for eef_name, eef_subtask_step_index in current_eef_subtask_step_indices.items():
                     if eef_subtask_step_index is None:
-                        # current_eef_selected_src_demo_indices will be updated in generate_trajectory
-                        subtask_trajectory = self.generate_trajectory(
-                            env_id,
-                            eef_name,
-                            current_eef_subtask_indices[eef_name],
-                            randomized_subtask_boundaries,
-                            runtime_subtask_constraints_dict,
-                            current_eef_selected_src_demo_indices,
-                            current_eef_subtask_trajectories,
-                        )
-                        current_eef_subtask_trajectories[eef_name] = subtask_trajectory
-                        current_eef_subtask_step_indices[eef_name] = 0
-                        # current_eef_selected_src_demo_indices[eef_name] = selected_src_demo_inds
-                        # two_arm_trajectories[task_spec_idx] = subtask_trajectory
-                        # prev_executed_traj[task_spec_idx] = subtask_trajectory
+                        # Trajectory stored in current_eef_subtask_trajectories[eef_name] has been executed,
+                        # So we need to determine the next trajectory
+                        # Note: This condition is the "resume-after-motion-plan" gate for skillgen. When
+                        # use_skillgen=False (vanilla Mimic), next_eef_subtask_indices_after_motion[eef_name]
+                        # remains None, so this condition is always True and the else-branch below is never taken.
+                        # The else-branch is only used right after executing a motion-planned transition (skillgen)
+                        # to resume the actual subtask trajectory.
+                        if next_eef_subtask_indices_after_motion[eef_name] is None:
+                            # This is the beginning of a new subtask, so generate a new trajectory accordingly
+                            eef_subtask_trajectory = self.generate_eef_subtask_trajectory(
+                                env_id,
+                                eef_name,
+                                current_eef_subtask_indices[eef_name],
+                                randomized_subtask_boundaries,
+                                runtime_subtask_constraints_dict,
+                                current_eef_selected_src_demo_indices,  # updated in the method
+                            )
+                            # With skillgen, use a motion planner to transition between subtasks.
+                            if self.env_cfg.datagen_config.use_skillgen:
+                                # Define the goal for the motion planner: the start of the next subtask.
+                                target_eef_pose = eef_subtask_trajectory[0].pose
+                                target_gripper_action = eef_subtask_trajectory[0].gripper_action
 
-            # determine the next waypoint for each eef based on the current subtask constraints
+                                # Determine expected object attachment using environment-specific logic (optional)
+                                expected_attached_object = None
+                                if hasattr(self.env, "get_expected_attached_object"):
+                                    expected_attached_object = self.env.get_expected_attached_object(
+                                        eef_name, current_eef_subtask_indices[eef_name], self.env.cfg
+                                    )
+
+                                # Plan motion using motion planner with comprehensive world update and attachment handling
+                                if motion_planner:
+                                    print(f"\n--- Environment {env_id}: Planning motion to target pose ---")
+                                    print(f"Target pose: {target_eef_pose}")
+                                    print(f"Expected attached object: {expected_attached_object}")
+
+                                    # This call updates the planner's world model and computes the trajectory.
+                                    planning_success = motion_planner.update_world_and_plan_motion(
+                                        target_pose=target_eef_pose,
+                                        expected_attached_object=expected_attached_object,
+                                        env_id=env_id,
+                                        step_size=getattr(motion_planner, "step_size", None),
+                                        enable_retiming=hasattr(motion_planner, "step_size")
+                                        and motion_planner.step_size is not None,
+                                    )
+
+                                    # If planning succeeds, execute the planner's trajectory first.
+                                    if planning_success:
+                                        print(f"Env {env_id}: Motion planning succeeded")
+                                        # The original subtask trajectory is stored to be executed after the transition.
+                                        next_eef_subtask_trajectories_after_motion[eef_name] = eef_subtask_trajectory
+                                        next_eef_subtask_indices_after_motion[eef_name] = current_eef_subtask_indices[
+                                            eef_name
+                                        ]
+                                        # Mark the current subtask as invalid (-1) until the transition is done.
+                                        current_eef_subtask_indices[eef_name] = -1
+
+                                        # Convert the planner's output into a sequence of waypoints to be executed.
+                                        current_eef_subtask_trajectories[eef_name] = (
+                                            self._convert_planned_trajectory_to_waypoints(
+                                                motion_planner, target_gripper_action
+                                            )
+                                        )
+                                        current_eef_subtask_step_indices[eef_name] = 0
+                                        print(
+                                            f"Generated {len(current_eef_subtask_trajectories[eef_name])} waypoints"
+                                            " from motion plan"
+                                        )
+
+                                    else:
+                                        # If planning fails, abort the data generation trial.
+                                        print(f"Env {env_id}: Motion planning failed for {eef_name}")
+                                        return {"success": False}
+                            else:
+                                # Without skillgen, transition using simple interpolation.
+                                current_eef_subtask_trajectories[eef_name] = self.merge_eef_subtask_trajectory(
+                                    env_id,
+                                    eef_name,
+                                    current_eef_subtask_indices[eef_name],
+                                    current_eef_subtask_trajectories[eef_name],
+                                    eef_subtask_trajectory,
+                                )
+                                current_eef_subtask_step_indices[eef_name] = 0
+                        else:
+                            # Motion-planned trajectory has been executed, so we are ready to move to execute the next subtask
+                            print("Finished executing motion-planned trajectory")
+                            # It is important to pass the prev_executed_traj to merge_eef_subtask_trajectory
+                            # so that it can correctly interpolate from the last pose of the motion-planned trajectory
+                            prev_executed_traj = current_eef_subtask_trajectories[eef_name]
+                            current_eef_subtask_indices[eef_name] = next_eef_subtask_indices_after_motion[eef_name]
+                            current_eef_subtask_trajectories[eef_name] = self.merge_eef_subtask_trajectory(
+                                env_id,
+                                eef_name,
+                                current_eef_subtask_indices[eef_name],
+                                prev_executed_traj,
+                                next_eef_subtask_trajectories_after_motion[eef_name],
+                            )
+                            current_eef_subtask_step_indices[eef_name] = 0
+                            next_eef_subtask_trajectories_after_motion[eef_name] = None
+                            next_eef_subtask_indices_after_motion[eef_name] = None
+
+            # Determine the next waypoint for each eef based on the current subtask constraints
             eef_waypoint_dict = {}
             for eef_name in sorted(self.env_cfg.subtask_configs.keys()):
-                # handle constraints
+                # Handle constraints
                 step_ind = current_eef_subtask_step_indices[eef_name]
                 subtask_ind = current_eef_subtask_indices[eef_name]
                 if (eef_name, subtask_ind) in runtime_subtask_constraints_dict:
@@ -174,7 +268,7 @@ def patch_generate():  # noqa: C901
                                 or step_ind >= len(current_eef_subtask_trajectories[eef_name]) - min_time_diff
                             ):
                                 if step_ind > 0:
-                                    # wait at the same step
+                                    # Wait at the same step
                                     step_ind -= 1
                                     current_eef_subtask_step_indices[eef_name] = step_ind
 
@@ -190,8 +284,8 @@ def patch_generate():  # noqa: C901
                             task_constraint["coordination_synchronize_start"]
                             and current_eef_subtask_indices[concurrent_task_spec_key] < concurrent_subtask_ind
                         ):
-                            # the concurrent eef is not yet at the concurrent subtask, so wait at the first action
-                            # this also makes sure that the concurrent task starts at the same time as this task
+                            # The concurrent eef is not yet at the concurrent subtask, so wait at the first action
+                            # This also makes sure that the concurrent task starts at the same time as this task
                             step_ind = 0
                             current_eef_subtask_step_indices[eef_name] = 0
                         else:
@@ -199,7 +293,7 @@ def patch_generate():  # noqa: C901
                                 not concurrent_task_fulfilled
                                 and step_ind >= len(current_eef_subtask_trajectories[eef_name]) - synchronous_steps
                             ):
-                                # trigger concurrent task
+                                # Trigger concurrent task
                                 runtime_subtask_constraints_dict[(concurrent_task_spec_key, concurrent_subtask_ind)][
                                     "fulfilled"
                                 ] = True
@@ -211,10 +305,16 @@ def patch_generate():  # noqa: C901
                                         current_eef_subtask_step_indices[eef_name] = step_ind  # wait here
 
                 waypoint = current_eef_subtask_trajectories[eef_name][step_ind]
+
+                # Update visualization if motion planner is available
+                if motion_planner and motion_planner.visualize_spheres:
+                    current_joints = self.env.scene["robot"].data.joint_pos[env_id]
+                    motion_planner._update_visualization_at_joint_positions(current_joints)
+
                 eef_waypoint_dict[eef_name] = waypoint
             multi_waypoint = MultiWaypoint(eef_waypoint_dict)
 
-            # execute the next waypoints for all eefs
+            # Execute the next waypoints for all eefs
             exec_results = await multi_waypoint.execute(
                 env=self.env,
                 success_term=success_term,
@@ -231,17 +331,16 @@ def patch_generate():  # noqa: C901
                 is_navigating = False
                 navigation_goal_reached = False
 
-            # update execution state buffers
+            # Update execution state buffers
             if len(exec_results["states"]) > 0:
                 generated_states.extend(exec_results["states"])
                 generated_obs.extend(exec_results["observations"])
                 generated_actions.extend(exec_results["actions"])
-                generated_success = exec_results["success"]
+                generated_success = generated_success or exec_results["success"]
 
             processed_nav_subtask = False
             for eef_name in self.env_cfg.subtask_configs.keys():
                 current_eef_subtask_step_indices[eef_name] += 1
-
                 """
                 Note: The following code sets the eef indices accordingly for the navigation subtask.
                 The eef index buffers are updated twice due to the existing outer for loop.
@@ -279,7 +378,7 @@ def patch_generate():  # noqa: C901
                 subtask_ind = current_eef_subtask_indices[eef_name]
                 if current_eef_subtask_step_indices[eef_name] == len(
                     current_eef_subtask_trajectories[eef_name]
-                ):  # subtask done
+                ):  # Subtask done
                     if (eef_name, subtask_ind) in runtime_subtask_constraints_dict:
                         task_constraint = runtime_subtask_constraints_dict[(eef_name, subtask_ind)]
                         if task_constraint["type"] == SubTaskConstraintType._SEQUENTIAL_FORMER:
@@ -291,9 +390,9 @@ def patch_generate():  # noqa: C901
                         elif task_constraint["type"] == SubTaskConstraintType.COORDINATION:
                             concurrent_task_spec_key = task_constraint["concurrent_task_spec_key"]
                             concurrent_subtask_ind = task_constraint["concurrent_subtask_ind"]
-                            # concurrent_task_spec_idx = task_spec_keys.index(concurrent_task_spec_key)
+                            # Concurrent_task_spec_idx = task_spec_keys.index(concurrent_task_spec_key)
                             task_constraint["finished"] = True
-                            # check if concurrent task has been finished
+                            # Check if concurrent task has been finished
                             assert (
                                 runtime_subtask_constraints_dict[(concurrent_task_spec_key, concurrent_subtask_ind)][
                                     "finished"
@@ -324,11 +423,11 @@ def patch_generate():  # noqa: C901
             if all(eef_subtasks_done.values()):
                 break
 
-        # merge numpy arrays
+        # Merge numpy arrays
         if len(generated_actions) > 0:
             generated_actions = torch.cat(generated_actions, dim=0)
 
-        # set success to the recorded episode data and export to file
+        # Set success to the recorded episode data and export to file
         self.env.recorder_manager.set_success_to_episodes(
             env_id_tensor, torch.tensor([[generated_success]], dtype=torch.bool, device=self.env.device)
         )
