@@ -74,7 +74,7 @@ class EmbodimentBase(Asset):
                 )
         return self.observation_config
 
-    def get_reward_cfg(self) -> Any:
+    def get_rewards_cfg(self) -> Any:
         return self.reward_config
 
     def get_curriculum_cfg(self) -> Any:
