@@ -168,7 +168,7 @@ class Microwave(LibraryObject, Openable):
     name = "microwave"
     tags = ["object", "openable"]
     file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", registry_name=["microwave"], file_type="USD"
+        registry_type="fixtures", file_name="Microwave039", file_type="USD"
     )
     usd_path = file_path
     object_type = ObjectType.ARTICULATION
