@@ -80,7 +80,7 @@ class EmbodimentBase(Asset):
     def get_curriculum_cfg(self) -> Any:
         return self.curriculum_config
 
-    def get_command_cfg(self) -> Any:
+    def get_commands_cfg(self) -> Any:
         return self.command_config
 
     def get_events_cfg(self) -> Any:
