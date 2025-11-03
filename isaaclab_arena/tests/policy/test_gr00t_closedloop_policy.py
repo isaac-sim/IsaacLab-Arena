@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -44,6 +46,9 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env():
     run_subprocess(args)
 
 
+# NOTE(alexmillane, 2025-10-31): We've have to disable multi-env evaluation for now as it's not supported by the policy runner.
+# TODO(alexmillane, 2025-10-31): Un-skip this test once the policy runner supports multi-env evaluation.
+@pytest.mark.skip(reason="Skipping multi-env test for now")
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs():
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")

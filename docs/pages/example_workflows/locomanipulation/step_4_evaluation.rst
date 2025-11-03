@@ -22,7 +22,7 @@ pre-trained model checkpoint below:
 
       hf download \
          nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
-         --local-dir $MODELS_DIR
+         --local-dir $MODELS_DIR/checkpoint-20000
 
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
@@ -44,25 +44,21 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
 
    .. code-block:: yaml
 
-      # Model configuration
-      model_path: /models/isaaclab_arena/locomanipulation_tutorial
+      model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
+      language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
+      action_horizon: 16
       embodiment_tag: new_embodiment
+      video_backend: decord
       data_config: unitree_g1_sim_wbc
 
-      # Task configuration
-      language_instruction: "Pick up the brown box and place it in the blue bin"
+      policy_joints_config_path: isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml
+      action_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+      state_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+
+      num_feedback_actions: 16
+      pov_cam_name_sim: "robot_head_cam_rgb"
+
       task_mode_name: g1_locomanipulation
-
-      # Inference parameters
-      denoising_steps: 10
-      policy_device: cuda
-      target_image_size: [256, 256, 3]
-
-      # Joint mappings
-      gr00t_joints_config_path: isaaclab_arena/policy/config/g1/gr00t_43dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena/policy/config/g1/43dof_joint_space.yaml
-
 
 Test the policy in a single environment with visualization via the GUI run:
 
@@ -92,31 +88,3 @@ You should see similar metrics.
    which are realized by using the PINK IK controller.
    GR00T N1.5 policy is trained on upper body joint positions, so we use
    ``g1_wbc_joint`` for closed-loop policy inference.
-
-
-Step 2: Run Parallel Evaluation (Recommended)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-IsaacLab Arena supports evaluating the policy in parallel across multiple environments.
-To perform a parallel evaluation across 16 environments, we set ``num_envs`` to 16,
-by running the following command.
-
-.. code-block:: bash
-
-   python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
-     --num_envs 16 \
-     --enable_cameras \
-     --headless \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
-
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.
-
-.. code-block:: text
-
-   Metrics: {success_rate: 0.75, num_episodes: 16}

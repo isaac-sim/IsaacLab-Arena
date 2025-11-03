@@ -1,6 +1,6 @@
 # This file shows how to configure the Gr00tClosedloopPolicy class for G1 locomanipulation task
-# TODO(xinjie.yao, 2025-09-30): change Hardcoded model_path to some releasable path
-model_path: /datasets/ckpts/gn1_5_g1_galileo_box_npnp_ckpts/100_v2/
+# NOTE(alexmillane, 2025-10-31): The model path here aligns with the model used in the static manipulation tutorial.
+model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
 action_horizon: 16
 embodiment_tag: new_embodiment
