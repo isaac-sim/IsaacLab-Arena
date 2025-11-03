@@ -46,11 +46,11 @@ workflow:
           HYDRA_FULL_ERROR=1 python scripts/gr00t_finetune.py \
             --dataset_path="{{input:0}}/{{input_dataset_name}}/{{input_demo_name}}/lerobot" \
             --output_dir={{output}} \
-            --data_config=fourier_gr1_arms_only \
+            --data_config={{ data_config }} \
             --batch_size={{ batch_size }} \
             --max_steps={{ max_steps }} \
             --num_gpus={{ gpus }} \
-            --save_steps=1000 \
+            --save_steps=5000 \
             --base_model_path=/workspace/pretrained_ckpts/GR00T-N1.5-3B \
             --no-tune_llm  \
             --tune_visual \
@@ -59,7 +59,7 @@ workflow:
             --no-resume \
             --dataloader_num_workers=16 \
             --report_to=wandb \
-            --embodiment_tag=gr1 \
+            --embodiment_tag={{ embodiment_tag }} \
             --lora_rank={{ lora_rank }}
 
           # kill the filebrowser process
@@ -85,11 +85,20 @@ workflow:
     queue_timeout: 2d
 
 default-values:
-  workflow_name: gr1_open_microwave_kitchen
   cpus: 60
   gpus: 8
   batch_size: 24
   lora_rank: 0
   max_steps: 20000
-  input_dataset_name: lerobot_gr1
-  input_demo_name: gr1_open_microwave_50_generated
+  # Static manipulation
+  # workflow_name: gr1_open_microwave_kitchen
+  # input_dataset_name: lerobot_gr1
+  # input_demo_name: gr1_open_microwave_50_generated
+  # embodiment_tag: gr1
+  # data_config: fourier_gr1_arms_only
+  # Locomanipulation
+  workflow_name: g1_move_box_galileo
+  input_dataset_name: lerobot_g1
+  input_demo_name: arena_g1_loco_manipulation_dataset_generated
+  embodiment_tag: new_embodiment
+  data_config: unitree_g1_sim_wbc

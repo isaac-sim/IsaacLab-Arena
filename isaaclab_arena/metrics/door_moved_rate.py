@@ -84,6 +84,8 @@ class DoorMovedRateMetric(MetricBase):
             The door-moved rate(float). Value between 0 and 1. The proportion of episodes
                 in which the door moved.
         """
+        if len(recorded_metric_data) == 0:
+            return 0.0
         door_moved_per_demo = []
         for episode_data in recorded_metric_data:
             openness_threshold = self.reset_openness + self.openness_delta_threshold

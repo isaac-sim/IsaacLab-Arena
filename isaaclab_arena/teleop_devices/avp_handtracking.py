@@ -44,7 +44,7 @@ class HandTrackingTeleopDevice(TeleopDeviceBase):
                             # number of joints in both hands
                             num_open_xr_hand_joints=self.num_open_xr_hand_joints,
                             sim_device=self.sim_device,
-                            hand_joint_names=embodiment.get_action_cfg().pink_ik_cfg.hand_joint_names,
+                            hand_joint_names=embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
                         ),
                     ],
                     sim_device=self.sim_device,

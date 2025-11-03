@@ -29,6 +29,10 @@ def main():
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
 
+    # NOTE(alexmillane, 2025-10-30): We only support single environment evaluation for now.
+    if args_cli.num_envs > 1:
+        raise ValueError("Only single environment evaluation is supported in Isaac Lab Arena v0.1.")
+
     # Start the simulation app
     with SimulationAppContext(args_cli):
         # Add policy-related arguments to the parser
@@ -58,8 +62,12 @@ def main():
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
-                if terminated.all() or truncated.all():
-                    break
+                # NOTE(alexmillane, 2025-10-30): We reset the policy on env resets.
+                # This does not support parallel evaluation because each env is running async,
+                # it may be cases where one env completes when others are not done.
+                # TODO(alexmillane, 2025-10-30): Support parallel evaluation.
+                if terminated.any():
+                    policy.reset()
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
