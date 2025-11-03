@@ -48,6 +48,18 @@ class TaskBase(ABC):
     def get_metrics(self) -> list[MetricBase]:
         raise NotImplementedError("Function not implemented yet.")
 
+    def get_observation_cfg(self) -> Any:
+        return None
+
+    def get_rewards_cfg(self) -> Any:
+        return None
+
+    def get_curriculum_cfg(self) -> Any:
+        return None
+
+    def get_commands_cfg(self) -> Any:
+        return None
+
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
         return None
 
