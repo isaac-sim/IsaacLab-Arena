@@ -27,9 +27,7 @@ pre-generated dataset from Hugging Face as described below.
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
 
-.. code-block:: bash
-
-   ./docker/run_docker.sh -g
+:docker_run_gr00t_code_block:
 
 
 Step 1: Convert to LeRobot Format

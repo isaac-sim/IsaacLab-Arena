@@ -18,18 +18,20 @@ In order to start the containers run:
 
     .. tab:: Base
 
-        .. code-block:: bash
-
-            ./docker/run_docker.sh
+        :docker_run_default_code_block:
 
     .. tab:: Base + GR00T
 
-        .. code-block:: bash
+        :docker_run_gr00t_code_block:
 
-            ./docker/run_docker.sh -g
 
 The run docker will build the container and then enter in interactive mode.
 
+.. note::
+    The container with all dependencies (**Base + GR00T**) is significantly larger than the container with minimal dependencies (**Base**),
+    so it is recommended to use the **Base** container for development and the **Base + GR00T** container for GR00T policy post-training and evaluation.
+    If you are not sure which container to use, we recommend using the **Base** container.
+    If you want to use the **Base + GR00T** container for development, currently it is not supported to run on Blackwell GPUs, and DGX Spark.
 
 Mounted Directories
 -------------------

@@ -57,9 +57,7 @@ Step 3: Start Recording
 To start the recording session, open another terminal, start the Arena Docker container
 if not already running:
 
-.. code-block:: bash
-
-   ./docker/run_docker.sh
+:docker_run_default_code_block:
 
 Run the recording script:
 
