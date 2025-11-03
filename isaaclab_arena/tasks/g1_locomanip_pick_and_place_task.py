@@ -81,7 +81,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,
-            offset=np.array([-2.0, 2.0, 2.0]),
+            offset=np.array([-1.3, 1.7, 1.5]),
         )
 
 
