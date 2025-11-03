@@ -81,7 +81,7 @@ class OpenDoorTask(TaskBase):
         ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
-        return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.5, -1.5, 1.5]))
+        return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
 
 
 @configclass
