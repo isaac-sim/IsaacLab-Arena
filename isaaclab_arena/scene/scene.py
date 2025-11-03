@@ -33,6 +33,9 @@ class Scene:
         self.observation_cfg = None
         self.events_cfg = None
         self.termination_cfg = None
+        self.rewards_cfg = None
+        self.curriculum_cfg = None
+        self.commands_cfg = None
         if assets is not None:
             self.add_assets(assets)
 
@@ -63,6 +66,15 @@ class Scene:
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
+
+    def get_rewards_cfg(self) -> Any:
+        return self.rewards_cfg
+
+    def get_curriculum_cfg(self) -> Any:
+        return self.curriculum_cfg
+
+    def get_commands_cfg(self) -> Any:
+        return self.commands_cfg
 
     def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         return env_cfg
