@@ -88,7 +88,6 @@ Follow these steps to record teleoperation demonstrations:
 5. On task completion the environment will automatically reset.
 6. You'll need to repeat task completion ``num_demos`` times (set to 10 above).
 
-.. todo:: (alexmillane, 2025-10-23): Check that you don't need to press the "Submit Demo" button in VR.
 
 The script will automatically save successful demonstrations to an HDF5 file
 at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
