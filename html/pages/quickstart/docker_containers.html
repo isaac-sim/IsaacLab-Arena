@@ -382,14 +382,23 @@
 dependencies (<strong>Base</strong>) or container with all dependencies (<strong>Base + GR00T</strong>).</p>
 <p>In order to start the containers run:</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Base</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Base + GR00T</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
-</pre></div>
-</div>
-</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
-</pre></div>
-</div>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Base</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Base + GR00T</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><dl class="field-list simple">
+<dt class="field-odd">docker_run_default_code_block<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
+</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><dl class="field-list simple">
+<dt class="field-odd">docker_run_gr00t_code_block<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
 </div></div>
 <p>The run docker will build the container and then enter in interactive mode.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The container with all dependencies (<strong>Base + GR00T</strong>) is significantly larger than the container with minimal dependencies (<strong>Base</strong>),
+so it is recommended to use the <strong>Base</strong> container for development and the <strong>Base + GR00T</strong> container for GR00T policy post-training and evaluation.
+If you are not sure which container to use, we recommend using the <strong>Base</strong> container.
+If you want to use the <strong>Base + GR00T</strong> container for development, currently it is not supported to run on Blackwell GPUs, and DGX Spark.</p>
+</div>
 <section id="mounted-directories">
 <h2>Mounted Directories<a class="headerlink" href="#mounted-directories" title="Link to this heading">#</a></h2>
 <p>The run docker script will mount the following directories on the host machine to the container:</p>

@@ -17,9 +17,9 @@ Isaac Lab Arena supports installation from source inside a Docker container.
 
 2. **Launch the docker container:**
 
-.. code-block:: bash
 
-    ./docker/run_docker.sh
+:docker_run_default_code_block:
+
 
 for more details see :doc:`docker_containers`.
 
@@ -27,7 +27,7 @@ for more details see :doc:`docker_containers`.
 
 .. code-block:: bash
 
-    pytest -s isaaclab_arena/tests/
+    pytest -s isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
 With ``isaaclab_arena`` installed and the docker running, you're ready to build your first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.
 

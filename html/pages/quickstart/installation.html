@@ -388,14 +388,15 @@ installation options.</p>
 <ol class="arabic simple" start="2">
 <li><p><strong>Launch the docker container:</strong></p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
-</pre></div>
-</div>
+<dl class="field-list simple">
+<dt class="field-odd">docker_run_default_code_block<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
 <p>for more details see <a class="reference internal" href="docker_containers.html"><span class="doc">Docker Containers</span></a>.</p>
 <ol class="arabic simple" start="3">
 <li><p><strong>Optionally verify installation by running tests:</strong></p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-s<span class="w"> </span>isaaclab_arena/tests/
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-s<span class="w"> </span>isaaclab_arena/tests/<span class="w"> </span>--ignore<span class="o">=</span>isaaclab_arena/tests/policy/
 </pre></div>
 </div>
 <p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed and the docker running, you’re ready to build your first IsaacLab-Arena Environment. See <a class="reference internal" href="first_arena_env.html"><span class="doc">First Arena Environment</span></a> to get started.</p>

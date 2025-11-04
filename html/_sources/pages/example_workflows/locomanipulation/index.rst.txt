@@ -67,9 +67,7 @@ Prerequisites
 
 Start the isaaclab docker container
 
-.. code-block:: bash
-
-    ./docker/run_docker.sh
+:docker_run_default_code_block:
 
 We store data on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
 
