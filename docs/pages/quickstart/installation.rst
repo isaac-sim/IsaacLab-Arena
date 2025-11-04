@@ -18,7 +18,7 @@ Isaac Lab Arena supports installation from source inside a Docker container.
 2. **Launch the docker container:**
 
 
-:docker_run_default_code_block:
+:docker_run_default:
 
 
 for more details see :doc:`docker_containers`.

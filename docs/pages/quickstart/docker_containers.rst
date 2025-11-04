@@ -18,11 +18,12 @@ In order to start the containers run:
 
     .. tab:: Base
 
-        :docker_run_default_code_block:
+        :docker_run_default:
 
     .. tab:: Base + GR00T
 
-        :docker_run_gr00t_code_block:
+        :docker_run_gr00t:
+
 
 
 The run docker will build the container and then enter in interactive mode.

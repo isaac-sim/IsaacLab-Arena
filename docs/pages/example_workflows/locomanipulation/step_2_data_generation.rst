@@ -6,7 +6,7 @@ This workflow covers annotating and generating the demonstration dataset using
 
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
 
-:docker_run_default_code_block:
+:docker_run_default:
 
 
 Step 1: Download Human Demonstration Dataset

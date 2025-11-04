@@ -8,7 +8,7 @@ and validate that we can load it in Isaac Lab.
 
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
 
-:docker_run_default_code_block:
+:docker_run_default:
 
 
 Environment Description

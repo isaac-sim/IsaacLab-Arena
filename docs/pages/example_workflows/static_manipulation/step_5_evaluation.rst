@@ -23,7 +23,7 @@ pre-trained model checkpoint below:
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
 
-:docker_run_gr00t_code_block:
+:docker_run_gr00t:
 
 
 Step 1: Run Single Environment Evaluation
