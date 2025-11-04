@@ -2,7 +2,7 @@ Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
 This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
-and evaluating it across multiple parallel environments.
+and evaluating it in Arena GR1 Open Microwave Door Task environment.
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
@@ -24,6 +24,13 @@ pre-trained model checkpoint below:
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
 
 :docker_run_gr00t:
+
+.. note::
+    The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
+    instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
+    We have not tested these instructions, and therefore we do not recommend using
+    the **Base + GR00T** container for policy post-training and evaluation on
+    Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.
 
 
 Step 1: Run Single Environment Evaluation
