@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from isaaclab.envs.common import ViewerCfg
+
 from isaaclab_arena.tasks.task_base import TaskBase
 
 
@@ -36,3 +38,6 @@ class DummyTask(TaskBase):
 
     def get_metrics(self):
         pass
+
+    def get_viewer_cfg(self) -> ViewerCfg:
+        return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
