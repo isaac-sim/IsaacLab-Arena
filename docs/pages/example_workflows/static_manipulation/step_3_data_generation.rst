@@ -14,7 +14,7 @@ below.
 
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
 
-:docker_run_default_code_block:
+:docker_run_default:
 
 
 .. _step_1_annotate_demonstrations:

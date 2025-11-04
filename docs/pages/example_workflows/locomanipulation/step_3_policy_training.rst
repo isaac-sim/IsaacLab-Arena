@@ -26,8 +26,14 @@ Note that this tutorial assumes that you've completed the
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
 
-:docker_run_gr00t_code_block:
+:docker_run_gr00t:
 
+.. note::
+    The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
+    instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
+    We have not tested these instructions, and therefore we do not recommend using
+    the **Base + GR00T** container for policy post-training and evaluation on
+    Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.
 
 Step 1: Convert to LeRobot Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,7 +100,7 @@ Step 2: Post-train Policy
 
 We post-train the GR00T N1.5 policy on the task.
 
-The GR00T N1.5 policy has 3 billion parameters so post training is an an expensive operation.
+The GR00T N1.5 policy has 3 billion parameters so post-training is an an expensive operation.
 We provide two post-training options:
 
 * **Best Quality:** 8 GPUs with 48GB memory
