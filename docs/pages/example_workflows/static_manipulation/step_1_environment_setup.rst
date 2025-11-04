@@ -154,11 +154,16 @@ Replay the downloaded dataset to verify the environment setup:
    python isaaclab_arena/scripts/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file $DATASET_DIR \
+     --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \
      gr1_open_microwave \
      --embodiment gr1_pink
 
 You should see the GR1 robot replaying the demonstrations, performing the microwave door
 opening task in the kitchen environment.
 
-.. todo:: (amillane, 2025-10-22): screenshot
+.. figure:: ../../../images/gr1_open_microwave_task_view.png
+   :width: 100%
+   :alt: GR1 opening the microwave door
+   :align: center
+
+   IsaacLab Arena GR1 opening the microwave door
