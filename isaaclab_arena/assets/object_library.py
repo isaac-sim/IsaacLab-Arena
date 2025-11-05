@@ -44,7 +44,8 @@ class LibraryObject(Object):
             **kwargs,
         )
 
-
+# TODO(peterd, 2025.11.05): Update all OV drive paths to use {ISAACLAB_NUCLEUS_DIR}
+# alias prior to public release once assets are synced to S3
 @register_asset
 class CrackerBox(LibraryObject):
     """
