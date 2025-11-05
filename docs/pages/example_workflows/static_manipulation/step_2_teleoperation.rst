@@ -77,22 +77,46 @@ Step 4: Connect Vision Pro and Record
 
 Follow these steps to record teleoperation demonstrations:
 
-1. Launch the Isaac XR Teleop app on Apple Vision Pro
-2. Enter your workstation's IP address
-3. Wait for connection (you should see the simulation in VR)
-4. Complete the task by opening the microwave door.
+1. Launch the Isaac XR Teleop app on the Apple Vision Pro
+2. Enter your workstation's IP address in the app window.
+3. Press the "Connect" button
+4. Wait for connection (you should see the simulation in VR)
+5. You FPV will spawn slightly behind the robot. Move forward a small step to align yourself with the robots head.
+6. Complete the task by opening the microwave door.
    - Your hands control the robots's hands.
    - Your fingers control the robots's fingers.
-5. On task completion the environment will automatically reset.
-6. You'll need to repeat task completion ``num_demos`` times (set to 10 above).
+7. On task completion the environment will automatically reset.
+8. You'll need to repeat task completion ``num_demos`` times (set to 10 above).
 
 
 The script will automatically save successful demonstrations to an HDF5 file
 at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
 
+
+.. list-table::
+   :widths: 50 50
+   :class: borderless
+
+   * - .. figure:: ../../../images/simulation_view.png
+          :width: 100%
+          :alt: IsaacSim view
+
+          View in IsaacSim GUI
+
+     - .. figure:: ../../../images/spawned_view_behind_robot.png
+          :width: 100%
+          :alt: CloudXr view spawned behind the robot
+
+          View in CloudXR. Spawned behind the robot.
+
+
+
 .. hint::
 
-   For best results:
+   If the app window is not visible after the connecting to the simulation it might be hidden behind an object.
+   Move the CloudXr Application window closer to you before starting the recording.
+
+   For best results during the recording session:
 
    - Move slowly and smoothly
    - Keep hands within tracking volume
