@@ -1,6 +1,5 @@
 # This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
-# TODO(xinjie.yao, 2025-10-07): change Hardcoded model_path to some releasable path
-dataset_path: "/datasets/datasets/gr1_open_microwave/lerobot_gr1/lerobot_gr1/gr1_open_microwave_50_generated/lerobot"
+dataset_path: "/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot/"
 
 action_horizon: 16
 embodiment_tag: gr1

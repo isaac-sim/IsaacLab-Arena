@@ -168,7 +168,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/lerobot \
+         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
          --batch_size=24 \

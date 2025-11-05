@@ -3,15 +3,14 @@
 # Example for GR1 tabletop manipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/datasets/gr1_open_microwave/lerobot_gr1/lerobot_gr1/"
+data_root: "/datasets/isaaclab_arena/static_manipulation_tutorial"
 
 # Instruction given to the policy in natural language
 language_instruction: "Reach out to the microwave and open it."
 task_index: 0
 
 # Name of the HDF5 file to use for the dataset
-# TODO(xinjieyao, 2025-10-07): change Hardcoded hdf5_name to some releasable path
-hdf5_name: "gr1_open_microwave_50_generated.hdf5"
+hdf5_name: "arena_gr1_manipulation_dataset_generated.hdf5"
 
 # Mimic-generated HDF5 datafield names
 state_name_sim: "robot_joint_pos"
