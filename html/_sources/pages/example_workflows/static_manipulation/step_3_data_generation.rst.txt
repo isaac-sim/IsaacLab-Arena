@@ -123,7 +123,7 @@ To do so, run the following command:
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
      gr1_open_microwave \
-     --embodiment gr1_joint
+     --embodiment gr1_pink
 
 You should see the robot successfully perform the task.
 
