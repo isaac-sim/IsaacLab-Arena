@@ -434,9 +434,11 @@ if not already running:</p>
 <h2>Step 4: Connect Vision Pro and Record<a class="headerlink" href="#step-4-connect-vision-pro-and-record" title="Link to this heading">#</a></h2>
 <p>Follow these steps to record teleoperation demonstrations:</p>
 <ol class="arabic simple">
-<li><p>Launch the Isaac XR Teleop app on Apple Vision Pro</p></li>
-<li><p>Enter your workstation’s IP address</p></li>
+<li><p>Launch the Isaac XR Teleop app on the Apple Vision Pro</p></li>
+<li><p>Enter your workstation’s IP address in the app window.</p></li>
+<li><p>Press the “Connect” button</p></li>
 <li><p>Wait for connection (you should see the simulation in VR)</p></li>
+<li><p>You FPV will spawn slightly behind the robot. Move forward a small step to align yourself with the robots head.</p></li>
 <li><p>Complete the task by opening the microwave door.
 - Your hands control the robots’s hands.
 - Your fingers control the robots’s fingers.</p></li>
@@ -445,9 +447,37 @@ if not already running:</p>
 </ol>
 <p>The script will automatically save successful demonstrations to an HDF5 file
 at <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5</span></code>.</p>
+<div class="pst-scrollable-table-container"><table class="borderless table">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><figure class="align-default" id="id1">
+<a class="reference internal image-reference" href="../../../_images/simulation_view.png"><img alt="IsaacSim view" src="../../../_images/simulation_view.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">View in IsaacSim GUI</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</td>
+<td><figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../../../_images/spawned_view_behind_robot.png"><img alt="CloudXr view spawned behind the robot" src="../../../_images/spawned_view_behind_robot.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">View in CloudXR. Spawned behind the robot.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
-<p>For best results:</p>
+<p>If the app window is not visible after the connecting to the simulation it might be hidden behind an object.
+Move the CloudXr Application window closer to you before starting the recording.</p>
+<p>For best results during the recording session:</p>
 <ul class="simple">
 <li><p>Move slowly and smoothly</p></li>
 <li><p>Keep hands within tracking volume</p></li>
