@@ -48,7 +48,7 @@ class KitchenBackground(LibraryBackground):
 
     name = "kitchen"
     tags = ["background"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/kitchen_background.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/background_library/kitchen_background/kitchen_background.usd"
     initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
     object_min_z = -0.2
 
