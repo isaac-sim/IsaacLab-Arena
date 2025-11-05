@@ -111,15 +111,12 @@ at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
 
 
 
-.. note::
+.. hint::
 
    If the app window is not visible after the connecting to the simulation it might be hidden behind an object.
    Move the CloudXr Application window closer to you before starting the recording.
 
-
-.. hint::
-
-   For best results:
+   For best results during the recording session:
 
    - Move slowly and smoothly
    - Keep hands within tracking volume
