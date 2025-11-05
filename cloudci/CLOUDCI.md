@@ -30,7 +30,7 @@ Those costs are charged only if the instance is running. If it is stopped, only 
 
 ## Architecture
 
-Cloud CI setup will be very loosely based on the Isaac Automator (https://github.com/NVIDIA-Omniverse/IsaacAutomator), but will be simplified to avoid the need to support any unneeded functionality.
+Cloud CI setup will be very loosely based on the Isaac Automator ([https://github.com/NVIDIA-Omniverse/IsaacAutomator](https://github.com/isaac-sim/IsaacAutomator)), but will be simplified to avoid the need to support any unneeded functionality.
 
 There will be 3 main components:
 
