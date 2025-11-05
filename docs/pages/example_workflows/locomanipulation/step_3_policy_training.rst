@@ -67,7 +67,7 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
    python isaaclab_arena_gr00t/data_utils/convert_hdf5_to_lerobot.py \
      --yaml_file isaaclab_arena_gr00t/config/g1_locomanip_config.yaml
 
-This creates a folder ``$DATASET_DIR/lerobot`` containing parquet files with states/actions,
+This creates a folder ``$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot`` containing parquet files with states/actions,
 MP4 camera recordings, and dataset metadata.
 
 The converter is controlled by a config file at ``isaaclab_arena_gr00t/config/g1_locomanip_config.yaml``.
