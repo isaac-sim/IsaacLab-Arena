@@ -11,7 +11,7 @@ pre-generated dataset from Hugging Face as described below.
 .. dropdown:: Download Pre-generated Dataset (skip preceding steps)
    :animate: fade-in
 
-   These commands can be used to download the mimic-generated HDF5 dataset ready for policy post-training,
+   These commands can be used to download the Mimic-generated HDF5 dataset ready for policy post-training,
    such that the preceding steps can be skipped.
 
    To download run:
@@ -68,8 +68,7 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
    python isaaclab_arena/policy/data_utils/convert_hdf5_to_lerobot.py \
      --config_yaml_path isaaclab_arena/policy/config/gr1_manip_config.yaml
 
-This creates a folder ``$DATASET_DIR/lerobot`` containing parquet files with states/actions,
-MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
+This creates a folder ``$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot`` containing parquet files with states/actions, MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
 ``isaaclab_arena/policy/config/gr1_manip_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_config.yaml``)
@@ -128,7 +127,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/lerobot \
+         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=fourier_gr1_arms_only \
          --batch_size=24 \
@@ -167,7 +166,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/lerobot \
+         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=fourier_gr1_arms_only \
          --batch_size=24 \

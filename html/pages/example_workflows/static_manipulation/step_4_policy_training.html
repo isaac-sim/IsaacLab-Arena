@@ -383,7 +383,7 @@ pre-generated dataset from Hugging Face as described below.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-generated Dataset (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">These commands can be used to download the mimic-generated HDF5 dataset ready for policy post-training,
+<p class="sd-card-text">These commands can be used to download the Mimic-generated HDF5 dataset ready for policy post-training,
 such that the preceding steps can be skipped.</p>
 <p class="sd-card-text">To download run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
@@ -430,8 +430,7 @@ such that the conversion step can be skipped.</p>
 <span class="w">  </span>--config_yaml_path<span class="w"> </span>isaaclab_arena/policy/config/gr1_manip_config.yaml
 </pre></div>
 </div>
-<p>This creates a folder <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/lerobot</span></code> containing parquet files with states/actions,
-MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
+<p>This creates a folder <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot</span></code> containing parquet files with states/actions, MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/policy/config/gr1_manip_config.yaml</span></code>.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
@@ -478,7 +477,7 @@ We provide two post-training options:
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 
 python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
---dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/lerobot<span class="w"> </span><span class="se">\</span>
+--dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
 --data_config<span class="o">=</span>fourier_gr1_arms_only<span class="w"> </span><span class="se">\</span>
 --batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
@@ -512,7 +511,7 @@ python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 
 python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
---dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/lerobot<span class="w"> </span><span class="se">\</span>
+--dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
 --data_config<span class="o">=</span>fourier_gr1_arms_only<span class="w"> </span><span class="se">\</span>
 --batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
