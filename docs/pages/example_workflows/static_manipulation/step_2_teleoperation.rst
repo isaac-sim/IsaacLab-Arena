@@ -79,42 +79,51 @@ Follow these steps to record teleoperation demonstrations:
 
 1. Launch the Isaac XR Teleop app on the Apple Vision Pro
 2. Enter your workstation's IP address in the app window.
+
+.. note::
+   Before proceeding and pressing the "Connect" button:
+   Move the CloudXr Controls Application window to the left of you by pinching the bar at the bottom of the window.
+   Close objects will occlude the window otherwise making it harder to interact with the controls.
+
+   .. figure:: ../../../images/cloud_xr_sessions_control_panel.png
+      :width: 40%
+      :alt: CloudXR control panel
+      :align: center
+
+      CloudXR control panel - move this window to your left to avoid occlusion by close objects.
+
+
+
+
 3. Press the "Connect" button
 4. Wait for connection (you should see the simulation in VR)
-5. You FPV will spawn slightly behind the robot. Move forward a small step to align yourself with the robots head.
-6. Complete the task by opening the microwave door.
+
+
+.. figure:: ../../../images/simulation_view.png
+     :width: 40%
+     :alt: IsaacSim view
+     :align: center
+
+     First person view after connecting to the simulation.
+
+
+
+5. Complete the task by opening the microwave door.
    - Your hands control the robots's hands.
    - Your fingers control the robots's fingers.
-7. On task completion the environment will automatically reset.
-8. You'll need to repeat task completion ``num_demos`` times (set to 10 above).
+6. On task completion the environment will automatically reset.
+7. You'll need to repeat task completion ``num_demos`` times (set to 10 above).
 
 
 The script will automatically save successful demonstrations to an HDF5 file
 at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
 
 
-.. list-table::
-   :widths: 50 50
-   :class: borderless
 
-   * - .. figure:: ../../../images/simulation_view.png
-          :width: 100%
-          :alt: IsaacSim view
-
-          View in IsaacSim GUI
-
-     - .. figure:: ../../../images/spawned_view_behind_robot.png
-          :width: 100%
-          :alt: CloudXr view spawned behind the robot
-
-          View in CloudXR. Spawned behind the robot.
 
 
 
 .. hint::
-
-   If the app window is not visible after the connecting to the simulation it might be hidden behind an object.
-   Move the CloudXr Application window closer to you before starting the recording.
 
    For best results during the recording session:
 
