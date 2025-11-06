@@ -127,7 +127,6 @@ else
                     "--ulimit" "stack=-1"
                     "--ipc=host"
                     "--net=host"
-                    "--runtime=nvidia"
                     "--gpus=all"
                     "-v" "./docs:${WORKDIR}/docs"
                     "-v" "./isaaclab_arena:${WORKDIR}/isaaclab_arena"
