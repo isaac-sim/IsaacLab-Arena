@@ -28,7 +28,7 @@ module "common" {
   region = var.region
 }
 
-module "isaacsim_runner_enabled" {
+module "isaacsim_runner" {
   source            = "./isaacsim_runner"
   prefix            = "${var.prefix}.${var.deployment_name}.isaacsim_runner"
   count             = var.isaacsim_runner_enabled ? 1 : 0
@@ -42,7 +42,7 @@ module "isaacsim_runner_enabled" {
   iam_instance_profile = null
 
   vpc = {
-    id         = module.vpc.vpc.id
-    cidr_block = module.vpc.vpc.cidr_block
+    id         = module.common.vpc.id
+    cidr_block = module.common.vpc.cidr_block
   }
 }

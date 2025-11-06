@@ -35,8 +35,6 @@ variable "deployment_name" {
   type = string
 }
 
-# amis:
-
 # base - used when from_image is *false*
 variable "base_ami_name" {
   default = "ubuntu/images/hvm-ssd/ubuntu-*-22.04-amd64-server-*"
