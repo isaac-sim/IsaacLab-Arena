@@ -45,6 +45,8 @@ class LibraryObject(Object):
         )
 
 
+# TODO(peterd, 2025.11.05): Update all OV drive paths to use {ISAACLAB_NUCLEUS_DIR}
+# alias prior to public release once assets are synced to S3
 @register_asset
 class CrackerBox(LibraryObject):
     """
@@ -109,7 +111,7 @@ class LightWheelKettle21(LibraryObject):
 
     name = "lightwheel_kettle_21"
     tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/object_library/Kettle021/Kettle021.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/Kettle021/Kettle021.usd"
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
@@ -123,7 +125,7 @@ class LightWheelPot51(LibraryObject):
 
     name = "lightwheel_pot_51"
     tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/object_library/Pot051/Pot051.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/Pot051/Pot051.usd"
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
@@ -138,7 +140,7 @@ class SketchFabSprayCan3(LibraryObject):
     name = "sketchfab_spray_can_3"
     tags = ["object"]
     prim_path = ("{ENV_REGEX_NS}/target_sketchfab_spray_can_3",)
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/object_library/spray_bottle_3/spray_bottle_3.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/spray_bottle_3/spray_bottle_3.usd"
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
@@ -152,7 +154,7 @@ class PowerDrill(LibraryObject):
 
     name = "power_drill"
     tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/object_library/power_drill_physics/power_drill_physics.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/power_drill_physics/power_drill_physics.usd"
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
@@ -272,7 +274,7 @@ class BrownBox(LibraryObject):
 
     name = "brown_box"
     tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/asset_release/object_library/brown_box/brown_box.usd"
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/brown_box/brown_box.usd"
     default_prim_path = "{ENV_REGEX_NS}/brown_box"
     scale = (1.0, 1.0, 1.0)
 
