@@ -436,9 +436,32 @@ if not already running:</p>
 <ol class="arabic simple">
 <li><p>Launch the Isaac XR Teleop app on the Apple Vision Pro</p></li>
 <li><p>Enter your workstation’s IP address in the app window.</p></li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Before proceeding and pressing the “Connect” button:
+Move the CloudXr Controls Application window to the left of you by pinching the bar at the bottom of the window.
+Without doing this, close objects will occlude the window making it harder to interact with the controls.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../../_images/cloud_xr_sessions_control_panel.png"><img alt="CloudXR control panel" src="../../../_images/cloud_xr_sessions_control_panel.png" style="width: 40%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">CloudXR control panel - move this window to your left to avoid occlusion by close objects.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</div>
+<ol class="arabic simple" start="3">
 <li><p>Press the “Connect” button</p></li>
 <li><p>Wait for connection (you should see the simulation in VR)</p></li>
-<li><p>You FPV will spawn slightly behind the robot. Move forward a small step to align yourself with the robots head.</p></li>
+</ol>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../../../_images/simulation_view.png"><img alt="IsaacSim view" src="../../../_images/simulation_view.png" style="width: 40%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">First person view after connecting to the simulation.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<ol class="arabic simple" start="5">
 <li><p>Complete the task by opening the microwave door.
 - Your hands control the robots’s hands.
 - Your fingers control the robots’s fingers.</p></li>
@@ -447,36 +470,8 @@ if not already running:</p>
 </ol>
 <p>The script will automatically save successful demonstrations to an HDF5 file
 at <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5</span></code>.</p>
-<div class="pst-scrollable-table-container"><table class="borderless table">
-<colgroup>
-<col style="width: 50.0%" />
-<col style="width: 50.0%" />
-</colgroup>
-<tbody>
-<tr class="row-odd"><td><figure class="align-default" id="id1">
-<a class="reference internal image-reference" href="../../../_images/simulation_view.png"><img alt="IsaacSim view" src="../../../_images/simulation_view.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">View in IsaacSim GUI</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</td>
-<td><figure class="align-default" id="id2">
-<a class="reference internal image-reference" href="../../../_images/spawned_view_behind_robot.png"><img alt="CloudXr view spawned behind the robot" src="../../../_images/spawned_view_behind_robot.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">View in CloudXR. Spawned behind the robot.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
-<p>If the app window is not visible after the connecting to the simulation it might be hidden behind an object.
-Move the CloudXr Application window closer to you before starting the recording.</p>
 <p>For best results during the recording session:</p>
 <ul class="simple">
 <li><p>Move slowly and smoothly</p></li>
