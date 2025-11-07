@@ -83,7 +83,7 @@ Follow these steps to record teleoperation demonstrations:
 .. note::
    Before proceeding and pressing the "Connect" button:
    Move the CloudXr Controls Application window to the left of you by pinching the bar at the bottom of the window.
-   Close objects will occlude the window otherwise making it harder to interact with the controls.
+   Without doing this, close objects will occlude the window making it harder to interact with the controls.
 
    .. figure:: ../../../images/cloud_xr_sessions_control_panel.png
       :width: 40%
