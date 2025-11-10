@@ -79,7 +79,7 @@ TAGS
 *wandb/
 
 # Ignore plots
-*.png
+isaaclab_arena/tests/**.png
 
 # Ignore core dumps produced by debugpy
 core
