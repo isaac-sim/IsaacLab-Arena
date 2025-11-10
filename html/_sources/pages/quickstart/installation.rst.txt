@@ -27,7 +27,8 @@ for more details see :doc:`docker_containers`.
 
 .. code-block:: bash
 
-    pytest -s isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+    pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+    pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
 With ``isaaclab_arena`` installed and the docker running, you're ready to build your first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.
 
