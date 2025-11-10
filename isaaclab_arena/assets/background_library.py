@@ -57,6 +57,20 @@ class KitchenBackground(LibraryBackground):
     def __init__(self):
         super().__init__()
 
+@register_asset
+class KitchenWithOpenDrawerBackground(LibraryBackground):
+    """
+    Encapsulates the background scene for the kitchen with an open drawer.
+    """
+
+    name = "kitchen_with_open_drawer"
+    tags = ["background"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/background_library/kitchen_scene_teleop_v3/kitchen_scene_teleop_v3.usd"
+    initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
+    object_min_z = -0.2
+
+    def __init__(self):
+        super().__init__()
 
 @register_asset
 class PackingTableBackground(LibraryBackground):

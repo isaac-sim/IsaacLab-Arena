@@ -54,7 +54,7 @@ def _test_success_rate_metric(simulation_app):
 
     asset_registry = AssetRegistry()
 
-    background = asset_registry.get_asset_by_name("kitchen")()
+    background = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
     embodiment = asset_registry.get_asset_by_name("franka")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     destination_location = ObjectReference(

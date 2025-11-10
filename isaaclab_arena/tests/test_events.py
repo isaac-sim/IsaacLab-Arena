@@ -39,7 +39,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
 
     asset_registry = AssetRegistry()
 
-    background = asset_registry.get_asset_by_name("kitchen")()
+    background = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
     embodiment = asset_registry.get_asset_by_name("franka")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     destination_location = ObjectReference(
