@@ -19,11 +19,11 @@ import sys
 from collections.abc import Callable
 from contextlib import suppress
 
-# from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab.app import AppLauncher
 from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
 
 # _PERSISTENT_SIM_APP_LAUNCHER: SimulationAppContext | None = None
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
@@ -113,10 +113,6 @@ def _close_persistent():
             sys.stderr.flush()
             os._exit(1)
         else:
-            # try:
-            #     _PERSISTENT_SIM_APP_LAUNCHER.__exit__(None, None, None)
-            # finally:
-            #     _PERSISTENT_SIM_APP_LAUNCHER = None
             _PERSISTENT_SIM_APP_LAUNCHER.app.close()
 
 
@@ -130,12 +126,6 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         simulation_app_args.headless = headless
         simulation_app_args.enable_cameras = enable_cameras
         with _IsolatedArgv([]):
-            # app = SimulationAppContext(simulation_app_args)
-            # # Manually "enter" the context manager so we can keep it open
-            # app.__enter__()
-            # from isaaclab.app import AppLauncher
-            # import pinocchio  # noqa: F401
-            from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
 
             app_launcher = get_app_launcher(simulation_app_args)
 
