@@ -57,6 +57,7 @@ class KitchenBackground(LibraryBackground):
     def __init__(self):
         super().__init__()
 
+
 @register_asset
 class KitchenWithOpenDrawerBackground(LibraryBackground):
     """
@@ -71,6 +72,7 @@ class KitchenWithOpenDrawerBackground(LibraryBackground):
 
     def __init__(self):
         super().__init__()
+
 
 @register_asset
 class PackingTableBackground(LibraryBackground):
