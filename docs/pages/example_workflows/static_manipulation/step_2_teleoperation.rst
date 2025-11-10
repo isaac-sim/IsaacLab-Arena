@@ -81,8 +81,8 @@ Follow these steps to record teleoperation demonstrations:
 2. Enter your workstation's IP address in the app window.
 
 .. note::
-   Before proceeding and pressing the "Connect" button:
-   Move the CloudXr Controls Application window to the left of you by pinching the bar at the bottom of the window.
+   Before proceeding with teleoperation and pressing the "Connect" button:
+   Move the CloudXr Controls Application window closer and to your left by pinching the bar at the bottom of the window.
    Without doing this, close objects will occlude the window making it harder to interact with the controls.
 
    .. figure:: ../../../images/cloud_xr_sessions_control_panel.png
