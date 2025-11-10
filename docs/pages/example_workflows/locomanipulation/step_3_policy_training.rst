@@ -101,7 +101,7 @@ Step 2: Post-train Policy
 We post-train the GR00T N1.5 policy on the task.
 
 The GR00T N1.5 policy has 3 billion parameters so post-training is an an expensive operation.
-We provide one post-training option, 8 GPUs with 48GB memory, to achive the best quality:
+We provide one post-training option, 8 GPUs with 48GB memory, to achieve the best quality:
 
 Training takes approximately 4-8 hours on 8x L40s GPUs.
 
