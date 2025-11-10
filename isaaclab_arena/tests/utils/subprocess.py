@@ -25,7 +25,6 @@ from isaacsim import SimulationApp
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
 
-# _PERSISTENT_SIM_APP_LAUNCHER: SimulationAppContext | None = None
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
 _AT_LEAST_ONE_TEST_FAILED = False
