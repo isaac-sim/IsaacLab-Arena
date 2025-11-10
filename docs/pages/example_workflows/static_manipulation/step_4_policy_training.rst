@@ -78,16 +78,17 @@ This creates a folder ``$DATASET_DIR/arena_gr1_manipulation_dataset_generated/le
 
       # Input/Output paths
       data_root: /datasets/isaaclab_arena/static_manipulation_tutorial
-      hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
+      hdf5_name: "arena_gr1_manipulation_dataset_generated.hdf5"
 
       # Task description
-      language_instruction: "Pick up the brown box and place it in the blue bin"
+      language_instruction: "Reach out to the microwave and open it."
       task_index: 0
 
       # Data field mappings
       state_name_sim: "robot_joint_pos"
       action_name_sim: "processed_actions"
-      pov_cam_name_sim: "robot_head_cam"
+      pov_cam_name_sim: "robot_pov_cam_rgb"
+
 
       # Output configuration
       fps: 50
@@ -127,7 +128,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=fourier_gr1_arms_only \
          --batch_size=24 \
@@ -142,7 +143,7 @@ We provide two post-training options:
          --no-resume \
          --dataloader_num_workers=16 \
          --report_to=wandb \
-         --embodiment_tag=new_embodiment
+         --embodiment_tag=gr1
 
    .. tab:: Low Hardware Requirements
 
@@ -181,7 +182,7 @@ We provide two post-training options:
          --no-resume \
          --dataloader_num_workers=16 \
          --report_to=wandb \
-         --embodiment_tag=new_embodiment \
+         --embodiment_tag=gr1 \
          --lora_rank=128
 
 
