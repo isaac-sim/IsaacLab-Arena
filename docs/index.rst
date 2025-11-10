@@ -4,12 +4,6 @@
 ``Isaac Lab Arena`` is an extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 to simplify the creation of task/environment libraries.
 
-.. .. figure:: images/isaaclab_arena_core_framework.png
-..    :width: 100%
-..    :alt: Isaac Lab Arena Workflow
-..    :align: center
-
-..    IsaacLab Arena Workflow Overview
 
 .. figure:: images/g1_galileo_arena_box_pnp_locomanip.gif
    :width: 100%
