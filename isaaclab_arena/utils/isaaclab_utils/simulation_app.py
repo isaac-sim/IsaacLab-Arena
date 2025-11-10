@@ -26,6 +26,19 @@ def get_isaac_sim_version() -> str:
     return omni.kit.app.get_app().get_app_version()
 
 
+def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
+    """Get an app launcher."""
+    # NOTE(alexmillane, 2025.11.10): Import pinocchio before launching the app appears still to be required.
+    # Monitor this and see if we can get rid of it.
+    import pinocchio  # noqa: F401
+
+    app_launcher = AppLauncher(args)
+    if get_isaac_sim_version() != "5.1.0":
+        print(f"WARNING: IsaacSim has been upgraded to {get_isaac_sim_version()}.")
+        print("Please investigate if pinocchio import is still needed in: simulation_app.py")
+    return app_launcher
+
+
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
@@ -44,21 +57,7 @@ class SimulationAppContext:
         return self.app_launcher.app.is_exiting()
 
     def __enter__(self):
-        # NOTE(alexmillane, 2025.05.13): Import pinocchio before launching the app to avoid version conflicts.
-        # This is a work-around for a conflict in the assimp versions used by pinocchio and Isaac Sim/Lab.
-        # See thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1741907494471379
-        # From the slack thread, the issue appears to be fixed internally, but the fix is not yet released.
-        # Remove this function once the issue is fixed in a released version of Isaac Sim.
-        # We warn if IsaacSim has been upgraded.
-        if hasattr(self.args, "enable_pinocchio") and self.args.enable_pinocchio:
-            import pinocchio  # noqa: F401
-
-        self.app_launcher = AppLauncher(self.args)
-        if get_isaac_sim_version() != "4.5.0":
-            print(f"WARNING: IsaacSim has been upgraded to {get_isaac_sim_version()}.")
-            print("Please remove the pinocchio related hacks in: simulation_app.py")
-            print("Please investigate if the SimulationAppContext is still required to get exit codes.")
-
+        self.app_launcher = get_app_launcher(self.args)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

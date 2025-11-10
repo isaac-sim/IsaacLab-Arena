@@ -13,16 +13,21 @@
 # limitations under the License.
 
 import atexit
+import os
 import subprocess
 import sys
 from collections.abc import Callable
 from contextlib import suppress
 
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab.app import AppLauncher
+from isaacsim import SimulationApp
 
-_PERSISTENT_SIM_APP: SimulationAppContext | None = None
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
+
+_PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
+_AT_LEAST_ONE_TEST_FAILED = False
 
 
 def run_subprocess(cmd, env=None):
@@ -100,29 +105,30 @@ def safe_teardown(make_new_stage: bool = True) -> None:
 
 
 def _close_persistent():
-    global _PERSISTENT_SIM_APP
-    if _PERSISTENT_SIM_APP is not None:
-        try:
-            # mirror context-manager exit to shut down cleanly at process end
-            _PERSISTENT_SIM_APP.__exit__(None, None, None)
-        finally:
-            _PERSISTENT_SIM_APP = None
+    global _PERSISTENT_SIM_APP_LAUNCHER
+    if _PERSISTENT_SIM_APP_LAUNCHER is not None:
+        if _AT_LEAST_ONE_TEST_FAILED:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(1)
+        else:
+            _PERSISTENT_SIM_APP_LAUNCHER.app.close()
 
 
-def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) -> SimulationAppContext:
+def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) -> SimulationApp:
     """Create once, reuse forever (until process exit)."""
-    global _PERSISTENT_SIM_APP, _PERSISTENT_INIT_ARGS
+    global _PERSISTENT_SIM_APP_LAUNCHER, _PERSISTENT_INIT_ARGS
     # Create a new simulation app if it doesn't exist
-    if _PERSISTENT_SIM_APP is None:
+    if _PERSISTENT_SIM_APP_LAUNCHER is None:
         parser = get_isaaclab_arena_cli_parser()
         simulation_app_args = parser.parse_args([])
         simulation_app_args.headless = headless
         simulation_app_args.enable_cameras = enable_cameras
         with _IsolatedArgv([]):
-            app = SimulationAppContext(simulation_app_args)
-            # Manually "enter" the context manager so we can keep it open
-            app.__enter__()
-        _PERSISTENT_SIM_APP = app
+
+            app_launcher = get_app_launcher(simulation_app_args)
+
+        _PERSISTENT_SIM_APP_LAUNCHER = app_launcher
         _PERSISTENT_INIT_ARGS = (headless, enable_cameras)
         atexit.register(_close_persistent)
     else:
@@ -134,7 +140,7 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
                 f"headless={first_headless}, enable_cameras={first_enable_cameras}. "
                 "Ignoring new values."
             )
-    return _PERSISTENT_SIM_APP
+    return _PERSISTENT_SIM_APP_LAUNCHER.app
 
 
 def run_simulation_app_function(
@@ -155,11 +161,16 @@ def run_simulation_app_function(
         The boolean result of the function.
     """
     # Get a persistent simulation app
+    global _AT_LEAST_ONE_TEST_FAILED
     try:
         simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
-        return bool(function(simulation_app, **kwargs))
+        test_result = bool(function(simulation_app, **kwargs))
+        if not test_result:
+            _AT_LEAST_ONE_TEST_FAILED = True
+        return test_result
     except Exception as e:
         print(f"Exception occurred while running the function (persistent mode): {e}")
+        _AT_LEAST_ONE_TEST_FAILED = True
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests

@@ -38,14 +38,6 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         "--seed", type=int, default=None, help="Optional seed for the random number generator."
     )
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
-    # NOTE(alexmillane, 2025.07.25): Unlike base isaaclab, we enable pinocchio by default.
-    isaac_lab_group.add_argument(
-        "--disable_pinocchio",
-        dest="enable_pinocchio",
-        default=True,
-        action="store_false",
-        help="Disable Pinocchio.",
-    )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
 
 
