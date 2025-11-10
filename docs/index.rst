@@ -63,11 +63,11 @@ In this example, each environment differs in the object-to-be-manipulated,
 but all other aspects remain the same.
 For example, the scene layout, the robot, the observations, actions, rewards, etc are all
 conserved across the environments.
-Isaac Lab's manager-based environment API, is convenient for expressing one such task,
+Isaac Lab's manager-based environment API is convenient for expressing one such task,
 but does not naturally support expressing this type of variation.
 
 Isaac Lab Arena extends the manager-based interface to provide
-a convenient way of expressing task variation, while benefitting from
+a convenient way of expressing task variation, while benefiting from
 the modularity, performance, and accuracy of Isaac Lab.
 
 
@@ -75,15 +75,15 @@ Isaac Lab Arena
 ===============
 
 Isaac Lab Arena is a framework that simplifies the creation and maintenance of such task/environment libraries.
-To simplify the expression of task/environment variation in Isaac Lab Arena
+To simplify the expression of task/environment variation in Isaac Lab Arena,
 we *compose* the environment on-the-fly from independent sub-pieces.
 Because the sub-pieces are independent, they can be reused and independently varied.
 Furthermore, because the environment is built on the fly, we never need to write and maintain
 duplicate code.
 
-.. figure:: images/isaaclab_arena_core_framework_no_teleop.png
+.. figure:: images/isaac_lab_arena_arch_overview.png
    :width: 100%
-   :alt: Isaac Lab Arena Workflow
+   :alt: Isaac Lab Arena Architecture Overview
    :align: center
 
 Isaac Lab Arena decomposes the environment into three independent sub-pieces:
