@@ -101,92 +101,44 @@ Step 2: Post-train Policy
 We post-train the GR00T N1.5 policy on the task.
 
 The GR00T N1.5 policy has 3 billion parameters so post-training is an an expensive operation.
-We provide two post-training options:
+We provide one post-training option, 8 GPUs with 48GB memory, to achive the best quality:
 
-* **Best Quality:** 8 GPUs with 48GB memory
-* **Low Hardware Requirements:** 1 GPU with 24GB memory
+Training takes approximately 4-8 hours on 8x L40s GPUs.
 
+Training Configuration:
 
-.. tabs::
+- **Base Model:** GR00T-N1.5-3B (foundation model)
+- **Tuned Modules:** Visual backbone, projector, diffusion model
+- **Frozen Modules:** LLM (language model)
+- **Batch Size:** 24 (adjust based on GPU memory)
+- **Training Steps:** 20,000
+- **GPUs:** 8 (multi-GPU training)
 
-   .. tab:: Best Quality
+To post-train the policy, run the following command
 
-      Training takes approximately 4-8 hours on 8x L40s GPUs.
+.. code-block:: bash
 
-      Training Configuration:
+   cd submodules/Isaac-GR00T
 
-      - **Base Model:** GR00T-N1.5-3B (foundation model)
-      - **Tuned Modules:** Visual backbone, projector, diffusion model
-      - **Frozen Modules:** LLM (language model)
-      - **Batch Size:** 24 (adjust based on GPU memory)
-      - **Training Steps:** 20,000
-      - **GPUs:** 8 (multi-GPU training)
-
-      To post-train the policy, run the following command
-
-      .. code-block:: bash
-
-         cd submodules/Isaac-GR00T
-
-         python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
-         --output_dir=$MODELS_DIR \
-         --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
-         --batch_size=24 \
-         --max_steps=20000 \
-         --num_gpus=8 \
-         --save_steps=5000 \
-         --base_model_path=nvidia/GR00T-N1.5-3B \
-         --no_tune_llm \
-         --tune_visual \
-         --tune_projector \
-         --tune_diffusion_model \
-         --no-resume \
-         --dataloader_num_workers=16 \
-         --report_to=wandb \
-         --embodiment_tag=new_embodiment
-
-   .. tab:: Low Hardware Requirements
-
-      Training takes approximately 2-3 hours on 1x Ada6000 GPU.
-
-      Training Configuration:
-
-      - **Base Model:** GR00T-N1.5-3B (foundation model)
-      - **Tuned Modules:** Visual backbone, projector, diffusion model
-      - **Frozen Modules:** LLM (language model)
-      - **Batch Size:** 24 (adjust based on GPU memory)
-      - **Training Steps:** 20,000
-      - **GPUs:** 1 (single-GPU training)
-      - **LoRA Fine-tuning:** Enabled
-      - **LoRA Rank:** 128
-
-      To post-train the policy, run the following command
-
-      .. code-block:: bash
-
-         cd submodules/Isaac-GR00T
-
-         python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
-         --output_dir=$MODELS_DIR \
-         --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
-         --batch_size=24 \
-         --max_steps=20000 \
-         --num_gpus=1 \
-         --save_steps=5000 \
-         --base_model_path=nvidia/GR00T-N1.5-3B \
-         --no_tune_llm \
-         --tune_visual \
-         --tune_projector \
-         --tune_diffusion_model \
-         --no-resume \
-         --dataloader_num_workers=16 \
-         --report_to=wandb \
-         --embodiment_tag=new_embodiment \
-         --lora_rank=128
+   python scripts/gr00t_finetune.py \
+   --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
+   --output_dir=$MODELS_DIR \
+   --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
+   --batch_size=24 \
+   --max_steps=20000 \
+   --num_gpus=8 \
+   --save_steps=5000 \
+   --base_model_path=nvidia/GR00T-N1.5-3B \
+   --no_tune_llm \
+   --tune_visual \
+   --tune_projector \
+   --tune_diffusion_model \
+   --no-resume \
+   --dataloader_num_workers=16 \
+   --report_to=wandb \
+   --embodiment_tag=new_embodiment
 
 
-see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
+If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
 for information on how to adjust the training configuration to your hardware, to achieve
-the best results.
+the best results. We recommend fine-tuning the visual backbone, projector, and diffusion model for better results.
