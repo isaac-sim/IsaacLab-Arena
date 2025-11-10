@@ -133,9 +133,11 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
             # app = SimulationAppContext(simulation_app_args)
             # # Manually "enter" the context manager so we can keep it open
             # app.__enter__()
-            from isaaclab.app import AppLauncher
+            # from isaaclab.app import AppLauncher
+            # import pinocchio  # noqa: F401
+            from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
 
-            app_launcher = AppLauncher(simulation_app_args)
+            app_launcher = get_app_launcher(simulation_app_args)
 
         _PERSISTENT_SIM_APP_LAUNCHER = app_launcher
         _PERSISTENT_INIT_ARGS = (headless, enable_cameras)

@@ -26,6 +26,15 @@ def get_isaac_sim_version() -> str:
     return omni.kit.app.get_app().get_app_version()
 
 
+def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
+    """Get an app launcher."""
+    # NOTE(alexmillane, 2025.11.10): Import pinocchio before launching the app appears still to be required.
+    # Monitor this and see if we can get rid of it.
+    import pinocchio  # noqa: F401
+
+    return AppLauncher(args)
+
+
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
@@ -50,10 +59,13 @@ class SimulationAppContext:
         # From the slack thread, the issue appears to be fixed internally, but the fix is not yet released.
         # Remove this function once the issue is fixed in a released version of Isaac Sim.
         # We warn if IsaacSim has been upgraded.
-        if hasattr(self.args, "enable_pinocchio") and self.args.enable_pinocchio:
-            import pinocchio  # noqa: F401
+        # if hasattr(self.args, "enable_pinocchio") and self.args.enable_pinocchio:
+        #     import pinocchio  # noqa: F401
+        # else:
+        #     print("HERE. not importing pinocchio")
 
-        self.app_launcher = AppLauncher(self.args)
+        # self.app_launcher = AppLauncher(self.args)
+        self.app_launcher = get_app_launcher(self.args)
         if get_isaac_sim_version() != "4.5.0":
             print(f"WARNING: IsaacSim has been upgraded to {get_isaac_sim_version()}.")
             print("Please remove the pinocchio related hacks in: simulation_app.py")
