@@ -8,9 +8,9 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 WORKDIR="/workspaces/isaaclab_arena"
 
 # Default mount directory on the host machine for the datasets
-DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
+DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets_1"
 # Default mount directory on the host machine for the models
-MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
+MODELS_HOST_MOUNT_DIRECTORY="$HOME/models_1"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 # Default GR00T installation settings (false means no GR00T installation)
@@ -116,6 +116,12 @@ if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_
     docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG > /dev/null
 fi
 
+add_volume_if_it_exists() {
+    local src="$1"
+    local dst="$2"
+    [ -d "$src" ] && echo "-v $src:$dst"
+}
+
 # If container is running, attach to it, otherwise start
 if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
@@ -134,9 +140,9 @@ else
                     "-v" "./isaaclab_arena_g1:${WORKDIR}/isaaclab_arena_g1"
                     "-v" "./isaaclab_arena_gr00t:${WORKDIR}/isaaclab_arena_gr00t"
                     "-v" "./submodules/IsaacLab:${WORKDIR}/submodules/IsaacLab"
-                    "-v" "$DATASETS_HOST_MOUNT_DIRECTORY:/datasets"
-                    "-v" "$MODELS_HOST_MOUNT_DIRECTORY:/models"
-                    "-v" "$EVAL_HOST_MOUNT_DIRECTORY:/eval"
+                    $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
+                    $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
+                    $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
                     "-v" "$HOME/.cache:/home/$(id -un)/.cache"
