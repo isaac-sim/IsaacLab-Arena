@@ -34,8 +34,14 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 class PickAndPlaceTask(TaskBase):
 
-    def __init__(self, pick_up_object: Asset, destination_location: Asset, background_scene: Asset):
-        super().__init__()
+    def __init__(
+        self,
+        pick_up_object: Asset,
+        destination_location: Asset,
+        background_scene: Asset,
+        episode_length_s: float | None = None,
+    ):
+        super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_location = destination_location
@@ -109,7 +115,7 @@ class SceneCfg:
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
 
     success: TerminationTermCfg = MISSING
 

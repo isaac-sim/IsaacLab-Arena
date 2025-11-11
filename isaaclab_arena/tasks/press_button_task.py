@@ -33,8 +33,9 @@ class PressButtonTask(TaskBase):
         pressable_object: Pressable,
         pressedness_threshold: float | None = None,
         reset_pressedness: float | None = None,
+        episode_length_s: float | None = None,
     ):
-        super().__init__()
+        super().__init__(episode_length_s=episode_length_s)
         assert isinstance(pressable_object, Pressable), "Pressable object must be an instance of Pressable"
         self.pressable_object = pressable_object
         self.pressedness_threshold = pressedness_threshold
@@ -78,7 +79,7 @@ class PressButtonTask(TaskBase):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
 
     # Dependent on the openable object, so this is passed in from the task at
     # construction time.

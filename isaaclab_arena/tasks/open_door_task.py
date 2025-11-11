@@ -32,9 +32,13 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 class OpenDoorTask(TaskBase):
     def __init__(
-        self, openable_object: Openable, openness_threshold: float | None = None, reset_openness: float | None = None
+        self,
+        openable_object: Openable,
+        openness_threshold: float | None = None,
+        reset_openness: float | None = None,
+        episode_length_s: float | None = None,
     ):
-        super().__init__()
+        super().__init__(episode_length_s=episode_length_s)
         assert isinstance(openable_object, Openable), "Openable object must be an instance of Openable"
         self.openable_object = openable_object
         self.openness_threshold = openness_threshold
@@ -88,7 +92,7 @@ class OpenDoorTask(TaskBase):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
 
     # Dependent on the openable object, so this is passed in from the task at
     # construction time.

@@ -131,6 +131,8 @@ class ArenaEnvBuilder:
 
         viewer_cfg = self.arena_env.task.get_viewer_cfg()
 
+        episode_length_s = self.arena_env.task.get_episode_length_s()
+
         # Build the environment configuration
         if not self.args.mimic:
             env_cfg = IsaacLabArenaManagerBasedRLEnvCfg(
@@ -149,6 +151,8 @@ class ArenaEnvBuilder:
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
+            if episode_length_s is not None:
+                env_cfg.episode_length_s = episode_length_s
         else:
             task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
@@ -173,6 +177,7 @@ class ArenaEnvBuilder:
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
+
         return env_cfg
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
