@@ -168,7 +168,7 @@ Replay the downloaded dataset to verify the environment setup
    python isaaclab_arena/scripts/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file <INPUT_DATASET_PATH> \
+     --dataset_file ${DATASET_DIR}/arena_g1_loco_manipulation_dataset_generated_small.hdf5 \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_pink

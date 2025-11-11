@@ -30,7 +30,8 @@ def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
     # NOTE(alexmillane, 2025.11.10): Import pinocchio before launching the app appears still to be required.
     # Monitor this and see if we can get rid of it.
-    import pinocchio  # noqa: F401
+    if hasattr(args, "enable_pinocchio") and args.enable_pinocchio:
+        import pinocchio  # noqa: F401
 
     app_launcher = AppLauncher(args)
     if get_isaac_sim_version() != "5.1.0":
