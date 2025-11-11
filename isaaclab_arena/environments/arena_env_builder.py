@@ -150,7 +150,6 @@ class ArenaEnvBuilder:
                 metrics=metrics,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
-                # episode_length_s=1.0,
             )
             if episode_length_s is not None:
                 env_cfg.episode_length_s = episode_length_s
