@@ -127,7 +127,6 @@ else
                     "--ulimit" "stack=-1"
                     "--ipc=host"
                     "--net=host"
-                    "--runtime=nvidia"
                     "--gpus=all"
                     "-v" "./docs:${WORKDIR}/docs"
                     "-v" "./isaaclab_arena:${WORKDIR}/isaaclab_arena"
@@ -175,8 +174,13 @@ else
     if [ "$INSTALL_GROOT" = "true" ]; then
         DOCKER_RUN_ARGS+=("-v" "./submodules/Isaac-GR00T:${WORKDIR}/submodules/Isaac-GR00T")
     fi
-    # Allow X11 connections
-    xhost +local:docker > /dev/null
+
+    if [[ -n "$DISPLAY" ]]; then
+        # Allow X11 connections
+        xhost +local:docker > /dev/null
+    else
+        echo "No DISPLAY detected"
+    fi
 
     docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} "${@}"
 fi
