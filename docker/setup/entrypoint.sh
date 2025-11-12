@@ -40,6 +40,10 @@ touch /home/$DOCKER_RUN_USER_NAME/.sudo_as_admin_successful
 cp /etc/bash.bashrc /home/$DOCKER_RUN_USER_NAME/.bashrc
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME/.bashrc
 
+# Add the models, datasets, and eval folders if they don't exist
+mkdir -p /datasets /models /eval
+chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /datasets /models /eval
+
 # Run the passed command or just start the shell as the created user
 if [ $# -ge 1 ]; then
     echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/aliasess.bashrc

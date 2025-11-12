@@ -124,4 +124,4 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
 
     lookat = initial_pose.position_xyz
     camera_position = tuple(np.array(lookat) + offset)
-    return ViewerCfg(eye=camera_position, lookat=lookat)
+    return ViewerCfg(eye=camera_position, lookat=lookat, origin_type="env")
