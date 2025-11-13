@@ -464,9 +464,11 @@ such that the conversion step can be skipped.</p>
 <h2>Step 2: Post-train Policy<a class="headerlink" href="#step-2-post-train-policy" title="Link to this heading">#</a></h2>
 <p>We post-train the GR00T N1.5 policy on the task.</p>
 <p>The GR00T N1.5 policy has 3 billion parameters so post training is an an expensive operation.
-We provide two post-training options:
-* Best Quality: 8 GPUs with 48GB memory
-* Low Hardware Requirements: 1 GPU with 24GB memory</p>
+We provide two post-training options:</p>
+<ul class="simple">
+<li><p>Best Quality: 8 GPUs with 48GB memory</p></li>
+<li><p>Low Hardware Requirements: 1 GPU with 24GB memory</p></li>
+</ul>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
 <p>Training Configuration:</p>
@@ -516,7 +518,7 @@ python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 
 python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
---dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
+--dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
 --data_config<span class="o">=</span>fourier_gr1_arms_only<span class="w"> </span><span class="se">\</span>
 --batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
