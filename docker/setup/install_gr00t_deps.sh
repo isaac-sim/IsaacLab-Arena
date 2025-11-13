@@ -36,6 +36,6 @@ echo "Installing flash-attn..."
 
 # Ensure pytorch torchrun script is in PATH
 echo "Ensuring pytorch torchrun script is in PATH..."
-echo "alias torchrun='/isaac-sim/kit/python/bin/torchrun'" >> /etc/bash.bashrc
+echo "export PATH=/isaac-sim/kit/python/bin:${PATH}" >> /etc/environment
 
 echo "GR00T dependencies installation completed successfully"
