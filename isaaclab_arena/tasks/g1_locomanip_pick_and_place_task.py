@@ -35,8 +35,14 @@ from isaaclab_arena_g1.g1_env.mdp.recorders.g1_locomanip_recorder_cfg import G1L
 
 class G1LocomanipPickAndPlaceTask(TaskBase):
 
-    def __init__(self, pick_up_object: Asset, destination_bin: Asset, background_scene: Asset):
-        super().__init__()
+    def __init__(
+        self,
+        pick_up_object: Asset,
+        destination_bin: Asset,
+        background_scene: Asset,
+        episode_length_s: float | None = None,
+    ):
+        super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_bin = destination_bin
@@ -90,7 +96,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=False)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
 
     success: TerminationTermCfg = MISSING
 

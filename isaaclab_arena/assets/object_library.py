@@ -132,21 +132,6 @@ class LightWheelPot51(LibraryObject):
 
 
 @register_asset
-class SketchFabSprayCan3(LibraryObject):
-    """
-    Encapsulates the pick-up object config for a pick-and-place environment.
-    """
-
-    name = "sketchfab_spray_can_3"
-    tags = ["object"]
-    prim_path = ("{ENV_REGEX_NS}/target_sketchfab_spray_can_3",)
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/spray_bottle_3/spray_bottle_3.usd"
-
-    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
-
-
-@register_asset
 class PowerDrill(LibraryObject):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.

@@ -24,6 +24,9 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 
 class TaskBase(ABC):
 
+    def __init__(self, episode_length_s: float | None = None):
+        self.episode_length_s = episode_length_s
+
     @abstractmethod
     def get_scene_cfg(self) -> Any:
         raise NotImplementedError("Function not implemented yet.")
@@ -68,3 +71,6 @@ class TaskBase(ABC):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg()
+
+    def get_episode_length_s(self) -> float | None:
+        return self.episode_length_s

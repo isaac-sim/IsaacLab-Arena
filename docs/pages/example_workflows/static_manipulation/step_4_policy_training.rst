@@ -78,16 +78,17 @@ This creates a folder ``$DATASET_DIR/arena_gr1_manipulation_dataset_generated/le
 
       # Input/Output paths
       data_root: /datasets/isaaclab_arena/static_manipulation_tutorial
-      hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
+      hdf5_name: "arena_gr1_manipulation_dataset_generated.hdf5"
 
       # Task description
-      language_instruction: "Pick up the brown box and place it in the blue bin"
+      language_instruction: "Reach out to the microwave and open it."
       task_index: 0
 
       # Data field mappings
       state_name_sim: "robot_joint_pos"
       action_name_sim: "processed_actions"
-      pov_cam_name_sim: "robot_head_cam"
+      pov_cam_name_sim: "robot_pov_cam_rgb"
+
 
       # Output configuration
       fps: 50
@@ -101,6 +102,7 @@ We post-train the GR00T N1.5 policy on the task.
 
 The GR00T N1.5 policy has 3 billion parameters so post training is an an expensive operation.
 We provide two post-training options:
+
 * Best Quality: 8 GPUs with 48GB memory
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
@@ -127,7 +129,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=fourier_gr1_arms_only \
          --batch_size=24 \
@@ -142,7 +144,7 @@ We provide two post-training options:
          --no-resume \
          --dataloader_num_workers=16 \
          --report_to=wandb \
-         --embodiment_tag=new_embodiment
+         --embodiment_tag=gr1
 
    .. tab:: Low Hardware Requirements
 
@@ -166,7 +168,7 @@ We provide two post-training options:
          cd submodules/Isaac-GR00T
 
          python scripts/gr00t_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --data_config=fourier_gr1_arms_only \
          --batch_size=24 \
@@ -181,10 +183,24 @@ We provide two post-training options:
          --no-resume \
          --dataloader_num_workers=16 \
          --report_to=wandb \
-         --embodiment_tag=new_embodiment \
+         --embodiment_tag=gr1 \
          --lora_rank=128
 
 
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results.
+
+.. note::
+
+   If you encounter the following error when running the post-training command:
+
+   .. code-block:: none
+
+      FileNotFoundError: [Errno 2] No such file or directory: 'torchrun'
+
+   Please add the following in your terminal before running the post-training command:
+
+   .. code-block:: bash
+
+      export PATH=/isaac-sim/kit/python/bin:${PATH}

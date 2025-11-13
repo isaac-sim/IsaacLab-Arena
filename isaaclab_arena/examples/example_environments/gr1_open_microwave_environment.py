@@ -71,7 +71,7 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2),
+            task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=5.0),
             teleop_device=teleop_device,
         )
 

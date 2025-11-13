@@ -202,3 +202,9 @@ TABLE OF CONTENTS
    pages/concepts/concept_assets_design
    pages/concepts/concept_affordances_design
    pages/concepts/concept_policy_design
+
+.. toctree::
+   :maxdepth: 1
+   :caption: References
+
+   pages/references/release_notes

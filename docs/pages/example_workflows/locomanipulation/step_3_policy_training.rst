@@ -142,3 +142,17 @@ To post-train the policy, run the following command
 If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results. We recommend fine-tuning the visual backbone, projector, and diffusion model for better results.
+
+. note::
+
+   If you encounter the following error when running the post-training command:
+
+   .. code-block:: none
+
+      FileNotFoundError: [Errno 2] No such file or directory: 'torchrun'
+
+   Please add the following in your terminal before running the post-training command:
+
+   .. code-block:: bash
+
+      export PATH=/isaac-sim/kit/python/bin:${PATH}
