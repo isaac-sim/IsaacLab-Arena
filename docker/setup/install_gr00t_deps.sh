@@ -34,4 +34,8 @@ echo "Installing Isaac-GR00T with dependency group: $GROOT_DEPS_GROUP"
 echo "Installing flash-attn..."
 /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.1.post4
 
+# Ensure pytorch torchrun script is in PATH
+echo "Ensuring pytorch torchrun script is in PATH..."
+export PATH="/isaac-sim/kit/python/bin:${PATH}"
+
 echo "GR00T dependencies installation completed successfully"
