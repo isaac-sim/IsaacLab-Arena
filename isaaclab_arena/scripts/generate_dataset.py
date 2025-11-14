@@ -45,6 +45,12 @@ parser.add_argument(
     default=False,
     help="Enable Pinocchio.",
 )
+parser.add_argument(
+    "--keep_failed",
+    action="store_true",
+    default=False,
+    help="Keep failed demos in a separate file (useful for debugging and replaying unsuccessful demos).",
+)
 
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
@@ -141,6 +147,10 @@ def setup_env_config(
 
     if generation_num_trials is not None:
         env_cfg.datagen_config.generation_num_trials = generation_num_trials
+
+    # Override generation_keep_failed if specified via command line
+    if hasattr(args_cli, "keep_failed") and args_cli.keep_failed:
+        env_cfg.datagen_config.generation_keep_failed = True
 
     env_cfg.env_name = env_name
 

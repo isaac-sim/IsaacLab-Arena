@@ -143,3 +143,19 @@ class GalileoLocomanipBackground(LibraryBackground):
 
     def __init__(self):
         super().__init__()
+
+@register_asset
+class OrcaBackground(LibraryBackground):
+    """
+    Encapsulates the background scene for the ORCA healthcare environment.
+    """
+
+    name = "orca"
+    tags = ["background"]
+    default_robot_initial_pose = Pose.identity()
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.5.0/Props/OrcaScenes/Scene1DevMz/main.usd"
+    initial_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    object_min_z = -0.2
+
+    def __init__(self):
+        super().__init__()

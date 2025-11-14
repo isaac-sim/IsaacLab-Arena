@@ -502,6 +502,11 @@ class G1WBCPinkObservationsCfg:
         robot_quat = ObsTerm(
             func=transforms_terms.get_asset_quaternion,
         )
+        # Camera observations (only included when --enable_cameras is used)
+        robot_head_cam = ObsTerm(
+            func=base_mdp.image,
+            params={"sensor_cfg": SceneEntityCfg("robot_head_cam"), "data_type": "rgb"},
+        )
 
         def __post_init__(self):
             self.enable_corruption = False

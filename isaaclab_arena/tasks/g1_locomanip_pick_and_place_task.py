@@ -29,6 +29,9 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import objects_in_proximity
+from isaaclab_arena.tasks.terminations import multi_stage_pick_place_and_navigate
+from isaaclab_arena.tasks.terminations import multi_stage_with_fixed_destination
+from isaaclab_arena.tasks.terminations import reset_multi_stage_state
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -50,14 +53,25 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         pass
 
     def get_termination_cfg(self):
+        # Two-stage success: 
+        # Stage 1: Box on cart
+        # Stage 2: Cart to target position (surgical bed)
         success = TerminationTermCfg(
-            func=objects_in_proximity,
+            func=multi_stage_with_fixed_destination,
             params={
-                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
-                "max_y_separation": 0.130,
-                "max_x_separation": 0.260,
-                "max_z_separation": 0.150,
+                # Stage 1: Box on cart
+                "box_cfg": SceneEntityCfg(self.pick_up_object.name),
+                "cart_cfg": SceneEntityCfg(self.destination_bin.name),
+                "box_to_cart_max_x": 0.30,  # 30cm tolerance in X
+                "box_to_cart_max_y": 0.20,  # 20cm tolerance in Y
+                "box_to_cart_max_z": 0.92,  # 25cm tolerance in Z (box above cart)
+                # Stage 2: Cart to fixed target position (surgical bed)
+                "target_position_x": 0.137,
+                "target_position_y": -4.5,
+                "target_position_z": -0.7875,
+                "cart_to_target_max_x": 0.30,  # 50cm tolerance in X
+                "cart_to_target_max_y": 0.30,  # 50cm tolerance in Y
+                "cart_to_target_max_z": 0.20,  # 20cm tolerance in Z
             },
         )
         object_dropped = TerminationTermCfg(
