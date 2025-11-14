@@ -28,6 +28,11 @@ Note that this tutorial assumes that you've completed the
 
 :docker_run_gr00t:
 
+.. code:: bash
+
+    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
+    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+
 .. note::
     The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
     instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
