@@ -43,15 +43,16 @@ For new files, please add `orca` to the filename. For example, `run_docker.orca.
 ## Usage
 
 ```bash
-./run_docker.orca.sh -g
+./docker/run_docker.orca.sh -g
 ```
 
 ### Data Collection
 
+Collect
 ```bash
 python isaaclab_arena/scripts/record_demos_keyboard_23d_orca.py \
   --enable_cameras \
-  --dataset_file /datasets/orca/g1_demo_test.hdf5 \
+  --dataset_file /datasets/orca-dev-test/keyboard23d/g1_demo_test.hdf5 \
   --num_demos 1 \
   --pos_sensitivity 0.1 \
   --vel_sensitivity 0.2 \
@@ -59,9 +60,26 @@ python isaaclab_arena/scripts/record_demos_keyboard_23d_orca.py \
   --embodiment g1_wbc_pink
 ```
 
+Replay
+```bash
+python isaaclab_arena/scripts/replay_demos.py \
+  --enable_cameras \
+  --dataset_file /datasets/orca-dev-test/keyboard23d/g1_demo_test_3.hdf5 \
+  orca_g1_locomanip_pick_and_place \
+  --embodiment g1_wbc_pink
+```
+
+Inspect
+```bash
+# No need to run Isaac Sim
+python isaaclab_arena/scripts/inspect_dataset.py \
+  /datasets/orca-dev-test/keyboard23d/g1_demo_test_3.hdf5 \
+  --episode 0
+```
+
 ### Policy Running
 
-```
+```bash
 python isaaclab_arena/examples/policy_runner.py \
     --policy_type gr00t_closedloop \
     --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
