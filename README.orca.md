@@ -36,9 +36,6 @@ Download the dataset
 hf download nvidia/orca-dev-test --repo-type=dataset --local-dir ~/datasets/orca-dev-test
 ```
 
-**Contributing**
-
-For new files, please add `orca` to the filename. For example, `run_docker.orca.sh` to avoid conflicts with the main repository.
 
 ## Usage
 
@@ -52,7 +49,7 @@ Collect
 ```bash
 python isaaclab_arena/scripts/record_demos_keyboard_23d_orca.py \
   --enable_cameras \
-  --dataset_file /datasets/orca-dev-test/keyboard23d/g1_demo_test.hdf5 \
+  --dataset_file /datasets/orca-dev-test/g1_demo_test.hdf5 \
   --num_demos 1 \
   --pos_sensitivity 0.1 \
   --vel_sensitivity 0.2 \
@@ -64,7 +61,7 @@ Replay
 ```bash
 python isaaclab_arena/scripts/replay_demos.py \
   --enable_cameras \
-  --dataset_file /datasets/orca-dev-test/keyboard23d/g1_demo_test_3.hdf5 \
+  --dataset_file /datasets/orca-dev-test/g1_demo_test_5.hdf5 \
   orca_g1_locomanip_pick_and_place \
   --embodiment g1_wbc_pink
 ```
@@ -73,7 +70,7 @@ Inspect
 ```bash
 # No need to run Isaac Sim
 python isaaclab_arena/scripts/inspect_dataset.py \
-  /datasets/orca-dev-test/keyboard23d/g1_demo_test_3.hdf5 \
+  /datasets/orca-dev-test/g1_demo_test_5.hdf5 \
   --episode 0
 ```
 
