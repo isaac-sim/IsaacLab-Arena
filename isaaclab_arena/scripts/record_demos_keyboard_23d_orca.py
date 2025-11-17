@@ -165,9 +165,7 @@ def create_environment_config(output_dir: str, output_file_name: str):
         env_cfg.terminations.success = None  # Disable auto-reset on success
         print(f"[INFO] Success condition extracted: {success_term.func.__name__}")
         print(f"[INFO] Success parameters: {success_term.params}")
-        print(f"[INFO] Will check manually after {args_cli.num_success_steps} consecutive steps")
     else:
-        print("[WARNING] No success termination found in env_cfg.terminations")
         print("[WARNING] Success detection and auto-save will be disabled")
     
     # Disable timeout

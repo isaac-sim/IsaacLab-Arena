@@ -33,6 +33,7 @@ class ControlMode(Enum):
     """Control modes for the keyboard adapter."""
     RIGHT_HAND = "right_hand"
     LEFT_HAND = "left_hand"
+    BOTH_HANDS = "both_hands"
     BASE_NAV = "base_nav"
     TORSO = "torso"
     HEIGHT = "height"
@@ -79,6 +80,7 @@ class KeyboardTo23DAdapter:
     """Adapter that converts keyboard input to 23D G1 WBC actions.
     
     This adapter uses mode switching to control different aspects of the robot:
+    - Both hands (synchronized control)
     - Right hand (position, orientation, gripper)
     - Left hand (position, orientation, gripper)
     - Base navigation (linear/angular velocity)
@@ -87,11 +89,19 @@ class KeyboardTo23DAdapter:
     
     Key bindings:
         Mode switching:
+            0: Both hands mode (synchronized)
             1: Right hand mode
             2: Left hand mode
             3: Base navigation mode
             4: Torso orientation mode
             5: Base height mode
+        
+        Both hands mode (synchronized control):
+            Q/E: Both hands up/down
+            A/D: Hands apart/together (spread/close)
+            W/S: Both hands forward/backward
+            Z/X: Symmetric wrist roll (hands mirror each other)
+            K: Toggle both grippers
         
         Hand mode (when in right/left hand mode):
             W/S: Move forward/backward (X)
@@ -134,7 +144,7 @@ class KeyboardTo23DAdapter:
         self._sim_device = sim_device
         
         # Current control mode
-        self.mode = ControlMode.RIGHT_HAND
+        self.mode = ControlMode.BOTH_HANDS
         
         # Pause state
         self.paused = False
@@ -185,7 +195,7 @@ class KeyboardTo23DAdapter:
         msg = f"Keyboard to 23D Adapter for G1 WBC\n"
         msg += f"Current mode: {self.mode.value}\n"
         msg += f"----------------------------------------------\n"
-        msg += f"Mode switching: 1=RightHand 2=LeftHand 3=BaseNav 4=Torso 5=Height\n"
+        msg += f"Mode switching: 0=BothHands 1=RightHand 2=LeftHand 3=BaseNav 4=Torso 5=Height\n"
         msg += f"Special: R=Reset L=Lock Space=Pause\n"
         return msg
     
@@ -195,8 +205,13 @@ class KeyboardTo23DAdapter:
         print("Keyboard to 23D Adapter - Controls")
         print("=" * 60)
         print("MODE SWITCHING:")
-        print("  [1] Right Hand  [2] Left Hand  [3] Base Nav")
-        print("  [4] Torso       [5] Height")
+        print("  [0] Both Hands  [1] Right Hand  [2] Left Hand")
+        print("  [3] Base Nav    [4] Torso       [5] Height")
+        print("")
+        print("BOTH HANDS MODE (Synchronized):")
+        print("  Q/E: Both Up/Down   A/D: Apart/Together")
+        print("  W/S: Both Forward/Back   Z/X: Symmetric Roll")
+        print("  K: Toggle Both Grippers")
         print("")
         print("HAND MODE (Right/Left):")
         print("  W/S: Forward/Back   A/D: Left/Right   Q/E: Up/Down")
@@ -299,8 +314,12 @@ class KeyboardTo23DAdapter:
         if event.type == carb.input.KeyboardEventType.KEY_PRESS:
             key_name = event.input.name
             
-            # Mode switching (use KEY_1, KEY_2, etc. for number keys)
-            if key_name == "KEY_1":
+            # Mode switching (use KEY_0, KEY_1, KEY_2, etc. for number keys)
+            if key_name == "KEY_0":
+                self.mode = ControlMode.BOTH_HANDS
+                print(f"[Mode] Switched to BOTH HANDS (Synchronized)")
+                self._print_status()
+            elif key_name == "KEY_1":
                 self.mode = ControlMode.RIGHT_HAND
                 print(f"[Mode] Switched to RIGHT HAND")
                 self._print_status()
@@ -348,7 +367,9 @@ class KeyboardTo23DAdapter:
     
     def _process_mode_input(self, key_name: str):
         """Process input based on current mode."""
-        if self.mode == ControlMode.RIGHT_HAND:
+        if self.mode == ControlMode.BOTH_HANDS:
+            self._process_both_hands_input(key_name)
+        elif self.mode == ControlMode.RIGHT_HAND:
             self._process_hand_input(key_name, hand='right')
         elif self.mode == ControlMode.LEFT_HAND:
             self._process_hand_input(key_name, hand='left')
@@ -358,6 +379,145 @@ class KeyboardTo23DAdapter:
             self._process_torso_input(key_name)
         elif self.mode == ControlMode.HEIGHT:
             self._process_height_input(key_name)
+    
+    def _process_both_hands_input(self, key_name: str):
+        """Process both hands synchronized control input.
+        
+        Key mappings:
+            Q/E: Both hands up/down (Z axis)
+            A/D: Hands apart/together (Y axis, symmetric)
+            W/S: Both hands forward/backward (X axis)
+            Z/X: Symmetric wrist roll (left and right hands roll in opposite directions for mirrored motion)
+            K: Toggle both grippers
+        """
+        # Q/E: Both hands up/down
+        if key_name == "Q":
+            # Both hands move up
+            self._state['left_wrist_pos'][2] = min(
+                self._state['left_wrist_pos'][2] + self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_z_max
+            )
+            self._state['right_wrist_pos'][2] = min(
+                self._state['right_wrist_pos'][2] + self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_z_max
+            )
+        elif key_name == "E":
+            # Both hands move down
+            self._state['left_wrist_pos'][2] = max(
+                self._state['left_wrist_pos'][2] - self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_z_min
+            )
+            self._state['right_wrist_pos'][2] = max(
+                self._state['right_wrist_pos'][2] - self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_z_min
+            )
+        
+        # A/D: Hands apart/together (symmetric Y movement)
+        elif key_name == "A":
+            # Hands move apart (left hand goes left +Y, right hand goes right -Y)
+            self._state['left_wrist_pos'][1] = min(
+                self._state['left_wrist_pos'][1] + self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_y_max
+            )
+            self._state['right_wrist_pos'][1] = max(
+                self._state['right_wrist_pos'][1] - self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_y_min
+            )
+        elif key_name == "D":
+            # Hands move together (left hand goes right -Y, right hand goes left +Y)
+            self._state['left_wrist_pos'][1] = max(
+                self._state['left_wrist_pos'][1] - self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_y_min
+            )
+            self._state['right_wrist_pos'][1] = min(
+                self._state['right_wrist_pos'][1] + self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_y_max
+            )
+        
+        # W/S: Both hands forward/backward (X axis)
+        
+        elif key_name == "W":
+            # Both hands move forward
+            self._state['left_wrist_pos'][0] = min(
+                self._state['left_wrist_pos'][0] + self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_x_max
+            )
+            self._state['right_wrist_pos'][0] = min(
+                self._state['right_wrist_pos'][0] + self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_x_max
+            )
+        elif key_name == "S":
+            # Both hands move backward
+            self._state['left_wrist_pos'][0] = max(
+                self._state['left_wrist_pos'][0] - self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_x_min
+            )
+            self._state['right_wrist_pos'][0] = max(
+                self._state['right_wrist_pos'][0] - self.cfg.pos_sensitivity,
+                self.cfg.hand_pos_x_min
+            )
+        
+        # Z/X: Wrist rotation (roll, since pitch doesn't work with WBC)
+        elif key_name == "Z":
+            # Apply symmetric roll: left hand positive, right hand negative (for mirrored motion)
+            delta_rpy_left = np.array([self.cfg.rot_sensitivity, 0.0, 0.0])
+            delta_rpy_right = np.array([-self.cfg.rot_sensitivity, 0.0, 0.0])  # Opposite for symmetry
+            
+            # Apply to left hand
+            delta_quat_left = Rotation.from_euler('xyz', delta_rpy_left).as_quat()
+            delta_quat_left_wxyz = np.array([delta_quat_left[3], delta_quat_left[0], delta_quat_left[1], delta_quat_left[2]])
+            old_quat_left = self._state['left_wrist_quat'].copy()
+            new_quat_left = self._quaternion_multiply(self._state['left_wrist_quat'], delta_quat_left_wxyz)
+            norm_left = np.linalg.norm(new_quat_left)
+            if norm_left > 1e-6:
+                self._state['left_wrist_quat'] = new_quat_left / norm_left
+            
+            # Apply to right hand (opposite roll)
+            delta_quat_right = Rotation.from_euler('xyz', delta_rpy_right).as_quat()
+            delta_quat_right_wxyz = np.array([delta_quat_right[3], delta_quat_right[0], delta_quat_right[1], delta_quat_right[2]])
+            old_quat_right = self._state['right_wrist_quat'].copy()
+            new_quat_right = self._quaternion_multiply(self._state['right_wrist_quat'], delta_quat_right_wxyz)
+            norm_right = np.linalg.norm(new_quat_right)
+            if norm_right > 1e-6:
+                self._state['right_wrist_quat'] = new_quat_right / norm_right
+            
+            print(f"[Both Hands] Z pressed - Symmetric Roll (L:+{self.cfg.rot_sensitivity:.3f} R:-{self.cfg.rot_sensitivity:.3f} rad)")
+            print(f"  Left quat:  {old_quat_left} → {self._state['left_wrist_quat']}")
+            print(f"  Right quat: {old_quat_right} → {self._state['right_wrist_quat']}")
+                
+        elif key_name == "X":
+            # Apply symmetric roll (opposite direction): left hand negative, right hand positive
+            delta_rpy_left = np.array([-self.cfg.rot_sensitivity, 0.0, 0.0])
+            delta_rpy_right = np.array([self.cfg.rot_sensitivity, 0.0, 0.0])  # Opposite for symmetry
+            
+            # Apply to left hand
+            delta_quat_left = Rotation.from_euler('xyz', delta_rpy_left).as_quat()
+            delta_quat_left_wxyz = np.array([delta_quat_left[3], delta_quat_left[0], delta_quat_left[1], delta_quat_left[2]])
+            old_quat_left = self._state['left_wrist_quat'].copy()
+            new_quat_left = self._quaternion_multiply(self._state['left_wrist_quat'], delta_quat_left_wxyz)
+            norm_left = np.linalg.norm(new_quat_left)
+            if norm_left > 1e-6:
+                self._state['left_wrist_quat'] = new_quat_left / norm_left
+            
+            # Apply to right hand (opposite roll)
+            delta_quat_right = Rotation.from_euler('xyz', delta_rpy_right).as_quat()
+            delta_quat_right_wxyz = np.array([delta_quat_right[3], delta_quat_right[0], delta_quat_right[1], delta_quat_right[2]])
+            old_quat_right = self._state['right_wrist_quat'].copy()
+            new_quat_right = self._quaternion_multiply(self._state['right_wrist_quat'], delta_quat_right_wxyz)
+            norm_right = np.linalg.norm(new_quat_right)
+            if norm_right > 1e-6:
+                self._state['right_wrist_quat'] = new_quat_right / norm_right
+            
+            print(f"[Both Hands] X pressed - Symmetric Roll (L:-{self.cfg.rot_sensitivity:.3f} R:+{self.cfg.rot_sensitivity:.3f} rad)")
+            print(f"  Left quat:  {old_quat_left} → {self._state['left_wrist_quat']}")
+            print(f"  Right quat: {old_quat_right} → {self._state['right_wrist_quat']}")
+        
+        # K: Toggle both grippers
+        elif key_name == "K":
+            self._state['left_hand'] = -self._state['left_hand']
+            self._state['right_hand'] = -self._state['right_hand']
+            status = "CLOSED" if self._state['left_hand'] < 0 else "OPEN"
+            print(f"[Both Hands] Grippers: {status}")
     
     def _process_hand_input(self, key_name: str, hand: str):
         """Process hand control input."""
