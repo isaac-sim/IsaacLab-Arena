@@ -397,6 +397,11 @@ such that the preceding steps can be skipped.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
 </pre></div>
 </div>
+<p>Once inside the container, set the dataset and models directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/static_manipulation_tutorial
+<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_manipulation_tutorial
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
