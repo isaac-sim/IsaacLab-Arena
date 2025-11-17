@@ -30,6 +30,9 @@ from isaaclab_arena.examples.example_environments.kitchen_pick_and_place_environ
 from isaaclab_arena.examples.example_environments.lightwheel_kitchen_pot_pick_and_place import (
     LightwheelKitchenPotPickAndPlaceEnvironment,
 )
+from isaaclab_arena.examples.example_environments.orca_g1_locomanip_pick_and_place_environment import (
+    OrcaG1LocomanipPickAndPlaceEnvironment,
+)
 from isaaclab_arena.examples.example_environments.press_button_environment import PressButtonEnvironment
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
@@ -46,6 +49,7 @@ ExampleEnvironments = {
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     LightwheelKitchenPotPickAndPlaceEnvironment.name: LightwheelKitchenPotPickAndPlaceEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
+    OrcaG1LocomanipPickAndPlaceEnvironment.name: OrcaG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
 }
 

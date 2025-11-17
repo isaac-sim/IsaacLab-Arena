@@ -18,6 +18,10 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+from isaaclab.assets import RigidObjectCfg
+from isaaclab.sim import schemas
+import isaaclab.sim as sim_utils
+from isaaclab.sim.spawners.from_files import UsdFileCfg
 
 
 class LibraryObject(Object):
@@ -265,3 +269,86 @@ class BrownBox(LibraryObject):
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class OrcaPlate(LibraryObject):
+    """
+    A surgical plate from the ORCA healthcare scene.
+    """
+
+    name = "orca_plate"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.5.0/Props/OrcaScenes/Scene1DevMz/SurgicalRoom/Assets/Plate001/plate001.usd"
+    default_prim_path = "{ENV_REGEX_NS}/orca_plate"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class OrcaCart(Object):
+    """
+    A surgical cart from the ORCA healthcare scene.
+    USD file contains rigid body, so we configure it directly.
+    """
+    
+    name = "orca_cart"
+    tags = ["object"]
+    
+    def __init__(
+        self, 
+        prim_path: str | None = None, 
+        initial_pose: Pose | None = None,
+        kinematic_enabled: bool = True,
+        mass: float = 20.0,
+        linear_damping: float = 0.0,
+        angular_damping: float = 0.0,
+        **kwargs
+    ):
+        self.kinematic_enabled = kinematic_enabled
+        self.mass = mass
+        self.linear_damping = linear_damping
+        self.angular_damping = angular_damping
+        
+        super().__init__(
+            name="orca_cart",
+            prim_path=prim_path or "{ENV_REGEX_NS}/orca_cart",
+            object_type=ObjectType.RIGID,
+            usd_path="omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.5.0/Props/OrcaScenes/Scene1DevMz/SurgicalRoom/Assets/Cart002/Cart002.usd",
+            scale=(1.0, 1.0, 1.0),
+            initial_pose=initial_pose,
+            **kwargs
+        )
+    
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        """Override to add physics properties to USD's internal rigid body."""
+        rigid_props = sim_utils.RigidBodyPropertiesCfg(
+            kinematic_enabled=self.kinematic_enabled,
+            disable_gravity=self.kinematic_enabled,
+            linear_damping=self.linear_damping,
+            angular_damping=self.angular_damping,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=1000.0,
+        )
+        
+        mass_props = sim_utils.MassPropertiesCfg(mass=self.mass) if not self.kinematic_enabled else None
+        
+        object_cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=UsdFileCfg(
+                usd_path=self.usd_path,
+                scale=self.scale,
+                rigid_props=rigid_props,
+                mass_props=mass_props,
+                activate_contact_sensors=True,
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=(0.5, 0.5, 0.5),  # Silver/light gray
+                    metallic=0.8,  # High metallic for silver appearance
+                    roughness=0.2,  # Slightly rough for realistic metal
+                ),
+            ),
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
