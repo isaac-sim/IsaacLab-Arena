@@ -78,15 +78,7 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
             # Set navigation p-controller for locomanip use case
             action_cfg = embodiment.get_action_cfg()
-            action_cfg.g1_action.use_p_control = True
-            # Set nav subgoals (x,y,heading) and turning_in_place flag for G1 WBC Pink navigation p-controller
-            # TODO: Adjust these navigation subgoals based on your ORCA scene layout
-            action_cfg.g1_action.navigation_subgoals = [
-                ([0.18, 0.18, 0.0], False),
-                ([0.18, 0.18, -1.78], True),
-                ([-0.0955, -1.1070, -1.78], False),
-                ([-0.0955, -1.1070, -1.78], False),
-            ]
+            action_cfg.g1_action.use_p_control = False  # NOTE(mingxueg): set to false to avoid auto-nav without model output, if True, needs to setaction_cfg.g1_action.navigation_subgoals
 
         scene = Scene(assets=[background, pick_up_object, plate, destination_cart])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(

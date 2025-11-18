@@ -123,14 +123,12 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
-
 @configclass
 class G1SceneCfg:
-
     # Gear'WBC G1 config, used in WBC training
     robot: ArticulationCfg = ArticulationCfg(
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
+            usd_path=f"omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.5.0/Props/OrcaScenes/G1/g1-29dof_wholebody_dex3/g1_29dof_with_dex3_rev_1_0.usd",
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
