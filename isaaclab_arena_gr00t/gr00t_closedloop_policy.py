@@ -7,7 +7,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 from gr00t.model.policy import Gr00tPolicy
@@ -33,8 +33,6 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # determine rollout how many action prediction per observation
         self.num_feedback_actions = self.policy_config.num_feedback_actions
-        self.current_action_index = 0
-        self.current_action_chunk = None
         self.num_envs = num_envs
         self.device = device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
@@ -44,6 +42,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.policy_config.action_joints_config_path
         )
         self.robot_state_joints_config = self.load_sim_state_joints_config(self.policy_config.state_joints_config_path)
+        # initialize to NaN to indicate that the action chunk is not yet computed
+        self.current_action_chunk = torch.ones((num_envs, self.num_feedback_actions, len(self.robot_action_joints_config)), dtype=torch.float32, device=device) * float('nan')
+        self.current_action_index = torch.zeros(num_envs, dtype=torch.int32, device=device)
 
     def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
         """Load the GR00T policy joint config from the data config."""
@@ -120,21 +121,38 @@ class Gr00tClosedloopPolicy(PolicyBase):
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return action from the dataset."""
         # get new predictions and return the first action from the chunk
-        if self.current_action_chunk is None and self.current_action_index == 0:
-            self.current_action_chunk = self.get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
-            assert self.current_action_chunk.shape[1] >= self.num_feedback_actions
+        # get action chunk if not yet computed or the action chunk is not valid (all elements are NaN)
+        action_chunk_nan_mask = torch.isnan(self.current_action_chunk).any(dim=1).any(dim=1)
+        assert action_chunk_nan_mask.shape == (self.num_envs,), f"action_chunk_nan_mask.shape: {action_chunk_nan_mask.shape} != ({self.num_envs},)"
+        if action_chunk_nan_mask.any():
+            #get thos env_ids that the action chunk is not valid
+            invalid_env_ids = torch.where(action_chunk_nan_mask)[0]
+            # get the action chunk for the invalid env_ids
+            returned_action_chunk = self.get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
+            print(f"returned_action_chunk.shape: {returned_action_chunk.shape}")
+            print(f"invalid_env_ids: {invalid_env_ids}")
+            print(f"self.current_action_chunk.shape: {self.current_action_chunk.shape}")
+            print(f"self.current_action_chunk[invalid_env_ids].shape: {self.current_action_chunk[invalid_env_ids].shape}")
+            print(f"returned_action_chunk[invalid_env_ids].shape: {returned_action_chunk[invalid_env_ids].shape}")
+            self.current_action_chunk[invalid_env_ids] = returned_action_chunk[invalid_env_ids]
+            # reset the action index for the invalid env_ids
+            self.current_action_index[invalid_env_ids] = 0
 
-        assert self.current_action_chunk is not None
-        assert self.current_action_index < self.num_feedback_actions
-
-        action = self.current_action_chunk[:, self.current_action_index]
+        # assert for all env_ids that two conditions are met:
+        # 1. the action chunk is not NaN
+        # 2. the action index is less than the number of feedback actions
+        assert not torch.isnan(self.current_action_chunk).any(dim=1).any(dim=1).any(), "Action chunk is NaN"
+        assert self.current_action_index.max() < self.num_feedback_actions, "Action index is greater than the number of feedback actions"
+        # for i-th row in action_chunk, use the value iof i-th element from current_action_index to index the action chunk
+        action = self.current_action_chunk[torch.arange(self.num_envs), self.current_action_index]
         assert action.shape == env.action_space.shape, f"{action.shape=} != {env.action_space.shape=}"
 
         self.current_action_index += 1
         # reset to empty action chunk
-        if self.current_action_index == self.num_feedback_actions:
-            self.current_action_chunk = None
-            self.current_action_index = 0
+        # for those rows in current_action_chunk that equal to num_feedback_actions, reset to empty action chunk
+        reset_env_ids = self.current_action_index == self.num_feedback_actions
+        self.current_action_chunk[reset_env_ids] = 1 * float('nan')
+        self.current_action_index[reset_env_ids] = 0
         return action
 
     def get_action_chunk(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> torch.Tensor:
@@ -159,13 +177,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
             )
         elif self.task_mode == TaskMode.GR1_TABLETOP_MANIPULATION:
             action_tensor = robot_action_sim.get_joints_pos()
-
-        assert action_tensor.shape[1] >= self.num_feedback_actions
+        print(f"action_tensor.shape: {action_tensor.shape}")
+        assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.num_feedback_actions
         return action_tensor
 
-    def reset(self):
+    def reset(self, env_ids: Optional[torch.Tensor] = None):
         """Resets the policy's internal state."""
         # As GR00T is a single-shot policy, we don't need to reset its internal state
         # Only reset the action chunking mechanism
-        self.current_action_chunk = None
-        self.current_action_index = 0
+        if env_ids is None:
+            env_ids = slice(None)
+        self.current_action_chunk[env_ids] *= float('nan')
+        self.current_action_index[env_ids] = 0
