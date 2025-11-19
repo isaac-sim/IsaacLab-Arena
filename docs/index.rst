@@ -169,6 +169,10 @@ License
 ========
 This code is under an `open-source license <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/LICENSE.md>`_ (Apache 2.0).
 
+Contributing
+============
+For more details, please refer to the `Contributing Guidelines <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md>`_.
+
 TABLE OF CONTENTS
 =================
 
