@@ -127,4 +127,13 @@ To do so, run the following command:
 
 You should see the robot successfully perform the task.
 
-.. todo:: (amillane, 2025-10-22): add screenshot
+.. figure:: ../../../images/gr1_open_microwave_task_view.png
+   :width: 100%
+   :alt: GR1 opening the microwave door
+   :align: center
+
+   IsaacLab Arena GR1 opening the microwave door
+
+.. note::
+
+   The dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
