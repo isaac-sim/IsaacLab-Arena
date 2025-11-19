@@ -38,7 +38,7 @@ class G1OrcaTask(G1LocomanipPickAndPlaceTask):
         subtask_configs = []
         subtask_configs.append(
             SubTaskConfig(
-                object_ref="brown_box",
+                object_ref=self.pick_up_object.name,
                 subtask_term_signal="right_before_grasp_box",  # Before grasping box
                 first_subtask_start_offset_range=(0, 0),
                 subtask_term_offset_range=(0, 0),
@@ -52,7 +52,7 @@ class G1OrcaTask(G1LocomanipPickAndPlaceTask):
         )
         subtask_configs.append(
             SubTaskConfig(
-                object_ref="brown_box",
+                object_ref=self.pick_up_object.name,
                 subtask_term_signal="right_after_release_box",  # After releasing box
                 first_subtask_start_offset_range=(0, 0),
                 subtask_term_offset_range=(0, 0),
@@ -98,7 +98,7 @@ class G1OrcaTask(G1LocomanipPickAndPlaceTask):
         subtask_configs = []
         subtask_configs.append(
             SubTaskConfig(
-                object_ref="brown_box",
+                object_ref=self.pick_up_object.name,
                 subtask_term_signal="left_before_grasp_box",  # Before grasping box
                 first_subtask_start_offset_range=(0, 0),
                 subtask_term_offset_range=(0, 0),
@@ -112,7 +112,7 @@ class G1OrcaTask(G1LocomanipPickAndPlaceTask):
         )
         subtask_configs.append(
             SubTaskConfig(
-                object_ref="brown_box",
+                object_ref=self.pick_up_object.name,
                 subtask_term_signal="left_after_release_box",  # After releasing box
                 first_subtask_start_offset_range=(0, 0),
                 subtask_term_offset_range=(0, 0),
@@ -158,7 +158,7 @@ class G1OrcaTask(G1LocomanipPickAndPlaceTask):
         subtask_configs = []
         subtask_configs.append(
             SubTaskConfig(
-                object_ref="brown_box",
+                object_ref=self.pick_up_object.name,
                 subtask_term_signal="body_face_shelf",  # Face the shelf/table
                 first_subtask_start_offset_range=(0, 0),
                 subtask_term_offset_range=(0, 0),
@@ -237,13 +237,13 @@ class G1OrcaTask(G1LocomanipPickAndPlaceTask):
                 "cart_cfg": SceneEntityCfg(self.destination_bin.name),
                 "box_to_cart_max_x": 0.30,  # 30cm tolerance in X
                 "box_to_cart_max_y": 0.20,  # 20cm tolerance in Y
-                "box_to_cart_max_z": 0.92,  # 25cm tolerance in Z (box above cart)
+                "box_to_cart_max_z": 0.85,  # 85cm tolerance in Z (to cart's bottom)
                 # Stage 2: Cart to fixed target position (surgical bed)
                 "target_position_x": 0.137,
                 "target_position_y": -4.5,
                 "target_position_z": -0.7875,
-                "cart_to_target_max_x": 0.75,  # 50cm tolerance in X
-                "cart_to_target_max_y": 0.75,  # 50cm tolerance in Y (increased for replay stability)
+                "cart_to_target_max_x": 0.50,  # 50cm tolerance in X
+                "cart_to_target_max_y": 0.50,  # 50cm tolerance in Y (increased for replay stability)
                 "cart_to_target_max_z": 0.30,  # 30cm tolerance in Z
             },
         )
@@ -278,10 +278,10 @@ class OrcaEventsCfg(ParentEventsCfg):
     reset_destination_cart_pose: EventTermCfg = MISSING
 
     def __init__(self, pick_up_object, destination_cart):
-        """Initialize reset events for both brown_box and orca_cart.
+        """Initialize reset events for both pick_up_object and destination_cart.
         
         Args:
-            pick_up_object: The box to pick up (brown_box)
+            pick_up_object: The object to pick up (e.g., orca_box)
             destination_cart: The cart to push (orca_cart)
         """
         # Inherit parent class to handle box reset automatically

@@ -46,17 +46,17 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background.set_initial_pose(Pose(position_xyz=(4.0, 0.0, -0.8), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(1.0, 0.0, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                position_xyz=(-0.4, 0.60, 0.0),
+                rotation_wxyz=(0.707, 0.0, 0.0, 0.707),  # Rotate 90° around Z-axis (face +Y)
             )
         )
         destination_cart.set_initial_pose(
             Pose(
-                position_xyz=(0.137, -1.05, -0.7875),
+                position_xyz=(0.137, -1.20, -0.7875),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
-        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(-0.5, -0.1, 0.0), rotation_wxyz=(0.707, 0.0, 0.0, 0.707)))
 
         if (
             args_cli.embodiment == "g1_wbc_pink"
@@ -88,3 +88,4 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         parser.add_argument("--object", type=str, default="orca_box")
         parser.add_argument("--embodiment", type=str, default="g1_wbc_pink")
         parser.add_argument("--teleop_device", type=str, default=None)
+        
