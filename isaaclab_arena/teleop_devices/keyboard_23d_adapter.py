@@ -101,7 +101,9 @@ class KeyboardTo23DAdapter:
             A/D: Hands apart/together (spread/close)
             W/S: Both hands forward/backward
             Z/X: Symmetric wrist roll (hands mirror each other)
-            K: Toggle both grippers
+            T/G: Both hands pitch rotation
+            K: Close both grippers (grip)
+            J: Open both grippers (release)
         
         Hand mode (when in right/left hand mode):
             W/S: Move forward/backward (X)
@@ -110,7 +112,8 @@ class KeyboardTo23DAdapter:
             Z/X: Roll rotation
             T/G: Pitch rotation
             C/V: Yaw rotation
-            K: Toggle gripper
+            K: Close gripper (grip)
+            J: Open gripper (release)
         
         Base navigation mode:
             W/S: Forward/backward velocity
@@ -151,7 +154,7 @@ class KeyboardTo23DAdapter:
         
         # 23D state storage
         self._state = {
-            'left_hand': 0.0,  # -1.0 (closed) to 1.0 (open)
+            'left_hand': 0.0,  # 0.0 (open) or 1.0 (closed)
             'right_hand': 0.0,
             'left_wrist_pos': np.array(cfg.default_left_hand_pos, dtype=np.float32),
             'left_wrist_quat': np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32),  # w, x, y, z
@@ -211,11 +214,12 @@ class KeyboardTo23DAdapter:
         print("BOTH HANDS MODE (Synchronized):")
         print("  Q/E: Both Up/Down   A/D: Apart/Together")
         print("  W/S: Both Forward/Back   Z/X: Symmetric Roll")
-        print("  K: Toggle Both Grippers")
+        print("  T/G: Both Pitch   K: Close Both Grippers   J: Open Both Grippers")
         print("")
         print("HAND MODE (Right/Left):")
         print("  W/S: Forward/Back   A/D: Left/Right   Q/E: Up/Down")
-        print("  Z/X: Roll   T/G: Pitch   C/V: Yaw   K: Gripper")
+        print("  Z/X: Roll   T/G: Pitch   C/V: Yaw")
+        print("  K: Close Gripper   J: Open Gripper")
         print("")
         print("BASE NAVIGATION MODE:")
         print("  W/S: Forward/Back   A/D: Strafe   Q/E: Rotate   X: STOP")
@@ -388,7 +392,9 @@ class KeyboardTo23DAdapter:
             A/D: Hands apart/together (Y axis, symmetric)
             W/S: Both hands forward/backward (X axis)
             Z/X: Symmetric wrist roll (left and right hands roll in opposite directions for mirrored motion)
-            K: Toggle both grippers
+            T/G: Both hands pitch rotation (same direction)
+            K: Close both grippers
+            J: Open both grippers
         """
         # Q/E: Both hands up/down
         if key_name == "Q":
@@ -512,12 +518,58 @@ class KeyboardTo23DAdapter:
             print(f"  Left quat:  {old_quat_left} → {self._state['left_wrist_quat']}")
             print(f"  Right quat: {old_quat_right} → {self._state['right_wrist_quat']}")
         
-        # K: Toggle both grippers
+        # T/G: Both hands pitch rotation
+        elif key_name == "T":
+            # Apply pitch rotation to both hands
+            delta_rpy = np.array([0.0, self.cfg.rot_sensitivity, 0.0])
+            
+            # Apply to left hand
+            delta_quat = Rotation.from_euler('xyz', delta_rpy).as_quat()
+            delta_quat_wxyz = np.array([delta_quat[3], delta_quat[0], delta_quat[1], delta_quat[2]])
+            new_quat_left = self._quaternion_multiply(self._state['left_wrist_quat'], delta_quat_wxyz)
+            norm_left = np.linalg.norm(new_quat_left)
+            if norm_left > 1e-6:
+                self._state['left_wrist_quat'] = new_quat_left / norm_left
+            
+            # Apply to right hand
+            new_quat_right = self._quaternion_multiply(self._state['right_wrist_quat'], delta_quat_wxyz)
+            norm_right = np.linalg.norm(new_quat_right)
+            if norm_right > 1e-6:
+                self._state['right_wrist_quat'] = new_quat_right / norm_right
+            
+            print(f"[Both Hands] Pitch: +{self.cfg.rot_sensitivity:.3f} rad")
+        
+        elif key_name == "G":
+            # Apply pitch rotation to both hands (opposite direction)
+            delta_rpy = np.array([0.0, -self.cfg.rot_sensitivity, 0.0])
+            
+            # Apply to left hand
+            delta_quat = Rotation.from_euler('xyz', delta_rpy).as_quat()
+            delta_quat_wxyz = np.array([delta_quat[3], delta_quat[0], delta_quat[1], delta_quat[2]])
+            new_quat_left = self._quaternion_multiply(self._state['left_wrist_quat'], delta_quat_wxyz)
+            norm_left = np.linalg.norm(new_quat_left)
+            if norm_left > 1e-6:
+                self._state['left_wrist_quat'] = new_quat_left / norm_left
+            
+            # Apply to right hand
+            new_quat_right = self._quaternion_multiply(self._state['right_wrist_quat'], delta_quat_wxyz)
+            norm_right = np.linalg.norm(new_quat_right)
+            if norm_right > 1e-6:
+                self._state['right_wrist_quat'] = new_quat_right / norm_right
+            
+            print(f"[Both Hands] Pitch: -{self.cfg.rot_sensitivity:.3f} rad")
+        
+        # K: Close both grippers
         elif key_name == "K":
-            self._state['left_hand'] = -self._state['left_hand']
-            self._state['right_hand'] = -self._state['right_hand']
-            status = "CLOSED" if self._state['left_hand'] < 0 else "OPEN"
-            print(f"[Both Hands] Grippers: {status}")
+            self._state['left_hand'] = 1.0  # Closed (any non-zero value)
+            self._state['right_hand'] = 1.0
+            print(f"[Both Hands] Grippers: CLOSED (grip)")
+        
+        # J: Open both grippers
+        elif key_name == "J":
+            self._state['left_hand'] = 0.0  # Open (zero value)
+            self._state['right_hand'] = 0.0
+            print(f"[Both Hands] Grippers: OPEN (release)")
     
     def _process_hand_input(self, key_name: str, hand: str):
         """Process hand control input."""
@@ -590,9 +642,13 @@ class KeyboardTo23DAdapter:
         
         # Gripper control
         elif key_name == "K":
-            self._state[gripper_key] = -self._state[gripper_key]  # Toggle between -1 and 1
-            status = "CLOSED" if self._state[gripper_key] < 0 else "OPEN"
-            print(f"[{hand.capitalize()} Hand] Gripper: {status}")
+            # Close gripper
+            self._state[gripper_key] = 1.0  # Closed (any non-zero value)
+            print(f"[{hand.capitalize()} Hand] Gripper: CLOSED (grip)")
+        elif key_name == "J":
+            # Open gripper
+            self._state[gripper_key] = 0.0  # Open (zero value)
+            print(f"[{hand.capitalize()} Hand] Gripper: OPEN (release)")
     
     def _process_base_nav_input(self, key_name: str):
         """Process base navigation input."""
@@ -700,8 +756,8 @@ class KeyboardTo23DAdapter:
         """Print current state status."""
         print("─" * 60)
         print(f"Current Mode: {self.mode.value.upper()} {'🔒' if self.mode.value in self.locked_dims else ''}")
-        print(f"Left Hand:  Pos({self._state['left_wrist_pos'][0]:.2f}, {self._state['left_wrist_pos'][1]:.2f}, {self._state['left_wrist_pos'][2]:.2f})  {'CLOSED' if self._state['left_hand'] < 0 else 'OPEN'}")
-        print(f"Right Hand: Pos({self._state['right_wrist_pos'][0]:.2f}, {self._state['right_wrist_pos'][1]:.2f}, {self._state['right_wrist_pos'][2]:.2f})  {'CLOSED' if self._state['right_hand'] < 0 else 'OPEN'}")
+        print(f"Left Hand:  Pos({self._state['left_wrist_pos'][0]:.2f}, {self._state['left_wrist_pos'][1]:.2f}, {self._state['left_wrist_pos'][2]:.2f})  {'CLOSED' if self._state['left_hand'] != 0 else 'OPEN'}")
+        print(f"Right Hand: Pos({self._state['right_wrist_pos'][0]:.2f}, {self._state['right_wrist_pos'][1]:.2f}, {self._state['right_wrist_pos'][2]:.2f})  {'CLOSED' if self._state['right_hand'] != 0 else 'OPEN'}")
         print(f"Navigation: vx={self._state['navigate_cmd'][0]:.2f} vy={self._state['navigate_cmd'][1]:.2f} ω={self._state['navigate_cmd'][2]:.2f}")
         print(f"Base:       Height={self._state['base_height']:.2f}m")
         print(f"Torso:      R={self._state['torso_rpy'][0]:.2f} P={self._state['torso_rpy'][1]:.2f} Y={self._state['torso_rpy'][2]:.2f}")

@@ -22,6 +22,7 @@ from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim import schemas
 import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.from_files import UsdFileCfg
+from isaaclab_arena.assets.custom_spawners_orca import spawn_usd_reference_direct
 
 
 class LibraryObject(Object):
@@ -288,6 +289,37 @@ class OrcaPlate(LibraryObject):
 
 
 @register_asset
+class OrcaBox(LibraryObject):
+    """
+    A sterile container from the ORCA healthcare scene.
+    """
+
+    name = "orca_box"
+    tags = ["object"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.5.0/Props/OrcaScenes/Scene1DevMz/SurgicalRoom/Assets/SterilizationContainer002/SterilizationContainer002.usd"
+    default_prim_path = "{ENV_REGEX_NS}/orca_box"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        """
+        Use direct USD reference spawning and defer contact sensor activation.
+        """
+        object_cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=UsdFileCfg(
+                func=spawn_usd_reference_direct,
+                usd_path=self.usd_path,
+                scale=self.scale,
+                activate_contact_sensors=False,
+            ),
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
+
+@register_asset
 class OrcaCart(Object):
     """
     A surgical cart from the ORCA healthcare scene.
@@ -302,7 +334,7 @@ class OrcaCart(Object):
         prim_path: str | None = None, 
         initial_pose: Pose | None = None,
         kinematic_enabled: bool = True,
-        mass: float = 20.0,
+        mass: float = 1.0,
         linear_damping: float = 0.0,
         angular_damping: float = 0.0,
         **kwargs

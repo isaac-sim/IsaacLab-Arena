@@ -35,7 +35,6 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             linear_damping=0.005,       # Very low damping - easy to push
             angular_damping=0.005,      # Very low damping
         )
-        plate = self.asset_registry.get_asset_by_name("orca_plate")()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
@@ -47,13 +46,7 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background.set_initial_pose(Pose(position_xyz=(4.0, 0.0, -0.8), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(1.0, 0.0, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
-            )
-        )
-        plate.set_initial_pose(
-            Pose(
-                position_xyz=(1.0, -0.7, 0.0),  # Position plate near the box
+                position_xyz=(1.0, 0.0, 0.0),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
@@ -80,7 +73,7 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             action_cfg = embodiment.get_action_cfg()
             action_cfg.g1_action.use_p_control = False  # NOTE(mingxueg): set to false to avoid auto-nav without model output, if True, needs to setaction_cfg.g1_action.navigation_subgoals
 
-        scene = Scene(assets=[background, pick_up_object, plate, destination_cart])
+        scene = Scene(assets=[background, pick_up_object, destination_cart])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -92,6 +85,6 @@ class OrcaG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="brown_box")
+        parser.add_argument("--object", type=str, default="orca_box")
         parser.add_argument("--embodiment", type=str, default="g1_wbc_pink")
         parser.add_argument("--teleop_device", type=str, default=None)
