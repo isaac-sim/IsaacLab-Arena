@@ -106,28 +106,6 @@ class GalileoBackground(LibraryBackground):
         super().__init__()
 
 
-# NOTE(alexmillane, 2025.09.15): I am adding this background such that we can use
-# it during development. We DO NOT intend to ship this background publicly. It
-# is kitchen and should only be usable through `lwlab`.
-# TODO(alexmillane, 2025.09.15): Remove this background once we get up and running
-# with lightwheel.
-@register_asset
-class LightwheelKitchenBackground(LibraryBackground):
-    """
-    Encapsulates the background scene for the lightwheel kitchen.
-    """
-
-    name = "lightwheel_kitchen"
-    tags = ["background"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/lightwheel_assets_for_deletion/robocasakitchen-4-2/scene.usd"
-    initial_pose = Pose(position_xyz=(-1.20, 1.70, -0.92), rotation_wxyz=(1.0, 0, 0, 0))
-    object_min_z = -0.2
-
-    def __init__(self):
-        print(f"DO NOT SHIP THIS ASSET: {self.name}")
-        super().__init__()
-
-
 @register_asset
 class GalileoLocomanipBackground(LibraryBackground):
     """

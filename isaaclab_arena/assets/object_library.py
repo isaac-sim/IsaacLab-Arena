@@ -104,34 +104,6 @@ class TomatoSoupCan(LibraryObject):
 
 
 @register_asset
-class LightWheelKettle21(LibraryObject):
-    """
-    Encapsulates the pick-up object config for a pick-and-place environment.
-    """
-
-    name = "lightwheel_kettle_21"
-    tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/Kettle021/Kettle021.usd"
-
-    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
-
-
-@register_asset
-class LightWheelPot51(LibraryObject):
-    """
-    Encapsulates the pick-up object config for a pick-and-place environment.
-    """
-
-    name = "lightwheel_pot_51"
-    tags = ["object"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/Pot051/Pot051.usd"
-
-    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
-
-
-@register_asset
 class PowerDrill(LibraryObject):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
