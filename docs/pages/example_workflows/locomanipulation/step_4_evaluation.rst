@@ -87,9 +87,10 @@ Test the policy in a single environment with visualization via the GUI run:
      --embodiment g1_wbc_joint
 
 The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics. Note that all these metrics are computed over the entire
-evaluation process, and is affected by the quality of post-trained policy, the quality of the
-dataset, and number of steps in the evaluation.
+You should see similar metrics.
+
+Note that all these metrics are computed over the entire evaluation process, and are affected
+by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. code-block:: text
 

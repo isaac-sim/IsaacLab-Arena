@@ -86,8 +86,9 @@ Test the policy in a single environment with visualization via the GUI run:
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics. The success rate shall be more than 0.8, and the door moved rate
-should be greater than 0.9, and the number of episodes should be in the range of 10-20. Note that
-all these metrics are computed over the entire evaluation process, and is affected by the quality of
+should be greater than 0.9, and the number of episodes should be in the range of 10-20.
+
+Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. tabs::
