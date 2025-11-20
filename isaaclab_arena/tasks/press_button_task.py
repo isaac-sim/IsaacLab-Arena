@@ -72,6 +72,9 @@ class PressButtonTask(TaskBase):
             lookat_object=self.pressable_object,
             offset=np.array([-1.5, -1.5, 1.5]),
         )
+    
+    def get_rewards_cfg(self) -> Any:
+        return None
 
 
 @configclass
