@@ -379,23 +379,7 @@
 <h1>Policy Post-Training<a class="headerlink" href="#policy-post-training" title="Link to this heading">#</a></h1>
 <p>This workflow covers post-training an example policy using the generated dataset,
 here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.5</a> as the base model.</p>
-<p>Note that this tutorial assumes that you’ve completed the
-<a class="reference internal" href="step_2_data_generation.html"><span class="doc">preceding step (Data Generation)</span></a> or downloaded the pre-generated dataset.</p>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Download Pre-generated Dataset (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">These commands can be used to download the mimic-generated HDF5 dataset ready for policy post-training,
-such that the preceding steps can be skipped.</p>
-<p class="sd-card-text">To download run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
-</pre></div>
-</div>
-</div>
-</details><p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
+<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
 </pre></div>
 </div>
@@ -412,7 +396,23 @@ We have not tested these instructions, and therefore we do not recommend using
 the <strong>Base + GR00T</strong> container for policy post-training and evaluation on
 Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.</p>
 </div>
-<section id="step-1-convert-to-lerobot-format">
+<p>Note that this tutorial assumes that you’ve completed the
+<a class="reference internal" href="step_2_data_generation.html"><span class="doc">preceding step (Data Generation)</span></a> or downloaded the pre-generated dataset.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Download Pre-generated Dataset (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands can be used to download the mimic-generated HDF5 dataset ready for policy post-training,
+such that the preceding steps can be skipped.</p>
+<p class="sd-card-text">To download run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
+</pre></div>
+</div>
+</div>
+</details><section id="step-1-convert-to-lerobot-format">
 <h2>Step 1: Convert to LeRobot Format<a class="headerlink" href="#step-1-convert-to-lerobot-format" title="Link to this heading">#</a></h2>
 <p>GR00T N1.5 requires the dataset to be in LeRobot format.
 We provide a script to convert from the IsaacLab Mimic generated HDF5 dataset to LeRobot format.
@@ -503,20 +503,6 @@ python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><
 <p>If you have less powerful GPUs, please see the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning">GR00T fine-tuning guidelines</a>
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results. We recommend fine-tuning the visual backbone, projector, and diffusion model for better results.</p>
-<p>. note:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>If you encounter the following error when running the post-training command:
-
-.. code-block:: none
-
-   FileNotFoundError: [Errno 2] No such file or directory: &#39;torchrun&#39;
-
-Please add the following in your terminal before running the post-training command:
-
-.. code-block:: bash
-
-   export PATH=/isaac-sim/kit/python/bin:${PATH}
-</pre></div>
-</div>
 </section>
 </section>
 

@@ -35,6 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/tabs.css?v=a5c4661c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
@@ -49,6 +50,7 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script src="../../../_static/tabs.js?v=3030b3cb"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/static_manipulation/step_5_evaluation';</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -379,21 +381,7 @@
 <h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
 <p>This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.</p>
-<p>Note that this tutorial assumes that you’ve completed the
-<a class="reference internal" href="step_4_policy_training.html"><span class="doc">preceding step (Policy Training)</span></a> or downloaded the
-pre-trained model checkpoint below:</p>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Download Pre-trained Model (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
-such that the preceding steps can be skipped.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>nvidia/GN1x-Tuned-Arena-GR1-Manipulation<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/checkpoint-20000
-</pre></div>
-</div>
-</div>
-</details><p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
+<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
 </pre></div>
 </div>
@@ -410,7 +398,21 @@ We have not tested these instructions, and therefore we do not recommend using
 the <strong>Base + GR00T</strong> container for policy post-training and evaluation on
 Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.</p>
 </div>
-<section id="step-1-run-single-environment-evaluation">
+<p>Note that this tutorial assumes that you’ve completed the
+<a class="reference internal" href="step_4_policy_training.html"><span class="doc">preceding step (Policy Training)</span></a> or downloaded the
+pre-trained model checkpoint below:</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Download Pre-trained Model (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
+such that the preceding steps can be skipped.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/GN1x-Tuned-Arena-GR1-Manipulation<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/checkpoint-20000
+</pre></div>
+</div>
+</div>
+</details><section id="step-1-run-single-environment-evaluation">
 <h2>Step 1: Run Single Environment Evaluation<a class="headerlink" href="#step-1-run-single-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>We first run the policy in a single environment with visualization via the GUI.</p>
 <p>The GR00T model is configured by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml</span></code>.</p>
@@ -449,10 +451,18 @@ Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.</p>
 </pre></div>
 </div>
 <p>The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {success_rate: 1.0, door_moved_rate: 1.0, num_episodes: 2}
+You should see similar metrics. The success rate shall be more than 0.8, and the door moved rate
+should be greater than 0.9, and the number of episodes should be in the range of 10-20.</p>
+<p>Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
+post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8823529411764706, &#39;door_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 17}
 </pre></div>
 </div>
+</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 1.0, &#39;door_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 19}
+</pre></div>
+</div>
+</div></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Note that the embodiment used in closed-loop policy inference is <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code>, which is different

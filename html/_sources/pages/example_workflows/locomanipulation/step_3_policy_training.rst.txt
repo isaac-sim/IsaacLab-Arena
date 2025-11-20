@@ -4,6 +4,24 @@ Policy Post-Training
 This workflow covers post-training an example policy using the generated dataset,
 here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
+**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+
+:docker_run_gr00t:
+
+Once inside the container, set the dataset and models directories.
+
+.. code:: bash
+
+    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
+    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
+
+.. note::
+    The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
+    instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
+    We have not tested these instructions, and therefore we do not recommend using
+    the **Base + GR00T** container for policy post-training and evaluation on
+    Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.
+
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_2_data_generation>` or downloaded the pre-generated dataset.
 
@@ -22,25 +40,6 @@ Note that this tutorial assumes that you've completed the
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
          --local-dir $DATASET_DIR
-
-
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
-
-:docker_run_gr00t:
-
-Once inside the container, set the dataset and models directories.
-
-.. code:: bash
-
-    export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
-
-.. note::
-    The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
-    instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
-    We have not tested these instructions, and therefore we do not recommend using
-    the **Base + GR00T** container for policy post-training and evaluation on
-    Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.
 
 Step 1: Convert to LeRobot Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -149,17 +148,3 @@ To post-train the policy, run the following command
 If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results. We recommend fine-tuning the visual backbone, projector, and diffusion model for better results.
-
-. note::
-
-   If you encounter the following error when running the post-training command:
-
-   .. code-block:: none
-
-      FileNotFoundError: [Errno 2] No such file or directory: 'torchrun'
-
-   Please add the following in your terminal before running the post-training command:
-
-   .. code-block:: bash
-
-      export PATH=/isaac-sim/kit/python/bin:${PATH}
