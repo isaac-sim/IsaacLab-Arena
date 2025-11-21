@@ -80,6 +80,13 @@ To visualize the data produced, you can replay the dataset using the following c
 
 You should see the robot successfully perform the task.
 
+.. figure:: ../../../images/g1_locomanip_pick_and_place_task_view.png
+   :width: 100%
+   :alt: G1 Locomanip Pick and Place Task View
+   :align: center
+
+   IsaacLab Arena G1 Locomanip Pick and Place Task View
+
 .. note::
 
    The dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
