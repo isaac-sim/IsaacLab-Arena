@@ -1,8 +1,14 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """
 External data configuration module for UnitreeG1 WBC simulation.
 This module can be loaded as an external config using:
 isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig
 """
+
 from gr00t.data.dataset import ModalityConfig
 from gr00t.data.transform.base import ComposedModalityTransform, ModalityTransform
 from gr00t.data.transform.concat import ConcatTransform

@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
 dataset_path: "/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot/"
 

@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import argparse
 
 from isaaclab_arena.examples.example_environments.cli import get_isaaclab_arena_example_environment_cli_parser

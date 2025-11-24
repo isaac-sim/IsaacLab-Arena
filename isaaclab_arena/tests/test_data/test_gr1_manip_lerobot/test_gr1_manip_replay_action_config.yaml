@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # This file shows how to configure the ReplayLerobotActionPolicy class for G1 locomanipulation task
 # TODO(xinjie.yao, 2025-09-30): change Hardcoded dataset_path to some releasable path
 dataset_path: isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/

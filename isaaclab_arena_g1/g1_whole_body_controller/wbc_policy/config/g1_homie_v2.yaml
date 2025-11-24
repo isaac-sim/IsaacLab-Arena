@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Default joint angles for legs
 default_angles: [-0.1, 0.0, 0.0, 0.3, -0.2, 0.0,
                  -0.1, 0.0, 0.0, 0.3, -0.2, 0.0,

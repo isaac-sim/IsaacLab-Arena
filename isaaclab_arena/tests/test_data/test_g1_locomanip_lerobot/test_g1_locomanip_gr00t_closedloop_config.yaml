@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # This file shows how to configure the Gr00tClosedloopPolicy class for G1 locomanipulation task
 model_path: /checkpoints/gn1_5_g1_galileo_box_npnp/checkpoint-20000
 # model_path: /datasets/ckpts/gn1_5_g1_galileo_box_npnp_ckpts/100_v2/

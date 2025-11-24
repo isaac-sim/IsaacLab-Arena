@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.sim import SimulationCfg

@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 repos:
   - repo: https://github.com/python/black
     rev: 24.3.0
@@ -50,3 +55,14 @@ repos:
       - id: rst-backticks
       - id: rst-directive-colons
       - id: rst-inline-touching-normal
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.1
+    hooks:
+      - id: insert-license
+        files: \.(py|ya?ml)$
+        args:
+          # - --remove-header    # Remove existing license headers. Useful when updating license.
+          - --license-filepath
+          - .github/LICENSE_HEADER.txt
+          - --use-current-year
+        exclude: "submodules/"

@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.utils.pose import Pose
