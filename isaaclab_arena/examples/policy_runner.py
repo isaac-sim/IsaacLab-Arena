@@ -31,7 +31,7 @@ def main():
 
     # NOTE(alexmillane, 2025-10-30): We only support single environment evaluation for now.
     if args_cli.num_envs > 1:
-        raise ValueError("Only single environment evaluation is supported in Isaac Lab Arena v0.1.")
+        raise ValueError("Only single environment evaluation is supported in Isaac Lab Arena v0.1.0.")
 
     # Start the simulation app
     with SimulationAppContext(args_cli):
