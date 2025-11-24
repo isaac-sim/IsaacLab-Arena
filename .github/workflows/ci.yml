@@ -65,6 +65,8 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v3
+        with:
+          python-version: '3.11'
 
       - name: Install project and link isaac-sim
         run: |
