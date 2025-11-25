@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gymnasium as gym
-import numpy as np
 import torch
 from pathlib import Path
 from typing import Any
@@ -197,13 +196,17 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
             # NOTE(xinjieyao, 2025-09-29): GR00T output dim=32, does not fit the entire action space,
             # including torso_orientation_rpy_command. Manually set it to 0.
-            torso_orientation_rpy_command = np.zeros(robot_action_policy["action.navigate_command"].shape)
+            torso_orientation_rpy_command = torch.zeros(
+                robot_action_policy["action.navigate_command"].shape, dtype=torch.float, device=self.device
+            )
             action_tensor = torch.cat(
                 [
                     robot_action_sim.get_joints_pos(),
-                    torch.from_numpy(robot_action_policy["action.navigate_command"]).to(self.device),
-                    torch.from_numpy(robot_action_policy["action.base_height_command"]).to(self.device),
-                    torch.from_numpy(torso_orientation_rpy_command).to(self.device),
+                    torch.tensor(robot_action_policy["action.navigate_command"], dtype=torch.float, device=self.device),
+                    torch.tensor(
+                        robot_action_policy["action.base_height_command"], dtype=torch.float, device=self.device
+                    ),
+                    torso_orientation_rpy_command,
                 ],
                 axis=2,
             )
