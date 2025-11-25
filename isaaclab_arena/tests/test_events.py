@@ -35,7 +35,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     destination_location = ObjectReference(
         name="destination_location",
-        prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+        prim_path="{ENV_REGEX_NS}/kitchen_with_open_drawer/Cabinet_B_02",
         parent_asset=background,
     )
 

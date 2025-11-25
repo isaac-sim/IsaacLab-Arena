@@ -8,18 +8,16 @@ import torch
 import tqdm
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.utils.pose import Pose
 
-# NOTE(xinjieyao, 2025-09-23): More than double the num of steps as sim.dt is changed from 0.01 to 0.005
-# Give more steps to let the object fall down to the drawer
 NUM_STEPS = 50
 HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
 
-def get_test_background():
+def get_test_background(initial_pose: Pose):
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.utils.pose import Pose
 
     class ObjectReferenceTestKitchenBackground(Background):
         """
@@ -31,14 +29,14 @@ def get_test_background():
                 name="kitchen",
                 tags=["background", "pick_and_place"],
                 usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd",
-                initial_pose=Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711)),
+                initial_pose=initial_pose,
                 object_min_z=-0.2,
             )
 
     return ObjectReferenceTestKitchenBackground()
 
 
-def _test_reference_objects(simulation_app) -> bool:
+def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
 
     from isaaclab.managers import SceneEntityCfg
 
@@ -60,7 +58,7 @@ def _test_reference_objects(simulation_app) -> bool:
     # - cracker box (target object)
     # - drawer (destination location)
     # - microwave (openable object)
-    background = get_test_background()
+    background = get_test_background(background_pose)
     embodiment = FrankaEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
@@ -81,6 +79,7 @@ def _test_reference_objects(simulation_app) -> bool:
         openable_joint_name="microjoint",
         openable_open_threshold=0.5,
     )
+
     scene = Scene(assets=[background, cracker_box, microwave])
 
     # Build the environment
@@ -110,6 +109,7 @@ def _test_reference_objects(simulation_app) -> bool:
 
         # Run some zero actions.
         terminated_list: list[bool] = []
+        success_list: list[bool] = []
         open_list: list[bool] = []
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
@@ -117,10 +117,10 @@ def _test_reference_objects(simulation_app) -> bool:
                     open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
-                print(f"terminated: {terminated.item()}")
-                terminated_list.append(terminated.item())
+                success = env.termination_manager.get_term("success")
                 is_open = microwave.is_open(env, SceneEntityCfg(microwave.name))
-                print(f"is_open: {is_open.item()}")
+                terminated_list.append(terminated.item())
+                success_list.append(success.item())
                 open_list.append(is_open.item())
 
     except Exception as e:
@@ -137,12 +137,25 @@ def _test_reference_objects(simulation_app) -> bool:
     print(f"terminated_list: {terminated_list}")
     assert np.any(np.array(terminated_list))  # == True
     assert np.any(np.logical_not(np.array(terminated_list)))  # == False
+    print("Checking scene started not success and then became success")
+    print(f"success_list: {success_list}")
+    assert np.any(np.array(success_list))  # == True
+    assert np.any(np.logical_not(np.array(success_list)))  # == False
     print("Checking that the microwave started not open and then became open")
     print(f"open_list: {open_list}")
     assert np.any(np.array(open_list))  # == True
     assert np.any(np.logical_not(np.array(open_list)))  # == False
 
     return True
+
+
+def _test_reference_objects(simulation_app) -> bool:
+    return _test_reference_objects_with_background_pose(Pose.identity())
+
+
+def _test_reference_objects_with_transform(simulation_app) -> bool:
+    background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
+    return _test_reference_objects_with_background_pose(background_pose)
 
 
 def test_reference_objects():
@@ -153,5 +166,17 @@ def test_reference_objects():
     assert result, "Test failed"
 
 
+def test_reference_objects_with_transform():
+    # NOTE(alexmillane, 2025-11-25): The idea here is to test that
+    # the test still works if the whole environment is translated and rotated.
+    # This relies on the reference objects relative poses being correct.
+    result = run_simulation_app_function(
+        _test_reference_objects_with_transform,
+        headless=HEADLESS,
+    )
+    assert result, "Test failed"
+
+
 if __name__ == "__main__":
     test_reference_objects()
+    test_reference_objects_with_transform()
