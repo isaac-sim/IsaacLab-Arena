@@ -13,6 +13,11 @@ from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 from gr00t.model.policy import Gr00tPolicy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
+    BASE_HEIGHT_CMD_DIM,
+    NAVIGATE_CMD_DIM,
+    TORSO_ORIENTATION_RPY_CMD_DIM,
+)
 from isaaclab_arena_gr00t.data_utils.image_conversion import resize_frames_with_padding
 from isaaclab_arena_gr00t.data_utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
 from isaaclab_arena_gr00t.data_utils.joints_conversion import (
@@ -42,12 +47,20 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.policy_config.action_joints_config_path
         )
         self.robot_state_joints_config = self.load_sim_state_joints_config(self.policy_config.state_joints_config_path)
+
+        self.action_dim = len(self.robot_action_joints_config)
+        if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
+            # GR00T outputs are used for WBC inputs dim. So adding WBC commands to the action dim.
+            # WBC commands: navigate_command, base_height_command, torso_orientation_rpy_command
+            self.action_dim += NAVIGATE_CMD_DIM + BASE_HEIGHT_CMD_DIM + TORSO_ORIENTATION_RPY_CMD_DIM
+
         # initialize to NaN to indicate that the action chunk is not yet computed
         self.current_action_chunk = torch.ones(
-            (num_envs, self.num_feedback_actions, len(self.robot_action_joints_config)),
+            (num_envs, self.num_feedback_actions, self.action_dim),
             dtype=torch.float32,
             device=device,
         ) * float("nan")
+
         self.current_action_index = torch.zeros(num_envs, dtype=torch.int32, device=device)
 
     def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
@@ -150,7 +163,10 @@ class Gr00tClosedloopPolicy(PolicyBase):
         assert self.current_action_index.min() >= 0, "At least one env's action index is less than 0"
         # for i-th row in action_chunk, use the value of i-th element in current_action_index to select the action from the action chunk
         action = self.current_action_chunk[torch.arange(self.num_envs), self.current_action_index]
-        assert action.shape == env.action_space.shape, f"{action.shape=} != {env.action_space.shape=}"
+        assert action.shape == (
+            self.num_envs,
+            self.action_dim,
+        ), f"{action.shape=} != ({self.num_envs}, {self.action_dim})"
 
         self.current_action_index += 1
 
@@ -195,7 +211,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if env_ids is None:
             env_ids = slice(None)
         self.current_action_chunk[env_ids] = torch.ones(
-            (len(env_ids), self.num_feedback_actions, len(self.robot_action_joints_config)),
+            (len(env_ids), self.num_feedback_actions, self.action_dim),
             dtype=torch.float32,
             device=self.device,
         ) * float("nan")
