@@ -3,9 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
@@ -83,12 +83,35 @@ class ObjectReference(ObjectBase):
             # Remove the ENV_REGEX_NS prefix from the prim path (because this
             # is added later by IsaacLab). In the original USD file, the prim path
             # is the path after the ENV_REGEX_NS prefix.
-            prim_path = self.prim_path.replace("{ENV_REGEX_NS}", "")
-            prim = parent_stage.GetPrimAtPath(prim_path)
+            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(self.prim_path, parent_asset, parent_stage)
+            prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
-                raise ValueError(f"No prim found with path {prim_path} in {parent_asset.usd_path}")
+                raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
             print(f"prim: {prim}")
             return get_prim_pose_in_default_prim_frame(prim, parent_stage)
+
+    def isaaclab_prim_path_to_original_prim_path(
+        self, isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage
+    ) -> str:
+        """Convert an IsaacLab prim path to the prim path in the original USD stage.
+
+        Two steps to getting the original prim path from the IsaacLab prim path.
+
+        # 1. Remove the ENV_REGEX_NS prefix
+        # 2. Replace the asset name with the default prim path.
+
+        Args:
+            isaaclab_prim_path: The IsaacLab prim path.
+
+        Returns:
+            The prim path in the original USD stage.
+        """
+        default_prim = stage.GetDefaultPrim()
+        default_prim_path = default_prim.GetPath()
+        assert default_prim_path is not None
+        original_prim_path = isaaclab_prim_path.replace("{ENV_REGEX_NS}/", "")
+        original_prim_path = original_prim_path.replace(parent_asset.name, str(default_prim_path))
+        return original_prim_path
 
 
 class OpenableObjectReference(ObjectReference, Openable):

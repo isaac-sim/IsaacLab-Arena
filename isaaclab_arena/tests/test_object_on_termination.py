@@ -9,8 +9,7 @@ import tqdm
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-# NOTE(xinjieyao, 2025-09-23): Double the num of steps as sim.dt is changed from 0.01 to 0.005
-NUM_STEPS = 40
+NUM_STEPS = 50
 HEADLESS = True
 PLOT = False
 
