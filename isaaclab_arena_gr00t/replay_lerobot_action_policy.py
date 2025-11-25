@@ -33,7 +33,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.trajectory_index = trajectory_index
         self.policy_iter = self.create_trajectory_iterator(trajectory_index)
         # determine rollout how many action prediction per observation
-        self.num_feedback_actions = self.policy_config.num_feedback_actions
+        self.action_chunk_length = self.policy_config.action_chunk_length
         self.current_action_index = 0
         self.current_action_chunk = None
         self.num_envs = num_envs
@@ -85,17 +85,17 @@ class ReplayLerobotActionPolicy(PolicyBase):
         # get new predictions and return the first action from the chunk
         if self.current_action_chunk is None and self.current_action_index == 0:
             self.current_action_chunk = self.get_action_chunk()
-            assert self.current_action_chunk.shape[1] >= self.num_feedback_actions
+            assert self.current_action_chunk.shape[1] >= self.action_chunk_length
 
         assert self.current_action_chunk is not None
-        assert self.current_action_index < self.num_feedback_actions
+        assert self.current_action_index < self.action_chunk_length
 
         action = self.current_action_chunk[:, self.current_action_index]
         assert action.shape == env.action_space.shape, f"{action.shape=} != {env.action_space.shape=}"
 
         self.current_action_index += 1
         # reset to empty action chunk
-        if self.current_action_index == self.num_feedback_actions:
+        if self.current_action_index == self.action_chunk_length:
             self.current_action_chunk = None
             self.current_action_index = 0
         return action
@@ -142,7 +142,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         elif self.task_mode == TaskMode.GR1_TABLETOP_MANIPULATION:
             action_tensor = robot_action_sim.get_joints_pos()
 
-        assert action_tensor.shape[1] >= self.num_feedback_actions
+        assert action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
 
     def reset(self):

@@ -68,7 +68,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
       action_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
       state_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
 
-      num_feedback_actions: 16
+      action_chunk_length: 16
       pov_cam_name_sim: "robot_head_cam_rgb"
 
       task_mode_name: g1_locomanipulation
