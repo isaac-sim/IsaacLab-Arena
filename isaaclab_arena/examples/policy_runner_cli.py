@@ -120,6 +120,7 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
         # see functional import sequence here https://github.com/isaac-sim/IsaacLabEvalTasks/blob/main/scripts/evaluate_gn1.py#L38
         from isaaclab_arena_gr00t.replay_lerobot_action_policy import ReplayLerobotActionPolicy
 
+        assert args.num_envs == 1, "Only single environment evaluation is supported for replay Lerobot action policy"
         policy = ReplayLerobotActionPolicy(
             args.config_yaml_path, num_envs=args.num_envs, device=args.device, trajectory_index=args.trajectory_index
         )

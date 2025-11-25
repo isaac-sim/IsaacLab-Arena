@@ -12,5 +12,5 @@ data_config: unitree_g1_sim_wbc
 
 policy_joints_config_path: isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml
 action_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
-num_feedback_actions: 1
+action_chunk_length: 1
 task_mode_name: g1_locomanipulation

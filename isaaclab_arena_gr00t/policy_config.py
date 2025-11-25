@@ -52,17 +52,17 @@ class LerobotReplayActionPolicyConfig:
         },
     )
     # action chunking specific parameters
-    num_feedback_actions: int = field(
+    action_chunk_length: int = field(
         default=1,  # Replay actions from every recorded timestamp in the dataset
         metadata={
-            "description": "Number of feedback actions to execute per rollout (can be less than action_horizon)."
+            "description": "Number of actions to execute per inference rollout (can be less than action_horizon)."
         },
     )
 
     def __post_init__(self):
         assert (
-            self.num_feedback_actions <= self.action_horizon
-        ), "num_feedback_actions must be less than or equal to action_horizon"
+            self.action_chunk_length <= self.action_horizon
+        ), "action_chunk_length must be less than or equal to action_horizon"
         # assert all paths exist
         assert Path(
             self.policy_joints_config_path
@@ -157,18 +157,18 @@ class Gr00tClosedloopPolicyConfig:
         default="robot_head_cam_rgb", metadata={"description": "Name of the POV camera of the robot in simulation."}
     )
     # Closed loop specific parameters
-    num_feedback_actions: int = field(
+    action_chunk_length: int = field(
         default=16,
         metadata={
-            "description": "Number of feedback actions to execute per rollout (can be less than action_horizon)."
+            "description": "Number of actions to execute per inference rollout (can be less than action_horizon)."
         },
     )
     seed: int = field(default=10, metadata={"description": "Random seed for reproducibility."})
 
     def __post_init__(self):
         assert (
-            self.num_feedback_actions <= self.action_horizon
-        ), "num_feedback_actions must be less than or equal to action_horizon"
+            self.action_chunk_length <= self.action_horizon
+        ), "action_chunk_length must be less than or equal to action_horizon"
         # assert all paths exist
         assert Path(
             self.policy_joints_config_path
