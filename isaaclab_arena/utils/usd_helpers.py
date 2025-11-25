@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from contextlib import contextmanager
+
 from pxr import Usd, UsdPhysics
 
 
@@ -45,3 +47,14 @@ def is_rigid_body(prim: Usd.Prim) -> bool:
 def get_prim_depth(prim: Usd.Prim) -> int:
     """Get the depth of a prim"""
     return len(str(prim.GetPath()).split("/")) - 2
+
+
+@contextmanager
+def open_stage(path):
+    """Open a stage and ensure it is closed after use."""
+    stage = Usd.Stage.Open(path)
+    try:
+        yield stage
+    finally:
+        # Drop the local reference; Garbage Collection will reclaim once no prim/attr handles remain
+        del stage

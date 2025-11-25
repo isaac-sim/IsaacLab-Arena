@@ -8,8 +8,8 @@ import tqdm
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-NUM_STEPS = 10
-HEADLESS = True
+NUM_STEPS = 100
+HEADLESS = False
 MOVEMENT_EPS = 0.001
 
 

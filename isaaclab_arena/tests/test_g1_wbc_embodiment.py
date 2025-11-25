@@ -64,7 +64,7 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
         embodiment = G1WBCJointEmbodiment(enable_cameras=ENABLE_CAMERAS)
     # NOTE(xinjieyao, 2025.09.22): Set initial pose such that robot will not drop to the ground, causing WBC unstable.
     robot_init_base_pose = np.array([0, 0, 0])
-    embodiment.set_initial_pose(Pose(position_xyz=robot_init_base_pose, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    embodiment.set_initial_pose(Pose(position_xyz=tuple(robot_init_base_pose), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="g1_standing_test",

@@ -31,7 +31,7 @@ def _test_robot_initial_position(simulation_app):
     embodiment = asset_registry.get_asset_by_name("franka")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
-    robot_init_position = np.array([-0.2, 0.0, 0.0])
+    robot_init_position = (-0.2, 0.0, 0.0)
 
     cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
     embodiment.set_initial_pose(Pose(position_xyz=robot_init_position, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
@@ -60,13 +60,13 @@ def _test_robot_initial_position(simulation_app):
 
         # Check the robot ended up at the correct position.
         robot_position = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
-        robot_position_error = np.linalg.norm(robot_position - robot_init_position)
+        robot_position_error = np.linalg.norm(robot_position - np.array(robot_init_position))
         print(f"Robot position error: {robot_position_error}")
         assert robot_position_error < INITIAL_POSITION_EPS, "Robot ended up at the wrong position."
 
         # Check the stand ended up at the correct position.
         stand_position = env.scene["stand"].get_world_poses()[0].cpu().numpy()
-        stand_position_error = np.linalg.norm(stand_position - robot_init_position)
+        stand_position_error = np.linalg.norm(stand_position - np.array(robot_init_position))
         print(f"Stand position error: {stand_position_error}")
         assert stand_position_error < INITIAL_POSITION_EPS, "Stand ended up at the wrong position."
 
