@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple
-
 from pxr import Usd, UsdGeom, UsdSkel
 
 from isaaclab_arena.utils.pose import Pose

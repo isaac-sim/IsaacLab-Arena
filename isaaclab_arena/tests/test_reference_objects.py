@@ -10,9 +10,7 @@ import tqdm
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.utils.pose import Pose
 
-# NOTE(xinjieyao, 2025-09-23): More than double the num of steps as sim.dt is changed from 0.01 to 0.005
-# Give more steps to let the object fall down to the drawer
-NUM_STEPS = 100
+NUM_STEPS = 50
 HEADLESS = False
 OPEN_STEP = NUM_STEPS // 2
 
@@ -20,7 +18,6 @@ OPEN_STEP = NUM_STEPS // 2
 def get_test_background(initial_pose: Pose):
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.utils.pose import Pose
 
     class ObjectReferenceTestKitchenBackground(Background):
         """
@@ -32,7 +29,6 @@ def get_test_background(initial_pose: Pose):
                 name="kitchen",
                 tags=["background", "pick_and_place"],
                 usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd",
-                # initial_pose=Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711)),
                 initial_pose=initial_pose,
                 object_min_z=-0.2,
             )
@@ -76,24 +72,15 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         parent_asset=background,
         object_type=ObjectType.RIGID,
     )
-    # microwave = OpenableObjectReference(
-    #     name="microwave",
-    #     prim_path="{ENV_REGEX_NS}/kitchen/microwave",
-    #     parent_asset=background,
-    #     openable_joint_name="microjoint",
-    #     openable_open_threshold=0.5,
-    # )
+    microwave = OpenableObjectReference(
+        name="microwave",
+        prim_path="{ENV_REGEX_NS}/kitchen/microwave",
+        parent_asset=background,
+        openable_joint_name="microjoint",
+        openable_open_threshold=0.5,
+    )
 
-    # FOUND THE ERROR!
-    # INITIAL POSE IS NOT BEING RETRIEVED CORRECTLY!
-
-    # cracker_box.initial_pose = Pose(
-    #     position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817),
-    #     rotation_wxyz=(1, 0, 0, 0),
-    # )
-    # scene = Scene(assets=[background, cracker_box, microwave])
-    scene = Scene(assets=[background, cracker_box])
-    # scene = Scene(assets=[background])
+    scene = Scene(assets=[background, cracker_box, microwave])
 
     # Build the environment
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -110,34 +97,31 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
 
     try:
 
-        # def open_microwave():
-        #     with torch.inference_mode():
-        #         microwave.open(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
+        def open_microwave():
+            with torch.inference_mode():
+                microwave.open(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
 
-        # def close_microwave():
-        #     with torch.inference_mode():
-        #         microwave.close(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
+        def close_microwave():
+            with torch.inference_mode():
+                microwave.close(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
 
-        # close_microwave()
+        close_microwave()
 
         # Run some zero actions.
         terminated_list: list[bool] = []
         success_list: list[bool] = []
-        # open_list: list[bool] = []
+        open_list: list[bool] = []
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                # if _ == OPEN_STEP:
-                #     open_microwave()
+                if _ == OPEN_STEP:
+                    open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 success = env.termination_manager.get_term("success")
-                print(f"terminated: {terminated.item()}")
-                print(f"success: {success.item()}")
+                is_open = microwave.is_open(env, SceneEntityCfg(microwave.name))
                 terminated_list.append(terminated.item())
                 success_list.append(success.item())
-                # is_open = microwave.is_open(env, SceneEntityCfg(microwave.name))
-                # print(f"is_open: {is_open.item()}")
-                # open_list.append(is_open.item())
+                open_list.append(is_open.item())
 
     except Exception as e:
         print(f"Error: {e}")
@@ -157,10 +141,10 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     print(f"success_list: {success_list}")
     assert np.any(np.array(success_list))  # == True
     assert np.any(np.logical_not(np.array(success_list)))  # == False
-    # print("Checking that the microwave started not open and then became open")
-    # print(f"open_list: {open_list}")
-    # assert np.any(np.array(open_list))  # == True
-    # assert np.any(np.logical_not(np.array(open_list)))  # == False
+    print("Checking that the microwave started not open and then became open")
+    print(f"open_list: {open_list}")
+    assert np.any(np.array(open_list))  # == True
+    assert np.any(np.logical_not(np.array(open_list)))  # == False
 
     return True
 

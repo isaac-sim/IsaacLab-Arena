@@ -26,8 +26,8 @@ class Pose:
     """Quaternion from frame A to frame B. Order is (w, x, y, z)."""
 
     def __post_init__(self):
-        assert type(self.position_xyz) == tuple
-        assert type(self.rotation_wxyz) == tuple
+        assert isinstance(self.position_xyz, tuple)
+        assert isinstance(self.rotation_wxyz, tuple)
         assert len(self.position_xyz) == 3
         assert len(self.rotation_wxyz) == 4
 
