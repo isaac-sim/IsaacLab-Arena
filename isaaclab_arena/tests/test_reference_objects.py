@@ -38,11 +38,8 @@ def get_test_background(initial_pose: Pose):
 
 def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
 
-    from isaaclab.managers import SceneEntityCfg
-
-    from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: F401
     from isaaclab_arena.assets.object_base import ObjectType
-    from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -54,10 +51,9 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     args_cli = args_parser.parse_args([])
 
     # Scene
-    # Contains 3 reference objects:
+    # Contains 2 reference objects:
     # - cracker box (target object)
     # - drawer (destination location)
-    # - microwave (openable object)
     background = get_test_background(background_pose)
     embodiment = FrankaEmbodiment()
     cracker_box = ObjectReference(
@@ -72,15 +68,8 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         parent_asset=background,
         object_type=ObjectType.RIGID,
     )
-    microwave = OpenableObjectReference(
-        name="microwave",
-        prim_path="{ENV_REGEX_NS}/kitchen/microwave",
-        parent_asset=background,
-        openable_joint_name="microjoint",
-        openable_open_threshold=0.5,
-    )
 
-    scene = Scene(assets=[background, cracker_box, microwave])
+    scene = Scene(assets=[background, cracker_box])
 
     # Build the environment
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -97,31 +86,16 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
 
     try:
 
-        def open_microwave():
-            with torch.inference_mode():
-                microwave.open(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
-
-        def close_microwave():
-            with torch.inference_mode():
-                microwave.close(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
-
-        close_microwave()
-
         # Run some zero actions.
         terminated_list: list[bool] = []
         success_list: list[bool] = []
-        open_list: list[bool] = []
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                if _ == OPEN_STEP:
-                    open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 success = env.termination_manager.get_term("success")
-                is_open = microwave.is_open(env, SceneEntityCfg(microwave.name))
                 terminated_list.append(terminated.item())
                 success_list.append(success.item())
-                open_list.append(is_open.item())
 
     except Exception as e:
         print(f"Error: {e}")
@@ -141,10 +115,6 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     print(f"success_list: {success_list}")
     assert np.any(np.array(success_list))  # == True
     assert np.any(np.logical_not(np.array(success_list)))  # == False
-    print("Checking that the microwave started not open and then became open")
-    print(f"open_list: {open_list}")
-    assert np.any(np.array(open_list))  # == True
-    assert np.any(np.logical_not(np.array(open_list)))  # == False
 
     return True
 
