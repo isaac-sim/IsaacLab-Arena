@@ -23,17 +23,16 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
     )
     stage = Usd.Stage.Open(usd_path)
     prim = stage.GetPrimAtPath("/kitchen/_03_cracker_box")
-    print(f"prim: {prim}")
 
-    pos, rot = get_prim_pose_in_default_prim_frame(prim, stage)
-    print(f"Position relative to default prim: {pos}")
-    print(f"Orientation (quaternion wxyz) relative to default prim: {rot}")
+    pose = get_prim_pose_in_default_prim_frame(prim, stage)
+    print(f"Position relative to default prim: {pose.position_xyz}")
+    print(f"Orientation (quaternion wxyz) relative to default prim: {pose.rotation_wxyz}")
 
     # This number is read out of the GUI from the test scene.
     pos_np_gt = np.array((3.69020713150969, -0.804121657812894, 1.2531903565606817))
 
     # Here we compare the result with the number read out from the GUI.
-    pos_np = np.array(pos)
+    pos_np = np.array(pose.position_xyz)
     pos_np_diff = pos_np - pos_np_gt
     print(f"Position difference: {pos_np_diff}")
 
