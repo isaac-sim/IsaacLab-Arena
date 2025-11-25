@@ -14,9 +14,9 @@ from gr00t.model.policy import Gr00tPolicy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
-    BASE_HEIGHT_CMD_DIM,
-    NAVIGATE_CMD_DIM,
-    TORSO_ORIENTATION_RPY_CMD_DIM,
+    NUM_BASE_HEIGHT_CMD,
+    NUM_NAVIGATE_CMD,
+    NUM_TORSO_ORIENTATION_RPY_CMD,
 )
 from isaaclab_arena_gr00t.data_utils.image_conversion import resize_frames_with_padding
 from isaaclab_arena_gr00t.data_utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
@@ -52,7 +52,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
             # GR00T outputs are used for WBC inputs dim. So adding WBC commands to the action dim.
             # WBC commands: navigate_command, base_height_command, torso_orientation_rpy_command
-            self.action_dim += NAVIGATE_CMD_DIM + BASE_HEIGHT_CMD_DIM + TORSO_ORIENTATION_RPY_CMD_DIM
+            self.action_dim += NUM_NAVIGATE_CMD + NUM_BASE_HEIGHT_CMD + NUM_TORSO_ORIENTATION_RPY_CMD
 
         # initialize to NaN to indicate that the action chunk is not yet computed
         self.current_action_chunk = torch.ones(
