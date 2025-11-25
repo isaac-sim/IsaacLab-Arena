@@ -48,20 +48,12 @@ def main():
         for _ in tqdm.tqdm(range(num_steps)):
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
-<<<<<<< HEAD
-                obs, _, terminated, truncated, _ = env.step(actions)
-                print(f"terminated: {terminated}, truncated: {truncated}")
-=======
                 obs, _, terminated, _, _ = env.step(actions)
 
->>>>>>> 0db4a0ea (cleanup policy reset for multienv)
                 if terminated.any():
                     # only reset policy for those envs that are terminated
                     terminated_env_ids = terminated.nonzero().flatten()
-<<<<<<< HEAD
                     # only reset policy for those envs that are terminated
-=======
->>>>>>> 0db4a0ea (cleanup policy reset for multienv)
                     policy.reset(env_ids=terminated_env_ids)
 
         metrics = compute_metrics(env)
