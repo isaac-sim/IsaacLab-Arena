@@ -37,7 +37,6 @@ def _test_object_of_type_base(simulation_app):
         usd_path = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Shapes/cone.usd"
         default_prim_path = "{ENV_REGEX_NS}/target_cone_no_physics"
         object_type = ObjectType.BASE
-        scale = (0.2, 0.2, 0.2)
 
         def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
             super().__init__(prim_path=prim_path, initial_pose=initial_pose)
