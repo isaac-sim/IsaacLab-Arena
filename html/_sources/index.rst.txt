@@ -134,7 +134,7 @@ Installation
 ============
 
 See our :doc:`pages/quickstart/installation` page for instructions.
-Note that ``isaaclab_arena`` version ``v0.1`` only supports installation from source in a docker container.
+Note that ``isaaclab_arena`` version ``v0.1.0`` only supports installation from source in a docker container.
 
 Examples
 ========
