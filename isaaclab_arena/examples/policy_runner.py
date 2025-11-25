@@ -53,7 +53,6 @@ def main():
                 if terminated.any():
                     # only reset policy for those envs that are terminated
                     terminated_env_ids = terminated.nonzero().flatten()
-                    # only reset policy for those envs that are terminated
                     policy.reset(env_ids=terminated_env_ids)
 
         metrics = compute_metrics(env)
