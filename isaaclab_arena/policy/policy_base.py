@@ -29,7 +29,7 @@ class PolicyBase(ABC):
         """
         pass
 
-    def reset(self, env: gym.Env) -> None:
+    def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """
         Reset the policy.
         """

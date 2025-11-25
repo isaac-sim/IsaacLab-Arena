@@ -3,14 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import pytest
-
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 ENABLE_CAMERAS = True
-NUM_STEPS = 10
+NUM_STEPS = 17
 NUM_ENVS = 3
 
 
@@ -37,9 +35,6 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env():
     run_subprocess(args)
 
 
-# NOTE(alexmillane, 2025-10-31): We've have to disable multi-env evaluation for now as it's not supported by the policy runner.
-# TODO(alexmillane, 2025-10-31): Un-skip this test once the policy runner supports multi-env evaluation.
-@pytest.mark.skip(reason="Skipping multi-env test for now")
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs():
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
