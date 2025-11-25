@@ -48,13 +48,16 @@ def main():
         for _ in tqdm.tqdm(range(num_steps)):
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
-                obs, _, terminated, _, _ = env.step(actions)
+                obs, _, terminated, truncated, _ = env.step(actions)
 
-                if terminated.any():
-                    # only reset policy for those envs that are terminated
-                    terminated_env_ids = terminated.nonzero().flatten()
-                    print(f"Resetting policy for terminated env_ids: {terminated_env_ids}")
-                    policy.reset(env_ids=terminated_env_ids)
+                if terminated.any() or truncated.any():
+                    # only reset policy for those envs that are terminated or truncated
+                    print(
+                        f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
+                        f" and truncated env_ids: {truncated.nonzero().flatten()}"
+                    )
+                    env_ids = (terminated | truncated).nonzero().flatten()
+                    policy.reset(env_ids=env_ids)
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
