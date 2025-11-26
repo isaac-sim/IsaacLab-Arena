@@ -36,6 +36,7 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+        self.object_cfg = self.get_cfg()
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
@@ -43,7 +44,7 @@ class ObjectBase(Asset, ABC):
     def get_prim_path(self) -> str:
         return self.prim_path
 
-    def get_cfgs(self) -> dict[str, Any]:
+    def get_cfg(self) -> dict[str, Any]:
         if self.object_type == ObjectType.RIGID:
             object_cfg = self._generate_rigid_cfg()
         elif self.object_type == ObjectType.ARTICULATION:
@@ -52,9 +53,7 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_base_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
-        return {
-            self.name: object_cfg,
-        }
+        return object_cfg
 
     def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
         """Get the pose of the object in the environment.

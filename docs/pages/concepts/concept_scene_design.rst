@@ -37,8 +37,7 @@ It reads all the registered assets and their cfgs and combines them into a confi
          # Combine the configs into a configclass.
          fields: list[tuple[str, type, AssetCfg]] = []
          for asset in self.assets.values():
-               for asset_cfg_name, asset_cfg in asset.get_cfgs().items():
-                  fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+               fields.append((asset.name, type(asset.object_cfg), asset.object_cfg))
          NewConfigClass = make_configclass("SceneCfg", fields)
          new_config_class = NewConfigClass()
          return new_config_class
