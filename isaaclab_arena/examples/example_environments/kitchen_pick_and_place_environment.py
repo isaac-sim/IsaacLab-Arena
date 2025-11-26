@@ -58,7 +58,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
-
+My
         scene = Scene(assets=[background, pick_up_object, destination_location])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,

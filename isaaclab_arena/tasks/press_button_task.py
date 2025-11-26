@@ -17,7 +17,7 @@ from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg, TerminationTermCfg, RewardTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.pressable import Pressable
@@ -25,6 +25,8 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.tasks.rewards import general_rewards
+from isaaclab.managers import SceneEntityCfg
 
 
 class PressButtonTask(TaskBase):
@@ -73,8 +75,8 @@ class PressButtonTask(TaskBase):
             offset=np.array([-1.5, -1.5, 1.5]),
         )
     
-    def get_rewards_cfg(self) -> Any:
-        return None
+    def get_rewards_cfg(self):
+        return PressRewardCfg(pressable_object_name=self.pressable_object.name)
 
 
 @configclass
@@ -104,3 +106,24 @@ class PressEventCfg:
             mode="reset",
             params=params,
         )
+
+@configclass
+class PressRewardCfg:
+    """Reward terms for the MDP."""
+
+    reaching_button: RewardTermCfg = MISSING
+    # pressing_button = RewardTermCfg(func=mdp.object_is_pressed, params={"threshold": 0.5}, weight=1.0)
+
+    # # Action penalty
+    # action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
+    # joint_vel = RewardTermCfg(
+    #     func=mdp_isaac_lab.joint_vel_l2,
+    #     weight=-0.0001,
+    #     params={"asset_cfg": SceneEntityCfg("robot")},
+    # )
+
+    def __init__(self, pressable_object_name: str):
+        self.reaching_button = RewardTermCfg(func=general_rewards.object_ee_distance,
+        params={"std": 0.1, "object_cfg": SceneEntityCfg(pressable_object_name), "ee_frame_cfg": SceneEntityCfg("ee_frame")},
+        weight=1.0,
+    )
