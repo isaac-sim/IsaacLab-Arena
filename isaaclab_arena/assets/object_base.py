@@ -36,7 +36,6 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
-        self.object_cfg = self.get_cfg()
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path

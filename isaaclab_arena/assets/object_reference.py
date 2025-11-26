@@ -19,10 +19,11 @@ class ObjectReference(ObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
     def __init__(self, parent_asset: Asset, **kwargs):
+        # Call the parent class constructor first as we need the parent asset and initial pose relative to the parent to be set.
+        super().__init__(**kwargs)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.parent_asset = parent_asset
-        # Call the parent class constructor last as we need the parent asset and initial pose relative to the parent to be set.
-        super().__init__(**kwargs)
+        self.object_cfg = self.get_cfg()
 
     def get_initial_pose(self) -> Pose:
         if self.parent_asset.initial_pose is None:
