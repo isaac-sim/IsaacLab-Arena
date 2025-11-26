@@ -30,10 +30,11 @@ class Object(ObjectBase):
         # Detect object type if not provided
         if object_type is None:
             object_type = detect_object_type(usd_path=usd_path)
-        super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
         self.scale = scale
         self.initial_pose = initial_pose
+        # Call the parent class constructor last as we need the scale and initial pose to be set.
+        super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
