@@ -96,8 +96,8 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 
    Metrics: {success_rate: 1.0, num_episodes: 1}
 
-Step 2: Run Parallel Environment Evaluation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 2: Run Parallel Environments Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
@@ -124,7 +124,7 @@ indicating which environments are terminated or truncated.
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate is no longer 1.0 as more trials are being evaluated and randomizations are being introduced,
-and the number of episodes is more than the single environment evaluation because of the parallel evaluation.
+and the number of episodes is more than the single environment evaluation because of the parallelization.
 
 .. code-block:: text
 

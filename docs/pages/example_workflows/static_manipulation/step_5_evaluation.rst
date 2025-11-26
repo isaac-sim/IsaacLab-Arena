@@ -106,8 +106,8 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
          Metrics: {'success_rate': 1.0, 'door_moved_rate': 1.0, 'num_episodes': 19}
 
 
-Step 2: Run Parallel Environment Evaluation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 2: Run Parallel environments Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
