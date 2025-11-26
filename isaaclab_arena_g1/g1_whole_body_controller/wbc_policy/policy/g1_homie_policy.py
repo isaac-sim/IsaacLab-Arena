@@ -154,7 +154,7 @@ class G1HomiePolicyV2(WBCPolicy):
         # Create single observation
 
         single_obs = np.zeros((self.num_envs, single_obs_dim), dtype=np.float32)
-        single_obs[:, 0:3] = self.cmd[:3] * self.config["cmd_scale"]
+        single_obs[:, 0:3] = self.cmd[:, :3] * self.config["cmd_scale"]
         single_obs[:, 3:4] = np.array([self.height_cmd])
         single_obs[:, 4:7] = np.stack([self.roll_cmd, self.pitch_cmd, self.yaw_cmd], axis=1)
         single_obs[:, 7:10] = omega_scaled
