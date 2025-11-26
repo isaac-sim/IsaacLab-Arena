@@ -125,7 +125,8 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
      --embodiment gr1_joint
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated or truncated.
+indicating which environments are terminated (task-specific conditions like the microwave door is opened),
+or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
 
 .. code-block:: text
 

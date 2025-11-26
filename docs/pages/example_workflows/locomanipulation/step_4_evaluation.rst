@@ -116,7 +116,8 @@ Test the policy in 5 parallel environments with visualization via the GUI run:
      --embodiment g1_wbc_joint
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated or truncated.
+indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin),
+or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
 
 .. code-block:: text
 
