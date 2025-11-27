@@ -12,7 +12,7 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.utils.pose import Pose
 
 NUM_STEPS = 50
-HEADLESS = False
+HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
 
@@ -63,7 +63,7 @@ def get_test_scene():
     return Scene(assets=[kitchen, cracker_box, microwave])
 
 
-def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
+def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path: pathlib.Path) -> bool:
 
     from isaaclab.managers import SceneEntityCfg
 
@@ -81,15 +81,15 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
 
     # Get the test scene
     scene = get_test_scene()
-    scene_usd_path = pathlib.Path("/workspaces/isaaclab_arena/test_scene.usd")
-    scene.export_to_usd(scene_usd_path)
+    print(f"Saving a test USD to {tmp_path}")
+    scene.export_to_usd(tmp_path)
 
     # Scene
     # Contains 3 reference objects:
     # - cracker box (target object)
     # - drawer (destination location)
     # - microwave (openable object)
-    background = background_from_usd_path(name="kitchen", usd_path=scene_usd_path, initial_pose=background_pose)
+    background = background_from_usd_path(name="kitchen", usd_path=tmp_path, initial_pose=background_pose)
     embodiment = FrankaEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
@@ -136,7 +136,6 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
             with torch.inference_mode():
                 microwave.close(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
 
-        print("closing microwave")
         close_microwave()
 
         # Run some zero actions.
@@ -146,7 +145,6 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 if _ == OPEN_STEP:
-                    print("opening microwave")
                     open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
@@ -182,30 +180,34 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     return True
 
 
-def _test_reference_objects(simulation_app) -> bool:
-    return _test_reference_objects_with_background_pose(Pose.identity())
+def _test_reference_objects(simulation_app, tmp_path: pathlib.Path) -> bool:
+    return _test_reference_objects_with_background_pose(Pose.identity(), tmp_path)
 
 
-def _test_reference_objects_with_transform(simulation_app) -> bool:
+def _test_reference_objects_with_transform(simulation_app, tmp_path: pathlib.Path) -> bool:
     background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
-    return _test_reference_objects_with_background_pose(background_pose)
+    return _test_reference_objects_with_background_pose(background_pose, tmp_path)
 
 
-def test_reference_objects():
+def test_reference_objects(tmp_path: pathlib.Path):
+    tmp_path = tmp_path / "reference_objects.usd"
     result = run_simulation_app_function(
         _test_reference_objects,
         headless=HEADLESS,
+        tmp_path=tmp_path,
     )
     assert result, "Test failed"
 
 
-def test_reference_objects_with_transform():
+def test_reference_objects_with_transform(tmp_path: pathlib.Path):
     # NOTE(alexmillane, 2025-11-25): The idea here is to test that
     # the test still works if the whole environment is translated and rotated.
     # This relies on the reference objects relative poses being correct.
+    tmp_path = tmp_path / "reference_objects_with_transform.usd"
     result = run_simulation_app_function(
         _test_reference_objects_with_transform,
         headless=HEADLESS,
+        tmp_path=tmp_path,
     )
     assert result, "Test failed"
 
