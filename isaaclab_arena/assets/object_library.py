@@ -13,7 +13,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 class LibraryObject(Object):
     """
@@ -263,4 +263,34 @@ class DomeLight(LibraryObject):
     spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
 
     def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+@register_asset
+class IoBoard(LibraryObject):
+    """
+    An IO board.
+    """
+
+    name = "io_board"
+    tags = ["object"]
+    usd_path = "/workspaces/isaaclab_arena/isaaclab_arena/assets/object_library/6a_io_board.usd"
+    default_prim_path = "{ENV_REGEX_NS}/io_board"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+@register_asset
+class PackingTable(LibraryObject):
+    """
+    A packing table.
+    """
+
+    name = "packing_table"
+    tags = ["object"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/PackingTable/packing_table.usd"
+    default_prim_path = "{ENV_REGEX_NS}/PackingTable"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
