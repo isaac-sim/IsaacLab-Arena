@@ -16,7 +16,7 @@ HEADLESS = False
 OPEN_STEP = NUM_STEPS // 2
 
 
-def get_test_background(initial_pose: Pose):
+def background_from_usd_path(name: str, usd_path: pathlib.Path, initial_pose: Pose, object_min_z: float = -0.2):
 
     from isaaclab_arena.assets.background import Background
 
@@ -27,12 +27,11 @@ def get_test_background(initial_pose: Pose):
 
         def __init__(self):
             super().__init__(
-                name="kitchen",
-                tags=["background", "pick_and_place"],
-                # usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd",
-                usd_path="/workspaces/isaaclab_arena/test_scene.usd",
+                name=name,
+                tags=["background"],
+                usd_path=str(usd_path),
                 initial_pose=initial_pose,
-                object_min_z=-0.2,
+                object_min_z=object_min_z,
             )
 
     return ObjectReferenceTestKitchenBackground()
@@ -92,24 +91,20 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     # - cracker box (target object)
     # - drawer (destination location)
     # - microwave (openable object)
-    background = get_test_background(background_pose)
+    background = background_from_usd_path(name="kitchen", usd_path=scene_usd_path, initial_pose=background_pose)
     embodiment = FrankaEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
-        # prim_path="{ENV_REGEX_NS}/kitchen/_03_cracker_box",
         prim_path="{ENV_REGEX_NS}/kitchen/cracker_box",
         parent_asset=background,
         object_type=ObjectType.RIGID,
     )
-    print(f"HERE 1")
     destination_location = ObjectReference(
         name="drawer",
-        # prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         prim_path="{ENV_REGEX_NS}/kitchen/kitchen_with_open_drawer/Cabinet_B_02",
         parent_asset=background,
         object_type=ObjectType.RIGID,
     )
-    print(f"HERE 2")
     microwave = OpenableObjectReference(
         name="microwave",
         prim_path="{ENV_REGEX_NS}/kitchen/microwave",
@@ -119,7 +114,6 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     )
 
     scene = Scene(assets=[background, cracker_box, microwave])
-    # scene = Scene(assets=[background])
 
     from isaaclab_arena.tasks.dummy_task import DummyTask
 
@@ -129,7 +123,6 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         embodiment=embodiment,
         scene=scene,
         task=PickAndPlaceTask(cracker_box, destination_location, background),
-        # task=DummyTask(),
         teleop_device=None,
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -223,4 +216,4 @@ def test_reference_objects_with_transform():
 
 if __name__ == "__main__":
     test_reference_objects()
-    # test_reference_objects_with_transform()
+    test_reference_objects_with_transform()
