@@ -87,7 +87,6 @@ class ObjectReference(ObjectBase):
             prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
-            print(f"prim: {prim}")
             return get_prim_pose_in_default_prim_frame(prim, parent_stage)
 
     def isaaclab_prim_path_to_original_prim_path(
@@ -109,8 +108,14 @@ class ObjectReference(ObjectBase):
         default_prim = stage.GetDefaultPrim()
         default_prim_path = default_prim.GetPath()
         assert default_prim_path is not None
-        original_prim_path = isaaclab_prim_path.replace("{ENV_REGEX_NS}/", "")
-        original_prim_path = original_prim_path.replace(parent_asset.name, str(default_prim_path))
+        # Check that the path starts with the ENV_REGEX_NS prefix.
+        assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
+        original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
+        # Check that the path starts with the asset name.
+        assert original_prim_path.startswith(parent_asset.name)
+        original_prim_path = original_prim_path.removeprefix(parent_asset.name)
+        # Append the default prim path.
+        original_prim_path = str(default_prim_path) + original_prim_path
         return original_prim_path
 
 
