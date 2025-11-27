@@ -87,7 +87,6 @@ class ObjectReference(ObjectBase):
             prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
-            print(f"prim: {prim}")
             return get_prim_pose_in_default_prim_frame(prim, parent_stage)
 
     def isaaclab_prim_path_to_original_prim_path(
@@ -112,9 +111,18 @@ class ObjectReference(ObjectBase):
 
         # UP TO HERE.
         # CHECK THAT THE PATH STARTS WITH THE REPLACED STRING AND THEN DO THE REPLACEMENT.
+        assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
+        print(f"isaaclab_prim_path: {isaaclab_prim_path}")
+        original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
+        print(f"original_prim_path: {original_prim_path}")
+        assert original_prim_path.startswith(parent_asset.name)
+        original_prim_path = original_prim_path.removeprefix(parent_asset.name)
+        print(f"original_prim_path: {original_prim_path}")
+        original_prim_path = str(default_prim_path) + original_prim_path
+        print(f"original_prim_path: {original_prim_path}")
 
-        original_prim_path = isaaclab_prim_path.replace("{ENV_REGEX_NS}/", "")
-        original_prim_path = original_prim_path.replace(parent_asset.name, str(default_prim_path))
+        # original_prim_path = isaaclab_prim_path.replace("{ENV_REGEX_NS}/", "")
+        # original_prim_path = original_prim_path.replace(parent_asset.name, str(default_prim_path))
         return original_prim_path
 
 

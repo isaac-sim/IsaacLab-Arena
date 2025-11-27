@@ -15,6 +15,8 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
+from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.utils.phyx_utils import add_contact_report
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
 
@@ -139,6 +141,12 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     prim.GetReferences().AddReference(asset.usd_path)
 
     prim_xform = UsdGeom.Xform(prim)
+
+    # Apply a contact reporter API this is a rigid object
+    if asset.object_type == ObjectType.RIGID:
+        add_contact_report(prim)
+    #     cr_api = PhysxSchema.PhysxContactReportAPI.Apply(prim)
+    #     cr_api.CreateThresholdAttr().Set(0)
 
     # #
     # for op in prim_xform.GetOrderedXformOps():

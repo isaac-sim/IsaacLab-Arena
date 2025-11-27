@@ -14,6 +14,9 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
+
+#%%
+
 from isaaclab_arena.assets.asset_registry import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -24,28 +27,96 @@ from isaaclab_arena.utils.pose import Pose
 
 asset_registry = AssetRegistry()
 
-kitchen = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
+# kitchen = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 microwave = asset_registry.get_asset_by_name("microwave")()
 
-kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-cracker_box.set_initial_pose(
-    Pose(position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+
+from isaaclab_arena.assets.background import Background
+
+class ObjectReferenceTestKitchenBackground(Background):
+    """
+    Encapsulates the background scene and destination-object config for a kitchen pick-and-place environment.
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="kitchen",
+            tags=["background", "pick_and_place"],
+            # usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd",
+            usd_path="/workspaces/isaaclab_arena/test_scene.usd",
+            # initial_pose=initial_pose,
+            object_min_z=-0.2,
+        )
+
+kitchen = ObjectReferenceTestKitchenBackground()
+
+#%%
+
+from isaaclab_arena.assets.object_reference import ObjectReference
+from isaaclab_arena.assets.object_base import ObjectType
+
+cracker_box = ObjectReference(
+    name="cracker_box",
+    # prim_path="{ENV_REGEX_NS}/kitchen/_03_cracker_box",
+    prim_path="{ENV_REGEX_NS}/kitchen/cracker_box",
+    parent_asset=kitchen,
+    object_type=ObjectType.RIGID,
 )
-microwave.set_initial_pose(
-    Pose(position_xyz=(2.862758610786719, -0.39786255771393336, 1.087924015237011), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+
+
+destination_location = ObjectReference(
+    name="drawer",
+    # prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+    prim_path="{ENV_REGEX_NS}/kitchen/kitchen_with_open_drawer/Cabinet_B_02",
+    parent_asset=kitchen,
+    object_type=ObjectType.RIGID,
 )
+
+#%%
+
+from pxr import Usd, PhysxSchema
+
+from isaaclab_arena.utils.usd_helpers import open_stage
+
+usd_path = "/workspaces/isaaclab_arena/test_scene.usd"
+with open_stage(usd_path) as stage:
+
+    box_path = "/World/cracker_box"
+
+    boxPrim = stage.GetPrimAtPath(box_path)
+    cr_api = contactReportAPI = PhysxSchema.PhysxContactReportAPI.Apply(boxPrim)
+    cr_api.CreateThresholdAttr().Set(0)
+
+    stage.Save()
+
+    # Save
+
+
+
+#%%
+
+
+
+# kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+# cracker_box.set_initial_pose(
+#     Pose(position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+# )
+# microwave.set_initial_pose(
+#     Pose(position_xyz=(2.862758610786719, -0.39786255771393336, 1.087924015237011), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+# )
 
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-scene = Scene(assets=[kitchen, cracker_box, microwave])
+# scene = Scene(assets=[kitchen, cracker_box, microwave])
+scene = Scene(assets=[kitchen, cracker_box])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
     scene=scene,
-    # task=DummyTask(),
-    task=PickAndPlaceTask(cracker_box, microwave, kitchen),
+    task=DummyTask(),
+    # task=PickAndPlaceTask(cracker_box, microwave, kitchen),
     teleop_device=None,
 )
 

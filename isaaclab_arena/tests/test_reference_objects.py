@@ -82,10 +82,10 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args([])
 
-    # # Get the test scene
-    # scene = get_test_scene()
-    # scene_usd_path = pathlib.Path("/workspaces/isaaclab_arena/test_scene.usd")
-    # scene.export_to_usd(scene_usd_path)
+    # Get the test scene
+    scene = get_test_scene()
+    scene_usd_path = pathlib.Path("/workspaces/isaaclab_arena/test_scene.usd")
+    scene.export_to_usd(scene_usd_path)
 
     # Scene
     # Contains 3 reference objects:
@@ -118,8 +118,8 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         openable_open_threshold=0.5,
     )
 
-    # scene = Scene(assets=[background, cracker_box, microwave])
-    scene = Scene(assets=[background])
+    scene = Scene(assets=[background, cracker_box, microwave])
+    # scene = Scene(assets=[background])
 
     from isaaclab_arena.tasks.dummy_task import DummyTask
 
@@ -128,8 +128,8 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         name="reference_object_test",
         embodiment=embodiment,
         scene=scene,
-        # task=PickAndPlaceTask(cracker_box, destination_location, background),
-        task=DummyTask(),
+        task=PickAndPlaceTask(cracker_box, destination_location, background),
+        # task=DummyTask(),
         teleop_device=None,
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -147,6 +147,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
             with torch.inference_mode():
                 microwave.close(env, env_ids=None, asset_cfg=SceneEntityCfg(microwave.name))
 
+        print("closing microwave")
         close_microwave()
 
         # Run some zero actions.
@@ -156,6 +157,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 if _ == OPEN_STEP:
+                    print("opening microwave")
                     open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
