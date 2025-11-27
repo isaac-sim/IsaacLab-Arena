@@ -22,8 +22,9 @@ The asset system uses a hierarchical class structure:
        def __init__(self, object_type: ObjectType, prim_path: str, **kwargs):
            self.object_type = object_type
            self.prim_path = prim_path
+           self.object_cfg = self.get_cfg()
 
-       def get_cfgs(self) -> dict[str, Any]:
+       def get_cfg(self) -> dict[str, Any]:
            """Generate Isaac Lab configurations."""
 
 The system supports complex compositions through mixins like affordances while automatically generating Isaac Lab-compatible configurations.
