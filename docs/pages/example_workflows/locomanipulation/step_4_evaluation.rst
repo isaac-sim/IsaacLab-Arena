@@ -96,6 +96,41 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 
    Metrics: {success_rate: 1.0, num_episodes: 1}
 
+Step 2: Run Parallel Environments Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
+
+Test the policy in 5 parallel environments with visualization via the GUI run:
+
+.. code-block:: bash
+
+   python isaaclab_arena/examples/policy_runner.py \
+     --policy_type gr00t_closedloop \
+     --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
+     --num_steps 1200 \
+     --num_envs 5 \  # run the policy in 5 parallel environments
+     --enable_cameras \
+     galileo_g1_locomanip_pick_and_place \
+     --object brown_box \
+     --embodiment g1_wbc_joint
+
+And during the evaluation, you should see the following output on the console at the end of the evaluation
+indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin),
+or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+
+.. code-block:: text
+
+   Resetting policy for terminated env_ids: tensor([4], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+
+At the end of the evaluation, you should see the following output on the console indicating the metrics.
+You can see that the success rate is no longer 1.0 as more trials are being evaluated and randomizations are being introduced,
+and the number of episodes is more than the single environment evaluation because of the parallelization.
+
+.. code-block:: text
+
+   Metrics: {'success_rate': 0.2, 'num_episodes': 5}
+
 .. note::
 
    Note that the embodiment used in closed-loop policy inference is ``g1_wbc_joint``, which is different
