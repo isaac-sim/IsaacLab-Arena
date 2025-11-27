@@ -40,6 +40,9 @@ class ObjectReference(ObjectBase):
         # At the moment, for the tests, I enabled the relevant APIs in the GUI.
         # TODO(alexmillane, 2025.09.08): Make the code automatically enable the
         # contact reporter API.
+        # NOTE(alexmillane, 2025.11.27): I've added a function for adding
+        # the contact reporter API to a prim in a USD, perhaps that can be repurposed
+        # and used here.
         # Just call out to the parent class method.
         return super().get_contact_sensor_cfg(contact_against_prim_paths)
 

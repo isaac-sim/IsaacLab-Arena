@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import pathlib
 import torch
 import tqdm
 
@@ -15,7 +16,7 @@ HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
 
-def get_test_background(initial_pose: Pose):
+def background_from_usd_path(name: str, usd_path: pathlib.Path, initial_pose: Pose, object_min_z: float = -0.2):
 
     from isaaclab_arena.assets.background import Background
 
@@ -26,21 +27,46 @@ def get_test_background(initial_pose: Pose):
 
         def __init__(self):
             super().__init__(
-                name="kitchen",
-                tags=["background", "pick_and_place"],
-                usd_path="omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd",
+                name=name,
+                tags=["background"],
+                usd_path=str(usd_path),
                 initial_pose=initial_pose,
-                object_min_z=-0.2,
+                object_min_z=object_min_z,
             )
 
     return ObjectReferenceTestKitchenBackground()
 
 
-def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
+def get_test_scene():
+    from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: F401
+    from isaaclab_arena.scene.scene import Scene
+
+    asset_registry = AssetRegistry()
+
+    kitchen = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
+    cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+    microwave = asset_registry.get_asset_by_name("microwave")()
+
+    kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    cracker_box.set_initial_pose(
+        Pose(
+            position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)
+        )
+    )
+    microwave.set_initial_pose(
+        Pose(
+            position_xyz=(2.862758610786719, -0.39786255771393336, 1.087924015237011),
+            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+        )
+    )
+
+    return Scene(assets=[kitchen, cracker_box, microwave])
+
+
+def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path: pathlib.Path) -> bool:
 
     from isaaclab.managers import SceneEntityCfg
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: F401
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -53,22 +79,27 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args([])
 
+    # Get the test scene
+    scene = get_test_scene()
+    print(f"Saving a test USD to {tmp_path}")
+    scene.export_to_usd(tmp_path)
+
     # Scene
     # Contains 3 reference objects:
     # - cracker box (target object)
     # - drawer (destination location)
     # - microwave (openable object)
-    background = get_test_background(background_pose)
+    background = background_from_usd_path(name="kitchen", usd_path=tmp_path, initial_pose=background_pose)
     embodiment = FrankaEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
-        prim_path="{ENV_REGEX_NS}/kitchen/_03_cracker_box",
+        prim_path="{ENV_REGEX_NS}/kitchen/cracker_box",
         parent_asset=background,
         object_type=ObjectType.RIGID,
     )
     destination_location = ObjectReference(
         name="drawer",
-        prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+        prim_path="{ENV_REGEX_NS}/kitchen/kitchen_with_open_drawer/Cabinet_B_02",
         parent_asset=background,
         object_type=ObjectType.RIGID,
     )
@@ -149,30 +180,34 @@ def _test_reference_objects_with_background_pose(background_pose: Pose) -> bool:
     return True
 
 
-def _test_reference_objects(simulation_app) -> bool:
-    return _test_reference_objects_with_background_pose(Pose.identity())
+def _test_reference_objects(simulation_app, tmp_path: pathlib.Path) -> bool:
+    return _test_reference_objects_with_background_pose(Pose.identity(), tmp_path)
 
 
-def _test_reference_objects_with_transform(simulation_app) -> bool:
+def _test_reference_objects_with_transform(simulation_app, tmp_path: pathlib.Path) -> bool:
     background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
-    return _test_reference_objects_with_background_pose(background_pose)
+    return _test_reference_objects_with_background_pose(background_pose, tmp_path)
 
 
-def test_reference_objects():
+def test_reference_objects(tmp_path: pathlib.Path):
+    tmp_path = tmp_path / "reference_objects.usd"
     result = run_simulation_app_function(
         _test_reference_objects,
         headless=HEADLESS,
+        tmp_path=tmp_path,
     )
     assert result, "Test failed"
 
 
-def test_reference_objects_with_transform():
+def test_reference_objects_with_transform(tmp_path: pathlib.Path):
     # NOTE(alexmillane, 2025-11-25): The idea here is to test that
     # the test still works if the whole environment is translated and rotated.
     # This relies on the reference objects relative poses being correct.
+    tmp_path = tmp_path / "reference_objects_with_transform.usd"
     result = run_simulation_app_function(
         _test_reference_objects_with_transform,
         headless=HEADLESS,
+        tmp_path=tmp_path,
     )
     assert result, "Test failed"
 
