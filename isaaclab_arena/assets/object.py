@@ -75,7 +75,7 @@ class Object(ObjectBase):
         assert self.object_type == ObjectType.BASE
         object_cfg = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/" + self.name,
-            spawn=UsdFileCfg(usd_path=self.usd_path),
+            spawn=UsdFileCfg(usd_path=self.usd_path, scale=self.scale),
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
