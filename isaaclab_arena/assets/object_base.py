@@ -43,7 +43,10 @@ class ObjectBase(Asset, ABC):
     def get_prim_path(self) -> str:
         return self.prim_path
 
-    def get_cfg(self) -> dict[str, Any]:
+    def get_object_cfg(self) -> dict[str, Any]:
+        return {self.name: self.object_cfg}
+
+    def init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
             object_cfg = self._generate_rigid_cfg()
         elif self.object_type == ObjectType.ARTICULATION:
