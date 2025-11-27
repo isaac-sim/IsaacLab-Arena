@@ -43,7 +43,10 @@ class ObjectBase(Asset, ABC):
     def get_prim_path(self) -> str:
         return self.prim_path
 
-    def get_cfgs(self) -> dict[str, Any]:
+    def get_object_cfg(self) -> dict[str, Any]:
+        return {self.name: self.object_cfg}
+
+    def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
             object_cfg = self._generate_rigid_cfg()
         elif self.object_type == ObjectType.ARTICULATION:
@@ -52,9 +55,7 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_base_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
-        return {
-            self.name: object_cfg,
-        }
+        return object_cfg
 
     def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
         """Get the pose of the object in the environment.

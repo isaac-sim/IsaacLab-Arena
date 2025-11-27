@@ -16,20 +16,22 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
 
     from pxr import Usd
 
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
-    usd_path = (
-        "omniverse://isaac-dev.ov.nvidia.com/Projects/isaac_arena/assets_for_tests/reference_object_test_kitchen.usd"
-    )
-    stage = Usd.Stage.Open(usd_path)
-    prim = stage.GetPrimAtPath("/kitchen/_03_cracker_box")
+    asset_registry = AssetRegistry()
+    kitchen = asset_registry.get_asset_by_name("kitchen")()
+
+    print(f"Opening USD at: {kitchen.usd_path}")
+    stage = Usd.Stage.Open(kitchen.usd_path)
+    prim = stage.GetPrimAtPath("/kitchen/food_packages")
 
     pose = get_prim_pose_in_default_prim_frame(prim, stage)
     print(f"Position relative to default prim: {pose.position_xyz}")
     print(f"Orientation (quaternion wxyz) relative to default prim: {pose.rotation_wxyz}")
 
     # This number is read out of the GUI from the test scene.
-    pos_np_gt = np.array((3.69020713150969, -0.804121657812894, 1.2531903565606817))
+    pos_np_gt = np.array((2.899114282976978, -0.3971232408755399, 1.0062618326241144))
 
     # Here we compare the result with the number read out from the GUI.
     pos_np = np.array(pose.position_xyz)
