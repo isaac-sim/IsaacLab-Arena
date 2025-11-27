@@ -108,21 +108,14 @@ class ObjectReference(ObjectBase):
         default_prim = stage.GetDefaultPrim()
         default_prim_path = default_prim.GetPath()
         assert default_prim_path is not None
-
-        # UP TO HERE.
-        # CHECK THAT THE PATH STARTS WITH THE REPLACED STRING AND THEN DO THE REPLACEMENT.
+        # Check that the path starts with the ENV_REGEX_NS prefix.
         assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
-        print(f"isaaclab_prim_path: {isaaclab_prim_path}")
         original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
-        print(f"original_prim_path: {original_prim_path}")
+        # Check that the path starts with the asset name.
         assert original_prim_path.startswith(parent_asset.name)
         original_prim_path = original_prim_path.removeprefix(parent_asset.name)
-        print(f"original_prim_path: {original_prim_path}")
+        # Append the default prim path.
         original_prim_path = str(default_prim_path) + original_prim_path
-        print(f"original_prim_path: {original_prim_path}")
-
-        # original_prim_path = isaaclab_prim_path.replace("{ENV_REGEX_NS}/", "")
-        # original_prim_path = original_prim_path.replace(parent_asset.name, str(default_prim_path))
         return original_prim_path
 
 
