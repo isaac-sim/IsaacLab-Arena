@@ -34,7 +34,7 @@ class Object(ObjectBase):
         self.usd_path = usd_path
         self.scale = scale
         self.initial_pose = initial_pose
-        self.object_cfg = self.init_object_cfg()
+        self.object_cfg = self._init_object_cfg()
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose

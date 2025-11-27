@@ -23,7 +23,7 @@ class ObjectReference(ObjectBase):
         super().__init__(**kwargs)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.parent_asset = parent_asset
-        self.object_cfg = self.init_object_cfg()
+        self.object_cfg = self._init_object_cfg()
 
     def get_initial_pose(self) -> Pose:
         if self.parent_asset.initial_pose is None:
