@@ -42,15 +42,16 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     args.append("10")
     args.append("--base_model_path")
     args.append("nvidia/GR00T-N1.5-3B")
+    # Disable tuning of the LLM, visual, projector, and diffusion model.
+    # This is done to save GPU memory in CI.
     args.append("--no_tune_llm")
-    args.append("--tune_visual")
-    args.append("--tune_projector")
-    args.append("--tune_diffusion_model")
+    args.append("--no_tune_visual")
+    args.append("--no_tune_projector")
+    args.append("--no_tune_diffusion_model")
     args.append("--no-resume")
     args.append("--dataloader_num_workers")
     args.append("1")  # Small number of workers for testing
     args.append("--report_to")
-    # args.append("wandb")
     args.append("tensorboard")
     args.append("--embodiment_tag")
     args.append("new_embodiment")
