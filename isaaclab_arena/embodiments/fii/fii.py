@@ -60,7 +60,6 @@ class FiiEmbodiment(EmbodimentBase):
         self.scene_config = FiiSceneCfg()
         self.action_config = FiiActionsCfg()
         self.observation_config = FiiObservationsCfg()
-        self.termination_config = FiiTerminationsCfg()
         
         # Convert USD to URDF for Pink IK controller
         self.temp_urdf_dir = tempfile.gettempdir()
@@ -326,27 +325,4 @@ class FiiObservationsCfg:
 
 
     policy: PolicyCfg = PolicyCfg()
-
-#=======================================================================
-#   TERMINATIONS
-#=======================================================================
-@configclass
-class FiiTerminationsCfg:
-    
-    time_out = DoneTerm(func=base_mdp.time_out, time_out=True)
-
-    object_dropping = DoneTerm(
-        func=base_mdp.root_height_below_minimum, params={"minimum_height": 0.5, "asset_cfg": SceneEntityCfg("io_board")}
-    )
-
-    success = DoneTerm(func=manip_mdp.task_done_pick_place, params={
-        "task_link_name": "right_7_Link",
-        "right_wrist_max_x": 0.26,
-        "min_x": 0.40,
-        "max_x": 0.85,
-        "min_y": 0.35,
-        "max_y": 0.8, 
-        "max_height": 1.10,
-        "min_vel": 0.20,                                                        
-    })
 
