@@ -52,7 +52,9 @@ jobs:
       # We do this prior to checkout because the symlink causes issues if it's there from a previous run.
       - &cleanup_step
         name: Clean up symlinks in submodules directory
-        run: rm -rf submodules/* || true
+        run: |
+          rm -f .git/modules/submodules/IsaacLab/index.lock || true
+          rm -rf submodules/IsaacLab || true
 
       # Checkout Code
       - &checkout_step
