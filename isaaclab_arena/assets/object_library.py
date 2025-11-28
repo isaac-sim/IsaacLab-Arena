@@ -271,7 +271,7 @@ class IoBoard(LibraryObject):
     An IO board.
     """
 
-    name = "io_board"
+    name = "object"
     tags = ["object"]
     usd_path = "/workspaces/isaaclab_arena/isaaclab_arena/assets/object_library/6a_io_board.usd"
     default_prim_path = "{ENV_REGEX_NS}/io_board"

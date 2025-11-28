@@ -81,11 +81,11 @@ class FiibotTerminationsCfg:
     time_out = DoneTerm(func=base_mdp.time_out, time_out=True)
 
     object_dropping = DoneTerm(
-        func=base_mdp.root_height_below_minimum, params={"minimum_height": 0.5, "asset_cfg": SceneEntityCfg("io_board")}
+        func=base_mdp.root_height_below_minimum, params={"minimum_height": 0.5, "asset_cfg": SceneEntityCfg("object")}
     )
 
     success = DoneTerm(func=manip_mdp.task_done_pick_place, params={
-        "object_cfg": SceneEntityCfg("io_board"),  # Override default "object" to "io_board"
+        "object_cfg": SceneEntityCfg("object"),
         "task_link_name": "right_7_Link",
         "right_wrist_max_x": 0.26,
         "min_x": 0.40,

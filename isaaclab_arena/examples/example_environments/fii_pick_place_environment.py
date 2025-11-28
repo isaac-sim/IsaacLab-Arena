@@ -10,17 +10,16 @@ class FiiPickPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.fii_pick_and_place_task import FiiPickAndPlaceTask
 
-        pick_up_object = self.asset_registry.get_asset_by_name("io_board")()
+        pick_up_object = self.asset_registry.get_asset_by_name("object")()
         packing_table = self.asset_registry.get_asset_by_name("packing_table")()
         embodiment = self.asset_registry.get_asset_by_name("fii")()
 
-        scene = Scene(assets=[packing_table, pick_up_object])
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
             teleop_device = None
         
-        scene = Scene(assets=[pick_up_object, packing_table])
+        scene = Scene(assets=[pick_up_object])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -32,6 +31,5 @@ class FiiPickPlaceEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="io_board")
         parser.add_argument("--embodiment", type=str, default="fii")
         parser.add_argument("--teleop_device", type=str, default=None)
