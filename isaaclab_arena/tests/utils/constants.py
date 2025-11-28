@@ -23,5 +23,7 @@ class _TestConstants:
 
         self.test_data_dir = f"{self.test_dir}/test_data"
 
+        self.submodules_dir = f"{self.repo_root}/submodules"
+
 
 TestConstants = _TestConstants()
