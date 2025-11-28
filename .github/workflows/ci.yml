@@ -40,7 +40,8 @@ jobs:
         password: ${{ env.NGC_API_KEY }}
 
     steps:
-      - name: Install git (and tools needed by hooks)
+      - &install_git_step
+        name: Install git (and tools needed by hooks)
         run: |
           apt-get update
           apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
@@ -105,12 +106,7 @@ jobs:
       - name: Print checkpoints directory
         run: ls -la /checkpoints
 
-      - name: Install git (and tools needed by hooks)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
-          git --version
-          git lfs version
+      - *install_git_step
 
       # Checkout Code
       - name: Checkout Code
@@ -189,12 +185,7 @@ jobs:
       NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
     steps:
-      - name: Install git (and tools needed by hooks)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends git git-lfs clang-format ca-certificates
-          git --version
-          git lfs version
+      - *install_git_step
 
       # Fix "detected dubious ownership in repository" inside containers
       - name: Mark repo as safe for git
