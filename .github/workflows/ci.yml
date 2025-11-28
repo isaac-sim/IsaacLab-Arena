@@ -191,12 +191,13 @@ jobs:
       - name: cleanup IsaacSim simlink
         run: rm -f submodules/IsaacLab/_isaac_sim
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-          submodules: true
+      - *checkout_step
+      # - name: Checkout
+      #   uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 0
+      #     lfs: true
+      #     submodules: true
 
       - name: submodules
         run: git submodule update --init
