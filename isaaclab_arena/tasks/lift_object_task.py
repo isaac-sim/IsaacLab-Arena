@@ -32,8 +32,8 @@ class LiftObjectTask(TaskBase):
         self,
         lift_object: Asset,
         background_scene: Asset,
-        minimum_height_to_lift: float = 0.04,
-        maximum_height_to_lift: float = 0.1,
+        minimum_height_to_lift: float = 1.5,
+        maximum_height_to_lift: float = 2,
         episode_length_s: float | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
@@ -44,7 +44,7 @@ class LiftObjectTask(TaskBase):
         self.scene_config = None
         self.events_cfg = LiftObjectEventsCfg(lift_object=self.lift_object)
         self.termination_cfg = self.make_termination_cfg()
-        self.observation_config = LiftObjectObservationsCfg(lift_object=self.lift_object)
+        self.observation_config = LiftObjectObservationsCfg(lift_object_name=self.lift_object.name)
 
     def get_scene_cfg(self):
         return self.scene_config
@@ -128,18 +128,18 @@ class LiftObjectObservationsCfg:
 
     task_obs: ObsGroup = MISSING
 
-    def __init__(self, lift_object: Asset):
+    def __init__(self, lift_object_name: str):
 
         class TaskObsCfg(ObsGroup):
             """Observations for the Lift Object task."""
 
             object_position = ObsTerm(
-                func=object_position_in_world_frame, params={"asset_cfg": SceneEntityCfg(lift_object.name)}
+                func=object_position_in_world_frame, params={"asset_cfg": SceneEntityCfg(lift_object_name)}
             )
 
             def __post_init__(self):
                 self.enable_corruption = True
-                self.concatenate_terms = True
+                self.concatenate_terms = False
 
         self.task_obs = TaskObsCfg()
 

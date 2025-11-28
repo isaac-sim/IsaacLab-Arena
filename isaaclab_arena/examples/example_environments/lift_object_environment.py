@@ -59,8 +59,8 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
             pick_up_object,
             background,
             embodiment_information,
-            minimum_height_to_lift=0.04,
-            maximum_height_to_lift=0.1,
+            minimum_height_to_lift=1.5,
+            maximum_height_to_lift=2,
             episode_length_s=5.0,
         )
 
