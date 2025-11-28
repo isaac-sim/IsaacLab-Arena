@@ -116,29 +116,13 @@ jobs:
       volumes:
         - /home/runner/checkpoints:/checkpoints
     steps:
+      # Setup.
       - *install_git_step
-
       - *cleanup_step
-
       - *checkout_step
-
-      # # Checkout Code
-      # - name: Checkout Code
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0
-      #     # LFS checkout here somehow causes issues when LFS stuff changes over time.
-      #     # So I do LFS manually in a step after.
-      #     # lfs: true
-
-      # Fix "detected dubious ownership in repository" inside containers
       - *mark_repo_safe_step
-
-      # Pull LFS files explicitly (in case checkout didn't get them all)
       - *git_lfs_step
-
       - *setup_python_step
-
       - *install_project_step
 
       - name: Print checkpoints directory
@@ -156,17 +140,10 @@ jobs:
       image: python:3.11-slim
 
     steps:
+      # Setup.
       - *install_git_step
-
       - *cleanup_step
-
-      # Checkout Code
       - *checkout_step
-      # - name: Checkout Code
-      #   uses: actions/checkout@v4
-      #   with:
-      #     clean: true
-      #     fetch-depth: 0
 
       # Build docs
       - name: Build docs
@@ -191,28 +168,11 @@ jobs:
       NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
     steps:
+      # Setup.
       - *install_git_step
-
-      # Fix "detected dubious ownership in repository" inside containers
       - *mark_repo_safe_step
-
-      # Somehow this simlink remains from the previous steps, and it causes the submodule
-      # checkout to fail. So here we clean it up, before checking out the submodules.
-      # - name: cleanup IsaacSim simlink
-      #   run: rm -f submodules/IsaacLab/_isaac_sim
-
       - *cleanup_step
-
       - *checkout_step
-      # - name: Checkout
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0
-      #     lfs: true
-      #     submodules: true
-
-      # - name: submodules
-      #   run: git submodule update --init
 
       - name: Install docker
         run: |
