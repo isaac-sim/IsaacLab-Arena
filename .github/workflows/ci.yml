@@ -49,8 +49,8 @@ jobs:
           git lfs version
 
       # Lets try removing residual stuff due to symlinks in the submodules directory.
-      - name: Remove residual stuff due to symlinks in the submodules directory
-        run: rm -rf submodules/IsaacLab/_isaac_sim || true
+      # - name: Remove residual stuff due to symlinks in the submodules directory
+      #   run: rm -rf submodules/IsaacLab/_isaac_sim || true
 
       # Checkout Code
       - &checkout_step
@@ -99,6 +99,8 @@ jobs:
       - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
+      - name: Clean up symlinks in submodules directory
+        run: rm -rf submodules/IsaacLab/_isaac_sim
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
