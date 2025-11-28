@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
@@ -7,16 +12,13 @@
 
 """Launch Isaac Sim Simulator first."""
 
-import argparse
-import sys
+from isaaclab.app import AppLauncher
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.examples.example_environments.cli import (
     add_example_environments_cli_args,
     get_arena_builder_from_cli,
 )
-
-from isaaclab.app import AppLauncher
 
 # local imports
 import cli_args  # isort: skip
@@ -86,24 +88,14 @@ import os
 import torch
 from datetime import datetime
 
+import isaaclab_tasks  # noqa: F401
 import omni
-from rsl_rl.runners import DistillationRunner, OnPolicyRunner
-
-from isaaclab.envs import (
-    DirectMARLEnv,
-    DirectMARLEnvCfg,
-    DirectRLEnvCfg,
-    ManagerBasedRLEnvCfg,
-    multi_agent_to_single_agent,
-)
+from isaaclab.envs import DirectMARLEnv, ManagerBasedRLEnvCfg, multi_agent_to_single_agent
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
-
-from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper
-
-import isaaclab_tasks  # noqa: F401
+from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 from isaaclab_tasks.utils import get_checkpoint_path
-from isaaclab_tasks.utils.hydra import hydra_task_config
+from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
@@ -114,7 +106,6 @@ torch.backends.cudnn.benchmark = False
 
 
 def main():
-
     # We dont use hydra for the environment configuration, so we need to parse it manually
     # parse configuration
     try:
@@ -124,8 +115,9 @@ def main():
     except Exception as e:
         omni.log.error(f"Failed to parse environment configuration: {e}")
         exit(1)
-    
+
     from isaaclab_arena.policy.rl_policy import RLPolicyCfg
+
     agent_cfg = RLPolicyCfg()
 
     """Train with RSL-RL agent."""

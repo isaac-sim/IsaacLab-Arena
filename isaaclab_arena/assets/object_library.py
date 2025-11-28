@@ -159,6 +159,9 @@ class CoffeeMachine(LibraryObject, Pressable):
     pressable_joint_name = "CoffeeMachine108_Button002_joint"
     pressedness_threshold = 0.5
 
+    # Pressable prim path
+    pressable_prim_path = "CoffeeMachine108_Button002"
+
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(
             prim_path=prim_path,

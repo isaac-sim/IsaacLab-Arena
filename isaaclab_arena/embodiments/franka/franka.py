@@ -18,7 +18,7 @@ from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
@@ -46,6 +46,8 @@ class FrankaEmbodiment(EmbodimentBase):
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()
         self.event_config = FrankaEventCfg()
+        self.reward_config = FrankaRewardsCfg()
+        self.rl_end_effector_frame = "panda_rightfinger"
         self.mimic_env = FrankaMimicEnv
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
@@ -177,6 +179,16 @@ class FrankaEventCfg:
             "std": 0.02,
             "asset_cfg": SceneEntityCfg("robot"),
         },
+    )
+
+
+@configclass
+class FrankaRewardsCfg:
+    """Reward specifications for the MDP."""
+
+    action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
+    joint_vel = RewardTermCfg(
+        func=mdp_isaac_lab.joint_vel_l2, weight=-0.0001, params={"asset_cfg": SceneEntityCfg("robot")}
     )
 
 

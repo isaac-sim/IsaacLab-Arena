@@ -19,9 +19,11 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
     name: str = "press_button"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+        from isaaclab_arena.assets.object_base import ObjectType
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.press_button_task import PressButtonTask
+        from isaaclab_arena.tasks.press_button_task import PressButtonTaskRL
         from isaaclab_arena.utils.pose import Pose
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
@@ -29,7 +31,22 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("packing_table")()
         press_object = self.asset_registry.get_asset_by_name("coffee_machine")()
 
-        assets = [background, press_object]
+        # Reference this and add it to the scene to use it in the reward function
+        pressable_object_prim = ObjectReference(
+            name="pressable_object_prim",
+            prim_path="{ENV_REGEX_NS}/" + press_object.name + "/" + press_object.pressable_prim_path,
+            parent_asset=press_object,
+            object_type=ObjectType.RIGID,
+        )
+
+        embodiment_end_effector_frame = ObjectReference(
+            name="embodiment_end_effector_frame",
+            prim_path=embodiment.scene_config.robot.prim_path + "/" + embodiment.rl_end_effector_frame,
+            parent_asset=embodiment,
+            object_type=ObjectType.RIGID,
+        )
+
+        assets = [background, press_object, pressable_object_prim, embodiment_end_effector_frame]
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -43,11 +60,18 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
         # Compose the scene
         scene = Scene(assets=assets)
 
+        task = PressButtonTaskRL(
+            press_object,
+            pressable_object_prim,
+            embodiment_end_effector_frame,
+            reset_pressedness=0.8,
+        )
+
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=PressButtonTask(press_object, reset_pressedness=0.8),
+            task=task,
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
