@@ -56,6 +56,11 @@ jobs:
           rm -f .git/modules/submodules/IsaacLab/index.lock || true
           rm -rf submodules/IsaacLab || true
 
+      # Fix "detected dubious ownership in repository" inside containers
+      - &mark_repo_safe_step
+        name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
+
       # Checkout Code
       - &checkout_step
         name: Checkout Code
@@ -67,11 +72,6 @@ jobs:
           # LFS checkout here somehow causes issues when LFS stuff changes over time.
           # So I do LFS manually in a step after.
           # lfs: true
-
-      # Fix "detected dubious ownership in repository" inside containers
-      - &mark_repo_safe_step
-        name: Mark repo as safe for git
-        run: git config --global --add safe.directory "$PWD"
 
       # Pull LFS files explicitly (in case checkout didn't get them all)
       - &git_lfs_step
@@ -118,8 +118,8 @@ jobs:
       # Setup.
       - *install_git_step
       - *cleanup_step
-      - *checkout_step
       - *mark_repo_safe_step
+      - *checkout_step
       - *git_lfs_step
       - *setup_python_step
       - *install_project_step
@@ -152,8 +152,8 @@ jobs:
       # Setup.
       - *install_git_step
       - *cleanup_step
-      - *checkout_step
       - *mark_repo_safe_step
+      - *checkout_step
       - *git_lfs_step
       - *setup_python_step
       - *install_project_step
@@ -181,8 +181,8 @@ jobs:
       # Setup.
       - *install_git_step
       - *cleanup_step
-      - *checkout_step
       - *mark_repo_safe_step
+      - *checkout_step
       - *git_lfs_step
       - *setup_python_step
       - *install_project_step
