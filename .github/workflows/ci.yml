@@ -174,7 +174,7 @@ jobs:
 
       - &run_pre_commit
         name: Run pre-commit
-        run: pre-commit run --show-diff-on-failure --color=always
+        run: pre-commit run --show-diff-on-failure --color=always --all-files
 
 
   pre_commit_public_runner:
