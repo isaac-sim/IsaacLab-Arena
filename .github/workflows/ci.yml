@@ -96,8 +96,9 @@ jobs:
 
       - name: Run pre-commit
         env:
-          PRE_COMMIT_HOME: /tmp/pre-commit
+          PRE_COMMIT_HOME: /github/home/.pre-commit-cache
         run: |
+          mkdir -p "$PRE_COMMIT_HOME"
           pip install --no-cache-dir --upgrade pip pre-commit
           pre-commit run --all-files --verbose
 
@@ -131,6 +132,7 @@ jobs:
 
       - name: Run pre-commit
         env:
+          # W
           PRE_COMMIT_HOME: /tmp/pre-commit
         run: |
           pip install --no-cache-dir --upgrade pip pre-commit
