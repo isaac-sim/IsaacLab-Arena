@@ -123,7 +123,6 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
     return True
 
 
-@pytest.mark.skip(reason="Broken due to private G1 asset.")
 @pytest.mark.with_cameras
 def test_wbc_joint_standing_idle_actions_single_env():
     result = run_simulation_app_function(
@@ -162,7 +161,6 @@ def _test_wbc_pink_standing_idle_actions(simulation_app) -> bool:
     return True
 
 
-@pytest.mark.skip(reason="Broken due to private G1 asset.")
 @pytest.mark.with_cameras
 def test_wbc_pink_standing_idle_actions_single_env():
     result = run_simulation_app_function(
