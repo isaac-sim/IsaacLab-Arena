@@ -162,16 +162,19 @@ jobs:
           git lfs install --local
           git lfs pull
 
-      # # Setup.
-      # - *install_git_step
-      # - *cleanup_step
-      # - *mark_repo_safe_step
-      # - *checkout_step
-      # - *git_lfs_step
-
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
+      - &install_pre_commit
+        name: Install pre-commit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pre-commit
+          python -m pip freeze --local
+
+      - &run_pre_commit
+        name: Run pre-commit
+        run: pre-commit run --show-diff-on-failure --color=always
 
 
   pre_commit_public_runner:
@@ -192,9 +195,11 @@ jobs:
       - *mark_repo_safe_step
       - *checkout_step
       - *git_lfs_step
+      - *install_pre_commit
+      - *run_pre_commit
 
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+      # - name: Run pre-commit
+      #   uses: pre-commit/action@v3.0.1
 
 
 
@@ -211,17 +216,12 @@ jobs:
         password: ${{ env.NGC_API_KEY }}
 
     steps:
+      # Setup
       - *install_git_step
       - *cleanup_step
       - *mark_repo_safe_step
       - *checkout_step
       - *git_lfs_step
-
-      # - &setup_python_step
-      #   name: Setup Python
-      #   uses: actions/setup-python@v3
-      #   with:
-      #     python-version: '3.11'
 
       - &install_project_step
         name: Install project and link isaac-sim
@@ -237,44 +237,33 @@ jobs:
         run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
 
-  # test_public_runner:
-  #   name: Run pre commit checks and tests on a public runner
-  #   runs-on: [gpu]
-  #   timeout-minutes: 45
-  #   # needs: [test] # Force serial execution with the previous job.
+  test_public_runner:
+    name: Run tests on a public runner
+    runs-on: [gpu]
+    timeout-minutes: 45
+    needs: [pre_commit_public_runner]
 
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    steps:
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      # - *setup_python_step
+      - *install_project_step
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *cleanup_step
-  #     - *mark_repo_safe_step
-  #     - *checkout_step
-  #     - *git_lfs_step
-  #     - *setup_python_step
-  #     - *install_project_step
+      # Run the tests (excluding the gr00t related tests)
+      - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-  #     # - name: Run pre-commit
-  #     #   env:
-  #     #     # W
-  #     #     PRE_COMMIT_HOME: /tmp/pre-commit
-  #     #   run: |
-  #     #     pip install --no-cache-dir --upgrade pip pre-commit
-  #     #     pre-commit run --all-files
-
-  #     # - name: Run pre-commit
-  #     #   uses: pre-commit/action@v3.0.1
-
-  #     - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-  #       run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
-
-  #     - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-  #       run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
   # test_policy:
   #   name: Run policy-related tests with GR00T & cuda12_8 deps
