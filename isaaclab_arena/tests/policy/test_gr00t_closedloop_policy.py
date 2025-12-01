@@ -78,6 +78,7 @@ def get_tmp_config_file(input_config_file, tmp_path, model_path):
     return output_config_file
 
 
+@pytest.mark.skip(reason="Broken due to private G1 asset.")
 def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
@@ -106,6 +107,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
     run_subprocess(args)
 
 
+@pytest.mark.skip(reason="Broken due to private G1 asset.")
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
