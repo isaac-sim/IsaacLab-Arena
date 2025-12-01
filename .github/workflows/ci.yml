@@ -113,8 +113,9 @@ jobs:
 
 
   pre_commit:
-    name: Pre-commit
-    runs-on: [self-hosted, zurich]
+    name: Pre-commit (on public runner)
+    # runs-on: [self-hosted, zurich]
+    runs-on: [gpu]
     timeout-minutes: 60
 
     container:
@@ -165,41 +166,45 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-      - &install_pre_commit
-        name: Install pre-commit
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pre-commit
-          python -m pip freeze --local
+      # - &install_pre_commit
+      #   name: Install pre-commit
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     python -m pip install pre-commit
+      #     python -m pip freeze --local
 
-      - &run_pre_commit
-        name: Run pre-commit
-        run: pre-commit run --show-diff-on-failure --color=always --all-files
+      # - &run_pre_commit
+      #   name: Run pre-commit
+      #   run: pre-commit run --show-diff-on-failure --color=always --all-files
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
 
 
-  pre_commit_public_runner:
-    name: Pre-commit on public runner
-    runs-on: [gpu]
-    timeout-minutes: 60
 
-    container:
-      image: python:3.11-slim
+  # pre_commit_public_runner:
+  #   name: Pre-commit on public runner
+  #   runs-on: [gpu]
+  #   timeout-minutes: 60
 
-    env:
-      # We're getting issues with the markers on the checked out files.
-      SKIP: check-executables-have-shebangs
+  #   container:
+  #     image: python:3.11-slim
 
-    steps:
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_pre_commit
-      - *run_pre_commit
+  #   env:
+  #     # We're getting issues with the markers on the checked out files.
+  #     SKIP: check-executables-have-shebangs
 
-      # - name: Run pre-commit
-      #   uses: pre-commit/action@v3.0.1
+  #   steps:
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *install_pre_commit
+  #     - *run_pre_commit
+
+  #     # - name: Run pre-commit
+  #     #   uses: pre-commit/action@v3.0.1
 
 
 
@@ -241,7 +246,7 @@ jobs:
     name: Run tests on a public runner
     runs-on: [gpu]
     timeout-minutes: 45
-    needs: [pre_commit_public_runner]
+    needs: [pre_commit]
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
