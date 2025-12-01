@@ -5,7 +5,7 @@
 
 from typing import Literal
 
-from isaaclab.utils.assets import retrieve_file_path
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR, retrieve_file_path
 
 from isaaclab_arena_g1.g1_env.g1_supplemental_info import (
     G1SupplementalInfo,
@@ -31,10 +31,9 @@ def instantiate_g1_robot_model(
         RobotModel: Configured G1 robot model
     """
 
-    # NOTE(peterd, 9/25/2025): Update OV paths once release location is finalized
     robot_model_config = {
-        "asset_path": "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/robot_model/g1_2/",
-        "urdf_path": "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/robot_model/g1_2/g1_29dof_with_hand.urdf",
+        "asset_path": f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/robot_model/g1/",
+        "urdf_path": f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/robot_model/g1/g1_29dof_with_hand.urdf",
     }
 
     asset_path_local = retrieve_file_path(robot_model_config["asset_path"], force_download=True)

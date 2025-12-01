@@ -6,6 +6,8 @@
 from dataclasses import MISSING, asdict, dataclass
 from typing import Literal
 
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+
 
 @dataclass
 class ArgsConfig:
@@ -58,9 +60,8 @@ class HomieV2Config(BaseConfig):
     wbc_version: Literal["homie_v2"] = "homie_v2"
     """Version of the whole body controller."""
 
-    # NOTE(peterd, 9/25/2025): Update OV paths once release location is finalized
     wbc_model_path: str = (
-        "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/models/homie_v2/stand.onnx,omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/g1_locomanip_assets/wbc_policy/models/homie_v2/walk.onnx"
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/models/homie_v2/stand.onnx,{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/models/homie_v2/walk.onnx"
     )
     """Path to WBC model file"""
 
