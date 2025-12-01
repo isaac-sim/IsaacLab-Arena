@@ -105,17 +105,17 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-      # - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-      #   run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-      # - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-      #   run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
   test_public_runner:
     name: Run pre commit checks and tests on a public runner
     runs-on: [gpu]
     timeout-minutes: 45
-    needs: [test] # Force serial execution with the previous job.
+    # needs: [test] # Force serial execution with the previous job.
 
 
     container:
@@ -144,61 +144,60 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-      # - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-      #   run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-      # - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-      #   run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
+  test_policy:
+    name: Run policy-related tests with GR00T & cuda12_8 deps
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 30
 
-  # test_policy_public_runner:
-  #   name: Run policy-related tests with GR00T & cuda12_8 deps on a public runner
-  #   runs-on: [gpu]
-  #   timeout-minutes: 45
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    steps:
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *setup_python_step
+      - *install_project_step
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
-  #     # virtual mounted checkpoints directory from the local machine
-  #     # volumes:
-  #     #   - /home/runner/checkpoints:/checkpoints
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *cleanup_step
-  #     - *mark_repo_safe_step
-  #     - *checkout_step
-  #     - *git_lfs_step
-  #     - *setup_python_step
-  #     - *install_project_step
+      - name: Run policy-related pytest
+        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
-  #     - name: Run policy-related pytest
-  #       run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+  test_policy_public_runner:
+    name: Run policy-related tests with GR00T & cuda12_8 deps on a public runner
+    runs-on: [gpu]
+    timeout-minutes: 45
 
-  # test_policy:
-  #   name: Run policy-related tests with GR00T & cuda12_8 deps
-  #   runs-on: [self-hosted, zurich]
-  #   timeout-minutes: 30
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+      # virtual mounted checkpoints directory from the local machine
+      # volumes:
+      #   - /home/runner/checkpoints:/checkpoints
+    steps:
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *setup_python_step
+      - *install_project_step
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *cleanup_step
-  #     - *mark_repo_safe_step
-  #     - *checkout_step
-  #     - *git_lfs_step
-  #     - *setup_python_step
-  #     - *install_project_step
-
-  #     - name: Run policy-related pytest
-  #       run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+      - name: Run policy-related pytest
+        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
@@ -222,49 +221,49 @@ jobs:
           make SPHINXOPTS=-W html
           touch ./_build/html/.nojekyll
 
-  # build_and_push_image_post_merge:
-  #   name: Build & push NGC image (post-merge)
-  #   runs-on: [self-hosted, zurich]
-  #   timeout-minutes: 60
-  #   needs: [test, test_policy, build_docs_pre_merge]       # only push if tests passed
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build_and_push_image_post_merge:
+    name: Build & push NGC image (post-merge)
+    runs-on: [self-hosted, zurich]
+    timeout-minutes: 60
+    needs: [test, test_policy, build_docs_pre_merge]       # only push if tests passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-  #   container:
-  #     image: ubuntu:latest
+    container:
+      image: ubuntu:latest
 
-  #   env:
-  #     # already defined at top, but keep here for clarity/local override if needed
-  #     NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+    env:
+      # already defined at top, but keep here for clarity/local override if needed
+      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *mark_repo_safe_step
-  #     - *cleanup_step
-  #     - *checkout_step
+    steps:
+      # Setup.
+      - *install_git_step
+      - *mark_repo_safe_step
+      - *cleanup_step
+      - *checkout_step
 
-  #     - name: Install docker
-  #       run: |
-  #         apt-get update
-  #         apt-get install -y ca-certificates curl gnupg && \
-  #         install -m 0755 -d /etc/apt/keyrings && \
-  #         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-  #         chmod a+r /etc/apt/keyrings/docker.gpg && \
-  #         echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  #         "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
-  #         apt-get update && apt-get install -y docker.io docker-buildx-plugin
-  #         docker --version
+      - name: Install docker
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg && \
+          install -m 0755 -d /etc/apt/keyrings && \
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+          chmod a+r /etc/apt/keyrings/docker.gpg && \
+          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+          apt-get update && apt-get install -y docker.io docker-buildx-plugin
+          docker --version
 
-  #     - name: Docker login to NGC
-  #       # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
-  #       run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+      - name: Docker login to NGC
+        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
+        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
-  #     - name: Build & push image to NGC
-  #       run: |
-  #         chmod +x ./docker/push_to_ngc* || true
-  #         ./docker/push_to_ngc.sh -p
+      - name: Build & push image to NGC
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p
 
-  #     - name: Build & push image to NGC (GR00T Image)
-  #       run: |
-  #         chmod +x ./docker/push_to_ngc* || true
-  #         ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+      - name: Build & push image to NGC (GR00T Image)
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
