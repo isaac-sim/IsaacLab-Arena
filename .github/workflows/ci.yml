@@ -182,6 +182,10 @@ jobs:
     container:
       image: python:3.11-slim
 
+    env:
+      # We're getting issues with the markers on the checked out files.
+      SKIP: check-executables-have-shebangs
+
     steps:
       - *install_git_step
       - *cleanup_step
