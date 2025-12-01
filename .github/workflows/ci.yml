@@ -251,7 +251,7 @@ jobs:
 
 
   test_public_runner:
-    name: Run tests on a public runner
+    name: Run tests (on public runner)
     runs-on: [gpu]
     timeout-minutes: 45
     needs: [pre_commit]
@@ -305,7 +305,7 @@ jobs:
 
 
   test_policy_public_runner:
-    name: Run policy-related tests with GR00T & cuda12_8 deps on a public runner
+    name: Run policy-related tests with GR00T & cuda12_8 deps (on public runner)
     runs-on: [gpu]
     timeout-minutes: 45
     needs: [pre_commit]
@@ -352,8 +352,8 @@ jobs:
           touch ./_build/html/.nojekyll
 
   build_docs_pre_merge_public_runner:
-    name: Build the docs (pre-merge)
-    runs-on: [self-hosted, zurich]
+    name: Build the docs (pre-merge) (on public runner)
+    runs-on: [gpu]
     timeout-minutes: 30
     needs: [pre_commit]
 
@@ -423,8 +423,8 @@ jobs:
   #         ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
 
   build_and_push_image_post_merge_public_runner:
-    name: Build & push NGC image (post-merge) on public CI
-    runs-on: [self-hosted, zurich]
+    name: Build & push NGC image (post-merge) (on public runner)
+    runs-on: [gpu]
     timeout-minutes: 60
     # DISABLE CONDITIONS. ALWAYS run
     # needs: [test, test_policy, build_docs_pre_merge]       # only push if tests passed
