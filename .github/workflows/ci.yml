@@ -111,6 +111,8 @@ jobs:
     name: Run pre commit checks and tests on a public runner
     runs-on: [gpu]
     timeout-minutes: 45
+    needs: [test] # Force serial execution with the previous job.
+
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
