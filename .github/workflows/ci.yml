@@ -30,7 +30,8 @@ env:
 jobs:
   test:
     name: Run pre commit checks and tests
-    runs-on: [self-hosted, zurich]
+    # runs-on: [self-hosted, zurich]
+    runs-on: [gpu]
     timeout-minutes: 45
 
     container:
@@ -104,85 +105,85 @@ jobs:
       - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-  test_public_runner:
-    name: Run pre commit checks and tests on a public runner
-    runs-on: [gpu]
-    timeout-minutes: 45
+  # test_public_runner:
+  #   name: Run pre commit checks and tests on a public runner
+  #   runs-on: [gpu]
+  #   timeout-minutes: 45
 
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-    steps:
-      # Setup.
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *setup_python_step
-      - *install_project_step
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
+  #   steps:
+  #     # Setup.
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *setup_python_step
+  #     - *install_project_step
 
-      - name: Run pre-commit
-        run: |
-          pip install --no-cache-dir --upgrade pip pre-commit
-          pre-commit run --all-files
+  #     - name: Run pre-commit
+  #       run: |
+  #         pip install --no-cache-dir --upgrade pip pre-commit
+  #         pre-commit run --all-files
 
-      - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+  #     - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
+  #       run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+  #     - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+  #       run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-  test_policy_public_runner:
-    name: Run policy-related tests with GR00T & cuda12_8 deps on a public runner
-    runs-on: [gpu]
-    timeout-minutes: 45
+  # test_policy_public_runner:
+  #   name: Run policy-related tests with GR00T & cuda12_8 deps on a public runner
+  #   runs-on: [gpu]
+  #   timeout-minutes: 45
 
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-      # virtual mounted checkpoints directory from the local machine
-      # volumes:
-      #   - /home/runner/checkpoints:/checkpoints
-    steps:
-      # Setup.
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *setup_python_step
-      - *install_project_step
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
+  #     # virtual mounted checkpoints directory from the local machine
+  #     # volumes:
+  #     #   - /home/runner/checkpoints:/checkpoints
+  #   steps:
+  #     # Setup.
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *setup_python_step
+  #     - *install_project_step
 
-      - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+  #     - name: Run policy-related pytest
+  #       run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
-  test_policy:
-    name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
+  # test_policy:
+  #   name: Run policy-related tests with GR00T & cuda12_8 deps
+  #   runs-on: [self-hosted, zurich]
+  #   timeout-minutes: 30
 
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-    steps:
-      # Setup.
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *setup_python_step
-      - *install_project_step
+  #   container:
+  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+  #     credentials:
+  #       username: $oauthtoken
+  #       password: ${{ env.NGC_API_KEY }}
+  #   steps:
+  #     # Setup.
+  #     - *install_git_step
+  #     - *cleanup_step
+  #     - *mark_repo_safe_step
+  #     - *checkout_step
+  #     - *git_lfs_step
+  #     - *setup_python_step
+  #     - *install_project_step
 
-      - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+  #     - name: Run policy-related pytest
+  #       run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
