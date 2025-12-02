@@ -252,7 +252,7 @@ class GroundPlane(LibraryObject):
 
 @register_asset
 class DomeLight(LibraryObject):
-    """i
+    """
     A dome light.
     """
 
