@@ -68,8 +68,8 @@ jobs:
         name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          clean: true
+          # fetch-depth: 0
+          # clean: true
           submodules: true
           # LFS checkout here somehow causes issues when LFS stuff changes over time.
           # So I do LFS manually in a step after.
