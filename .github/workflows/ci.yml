@@ -83,6 +83,10 @@ jobs:
           git lfs install --local
           git lfs pull
 
+      - name: Debug git
+        run: |
+          git status
+
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
         with:
