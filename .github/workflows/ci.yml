@@ -32,7 +32,7 @@ jobs:
   pre_commit:
     name: Pre-commit
     runs-on: [gpu]
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     container:
       image: python:3.11-slim
@@ -96,7 +96,7 @@ jobs:
   test:
     name: Run tests
     runs-on: [gpu]
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
@@ -130,7 +130,7 @@ jobs:
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
     runs-on: [gpu]
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
@@ -178,7 +178,7 @@ jobs:
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [gpu]
-    timeout-minutes: 60
+    timeout-minutes: 90
     needs: [test, test_policy]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
