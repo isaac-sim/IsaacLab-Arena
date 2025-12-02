@@ -44,6 +44,17 @@ RUN chmod 777 -R /isaac-sim/kit/
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
+# Patch for osqp in IsaacLab. Downgrade qpsolvers
+# TODO(alexmillane): Watch the thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1764680205807019
+#                    and remove this thread when IsaacLab has a fix.
+RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
+        echo "OSQP is installed. You can remove this clause from the Arena dockerfile."; \
+    else \
+        echo "OSQP missing, installing... This is a patch for an Isaac Lab bug."; \
+        /isaac-sim/python.sh -m pip install --upgrade pip; \
+        /isaac-sim/python.sh -m pip install qpsolvers==4.8.1; \
+    fi
+
 # Install pip dependencies
 # NOTE(alexmillane, 2025-07-22): Dependencies are installed in the IsaacSim version of python.
 RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
