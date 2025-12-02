@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import isaaclab.sim as sim_utils
+from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.affordances.openable import Openable
@@ -248,7 +249,8 @@ class GroundPlane(LibraryObject):
     name = "ground_plane"
     tags = ["object"]
     default_prim_path = "/World/GroundPlane"
-    object_type = ObjectType.GROUND_PLANE
+    object_type = ObjectType.SPAWNER
+    spawner_cfg = GroundPlaneCfg()
 
     def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
@@ -263,7 +265,7 @@ class DomeLight(LibraryObject):
     name = "dome_light"
     tags = ["object"]
     default_prim_path = "/World/defaultDomeLight"
-    object_type = ObjectType.LIGHT
+    object_type = ObjectType.SPAWNER
     spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
 
     def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
