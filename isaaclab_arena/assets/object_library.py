@@ -241,7 +241,7 @@ class GroundPlane(LibraryObject):
     """
 
     name = "ground_plane"
-    tags = ["object"]
+    tags = ["ground_plane"]
     default_prim_path = "/World/GroundPlane"
     object_type = ObjectType.SPAWNER
     spawner_cfg = GroundPlaneCfg()
@@ -257,7 +257,7 @@ class DomeLight(LibraryObject):
     """
 
     name = "dome_light"
-    tags = ["object"]
+    tags = ["light"]
     default_prim_path = "/World/defaultDomeLight"
     object_type = ObjectType.SPAWNER
     spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
