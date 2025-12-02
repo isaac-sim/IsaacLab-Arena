@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import isaaclab.sim as sim_utils
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.affordances.openable import Openable
@@ -235,4 +236,35 @@ class BrownBox(LibraryObject):
     scale = (1.0, 1.0, 1.0)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GroundPlane(LibraryObject):
+    """
+    A ground plane.
+    """
+
+    name = "ground_plane"
+    tags = ["object"]
+    default_prim_path = "/World/GroundPlane"
+    object_type = ObjectType.GROUND_PLANE
+
+    def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class DomeLight(LibraryObject):
+    """
+    A dome light.
+    """
+
+    name = "dome_light"
+    tags = ["object"]
+    default_prim_path = "/World/defaultDomeLight"
+    object_type = ObjectType.LIGHT
+    spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
+
+    def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)

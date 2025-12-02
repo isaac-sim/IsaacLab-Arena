@@ -4,11 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
+from pxr import UsdLux
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd_helpers import open_stage
 
 
 class Object(ObjectBase):
@@ -46,6 +48,16 @@ class Object(ObjectBase):
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
 
+    def check_for_lights(self) -> bool:
+        # Open that stage and check if any lights are present.
+        has_light = False
+        with open_stage(self.usd_path) as stage:
+            for prim in stage.Traverse():
+                if prim.IsA(UsdLux.Light):
+                    has_light = True
+                    break
+        return has_light
+
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
         object_cfg = RigidObjectCfg(
@@ -75,9 +87,29 @@ class Object(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
+        if self.check_for_lights():
+            print("WARNING: Base object has lights, this may cause issues when using with multiple environments.")
         object_cfg = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/" + self.name,
             spawn=UsdFileCfg(usd_path=self.usd_path, scale=self.scale),
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
+
+    def _generate_ground_plane_cfg(self) -> AssetBaseCfg:
+        assert self.object_type == ObjectType.GROUND_PLANE
+        object_cfg = AssetBaseCfg(
+            prim_path=self.prim_path,
+            spawn=GroundPlaneCfg(),
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
+
+    def _generate_light_cfg(self) -> AssetBaseCfg:
+        assert self.object_type == ObjectType.LIGHT
+        object_cfg = AssetBaseCfg(
+            prim_path=self.prim_path,
+            spawn=self.spawner_cfg,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
