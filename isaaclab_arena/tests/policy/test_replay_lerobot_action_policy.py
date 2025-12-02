@@ -55,7 +55,7 @@ def test_gr1_manip_replay_lerobot_policy_runner_single_env():
     # args.append("--object")
     # args.append("microwave")
     args.append("--embodiment")
-    args.append("gr1_joint")
+    args.append("gr1_pink")
     run_subprocess(args)
 
 

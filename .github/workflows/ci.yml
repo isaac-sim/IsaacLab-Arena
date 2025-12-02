@@ -83,7 +83,7 @@ jobs:
           git lfs install --local
           git lfs pull
 
-      - name: Debug git
+      - name: git status
         run: |
           git status
 
