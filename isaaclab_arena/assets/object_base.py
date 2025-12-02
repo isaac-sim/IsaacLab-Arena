@@ -107,12 +107,6 @@ class ObjectBase(Asset, ABC):
         # Subclasses must implement this method
         pass
 
-    @abstractmethod
-    def _generate_ground_plane_cfg(self) -> AssetBaseCfg:
-        # Subclasses must implement this method
-        pass
-
-    @abstractmethod
-    def _generate_light_cfg(self) -> AssetBaseCfg:
-        # Subclasses must implement this method
+    def _generate_spawner_cfg(self) -> AssetBaseCfg:
+        # Object Subclasses must implement this method
         pass
