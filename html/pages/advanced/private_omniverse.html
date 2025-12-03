@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Affordances Design &#8212; isaaclab_arena 0.1</title>
+    <title>Omniverse Authentication &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -49,12 +49,12 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/concept_affordances_design';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/advanced/private_omniverse';</script>
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Policy Design" href="concept_policy_design.html" />
-    <link rel="prev" title="Assets Design" href="concept_assets_design.html" />
+    <link rel="next" title="Concept Overview" href="../concepts/concept_overview.html" />
+    <link rel="prev" title="Closed-Loop Policy Inference and Evaluation" href="../example_workflows/static_manipulation/step_5_evaluation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -192,10 +192,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -305,22 +301,22 @@
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Omniverse Authentication</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_policy_design.html">Policy Design</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -359,7 +355,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Affordances Design</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Omniverse Authentication</span></li>
   </ul>
 </nav>
 </div>
@@ -376,105 +372,31 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="affordances-design">
-<h1>Affordances Design<a class="headerlink" href="#affordances-design" title="Link to this heading">#</a></h1>
-<p>Affordances define what interactions objects can perform - opening doors, pressing buttons, manipulating objects.
-They provide standardized interfaces that integrate with assets and tasks.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>Affordances use the <code class="docutils literal notranslate"><span class="pre">AffordanceBase</span></code> abstract class and mixin pattern:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">AffordanceBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">pass</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Openable</span><span class="p">(</span><span class="n">AffordanceBase</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">env_ids</span><span class="p">,</span> <span class="n">percentage</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set opening percentage via joint control.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query current open state.&quot;&quot;&quot;</span>
+  <section id="omniverse-authentication">
+<h1>Omniverse Authentication<a class="headerlink" href="#omniverse-authentication" title="Link to this heading">#</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These steps are only required if you are extending Isaac Lab Arena with your own
+internal assets. Assets and files that are used by Isaac Lab Arena by default are
+publicly available without additional authentication (i.e. without performing the
+steps detailed on this page).</p>
+</div>
+<p>To allow the project to access Nvidia Omniverse assets or services
+e.g., stored scenes, USD files, or extensions on a <strong>private</strong> Nucleus server,
+you must authenticate using an Omniverse API token.</p>
+<p>Isaac Sim and other Nvidia Omniverse applications use two environment variables
+<code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> and <code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> to authenticate automatically.</p>
+<p>To generate those, follow the instructions on the
+<a class="reference external" href="https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html">Omniverse Authentication documentation</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_USER</span><span class="o">=</span><span class="s1">&#39;$omni-api-token&#39;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_PASS</span><span class="o">=</span>&lt;your_generated_api_token&gt;
 </pre></div>
 </div>
-<p>Affordances are mixin classes that combine with objects through multiple inheritance, operating on articulated objects via joint control.</p>
-</section>
-<section id="affordances-in-detail">
-<h2>Affordances in Detail<a class="headerlink" href="#affordances-in-detail" title="Link to this heading">#</a></h2>
-<dl>
-<dt><strong>Openable Affordance</strong></dt><dd><p>Provides opening and closing functionality for articulated objects:</p>
+<p>Where:</p>
 <ul class="simple">
-<li><p><strong>State Methods</strong>: <code class="docutils literal notranslate"><span class="pre">is_open()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_openness()</span></code> for querying current state</p></li>
-<li><p><strong>Control Methods</strong>: <code class="docutils literal notranslate"><span class="pre">open()</span></code>, <code class="docutils literal notranslate"><span class="pre">close()</span></code> for direct state manipulation</p></li>
-<li><p><strong>Parameters</strong>: <code class="docutils literal notranslate"><span class="pre">openable_joint_name</span></code>, <code class="docutils literal notranslate"><span class="pre">openable_open_threshold</span></code></p></li>
-<li><p><strong>Implementation</strong>: Normalized joint position control (0.0-1.0 range)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> should be set to the literal string <code class="docutils literal notranslate"><span class="pre">$omni-api-token</span></code> (including the leading dollar sign)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> should be the actual token value you generated.</p></li>
 </ul>
-</dd>
-<dt><strong>Pressable Affordance</strong></dt><dd><p>Enables pressing and releasing functionality for button-like objects:</p>
-<ul class="simple">
-<li><p><strong>State Methods</strong>: <code class="docutils literal notranslate"><span class="pre">is_pressed()</span></code> for current button state</p></li>
-<li><p><strong>Control Methods</strong>: <code class="docutils literal notranslate"><span class="pre">press()</span></code>, <code class="docutils literal notranslate"><span class="pre">unpress()</span></code> for state changes</p></li>
-<li><p><strong>Parameters</strong>: <code class="docutils literal notranslate"><span class="pre">pressable_joint_name</span></code>, <code class="docutils literal notranslate"><span class="pre">pressable_pressed_threshold</span></code></p></li>
-<li><p><strong>Implementation</strong>: Threshold-based binary state determination</p></li>
-</ul>
-</dd>
-<dt><strong>Object Integration Pattern</strong></dt><dd><p>Affordances combine with assets through multiple inheritance:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Microwave</span><span class="p">(</span><span class="n">LibraryObject</span><span class="p">,</span> <span class="n">Openable</span><span class="p">):</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;microwave&quot;</span>
-    <span class="n">object_type</span> <span class="o">=</span> <span class="n">ObjectType</span><span class="o">.</span><span class="n">ARTICULATION</span>
-    <span class="n">openable_joint_name</span> <span class="o">=</span> <span class="s2">&quot;microjoint&quot;</span>
-    <span class="n">openable_open_threshold</span> <span class="o">=</span> <span class="mf">0.5</span>
-</pre></div>
-</div>
-</dd>
-<dt><strong>Task Integration</strong></dt><dd><p>Affordances provide termination conditions and event handling for tasks:</p>
-<ul class="simple">
-<li><p><strong>Termination</strong>: Use <code class="docutils literal notranslate"><span class="pre">is_open()</span></code> for success criteria in <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code></p></li>
-<li><p><strong>Events</strong>: Reset object states with affordance methods during episode resets</p></li>
-<li><p><strong>Metrics</strong>: Track interaction progress through state queries</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create affordance-enabled object</span>
-<span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-
-<span class="c1"># Use in task definition</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span>
-    <span class="n">openable_object</span><span class="o">=</span><span class="n">microwave</span><span class="p">,</span>
-    <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
-    <span class="n">reset_openness</span><span class="o">=</span><span class="mf">0.2</span>
-<span class="p">)</span>
-
-<span class="c1"># Environment composition</span>
-<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;microwave_opening&quot;</span><span class="p">,</span>
-    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Microwave Opening Task</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Runtime State Querying</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check object state during simulation</span>
-<span class="k">if</span> <span class="n">microwave</span><span class="o">.</span><span class="n">is_open</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Microwave is open enough&quot;</span><span class="p">)</span>
-
-<span class="n">current_openness</span> <span class="o">=</span> <span class="n">microwave</span><span class="o">.</span><span class="n">get_openness</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
 </section>
 
 
@@ -488,20 +410,20 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_assets_design.html"
+       href="../example_workflows/static_manipulation/step_5_evaluation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Assets Design</p>
+        <p class="prev-next-title">Closed-Loop Policy Inference and Evaluation</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_policy_design.html"
+       href="../concepts/concept_overview.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Policy Design</p>
+        <p class="prev-next-title">Concept Overview</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -512,28 +434,9 @@ They provide standardized interfaces that integrate with assets and tasks.</p>
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#affordances-in-detail">Affordances in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 

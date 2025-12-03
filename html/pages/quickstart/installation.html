@@ -304,6 +304,10 @@
 </ul>
 </details></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
@@ -417,27 +421,6 @@ pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </sp
 </div>
 <p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed and the docker running, you’re ready to build your first IsaacLab-Arena Environment. See <a class="reference internal" href="first_arena_env.html"><span class="doc">First Arena Environment</span></a> to get started.</p>
 </section>
-<section id="omniverse-authentication-use-of-internal-assets">
-<h2>Omniverse Authentication (Use of Internal Assets)<a class="headerlink" href="#omniverse-authentication-use-of-internal-assets" title="Link to this heading">#</a></h2>
-<p>To allow the project to access Nvidia Omniverse assets or services (e.g., stored scenes, USD files, or extensions on a Nucleus server),
-you must authenticate using an Omniverse API token.</p>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>This is only needed for assets that are not yet hosted on the public Nucleus server. Once we go public, this will not be needed.
-TODO(cvolk, 2025-11-03): Remove this once we have public assets.</p>
-</div>
-<p>Isaac Sim and other Nvidia Omniverse applications use two environment variables <code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> and <code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> to authenticate automatically.</p>
-<p>To generate those, follow the instructions on the <a class="reference external" href="https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html">Omniverse Authentication documentation</a>.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_USER</span><span class="o">=</span><span class="s1">&#39;$omni-api-token&#39;</span>
-<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_PASS</span><span class="o">=</span>&lt;your_generated_api_token&gt;
-</pre></div>
-</div>
-<p>Where:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">OMNI_USER</span></code> should be set to the literal string <code class="docutils literal notranslate"><span class="pre">$omni-api-token</span></code> (including the leading dollar sign)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">OMNI_PASS</span></code> should be the actual token value you generated.</p></li>
-</ul>
-</section>
 </section>
 
 
@@ -491,7 +474,6 @@ TODO(cvolk, 2025-11-03): Remove this once we have public assets.</p>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-systems">Supported Systems</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation-via-docker">Installation via Docker</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#omniverse-authentication-use-of-internal-assets">Omniverse Authentication (Use of Internal Assets)</a></li>
 </ul>
   </nav></div>
 
