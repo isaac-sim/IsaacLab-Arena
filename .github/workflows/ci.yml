@@ -81,9 +81,11 @@ jobs:
           git lfs install --local
           git lfs pull
 
-      - name: git status
+      - &git_status
+        name: git status
         run: |
           git status
+          git fsck --full
 
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
@@ -121,6 +123,8 @@ jobs:
           pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
+      - *git_status
+
       # Run the tests (excluding the gr00t related tests)
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
@@ -152,6 +156,8 @@ jobs:
       - *git_lfs_step
       - *install_project_step
 
+      - *git_status
+
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
         run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
@@ -171,6 +177,8 @@ jobs:
       - *install_git_step
       - *cleanup_step
       - *checkout_step
+
+      - *git_status
 
       # Build docs
       - name: Build docs
@@ -201,6 +209,8 @@ jobs:
       - *mark_repo_safe_step
       - *cleanup_step
       - *checkout_step
+
+      - *git_status
 
       - name: Install docker
         run: |
