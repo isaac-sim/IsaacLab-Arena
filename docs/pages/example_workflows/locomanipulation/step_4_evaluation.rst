@@ -145,4 +145,5 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. note::
 
-   The policy was trained using CPU device physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
+   The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
+   If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
