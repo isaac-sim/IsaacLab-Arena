@@ -68,8 +68,6 @@ jobs:
         name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0
-          # clean: true
           submodules: true
           # LFS checkout here somehow causes issues when LFS stuff changes over time.
           # So I do LFS manually in a step after.
@@ -92,44 +90,43 @@ jobs:
         with:
           extra_args: --verbose
 
+  test:
+    name: Run tests
+    runs-on: [gpu]
+    timeout-minutes: 60
+    needs: [pre_commit]
 
-  # test:
-  #   name: Run tests
-  #   runs-on: [gpu]
-  #   timeout-minutes: 60
-  #   needs: [pre_commit]
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
+    steps:
+      # nvidia-smi
+      - &nvidia_smi
+        name: nvidia-smi
+        run: nvidia-smi
 
-  #   steps:
-  #     # nvidia-smi
-  #     - &nvidia_smi
-  #       name: nvidia-smi
-  #       run: nvidia-smi
+      # Setup
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
 
-  #     # Setup
-  #     - *install_git_step
-  #     - *cleanup_step
-  #     - *mark_repo_safe_step
-  #     - *checkout_step
-  #     - *git_lfs_step
+      - &install_project_step
+        name: Install project and link isaac-sim
+        run: |
+          pip install --no-cache-dir -e .
+          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-  #     - &install_project_step
-  #       name: Install project and link isaac-sim
-  #       run: |
-  #         pip install --no-cache-dir -e .
-  #         [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+      # Run the tests (excluding the gr00t related tests)
+      - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
-  #     # Run the tests (excluding the gr00t related tests)
-  #     - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-  #       run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
-
-  #     - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-  #       run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
 
   test_policy:
@@ -145,10 +142,7 @@ jobs:
         password: ${{ env.NGC_API_KEY }}
     steps:
       # nvidia-smi
-      # - *nvidia_smi
-      - &nvidia_smi
-        name: nvidia-smi
-        run: nvidia-smi
+      - *nvidia_smi
 
       # Setup.
       - *install_git_step
@@ -156,20 +150,9 @@ jobs:
       - *mark_repo_safe_step
       - *checkout_step
       - *git_lfs_step
-      # - *install_project_step
+      - *install_project_step
 
-      - &install_project_step
-        name: Install project and link isaac-sim
-        run: |
-          pip install --no-cache-dir -e .
-          [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
-
-      - name: git status
-        run: git status
-
-      - name: git fsck
-        run: git fsck --full
-
+      # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
         run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
@@ -198,49 +181,49 @@ jobs:
           touch ./_build/html/.nojekyll
 
 
-  # build_and_push_image_post_merge:
-  #   name: Build & push NGC image (post-merge)
-  #   runs-on: [gpu]
-  #   timeout-minutes: 90
-  #   needs: [test, test_policy]       # only push if tests passed
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build_and_push_image_post_merge:
+    name: Build & push NGC image (post-merge)
+    runs-on: [gpu]
+    timeout-minutes: 90
+    needs: [test, test_policy]       # only push if tests passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-  #   container:
-  #     image: ubuntu:latest
+    container:
+      image: ubuntu:latest
 
-  #   env:
-  #     # already defined at top, but keep here for clarity/local override if needed
-  #     NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+    env:
+      # already defined at top, but keep here for clarity/local override if needed
+      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
 
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *mark_repo_safe_step
-  #     - *cleanup_step
-  #     - *checkout_step
+    steps:
+      # Setup.
+      - *install_git_step
+      - *mark_repo_safe_step
+      - *cleanup_step
+      - *checkout_step
 
-  #     - name: Install docker
-  #       run: |
-  #         apt-get update
-  #         apt-get install -y ca-certificates curl gnupg && \
-  #         install -m 0755 -d /etc/apt/keyrings && \
-  #         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-  #         chmod a+r /etc/apt/keyrings/docker.gpg && \
-  #         echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  #         "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
-  #         apt-get update && apt-get install -y docker.io docker-buildx-plugin
-  #         docker --version
+      - name: Install docker
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg && \
+          install -m 0755 -d /etc/apt/keyrings && \
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+          chmod a+r /etc/apt/keyrings/docker.gpg && \
+          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+          apt-get update && apt-get install -y docker.io docker-buildx-plugin
+          docker --version
 
-  #     - name: Docker login to NGC
-  #       # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
-  #       run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+      - name: Docker login to NGC
+        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
+        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
-  #     - name: Build & push image to NGC
-  #       run: |
-  #         chmod +x ./docker/push_to_ngc* || true
-  #         ./docker/push_to_ngc.sh -p
+      - name: Build & push image to NGC
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p
 
-  #     - name: Build & push image to NGC (GR00T Image)
-  #       run: |
-  #         chmod +x ./docker/push_to_ngc* || true
-  #         ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+      - name: Build & push image to NGC (GR00T Image)
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
