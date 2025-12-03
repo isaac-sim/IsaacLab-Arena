@@ -193,6 +193,12 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
+   :caption: Advanced
+
+   pages/advanced/private_omniverse
+
+.. toctree::
+   :maxdepth: 1
    :caption: Concepts
 
    pages/concepts/concept_overview
