@@ -9,7 +9,7 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
-ENABLE_CAMERAS = False  # CHANGED!
+ENABLE_CAMERAS = True
 NUM_STEPS = 10
 # Only 1 traj in test data
 TRAJECTORY_INDEX = 0
