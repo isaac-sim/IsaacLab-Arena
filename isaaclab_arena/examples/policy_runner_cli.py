@@ -75,6 +75,12 @@ def add_gr00t_closedloop_arguments(parser: argparse.ArgumentParser) -> None:
         type=str,
         help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
     )
+    gr00t_closedloop_group.add_argument(
+        "--policy_device",
+        type=str,
+        default="cuda",
+        help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
+    )
 
 
 def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = None) -> argparse.ArgumentParser:
@@ -133,7 +139,7 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
     elif args.policy_type == "gr00t_closedloop":
         from isaaclab_arena_gr00t.gr00t_closedloop_policy import Gr00tClosedloopPolicy
 
-        policy = Gr00tClosedloopPolicy(args.policy_config_yaml_path, num_envs=args.num_envs, device=args.device)
+        policy = Gr00tClosedloopPolicy(args.policy_config_yaml_path, num_envs=args.num_envs, device=args.policy_device)
         num_steps = args.num_steps
     else:
         raise ValueError(f"Unknown policy type: {args.type}")
