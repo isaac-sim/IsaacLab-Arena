@@ -109,7 +109,7 @@ Test the policy in 5 parallel environments with visualization via the GUI run:
      --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
-     --num_envs 5 \  # run the policy in 5 parallel environments
+     --num_envs 5 \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \

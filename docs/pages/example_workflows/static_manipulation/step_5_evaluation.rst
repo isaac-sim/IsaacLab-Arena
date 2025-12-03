@@ -119,7 +119,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
      --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
-     --num_envs 10 \  # run the policy in 10 parallel environments
+     --num_envs 10 \
      --enable_cameras \
      gr1_open_microwave \
      --embodiment gr1_joint
