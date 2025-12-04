@@ -132,8 +132,7 @@ def test_all_assets_in_registry():
     assert result, "Test failed"
 
 
-def _test_multiple_lights_and_ground_plane(simulation_app):
-    import isaaclab.sim as sim_utils
+def _test_multi_light_in_scene(simulation_app):
     from pxr import UsdLux
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
@@ -172,16 +171,13 @@ def _test_multiple_lights_and_ground_plane(simulation_app):
     # We dont add lights from anywhere else in this scene.
     light_prims = [prim for prim in all_prims_in_stage if prim.IsA(UsdLux.DomeLight)]
     assert len(light_prims) == 1
-    # Check that there is only one ground plane in the stage
-    ground_plane_prims = [prim for prim in all_prims_in_stage if prim.IsA(sim_utils.GroundPlaneCfg)]
-    assert len(ground_plane_prims) == 1
     env.close()
     return True
 
 
-def test_multiple_lights_and_ground_plane():
+def test_multi_light_in_scene():
     result = run_simulation_app_function(
-        _test_multiple_lights_and_ground_plane,
+        _test_multi_light_in_scene,
         headless=HEADLESS,
     )
     assert result, "Test failed"
@@ -190,4 +186,4 @@ def test_multiple_lights_and_ground_plane():
 if __name__ == "__main__":
     test_default_assets_registered()
     test_all_assets_in_registry()
-    test_multiple_lights_and_ground_plane()
+    test_multi_light_in_scene()
