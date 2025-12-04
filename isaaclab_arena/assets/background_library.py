@@ -125,7 +125,7 @@ class Table(LibraryBackground):
     """
 
     name = "table"
-    tags = ["object"]
+    tags = ["background"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
     object_min_z = -0.05
 
