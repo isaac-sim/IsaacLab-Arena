@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import dataclasses
 from dataclasses import MISSING
 from typing import Any
@@ -100,23 +101,29 @@ class SequentialTaskBase(TaskBase):
         env,
         task_instance: "SequentialTaskBase",
     ) -> torch.Tensor:
-        if not hasattr(env, "_subtask_success_state"):
-            env._subtask_success_state = [[False for _ in task_instance.subtasks] for _ in range(env.num_envs)]
+        # if not hasattr(env, "_subtask_success_state"):
+        #     env._subtask_success_state = [[False for _ in task_instance.subtasks] for _ in range(env.num_envs)]
 
-        # Check success for each subtask
-        for i, subtask in enumerate(task_instance.subtasks):
-            subtask_success_func = subtask.get_termination_cfg().success.func
-            subtask_success_params = subtask.get_termination_cfg().success.params
-            result = subtask_success_func(env, **subtask_success_params)
-            
-            # Update composite success state for each env if subtask success
-            for env_idx in range(env.num_envs):
-                if result[env_idx]:
-                    env._subtask_success_state[env_idx][i] = True
-        
+        # if not hasattr(env, "_current_subtask_idx"):
+        #     env._current_subtask_idx = [0 for _ in range(env.num_envs)]
+
+        # Check success of current subtask for each env
+        for env_idx in range(env.num_envs):
+            current_subtask_idx = env._current_subtask_idx[env_idx]
+            current_subtask_success_func = task_instance.subtasks[current_subtask_idx].get_termination_cfg().success.func
+            current_subtask_success_params = task_instance.subtasks[current_subtask_idx].get_termination_cfg().success.params
+            result = current_subtask_success_func(env, **current_subtask_success_params)[env_idx]
+
+            if result:
+                env._subtask_success_state[env_idx][current_subtask_idx] = True
+                if current_subtask_idx < len(task_instance.subtasks) - 1:
+                    env._current_subtask_idx[env_idx] += 1
+
         # Compute composite task success state for each env
         per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
         success_tensor = torch.tensor(per_env_success, dtype=torch.bool, device=env.device)
+
+        env.extras["subtask_success_state"] = copy.copy(env._subtask_success_state)
 
         return success_tensor
 
@@ -126,11 +133,17 @@ class SequentialTaskBase(TaskBase):
         env_ids,
         task_instance: "SequentialTaskBase",
     ) -> None:
+        # Initialize each env's subtask success state
         if not hasattr(env, "_subtask_success_state"):
             env._subtask_success_state = [[False for _ in task_instance.subtasks] for _ in range(env.num_envs)]
         else:
-            # Set subtask success state to False for envs that have been reset
             env._subtask_success_state[env_ids] = [False for _ in task_instance.subtasks]
+        
+        # Initialize each env's current subtask index
+        if not hasattr(env, "_current_subtask_idx"):
+            env._current_subtask_idx = [0 for _ in range(env.num_envs)]
+        else:
+            env._current_subtask_idx[env_ids] = 0
         
     def get_scene_cfg(self) -> configclass:
         scene_cfg = combine_configclass_instances(
