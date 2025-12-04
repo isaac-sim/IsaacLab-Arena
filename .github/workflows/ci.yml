@@ -165,7 +165,8 @@ jobs:
 
       # Debug
       - name: Debug
-        run: find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/
+        run: find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/ -type f -print0 | xargs -0 du -h
+        # run: find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/
 
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
