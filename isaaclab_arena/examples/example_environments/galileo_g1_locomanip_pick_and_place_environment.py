@@ -69,7 +69,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background, episode_length_s=20.0),
+            task=G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background, episode_length_s=30.0),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment

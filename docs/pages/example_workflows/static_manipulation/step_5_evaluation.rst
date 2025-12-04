@@ -119,7 +119,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
      --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
-     --num_envs 10 \  # run the policy in 10 parallel environments
+     --num_envs 10 \
      --enable_cameras \
      gr1_open_microwave \
      --embodiment gr1_joint
@@ -133,12 +133,12 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate is no longer 1.0 as more trials are being evaluated, and the number of episodes is more
+You can see that the success rate and door moved rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.5833333333333334, 'door_moved_rate': 1.0, 'num_episodes': 120}
+   Metrics: {'success_rate': 0.605, 'door_moved_rate': 0.955, 'num_episodes': 200}
 
 .. note::
 
