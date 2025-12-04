@@ -163,6 +163,10 @@ jobs:
       - *git_status
       - *git_fsck
 
+      # Debug
+      - name: Debug
+        run: find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/
+
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
         run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
