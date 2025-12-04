@@ -245,9 +245,15 @@ class GroundPlane(LibraryObject):
     # Setting a global prim path for the ground plane. Will not get repeated for each environment.
     default_prim_path = "/World/GroundPlane"
     object_type = ObjectType.SPAWNER
-    spawner_cfg = GroundPlaneCfg()
+    default_spawner_cfg = GroundPlaneCfg()
 
-    def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.GroundPlaneCfg = default_spawner_cfg,
+    ):
+        self.spawner_cfg = spawner_cfg
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
