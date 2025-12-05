@@ -176,31 +176,35 @@ jobs:
       #     /usr/bin/time -f 'Peak memory: %M KB' /isaac-sim/python.sh -m pytest -s isaaclab_arena/tests/policy/test_replay_lerobot_action_policy.py
       #   # run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
 
-      - name: Run command while tracking system memory
+      # - name: Run command while tracking system memory
+      #   run: |
+      #     # Start memory sampling in the background
+      #     (
+      #       peak=0
+      #       while true; do
+      #         used=$(free -m | awk '/Mem:/ {print $3}')
+      #         if [ "$used" -gt "$peak" ]; then peak=$used; fi
+      #         echo $peak > peak_mem.txt
+      #         sleep 1
+      #       done
+      #     ) &
+      #     sampler_pid=$!
+
+      #     # Run your command
+      #     /isaac-sim/python.sh -m pytest -s isaaclab_arena/tests/policy/test_replay_lerobot_action_policy.py
+      #     exit_code=$?
+
+      #     # Stop the sampler
+      #     kill $sampler_pid || true
+
+      #     # Print peak system memory used (in MB)
+      #     echo "Peak system memory: $(cat peak_mem.txt) MB"
+
+      #     exit $exit_code
+
+      - name: Run test in main process
         run: |
-          # Start memory sampling in the background
-          (
-            peak=0
-            while true; do
-              used=$(free -m | awk '/Mem:/ {print $3}')
-              if [ "$used" -gt "$peak" ]; then peak=$used; fi
-              echo $peak > peak_mem.txt
-              sleep 1
-            done
-          ) &
-          sampler_pid=$!
-
-          # Run your command
-          /isaac-sim/python.sh -m pytest -s isaaclab_arena/tests/policy/test_replay_lerobot_action_policy.py
-          exit_code=$?
-
-          # Stop the sampler
-          kill $sampler_pid || true
-
-          # Print peak system memory used (in MB)
-          echo "Peak system memory: $(cat peak_mem.txt) MB"
-
-          exit $exit_code
+          /isaac-sim/python.sh isaaclab_arena/examples/policy_runner.py --policy_type replay_lerobot --config_yaml_path isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/test_gr1_manip_replay_action_config.yaml --max_steps 10 --trajectory_index 0 --headless --enable_cameras gr1_open_microwave --object microwave --embodiment gr1_joint
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
