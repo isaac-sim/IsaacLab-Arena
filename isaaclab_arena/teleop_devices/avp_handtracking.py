@@ -24,36 +24,90 @@ from isaaclab_arena.assets.register import register_device
 from isaaclab_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
 
 
-@register_device
-class HandTrackingTeleopDevice(TeleopDeviceBase):
-    """
-    Teleop device for hand tracking.
-    """
+# @register_device
+# class HandTrackingTeleopDevice(TeleopDeviceBase):
+#     """
+#     Teleop device for hand tracking.
+#     """
 
-    name = "avp_handtracking"
+#     name = "avp_handtracking"
 
-    def __init__(
-        self, sim_device: str | None = None, num_open_xr_hand_joints: int = 52, enable_visualization: bool = True
-    ):
-        super().__init__(sim_device=sim_device)
-        self.num_open_xr_hand_joints = num_open_xr_hand_joints
-        self.enable_visualization = enable_visualization
+#     def __init__(
+#         self, sim_device: str | None = None, num_open_xr_hand_joints: int = 52, enable_visualization: bool = True
+#     ):
+#         super().__init__(sim_device=sim_device)
+#         self.num_open_xr_hand_joints = num_open_xr_hand_joints
+#         self.enable_visualization = enable_visualization
 
-    def get_teleop_device_cfg(self, embodiment: object | None = None):
-        return DevicesCfg(
+#     def get_teleop_device_cfg(self, embodiment: object | None = None):
+#         return DevicesCfg(
+#             devices={
+#                 "avp_handtracking": OpenXRDeviceCfg(
+#                     retargeters=[
+#                         GR1T2RetargeterCfg(
+#                             enable_visualization=self.enable_visualization,
+#                             # number of joints in both hands
+#                             num_open_xr_hand_joints=self.num_open_xr_hand_joints,
+#                             sim_device=self.sim_device,
+#                             hand_joint_names=embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
+#                         ),
+#                     ],
+#                     sim_device=self.sim_device,
+#                     xr_cfg=embodiment.get_xr_cfg(),
+#                 ),
+#             }
+#         )
+
+
+# device_registry.py
+
+class DeviceRegistry:
+
+    def __init__(self):
+        self.devices: dict[str, object] = {}
+        self.retargetters: dict[tuple[str, str], object] = {}
+
+    def register_device(self, device_name: str, cfg: object):
+        self.devices[device_name] = cfg
+
+    def register_retargetter(self, device_name: str, embodiment_name: str, retargetter: object):
+        self.retargetters[device_name, embodiment_name] = retargetter
+
+    def get_teleop_device_cfg(device_name: str, embodiment: object | None = None):
+        device_cfg_cls = device_registry.get_device(device_name)
+        retargetter = device_registry.get_retargetter(device, embodiment.name)
+        retargetter_cfg = retargetter.get_retargetter_cfg(embodiment, device.sim_device)
+        return device_cfg_cls(
             devices={
-                "avp_handtracking": OpenXRDeviceCfg(
-                    retargeters=[
-                        GR1T2RetargeterCfg(
-                            enable_visualization=self.enable_visualization,
-                            # number of joints in both hands
-                            num_open_xr_hand_joints=self.num_open_xr_hand_joints,
-                            sim_device=self.sim_device,
-                            hand_joint_names=embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
-                        ),
-                    ],
-                    sim_device=self.sim_device,
+                device_name: device_cfg_cls(
+                    retargeters=[retargetter_cfg],
+                    sim_device=device.sim_device,
                     xr_cfg=embodiment.get_xr_cfg(),
                 ),
             }
+        )
+
+
+# device_library.py
+
+register_device("openxr", OpenXRDeviceCfg)
+
+# retargeter_library.py
+
+@register_retargetter
+class GR1T2Retargeter(RetargeterBase):
+
+    device = "openxr"
+    embodiment = "gr1"
+
+    def __init__(self):
+        pass
+
+    def get_retargetter_cfg(self, grt2_embodiment, sim_device: str, enable_visualization: bool = False) -> RetargeterCfg:
+        return GR1T2RetargeterCfg(
+            enable_visualization=enable_visualization,
+            # number of joints in both hands
+            num_open_xr_hand_joints=grt2_embodiment.get_xr_cfg().num_open_xr_hand_joints,
+            sim_device=sim_device,
+            hand_joint_names=grt2_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
         )
