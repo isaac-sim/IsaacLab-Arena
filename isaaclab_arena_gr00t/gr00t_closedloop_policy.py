@@ -54,7 +54,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.action_dim += NUM_NAVIGATE_CMD + NUM_BASE_HEIGHT_CMD + NUM_TORSO_ORIENTATION_RPY_CMD
 
         self.current_action_chunk = torch.zeros(
-            (num_envs, self.action_chunk_length, self.action_dim),
+            (num_envs, self.policy_config.action_horizon, self.action_dim),
             dtype=torch.float,
             device=device,
         )

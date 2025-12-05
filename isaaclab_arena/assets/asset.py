@@ -15,6 +15,7 @@ class Asset:
         # multiple inheritance of inheriting classes.
         super().__init__(**kwargs)
         # self.name = name
+        assert name is not None, "Name is required for all assets"
         self._name = name
         self.tags = tags
 

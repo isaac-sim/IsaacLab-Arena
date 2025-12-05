@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import MISSING
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,7 @@ from isaaclab.utils import configclass
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.orchestrator.orchestrator_base import OrchestratorBase
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
@@ -39,3 +41,6 @@ class IsaacLabArenaEnvironment:
 
     orchestrator: OrchestratorBase | None = None
     """The orchestrator to use in the environment."""
+
+    env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None
+    """A callback function that modifies the environment configuration."""

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import isaaclab.sim as sim_utils
+from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.affordances.openable import Openable
@@ -21,7 +23,7 @@ class LibraryObject(Object):
 
     name: str
     tags: list[str]
-    usd_path: str
+    usd_path: str | None = None
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
@@ -229,4 +231,50 @@ class BrownBox(LibraryObject):
     scale = (1.0, 1.0, 1.0)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GroundPlane(LibraryObject):
+    """
+    A ground plane.
+    """
+
+    name = "ground_plane"
+    tags = ["ground_plane"]
+    # Setting a global prim path for the ground plane. Will not get repeated for each environment.
+    default_prim_path = "/World/GroundPlane"
+    object_type = ObjectType.SPAWNER
+    default_spawner_cfg = GroundPlaneCfg()
+
+    def __init__(
+        self,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.GroundPlaneCfg = default_spawner_cfg,
+    ):
+        self.spawner_cfg = spawner_cfg
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class Light(LibraryObject):
+    """
+    A dome light.
+    """
+
+    name = "light"
+    tags = ["light"]
+    # Setting a global prim path for the dome light. Will not get repeated for each environment.
+    default_prim_path = "/World/Light"
+    object_type = ObjectType.SPAWNER
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
+
+    def __init__(
+        self,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.LightCfg = default_spawner_cfg,
+    ):
+        self.spawner_cfg = spawner_cfg
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)

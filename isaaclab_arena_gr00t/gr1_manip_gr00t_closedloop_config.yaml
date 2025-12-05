@@ -7,6 +7,7 @@
 # NOTE(alexmillane, 2025-10-31): The model path here aligns with the model used in the static manipulation tutorial.
 model_path: /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000
 language_instruction: "Reach out to the microwave and open it."
+# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.5 policy data_config 'fourier_gr1_arms_only'.
 action_horizon: 16
 embodiment_tag: gr1
 video_backend: decord
@@ -15,6 +16,8 @@ data_config: fourier_gr1_arms_only
 policy_joints_config_path: isaaclab_arena_gr00t/config/gr1/gr00t_26dof_joint_space.yaml
 action_joints_config_path: isaaclab_arena_gr00t/config/gr1/36dof_joint_space.yaml
 state_joints_config_path: isaaclab_arena_gr00t/config/gr1/54dof_joint_space.yaml
+
+# Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
 action_chunk_length: 16
 task_mode_name: gr1_tabletop_manipulation
 

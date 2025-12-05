@@ -169,6 +169,11 @@ class ArenaEnvBuilder:
                 viewer=viewer_cfg,
             )
 
+        # Apply the environment configuration callback if it is set
+        # This can be used to modify the simulation configuration, etc.
+        if self.arena_env.env_cfg_callback is not None:
+            env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+
         return env_cfg
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

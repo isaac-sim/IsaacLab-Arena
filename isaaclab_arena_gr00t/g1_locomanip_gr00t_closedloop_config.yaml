@@ -7,6 +7,7 @@
 # NOTE(alexmillane, 2025-10-31): The model path here aligns with the model used in the static manipulation tutorial.
 model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
+# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.5 policy data_config 'unitree_g1_sim_wbc'.
 action_horizon: 16
 embodiment_tag: new_embodiment
 video_backend: decord
@@ -16,6 +17,7 @@ policy_joints_config_path: isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_spac
 action_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
 state_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
 
+# Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
 action_chunk_length: 16
 pov_cam_name_sim: "robot_head_cam_rgb"
 
