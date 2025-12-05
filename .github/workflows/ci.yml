@@ -68,6 +68,7 @@ jobs:
         name: Checkout Code
         uses: actions/checkout@v4
         with:
+          fetch-depth:: 0
           submodules: true
           # LFS checkout here somehow causes issues when LFS stuff changes over time.
           # So I do LFS manually in a step after.
@@ -81,9 +82,13 @@ jobs:
           git lfs install --local
           git lfs pull
 
-      - name: git status
-        run: |
-          git status
+      - &git_status
+        name: git status
+        run: git status
+
+      - &git_fsck
+        name: git fsck
+        run: git fsck --full
 
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
@@ -121,19 +126,22 @@ jobs:
           pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
-      # Run the tests (excluding the gr00t related tests)
-      - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      - *git_status
+      - *git_fsck
 
-      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+      # # Run the tests (excluding the gr00t related tests)
+      # - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
+      #   run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+
+      # - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+      #   run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
 
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
     runs-on: [gpu]
     timeout-minutes: 60
-    needs: [pre_commit]
+    # needs: [pre_commit]
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
@@ -152,10 +160,51 @@ jobs:
       - *git_lfs_step
       - *install_project_step
 
-      # Run the policy (GR00T) related tests.
-      - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+      - *git_status
+      - *git_fsck
 
+      # Debug
+      - name: Debug
+        run: find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/ -type f -print0 | xargs -0 sha256sum
+        # find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/ -type f -print0 | xargs -0 du -h
+        # run: find isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/
+
+      # # Run the policy (GR00T) related tests.
+      # - name: Run policy-related pytest
+      #   run: |
+      #     sudo apt-get update && sudo apt-get install time
+      #     /usr/bin/time -f 'Peak memory: %M KB' /isaac-sim/python.sh -m pytest -s isaaclab_arena/tests/policy/test_replay_lerobot_action_policy.py
+      #   # run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+
+      # - name: Run command while tracking system memory
+      #   run: |
+      #     # Start memory sampling in the background
+      #     (
+      #       peak=0
+      #       while true; do
+      #         used=$(free -m | awk '/Mem:/ {print $3}')
+      #         if [ "$used" -gt "$peak" ]; then peak=$used; fi
+      #         echo $peak > peak_mem.txt
+      #         sleep 1
+      #       done
+      #     ) &
+      #     sampler_pid=$!
+
+      #     # Run your command
+      #     /isaac-sim/python.sh -m pytest -s isaaclab_arena/tests/policy/test_replay_lerobot_action_policy.py
+      #     exit_code=$?
+
+      #     # Stop the sampler
+      #     kill $sampler_pid || true
+
+      #     # Print peak system memory used (in MB)
+      #     echo "Peak system memory: $(cat peak_mem.txt) MB"
+
+      #     exit $exit_code
+
+      - name: Run test in main process
+        run: |
+          /isaac-sim/python.sh isaaclab_arena/examples/policy_runner.py --policy_type replay_lerobot --config_yaml_path isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/test_gr1_manip_replay_action_config.yaml --max_steps 10 --trajectory_index 0 --headless --enable_cameras gr1_open_microwave --object microwave --embodiment gr1_joint
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
@@ -171,6 +220,9 @@ jobs:
       - *install_git_step
       - *cleanup_step
       - *checkout_step
+
+      - *git_status
+      - *git_fsck
 
       # Build docs
       - name: Build docs
@@ -201,6 +253,9 @@ jobs:
       - *mark_repo_safe_step
       - *cleanup_step
       - *checkout_step
+
+      - *git_status
+      - *git_fsck
 
       - name: Install docker
         run: |

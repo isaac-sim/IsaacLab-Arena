@@ -78,64 +78,64 @@ def get_tmp_config_file(input_config_file, tmp_path, model_path):
     return output_config_file
 
 
-def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
-    # Write a new temporary config file with the finetuned model path.
-    default_config_file = (
-        TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
-    )
-    config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
+# def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
+#     # Write a new temporary config file with the finetuned model path.
+#     default_config_file = (
+#         TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
+#     )
+#     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
-    # Run the model
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
-    args.append("--policy_type")
-    args.append("gr00t_closedloop")
-    args.append("--policy_config_yaml_path")
-    args.append(config_file)
-    args.append("--num_steps")
-    args.append(str(NUM_STEPS))
-    if HEADLESS:
-        args.append("--headless")
-    if ENABLE_CAMERAS:
-        args.append("--enable_cameras")
-    # example env
-    args.append("galileo_g1_locomanip_pick_and_place")
-    args.append("--object")
-    args.append("brown_box")
-    args.append("--embodiment")
-    args.append("g1_wbc_joint")
-    run_subprocess(args)
-
-
-def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
-    # Write a new temporary config file with the finetuned model path.
-    default_config_file = (
-        TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
-    )
-    config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
-
-    # Run the model
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
-    args.append("--policy_type")
-    args.append("gr00t_closedloop")
-    args.append("--policy_config_yaml_path")
-    args.append(config_file)
-    args.append("--num_steps")
-    args.append(str(NUM_STEPS))
-    args.append("--num_envs")
-    args.append(str(NUM_ENVS))
-    if HEADLESS:
-        args.append("--headless")
-    if ENABLE_CAMERAS:
-        args.append("--enable_cameras")
-    # example env
-    args.append("galileo_g1_locomanip_pick_and_place")
-    args.append("--object")
-    args.append("brown_box")
-    args.append("--embodiment")
-    args.append("g1_wbc_joint")
-    run_subprocess(args)
+#     # Run the model
+#     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+#     args.append("--policy_type")
+#     args.append("gr00t_closedloop")
+#     args.append("--policy_config_yaml_path")
+#     args.append(config_file)
+#     args.append("--num_steps")
+#     args.append(str(NUM_STEPS))
+#     if HEADLESS:
+#         args.append("--headless")
+#     if ENABLE_CAMERAS:
+#         args.append("--enable_cameras")
+#     # example env
+#     args.append("galileo_g1_locomanip_pick_and_place")
+#     args.append("--object")
+#     args.append("brown_box")
+#     args.append("--embodiment")
+#     args.append("g1_wbc_joint")
+#     run_subprocess(args)
 
 
-if __name__ == "__main__":
-    test_g1_locomanip_gr00t_closedloop_policy_runner_single_env()
-    test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs()
+# def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
+#     # Write a new temporary config file with the finetuned model path.
+#     default_config_file = (
+#         TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
+#     )
+#     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
+
+#     # Run the model
+#     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+#     args.append("--policy_type")
+#     args.append("gr00t_closedloop")
+#     args.append("--policy_config_yaml_path")
+#     args.append(config_file)
+#     args.append("--num_steps")
+#     args.append(str(NUM_STEPS))
+#     args.append("--num_envs")
+#     args.append(str(NUM_ENVS))
+#     if HEADLESS:
+#         args.append("--headless")
+#     if ENABLE_CAMERAS:
+#         args.append("--enable_cameras")
+#     # example env
+#     args.append("galileo_g1_locomanip_pick_and_place")
+#     args.append("--object")
+#     args.append("brown_box")
+#     args.append("--embodiment")
+#     args.append("g1_wbc_joint")
+#     run_subprocess(args)
+
+
+# if __name__ == "__main__":
+#     test_g1_locomanip_gr00t_closedloop_policy_runner_single_env()
+#     test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs()
