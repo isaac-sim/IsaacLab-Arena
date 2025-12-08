@@ -139,6 +139,8 @@ else
                     "-v" "./isaaclab_arena:${WORKDIR}/isaaclab_arena"
                     "-v" "./isaaclab_arena_g1:${WORKDIR}/isaaclab_arena_g1"
                     "-v" "./isaaclab_arena_gr00t:${WORKDIR}/isaaclab_arena_gr00t"
+                    "-v" "./docker:${WORKDIR}/docker"
+                    "-v" "./.github:${WORKDIR}/.github"
                     "-v" "./submodules/IsaacLab:${WORKDIR}/submodules/IsaacLab"
                     $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
                     $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
