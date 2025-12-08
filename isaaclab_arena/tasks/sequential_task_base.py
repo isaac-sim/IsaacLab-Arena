@@ -42,7 +42,7 @@ class SequentialTaskBase(TaskBase):
     """
 
     def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None):
-        self.episode_length_s = episode_length_s
+        super().__init__(episode_length_s)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
         self.subtasks = subtasks
 
@@ -101,12 +101,6 @@ class SequentialTaskBase(TaskBase):
         env,
         task_instance: "SequentialTaskBase",
     ) -> torch.Tensor:
-        # if not hasattr(env, "_subtask_success_state"):
-        #     env._subtask_success_state = [[False for _ in task_instance.subtasks] for _ in range(env.num_envs)]
-
-        # if not hasattr(env, "_current_subtask_idx"):
-        #     env._current_subtask_idx = [0 for _ in range(env.num_envs)]
-
         # Check success of current subtask for each env
         for env_idx in range(env.num_envs):
             current_subtask_idx = env._current_subtask_idx[env_idx]
@@ -211,6 +205,36 @@ class SequentialTaskBase(TaskBase):
         print(f"Combined termination cfg: {combined_termination_cfg}\n\n\n")
         return combined_termination_cfg
 
+    def combine_mimic_subtask_configs(self, embodiment_name: str): #-> dict[str, list[SubTaskConfig]]:
+        # Check that all subtasks have the same Mimic eef_names
+        mimic_eef_names = set(self.subtasks[0].get_mimic_env_cfg(embodiment_name).subtask_configs.keys())
+        for subtask in self.subtasks[1:]:
+            subtask_eef_names_set = set(subtask.get_mimic_env_cfg(embodiment_name).subtask_configs.keys())
+            if subtask_eef_names_set != mimic_eef_names:
+                raise ValueError(
+                    f"All subtasks much have the same Mimic eef_names.\n"
+                    f"Subtask 0 has eef_names: {mimic_eef_names}, but subtask {self.subtasks.index(subtask)} has eef_names: {subtask_eef_names_set}."
+                )
+
+        combined_mimic_subtask_configs = {eef_name: [] for eef_name in mimic_eef_names}
+
+        # Combine the "Mimic subtask" cfgs from all subtasks
+        for i, subtask in enumerate(self.subtasks):
+            # Get the Mimic env cfg for the subtask
+            mimic_env_cfg = subtask.get_mimic_env_cfg(embodiment_name)
+            for eef_name in mimic_eef_names:
+                # For each eef, get the "Mimic subtask" cfgs for the subtask, update the term signal name,
+                # and add it to the combined "Mimic subtask" list
+                for mimic_subtask in mimic_env_cfg.subtask_configs[eef_name]:
+                    if not mimic_subtask.subtask_term_signal:
+                        # The last Mimic subtasks may not have an explicit term signal name
+                        # so give it a default name if it doesn't already have one.
+                        mimic_subtask.subtask_term_signal = f"subtask_{i}_last_mimic_subtask"
+                    else:
+                        mimic_subtask.subtask_term_signal = f"subtask_{i}_{mimic_subtask.subtask_term_signal}"
+                    combined_mimic_subtask_configs[eef_name].append(mimic_subtask)
+
+        return combined_mimic_subtask_configs
 
 
 

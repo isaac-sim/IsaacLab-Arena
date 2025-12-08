@@ -55,12 +55,13 @@ class SequentialKitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         subtask_1 = TestPickAndPlaceTask(pick_up_object, destination_location, background, min_y=-0.12, max_y=None)
         subtask_2 = TestPickAndPlaceTask(pick_up_object, destination_location, background, min_y=None, max_y=0.12)
+        subtask_3 = TestPickAndPlaceTask(pick_up_object, destination_location, background, min_y=-0.12, max_y=None)
         scene = Scene(assets=[background, pick_up_object, destination_location])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=SequentialPickAndPlaceTask(subtasks=[subtask_1, subtask_2], pick_up_object=pick_up_object),
+            task=SequentialPickAndPlaceTask(subtasks=[subtask_1, subtask_2, subtask_3], pick_up_object=pick_up_object),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment

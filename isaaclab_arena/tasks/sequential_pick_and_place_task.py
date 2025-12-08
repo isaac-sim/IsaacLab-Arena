@@ -62,11 +62,13 @@ class SequentialPickAndPlaceTask(SequentialTaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return None
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
-        return None
-
     def get_prompt(self) -> str:
         return None
+
+    def get_mimic_env_cfg(self, embodiment_name: str):
+        mimic_env_cfg = SequentialPickPlaceMimicEnvCfg()
+        mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(embodiment_name)
+        return mimic_env_cfg
 
 # @configclass
 # class TerminationsCfg:
@@ -75,4 +77,31 @@ class SequentialPickAndPlaceTask(SequentialTaskBase):
 #     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
 
 #     success: TerminationTermCfg = MISSING
+
+@configclass
+class SequentialPickPlaceMimicEnvCfg(MimicEnvCfg):
+    """
+    Isaac Lab Mimic environment config class for Sequential Pick and Place env.
+    """
+
+    def __post_init__(self):
+        # post init of parents
+        super().__post_init__()
+
+        # Override the existing values
+        self.datagen_config.name = "demo_src_pickplace_isaac_lab_task_D0"
+        self.datagen_config.generation_guarantee = True
+        self.datagen_config.generation_keep_failed = False
+        self.datagen_config.generation_num_trials = 100
+        self.datagen_config.generation_select_src_per_subtask = False
+        self.datagen_config.generation_select_src_per_arm = False
+        self.datagen_config.generation_relative = False
+        self.datagen_config.generation_joint_pos = False
+        self.datagen_config.generation_transform_first_robot_pose = False
+        self.datagen_config.generation_interpolate_from_last_target_pose = True
+        self.datagen_config.max_num_failures = 25
+        self.datagen_config.seed = 1
+
+            
+
 
