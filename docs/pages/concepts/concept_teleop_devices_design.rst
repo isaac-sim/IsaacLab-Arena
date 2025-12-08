@@ -85,4 +85,4 @@ Usage Examples
 .. code-block:: bash
 
    # VR hand tracking for humanoid control
-   python isaaclab_arena/scripts/teleop.py --teleop_device avp_handtracking gr1_open_microwave
+   python isaaclab_arena/scripts/teleop.py --teleop_device openxr gr1_open_microwave

@@ -16,6 +16,8 @@ import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.devices.openxr import XrCfg
+from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
+from isaaclab.devices.retargeter_base import RetargeterCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
@@ -100,6 +102,20 @@ class GR1T2EmbodimentBase(EmbodimentBase):
             anchor_pos=(-0.5, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
         )
+
+    def get_retargeters(self, sim_device: str | None = None) -> dict[str, list[RetargeterCfg]]:
+        """Get the retargeters for the GR1T2 robot."""
+        retargeters = {
+            "openxr": [
+                GR1T2RetargeterCfg(
+                    enable_visualization=True,
+                    num_open_xr_hand_joints=52,
+                    sim_device=sim_device,
+                    hand_joint_names=self.get_action_cfg().upper_body_ik.hand_joint_names,
+                )
+            ]
+        }
+        return retargeters
 
 
 @register_asset

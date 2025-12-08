@@ -3,6 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .avp_handtracking import *
 from .keyboard import *
+from .openxr import *
 from .spacemouse import *

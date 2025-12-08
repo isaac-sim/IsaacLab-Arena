@@ -102,7 +102,7 @@ Usage Examples
 .. code-block:: python
 
    embodiment = asset_registry.get_asset_by_name("gr1_pink")()
-   teleop_device = device_registry.get_device_by_name("avp_handtracking")()
+   teleop_device = device_registry.get_device_by_name("openxr")()
 
    environment = IsaacLabArenaEnvironment(
        embodiment=embodiment,

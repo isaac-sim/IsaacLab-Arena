@@ -69,7 +69,7 @@ Run the recording script:
      --num_demos 10 \
      --num_success_steps 2 \
      gr1_open_microwave \
-     --teleop_device avp_handtracking
+     --teleop_device openxr
 
 
 Step 4: Connect Vision Pro and Record

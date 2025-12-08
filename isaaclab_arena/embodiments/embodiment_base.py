@@ -5,6 +5,7 @@
 
 from typing import Any
 
+from isaaclab.devices.retargeter_base import RetargeterCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
@@ -85,6 +86,10 @@ class EmbodimentBase(Asset):
 
     def get_camera_cfg(self) -> Any:
         return self.camera_config
+
+    def get_retargeters(self, sim_device: str | None = None) -> dict[str, list[RetargeterCfg]]:
+        """Get the retargeters for the embodiment."""
+        return {}
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         if scene_config is None or not hasattr(scene_config, "robot"):
