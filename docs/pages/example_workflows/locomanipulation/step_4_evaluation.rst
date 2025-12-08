@@ -111,25 +111,28 @@ Test the policy in 5 parallel environments with visualization via the GUI run:
      --num_steps 1200 \
      --num_envs 5 \
      --enable_cameras \
+     --device cpu \
+     --policy_device cuda  \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_joint
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin),
+indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,
+or the episode length is exceeded by 30 seconds),
 or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
 
 .. code-block:: text
 
-   Resetting policy for terminated env_ids: tensor([4], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+   Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate is no longer 1.0 as more trials are being evaluated and randomizations are being introduced,
+You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
 and the number of episodes is more than the single environment evaluation because of the parallelization.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.2, 'num_episodes': 5}
+   Metrics: {'success_rate': 1.0, 'num_episodes': 4}
 
 .. note::
 
@@ -139,3 +142,8 @@ and the number of episodes is more than the single environment evaluation becaus
    which are realized by using the PINK IK controller, and the lower body is controlled via a WBC policy.
    GR00T N1.5 policy is trained on upper body joint positions and lower body WBC policy inputs, so we use
    ``g1_wbc_joint`` for closed-loop policy inference.
+
+.. note::
+
+   The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
+   If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
