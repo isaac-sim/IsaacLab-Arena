@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import argparse
 import gymnasium as gym
+from pathlib import Path
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.utils.io import dump_yaml, load_yaml
+from isaaclab.utils.io import dump_yaml
 from isaaclab_tasks.utils import parse_env_cfg
 
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -29,9 +30,15 @@ class ArenaEnvBuilder:
 
     DEFAULT_SCENE_CFG = InteractiveSceneCfg(num_envs=4096, env_spacing=30.0, replicate_physics=False)
 
-    def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
+    def __init__(
+        self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace, serialization_file_path: str = None
+    ):
         self.arena_env = arena_env
         self.args = args
+        self.serialization_file_path = serialization_file_path if serialization_file_path is not None else "/tmp/"
+        self.serialization_file_path = Path(self.serialization_file_path).joinpath(
+            f"{self.arena_env.name}_cfg_entry.yaml"
+        )
 
     def orchestrate(self) -> None:
         """Orchestrate the environment member interaction"""
@@ -184,19 +191,27 @@ class ArenaEnvBuilder:
         else:
             return "isaaclab.envs:ManagerBasedRLEnv"
 
-    def build_registered(
+    def build_cfg_entry(
         self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, serialize: bool = False
-    ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg]:
-        """Register Gym env and parse runtime cfg."""
-        name = self.arena_env.name
+    ) -> IsaacLabArenaManagerBasedRLEnvCfg:
         # orchestrate the environment member interaction
         self.orchestrate()
         cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
         # THIS IS A WORKAROUND TO ALLOW USER TO GRADUALLY MOVE TO THE NEW CONFIGURATION SYSTEM.
         # THIS WILL BE REMOVED IN THE FUTURE.
         cfg_entry = self.modify_env_cfg(cfg_entry)
+        # serialize the configuration if requested
         if serialize:
-            dump_yaml(f"/tmp/{name}_cfg_entry.yaml", cfg_entry)
+            dump_yaml(self.serialization_file_path, cfg_entry)
+        return cfg_entry
+
+    def build_registered(
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, serialize: bool = False
+    ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg]:
+        """Register Gym env and parse runtime cfg."""
+        name = self.arena_env.name
+        cfg_entry = self.build_cfg_entry(env_cfg, serialize=serialize)
+
         entry_point = self.get_entry_point()
         gym.register(
             id=name,
@@ -212,7 +227,9 @@ class ArenaEnvBuilder:
         )
         return name, cfg
 
-    def make_registered(self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, serialize: bool = False) -> ManagerBasedEnv:
+    def make_registered(
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, serialize: bool = False
+    ) -> ManagerBasedEnv:
         env, _ = self.make_registered_and_return_cfg(env_cfg, serialize=serialize)
         return env
 
@@ -221,7 +238,3 @@ class ArenaEnvBuilder:
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg, serialize=serialize)
         return gym.make(name, cfg=cfg).unwrapped, cfg
-
-    def return_cfg(self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        name, cfg = self.build_registered(env_cfg)
-        return cfg
