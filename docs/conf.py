@@ -120,25 +120,18 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = []
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 
 # Versioning
 smv_branch_whitelist = r"^(main|release/.*)$"
 smv_tag_whitelist = r"^v.*$"
-html_sidebars = {
-    # "**": ["navbar-logo.html", "versioning.html", "icon-links.html", "search-field.html", "sbt-sidebar-nav.html"]
-    "**": ["versioning.html"]
-}
+html_sidebars = {"**": ["versioning.html"]}
 
 # Todos
 todo_include_todos = True
 
 # Linkcheck
-# NOTE(alexmillane, 2025-05-09): The links in the main example page are relative links
-# which are only valid post-build. linkcheck doesn't like this. So here we ignore
-# links to the example pages via html.
 linkcheck_ignore = []
 
 temporary_linkcheck_ignore = [
