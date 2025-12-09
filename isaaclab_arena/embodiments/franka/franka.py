@@ -39,6 +39,7 @@ class FrankaEmbodiment(EmbodimentBase):
     """Embodiment for the Franka robot."""
 
     name = "franka"
+    arm_mode = "single_arm"
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
         super().__init__(enable_cameras, initial_pose)

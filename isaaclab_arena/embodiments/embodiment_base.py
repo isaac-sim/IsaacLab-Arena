@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any
+from typing import Any, Literal
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
@@ -19,6 +19,7 @@ class EmbodimentBase(Asset):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
+    arm_mode: Literal["single_arm", "left", "right"] = "single_arm"
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
         self.enable_cameras = enable_cameras
@@ -101,3 +102,6 @@ class EmbodimentBase(Asset):
 
     def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         return env_cfg
+
+    def get_arm_mode(self) -> Literal["single_arm", "left", "right"]:
+        return self.arm_mode

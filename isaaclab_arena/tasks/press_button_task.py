@@ -5,7 +5,7 @@
 
 import numpy as np
 from dataclasses import MISSING
-
+from typing import Literal
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
@@ -51,7 +51,7 @@ class PressButtonTask(TaskBase):
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_mimic_env_cfg(self, arm_mode: Literal["single_arm", "left", "right"]):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:

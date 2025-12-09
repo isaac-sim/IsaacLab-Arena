@@ -83,6 +83,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
     """Embodiment for the GR1T2 robot."""
 
     name = "gr1"
+    arm_mode = "right"
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
         super().__init__(enable_cameras, initial_pose)

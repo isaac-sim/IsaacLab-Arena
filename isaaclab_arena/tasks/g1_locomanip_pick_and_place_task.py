@@ -6,7 +6,7 @@
 import numpy as np
 import torch
 from dataclasses import MISSING
-
+from typing import Literal
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
@@ -69,7 +69,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_mimic_env_cfg(self, arm_mode: Literal["single_arm", "left", "right"]):
         return G1LocomanipPickPlaceMimicEnvCfg()
 
     def get_metrics(self) -> list[MetricBase]:

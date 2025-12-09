@@ -5,7 +5,7 @@
 
 import numpy as np
 from dataclasses import MISSING
-
+from typing import Literal
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
@@ -60,9 +60,9 @@ class OpenDoorTask(TaskBase):
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_mimic_env_cfg(self, arm_mode: Literal["single_arm", "left", "right"]):
         return OpenDoorMimicEnvCfg(
-            embodiment_name=embodiment_name,
+            arm_mode=arm_mode,
             openable_object_name=self.openable_object.name,
         )
 
@@ -126,7 +126,7 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for Open Door env.
     """
 
-    embodiment_name: str = "franka"
+    arm_mode: Literal["single_arm", "left", "right"] = "single_arm"
 
     openable_object_name: str = "openable_object"
 
@@ -199,11 +199,12 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
                 apply_noise_during_interpolation=False,
             )
         )
-        if self.embodiment_name == "franka":
+        if self.arm_mode == "single_arm":
             self.subtask_configs["robot"] = subtask_configs
         # We need to add the left and right subtasks for GR1.
-        elif self.embodiment_name == "gr1_pink":
-            self.subtask_configs["right"] = subtask_configs
+        elif self.arm_mode in ["left", "right"]:
+            self.another_arm_mode = "left" if self.arm_mode == "right" else "right"
+            self.subtask_configs[self.arm_mode] = subtask_configs
             # EEF on opposite side (arm is static)
             subtask_configs = []
             subtask_configs.append(
@@ -228,7 +229,7 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
                     apply_noise_during_interpolation=False,
                 )
             )
-            self.subtask_configs["left"] = subtask_configs
+            self.subtask_configs[self.another_arm_mode] = subtask_configs
 
         else:
-            raise ValueError(f"Embodiment name {self.embodiment_name} not supported")
+            raise ValueError(f"Embodiment arm mode {self.arm_mode} not supported")

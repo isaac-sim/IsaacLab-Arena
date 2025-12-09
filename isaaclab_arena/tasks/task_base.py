@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Literal
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
@@ -35,7 +35,7 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
-    def get_mimic_env_cfg(self, embodiment_name: str) -> Any:
+    def get_mimic_env_cfg(self, arm_mode: Literal["single_arm", "left", "right"]) -> Any:
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod

@@ -6,7 +6,7 @@
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.tasks.task_base import TaskBase
-
+from typing import Literal
 
 class DummyTask(TaskBase):
     def __init__(self):
@@ -24,7 +24,7 @@ class DummyTask(TaskBase):
     def get_prompt(self):
         pass
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_mimic_env_cfg(self, arm_mode: Literal["single_arm", "left", "right"]):
         pass
 
     def get_metrics(self):
