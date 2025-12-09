@@ -27,10 +27,15 @@ asset_registry = AssetRegistry()
 background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-scene = Scene(assets=[background, cracker_box])
+tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
+
+
+# tomato_soup_can.on_top_of(cracker_box)
+tomato_soup_can.next_to(cracker_box, side="right", clearance=0.05)
+
+scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
@@ -54,3 +59,6 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         env.step(actions)
 
 # %%
+
+# TODO(cvolk)
+# We still need an anchor point

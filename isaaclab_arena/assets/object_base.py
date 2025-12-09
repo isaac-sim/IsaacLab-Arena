@@ -6,13 +6,16 @@
 import torch
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.asset import Asset
+
+if TYPE_CHECKING:
+    from isaaclab_arena.utils.pose import Pose
 
 
 class ObjectType(Enum):
@@ -109,4 +112,149 @@ class ObjectBase(Asset, ABC):
 
     def _generate_spawner_cfg(self) -> AssetBaseCfg:
         # Object Subclasses must implement this method
+        pass
+
+    # Spatial Relationship Methods
+    def on_top_of(
+        self,
+        target: "ObjectBase",
+        clearance: float = 0.0,
+        x_offset: float = 0.0,
+        y_offset: float = 0.0,
+    ) -> "ObjectBase":
+        """
+        Place this object on top of a target object.
+
+        This method automatically computes the appropriate pose to place this object
+        on top of the target object, accounting for both objects' geometries.
+
+        Args:
+            target: The target object to place this object on top of.
+            clearance: Additional vertical clearance between objects (default: 0.0).
+            x_offset: Horizontal offset in x direction from center (default: 0.0).
+            y_offset: Horizontal offset in y direction from center (default: 0.0).
+
+        Returns:
+            Self, to allow method chaining.
+
+        Example:
+            ```python
+            table = asset_registry.get_asset_by_name("table")()
+            box = asset_registry.get_asset_by_name("cracker_box")()
+            box.on_top_of(table)
+            scene = Scene(assets=[table, box])
+            ```
+        """
+        from isaaclab_arena.utils.spatial_relationships import compute_bounding_box_from_usd, compute_on_top_of_pose
+
+        # Get bounding boxes for both objects
+        # We need to access the usd_path and scale from the concrete Object class
+        # For now, we'll use getattr to handle this polymorphically
+        object_usd_path = getattr(self, "usd_path", None)
+        object_scale = getattr(self, "scale", (1.0, 1.0, 1.0))
+        target_usd_path = getattr(target, "usd_path", None)
+        target_scale = getattr(target, "scale", (1.0, 1.0, 1.0))
+
+        if object_usd_path is None:
+            raise ValueError(f"Object {self.name} does not have a usd_path attribute")
+        if target_usd_path is None:
+            raise ValueError(f"Target object {target.name} does not have a usd_path attribute")
+
+        # Get the target's current pose (if set)
+        target_pose = getattr(target, "initial_pose", None)
+
+        # Compute bounding boxes
+        object_bbox = compute_bounding_box_from_usd(object_usd_path, scale=object_scale)
+        target_bbox = compute_bounding_box_from_usd(target_usd_path, scale=target_scale, pose=target_pose)
+
+        # Compute the placement pose
+        placement_pose = compute_on_top_of_pose(
+            object_bbox=object_bbox,
+            target_bbox=target_bbox,
+            clearance=clearance,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
+
+        # Set the initial pose on this object
+        self.set_initial_pose(placement_pose)
+
+    def next_to(
+        self,
+        target: "ObjectBase",
+        side: str = "right",
+        clearance: float = 0.01,
+        align_bottom: bool = True,
+    ) -> "ObjectBase":
+        """
+        Place this object next to a target object.
+
+        This method automatically computes the appropriate pose to place this object
+        beside the target object, accounting for both objects' geometries.
+
+        **Important**: Directions are in the world coordinate frame, not relative to
+        the target object's orientation:
+        - "right" = -Y world direction
+        - "left" = +Y world direction
+        - "front" = -X world direction
+        - "back" = +X world direction
+
+        Args:
+            target: The target object to place this object next to.
+            side: Which side to place the object ("left", "right", "front", "back").
+                  These directions are in world frame, not relative to target's orientation.
+            clearance: Horizontal clearance between objects (default: 0.01).
+            align_bottom: If True, align bottoms; if False, center vertically (default: True).
+
+        Returns:
+            Self, to allow method chaining.
+
+        Example:
+            ```python
+            laptop = asset_registry.get_asset_by_name("laptop")()
+            mug = asset_registry.get_asset_by_name("mug")()
+            # Places mug in -Y direction from laptop (world frame)
+            mug.next_to(laptop, side="right")
+            scene = Scene(assets=[laptop, mug])
+            ```
+
+        Note:
+            This is a limitation of the MVP. Future versions may support
+            placement relative to the target object's local coordinate frame.
+        """
+        from isaaclab_arena.utils.spatial_relationships import compute_bounding_box_from_usd, compute_next_to_pose
+
+        # Get bounding boxes for both objects
+        object_usd_path = getattr(self, "usd_path", None)
+        object_scale = getattr(self, "scale", (1.0, 1.0, 1.0))
+        target_usd_path = getattr(target, "usd_path", None)
+        target_scale = getattr(target, "scale", (1.0, 1.0, 1.0))
+
+        if object_usd_path is None:
+            raise ValueError(f"Object {self.name} does not have a usd_path attribute")
+        if target_usd_path is None:
+            raise ValueError(f"Target object {target.name} does not have a usd_path attribute")
+
+        # Get the target's current pose (if set)
+        target_pose = getattr(target, "initial_pose", None)
+
+        # Compute bounding boxes
+        object_bbox = compute_bounding_box_from_usd(object_usd_path, scale=object_scale)
+        target_bbox = compute_bounding_box_from_usd(target_usd_path, scale=target_scale, pose=target_pose)
+
+        # Compute the placement pose
+        placement_pose = compute_next_to_pose(
+            object_bbox=object_bbox,
+            target_bbox=target_bbox,
+            side=side,
+            clearance=clearance,
+            align_bottom=align_bottom,
+        )
+
+        # Set the initial pose on this object
+        self.set_initial_pose(placement_pose)
+
+    @abstractmethod
+    def set_initial_pose(self, pose: "Pose") -> None:
+        """Set the initial pose of the object. Must be implemented by subclasses."""
         pass

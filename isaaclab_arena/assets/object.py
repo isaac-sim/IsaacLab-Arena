@@ -14,7 +14,7 @@ from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
 class Object(ObjectBase):
     """
-    Encapsulates the pick-up object config for a pick-and-place environment.
+    A general-purpose object wrapper that encapsulates asset configurations for simulation environments.
     """
 
     def __init__(
