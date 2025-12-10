@@ -10,7 +10,7 @@ from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.teleop_devices.teleop_device_base import TeleopDeviceBase
+    from isaaclab_arena.assets.device_library import TeleopDeviceBase
 
 
 # Have to define all classes here in order to avoid circular import.
@@ -19,29 +19,29 @@ class Registry(metaclass=SingletonMeta):
     def __init__(self):
         self._components = {}
 
-    def register(self, component: Any):
+    def register(self, component: Any, name: str | tuple[str, str] | None = None):
         """Register an asset with a name.
 
         Args:
             name (str): The name of the asset.
             asset (Asset): The asset to register.
         """
-        assert component.name not in self._components, f"component {component.name} already registered"
-        assert component.name is not None, "component name is not set"
-        self._components[component.name] = component
+        assert name not in self._components, f"component {name} already registered"
+        assert name is not None, "component name is not set"
+        self._components[name] = component
 
-    def is_registered(self, name: str) -> bool:
+    def is_registered(self, name: str | tuple[str, str]) -> bool:
         """Check if an component is registered.
 
         Args:
             name (str): The name of the component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(self, (AssetRegistry, DeviceRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
             ensure_assets_registered()
         return name in self._components
 
-    def get_component_by_name(self, name: str) -> Any:
+    def get_component_by_name(self, name: str | tuple[str, str]) -> Any:
         """Get an component by name.
 
         Args:
@@ -51,7 +51,7 @@ class Registry(metaclass=SingletonMeta):
             Asset: The component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
             ensure_assets_registered()
         return self._components[name]
 
@@ -112,6 +112,24 @@ class DeviceRegistry(Registry):
         ensure_assets_registered()
         return self.get_component_by_name(name)
 
+    def get_teleop_device_cfg(self, device: TeleopDeviceBase, embodiment: object | None = None):
+        from isaaclab.devices.device_base import DevicesCfg
+
+        retargeter = self.get_component_by_name((device.name, embodiment.name))
+        retargeter_cfg = retargeter.get_retargeter_cfg(embodiment, device.sim_device)
+        retargeters = [retargeter_cfg] if retargeter_cfg is not None else []
+        device_cfg = device.get_device_cfg(retargeters=retargeters, embodiment=embodiment)
+        return DevicesCfg(
+            devices={
+                device.name: device_cfg,
+            }
+        )
+
+
+class RetargeterRegistry(Registry):
+    def __init__(self):
+        super().__init__()
+
 
 # Lazy registration to avoid circular imports
 _assets_registered = False
@@ -123,8 +141,9 @@ def ensure_assets_registered():
     if not _assets_registered:
         # Import modules to trigger asset registration via decorators
         import isaaclab_arena.assets.background_library  # noqa: F401
+        import isaaclab_arena.assets.device_library  # noqa: F401
         import isaaclab_arena.assets.object_library  # noqa: F401
+        import isaaclab_arena.assets.retargeter_library  # noqa: F401
         import isaaclab_arena.embodiments  # noqa: F401
-        import isaaclab_arena.teleop_devices  # noqa: F401
 
         _assets_registered = True

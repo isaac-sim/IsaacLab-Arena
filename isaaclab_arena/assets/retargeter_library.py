@@ -1,0 +1,71 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
+from isaaclab.devices.retargeter_base import RetargeterCfg
+
+from isaaclab_arena.assets.register import register_retargeter
+
+
+@register_retargeter
+class GR1T2OpenXRRetargeter:
+
+    device = "openxr"
+    embodiment = "gr1"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, gr1t2_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> RetargeterCfg:
+        return GR1T2RetargeterCfg(
+            enable_visualization=enable_visualization,
+            # number of joints in both hands
+            num_open_xr_hand_joints=gr1t2_embodiment.get_xr_cfg().num_open_xr_hand_joints,
+            sim_device=sim_device,
+            hand_joint_names=gr1t2_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
+        )
+
+
+@register_retargeter
+class FrankaKeyboardRetargeter:
+    device = "keyboard"
+    embodiment = "franka"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, franka_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> RetargeterCfg | None:
+        return None
+
+
+@register_retargeter
+class FrankaSpaceMouseRetargeter:
+    device = "spacemouse"
+    embodiment = "franka"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, franka_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> RetargeterCfg | None:
+        return None

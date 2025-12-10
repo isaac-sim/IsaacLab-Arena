@@ -14,6 +14,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
+from isaaclab_arena.assets.asset_registry import DeviceRegistry
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -82,7 +83,10 @@ class ArenaEnvBuilder:
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
         if self.arena_env.teleop_device is not None:
-            teleop_device_cfg = self.arena_env.teleop_device.get_teleop_device_cfg(embodiment=self.arena_env.embodiment)
+            device_registry = DeviceRegistry()
+            teleop_device_cfg = device_registry.get_teleop_device_cfg(
+                self.arena_env.teleop_device, self.arena_env.embodiment
+            )
         else:
             teleop_device_cfg = None
         metrics = self.arena_env.task.get_metrics()
