@@ -5,10 +5,10 @@
 
 import argparse
 
-from isaaclab_arena.examples.example_environments.cli import get_isaaclab_arena_example_environment_cli_parser
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicy
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy
+from isaaclab_arena_environments.cli import get_isaaclab_arena_environments_cli_parser
 
 
 def add_zero_action_arguments(parser: argparse.ArgumentParser) -> None:
@@ -86,7 +86,7 @@ def add_gr00t_closedloop_arguments(parser: argparse.ArgumentParser) -> None:
 def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = None) -> argparse.ArgumentParser:
     """Set up and configure the argument parser with all policy-related arguments."""
     # Get the base parser from IsaacLab Arena
-    args_parser = get_isaaclab_arena_example_environment_cli_parser(args_parser)
+    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
 
     args_parser.add_argument(
         "--policy_type",

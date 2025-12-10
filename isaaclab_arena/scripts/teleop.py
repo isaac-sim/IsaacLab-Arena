@@ -18,10 +18,7 @@ from collections.abc import Callable
 from isaaclab.app import AppLauncher
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.example_environments.cli import (
-    add_example_environments_cli_args,
-    get_arena_builder_from_cli,
-)
+from isaaclab_arena_environments.cli import add_example_environments_cli_args, get_arena_builder_from_cli
 
 # add argparse arguments
 parser = get_isaaclab_arena_cli_parser()

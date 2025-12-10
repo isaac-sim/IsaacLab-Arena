@@ -19,12 +19,9 @@ simulation_app = AppLauncher()
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 
 reload_arena_modules()
-from isaaclab_arena.examples.example_environments.cli import (
-    get_arena_builder_from_cli,
-    get_isaaclab_arena_example_environment_cli_parser,
-)
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
-args_parser = get_isaaclab_arena_example_environment_cli_parser()
+args_parser = get_isaaclab_arena_environments_cli_parser()
 
 # GR1 Open Microwave
 args_cli = args_parser.parse_args([

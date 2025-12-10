@@ -9,9 +9,9 @@ import torch
 import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.example_environments.cli import get_arena_builder_from_cli
 from isaaclab_arena.examples.policy_runner_cli import create_policy, setup_policy_argument_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 
 def main():
