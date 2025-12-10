@@ -48,7 +48,7 @@ class Object(ObjectBase):
 
         # TODO(cvolk): How to do it properly?
         # TODO(cvolk): Does the object_cfg need the initial pose here already?
-        #self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+        # self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
 
     def get_initial_pose(self) -> Pose | None:
         return self.initial_pose

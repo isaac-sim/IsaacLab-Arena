@@ -154,4 +154,3 @@ class TestComputeNextToPose:
 
         with pytest.raises(ValueError, match="Invalid side"):
             compute_next_to_pose(object_bbox, target_bbox, side="invalid")
-

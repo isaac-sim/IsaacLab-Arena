@@ -15,14 +15,13 @@ print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
+from isaaclab_arena.assets.relations import OnRelation, RelationResolver
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.tasks.dummy_task import DummyTask
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.assets.relations import OnRelation
-from isaaclab_arena.assets.relations import RelationResolver
 
 asset_registry = AssetRegistry()
 
