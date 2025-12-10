@@ -13,6 +13,8 @@ ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
 
+USER root
+
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
       mv /usr/share/vulkan /usr/share/vulkan_hidden; \
@@ -60,7 +62,7 @@ RUN if /isaac-sim/python.sh -c "import qpsolvers; print(qpsolvers.available_solv
 
 # Install pip dependencies
 # NOTE(alexmillane, 2025-07-22): Dependencies are installed in the IsaacSim version of python.
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
+RUN /isaac-sim/python.sh -m pip install --upgrade pip --break-system-packages && \
   /isaac-sim/python.sh -m pip install \
   pytest \
   jupyter \
@@ -70,7 +72,7 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   onnxruntime
 
 # lwlabs deps
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
+RUN /isaac-sim/python.sh -m pip install --upgrade pip --break-system-packages && \
   /isaac-sim/python.sh -m pip install \
   vuer[all] \
   lightwheel-sdk

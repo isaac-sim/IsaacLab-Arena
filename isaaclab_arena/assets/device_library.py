@@ -20,6 +20,11 @@ from abc import ABC, abstractmethod
 
 from isaaclab.devices.keyboard import Se3KeyboardCfg
 from isaaclab.devices.openxr import OpenXRDeviceCfg
+from isaaclab.devices.openxr.retargeters import (
+    G1LowerBodyStandingMotionControllerRetargeterCfg,
+    G1TriHandUpperBodyMotionControllerGripperRetargeterCfg,
+)
+from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
 from isaaclab.devices.retargeter_base import RetargeterCfg
 from isaaclab.devices.spacemouse import Se3SpaceMouseCfg
 
@@ -92,4 +97,51 @@ class SpaceMouseCfg(TeleopDeviceBase):
             sim_device=self.sim_device,
             pos_sensitivity=self.pos_sensitivity,
             rot_sensitivity=self.rot_sensitivity,
+        )
+
+
+@register_device
+class MotionControllersCfg(TeleopDeviceBase):
+    """
+    Teleop device for VR motion controllers (e.g., Quest controllers).
+    
+    This device uses motion controllers instead of hand tracking for teleoperation.
+    It's useful when you have VR controllers but not hand tracking capability.
+    Currently supports G1 humanoid robot with gripper control via trigger buttons.
+    """
+
+    name = "motion_controllers"
+
+    def __init__(self, sim_device: str | None = None):
+        """Initialize motion controllers teleop device.
+        
+        Args:
+            sim_device: The simulation device (e.g., "cuda:0").
+        """
+        super().__init__(sim_device=sim_device)
+
+    def get_device_cfg(self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None):
+        """Get the teleop device configuration.
+        
+        Args:
+            retargeters: List of retargeters (unused for motion controllers).
+            embodiment: The embodiment to use for the teleop device configuration.
+            
+        Returns:
+            OpenXRDeviceCfg: The device configuration for motion controllers.
+        """
+        xr_cfg = embodiment.get_xr_cfg()
+        xr_cfg.anchor_rotation_mode = XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED
+        
+        return OpenXRDeviceCfg(
+            retargeters=[
+                G1TriHandUpperBodyMotionControllerGripperRetargeterCfg(
+                    sim_device=self.sim_device,
+                ),
+                G1LowerBodyStandingMotionControllerRetargeterCfg(
+                    sim_device=self.sim_device,
+                ),
+            ],
+            sim_device=self.sim_device,
+            xr_cfg=xr_cfg,
         )
