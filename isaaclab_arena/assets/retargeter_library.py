@@ -23,10 +23,31 @@ from isaaclab_arena.assets.register import register_retargeter
 
 
 @register_retargeter
-class GR1T2OpenXRRetargeter:
+class GR1T2PinkOpenXRRetargeter:
 
     device = "openxr"
-    embodiment = "gr1"
+    embodiment = "gr1_pink"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, gr1t2_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> RetargeterCfg:
+        return GR1T2RetargeterCfg(
+            enable_visualization=enable_visualization,
+            # number of joints in both hands
+            num_open_xr_hand_joints=gr1t2_embodiment.get_xr_cfg().num_open_xr_hand_joints,
+            sim_device=sim_device,
+            hand_joint_names=gr1t2_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
+        )
+
+
+@register_retargeter
+class GR1T2JointOpenXRRetargeter:
+
+    device = "openxr"
+    embodiment = "gr1_joint"
 
     def __init__(self):
         pass

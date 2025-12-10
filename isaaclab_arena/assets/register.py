@@ -30,4 +30,5 @@ def register_retargeter(cls):
         print(f"WARNING: Retargeter {cls.name} is already registered. Doing nothing.")
     else:
         RetargeterRegistry().register(cls, (cls.device, cls.embodiment))
+        RetargeterRegistry().update_available_retargeters(cls.device, cls.embodiment)
     return cls
