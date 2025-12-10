@@ -53,6 +53,7 @@ class Registry(metaclass=SingletonMeta):
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
         if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
             ensure_assets_registered()
+        assert name in self._components, f"component {name} not found"
         return self._components[name]
 
     def get_all_keys(self) -> list[str | tuple[str, str]]:
