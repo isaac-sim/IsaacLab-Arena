@@ -25,12 +25,16 @@ class PressButtonTask(TaskBase):
         pressedness_threshold: float | None = None,
         reset_pressedness: float | None = None,
         episode_length_s: float | None = None,
+        task_description: str | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
         assert isinstance(pressable_object, Pressable), "Pressable object must be an instance of Pressable"
         self.pressable_object = pressable_object
         self.pressedness_threshold = pressedness_threshold
         self.reset_pressedness = reset_pressedness
+        self.task_description = (
+            f"Press the {pressable_object.name} button" if task_description is None else task_description
+        )
 
     def get_scene_cfg(self):
         pass
