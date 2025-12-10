@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import TYPE_CHECKING, Union
+
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
@@ -10,6 +12,9 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.relations import Relation
 
 
 class Object(ObjectBase):
@@ -24,7 +29,7 @@ class Object(ObjectBase):
         object_type: ObjectType | None = None,
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-        initial_pose: Pose | None = None,
+        initial_pose: Union[Pose, "Relation", None] = None,
         **kwargs,
     ):
         if object_type is not ObjectType.SPAWNER:
@@ -38,9 +43,12 @@ class Object(ObjectBase):
         self.initial_pose = initial_pose
         self.object_cfg = self._init_object_cfg()
 
-    def set_initial_pose(self, pose: Pose) -> None:
+    def set_initial_pose(self, pose: Union[Pose, "Relation"]) -> None:
         self.initial_pose = pose
-        self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+
+        # TODO(cvolk): How to do it properly?
+        # TODO(cvolk): Does the object_cfg need the initial pose here already?
+        #self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
 
     def get_initial_pose(self) -> Pose | None:
         return self.initial_pose

@@ -155,7 +155,3 @@ class TestComputeNextToPose:
         with pytest.raises(ValueError, match="Invalid side"):
             compute_next_to_pose(object_bbox, target_bbox, side="invalid")
 
-
-# Note: Testing compute_bounding_box_from_usd requires actual USD files,
-# which would need to be available in the test environment. This would be
-# better suited for integration tests.

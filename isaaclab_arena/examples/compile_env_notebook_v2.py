@@ -21,22 +21,22 @@ from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArena
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.tasks.dummy_task import DummyTask
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.assets.relations import OnRelation
-from isaaclab_arena.assets.relations import RelationResolver
 
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
-print("Setting initial pose of tomato soup can to on relation with cracker box")
-tomato_soup_can.set_initial_pose(OnRelation(tomato_soup_can, cracker_box))
+microwave = asset_registry.get_asset_by_name("microwave")()
 
-scene = Scene(assets=[background, cracker_box, tomato_soup_can])
+tomato_soup_can.next_to(cracker_box, side="right", clearance=0.05)
+microwave.next_to(tomato_soup_can, side="right", clearance=0.05)
+mustard_bottle.on_top_of(microwave)
 
+scene = Scene(assets=[background, cracker_box, tomato_soup_can, microwave, mustard_bottle])
 
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
