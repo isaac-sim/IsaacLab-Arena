@@ -178,31 +178,6 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          # ref: "release/0.1.1"
-
-      # - name: Fetch all branches and tags
-      #   run: git fetch --prune --all --tags
-
-      - name: Debug
-        run: |
-          git branch -a
-          git show-ref
-
-
-      # - name: Create local branches for remote branches
-      #   run: |
-      #     for remote_branch in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/); do
-      #       if [[ "$remote_branch" == *release* || "$remote_branch" == *main* ]]; then
-      #         # Create a local branch only if it doesn't exist already
-      #         if ! git show-ref --verify --quiet "refs/heads/$remote_branch"; then
-      #           git branch --track "$remote_branch" "origin/$remote_branch"
-      #         fi
-      #       fi
-      #     done
-
-      # - name: Debug
-      #   run: |
-      #     git branch -a
 
       # Build docs
       - name: Build docs
@@ -211,14 +186,6 @@ jobs:
           pip3 install -r requirements.txt
           make SPHINXOPTS=-W multi-docs
           touch ./_build/.nojekyll
-
-      # # Build docs
-      # - name: Build docs
-      #   run: |
-      #     cd docs
-      #     pip3 install -r requirements.txt
-      #     make SPHINXOPTS=-W multi-docs
-      #     touch ./_build/.nojekyll
 
 
   build_and_push_image_post_merge:
