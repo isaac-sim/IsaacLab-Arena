@@ -178,7 +178,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ""
+          ref: "release/0.1.1"
 
       # - name: Fetch all branches and tags
       #   run: git fetch --prune --all --tags
