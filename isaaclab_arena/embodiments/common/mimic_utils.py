@@ -5,6 +5,7 @@
 
 import torch
 from collections.abc import Sequence
+from enum import Enum
 
 import isaaclab.utils.math as PoseUtils
 
@@ -30,3 +31,20 @@ def get_rigid_and_articulated_object_poses(state: dict, env_ids: Sequence[int] |
     }
 
     return object_pose_matrix
+
+
+class MimicArmMode(str, Enum):
+    """
+    The arm mode for the mimic environment configuration.
+
+    Attributes:
+        SINGLE_ARM: Single arm mode (the robot has only one arm).
+        DUAL_ARM: Dual arm mode (bimanual robot, task is performed with both arms in the demonstration).
+        LEFT: Left arm mode (bimanual robot, task is performed with the left arm in the demonstration, right arm is idle).
+        RIGHT: Right arm mode (bimanual robot, task is performed with the right arm in the demonstration, left arm is idle).
+    """
+
+    SINGLE_ARM = "single_arm"
+    DUAL_ARM = "dual_arm"
+    LEFT = "left"
+    RIGHT = "right"
