@@ -169,15 +169,25 @@ class FiiSceneCfg:
             )
         ),
         actuators={
-            "actuators": ImplicitActuatorCfg(
-                joint_names_expr=[".*"], 
-                damping=None, 
-                stiffness=None
-            ),
             "jack_joint": ImplicitActuatorCfg(
                 joint_names_expr=["jack_joint"], 
                 damping=5000., 
                 stiffness=500000.
+            ),
+            "arms": ImplicitActuatorCfg(
+                joint_names_expr=["left_[0-9]_joint", "right_[0-9]_joint", "left_hand_.*", "right_hand_.*"],
+                damping=None,
+                stiffness=None
+            ),
+            "base": ImplicitActuatorCfg(
+                joint_names_expr=["walk_.*_joint", ".*_wheel_joint"],
+                damping=None,
+                stiffness=None
+            ),
+            "torso_and_head": ImplicitActuatorCfg(
+                joint_names_expr=["waist_joint", "head_.*_joint.*"],
+                damping=None,
+                stiffness=None
             ),
         },
     )
