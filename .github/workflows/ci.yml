@@ -177,8 +177,8 @@ jobs:
         run: |
           cd docs
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
-          touch ./_build/html/.nojekyll
+          make SPHINXOPTS=-W multi-docs
+          touch ./_build/.nojekyll
 
 
   build_and_push_image_post_merge:
