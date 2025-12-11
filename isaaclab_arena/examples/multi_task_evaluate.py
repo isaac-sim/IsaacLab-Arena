@@ -105,6 +105,7 @@ def env_stop(env):
     import omni.timeline
 
     omni.timeline.get_timeline_interface().stop()
+    omni.usd.get_context().new_stage()
 
 def main():
     """Script to run an IsaacLab Arena environment with a zero-action agent."""
