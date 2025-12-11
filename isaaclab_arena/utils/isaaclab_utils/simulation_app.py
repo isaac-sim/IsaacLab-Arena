@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 import traceback
+from contextlib import nullcontext, suppress
 
 import omni.kit.app
 from isaaclab.app import AppLauncher
@@ -29,6 +30,55 @@ def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
         print(f"WARNING: IsaacSim has been upgraded to {get_isaac_sim_version()}.")
         print("Please investigate if pinocchio import is still needed in: simulation_app.py")
     return app_launcher
+
+
+def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: bool = True) -> None:
+    """
+    Tear down the SimulationApp and start a fresh USD stage preparing for the next content.
+    Useful for loading new content into the SimulationApp without restarting the app.
+
+    Args:
+        suppress_exceptions: Whether to suppress exceptions. If True, the exception will be caught and the execution will continue. If False, the exception will be propagated.
+        make_new_stage: Whether to make a new USD stage. If True, a new USD stage will be created. If False, the current USD stage will be used.
+    """
+    if suppress_exceptions:
+        # silently caught exceptions and continue the execution.
+        error_manager = suppress(Exception)
+    else:
+        # Do nothing and let the exception to be raised.
+        error_manager = nullcontext()
+
+    with error_manager:
+        # Local import to avoid loading Isaac/Kit unless needed.
+        from isaaclab.sim import SimulationContext
+
+        sim = None
+        with error_manager:
+            sim = SimulationContext.instance()
+
+        # Stop the simulation app
+        if sim is not None:
+            with error_manager:
+                # Some versions gate shutdown on this flag.
+                sim._disable_app_control_on_stop_handle = True  # noqa: SLF001 (intentional private attr)
+            with error_manager:
+                sim.stop()
+            with error_manager:
+                sim.clear_instance()
+
+    # Stop the timeline
+    with error_manager:
+        import omni.timeline
+
+        with error_manager:
+            omni.timeline.get_timeline_interface().stop()
+
+    # Finally, start a fresh USD stage for the next test
+    if make_new_stage:
+        with error_manager:
+            import omni.usd
+
+            omni.usd.get_context().new_stage()
 
 
 class SimulationAppContext:

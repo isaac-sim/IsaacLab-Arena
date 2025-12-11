@@ -55,14 +55,6 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         env.step(actions)
 
 # %%
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
-from isaaclab.sim import SimulationContext
-
-simulation_context = SimulationContext.instance()
-simulation_context._disable_app_control_on_stop_handle = True
-simulation_context.stop()
-simulation_context.clear_instance()
-env.close()
-import omni.timeline
-
-omni.timeline.get_timeline_interface().stop()
+teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
