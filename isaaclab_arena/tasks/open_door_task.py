@@ -127,7 +127,7 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for Open Door env.
     """
 
-    arm_mode: MimicArmMode.SINGLE_ARM
+    arm_mode: MimicArmMode = MimicArmMode.SINGLE_ARM
 
     openable_object_name: str = "openable_object"
 
