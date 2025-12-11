@@ -28,7 +28,7 @@ env:
 jobs:
   deploy_docs:
     name: Deploy the docs
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
     container:
