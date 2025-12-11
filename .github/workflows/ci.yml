@@ -171,7 +171,12 @@ jobs:
       - *install_git_step
       - *mark_repo_safe_step
       - *cleanup_step
-      - *checkout_step
+
+      # Checkout all branches, and tags, such that sphinx-multiversion can build the docs for all versions.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          depth: 0
 
       # Build docs
       - name: Build docs
