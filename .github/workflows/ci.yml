@@ -169,16 +169,23 @@ jobs:
     steps:
       # Setup.
       - *install_git_step
+      - *mark_repo_safe_step
       - *cleanup_step
-      - *checkout_step
+
+      # Checkout all branches, and tags, such that sphinx-multiversion can build the docs for all versions.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # Build docs
       - name: Build docs
+        working-directory: ./docs
         run: |
-          cd docs
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
-          touch ./_build/html/.nojekyll
+          make SPHINXOPTS=-W multi-docs
+          touch ./_build/.nojekyll
 
 
   build_and_push_image_post_merge:
