@@ -15,8 +15,9 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 
 class TaskBase(ABC):
 
-    def __init__(self, episode_length_s: float | None = None):
+    def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
         self.episode_length_s = episode_length_s
+        self.task_description = task_description
 
     @abstractmethod
     def get_scene_cfg(self) -> Any:
@@ -28,10 +29,6 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_events_cfg(self) -> Any:
-        raise NotImplementedError("Function not implemented yet.")
-
-    @abstractmethod
-    def get_prompt(self) -> str:
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
@@ -65,3 +62,6 @@ class TaskBase(ABC):
 
     def get_episode_length_s(self) -> float | None:
         return self.episode_length_s
+
+    def get_task_description(self) -> str | None:
+        return self.task_description

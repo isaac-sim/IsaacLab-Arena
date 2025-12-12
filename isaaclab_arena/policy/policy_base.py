@@ -27,10 +27,15 @@ class PolicyBase(ABC):
         Returns:
             torch.Tensor: The action to take.
         """
-        pass
+        raise NotImplementedError("Function not implemented yet.")
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """
         Reset the policy.
         """
         pass
+
+    def set_task_description(self, task_description: str | None) -> str:
+        """Set the task description of the task being evaluated."""
+        self.task_description = task_description
+        return self.task_description

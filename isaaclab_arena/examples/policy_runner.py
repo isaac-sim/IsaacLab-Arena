@@ -9,9 +9,9 @@ import torch
 import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.example_environments.cli import get_arena_builder_from_cli
 from isaaclab_arena.examples.policy_runner_cli import create_policy, setup_policy_argument_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 
 def main():
@@ -42,6 +42,9 @@ def main():
         # app. Given current SimulationAppContext setup, use lazy import to handle policy-related
         # deps inside create_policy() function to bringup sim app.
         policy, num_steps = create_policy(args_cli)
+        # set task description (could be None) from the task being evaluated
+        policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
+
         # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
         from isaaclab_arena.metrics.metrics import compute_metrics
 

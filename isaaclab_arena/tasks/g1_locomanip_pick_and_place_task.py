@@ -31,11 +31,17 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         destination_bin: Asset,
         background_scene: Asset,
         episode_length_s: float | None = None,
+        task_description: str | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_bin = destination_bin
+        self.task_description = (
+            f"Pick up the {pick_up_object.name}, and place it into the {destination_bin.name}"
+            if task_description is None
+            else task_description
+        )
 
     def get_scene_cfg(self):
         pass
@@ -65,9 +71,6 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
 
     def get_events_cfg(self):
         return EventsCfg(pick_up_object=self.pick_up_object)
-
-    def get_prompt(self):
-        raise NotImplementedError("Function not implemented yet.")
 
     def get_mimic_env_cfg(self, embodiment_name: str):
         return G1LocomanipPickPlaceMimicEnvCfg()

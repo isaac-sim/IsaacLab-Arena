@@ -64,6 +64,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         self.current_action_index = torch.zeros(num_envs, dtype=torch.int32, device=device)
 
+        # task description of task being evaluated. It will be set by the task being evaluated.
+        self.task_description: str | None = None
+
     def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
         """Load the GR00T policy joint config from the data config."""
         return load_robot_joints_config_from_yaml(policy_config_path)
@@ -101,6 +104,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
             device=self.policy_config.policy_device,
         )
 
+    def set_task_description(self, task_description: str | None) -> str:
+        """Set the language instruction of the task being evaluated."""
+        if task_description is None:
+            task_description = self.policy_config.language_instruction
+        self.task_description = task_description
+        return self.task_description
+
     def get_observations(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> dict[str, Any]:
         rgb = observation["camera_obs"][camera_name]
         # gr00t uses numpy arrays
@@ -117,8 +127,10 @@ class Gr00tClosedloopPolicy(PolicyBase):
         joint_pos_state_policy = remap_sim_joints_to_policy_joints(joint_pos_state_sim, self.policy_joints_config)
 
         # Pack inputs to dictionary and run the inference
+        assert self.task_description is not None, "Task description is not set"
         policy_observations = {
-            "annotation.human.task_description": [self.policy_config.language_instruction] * self.num_envs,
+            # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
+            "annotation.human.task_description": [self.task_description] * self.num_envs,
             "video.ego_view": rgb.reshape(
                 self.num_envs,
                 1,
