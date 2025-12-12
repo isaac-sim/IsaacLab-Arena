@@ -1,0 +1,679 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Isaac Lab Arena Documentation &#8212; isaaclab_arena 0.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <link rel="icon" href="_static/favicon.png"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="pages/quickstart/installation.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="index.html" selected>main</option>
+            <option value="../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../release/0.1.1/index.html" >release/0.1.1</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/docker_containers.html">Docker Containers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="pages/example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/locomanipulation/step_2_data_generation.html">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/locomanipulation/step_3_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/locomanipulation/step_4_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="pages/example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/advanced/private_omniverse.html">Omniverse Authentication</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_policy_design.html">Policy Design</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/references/release_notes.html">Release Notes</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="isaac-lab-arena-documentation">
+<h1><code class="docutils literal notranslate"><span class="pre">Isaac</span> <span class="pre">Lab</span> <span class="pre">Arena</span></code> Documentation<a class="headerlink" href="#isaac-lab-arena-documentation" title="Link to this heading">#</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">Isaac</span> <span class="pre">Lab</span> <span class="pre">Arena</span></code> is an extends <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/index.html">Isaac Lab</a>
+to simplify the creation of task/environment libraries.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="_images/g1_galileo_arena_box_pnp_locomanip.gif"><img alt="G1 Locomanipulation Box Pick and Place Task" src="_images/g1_galileo_arena_box_pnp_locomanip.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">A G1 humanoid robot performing a locomanipulation task of transporting a box to a tray.
+This environment was designed using Isaac Lab Arena.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="the-problem">
+<h1>The Problem<a class="headerlink" href="#the-problem" title="Link to this heading">#</a></h1>
+<p>With the advent of <em>generalist</em> robot policies, such as <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T</a>
+and <a class="reference external" href="https://github.com/Physical-Intelligence/openpi">Pi_0</a>,
+there is a growing need to evaluate these policies in a variety of tasks/environments.</p>
+<p>Traditional approaches to building task libraries suffer from significant limitations.
+Each new environment variation—whether testing a different robot embodiment or swapping objects—requires tedious manual creation of a new task configuration.
+This leads to redundant, unscalable tasks where most of the environment setup, scene configuration, and task logic is duplicated across variations.
+As the number of robot types and objects grows, maintaining and extending such task libraries becomes increasingly impractical.</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="_images/task_duplications.png"><img alt="Task duplications in a task library" src="_images/task_duplications.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Task duplications in a task library.
+When evaluating policies across different robot embodiments and objects, most of the environment setup and task logic remains the same, leading to significant code duplication.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="can-we-simplify-environment-creation">
+<h1>Can we simplify environment creation?<a class="headerlink" href="#can-we-simplify-environment-creation" title="Link to this heading">#</a></h1>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="_images/variation_axis.png"><img alt="Axis of variation for the pick and place task" src="_images/variation_axis.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Axis of variation of a pick and place task.
+Each environment differs along two axis, the robot embodiment and the object to be manipulated.
+All other aspects of the environment and the task remain the same.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>Tasks in a task library are typically highly redundant.
+For example, you may want to test how well a policy performs on a pick and place task,
+on many different objects.
+In this example, each environment differs in the object-to-be-manipulated,
+but all other aspects remain the same.
+For example, the scene layout, the robot, the observations, actions, rewards, etc are all
+conserved across the environments.
+Isaac Lab’s manager-based environment API is convenient for expressing one such task,
+but does not naturally support expressing this type of variation.</p>
+<p>Isaac Lab Arena extends the manager-based interface to provide
+a convenient way of expressing task variation, while benefiting from
+the modularity, performance, and accuracy of Isaac Lab.</p>
+</section>
+<section id="isaac-lab-arena">
+<h1>Isaac Lab Arena<a class="headerlink" href="#isaac-lab-arena" title="Link to this heading">#</a></h1>
+<p>Isaac Lab Arena is a framework that simplifies the creation and maintenance of such task/environment libraries.
+To simplify the expression of task/environment variation in Isaac Lab Arena,
+we <em>compose</em> the environment on-the-fly from independent sub-pieces.
+Because the sub-pieces are independent, they can be reused and independently varied.
+Furthermore, because the environment is built on the fly, we never need to write and maintain
+duplicate code.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="_images/isaac_lab_arena_arch_overview.png"><img alt="Isaac Lab Arena Architecture Overview" src="_images/isaac_lab_arena_arch_overview.png" style="width: 100%;" />
+</a>
+</figure>
+<p>Isaac Lab Arena decomposes the environment into three independent sub-pieces:</p>
+<ul class="simple">
+<li><p><strong>Scene</strong>: The physical environment layout. The scene is a collection of objects.</p></li>
+<li><p><strong>Embodiment</strong>: The robot embodiment, its observations, actions, sensors etc.</p></li>
+<li><p><strong>Task</strong>: A definition of what is to be accomplished in the environment.</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> composes the environment from these sub-pieces,
+into a <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnvCfg</span></code> which can be run in Isaac Lab.</p>
+</section>
+<section id="usage-example">
+<h1>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h1>
+<p>The following code snippet shows a simple example(pick up a tomato soup can and place it in the destination location) of how to set up a manager-based RL environment using <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">background</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;kitchen&quot;</span><span class="p">)()</span>
+<span class="n">tomato_soup_can</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;tomato_soup_can&quot;</span><span class="p">)()</span>
+<span class="n">destination_location</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;destination_location&quot;</span><span class="p">,</span>
+         <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/kitchen/Cabinet_B_02&quot;</span><span class="p">,</span>
+         <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
+         <span class="n">object_type</span><span class="o">=</span><span class="n">ObjectType</span><span class="o">.</span><span class="n">RIGID</span><span class="p">,</span>
+     <span class="p">)</span>
+<span class="n">teleop_device</span> <span class="o">=</span> <span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="s2">&quot;keyboard&quot;</span><span class="p">)()</span>
+
+<span class="c1"># Compose the scene</span>
+<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">([</span><span class="n">background</span><span class="p">,</span> <span class="n">tomato_soup_can</span><span class="p">])</span>
+
+<span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+   <span class="n">name</span><span class="o">=</span><span class="s2">&quot;franka_kitchen_pickup&quot;</span><span class="p">,</span>
+   <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
+   <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
+   <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">tomato_soup_can</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
+   <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span> <span class="c1"># This will register the environment with the gym registry.</span>
+</pre></div>
+</div>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="_images/franka_kitchen_pickup.gif"><img alt="Franka Kitchen Pickup Task" src="_images/franka_kitchen_pickup.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Franka — Kitchen Pickup Task</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>To get started with <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>, please finish the installation process by following the instructions in <a class="reference internal" href="pages/quickstart/installation.html"><span class="doc">Installation</span></a> and refer to the <a class="reference internal" href="pages/quickstart/first_arena_env.html"><span class="doc">First Arena Environment</span></a> example.</p>
+</section>
+<section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
+<p>See our <a class="reference internal" href="pages/quickstart/installation.html"><span class="doc">Installation</span></a> page for instructions.
+Note that <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> version <code class="docutils literal notranslate"><span class="pre">v0.1.0</span></code> only supports installation from source in a docker container.</p>
+</section>
+<section id="examples">
+<h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h1>
+<p>Below are some example environments built using <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code>.</p>
+<div class="pst-scrollable-table-container"><table class="gallery table">
+<tbody>
+<tr class="row-odd"><td><figure class="gallery-fig align-center" id="id5">
+<a class="reference external image-reference" href="pages/sample_tasks/g1_locomanipulation_box_pick_and_place_task.html"><img alt="G1 Locomanipulation Box Pick and Place Task" src="_images/g1_galileo_arena_box_pnp_locomanip.gif" style="height: 400px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">G1 — Locomanipulation: Box Pick &amp; Place</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</td>
+</tr>
+<tr class="row-even"><td><figure class="gallery-fig align-center" id="id6">
+<a class="reference external image-reference" href="pages/sample_tasks/gr1_open_microwave_task.html"><img alt="GR1 Open Microwave Task" src="_images/kitchen_gr1_arena.gif" style="height: 400px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">GR1 — Open Microwave Task</span><a class="headerlink" href="#id6" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Check out more of our examples environments here: <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/main/isaaclab_arena/examples/example_environments">IsaacLab Arena Examples</a>.</p>
+</section>
+<section id="license">
+<h1>License<a class="headerlink" href="#license" title="Link to this heading">#</a></h1>
+<p>This code is under an <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/LICENSE.md">open-source license</a> (Apache 2.0).</p>
+</section>
+<section id="contributing">
+<h1>Contributing<a class="headerlink" href="#contributing" title="Link to this heading">#</a></h1>
+<p>For more details, please refer to the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md">Contributing Guidelines</a>.</p>
+</section>
+<section id="table-of-contents">
+<h1>TABLE OF CONTENTS<a class="headerlink" href="#table-of-contents" title="Link to this heading">#</a></h1>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart/docker_containers.html">Docker Containers</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/advanced/private_omniverse.html">Omniverse Authentication</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/concepts/concept_policy_design.html">Policy Design</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/references/release_notes.html">Release Notes</a></li>
+</ul>
+</div>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="pages/quickstart/installation.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Installation</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#"><code class="docutils literal notranslate"><span class="pre">Isaac</span> <span class="pre">Lab</span> <span class="pre">Arena</span></code> Documentation</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem">The Problem</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#can-we-simplify-environment-creation">Can we simplify environment creation?</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#isaac-lab-arena">Isaac Lab Arena</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-example">Usage Example</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#license">License</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing">Contributing</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#table-of-contents">TABLE OF CONTENTS</a><ul class="visible nav section-nav flex-column">
+</ul>
+</li>
+</ul>
+
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

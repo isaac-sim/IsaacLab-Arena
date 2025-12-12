@@ -1,0 +1,665 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Environment Setup and Validation &#8212; isaaclab_arena 0.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/locomanipulation/step_1_environment_setup';</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Data Generation" href="step_2_data_generation.html" />
+    <link rel="prev" title="G1 Loco-Manipulation Box Pick and Place Task" href="index.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.1</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="../../../../../main/pages/example_workflows/locomanipulation/step_1_environment_setup.html" >main</option>
+            <option value="../../../../0.1.0/pages/example_workflows/locomanipulation/step_1_environment_setup.html" >release/0.1.0</option>
+            <option value="step_1_environment_setup.html" selected>release/0.1.1</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/docker_containers.html">Docker Containers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Environment Setup and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_2_data_generation.html">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_3_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_4_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_policy_design.html">Policy Design</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../references/release_notes.html">Release Notes</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">G1 Loco-Manipulation Box Pick and Place Task</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Environment Setup and Validation</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="environment-setup-and-validation">
+<h1>Environment Setup and Validation<a class="headerlink" href="#environment-setup-and-validation" title="Link to this heading">#</a></h1>
+<p>On this page we briefly describe the environment used in this example workflow
+and validate that we can load it in Isaac Lab.</p>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<section id="environment-description">
+<h2>Environment Description<a class="headerlink" href="#environment-description" title="Link to this heading">#</a></h2>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">The Galileo G1 Locomanip Pick and Place Environment</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GalileoG1LocomanipPickAndPlaceEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;galileo_g1_locomanip_pick_and_place&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.g1_locomanip_pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">G1LocomanipPickAndPlaceTask</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
+
+        <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+        <span class="n">blue_sorting_bin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;blue_sorting_bin&quot;</span><span class="p">)()</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
+
+        <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+
+        <span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+            <span class="n">Pose</span><span class="p">(</span>
+                <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
+                <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+            <span class="n">Pose</span><span class="p">(</span>
+                <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.2450</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.6272</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2641</span><span class="p">),</span>
+                <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)))</span>
+
+        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">])</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">G1LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
+
+        <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
+            <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+            <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
+</pre></div>
+</div>
+</div>
+</details></section>
+<section id="step-by-step-breakdown">
+<h2>Step-by-Step Breakdown<a class="headerlink" href="#step-by-step-breakdown" title="Link to this heading">#</a></h2>
+<p><strong>1. Interact with the Asset and Device Registry</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
+<span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+<span class="n">blue_sorting_bin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;blue_sorting_bin&quot;</span><span class="p">)()</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
+
+<span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+</pre></div>
+</div>
+<p>Here, we’re selecting the specific pieces we need for our locomanipulation task: the Galileo arena as our background environment,
+an object to pick up, a blue sorting bin as our goal location, and the G1 embodiment.
+The <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceRegistry</span></code> have been initialized in the <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code> class.
+See <a class="reference internal" href="../../concepts/concept_assets_design.html"><span class="doc">Assets Design</span></a> for details on asset architecture.</p>
+<p><strong>2. Position the Objects</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+    <span class="n">Pose</span><span class="p">(</span>
+        <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
+        <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+    <span class="n">Pose</span><span class="p">(</span>
+        <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.2450</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.6272</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2641</span><span class="p">),</span>
+        <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Before we create the scene, we need to place our objects in the right locations. These initial poses are
+currently set manually to create an achievable task.</p>
+<p><strong>3. Compose the Scene</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Now we bring everything together into a IsaacLab-Arena scene.
+See <a class="reference internal" href="../../concepts/concept_scene_design.html"><span class="doc">Scene Design</span></a> for scene composition details.</p>
+<p><strong>4. Create the Locomanip Pick and Place Task</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">G1LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">G1LocomanipPickAndPlaceTask</span></code> encapsulates the task’s goal of the
+environment: pick up the specified object and place it in the blue sorting bin.</p>
+<p>The task knows about the key objects involved (what to pick, where to place it, and the environment context) and will
+provide rewards, compute observations, and determine when the episode should end.
+See <a class="reference internal" href="../../concepts/concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for task creation details.</p>
+<p><strong>5. Create the IsaacLab Arena Environment</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
+    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, we assemble all the pieces into a complete, runnable environment. The <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> is the
+top-level container that connects your embodiment (the robot), the scene (the world) and the task (the objective).
+See <a class="reference internal" href="../../concepts/concept_environment_design.html"><span class="doc">Environment Design</span></a> for environment composition details.</p>
+</section>
+<section id="step-1-download-a-test-dataset">
+<h2>Step 1: Download a test dataset<a class="headerlink" href="#step-1-download-a-test-dataset" title="Link to this heading">#</a></h2>
+<p>To run a robot in the environment we need some recorded demonstration data that
+can be fed to the robot to control its actions.
+We download a pre-recorded dataset from Hugging Face:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>arena_g1_loco_manipulation_dataset_generated_small.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
+</pre></div>
+</div>
+</section>
+<section id="step-2-validate-environment-with-demo-replay">
+<h2>Step 2: Validate Environment with Demo Replay<a class="headerlink" href="#step-2-validate-environment-with-demo-replay" title="Link to this heading">#</a></h2>
+<p>Replay the downloaded dataset to verify the environment setup</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span>/arena_g1_loco_manipulation_dataset_generated_small.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_pink
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The downloaded dataset was generated using CPU device physics, therefore the replay uses <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cpu</span></code> to ensure reproducibility.</p>
+</div>
+<p>You should see the G1 robot replaying the generated demonstrations, performing box pick and place task in the Galileo lab environment.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../../_images/g1_locomanip_pick_and_place_task_view.png"><img alt="G1 Locomanip Pick and Place Task View" src="../../../_images/g1_locomanip_pick_and_place_task_view.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">IsaacLab Arena G1 Locomanip Pick and Place Task View</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">G1 Loco-Manipulation Box Pick and Place Task</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="step_2_data_generation.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Data Generation</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-description">Environment Description</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-by-step-breakdown">Step-by-Step Breakdown</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-download-a-test-dataset">Step 1: Download a test dataset</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-validate-environment-with-demo-replay">Step 2: Validate Environment with Demo Replay</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
