@@ -24,10 +24,13 @@ from isaaclab_arena.utils.pose import Pose
 
 asset_registry = AssetRegistry()
 
-background = asset_registry.get_asset_by_name("packing_table")()
+background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
+cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
-scene = Scene(assets=[background])
+cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
+scene = Scene(assets=[background, cracker_box])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
@@ -37,8 +40,6 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
 )
 
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-args_cli.num_envs = 6
-
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()

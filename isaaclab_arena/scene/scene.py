@@ -23,8 +23,8 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 class Scene:
 
-    def __init__(self, assets: list[Asset] | None = None):
-        self.assets: dict[str, Asset] = {}
+    def __init__(self, assets: list[Asset, dict[str, list[Asset]]] | None = None):
+        self.assets: dict[str, Asset | list[Asset]] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -35,8 +35,26 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_asset(self, asset: Asset):
-        assert asset.name is not None, "Asset with the same name already exists"
+    def _check_asset_name_is_valid(self, name: str) -> bool:
+        """Check if the asset name is valid.
+
+        Args:
+            name: The name of the asset to check.
+        """
+        if name is None:
+            raise ValueError("Asset name is None")
+        if name in self.assets:
+            raise ValueError(f"Asset with name '{name}' already exists")
+        return True
+
+    def add_asset(self, asset: Asset | dict[str, list[Asset]]):
+        """Add an asset to the scene.
+
+        Args:
+            asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
+                   the keys will be used as the names of the assets and the values will be the list of assets.
+        """
+        self._check_asset_name_is_valid(asset.name)
         self.assets[asset.name] = asset
 
     def add_assets(self, assets: list[Asset]):

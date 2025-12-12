@@ -13,8 +13,6 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
-from isaaclab.assets import RigidObjectCfg, RigidObjectCollectionCfg
-import isaaclab.sim as sim_utils
 
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
@@ -23,8 +21,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
-from dataclasses import dataclass, fields, make_dataclass
-from typing import Any, List, Tuple
+
 
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
@@ -41,101 +38,7 @@ class ArenaEnvBuilder:
             self.arena_env.orchestrator.orchestrate(
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
-    def add_object_collections(self, scene_cfg: InteractiveSceneCfg) -> InteractiveSceneCfg:
-        """Add object collections to the scene configuration."""
 
-        # add object_collection to scene_cfg
-
-        objects_cfg: RigidObjectCfg = RigidObjectCfg(
-            prim_path="/World/envs/env_.*/Object",
-            spawn=sim_utils.MultiUsdFileCfg(
-                usd_path=[
-                    'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd',
-                    'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd',
-                    'https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd',
-                    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd"
-                ],
-                random_choice=False,
-                rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                    solver_position_iteration_count=4, solver_velocity_iteration_count=0
-                ),
-                mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
-                collision_props=sim_utils.CollisionPropertiesCfg(),
-            ),
-            # spawn=sim_utils.MultiAssetSpawnerCfg(
-            #     assets_cfg=[
-            #         sim_utils.UsdFileCfg(
-            #             usd_path='https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd',
-            #             scale=1,
-            #             activate_contact_sensors=True,
-            #         ),
-            #         sim_utils.UsdFileCfg(
-            #             usd_path='https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd',
-            #             scale=1,
-            #             activate_contact_sensors=True,
-            #         ),
-            #     ],
-            #     random_choice=True,
-            #     rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            #         solver_position_iteration_count=4, solver_velocity_iteration_count=0
-            #     ),
-            #     mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
-            #     collision_props=sim_utils.CollisionPropertiesCfg(),
-            # ),
-            init_state=RigidObjectCfg.InitialStateCfg(pos=(0.4, 0.0, 0.1)),
-        )
-
-        # object_collection_cfg: RigidObjectCollectionCfg = RigidObjectCollectionCfg(
-        #     rigid_objects={
-        #         "object_A": RigidObjectCfg(
-        #             prim_path="/World/envs/env_.*/Object_A",
-        #             spawn=sim_utils.SphereCfg(
-        #                 radius=0.1,
-        #                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
-        #                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
-        #                     solver_position_iteration_count=4, solver_velocity_iteration_count=0
-        #                 ),
-        #                 mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
-        #                 collision_props=sim_utils.CollisionPropertiesCfg(),
-        #             ),
-        #             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, -0.5, 2.0)),
-        #         ),
-        #         "object_B": RigidObjectCfg(
-        #             prim_path="/World/envs/env_.*/Object_B",
-        #             spawn=sim_utils.CuboidCfg(
-        #                 size=(0.1, 0.1, 0.1),
-        #                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
-        #                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
-        #                     solver_position_iteration_count=4, solver_velocity_iteration_count=0
-        #                 ),
-        #                 mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
-        #                 collision_props=sim_utils.CollisionPropertiesCfg(),
-        #             ),
-        #             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.5, 2.0)),
-        #         ),
-        #         "object_C": RigidObjectCfg(
-        #             prim_path="/World/envs/env_.*/Object_C",
-        #             spawn=sim_utils.ConeCfg(
-        #                 radius=0.1,
-        #                 height=0.3,
-        #                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
-        #                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
-        #                     solver_position_iteration_count=4, solver_velocity_iteration_count=0
-        #                 ),
-        #                 mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
-        #                 collision_props=sim_utils.CollisionPropertiesCfg(),
-        #             ),
-        #             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.5, 0.0, 2.0)),
-        #         ),
-            # }
-        # )
-        
-        # Add new fields directly to the instance
-        setattr(scene_cfg, "object", objects_cfg)
-        # setattr(scene_cfg, "object_collection", object_collection_cfg)
-        scene_cfg.env_spacing = 2.0
-        
-        return scene_cfg
     # This method gives the arena environment a chance to modify the environment configuration.
     # This is a workaround to allow user to gradually move to the new configuration system.
     # THE ORDER MATTERS HERE.
@@ -158,7 +61,6 @@ class ArenaEnvBuilder:
             self.arena_env.embodiment.get_scene_cfg(),
             self.arena_env.task.get_scene_cfg(),
         )
-        scene_cfg = self.add_object_collections(scene_cfg)
         observation_cfg = combine_configclass_instances(
             "ObservationCfg",
             self.arena_env.scene.get_observation_cfg(),
