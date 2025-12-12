@@ -86,7 +86,7 @@ def main() -> None:
     env_name, env_cfg = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
-    if "Lift" in args_cli.task:
+    if "Lift" in args_cli.example_environment:
         # set the resampling time range to large number to avoid resampling
         env_cfg.commands.object_pose.resampling_time_range = (1.0e9, 1.0e9)
         # add termination condition for reaching the goal otherwise the environment won't reset
@@ -102,9 +102,9 @@ def main() -> None:
         # create environment
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
-        if "Reach" in args_cli.task:
+        if "Reach" in args_cli.example_environment:
             omni.log.warn(
-                f"The environment '{args_cli.task}' does not support gripper control. The device command will be"
+                f"The environment '{args_cli.example_environment}' does not support gripper control. The device command will be"
                 " ignored."
             )
     except Exception as e:
@@ -238,6 +238,13 @@ def main() -> None:
 
                 # Only apply teleop commands when active
                 if teleoperation_active:
+                    # Pad action if teleop device outputs fewer dims than environment expects
+                    # actions[:16] are EEF-related, actions[16:] are WBC-related (may need padding)
+                    expected_dim = env.action_space.shape[-1]
+                    if action.shape[0] < expected_dim:
+                        padding = torch.zeros(expected_dim - action.shape[0], device=action.device, dtype=action.dtype)
+                        action = torch.cat([action, padding])
+
                     # process actions
                     actions = action.repeat(env.num_envs, 1)
                     # apply actions
