@@ -162,6 +162,31 @@ class FiiPickAndPlaceMimicEnvCfg(MimicEnvCfg):
                 # scene.
                 object_ref=self.object_name,
                 # End of final subtask does not need to be detected
+                subtask_term_signal="drop",
+                # No time offsets for the final subtask
+                subtask_term_offset_range=(0, 0),
+                # Selection strategy for source subtask segment
+                selection_strategy="nearest_neighbor_object",
+                # Optional parameters for the selection strategy function
+                selection_strategy_kwargs={"nn_k": 3},
+                # Amount of action noise to apply during this subtask
+                action_noise=0.005,
+                # Number of interpolation steps to bridge to this subtask segment
+                num_interpolation_steps=5,
+                # Additional fixed steps for the robot to reach the necessary pose
+                num_fixed_steps=0,
+                # If True, apply action noise during the interpolation phase and execution
+                apply_noise_during_interpolation=False,
+            )
+        )
+        subtask_configs.append(
+            SubTaskConfig(
+                # Each subtask involves manipulation with respect to a single object frame.
+                # TODO(alexmillane, 2025.09.02): This is currently broken. FIX.
+                # We need a way to pass in a reference to an object that exists in the
+                # scene.
+                object_ref=self.object_name,
+                # End of final subtask does not need to be detected
                 subtask_term_signal=None,
                 # No time offsets for the final subtask
                 subtask_term_offset_range=(0, 0),
@@ -179,5 +204,4 @@ class FiiPickAndPlaceMimicEnvCfg(MimicEnvCfg):
                 apply_noise_during_interpolation=False,
             )
         )
-        self.subtask_configs["left"] = subtask_configs
         self.subtask_configs["right"] = subtask_configs
