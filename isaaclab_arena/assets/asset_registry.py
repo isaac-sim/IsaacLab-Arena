@@ -19,33 +19,33 @@ class Registry(metaclass=SingletonMeta):
     def __init__(self):
         self._components = {}
 
-    def register(self, component: Any, name: str | tuple[str, str] | None = None):
+    def register(self, component: Any, key: str | tuple[str, str] | None = None):
         """Register an asset with a name.
 
         Args:
-            name (str): The name of the asset.
+            key (str): The name of the asset.
             asset (Asset): The asset to register.
         """
-        assert name not in self._components, f"component {name} already registered"
-        assert name is not None, "component name is not set"
-        self._components[name] = component
+        assert key not in self._components, f"component {key} already registered"
+        assert key is not None, "component name is not set"
+        self._components[key] = component
 
-    def is_registered(self, name: str | tuple[str, str]) -> bool:
+    def is_registered(self, key: str | tuple[str, str]) -> bool:
         """Check if an component is registered.
 
         Args:
-            name (str): The name of the component.
+            key (str): The name of the component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
         if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
             ensure_assets_registered()
-        return name in self._components
+        return key in self._components
 
-    def get_component_by_name(self, name: str | tuple[str, str]) -> Any:
+    def get_component_by_name(self, key: str | tuple[str, str]) -> Any:
         """Get an component by name.
 
         Args:
-            name (str): The name of the component.
+            key (str): The name of the component.
 
         Returns:
             Asset: The component.
@@ -53,10 +53,8 @@ class Registry(metaclass=SingletonMeta):
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
         if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
             ensure_assets_registered()
-        assert (
-            name in self._components
-        ), f"component {name} not found, please check if requested component is registered"
-        return self._components[name]
+        assert key in self._components, f"component {key} not found, please check if requested component is registered"
+        return self._components[key]
 
     def get_all_keys(self) -> list[str | tuple[str, str]]:
         """Get all the keys of the components.
