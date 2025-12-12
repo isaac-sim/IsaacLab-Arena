@@ -38,7 +38,39 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+
+    object_pos = object.data.root_pos_w - env.scene.env_origins
+    print(f"OBJECT POS: {object_pos}\n")
     return condition_met
+
+
+def subtask_testing(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    min_y: float = None, #-0.17
+    max_y: float = None, # 0.27
+) -> torch.Tensor:
+    object: RigidObject = env.scene[object_cfg.name]
+    object_pos = object.data.root_pos_w - env.scene.env_origins
+
+    if min_y is not None:
+        done = object_pos[:, 1] < min_y
+    elif max_y is not None:
+        done = object_pos[:, 1] > max_y
+
+    return done
+
+def object_above_minimum_height(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    minimum_height: float,
+) -> torch.Tensor:
+    object: RigidObject = env.scene[object_cfg.name]
+    object_pos = object.data.root_pos_w - env.scene.env_origins
+    done = object_pos[:, 2] > minimum_height
+    return done
+
+
 
 
 def objects_in_proximity(

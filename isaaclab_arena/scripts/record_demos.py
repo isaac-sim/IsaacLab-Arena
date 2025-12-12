@@ -453,6 +453,11 @@ def run_simulation_loop(
             if running_recording_instance:
                 # Compute actions based on environment
                 obv = env.step(actions)
+                if "subtask_success_state" in obv[4]:
+                    for st in range(2):
+                        print(f"subtask_{st}: {obv[4]['subtask_success_state'][0][st]}")
+                    print(" ")
+
                 if subtasks is not None:
                     if subtasks == {}:
                         subtasks = obv[0].get("subtask_terms")

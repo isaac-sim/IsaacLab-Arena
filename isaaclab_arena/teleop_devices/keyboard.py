@@ -31,7 +31,7 @@ class KeyboardTeleopDevice(TeleopDeviceBase):
 
     name = "keyboard"
 
-    def __init__(self, sim_device: str | None = None, pos_sensitivity: float = 0.05, rot_sensitivity: float = 0.05):
+    def __init__(self, sim_device: str | None = None, pos_sensitivity: float = 0.3, rot_sensitivity: float = 0.05):
         super().__init__(sim_device=sim_device)
         self.pos_sensitivity = pos_sensitivity
         self.rot_sensitivity = rot_sensitivity

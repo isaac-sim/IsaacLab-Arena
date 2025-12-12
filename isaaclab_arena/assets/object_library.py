@@ -278,3 +278,18 @@ class Light(LibraryObject):
     ):
         self.spawner_cfg = spawner_cfg
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class RedBeaker(LibraryObject):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "red_beaker"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/sorting_beaker_red.usd"
+    scale = (0.45, 0.45, 1.3)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)

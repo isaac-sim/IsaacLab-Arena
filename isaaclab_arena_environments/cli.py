@@ -16,6 +16,9 @@ from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMi
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
 
+# Sequential Composite Task Testing
+from isaaclab_arena_environments.sequential_composite_task_testing.gr1_kitchen_sequential_task_environment import Gr1KitchenSequentialTaskEnvironment
+
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
 # We cannot annotate types which require the simulation app to be started in order to
 # import, because this file is used to retrieve CLI arguments, so it must be imported
@@ -30,6 +33,7 @@ ExampleEnvironments = {
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
+    Gr1KitchenSequentialTaskEnvironment.name: Gr1KitchenSequentialTaskEnvironment,
 }
 
 
