@@ -10,16 +10,17 @@ import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.placeable import Placeable
-from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-from isaaclab.scene import InteractiveSceneCfg
+
 
 class PlaceUprightTask(TaskBase):
     # TODO: (Rebecca) Implement this task
@@ -32,7 +33,9 @@ class PlaceUprightTask(TaskBase):
         super().__init__(episode_length_s=episode_length_s)
         assert isinstance(placeable_object, Placeable), "Placeable object must be an instance of Placeable"
         self.placeable_object = placeable_object
-        self.orientation_threshold = orientation_threshold if orientation_threshold is not None else placeable_object.orientation_threshold
+        self.orientation_threshold = (
+            orientation_threshold if orientation_threshold is not None else placeable_object.orientation_threshold
+        )
         self.scene_config = InteractiveSceneCfg(num_envs=1, env_spacing=3.0, replicate_physics=False)
         self.events_cfg = PlaceUprightEventCfg(self.placeable_object)
         self.termination_cfg = self.make_termination_cfg()
@@ -68,9 +71,7 @@ class PlaceUprightTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [
             SuccessRateMetric(),
-            ObjectMovedRateMetric(
-                self.placeable_object
-            ),
+            ObjectMovedRateMetric(self.placeable_object),
         ]
 
     def get_viewer_cfg(self) -> ViewerCfg:

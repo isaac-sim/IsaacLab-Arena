@@ -21,11 +21,11 @@ from isaaclab_arena.affordances.affordance_base import AffordanceBase
 
 
 class Placeable(AffordanceBase):
-    """ Interface for placeable objects.
-        Placeable objects are objects that can be placed upright in a scene.
-        They are characterized by their upright axis and orientation threshold, which are used to determine if the object is placed upright.
-        - The upright axis is the axis in the object's local frame that is used to determine if the object is placed upright.
-        - The orientation threshold is the threshold for the angle between the upright axis and the world +Z direction.
+    """Interface for placeable objects.
+    Placeable objects are objects that can be placed upright in a scene.
+    They are characterized by their upright axis and orientation threshold, which are used to determine if the object is placed upright.
+    - The upright axis is the axis in the object's local frame that is used to determine if the object is placed upright.
+    - The orientation threshold is the threshold for the angle between the upright axis and the world +Z direction.
     """
 
     def __init__(self, upright_axis_name: Literal["x", "y", "z"] = "z", orientation_threshold: float = 0.5, **kwargs):
@@ -92,9 +92,7 @@ class Placeable(AffordanceBase):
         angle_error = torch.acos(cos_angle)
 
         if torch.is_tensor(orientation_threshold):
-            orientation_threshold_tensor = orientation_threshold.to(
-                device=object_quat.device, dtype=object_quat.dtype
-            )
+            orientation_threshold_tensor = orientation_threshold.to(device=object_quat.device, dtype=object_quat.dtype)
         else:
             orientation_threshold_tensor = torch.tensor(
                 orientation_threshold, device=object_quat.device, dtype=object_quat.dtype
@@ -152,9 +150,7 @@ def _compute_target_quaternions(
     if torch.is_tensor(upright_percentage):
         upright_percentage_t = upright_percentage.to(device=object_quat.device, dtype=object_quat.dtype)
     else:
-        upright_percentage_t = torch.tensor(
-            upright_percentage, device=object_quat.device, dtype=object_quat.dtype
-        )
+        upright_percentage_t = torch.tensor(upright_percentage, device=object_quat.device, dtype=object_quat.dtype)
     if upright_percentage_t.dim() == 0:
         upright_percentage_t = upright_percentage_t.expand(object_quat.shape[0])
 

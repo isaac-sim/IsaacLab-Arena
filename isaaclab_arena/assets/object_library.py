@@ -8,12 +8,13 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.placeable import Placeable
+from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
 
 class LibraryObject(Object):
     """
@@ -268,6 +269,7 @@ class Mug(LibraryObject, Placeable):
         )
         self.object_cfg.spawn.rigid_props = RIGID_BODY_PROPS
         self.object_cfg.spawn.mass_props = sim_utils.MassPropertiesCfg(mass=0.25)
+
 
 @register_asset
 class GroundPlane(LibraryObject):

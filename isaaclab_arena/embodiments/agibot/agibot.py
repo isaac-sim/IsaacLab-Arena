@@ -3,28 +3,28 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame
-from isaaclab_arena.terms.articulations import gripper_pos_by_joint_names
-import isaaclab.envs.mdp as mdp
+import torch
+from collections.abc import Sequence
 from typing import Literal
+
+import isaaclab.envs.mdp as mdp
+import isaaclab.utils.math as PoseUtils
+from isaaclab.controllers.config.rmp_flow import AGIBOT_LEFT_ARM_RMPFLOW_CFG, AGIBOT_RIGHT_ARM_RMPFLOW_CFG
+from isaaclab.envs.mdp.actions.rmpflow_actions_cfg import RMPFlowActionCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.agibot import AGIBOT_A2D_CFG
-from isaaclab.controllers.config.rmp_flow import AGIBOT_LEFT_ARM_RMPFLOW_CFG, AGIBOT_RIGHT_ARM_RMPFLOW_CFG
-from isaaclab.envs.mdp.actions.rmpflow_actions_cfg import RMPFlowActionCfg
+from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.utils.pose import Pose
-import torch
-from collections.abc import Sequence
-
-import isaaclab.utils.math as PoseUtils
 from isaaclab_arena.embodiments.franka.franka import FrankaMimicEnv
+from isaaclab_arena.terms.articulations import gripper_pos_by_joint_names
+from isaaclab_arena.utils.pose import Pose
+
 
 @register_asset
 class AgibotEmbodiment(EmbodimentBase):
@@ -32,14 +32,19 @@ class AgibotEmbodiment(EmbodimentBase):
 
     name = "agibot"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: Literal["left", "right"] = "right"):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        arm_mode: Literal["left", "right"] = "right",
+    ):
         super().__init__(enable_cameras, initial_pose)
         self.scene_config = AgibotLeftArmSceneCfg() if arm_mode == "left" else AgibotRightArmSceneCfg()
         self.action_config = AgibotLeftArmActionsCfg() if arm_mode == "left" else AgibotRightArmActionsCfg()
         self.observation_config = AgibotObservationsCfg()
         self.mimic_env = AgibotMimicEnv
 
-    
+
 @configclass
 class AgibotLeftArmSceneCfg:
     """Scene configuration for the Agibot left arm."""
@@ -72,6 +77,7 @@ class AgibotLeftArmSceneCfg:
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
         marker_cfg.prim_path = "/Visuals/FrameTransformer"
         self.ee_frame.visualizer_cfg = marker_cfg
+
 
 @configclass
 class AgibotRightArmSceneCfg(AgibotLeftArmSceneCfg):
@@ -108,7 +114,7 @@ class AgibotLeftArmActionsCfg:
         articulation_prim_expr="/World/envs/env_.*/Robot",
         use_relative_mode=True,
     )
-    
+
     gripper_action = mdp.AbsBinaryJointPositionActionCfg(
         asset_name="robot",
         threshold=0.5,
@@ -116,6 +122,7 @@ class AgibotLeftArmActionsCfg:
         open_command_expr={"left_hand_joint1": 0.994, "left_.*_Support_Joint": 0.994},
         close_command_expr={"left_hand_joint1": 0.0, "left_.*_Support_Joint": 0.0},
     )
+
 
 @configclass
 class AgibotRightArmActionsCfg:
@@ -131,7 +138,7 @@ class AgibotRightArmActionsCfg:
         articulation_prim_expr="/World/envs/env_.*/Robot",
         use_relative_mode=True,
     )
-    
+
     gripper_action = mdp.AbsBinaryJointPositionActionCfg(
         asset_name="robot",
         threshold=0.5,
@@ -139,6 +146,8 @@ class AgibotRightArmActionsCfg:
         open_command_expr={"right_hand_joint1": 0.994, "right_.*_Support_Joint": 0.994},
         close_command_expr={"right_hand_joint1": 0.0, "right_.*_Support_Joint": 0.0},
     )
+
+
 @configclass
 class AgibotObservationsCfg:
     """Observation configuration for the Agibot robot."""
@@ -152,8 +161,13 @@ class AgibotObservationsCfg:
         joint_vel = ObsTerm(func=mdp.joint_vel_rel)
         eef_pos = ObsTerm(func=ee_frame_pose_in_base_frame, params={"return_key": "pos"})
         eef_quat = ObsTerm(func=ee_frame_pose_in_base_frame, params={"return_key": "quat"})
-        left_gripper_pos = ObsTerm(func=gripper_pos_by_joint_names, params={"gripper_joint_names": ["left_hand_joint1", "left_Right_1_Joint"]})
-        right_gripper_pos = ObsTerm(func=gripper_pos_by_joint_names, params={"gripper_joint_names": ["right_hand_joint1", "right_Right_1_Joint"]})
+        left_gripper_pos = ObsTerm(
+            func=gripper_pos_by_joint_names, params={"gripper_joint_names": ["left_hand_joint1", "left_Right_1_Joint"]}
+        )
+        right_gripper_pos = ObsTerm(
+            func=gripper_pos_by_joint_names,
+            params={"gripper_joint_names": ["right_hand_joint1", "right_Right_1_Joint"]},
+        )
 
         def __post_init__(self):
             self.enable_corruption = False

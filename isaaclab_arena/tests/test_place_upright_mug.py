@@ -23,14 +23,15 @@ def get_test_environment(remove_randomize_mug_positions_event: bool, num_envs: i
     from isaaclab_arena.tasks.place_upright_task import PlaceUprightTask
     from isaaclab_arena.utils.pose import Pose
 
-
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("place_upright_mug_table")()
     # placeable object must have initial pose set
-    mug = asset_registry.get_asset_by_name("mug")(initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_wxyz=(0.707, 0.707, 0.0, 0.0)))
+    mug = asset_registry.get_asset_by_name("mug")(
+        initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_wxyz=(0.707, 0.707, 0.0, 0.0))
+    )
     light = asset_registry.get_asset_by_name("light")()
 
     scene = Scene(assets=[background, mug, light])
@@ -55,6 +56,7 @@ def get_test_environment(remove_randomize_mug_positions_event: bool, num_envs: i
 
 def _test_place_upright_mug_single(simulation_app) -> bool:
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     env, placeable_obj = get_test_environment(remove_randomize_mug_positions_event=True, num_envs=1)
@@ -100,14 +102,14 @@ def _test_place_upright_mug_multi(simulation_app) -> bool:
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [True, True]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([True, True], device=env.device))
-            
+
             # reset place both mugs upright
             placeable_obj.place_upright(env, None, upright_percentage=0.0)
             step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [False, False]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([False, False], device=env.device))
-            
+
             # Place first mug upright
             placeable_obj.place_upright(env, torch.tensor([0]))
             step_zeros_and_call(env, NUM_STEPS)
@@ -123,6 +125,7 @@ def _test_place_upright_mug_multi(simulation_app) -> bool:
 
     return True
 
+
 def _test_place_upright_mug_condition(simulation_app) -> bool:
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
@@ -135,21 +138,20 @@ def _test_place_upright_mug_condition(simulation_app) -> bool:
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [False, False]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([False, False], device=env.device))
-            
+
             # reset place both mugs upright
             placeable_obj.place_upright(env, None, upright_percentage=0.0)
             step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [False, False]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([False, False], device=env.device))
-            
+
             # Place first mug upright
             placeable_obj.place_upright(env, torch.tensor([0]))
             step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [False, False]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([False, False], device=env.device))
-
 
     except Exception as e:
         print(f"Error: {e}")
@@ -158,7 +160,6 @@ def _test_place_upright_mug_condition(simulation_app) -> bool:
         env.close()
 
     return True
-
 
 
 def test_place_upright_mug_single():
@@ -183,6 +184,7 @@ def test_place_upright_mug_condition():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_place_upright_mug_condition.__name__} failed"
+
 
 if __name__ == "__main__":
     test_place_upright_mug_single()
