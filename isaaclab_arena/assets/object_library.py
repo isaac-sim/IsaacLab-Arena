@@ -6,23 +6,23 @@
 from typing import Any
 
 import isaaclab.sim as sim_utils
+from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
-from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
-
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.assets.object_utils import (
     ASSEMBLY_ARTICULATION_INIT_STATE,
     RIGID_BODY_PROPS_HIGH_PRECISION,
     RIGID_BODY_PROPS_STANDARD,
+    create_factory_articulation_cfg,
 )
+from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.utils.pose import Pose
 
 
 class LibraryObject(Object):
@@ -365,6 +365,7 @@ class Peg(LibraryObject):
     }
 
     
+
 
 @register_asset
 class Hole(LibraryObject):

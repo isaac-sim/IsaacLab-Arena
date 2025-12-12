@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,20 +30,20 @@ if TYPE_CHECKING:
 def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """
     Environment configuration callback optimized for factory assembly tasks.
-    
+
     This callback modifies the simulation settings to provide better stability
     and precision for tasks like peg insertion, gear meshing, and other fine
     manipulation operations.
-    
+
     Args:
         env_cfg: The environment configuration to modify.
-        
+
     Returns:
         The modified environment configuration.
     """
-    from isaaclab.sim import SimulationCfg, PhysxCfg
+    from isaaclab.sim import PhysxCfg, SimulationCfg
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
-    
+
     # Simulation settings optimized for factory assembly tasks
     env_cfg.sim = SimulationCfg(
         dt=1 / 60,  # 60Hz - balance between speed and stability
@@ -59,9 +64,8 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
             dynamic_friction=1.0,
         ),
     )
-    
+
     # Control frequency = 60Hz / 2 = 30Hz
     env_cfg.decimation = 2
-    
-    return env_cfg
 
+    return env_cfg
