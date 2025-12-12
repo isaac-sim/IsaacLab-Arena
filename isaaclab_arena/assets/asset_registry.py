@@ -10,7 +10,7 @@ from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.device_library import TeleopDeviceBase
+    from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
 
 
 # Have to define all classes here in order to avoid circular import.
