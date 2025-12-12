@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,12 +34,11 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
     name: str = "factory_gear_mesh"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.utils.pose import Pose
+        import isaaclab.sim as sim_utils
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg
         from isaaclab.utils import configclass
+
         import isaaclab.sim as sim_utils
         from isaaclab_arena.tasks.assembly_task import AssemblyTask
         from isaaclab_arena.assets.background_library import Table
@@ -42,6 +46,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_library import Light
         from isaaclab_arena_environments import mdp
         from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG
+
 
         # Get assets from registry
         background = self.asset_registry.get_asset_by_name(args_cli.background)()
@@ -130,4 +135,6 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
         """Add CLI arguments for gear mesh environment."""
         parser.add_argument("--background", type=str, default="table", help="Background scene (table)")
         parser.add_argument("--embodiment", type=str, default="franka", help="Robot embodiment")
-        parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device (e.g., keyboard, spacemouse)")
+        parser.add_argument(
+            "--teleop_device", type=str, default=None, help="Teleoperation device (e.g., keyboard, spacemouse)"
+        )

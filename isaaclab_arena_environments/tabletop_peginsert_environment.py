@@ -1,3 +1,8 @@
+# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +18,7 @@
 # limitations under the License.
 
 import argparse
-import numpy as np
+
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
@@ -22,11 +27,7 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
     name: str = "factory_peg_insert"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-        from isaaclab_arena.assets.object_base import ObjectType
-        from isaaclab_arena.assets.object_reference import ObjectReference
-        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.utils.pose import Pose
+        import isaaclab.sim as sim_utils
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg
         from isaaclab.utils import configclass
@@ -71,7 +72,7 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        destination_object.set_initial_pose(            
+        destination_object.set_initial_pose(
             Pose(
                 position_xyz=(0.45, 0.1, 0.0),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
