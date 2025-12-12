@@ -69,13 +69,13 @@ def _test_remove_configclass_fields(simulation_app) -> bool:
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
     @configclass
-    class OriginalCfg:
+    class FooCfg:
         field_a: int = 123
         field_b: str = "123"
         field_c: float = 1.23
 
     try:
-        original = OriginalCfg()
+        original = FooCfg()
         result = SequentialTaskBase._remove_configclass_fields(original, {"field_b"})
 
         # Check that remaining fields exist
@@ -90,8 +90,8 @@ def _test_remove_configclass_fields(simulation_app) -> bool:
         assert not hasattr(result, "field_b")
 
         # Test removing multiple fields
-        original2 = OriginalCfg()
-        result2 = SequentialTaskBase._remove_configclass_fields(original2, {"field_a", "field_c"})
+        original = FooCfg()
+        result2 = SequentialTaskBase._remove_configclass_fields(original, {"field_a", "field_c"})
 
         # Check that only field_b remains
         assert hasattr(result2, "field_b")
