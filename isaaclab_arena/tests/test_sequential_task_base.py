@@ -12,6 +12,7 @@ def _test_add_suffix_to_configclass_fields(simulation_app) -> bool:
     """Test that _add_suffix_to_configclass_fields correctly renames fields with suffix."""
 
     from isaaclab.utils import configclass
+
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
     @configclass
@@ -64,6 +65,7 @@ def _test_remove_configclass_fields(simulation_app) -> bool:
     """Test that _remove_configclass_fields correctly removes specified fields."""
 
     from isaaclab.utils import configclass
+
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
     @configclass

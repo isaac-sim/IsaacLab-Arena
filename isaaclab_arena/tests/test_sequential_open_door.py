@@ -30,14 +30,14 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
             self,
             openable_object,
             subtasks,
-            episode_length_s = None,
+            episode_length_s=None,
         ):
             super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
             self.openable_object = openable_object
 
         def get_metrics(self):
             return []
-        
+
         def get_mimic_env_cfg(self, embodiment_name: str):
             return None
 
@@ -55,7 +55,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
     )
-    
+
     subtask_1 = OpenDoorTask(microwave)
     subtask_2 = OpenDoorTask(microwave)
 
@@ -81,6 +81,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
 def _test_sequential_open_door_microwave(simulation_app) -> bool:
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
@@ -124,11 +125,12 @@ def _test_sequential_open_door_microwave(simulation_app) -> bool:
 
 def _test_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
     env, microwave = get_test_environment(remove_reset_door_state_event=True, num_envs=2)
-   
+
     def assert_composite_task_incomplete(env: ManagerBasedEnv, terminated: torch.Tensor):
         assert terminated.shape == torch.Size([2])
         assert not torch.any(terminated)
