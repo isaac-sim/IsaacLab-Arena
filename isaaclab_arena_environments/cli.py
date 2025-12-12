@@ -8,17 +8,13 @@ import importlib
 from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.example_environments.galileo_g1_locomanip_pick_and_place_environment import (
+from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
-from isaaclab_arena.examples.example_environments.galileo_pick_and_place_environment import (
-    GalileoPickAndPlaceEnvironment,
-)
-from isaaclab_arena.examples.example_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
-from isaaclab_arena.examples.example_environments.kitchen_pick_and_place_environment import (
-    KitchenPickAndPlaceEnvironment,
-)
-from isaaclab_arena.examples.example_environments.press_button_environment import PressButtonEnvironment
+from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
+from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
+from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
+from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
 # We cannot annotate types which require the simulation app to be started in order to
@@ -78,7 +74,7 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     return args_parser
 
 
-def get_isaaclab_arena_example_environment_cli_parser(
+def get_isaaclab_arena_environments_cli_parser(
     args_parser: argparse.ArgumentParser | None = None,
 ) -> argparse.ArgumentParser:
     if args_parser is None:

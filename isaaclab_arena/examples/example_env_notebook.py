@@ -19,12 +19,9 @@ simulation_app = AppLauncher()
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 
 reload_arena_modules()
-from isaaclab_arena.examples.example_environments.cli import (
-    get_arena_builder_from_cli,
-    get_isaaclab_arena_example_environment_cli_parser,
-)
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
-args_parser = get_isaaclab_arena_example_environment_cli_parser()
+args_parser = get_isaaclab_arena_environments_cli_parser()
 
 # GR1 Open Microwave
 args_cli = args_parser.parse_args([
@@ -58,14 +55,6 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         env.step(actions)
 
 # %%
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
-from isaaclab.sim import SimulationContext
-
-simulation_context = SimulationContext.instance()
-simulation_context._disable_app_control_on_stop_handle = True
-simulation_context.stop()
-simulation_context.clear_instance()
-env.close()
-import omni.timeline
-
-omni.timeline.get_timeline_interface().stop()
+teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)

@@ -8,13 +8,12 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable
-from contextlib import suppress
 
 from isaaclab.app import AppLauncher
 from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
 
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
@@ -55,44 +54,6 @@ class _IsolatedArgv:
 
     def __exit__(self, exc_type, exc, tb):
         sys.argv = self._old
-
-
-def safe_teardown(make_new_stage: bool = True) -> None:
-    """
-    Best-effort reset so the persistent SimulationApp can accept the next test.
-    Runs even if a test fails or raises.
-    """
-    with suppress(Exception):
-        # Local import to avoid loading Isaac/Kit unless needed.
-        from isaaclab.sim import SimulationContext
-
-        sim = None
-        with suppress(Exception):
-            sim = SimulationContext.instance()
-
-        # Stop the simulation app
-        if sim is not None:
-            with suppress(Exception):
-                # Some versions gate shutdown on this flag.
-                sim._disable_app_control_on_stop_handle = True  # noqa: SLF001 (intentional private attr)
-            with suppress(Exception):
-                sim.stop()
-            with suppress(Exception):
-                sim.clear_instance()
-
-    # Stop the timeline
-    with suppress(Exception):
-        import omni.timeline
-
-        with suppress(Exception):
-            omni.timeline.get_timeline_interface().stop()
-
-    # Finally, start a fresh USD stage for the next test
-    if make_new_stage:
-        with suppress(Exception):
-            import omni.usd
-
-            omni.usd.get_context().new_stage()
 
 
 def _close_persistent():
@@ -165,4 +126,4 @@ def run_simulation_app_function(
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests
-        safe_teardown()
+        teardown_simulation_app(suppress_exceptions=True, make_new_stage=True)

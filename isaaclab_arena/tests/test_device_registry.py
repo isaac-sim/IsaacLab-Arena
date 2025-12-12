@@ -8,7 +8,8 @@ import torch
 import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, safe_teardown
+from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
 NUM_STEPS = 2
 HEADLESS = True
@@ -63,7 +64,7 @@ def _test_all_devices_in_registry(simulation_app):
 
         # Close the environment using safe teardown
         # Also creates a new stage for the next test
-        safe_teardown()
+        teardown_simulation_app(suppress_exceptions=True, make_new_stage=True)
 
     return True
 

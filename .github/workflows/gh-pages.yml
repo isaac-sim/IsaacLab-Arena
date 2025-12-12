@@ -28,7 +28,7 @@ env:
 jobs:
   deploy_docs:
     name: Deploy the docs
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
     container:
@@ -48,32 +48,23 @@ jobs:
         with:
           clean: true
           fetch-depth: 0
+          fetch-tags: true
+
+      # Fix "detected dubious ownership in repository" inside containers
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
 
       # Build docs
       - name: Build docs
         run: |
           cd docs
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
-          touch ./_build/html/.nojekyll
+          make SPHINXOPTS=-W multi-docs
+          touch ./_build/.nojekyll
 
       - name: Copy redirect file
         run: |
           cp ./docs/_redirect/index.html ./docs/_build/index.html
-
-      # Upload docs artifact
-      - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs-html
-          path: ./docs/_build
-
-      # Download docs artifact
-      - name: Download docs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docs-html
-          path: ./docs/_build
 
       # Deploy to gh-pages
       - name: Deploy to gh-pages

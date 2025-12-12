@@ -31,7 +31,7 @@ jobs:
 
   pre_commit:
     name: Pre-commit
-    runs-on: [gpu]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
     container:
@@ -88,11 +88,11 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
         with:
-          extra_args: --verbose
+          extra_args: --all-files --verbose
 
   test:
     name: Run tests
-    runs-on: [gpu]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [pre_commit]
 
@@ -131,7 +131,7 @@ jobs:
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [gpu]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [pre_commit]
 
@@ -159,7 +159,7 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
-    runs-on: [gpu]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
     needs: [pre_commit]
 
@@ -169,21 +169,28 @@ jobs:
     steps:
       # Setup.
       - *install_git_step
+      - *mark_repo_safe_step
       - *cleanup_step
-      - *checkout_step
+
+      # Checkout all branches, and tags, such that sphinx-multiversion can build the docs for all versions.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # Build docs
       - name: Build docs
+        working-directory: ./docs
         run: |
-          cd docs
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W html
-          touch ./_build/html/.nojekyll
+          make SPHINXOPTS=-W multi-docs
+          touch ./_build/.nojekyll
 
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
-    runs-on: [gpu]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 90
     needs: [test, test_policy]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

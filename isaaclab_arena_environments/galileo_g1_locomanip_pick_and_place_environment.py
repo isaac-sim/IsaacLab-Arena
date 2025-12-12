@@ -5,7 +5,7 @@
 
 import argparse
 
-from isaaclab_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
@@ -64,7 +64,16 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background, episode_length_s=30.0),
+            task=G1LocomanipPickAndPlaceTask(
+                pick_up_object,
+                blue_sorting_bin,
+                background,
+                episode_length_s=30.0,
+                task_description=(
+                    "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the"
+                    " right of the shelf."
+                ),
+            ),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
