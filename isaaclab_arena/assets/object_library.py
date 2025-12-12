@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import isaaclab.sim as sim_utils
+from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
@@ -11,6 +12,11 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_utils import (
+    RIGID_BODY_PROPS_HIGH_PRECISION,
+    RIGID_BODY_PROPS_STANDARD,
+    create_factory_articulation_cfg,
+)
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -278,3 +284,129 @@ class Light(LibraryObject):
     ):
         self.spawner_cfg = spawner_cfg
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+class FactoryObject(LibraryObject):
+    """
+    Base class for Factory assembly task objects.
+
+    This class handles the common initialization logic for all factory objects,
+    including creating the articulation configuration and applying initial pose.
+
+    Subclasses must define:
+        - name: str
+        - tags: list[str]
+        - usd_path: str
+        - scale: tuple[float, float, float]
+        - mass: float
+        - rigid_props: RigidBodyPropertiesCfg (class attribute)
+    """
+
+    # Class attributes that must be overridden by subclasses
+    mass: float
+    rigid_props: RigidBodyPropertiesCfg
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+        # Create factory-specific articulation configuration
+        self.object_cfg = create_factory_articulation_cfg(
+            prim_path=self.prim_path,
+            usd_path=self.usd_path,
+            scale=self.scale,
+            mass=self.mass,
+            rigid_props=self.rigid_props,
+        )
+
+        # Apply initial pose if provided
+        self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+
+
+@register_asset
+class Peg(FactoryObject):
+    """
+    A peg for peg insert task.
+    """
+
+    name = "peg"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_peg_8mm.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (3.0, 3.0, 3.0)
+    mass = 0.019
+    rigid_props = RIGID_BODY_PROPS_HIGH_PRECISION
+
+
+@register_asset
+class Hole(FactoryObject):
+    """
+    A hole (fixed base) for peg insert task.
+    """
+
+    name = "hole"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_hole_8mm.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (3.0, 3.0, 3.0)
+    mass = 0.05
+    rigid_props = RIGID_BODY_PROPS_HIGH_PRECISION
+
+
+@register_asset
+class SmallGear(FactoryObject):
+    """
+    A small reference gear for gear mesh task.
+    """
+
+    name = "small_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_small.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    mass = 0.019
+    rigid_props = RIGID_BODY_PROPS_STANDARD
+
+
+@register_asset
+class LargeGear(FactoryObject):
+    """
+    A large reference gear for gear mesh task.
+    """
+
+    name = "large_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_large.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    mass = 0.019
+    rigid_props = RIGID_BODY_PROPS_STANDARD
+
+
+@register_asset
+class GearBase(FactoryObject):
+    """
+    Gear base (fixed asset) for gear mesh task.
+    """
+
+    name = "gear_base"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_base.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    mass = 0.05
+    rigid_props = RIGID_BODY_PROPS_STANDARD
+
+
+@register_asset
+class MediumGear(FactoryObject):
+    """
+    Medium gear (held asset) for gear mesh task.
+    """
+
+    name = "medium_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_medium.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    mass = 0.019
+    rigid_props = RIGID_BODY_PROPS_STANDARD

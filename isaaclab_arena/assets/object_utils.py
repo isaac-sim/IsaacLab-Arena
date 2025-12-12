@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import isaaclab.sim as sim_utils
+from isaaclab.assets import ArticulationCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectType
@@ -59,3 +62,79 @@ def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = No
         return ObjectType.ARTICULATION
     else:
         raise ValueError("This should not happen. There is an unknown USD type in the tree.")
+
+
+# Predefined rigid body property configurations for factory assembly tasks
+# High iteration count for precision tasks (peg/hole insertion)
+RIGID_BODY_PROPS_HIGH_PRECISION = sim_utils.RigidBodyPropertiesCfg(
+    disable_gravity=False,
+    max_depenetration_velocity=5.0,
+    linear_damping=0.0,
+    angular_damping=0.0,
+    max_linear_velocity=1000.0,
+    max_angular_velocity=3666.0,
+    enable_gyroscopic_forces=True,
+    solver_position_iteration_count=192,
+    solver_velocity_iteration_count=1,
+    max_contact_impulse=1e32,
+)
+
+# Standard iteration count for gear mesh tasks
+RIGID_BODY_PROPS_STANDARD = sim_utils.RigidBodyPropertiesCfg(
+    disable_gravity=False,
+    max_depenetration_velocity=5.0,
+    linear_damping=0.0,
+    angular_damping=0.0,
+    max_linear_velocity=1000.0,
+    max_angular_velocity=3666.0,
+    enable_gyroscopic_forces=True,
+    solver_position_iteration_count=32,
+    solver_velocity_iteration_count=32,
+    max_contact_impulse=1e32,
+)
+
+
+def create_factory_articulation_cfg(
+    prim_path: str,
+    usd_path: str,
+    scale: tuple[float, float, float],
+    mass: float,
+    rigid_props: sim_utils.RigidBodyPropertiesCfg = RIGID_BODY_PROPS_HIGH_PRECISION,
+    contact_offset: float = 0.005,
+    rest_offset: float = 0.0,
+) -> ArticulationCfg:
+    """
+    Create a standard factory articulation configuration.
+
+    Args:
+        prim_path: USD prim path for the articulation
+        usd_path: Path to USD file
+        scale: Scale tuple (x, y, z)
+        mass: Mass of the object in kg
+        rigid_props: Rigid body properties configuration
+        contact_offset: Contact offset for collision
+        rest_offset: Rest offset for collision
+
+    Returns:
+        ArticulationCfg: Configured articulation
+    """
+    return ArticulationCfg(
+        prim_path=prim_path,
+        spawn=UsdFileCfg(
+            usd_path=usd_path,
+            scale=scale,
+            activate_contact_sensors=True,
+            rigid_props=rigid_props,
+            mass_props=sim_utils.MassPropertiesCfg(mass=mass),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                contact_offset=contact_offset,
+                rest_offset=rest_offset,
+            ),
+        ),
+        # Empty dict for objects without joints
+        init_state=ArticulationCfg.InitialStateCfg(
+            joint_pos={},
+            joint_vel={},
+        ),
+        actuators={},
+    )

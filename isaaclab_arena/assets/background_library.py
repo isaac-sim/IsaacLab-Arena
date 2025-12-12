@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.register import register_asset
@@ -116,3 +116,19 @@ class GalileoLocomanipBackground(LibraryBackground):
 
     def __init__(self):
         super().__init__()
+
+
+@register_asset
+class FactoryTableBackground(LibraryBackground):
+    """
+    Factory table background.
+    """
+
+    name = "factory_table"
+    tags = ["background"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
+    initial_pose = Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707))
+    object_min_z = -0.1
+
+    def __init__(self):
+        super().__init__(scale=(1.0, 1.0, 1.0))
