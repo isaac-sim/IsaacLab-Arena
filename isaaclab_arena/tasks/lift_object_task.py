@@ -5,7 +5,6 @@
 
 import numpy as np
 from dataclasses import MISSING
-from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -13,10 +12,10 @@ from isaaclab.managers import CommandTermCfg, EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
-from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.observations import general_observations
 from isaaclab_arena.tasks.rewards import general_rewards
@@ -85,10 +84,6 @@ class LiftObjectEventsCfg:
     reset_lift_object_pose: EventTermCfg = MISSING
 
     def __init__(self, lift_object: Asset):
-        # initial_pose = lift_object.get_initial_pose()
-        # inital_pose_x = initial_pose.position_xyz[0]
-        # inital_pose_y = initial_pose.position_xyz[1]
-        # inital_pose_z = initial_pose.position_xyz[2]
         self.reset_lift_object_pose = EventTermCfg(
             func=mdp_isaac_lab.reset_root_state_uniform,
             mode="reset",
@@ -117,7 +112,7 @@ class LiftObjectTaskRL(LiftObjectTask):
         self,
         lift_object: Asset,
         background_scene: Asset,
-        embodiment_information: dict[str, Any],
+        embodiment: EmbodimentBase,
         minimum_height_to_lift: float = 0.04,
         episode_length_s: float = 5.0,
     ):
@@ -127,19 +122,18 @@ class LiftObjectTaskRL(LiftObjectTask):
             minimum_height_to_lift=minimum_height_to_lift,
             episode_length_s=episode_length_s,
         )
-        self.embodiment_information = embodiment_information
+        self.embodiment = embodiment
 
     def get_observation_cfg(self):
         return LiftObjectObservationsCfg(lift_object=self.lift_object)
-
-    def get_scene_cfg(self):
-        return LiftObjectSceneCfg(embodiment_information=self.embodiment_information)
 
     def get_rewards_cfg(self):
         return LiftObjectRewardCfg(lift_object=self.lift_object, minimum_height_to_lift=self.minimum_height_to_lift)
 
     def get_commands_cfg(self):
-        return LiftObjectCommandsCfg(embodiment_information=self.embodiment_information, lift_object=self.lift_object)
+        return LiftObjectCommandsCfg(
+            body_name=self.embodiment.get_rl_information()["body_name"], lift_object=self.lift_object
+        )
 
 
 @configclass
@@ -174,47 +168,21 @@ class LiftObjectCommandsCfg:
 
     object_pose: CommandTermCfg = MISSING
 
-    def __init__(self, embodiment_information: dict[str, Any], lift_object: Asset):
-        # initial_pose = lift_object.get_initial_pose()
-        # inital_pose_x = initial_pose.position_xyz[0]
-        # inital_pose_y = initial_pose.position_xyz[1]
-        # inital_pose_z = initial_pose.position_xyz[2]
+    def __init__(self, body_name: str, lift_object: Asset):
+        initial_pose = lift_object.get_initial_pose()
         self.object_pose = mdp_isaac_lab.UniformPoseCommandCfg(
             asset_name="robot",
-            body_name=embodiment_information["body_name"],
+            body_name=body_name,
             resampling_time_range=(5.0, 5.0),
             debug_vis=True,
             ranges=mdp_isaac_lab.UniformPoseCommandCfg.Ranges(
-                pos_x=(0.4, 0.6),
-                pos_y=(-0.25, 0.25),
-                pos_z=(0.25, 0.5),
+                pos_x=(initial_pose.position_xyz[0] - 0.1, initial_pose.position_xyz[0] + 0.1),
+                pos_y=(initial_pose.position_xyz[1] - 0.25, initial_pose.position_xyz[1] + 0.25),
+                pos_z=(initial_pose.position_xyz[2] + 0.2, initial_pose.position_xyz[2] + 0.4),
                 roll=(0.0, 0.0),
                 pitch=(0.0, 0.0),
                 yaw=(0.0, 0.0),
             ),
-        )
-
-
-@configclass
-class LiftObjectSceneCfg:
-    """Configuration for Lift Object."""
-
-    embodiment_end_effector_frame: SceneEntityCfg = MISSING
-
-    def __init__(self, embodiment_information: dict[str, Any]):
-
-        self.embodiment_end_effector_frame = FrameTransformerCfg(
-            prim_path=embodiment_information["eef_prim_path"],
-            debug_vis=False,
-            target_frames=[
-                FrameTransformerCfg.FrameCfg(
-                    prim_path=embodiment_information["target_prim_path"],
-                    name=embodiment_information["target_frame_name"],
-                    offset=OffsetCfg(
-                        pos=embodiment_information["target_offset"],
-                    ),
-                ),
-            ],
         )
 
 
@@ -233,7 +201,7 @@ class LiftObjectRewardCfg:
             params={
                 "std": 0.1,
                 "object_cfg": SceneEntityCfg(lift_object.name),
-                "ee_frame_cfg": SceneEntityCfg("embodiment_end_effector_frame"),
+                "ee_frame_cfg": SceneEntityCfg("ee_frame"),
             },
             weight=1.0,
         )

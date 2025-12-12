@@ -59,6 +59,11 @@ class FrankaEmbodiment(EmbodimentBase):
         scene_config.stand.init_state.rot = pose.rotation_wxyz
         return scene_config
 
+    def get_rl_information(self) -> dict[str, Any]:
+        return {
+            "body_name": self.action_config.arm_action.body_name,
+        }
+
 
 @configclass
 class FrankaSceneCfg:
