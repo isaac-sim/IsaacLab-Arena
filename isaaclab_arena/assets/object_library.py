@@ -8,6 +8,8 @@ from typing import Any
 import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
+from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
+
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
@@ -16,6 +18,11 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.assets.object_utils import (
+    ASSEMBLY_ARTICULATION_INIT_STATE,
+    RIGID_BODY_PROPS_HIGH_PRECISION,
+    RIGID_BODY_PROPS_STANDARD,
+)
 
 
 class LibraryObject(Object):
@@ -335,3 +342,130 @@ class DexCube(LibraryObject):
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class Peg(LibraryObject):
+    """
+    A peg.
+    """
+
+    name = "peg"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_peg_8mm.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (3.0, 3.0, 3.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+    }
+
+    
+
+@register_asset
+class Hole(LibraryObject):
+    """
+    A hole.
+    """
+
+    name = "hole"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_hole_8mm.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (3.0, 3.0, 3.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.05),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+    }
+
+
+@register_asset
+class SmallGear(LibraryObject):
+    """
+    A small gear.
+    """
+
+    name = "small_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_small.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+    }
+
+@register_asset
+class LargeGear(LibraryObject):
+    """
+    A large gear.
+    """
+
+    name = "large_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_large.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+    }
+
+
+@register_asset
+class GearBase(LibraryObject):
+    """
+    Gear base.
+    """
+
+    name = "gear_base"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_base.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.05),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+    }
+
+
+@register_asset
+class MediumGear(LibraryObject):
+    """
+    A medium gear.
+    """
+
+    name = "medium_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_medium.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+    }
+
