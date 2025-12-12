@@ -76,3 +76,27 @@ def open_stage(path):
     finally:
         # Drop the local reference; Garbage Collection will reclaim once no prim/attr handles remain
         del stage
+
+
+def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str | None:
+    """Get the USD path from a prim path, that is referring to an asset."""
+    # Note (xinjieyao, 2025.12.12): preferred way to get the composed asset path is to ask the Usd.Prim object itself,
+    # which handles the entire composition stack. Here it achieved this goal thru root layer due to the USD API limitations.
+    # It only finds references authored on the root layer.
+    # If the asset was referenced in an intermediate sublayer, this method would fail to find the asset path.
+    root_layer = stage.GetRootLayer()
+    prim_spec = root_layer.GetPrimAtPath(prim_path)
+    if not prim_spec:
+        return None
+
+    try:
+        reference_list = prim_spec.referenceList.GetAddedOrExplicitItems()
+    except Exception as e:
+        print(f"Failed to get reference list for prim {prim_path}: {e}")
+        return None
+    if len(reference_list) > 0:
+        for reference_spec in reference_list:
+            if reference_spec.assetPath:
+                return reference_spec.assetPath
+
+    return None
