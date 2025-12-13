@@ -11,6 +11,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -38,6 +39,22 @@ class LibraryObject(Object):
             initial_pose=initial_pose,
             **kwargs,
         )
+
+
+class LibraryObjectSet(RigidObjectSet):
+    """
+    A set of objects.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        objects: list[LibraryObject],
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        **kwargs,
+    ):
+        super().__init__(name=name, objects=objects, prim_path=prim_path, initial_pose=initial_pose, **kwargs)
 
 
 # TODO(peterd, 2025.11.05): Update all OV drive paths to use {ISAACLAB_NUCLEUS_DIR}
