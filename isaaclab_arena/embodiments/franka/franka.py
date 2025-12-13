@@ -5,6 +5,7 @@
 
 import torch
 from collections.abc import Sequence
+from dataclasses import MISSING
 from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -18,7 +19,7 @@ from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
@@ -40,12 +41,18 @@ class FrankaEmbodiment(EmbodimentBase):
 
     name = "franka"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
-        super().__init__(enable_cameras, initial_pose)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms)
         self.scene_config = FrankaSceneCfg()
         self.action_config = FrankaActionsCfg()
-        self.observation_config = FrankaObservationsCfg()
+        self.observation_config = FrankaObservationsCfg(concatenate_terms=self.concatenate_observation_terms)
         self.event_config = FrankaEventCfg()
+        self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
@@ -57,6 +64,11 @@ class FrankaEmbodiment(EmbodimentBase):
         scene_config.stand.init_state.pos = pose.position_xyz
         scene_config.stand.init_state.rot = pose.rotation_wxyz
         return scene_config
+
+    def get_rl_information(self) -> dict[str, Any]:
+        return {
+            "body_name": self.action_config.arm_action.body_name,
+        }
 
 
 @configclass
@@ -140,22 +152,25 @@ class FrankaActionsCfg:
 class FrankaObservationsCfg:
     """Observation specifications for the MDP."""
 
-    @configclass
-    class PolicyCfg(ObsGroup):
-        """Observations for policy group with state values."""
+    policy: ObsGroup = MISSING
 
-        actions = ObsTerm(func=mdp_isaac_lab.last_action)
-        joint_pos = ObsTerm(func=mdp_isaac_lab.joint_pos_rel)
-        joint_vel = ObsTerm(func=mdp_isaac_lab.joint_vel_rel)
-        eef_pos = ObsTerm(func=ee_frame_pos)
-        eef_quat = ObsTerm(func=ee_frame_quat)
-        gripper_pos = ObsTerm(func=gripper_pos)
+    def __init__(self, concatenate_terms: bool = False):
+        @configclass
+        class PolicyCfg(ObsGroup):
+            """Observations for policy group with state values."""
 
-        def __post_init__(self):
-            self.enable_corruption = False
-            self.concatenate_terms = False
+            actions = ObsTerm(func=mdp_isaac_lab.last_action)
+            joint_pos = ObsTerm(func=mdp_isaac_lab.joint_pos_rel)
+            joint_vel = ObsTerm(func=mdp_isaac_lab.joint_vel_rel)
+            eef_pos = ObsTerm(func=ee_frame_pos)
+            eef_quat = ObsTerm(func=ee_frame_quat)
+            gripper_pos = ObsTerm(func=gripper_pos)
 
-    policy: PolicyCfg = PolicyCfg()
+            def __post_init__(self):
+                self.enable_corruption = False
+                self.concatenate_terms = concatenate_terms
+
+        self.policy = PolicyCfg()
 
 
 @configclass
@@ -177,6 +192,16 @@ class FrankaEventCfg:
             "std": 0.02,
             "asset_cfg": SceneEntityCfg("robot"),
         },
+    )
+
+
+@configclass
+class FrankaRewardsCfg:
+    """Reward specifications for the MDP."""
+
+    action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
+    joint_vel = RewardTermCfg(
+        func=mdp_isaac_lab.joint_vel_l2, weight=-0.0001, params={"asset_cfg": SceneEntityCfg("robot")}
     )
 
 

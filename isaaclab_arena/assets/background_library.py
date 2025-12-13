@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.register import register_asset
@@ -19,7 +19,7 @@ class LibraryBackground(Background):
     name: str
     tags: list[str]
     usd_path: str
-    initial_pose: Pose
+    initial_pose: Pose | None = None
     object_min_z: float
 
     def __init__(self, **kwargs):
@@ -113,6 +113,21 @@ class GalileoLocomanipBackground(LibraryBackground):
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/background_library/galileo_locomanip/galileo_locomanip.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
     object_min_z = -0.2
+
+    def __init__(self):
+        super().__init__()
+
+
+@register_asset
+class Table(LibraryBackground):
+    """
+    A table.
+    """
+
+    name = "table"
+    tags = ["background"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
+    object_min_z = -0.05
 
     def __init__(self):
         super().__init__()

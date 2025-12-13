@@ -20,9 +20,15 @@ class EmbodimentBase(Asset):
     name: str | None = None
     tags: list[str] = ["embodiment"]
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+    ):
         self.enable_cameras = enable_cameras
         self.initial_pose = initial_pose
+        self.concatenate_observation_terms = concatenate_observation_terms
         # These should be filled by the subclass
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
@@ -82,6 +88,9 @@ class EmbodimentBase(Asset):
 
     def get_xr_cfg(self) -> Any:
         return self.xr
+
+    def get_rl_information(self) -> dict[str, Any]:
+        return {}
 
     def get_camera_cfg(self) -> Any:
         return self.camera_config

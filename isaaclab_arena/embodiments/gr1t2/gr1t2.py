@@ -84,11 +84,16 @@ class GR1T2EmbodimentBase(EmbodimentBase):
 
     name = "gr1"
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
-        super().__init__(enable_cameras, initial_pose)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
-        self.observation_config = GR1T2ObservationsCfg()
+        self.observation_config = GR1T2ObservationsCfg(concatenate_terms=self.concatenate_observation_terms)
         self.event_config = GR1T2EventCfg()
         self.mimic_env = GR1T2MimicEnv
         self.action_config = MISSING
@@ -366,36 +371,39 @@ class GR1T2CameraCfg:
 class GR1T2ObservationsCfg:
     """Observation specifications for the MDP."""
 
-    @configclass
-    class PolicyCfg(ObsGroup):
-        """Observations for policy group with state values."""
+    policy: ObsGroup = MISSING
 
-        actions = ObsTerm(func=mdp.last_action)
-        robot_joint_pos = ObsTerm(
-            func=base_mdp.joint_pos,
-            params={"asset_cfg": SceneEntityCfg("robot")},
-        )
-        robot_root_pos = ObsTerm(func=base_mdp.root_pos_w, params={"asset_cfg": SceneEntityCfg("robot")})
-        robot_root_rot = ObsTerm(func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("robot")})
-        robot_links_state = ObsTerm(func=mdp.get_all_robot_link_state)
+    def __init__(self, concatenate_terms: bool = False):
+        @configclass
+        class PolicyCfg(ObsGroup):
+            """Observations for policy group with state values."""
 
-        left_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "left_hand_roll_link"})
-        left_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "left_hand_roll_link"})
-        right_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "right_hand_roll_link"})
-        right_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "right_hand_roll_link"})
+            actions = ObsTerm(func=mdp.last_action)
+            robot_joint_pos = ObsTerm(
+                func=base_mdp.joint_pos,
+                params={"asset_cfg": SceneEntityCfg("robot")},
+            )
+            robot_root_pos = ObsTerm(func=base_mdp.root_pos_w, params={"asset_cfg": SceneEntityCfg("robot")})
+            robot_root_rot = ObsTerm(func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("robot")})
+            robot_links_state = ObsTerm(func=mdp.get_all_robot_link_state)
 
-        hand_joint_state = ObsTerm(func=mdp.get_robot_joint_state, params={"joint_names": ["R_.*", "L_.*"]})
-        head_joint_state = ObsTerm(
-            func=mdp.get_robot_joint_state,
-            params={"joint_names": ["head_pitch_joint", "head_roll_joint", "head_yaw_joint"]},
-        )
+            left_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "left_hand_roll_link"})
+            left_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "left_hand_roll_link"})
+            right_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "right_hand_roll_link"})
+            right_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "right_hand_roll_link"})
 
-        def __post_init__(self):
-            self.enable_corruption = False
-            self.concatenate_terms = False
+            hand_joint_state = ObsTerm(func=mdp.get_robot_joint_state, params={"joint_names": ["R_.*", "L_.*"]})
+            head_joint_state = ObsTerm(
+                func=mdp.get_robot_joint_state,
+                params={"joint_names": ["head_pitch_joint", "head_roll_joint", "head_yaw_joint"]},
+            )
 
-    # observation groups
-    policy: PolicyCfg = PolicyCfg()
+            def __post_init__(self):
+                self.enable_corruption = False
+                self.concatenate_terms = concatenate_terms
+
+        # observation groups
+        self.policy = PolicyCfg()
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py
