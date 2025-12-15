@@ -6,7 +6,7 @@
 
 Isaac-Lab Arena is a comprehensive robotics simulation framework that enhances NVIDIA Isaac Lab by providing a composable, scalable system for creating diverse simulation environments and evaluating robot learning policies. The framework enables researchers and developers to rapidly prototype and test robotic tasks with various robot embodiments, objects, and environments.
 
-To get started with Isaac-Lab Arena, see our [documentation site](https://isaac-sim.github.io/IsaacLab-Arena/html/index.html).
+To get started with Isaac-Lab Arena, see our [documentation site](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html).
 
 <div align="center">
 
