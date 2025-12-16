@@ -403,8 +403,9 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">EmbodimentBase</span><span class="p">(</span><span class="n">Asset</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;embodiment&quot;</span><span class="p">]</span>
+    <span class="n">mimic_arm_mode</span><span class="p">:</span> <span class="n">MimicArmMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable_cameras</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">initial_pose</span><span class="p">:</span> <span class="n">Pose</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable_cameras</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">initial_pose</span><span class="p">:</span> <span class="n">Pose</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">mimic_arm_mode</span><span class="p">:</span> <span class="n">MimicArmMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scene_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">observation_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -422,7 +423,7 @@
 </section>
 <section id="embodiments-in-detail">
 <h2>Embodiments in Detail<a class="headerlink" href="#embodiments-in-detail" title="Link to this heading">#</a></h2>
-<dl class="simple">
+<dl>
 <dt><strong>Configuration Components</strong></dt><dd><p>Embodiments contribute multiple configuration aspects to environments:</p>
 <ul class="simple">
 <li><p><strong>Scene Configuration</strong>: Robot physical properties, actuators, initial pose, mounting stands</p></li>
@@ -443,6 +444,60 @@
 </ul>
 </dd>
 <dt><strong>Camera Integration</strong></dt><dd><p>Optional camera systems that add observation terms when enabled, supporting both manipulation and perception tasks with head-mounted or external cameras.</p>
+</dd>
+<dt><strong>Mimic Arm Mode</strong></dt><dd><p>Embodiments expose an <code class="docutils literal notranslate"><span class="pre">mimic_arm_mode</span></code> attribute that declares which arms are
+movable for demonstration playback. This attribute uses the
+<code class="docutils literal notranslate"><span class="pre">MimicArmMode</span></code> enum from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.embodiments.common.mimic_arm_mode</span></code>:</p>
+<ul class="simple">
+<li><p><strong>SINGLE_ARM</strong> – the robot has only one arm.</p></li>
+<li><p><strong>DUAL_ARM</strong> – bimanual robot, task is performed with both arms in the demonstration.</p></li>
+<li><p><strong>LEFT</strong> – bimanual robot, task is performed with the left arm and right arm is idle.</p></li>
+<li><p><strong>RIGHT</strong> – bimanual robot, task is performed with the right arm and left arm is idle.</p></li>
+</ul>
+<p>Tasks and mimic environment builders consult this property to request the correct
+subtask configurations, ensuring that mimic environments match the
+capabilities of the selected embodiment.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">PickAndPlaceTask</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Task class &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_mimic_env_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm_mode</span><span class="p">:</span> <span class="n">MimicArmMode</span><span class="p">):</span>
+        <span class="c1"># gets the mimic environment configuration based on embodiment&#39;s mimic arm mode.</span>
+        <span class="k">return</span> <span class="n">PickPlaceMimicEnvCfg</span><span class="p">(</span>
+            <span class="n">arm_mode</span><span class="o">=</span><span class="n">arm_mode</span><span class="p">,</span>
+            <span class="n">pick_up_object_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">destination_location_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">destination_location</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<span class="nd">@configclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PickPlaceMimicEnvCfg</span><span class="p">(</span><span class="n">MimicEnvCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mimic environment configuration class&quot;&quot;&quot;</span>
+
+    <span class="n">arm_mode</span><span class="p">:</span> <span class="n">MimicArmMode</span> <span class="o">=</span> <span class="n">MimicArmMode</span><span class="o">.</span><span class="n">SINGLE_ARM</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__post_init__</span><span class="p">()</span>
+
+        <span class="c1"># defines the subtask configurations based on the mimic arm mode.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">arm_mode</span> <span class="o">==</span> <span class="s2">&quot;single_arm&quot;</span><span class="p">:</span>
+            <span class="c1"># single arm subtask configuration</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">arm_mode</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">]:</span>
+            <span class="c1"># bimanual robot with one arm idle subtask configuration</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">arm_mode</span> <span class="o">==</span> <span class="s2">&quot;dual_arm&quot;</span><span class="p">:</span>
+            <span class="c1"># dual arm subtask configuration</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># raise error for unsupported mimic arm mode</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ArenaEnvBuilder</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; ArenaEnvBuilder class &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compose_manager_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># composes the mimic environment configuration based on embodiment&#39;s mimic arm mode.</span>
+        <span class="n">task_mimic_env_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arena_env</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">get_mimic_env_cfg</span><span class="p">(</span>
+            <span class="n">arm_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">arena_env</span><span class="o">.</span><span class="n">embodiment</span><span class="o">.</span><span class="n">mimic_arm_mode</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">task_mimic_env_cfg</span>
+</pre></div>
+</div>
 </dd>
 </dl>
 </section>
