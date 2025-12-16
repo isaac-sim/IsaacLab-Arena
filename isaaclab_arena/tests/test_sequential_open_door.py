@@ -8,7 +8,7 @@ import torch
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-NUM_STEPS = 1
+NUM_STEPS = 10
 HEADLESS = True
 
 
@@ -28,12 +28,10 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     class SequentialOpenDoorTask(SequentialTaskBase):
         def __init__(
             self,
-            openable_object,
             subtasks,
             episode_length_s=None,
         ):
             super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
-            self.openable_object = openable_object
 
         def get_metrics(self):
             return []
@@ -49,38 +47,49 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()
-    microwave = asset_registry.get_asset_by_name("microwave")()
+    microwave_0 = asset_registry.get_asset_by_name("microwave")(prim_path="{ENV_REGEX_NS}/microwave_0")
+    microwave_1 = asset_registry.get_asset_by_name("microwave")(prim_path="{ENV_REGEX_NS}/microwave_1")
+
+    microwave_0.name = "microwave_0"
+    microwave_1.name = "microwave_1"
 
     # Put the microwave on the packing table.
-    microwave.set_initial_pose(
+    microwave_0.set_initial_pose(
         Pose(
             position_xyz=(0.6, -0.00586, 0.22773),
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
     )
+    microwave_1.set_initial_pose(
+        Pose(
+            position_xyz=(0.6, 0.70586, 0.22773),
+            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+        )
+    )
 
-    subtask_1 = OpenDoorTask(microwave)
-    subtask_2 = OpenDoorTask(microwave)
+    subtask_1 = OpenDoorTask(microwave_0)
+    subtask_2 = OpenDoorTask(microwave_1)
 
-    scene = Scene(assets=[background, microwave])
+    scene = Scene(assets=[background, microwave_0, microwave_1])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="sequential_open_door",
         embodiment=FrankaEmbodiment(),
         scene=scene,
-        task=SequentialOpenDoorTask(microwave, [subtask_1, subtask_2]),
+        task=SequentialOpenDoorTask([subtask_1, subtask_2]),
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
     if remove_reset_door_state_event:
-        # Remove the reset door state events to allow us to inspect the scene without having it reset.
+        # Remove the reset door and subtask state events to allow us to inspect the scene without having it reset.
         cfg.events.reset_door_state_subtask_0 = None
         cfg.events.reset_door_state_subtask_1 = None
+        cfg.events.reset_subtask_success_state = None
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 
-    return env, microwave
+    return env, microwave_0, microwave_1
 
 
 def _test_sequential_open_door_microwave(simulation_app) -> bool:
@@ -89,7 +98,7 @@ def _test_sequential_open_door_microwave(simulation_app) -> bool:
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
-    env, microwave = get_test_environment(remove_reset_door_state_event=True, num_envs=1)
+    env, microwave_0, microwave_1 = get_test_environment(remove_reset_door_state_event=True, num_envs=1)
 
     def assert_composite_task_incomplete(env: ManagerBasedEnv, terminated: torch.Tensor):
         assert terminated.shape == torch.Size([1])
@@ -104,17 +113,77 @@ def _test_sequential_open_door_microwave(simulation_app) -> bool:
             print("Composite task is completed")
 
     try:
-        print("Closing microwave (starting subtask 0)")
-        microwave.close(env, env_ids=None)
+        print("Closing both microwaves")
+        microwave_0.close(env, env_ids=None)
+        microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-        print("Opening microwave (completing subtask 0)")
-        microwave.open(env, env_ids=None)
+
+        print("Opening microwave 0 (completing subtask 0)")
+        microwave_0.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-        print("Closing microwave (starting subtask 1)")
-        microwave.close(env, env_ids=None)
+
+        print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
+        microwave_1.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
+def _test_out_of_order_sequential_open_door_microwave(simulation_app) -> bool:
+    from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
+    from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
+
+    # Get the scene
+    env, microwave_0, microwave_1 = get_test_environment(remove_reset_door_state_event=True, num_envs=1)
+
+    def assert_composite_task_incomplete(env: ManagerBasedEnv, terminated: torch.Tensor):
+        assert terminated.shape == torch.Size([1])
+        assert not terminated.item()
+        if not terminated.item():
+            print("Composite task is not completed")
+
+    def assert_composite_task_complete(env: ManagerBasedEnv, terminated: torch.Tensor):
+        assert terminated.shape == torch.Size([1])
+        assert terminated.item()
+        if terminated.item():
+            print("Composite task is completed")
+
+    try:
+        print("Closing both microwaves")
+        microwave_0.close(env, env_ids=None)
+        microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-        print("Opening microwave (completing subtask 1)")
-        microwave.open(env, env_ids=None)
+
+        print("Opening microwave 1")
+        microwave_1.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Closing microwave 1")
+        microwave_1.close(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Opening microwave 0 (out of order, composite task should remain incomplete)")
+        microwave_0.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Closing microwave 0")
+        microwave_0.close(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Opening microwave 0 (completing subtask 0)")
+        microwave_0.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
+        microwave_1.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
 
     except Exception as e:
@@ -133,7 +202,7 @@ def _test_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
-    env, microwave = get_test_environment(remove_reset_door_state_event=True, num_envs=2)
+    env, microwave_0, microwave_1 = get_test_environment(remove_reset_door_state_event=True, num_envs=2)
 
     def assert_composite_task_incomplete(env: ManagerBasedEnv, terminated: torch.Tensor):
         assert terminated.shape == torch.Size([2])
@@ -148,17 +217,77 @@ def _test_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
             print("Composite task is completed")
 
     try:
-        print("Closing microwave for both envs (starting subtask 0)")
-        microwave.close(env, env_ids=None)
+        print("Closing both microwaves")
+        microwave_0.close(env, env_ids=None)
+        microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-        print("Opening microwave for both envs (completing subtask 0)")
-        microwave.open(env, env_ids=None)
+
+        print("Opening microwave 0 (completing subtask 0)")
+        microwave_0.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-        print("Closing microwave for both envs (starting subtask 1)")
-        microwave.close(env, env_ids=None)
+
+        print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
+        microwave_1.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
+def _test_out_of_order_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
+    from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
+    from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
+
+    # Get the scene
+    env, microwave_0, microwave_1 = get_test_environment(remove_reset_door_state_event=True, num_envs=2)
+
+    def assert_composite_task_incomplete(env: ManagerBasedEnv, terminated: torch.Tensor):
+        assert terminated.shape == torch.Size([2])
+        assert not torch.any(terminated)
+        if not torch.any(terminated):
+            print("Composite task is not completed")
+
+    def assert_composite_task_complete(env: ManagerBasedEnv, terminated: torch.Tensor):
+        assert terminated.shape == torch.Size([2])
+        assert torch.all(terminated)
+        if torch.all(terminated):
+            print("Composite task is completed")
+
+    try:
+        print("Closing both microwaves")
+        microwave_0.close(env, env_ids=None)
+        microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-        print("Opening microwave for both envs (completing subtask 1)")
-        microwave.open(env, env_ids=None)
+
+        print("Opening microwave 1")
+        microwave_1.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Closing microwave 1")
+        microwave_1.close(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Opening microwave 0 (out of order, composite task should remain incomplete)")
+        microwave_0.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Closing microwave 0")
+        microwave_0.close(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Opening microwave 0 (completing subtask 0)")
+        microwave_0.open(env, env_ids=None)
+        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
+
+        print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
+        microwave_1.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
 
     except Exception as e:
@@ -175,37 +304,37 @@ def _test_sequential_open_door_microwave_reset_condition(simulation_app) -> bool
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
-    env, microwave = get_test_environment(remove_reset_door_state_event=False, num_envs=2)
+    env, microwave_0, microwave_1 = get_test_environment(remove_reset_door_state_event=False, num_envs=2)
 
     try:
-        print("Closing microwave (starting subtask 0)")
-        microwave.close(env, env_ids=None)
+        print("Closing both microwaves")
+        microwave_0.close(env, env_ids=None)
+        microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env)
-        print(f"expected: [False, False]: got: {is_open}")
-        assert torch.all(is_open == torch.tensor([False, False], device=env.device))
+        is_open_0 = microwave_0.is_open(env)
+        is_open_1 = microwave_1.is_open(env)
+        print(f"expected: [False, False], [False, False]: got: {is_open_0}, {is_open_1}")
+        assert torch.all(is_open_0 == torch.tensor([False], device=env.device))
+        assert torch.all(is_open_1 == torch.tensor([False], device=env.device))
 
-        print("Opening microwave (completing subtask 0)")
-        microwave.open(env, None)
+        print("Opening microwave 0(completing subtask 0)")
+        microwave_0.open(env, None)
         step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env)
-        print(f"expected: [True, True]: got: {is_open}")
-        assert torch.all(is_open == torch.tensor([True, True], device=env.device))
-
-        print("Closing microwave (starting subtask 1)")
-        microwave.close(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env)
-        print(f"expected: [False, False]: got: {is_open}")
-        assert torch.all(is_open == torch.tensor([False, False], device=env.device))
+        is_open_0 = microwave_0.is_open(env)
+        is_open_1 = microwave_1.is_open(env)
+        print(f"expected: [True, True], [False, False]: got: {is_open_0}, {is_open_1}")
+        assert torch.all(is_open_0 == torch.tensor([True], device=env.device))
+        assert torch.all(is_open_1 == torch.tensor([False], device=env.device))
 
         # Check that envs automatically reset to closed.
         print("Opening microwave (completing subtask 1)")
-        microwave.open(env, None)
+        microwave_1.open(env, None)
         step_zeros_and_call(env, NUM_STEPS)
-        is_open = microwave.is_open(env)
-        print(f"expected: [False, False]: got: {is_open}")
-        assert torch.all(is_open == torch.tensor([False, False], device=env.device))
+        is_open_0 = microwave_0.is_open(env)
+        is_open_1 = microwave_1.is_open(env)
+        print(f"expected: [False, False], [False, False]: got: {is_open_0}, {is_open_1}")
+        assert torch.all(is_open_0 == torch.tensor([False], device=env.device))
+        assert torch.all(is_open_1 == torch.tensor([False], device=env.device))
 
     except Exception as e:
         print(f"Error: {e}")
@@ -225,12 +354,28 @@ def test_sequential_open_door_microwave():
     assert result, f"Test {_test_sequential_open_door_microwave.__name__} failed"
 
 
+def test_out_of_order_sequential_open_door_microwave():
+    result = run_simulation_app_function(
+        _test_out_of_order_sequential_open_door_microwave,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_out_of_order_sequential_open_door_microwave.__name__} failed"
+
+
 def test_sequential_open_door_microwave_multiple_envs():
     result = run_simulation_app_function(
         _test_sequential_open_door_microwave_multiple_envs,
         headless=HEADLESS,
     )
     assert result, f"Test {_test_sequential_open_door_microwave_multiple_envs.__name__} failed"
+
+
+def test_out_of_order_sequential_open_door_microwave_multiple_envs():
+    result = run_simulation_app_function(
+        _test_out_of_order_sequential_open_door_microwave_multiple_envs,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_out_of_order_sequential_open_door_microwave_multiple_envs.__name__} failed"
 
 
 def test_sequential_open_door_microwave_reset_condition():
@@ -243,5 +388,7 @@ def test_sequential_open_door_microwave_reset_condition():
 
 if __name__ == "__main__":
     test_sequential_open_door_microwave()
+    test_out_of_order_sequential_open_door_microwave()
     test_sequential_open_door_microwave_multiple_envs()
+    test_out_of_order_sequential_open_door_microwave_multiple_envs()
     test_sequential_open_door_microwave_reset_condition()

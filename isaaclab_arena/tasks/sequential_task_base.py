@@ -41,7 +41,7 @@ class SequentialTaskBase(TaskBase):
           without affecting the completeness of the overall sequential task.
     """
 
-    #TODO: peterd - add functions to process Mimic and Metrics configs.
+    # TODO: peterd - add functions to process Mimic and Metrics configs.
 
     def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None):
         super().__init__(episode_length_s)
@@ -64,6 +64,13 @@ class SequentialTaskBase(TaskBase):
         subtasks: list[TaskBase],
     ) -> torch.Tensor:
         "Sequential task composite success function."
+        # Initialize each env's subtask success state to False if not already initialized
+        if not hasattr(env, "_subtask_success_state"):
+            env._subtask_success_state = [[False for _ in subtasks] for _ in range(env.num_envs)]
+        # Initialize each env's current subtask index (state machine) to 0 if not already initialized
+        if not hasattr(env, "_current_subtask_idx"):
+            env._current_subtask_idx = [0 for _ in range(env.num_envs)]
+
         # Check success of current subtask for each env
         for env_idx in range(env.num_envs):
             current_subtask_idx = env._current_subtask_idx[env_idx]
