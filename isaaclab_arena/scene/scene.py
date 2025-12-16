@@ -14,6 +14,7 @@ from pxr import Gf, Usd, UsdGeom
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
@@ -23,8 +24,8 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 class Scene:
 
-    def __init__(self, assets: list[Asset] | None = None):
-        self.assets: dict[str, Asset] = {}
+    def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
+        self.assets: dict[str, Asset | RigidObjectSet] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -35,11 +36,23 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_asset(self, asset: Asset):
-        assert asset.name is not None, "Asset with the same name already exists"
+    def add_asset(self, asset: Asset | RigidObjectSet):
+        """Add an asset to the scene.
+
+        Args:
+            asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
+                   the keys will be used as the names of the assets and the values will be the list of assets.
+        """
+        if not isinstance(asset, Asset | RigidObjectSet):
+            raise ValueError(f"Invalid asset type: {type(asset)}")
+
+        if asset.name is None:
+            print("Asset name is None. Skipping asset.")
+            return
+        # if name already exists, overwrite
         self.assets[asset.name] = asset
 
-    def add_assets(self, assets: list[Asset]):
+    def add_assets(self, assets: list[Asset | RigidObjectSet]):
         for asset in assets:
             self.add_asset(asset)
 

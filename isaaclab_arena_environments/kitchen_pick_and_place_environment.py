@@ -21,6 +21,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
+        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -29,11 +30,6 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("kitchen")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
         pick_up_object.set_initial_pose(
             Pose(
@@ -49,8 +45,22 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
+        if args_cli.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        else:
+            teleop_device = None
 
-        scene = Scene(assets=[background, pick_up_object, destination_location])
+        if args_cli.object_set is not None and len(args_cli.object_set) > 0:
+            objects = []
+            for obj in args_cli.object_set:
+                obj_from_set = self.asset_registry.get_asset_by_name(obj)()
+                objects.append(obj_from_set)
+            object_set = RigidObjectSet(name="object_set", objects=objects)
+            object_set.set_initial_pose(Pose(position_xyz=(0.4, 0.2, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+            scene = Scene(assets=[background, pick_up_object, destination_location, object_set])
+
+        else:
+            scene = Scene(assets=[background, pick_up_object, destination_location])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -63,6 +73,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="cracker_box")
+        parser.add_argument("--object_set", nargs="+", type=str, default=None)
         parser.add_argument("--embodiment", type=str, default="franka")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
