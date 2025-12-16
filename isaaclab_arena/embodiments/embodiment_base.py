@@ -89,7 +89,7 @@ class EmbodimentBase(Asset):
     def get_xr_cfg(self) -> Any:
         return self.xr
 
-    def get_rl_information(self) -> dict[str, Any]:
+    def get_embodiment_metadata(self) -> dict[str, Any]:
         return {}
 
     def get_camera_cfg(self) -> Any:

@@ -42,9 +42,6 @@ class LiftObjectTask(TaskBase):
     def get_scene_cfg(self):
         return self.scene_config
 
-    def get_observation_cfg(self):
-        return self.observation_config
-
     def get_termination_cfg(self):
         return self.termination_cfg
 
@@ -132,7 +129,7 @@ class LiftObjectTaskRL(LiftObjectTask):
 
     def get_commands_cfg(self):
         return LiftObjectCommandsCfg(
-            body_name=self.embodiment.get_rl_information()["body_name"], lift_object=self.lift_object
+            body_name=self.embodiment.get_embodiment_metadata()["body_name"], lift_object=self.lift_object
         )
 
 

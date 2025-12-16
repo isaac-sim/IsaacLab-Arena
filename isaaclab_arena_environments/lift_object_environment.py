@@ -51,7 +51,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         task = LiftObjectTaskRL(
             pick_up_object,
             background,
-            embodiment.get_rl_information(),
+            embodiment,
             minimum_height_to_lift=0.04,
             episode_length_s=5.0,
         )
