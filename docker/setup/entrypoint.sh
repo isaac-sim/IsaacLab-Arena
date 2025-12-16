@@ -20,7 +20,7 @@ userdel "$DOCKER_RUN_USER_NAME" 2>/dev/null || true
 userdel ubuntu || true
 useradd --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
-        --gid "$DOCKER_RUN_GROUP_NAME" \
+        --gid "$DOCKER_RUN_GROUP_ID" \
         --groups sudo \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
