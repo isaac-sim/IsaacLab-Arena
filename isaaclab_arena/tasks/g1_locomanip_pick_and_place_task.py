@@ -16,6 +16,7 @@ from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -72,7 +73,10 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
     def get_events_cfg(self):
         return EventsCfg(pick_up_object=self.pick_up_object)
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_prompt(self):
+        raise NotImplementedError("Function not implemented yet.")
+
+    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
         return G1LocomanipPickPlaceMimicEnvCfg()
 
     def get_metrics(self) -> list[MetricBase]:

@@ -13,6 +13,7 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
+from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
 from isaaclab_arena.metrics.door_moved_rate import DoorMovedRateMetric
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -61,9 +62,12 @@ class OpenDoorTask(TaskBase):
     def get_events_cfg(self):
         return self.events_cfg
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_prompt(self):
+        raise NotImplementedError("Function not implemented yet.")
+
+    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
         return OpenDoorMimicEnvCfg(
-            embodiment_name=embodiment_name,
+            arm_mode=arm_mode,
             openable_object_name=self.openable_object.name,
         )
 
@@ -127,7 +131,7 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for Open Door env.
     """
 
-    embodiment_name: str = "franka"
+    arm_mode: MimicArmMode = MimicArmMode.SINGLE_ARM
 
     openable_object_name: str = "openable_object"
 
@@ -200,11 +204,11 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
                 apply_noise_during_interpolation=False,
             )
         )
-        if self.embodiment_name == "franka":
+        if self.arm_mode == MimicArmMode.SINGLE_ARM:
             self.subtask_configs["robot"] = subtask_configs
         # We need to add the left and right subtasks for GR1.
-        elif self.embodiment_name == "gr1_pink":
-            self.subtask_configs["right"] = subtask_configs
+        elif self.arm_mode in [MimicArmMode.LEFT, MimicArmMode.RIGHT]:
+            self.subtask_configs[self.arm_mode] = subtask_configs
             # EEF on opposite side (arm is static)
             subtask_configs = []
             subtask_configs.append(
@@ -229,7 +233,7 @@ class OpenDoorMimicEnvCfg(MimicEnvCfg):
                     apply_noise_during_interpolation=False,
                 )
             )
-            self.subtask_configs["left"] = subtask_configs
+            self.subtask_configs[self.arm_mode.get_other_arm()] = subtask_configs
 
         else:
-            raise ValueError(f"Embodiment name {self.embodiment_name} not supported")
+            raise ValueError(f"Embodiment arm mode {self.arm_mode} not supported")

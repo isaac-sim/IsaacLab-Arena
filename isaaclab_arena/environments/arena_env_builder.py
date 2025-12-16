@@ -149,7 +149,9 @@ class ArenaEnvBuilder:
             if episode_length_s is not None:
                 env_cfg.episode_length_s = episode_length_s
         else:
-            task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(embodiment_name=self.arena_env.embodiment.name)
+            task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(
+                arm_mode=self.arena_env.embodiment.mimic_arm_mode
+            )
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,

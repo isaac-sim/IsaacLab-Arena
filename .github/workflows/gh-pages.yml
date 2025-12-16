@@ -48,6 +48,11 @@ jobs:
         with:
           clean: true
           fetch-depth: 0
+          fetch-tags: true
+
+      # Fix "detected dubious ownership in repository" inside containers
+      - name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
 
       # Build docs
       - name: Build docs
@@ -60,20 +65,6 @@ jobs:
       - name: Copy redirect file
         run: |
           cp ./docs/_redirect/index.html ./docs/_build/index.html
-
-      # Upload docs artifact
-      - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs-html
-          path: ./docs/_build
-
-      # Download docs artifact
-      - name: Download docs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docs-html
-          path: ./docs/_build
 
       # Deploy to gh-pages
       - name: Deploy to gh-pages
