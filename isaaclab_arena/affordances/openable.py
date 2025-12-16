@@ -15,11 +15,18 @@ from isaaclab_arena.utils.joint_utils import get_normalized_joint_position, set_
 class Openable(AffordanceBase):
     """Interface for openable objects."""
 
-    def __init__(self, openable_joint_name: str, openable_open_threshold: float = 0.5, **kwargs):
+    def __init__(
+        self,
+        openable_joint_name: str,
+        openable_open_threshold: float = 0.5,
+        openable_close_threshold: float = 0.1,
+        **kwargs
+    ):
         super().__init__(**kwargs)
         # TODO(alexmillane, 2025.08.26): We probably want to be able to define the polarity of the joint.
         self.openable_joint_name = openable_joint_name
         self.openable_open_threshold = openable_open_threshold
+        self.openable_close_threshold = openable_close_threshold
 
     def get_openness(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
         """Returns the percentage open that the object is."""
@@ -40,6 +47,17 @@ class Openable(AffordanceBase):
             openable_open_threshold = self.openable_open_threshold
         openness = self.get_openness(env, asset_cfg)
         return openness > openable_open_threshold
+
+    def is_closed(
+        self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
+    ) -> torch.Tensor:
+        """Returns a boolean tensor of whether the object is closed."""
+        if threshold is not None:
+            openable_close_threshold = threshold
+        else:
+            openable_close_threshold = self.openable_close_threshold
+        openness = self.get_openness(env, asset_cfg)
+        return openness < openable_close_threshold
 
     def open(
         self,

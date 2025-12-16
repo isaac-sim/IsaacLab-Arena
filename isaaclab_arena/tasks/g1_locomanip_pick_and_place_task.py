@@ -73,9 +73,6 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
     def get_events_cfg(self):
         return EventsCfg(pick_up_object=self.pick_up_object)
 
-    def get_prompt(self):
-        raise NotImplementedError("Function not implemented yet.")
-
     def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
         return G1LocomanipPickPlaceMimicEnvCfg()
 

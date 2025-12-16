@@ -53,9 +53,6 @@ class PressButtonTask(TaskBase):
     def get_events_cfg(self):
         return PressEventCfg(self.pressable_object, reset_pressedness=self.reset_pressedness)
 
-    def get_prompt(self):
-        raise NotImplementedError("Function not implemented yet.")
-
     def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
         raise NotImplementedError("Function not implemented yet.")
 

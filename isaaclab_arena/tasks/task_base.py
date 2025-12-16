@@ -33,10 +33,6 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
-    def get_prompt(self) -> str:
-        raise NotImplementedError("Function not implemented yet.")
-
-    @abstractmethod
     def get_mimic_env_cfg(self, arm_mode: MimicArmMode) -> Any:
         raise NotImplementedError("Function not implemented yet.")
 

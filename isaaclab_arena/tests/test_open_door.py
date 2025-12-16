@@ -53,7 +53,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     if remove_reset_door_state_event:
         # NOTE(alexmillane, 2025-09-01): We remove the event to reset the door position,
         # to allow us to inspect the scene without having it reset.
-        cfg.events.reset_door_state = None
+        cfg.events.reset_openable_object_revolute_joint_state = None
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 

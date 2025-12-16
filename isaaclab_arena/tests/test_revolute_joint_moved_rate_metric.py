@@ -23,7 +23,7 @@ HEADLESS = True
 EXPECTED_MOVEMENT_RATE_EPS = 1e-6
 
 
-def _test_door_moved_rate(simulation_app):
+def _test_revolute_joint_moved_rate(simulation_app):
     """Returns a scene which we use for these tests."""
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
@@ -82,8 +82,8 @@ def _test_door_moved_rate(simulation_app):
         num_episodes_with_movement = metrics["num_episodes"] - num_episodes_no_movement
         expected_movement_rate = num_episodes_with_movement / metrics["num_episodes"]
         print(f"Expected movement rate: {expected_movement_rate}")
-        print(f"Measured movement rate: {metrics['door_moved_rate']}")
-        assert abs(metrics["door_moved_rate"] - expected_movement_rate) < EXPECTED_MOVEMENT_RATE_EPS
+        print(f"Measured movement rate: {metrics['revolute_joint_moved_rate']}")
+        assert abs(metrics["revolute_joint_moved_rate"] - expected_movement_rate) < EXPECTED_MOVEMENT_RATE_EPS
 
     except Exception as e:
         print(f"Error: {e}")
@@ -95,13 +95,13 @@ def _test_door_moved_rate(simulation_app):
     return True
 
 
-def test_door_moved_rate_metric():
+def test_revolute_joint_moved_rate_metric():
     result = run_simulation_app_function(
-        _test_door_moved_rate,
+        _test_revolute_joint_moved_rate,
         headless=HEADLESS,
     )
-    assert result, f"Test {test_door_moved_rate_metric.__name__} failed"
+    assert result, f"Test {test_revolute_joint_moved_rate_metric.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_door_moved_rate_metric()
+    test_revolute_joint_moved_rate_metric()

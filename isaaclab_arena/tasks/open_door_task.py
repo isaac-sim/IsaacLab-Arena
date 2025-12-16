@@ -3,26 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
-from isaaclab_arena.metrics.door_moved_rate import DoorMovedRateMetric
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.terms.events import set_object_pose
-from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
 
-class OpenDoorTask(TaskBase):
+class OpenDoorTask(RotateRevoluteJointTask):
     def __init__(
         self,
         openable_object: Openable,
@@ -31,57 +24,37 @@ class OpenDoorTask(TaskBase):
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
-        super().__init__(episode_length_s=episode_length_s)
-        assert isinstance(openable_object, Openable), "Openable object must be an instance of Openable"
-        self.openable_object = openable_object
-        self.openness_threshold = openness_threshold
-        self.reset_openness = reset_openness
-        self.scene_config = None
-        self.events_cfg = OpenDoorEventCfg(self.openable_object, reset_openness=self.reset_openness)
+        super().__init__(
+            openable_object=openable_object,
+            target_joint_state_threshold=openness_threshold,
+            reset_joint_state=reset_openness,
+            episode_length_s=episode_length_s,
+            task_description=task_description,
+        )
+
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Reach out to the {openable_object.name} and open it." if task_description is None else task_description
         )
 
-    def get_scene_cfg(self):
-        return self.scene_config
-
-    def get_termination_cfg(self):
-        return self.termination_cfg
-
     def make_termination_cfg(self):
         params = {}
-        if self.openness_threshold is not None:
-            params["threshold"] = self.openness_threshold
+        if self.target_joint_state_threshold is not None:
+            params["threshold"] = self.target_joint_state_threshold
         success = TerminationTermCfg(
             func=self.openable_object.is_open,
             params=params,
         )
         return TerminationsCfg(success=success)
 
-    def get_events_cfg(self):
-        return self.events_cfg
-
-    def get_prompt(self):
-        raise NotImplementedError("Function not implemented yet.")
+    def get_termination_cfg(self):
+        return self.termination_cfg
 
     def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
         return OpenDoorMimicEnvCfg(
             arm_mode=arm_mode,
             openable_object_name=self.openable_object.name,
         )
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-            DoorMovedRateMetric(
-                self.openable_object,
-                reset_openness=self.reset_openness,
-            ),
-        ]
-
-    def get_viewer_cfg(self) -> ViewerCfg:
-        return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
 
 
 @configclass
@@ -93,36 +66,6 @@ class TerminationsCfg:
     # Dependent on the openable object, so this is passed in from the task at
     # construction time.
     success: TerminationTermCfg = MISSING
-
-
-@configclass
-class OpenDoorEventCfg:
-    """Configuration for Open Door."""
-
-    reset_door_state: EventTermCfg = MISSING
-
-    reset_openable_object_pose: EventTermCfg = MISSING
-
-    def __init__(self, openable_object: Openable, reset_openness: float | None):
-        assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
-        params = {}
-        if reset_openness is not None:
-            params["percentage"] = reset_openness
-        self.reset_door_state = EventTermCfg(
-            func=openable_object.close,
-            mode="reset",
-            params=params,
-        )
-        initial_pose = openable_object.get_initial_pose()
-        if initial_pose is not None:
-            self.reset_openable_object_pose = EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(openable_object.name),
-                },
-            )
 
 
 @configclass

@@ -15,10 +15,10 @@ from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 
 
-class OpennessRecorder(RecorderTerm):
+class RevoluteJointStateRecorder(RecorderTerm):
     """Records the openness of an object for each sim step of an episode."""
 
-    name = "openness"
+    name = "revolute_joint_state"
 
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
@@ -31,21 +31,20 @@ class OpennessRecorder(RecorderTerm):
 
 @configclass
 class JointStateRecorderCfg(RecorderTermCfg):
-    class_type: type[RecorderTerm] = OpennessRecorder
+    class_type: type[RecorderTerm] = RevoluteJointStateRecorder
     object: ObjectBase = MISSING
 
 
-class DoorMovedRateMetric(MetricBase):
-    """Computes the door-moved rate.
+class RevoluteJointMovedRateMetric(MetricBase):
+    """Computes the revolute joint moved rate.
 
-    The door-moved rate is the number of episodes in which the door moved, divided
+    The revolute joint moved rate is the number of episodes in which the revolute joint moved, divided
     by the total number of episodes.
     """
+    name = "revolute_joint_moved_rate"
+    recorder_term_name = RevoluteJointStateRecorder.name
 
-    name = "door_moved_rate"
-    recorder_term_name = OpennessRecorder.name
-
-    def __init__(self, object: Openable, reset_openness: float, openness_delta_threshold: float = 0.05):
+    def __init__(self, object: Openable, reset_joint_state: float, joint_state_delta_threshold: float = 0.05):
         """Initializes the door-moved rate metric.
 
         Args:
@@ -57,29 +56,29 @@ class DoorMovedRateMetric(MetricBase):
         super().__init__()
         assert isinstance(object, Openable), "Object must be Openable"
         self.object = object
-        self.reset_openness = reset_openness
-        self.openness_delta_threshold = openness_delta_threshold
+        self.reset_joint_state = reset_joint_state
+        self.joint_state_delta_threshold = joint_state_delta_threshold
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
-        """Return the recorder term configuration for the door-moved rate metric."""
+        """Return the recorder term configuration for the revolute joint moved rate metric."""
         return JointStateRecorderCfg(object=self.object)
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        """Computes the door-moved rate from the recorded metric data.
+        """Computes the revolute joint moved rate from the recorded metric data.
 
         Args:
-            recorded_metric_data(list[np.ndarray]): The recorded door openness per simulated
+            recorded_metric_data(list[np.ndarray]): The recorded revolute joint state per simulated
                 episode.
 
         Returns:
-            The door-moved rate(float). Value between 0 and 1. The proportion of episodes
+            The revolute joint moved rate(float). Value between 0 and 1. The proportion of episodes
                 in which the door moved.
         """
         if len(recorded_metric_data) == 0:
             return 0.0
-        door_moved_per_demo = []
+        revolute_joint_moved_per_demo = []
         for episode_data in recorded_metric_data:
-            openness_threshold = self.reset_openness + self.openness_delta_threshold
-            door_moved_per_demo.append(np.any(episode_data > openness_threshold))
-        door_moved_rate = np.mean(door_moved_per_demo)
-        return door_moved_rate
+            revolute_joint_state_threshold = self.reset_joint_state + self.joint_state_delta_threshold
+            revolute_joint_moved_per_demo.append(np.any(episode_data > revolute_joint_state_threshold))
+        revolute_joint_moved_rate = np.mean(revolute_joint_moved_per_demo)
+        return revolute_joint_moved_rate
