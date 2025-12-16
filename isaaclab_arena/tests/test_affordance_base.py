@@ -31,10 +31,10 @@ def _test_affordance_base(simulation_app):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
 
-    _ = OpenableAsset(name="test_name", openable_joint_name="test_joint_name", openable_open_threshold=0.5)
+    _ = OpenableAsset(name="test_name", openable_joint_name="test_joint_name", openable_threshold=0.5)
 
     with pytest.raises(TypeError) as exception_info:
-        _ = OpenableNotAnAsset(blah="test_name", openable_joint_name="test_joint_name", openable_open_threshold=0.5)
+        _ = OpenableNotAnAsset(blah="test_name", openable_joint_name="test_joint_name", openable_threshold=0.5)
     assert "Can't instantiate abstract class" in str(exception_info.value)
 
     return True

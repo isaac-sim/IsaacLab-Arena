@@ -129,10 +129,10 @@ class ObjectReference(ObjectBase):
 class OpenableObjectReference(ObjectReference, Openable):
     """An object which *refers* to an existing element in the scene and is openable."""
 
-    def __init__(self, openable_joint_name: str, openable_open_threshold: float = 0.5, **kwargs):
+    def __init__(self, openable_joint_name: str, openable_threshold: float = 0.5, **kwargs):
         super().__init__(
             openable_joint_name=openable_joint_name,
-            openable_open_threshold=openable_open_threshold,
+            openable_threshold=openable_threshold,
             object_type=ObjectType.ARTICULATION,
             **kwargs,
         )

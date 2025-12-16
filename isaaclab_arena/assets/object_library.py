@@ -127,14 +127,14 @@ class Microwave(LibraryObject, Openable):
 
     # Openable affordance parameters
     openable_joint_name = "microjoint"
-    openable_open_threshold = 0.5
+    openable_threshold = 0.5  # Bistate threshold (open > threshold, closed <= threshold)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(
             prim_path=prim_path,
             initial_pose=initial_pose,
             openable_joint_name=self.openable_joint_name,
-            openable_open_threshold=self.openable_open_threshold,
+            openable_threshold=self.openable_threshold,
         )
 
 

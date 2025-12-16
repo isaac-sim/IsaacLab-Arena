@@ -108,7 +108,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
         prim_path="{ENV_REGEX_NS}/kitchen/microwave",
         parent_asset=background,
         openable_joint_name="microjoint",
-        openable_open_threshold=0.5,
+        openable_threshold=0.5,
     )
 
     scene = Scene(assets=[background, cracker_box, microwave])

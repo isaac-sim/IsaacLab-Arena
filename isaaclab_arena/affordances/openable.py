@@ -18,15 +18,17 @@ class Openable(AffordanceBase):
     def __init__(
         self,
         openable_joint_name: str,
-        openable_open_threshold: float = 0.5,
-        openable_close_threshold: float = 0.1,
+        openable_threshold: float = 0.5,
         **kwargs
     ):
         super().__init__(**kwargs)
         # TODO(alexmillane, 2025.08.26): We probably want to be able to define the polarity of the joint.
         self.openable_joint_name = openable_joint_name
-        self.openable_open_threshold = openable_open_threshold
-        self.openable_close_threshold = openable_close_threshold
+        # For a bistate object, we use a single threshold
+        # is_open: openness > threshold
+        # is_closed: openness <= threshold
+        self.openable_threshold = openable_threshold
+
 
     def get_openness(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
         """Returns the percentage open that the object is."""
@@ -38,26 +40,31 @@ class Openable(AffordanceBase):
     def is_open(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
-        """Returns a boolean tensor of whether the object is open."""
-        # We allow for overriding the object-level threshold by passing an argument to this
-        # function explicitly. Otherwise we use the object-level threshold.
+        """Returns a boolean tensor of whether the object is open.
+        
+        For a bistate object, this checks if openness > threshold.
+        """
         if threshold is not None:
-            openable_open_threshold = threshold
+            use_threshold = threshold
         else:
-            openable_open_threshold = self.openable_open_threshold
+            use_threshold = self.openable_threshold
         openness = self.get_openness(env, asset_cfg)
-        return openness > openable_open_threshold
+        return openness > use_threshold
 
     def is_closed(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
-        """Returns a boolean tensor of whether the object is closed."""
+        """Returns a boolean tensor of whether the object is closed.
+        
+        For a bistate object, this checks if openness <= threshold.
+        This is the logical inverse of is_open().
+        """
         if threshold is not None:
-            openable_close_threshold = threshold
+            use_threshold = threshold
         else:
-            openable_close_threshold = self.openable_close_threshold
+            use_threshold = self.openable_threshold
         openness = self.get_openness(env, asset_cfg)
-        return openness < openable_close_threshold
+        return openness <= use_threshold
 
     def rotate_revolute_joint(
         self,
