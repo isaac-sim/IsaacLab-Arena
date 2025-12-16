@@ -68,12 +68,11 @@ class FrankaEmbodiment(EmbodimentBase):
         scene_config.stand.init_state.rot = pose.rotation_wxyz
         return scene_config
 
-    def get_embodiment_metadata(self) -> dict[str, Any]:
-        return {
-            "robot_name": "robot",
-            "ee_action_body_name": self.action_config.arm_action.body_name,
-            "ee_frame_name": "ee_frame",
-        }
+    def get_ee_frame_name(self) -> str:
+        return "ee_frame"
+
+    def get_command_body_name(self) -> str:
+        return self.action_config.arm_action.body_name
 
 
 @configclass

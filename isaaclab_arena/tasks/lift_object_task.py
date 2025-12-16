@@ -17,8 +17,8 @@ from isaaclab.utils import configclass
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.tasks.observations import general_observations
-from isaaclab_arena.tasks.rewards import general_rewards, lift_object_rewards
+from isaaclab_arena.tasks.observations import observations
+from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
@@ -128,13 +128,15 @@ class LiftObjectTaskRL(LiftObjectTask):
         return LiftObjectRewardCfg(
             lift_object=self.lift_object,
             minimum_height_to_lift=self.minimum_height_to_lift,
-            robot_name=self.embodiment.get_embodiment_metadata()["robot_name"],
-            ee_frame_name=self.embodiment.get_embodiment_metadata()["ee_frame_name"],
+            robot_name=self.embodiment.get_embodiment_name_in_scene(),
+            ee_frame_name=self.embodiment.get_ee_frame_name(),
         )
 
     def get_commands_cfg(self):
         return LiftObjectCommandsCfg(
-            body_name=self.embodiment.get_embodiment_metadata()["ee_action_body_name"], lift_object=self.lift_object
+            asset_name=self.embodiment.get_embodiment_name_in_scene(),
+            body_name=self.embodiment.get_command_body_name(),
+            lift_object=self.lift_object,
         )
 
 
@@ -153,7 +155,7 @@ class LiftObjectObservationsCfg:
                 func=mdp_isaac_lab.generated_commands, params={"command_name": "object_pose"}
             )
             object_position = ObsTerm(
-                func=general_observations.object_position_in_robot_root_frame,
+                func=observations.object_position_in_robot_root_frame,
                 params={"object_cfg": SceneEntityCfg(lift_object.name)},
             )
 
@@ -170,10 +172,10 @@ class LiftObjectCommandsCfg:
 
     object_pose: CommandTermCfg = MISSING
 
-    def __init__(self, body_name: str, lift_object: Asset):
+    def __init__(self, asset_name: str, body_name: str, lift_object: Asset):
         initial_pose = lift_object.get_initial_pose()
         self.object_pose = mdp_isaac_lab.UniformPoseCommandCfg(
-            asset_name="robot",
+            asset_name=asset_name,
             body_name=body_name,
             resampling_time_range=(5.0, 5.0),
             debug_vis=True,
@@ -199,7 +201,7 @@ class LiftObjectRewardCfg:
 
     def __init__(self, lift_object: Asset, minimum_height_to_lift: float, robot_name: str, ee_frame_name: str):
         self.reaching_object = RewardTermCfg(
-            func=general_rewards.object_ee_distance,
+            func=rewards.object_ee_distance,
             params={
                 "std": 0.1,
                 "object_cfg": SceneEntityCfg(lift_object.name),

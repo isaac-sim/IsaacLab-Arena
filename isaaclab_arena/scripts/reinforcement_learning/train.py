@@ -12,13 +12,13 @@
 
 """Launch Isaac Sim Simulator first."""
 
+from pathlib import Path
+
 from isaaclab.app import AppLauncher
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.example_environments.cli import (
-    add_example_environments_cli_args,
-    get_arena_builder_from_cli,
-)
+from isaaclab_arena.examples.example_environments.cli import add_example_environments_cli_args
+from isaaclab_arena.scripts.reinforcement_learning.utils import get_env_and_agent_cfg
 
 # local imports
 import cli_args  # isort: skip
@@ -29,7 +29,10 @@ parser.add_argument("--video", action="store_true", default=False, help="Record 
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument("--video_interval", type=int, default=2000, help="Interval between video recordings (in steps).")
 parser.add_argument(
-    "--agent", type=str, default="rsl_rl_cfg_entry_point", help="Name of the RL agent configuration entry point."
+    "--agent_cfg_path",
+    type=Path,
+    default=Path("isaaclab_arena/policy/rl_policy/generic_policy.json"),
+    help="Path to the RL agent configuration file.",
 )
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
 parser.add_argument(
@@ -53,8 +56,6 @@ if args_cli.enable_pinocchio:
     # pinocchio is required by the Pink IK controllers and the GR1T2 retargeter
     import pinocchio  # noqa: F401
 
-# # clear out sys.argv for Hydra
-# sys.argv = [sys.argv[0]] + hydra_args
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -106,27 +107,7 @@ torch.backends.cudnn.benchmark = False
 
 
 def main():
-    # We dont use hydra for the environment configuration, so we need to parse it manually
-    # parse configuration
-    try:
-        arena_builder = get_arena_builder_from_cli(args_cli)
-        env_name, env_cfg = arena_builder.build_registered()
-
-    except Exception as e:
-        omni.log.error(f"Failed to parse environment configuration: {e}")
-        exit(1)
-
-    from isaaclab_arena.policy.rl_policy import RLPolicyCfg
-
-    agent_cfg = RLPolicyCfg()
-
-    """Train with RSL-RL agent."""
-    # override configurations with non-hydra CLI arguments
-    agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
-    env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
-    agent_cfg.max_iterations = (
-        args_cli.max_iterations if args_cli.max_iterations is not None else agent_cfg.max_iterations
-    )
+    env_name, env_cfg, agent_cfg = get_env_and_agent_cfg(args_cli)
 
     # set the environment seed
     # note: certain randomizations occur in the environment initialization so we set the seed here

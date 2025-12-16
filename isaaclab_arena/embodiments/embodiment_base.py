@@ -93,9 +93,6 @@ class EmbodimentBase(Asset):
     def get_xr_cfg(self) -> Any:
         return self.xr
 
-    def get_embodiment_metadata(self) -> dict[str, Any]:
-        return {}
-
     def get_camera_cfg(self) -> Any:
         return self.camera_config
 
@@ -117,3 +114,13 @@ class EmbodimentBase(Asset):
 
     def get_mimic_arm_mode(self) -> MimicArmMode:
         return self.mimic_arm_mode
+
+    def get_embodiment_name_in_scene(self) -> str:
+        return "robot"
+
+    def get_ee_frame_name(self) -> str:
+        # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
+        return ""
+
+    def get_command_body_name(self) -> str:
+        return ""
