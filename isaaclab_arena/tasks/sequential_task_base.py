@@ -41,6 +41,8 @@ class SequentialTaskBase(TaskBase):
           without affecting the completeness of the overall sequential task.
     """
 
+    #TODO: peterd - add functions to process Mimic and Metrics configs.
+
     def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
