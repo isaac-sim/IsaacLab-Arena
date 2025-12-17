@@ -173,11 +173,11 @@ def _test_close_door_with_reset(simulation_app) -> bool:
             # Initially, the door should be open (from reset event)
             initial_openness = microwave.get_openness(env)
             print(f"Initial openness after reset: {initial_openness.item()}")
-            
+
             # Manually open it fully to ensure it's open
             microwave.open(env, env_ids=None, percentage=1.0)
             step_zeros_and_call(env, NUM_STEPS)
-            
+
             is_closed = microwave.is_closed(env)
             print(f"Door should be open: is_closed = {is_closed.item()}")
             assert not is_closed.item(), "Door should be open initially"
@@ -185,35 +185,38 @@ def _test_close_door_with_reset(simulation_app) -> bool:
             # Close the door - this should trigger task success and termination
             print("Closing the door to trigger termination...")
             microwave.close(env, env_ids=None, percentage=0.0)
-            
+
             # Step and wait for termination
             terminated = False
             for step in range(NUM_STEPS * 2):  # Give it more time to detect termination
                 actions = torch.zeros(env.action_space.shape, device=env.device)
                 _, _, term, _, _ = env.step(actions)
-                
+
                 is_closed = microwave.is_closed(env)
                 openness = microwave.get_openness(env)
-                print(f"Step {step}: openness={openness.item():.3f}, is_closed={is_closed.item()}, terminated={term.item()}")
-                
+                print(
+                    f"Step {step}: openness={openness.item():.3f}, is_closed={is_closed.item()},"
+                    f" terminated={term.item()}"
+                )
+
                 if term.item():
                     terminated = True
                     print(f"✓ Environment terminated at step {step}")
                     break
-            
+
             assert terminated, "Environment should have terminated when door closed"
-            
+
             # After termination, env auto-resets. The reset event should open the door again
             # Take a few more steps to let the reset settle
             for _ in range(5):
                 actions = torch.zeros(env.action_space.shape, device=env.device)
                 env.step(actions)
-            
+
             # Check that door is open again after reset
             openness_after_reset = microwave.get_openness(env)
             is_closed_after_reset = microwave.is_closed(env)
             print(f"After reset: openness={openness_after_reset.item():.3f}, is_closed={is_closed_after_reset.item()}")
-            
+
             # The reset event should have set the door to the reset percentage
             # which for CloseDoorTask should be relatively open
             assert not is_closed_after_reset.item(), "Door should be open after reset"
@@ -222,6 +225,7 @@ def _test_close_door_with_reset(simulation_app) -> bool:
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -248,4 +252,3 @@ if __name__ == "__main__":
     test_close_door_microwave()
     test_close_door_microwave_multiple_envs()
     test_close_door_with_reset()
-

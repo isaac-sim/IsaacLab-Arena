@@ -15,12 +15,7 @@ from isaaclab_arena.utils.joint_utils import get_normalized_joint_position, set_
 class Openable(AffordanceBase):
     """Interface for openable objects."""
 
-    def __init__(
-        self,
-        openable_joint_name: str,
-        openable_threshold: float = 0.5,
-        **kwargs
-    ):
+    def __init__(self, openable_joint_name: str, openable_threshold: float = 0.5, **kwargs):
         super().__init__(**kwargs)
         # TODO(alexmillane, 2025.08.26): We probably want to be able to define the polarity of the joint.
         self.openable_joint_name = openable_joint_name
@@ -28,7 +23,6 @@ class Openable(AffordanceBase):
         # is_open: openness > threshold
         # is_closed: openness <= threshold
         self.openable_threshold = openable_threshold
-
 
     def get_openness(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
         """Returns the percentage open that the object is."""
@@ -41,30 +35,30 @@ class Openable(AffordanceBase):
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is open.
-        
+
         For a bistate object, this checks if openness > threshold.
         """
         if threshold is not None:
-            use_threshold = threshold
+            used_threshold = threshold
         else:
-            use_threshold = self.openable_threshold
+            used_threshold = self.openable_threshold
         openness = self.get_openness(env, asset_cfg)
-        return openness > use_threshold
+        return openness > used_threshold
 
     def is_closed(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, threshold: float | None = None
     ) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is closed.
-        
+
         For a bistate object, this checks if openness <= threshold.
         This is the logical inverse of is_open().
         """
         if threshold is not None:
-            use_threshold = threshold
+            used_threshold = threshold
         else:
-            use_threshold = self.openable_threshold
+            used_threshold = self.openable_threshold
         openness = self.get_openness(env, asset_cfg)
-        return openness <= use_threshold
+        return openness <= used_threshold
 
     def rotate_revolute_joint(
         self,
