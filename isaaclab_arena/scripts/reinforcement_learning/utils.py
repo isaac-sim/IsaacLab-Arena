@@ -28,9 +28,11 @@ def get_env_and_agent_cfg(args_cli: argparse.Namespace) -> tuple[str, Any, Any]:
     # Read a json file containing the agent configuration
     with open(args_cli.agent_cfg_path) as f:
         agent_cfg_dict = json.load(f)
-        policy_cfg = agent_cfg_dict["policy_cfg"]
-        algorithm_cfg = agent_cfg_dict["algorithm_cfg"]
-        obs_groups = agent_cfg_dict["obs_groups"]
-        agent_cfg = RLPolicyCfg(policy_cfg, algorithm_cfg, obs_groups)
+
+    policy_cfg = agent_cfg_dict["policy_cfg"]
+    algorithm_cfg = agent_cfg_dict["algorithm_cfg"]
+    obs_groups = agent_cfg_dict["obs_groups"]
+
+    agent_cfg = RLPolicyCfg.update_cfg(policy_cfg, algorithm_cfg, obs_groups)
 
     return env_name, env_cfg, agent_cfg

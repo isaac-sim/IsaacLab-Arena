@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import field
 from typing import Any
 
 from isaaclab.utils import configclass
@@ -30,12 +31,19 @@ class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
     max_iterations = 4000
     save_interval = 200
     experiment_name = "franka_lift"
-    obs_groups = {
-        "policy": ["policy"],
-        "critic": ["policy"],
-    }
+    obs_groups = field(
+        default_factory=lambda: {
+            "policy": ["policy"],
+            "critic": ["policy"],
+        }
+    )
+    policy: RslRlPpoActorCriticCfg = field(default_factory=lambda: RslRlPpoActorCriticCfg())
+    algorithm: RslRlPpoAlgorithmCfg = field(default_factory=lambda: RslRlPpoAlgorithmCfg())
 
-    def __init__(self, policy_cfg: dict[str, Any], algorithm_cfg: dict[str, Any], obs_groups: dict[str, list[str]]):
-        self.policy = RslRlPpoActorCriticCfg(**policy_cfg)
-        self.algorithm = RslRlPpoAlgorithmCfg(**algorithm_cfg)
-        self.obs_groups = obs_groups
+    @classmethod
+    def update_cfg(cls, policy_cfg: dict[str, Any], algorithm_cfg: dict[str, Any], obs_groups: dict[str, list[str]]):
+        cfg = cls()
+        cfg.policy = RslRlPpoActorCriticCfg(**policy_cfg)
+        cfg.algorithm = RslRlPpoAlgorithmCfg(**algorithm_cfg)
+        cfg.obs_groups = obs_groups
+        return cfg

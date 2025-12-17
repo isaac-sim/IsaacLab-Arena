@@ -5,7 +5,7 @@
 
 import argparse
 
-from isaaclab_arena.examples.example_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
 # We cannot annotate types which require the simulation app to be started in order to
