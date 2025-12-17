@@ -20,7 +20,7 @@ class OpenDoorTask(RotateRevoluteJointTask):
         self,
         openable_object: Openable,
         openness_threshold: float | None = None,
-        reset_openness: float | None = None,
+        reset_openness: float | None = 0.0,
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):

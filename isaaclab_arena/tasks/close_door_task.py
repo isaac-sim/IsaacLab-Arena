@@ -20,14 +20,14 @@ class CloseDoorTask(RotateRevoluteJointTask):
         self,
         openable_object: Openable,
         closedness_threshold: float | None = None,
-        reset_closedness: float | None = None,
+        reset_openness: float = 1.0,  # Start with door OPEN for close task
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
         super().__init__(
             openable_object=openable_object,
             target_joint_percentage_threshold=closedness_threshold,
-            reset_joint_percentage=reset_closedness,
+            reset_joint_percentage=reset_openness,  # Reset to OPEN
             episode_length_s=episode_length_s,
             task_description=task_description,
         )
