@@ -230,7 +230,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
             self.subtask_configs["robot"] = subtask_configs
         # We need to add the left and right subtasks for GR1.
         elif self.arm_mode in [MimicArmMode.LEFT, MimicArmMode.RIGHT]:
-            self.subtask_configs[self.arm_mode] = subtask_configs
+            self.subtask_configs[self.arm_mode.value] = subtask_configs
             # EEF on opposite side (arm is static)
             subtask_configs = []
             subtask_configs.append(
@@ -255,7 +255,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                     apply_noise_during_interpolation=False,
                 )
             )
-            self.subtask_configs[self.arm_mode.get_other_arm()] = subtask_configs
+            self.subtask_configs[self.arm_mode.get_other_arm().value] = subtask_configs
 
         else:
             raise ValueError(f"Embodiment arm mode {self.arm_mode} not supported")
