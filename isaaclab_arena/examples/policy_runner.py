@@ -28,6 +28,14 @@ def main():
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
+        from isaaclab_arena.utils.usd_helpers import apply_render_variants_to_scene
+        from isaaclab.sim.utils import get_current_stage
+        # convert to list of prim paths by speicfy the env_index
+        expanded_paths = [
+            f"{env.env_ns.format(i)}/cracker_box"
+            for i in range(args_cli.num_envs)
+        ]
+        apply_render_variants_to_scene(env, prim_paths=expanded_paths, stage=get_current_stage())
 
         if args_cli.seed is not None:
             env.seed(args_cli.seed)

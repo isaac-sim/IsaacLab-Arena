@@ -100,3 +100,46 @@ def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str |
                 return reference_spec.assetPath
 
     return None
+
+from pxr import Usd, Sdf, UsdShade
+
+def apply_render_variants_to_scene(env, prim_paths: list[str], stage: Usd.Stage):
+    """
+    Injected after the scene is initialized in an Isaac Lab environment.
+    """
+    
+    # Identify the asset you want to 'wrap' in variants
+
+    # Get the prim paths for all environments via Isaac Lab's scene entity
+    # This automatically handles the {ENV_REGEX_NS} for you
+    
+    for path in prim_paths:
+        print(f"Applying render variants to {path}")
+        prim = stage.GetPrimAtPath(path)
+        if not prim.IsValid():
+            continue
+            
+        # --- INJECTION START ---
+        # 1. Create the VariantSet on the live Stage
+        vset = prim.GetVariantSets().AddVariantSet("bringup_style")
+        
+        # 2. Author 'Normal' vs 'Debug' rendering styles
+        # Standard Style
+        vset.AddVariant("standard")
+        vset.SetVariantSelection("standard")
+        # (Standard keeps the USD's original look)
+
+        # 3. Create a 'Synthetic' style (e.g., for depth/segmentation bring-up)
+        vset.AddVariant("synthetic_check")
+        vset.SetVariantSelection("synthetic_check")
+        with vset.GetVariantEditContext():
+            # Force a specific display color to check segmentation
+            attr = prim.CreateAttribute("primvars:displayColor", Sdf.ValueTypeNames.Color3fArray)
+            attr.Set([(0.0, 1.0, 1.0)]) # Cyan
+            
+            # You can also toggle visibility/purpose here
+            prim.CreateAttribute("purpose", Sdf.ValueTypeNames.Token).Set("guide")
+
+    # Finalize: Default everything to standard
+    for path in prim_paths:
+        stage.GetPrimAtPath(path).GetVariantSets().GetVariantSet("bringup_style").SetVariantSelection("standard")
