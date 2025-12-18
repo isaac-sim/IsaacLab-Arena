@@ -4,13 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import numpy as np
 import torch
 from dataclasses import MISSING
 from functools import partial
 
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
+from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
+from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
@@ -27,6 +30,59 @@ class SequentialTaskEventsCfg:
 @configclass
 class TerminationsCfg:
     success: TerminationTermCfg = MISSING
+
+
+class SubtaskSuccessStateRecorder(RecorderTerm):
+    """Records the subtask success state just before the environment is reset."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self.name = cfg.name
+
+    def record_post_reset(self, env_ids):
+        # Get subtask success state as a torch tensor
+        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
+        return self.name, subtask_success_state.clone()
+
+    def record_post_step(self):
+        # Get subtask success state as a torch tensor
+        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
+        return self.name, subtask_success_state.clone()
+
+
+@configclass
+class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
+    class_type: type[RecorderTerm] = SubtaskSuccessStateRecorder
+    name: str = "subtask_success_state"
+
+
+class SubtaskSuccessRateMetric(MetricBase):
+    """Computes the per-subtask success rates.
+
+    Returns a dict with success rate for each subtask.
+    """
+
+    name = "subtask_success_state"
+    recorder_term_name = "subtask_success_state"
+
+    def __init__(self):
+        super().__init__()
+
+    def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
+
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+        """Computes per-subtask success rates.
+
+        Args:
+            recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
+
+        Returns:
+            Dict mapping subtask index to its success rate.
+        """
+        print(recorded_metric_data)
+
+        return 1.234567890
 
 
 class SequentialTaskBase(TaskBase):
@@ -192,3 +248,24 @@ class SequentialTaskBase(TaskBase):
         )
 
         return combined_termination_cfg
+
+    def combine_subtask_metrics(self, subtask_idxs: list[int]) -> list[MetricBase]:
+        "Combine metrics from subtasks with the given ids."
+        combined_metrics = []
+
+        for subtask_idx in subtask_idxs:
+            subtask_metrics = self.subtasks[subtask_idx].get_metrics()
+            for metric in subtask_metrics:
+                metric.name = f"{metric.name}_subtask_{subtask_idx}"
+                metric.recorder_term_name = f"{metric.recorder_term_name}_subtask_{subtask_idx}"
+                combined_metrics.append(copy.copy(metric))
+
+        return combined_metrics
+
+        
+
+    def get_metrics(self) -> list[MetricBase]:
+        subtask_metrics = self.combine_subtask_metrics([i for i in range(len(self.subtasks))])
+        # Add the sequential task's own metric for per-subtask success rates
+        subtask_metrics.append(SubtaskSuccessRateMetric())
+        return subtask_metrics
