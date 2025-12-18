@@ -16,6 +16,16 @@
                     "remoteRoot": "/workspaces/isaac_arena"
                 }
             ]
+        },
+        {
+            "name": "Python: Train RL Policy",
+            "type": "python",
+            "request": "launch",
+            "args" : ["--num_envs", "1",
+            "--env_spacing", "10",
+            "lift_object"],
+            "program": "${workspaceFolder}/isaaclab_arena/scripts/reinforcement_learning/train.py",
+            "console": "integratedTerminal"
         }
     ]
 }
