@@ -16,6 +16,20 @@
                     "remoteRoot": "/workspaces/isaac_arena"
                 }
             ]
-        }
+        },
+        {
+            "name": "Python: Generate Dataset",
+            "type": "python",
+            "request": "launch",
+            "args" : ["--enable_cameras",
+            "--mimic",
+            "--input_file", "${workspaceFolder}/isaaclab_arena/datasets/arena_g1_loco_manipulation_dataset_annotated.hdf5",
+            "--output_file", "${workspaceFolder}/isaaclab_arena/datasets/arena_g1_loco_manipulation_dataset_generated.hdf5",
+            "--generation_num_trials", "100",
+            "--device", "cpu",
+            "galileo_g1_locomanip_pick_and_place", "--object", "brown_box", "--embodiment", "g1_wbc_pink"],
+            "program": "${workspaceFolder}/isaaclab_arena/scripts/generate_dataset.py",
+            "console": "integratedTerminal"
+        },
     ]
 }
