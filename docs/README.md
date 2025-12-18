@@ -33,7 +33,7 @@ To make the current version of docs
 make html
 ```
 
-To view the docs, navigate to `isaaclab_arena/docs/_build/html/index.html`, and double-click.
+To view the docs, navigate to `isaaclab_arena/docs/_build/current/html/index.html`, and double-click.
 
 To make the multi version docs. Note that this will only build docs for the set branches, such
 as release, main etc. Only docs committed to these branches will be reflected.
