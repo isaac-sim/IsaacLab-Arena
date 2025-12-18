@@ -162,7 +162,7 @@ class LiftObjectObservationsCfg:
             )
             object_position = ObsTerm(
                 func=observations.object_position_in_frame,
-                params={"robot_cfg": SceneEntityCfg(robot_name), "object_cfg": SceneEntityCfg(lift_object.name)},
+                params={"root_frame_cfg": SceneEntityCfg(robot_name), "object_cfg": SceneEntityCfg(lift_object.name)},
             )
 
             def __post_init__(self):
