@@ -233,6 +233,21 @@ class BrownBox(LibraryObject):
 
 
 @register_asset
+class DexCube(LibraryObject):
+    """
+    A dex cube.
+    """
+
+    name = "dex_cube"
+    tags = ["object"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
 class GroundPlane(LibraryObject):
     """
     A ground plane.

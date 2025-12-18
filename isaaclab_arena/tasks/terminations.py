@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import torch
 
 from isaaclab.assets import RigidObject
@@ -75,3 +76,80 @@ def objects_in_proximity(
     done = torch.logical_and(done, z_separation < max_z_separation)
 
     return done
+
+
+def adjust_pose_task_termination(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    object_thresholds: dict | None = None,
+) -> torch.Tensor:
+    """Terminate when the object's pose is within the thresholds (BBox + Orientation).
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        object_thresholds: Configuration dict following the BBox schema:
+            {
+                "success_zone": {
+                    "x_range": [0.4, 0.6],  # Optional
+                    "y_range": [-0.1, 0.1], # Optional
+                    "z_range": [0.0, 0.5]   # Optional
+                },
+                "orientation": {
+                    "target": [w, x, y, z],
+                    "tolerance_rad": 0.1
+                }
+            }
+    Returns:
+        A boolean tensor of shape (num_envs, )
+    """
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_root_pos_w = object_instance.data.root_pos_w
+    object_root_quat_w = object_instance.data.root_quat_w
+
+    device = env.device
+    num_envs = env.num_envs
+
+    if not object_thresholds:
+        return torch.zeros(num_envs, dtype=torch.bool, device=device)
+
+    success = torch.ones(num_envs, dtype=torch.bool, device=device)
+
+    zone_cfg = object_thresholds.get("success_zone", {})
+
+    # X Axis Check
+    if "x_range" in zone_cfg:
+        x_min, x_max = zone_cfg["x_range"]
+        in_x = (object_root_pos_w[:, 0] >= x_min) & (object_root_pos_w[:, 0] <= x_max)
+        success &= in_x
+
+    # Y Axis Check
+    if "y_range" in zone_cfg:
+        y_min, y_max = zone_cfg["y_range"]
+        in_y = (object_root_pos_w[:, 1] >= y_min) & (object_root_pos_w[:, 1] <= y_max)
+        success &= in_y
+
+    # Z Axis Check
+    if "z_range" in zone_cfg:
+        z_min, z_max = zone_cfg["z_range"]
+        in_z = (object_root_pos_w[:, 2] >= z_min) & (object_root_pos_w[:, 2] <= z_max)
+        success &= in_z
+
+    # Orientation Check
+    ori_cfg = object_thresholds.get("orientation")
+    if ori_cfg:
+        target_list = ori_cfg.get("target")
+        tol_rad = ori_cfg.get("tolerance_rad", 0.1)
+
+        if target_list is not None:
+            target_quat = torch.tensor(target_list, device=device, dtype=torch.float32).unsqueeze(0)  # Shape: [1, 4]
+
+            # Formula: |<q1, q2>| > cos(tolerance / 2)
+            quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
+            abs_dot = torch.abs(quat_dot)
+            min_cos = math.cos(tol_rad / 2.0)
+
+            ori_success = abs_dot >= min_cos
+            success &= ori_success
+
+    return success
