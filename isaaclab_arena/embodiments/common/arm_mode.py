@@ -6,9 +6,9 @@
 from enum import Enum
 
 
-class MimicArmMode(str, Enum):
+class ArmMode(str, Enum):
     """
-    The arm mode for the mimic environment configuration.
+    The arm mode for the embodiment.
 
     Attributes:
         SINGLE_ARM: Single arm mode (the robot has only one arm).
@@ -23,5 +23,5 @@ class MimicArmMode(str, Enum):
     RIGHT = "right"
 
     def get_other_arm(self) -> str:
-        assert self in [MimicArmMode.LEFT, MimicArmMode.RIGHT], f"Arm mode {self} is not a bimanual arm mode"
-        return MimicArmMode.RIGHT if self == MimicArmMode.LEFT else MimicArmMode.LEFT
+        assert self in [ArmMode.LEFT, ArmMode.RIGHT], f"Arm mode {self} is not a bimanual arm mode"
+        return ArmMode.RIGHT if self == ArmMode.LEFT else ArmMode.LEFT

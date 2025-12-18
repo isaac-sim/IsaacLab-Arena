@@ -11,7 +11,7 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.revolute_joint_moved_rate import RevoluteJointMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -52,7 +52,7 @@ class RotateRevoluteJointTask(TaskBase):
     def get_events_cfg(self):
         return self.events_cfg
 
-    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function {self.get_mimic_env_cfg.__name__} not implemented yet.")
 
     def get_termination_cfg(self):

@@ -7,7 +7,7 @@
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.utils import configclass
 
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 
 
 @configclass
@@ -16,7 +16,7 @@ class RotateDoorMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for Open Door env.
     """
 
-    arm_mode: MimicArmMode = MimicArmMode.SINGLE_ARM
+    arm_mode: ArmMode = ArmMode.SINGLE_ARM
 
     openable_object_name: str = "openable_object"
 
@@ -86,10 +86,10 @@ class RotateDoorMimicEnvCfg(MimicEnvCfg):
                 apply_noise_during_interpolation=False,
             )
         )
-        if self.arm_mode == MimicArmMode.SINGLE_ARM:
+        if self.arm_mode == ArmMode.SINGLE_ARM:
             self.subtask_configs["robot"] = subtask_configs
         # We need to add the left and right subtasks for GR1.
-        elif self.arm_mode in [MimicArmMode.LEFT, MimicArmMode.RIGHT]:
+        elif self.arm_mode in [ArmMode.LEFT, ArmMode.RIGHT]:
             self.subtask_configs[self.arm_mode.value] = subtask_configs
             # EEF on opposite side (arm is static)
             subtask_configs = []

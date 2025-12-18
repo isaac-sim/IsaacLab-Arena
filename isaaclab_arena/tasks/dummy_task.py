@@ -5,7 +5,7 @@
 
 from isaaclab.envs.common import ViewerCfg
 
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.task_base import TaskBase
 
 
@@ -25,7 +25,7 @@ class DummyTask(TaskBase):
     def get_prompt(self):
         pass
 
-    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         pass
 
     def get_metrics(self):

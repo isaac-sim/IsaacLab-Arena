@@ -26,7 +26,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
@@ -40,12 +40,10 @@ class G1EmbodimentBase(EmbodimentBase):
     """Embodiment for the G1 robot."""
 
     name = "g1"
-    default_mimic_arm_mode = MimicArmMode.DUAL_ARM
+    default_arm_mode = ArmMode.DUAL_ARM
 
-    def __init__(
-        self, enable_cameras: bool = False, initial_pose: Pose | None = None, mimic_arm_mode: MimicArmMode | None = None
-    ):
-        super().__init__(enable_cameras, initial_pose, mimic_arm_mode)
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
+        super().__init__(enable_cameras, initial_pose, arm_mode)
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
