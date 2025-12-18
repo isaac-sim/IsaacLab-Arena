@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
 from collections.abc import Sequence
+from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp
 import isaaclab.utils.math as PoseUtils
@@ -20,7 +20,7 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.mdp import get_robot_j
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame
 
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import FrankaMimicEnv
 from isaaclab_arena.utils.pose import Pose
@@ -31,53 +31,68 @@ class AgibotEmbodiment(EmbodimentBase):
     """Embodiment for the Agibot robot."""
 
     name = "agibot"
-    default_mimic_arm_mode = MimicArmMode.LEFT
+    default_arm_mode = ArmMode.LEFT
 
     def __init__(
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
-        mimic_arm_mode: MimicArmMode | None = None,
+        arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose)
-        self.mimic_arm_mode = mimic_arm_mode or self.default_mimic_arm_mode
-        self.scene_config = (
-            AgibotLeftArmSceneCfg() if self.mimic_arm_mode == MimicArmMode.LEFT else AgibotRightArmSceneCfg()
-        )
-        self.action_config = (
-            AgibotLeftArmActionsCfg() if self.mimic_arm_mode == MimicArmMode.LEFT else AgibotRightArmActionsCfg()
-        )
+        self.arm_mode = arm_mode or self.default_arm_mode
+        self.scene_config = AgibotSceneCfg()
+        self.scene_config.arm_mode = self.arm_mode
+        self.action_config = AgibotActionsCfg()
+        self.action_config.arm_mode = self.arm_mode
         self.observation_config = AgibotObservationsCfg()
         self.mimic_env = AgibotMimicEnv
 
 
 @configclass
-class AgibotLeftArmSceneCfg:
-    """Scene configuration for the Agibot left arm."""
+class AgibotSceneCfg:
+    """Scene configuration for the Agibot A2D robot."""
 
     robot = AGIBOT_A2D_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
-    ee_frame = FrameTransformerCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base_link",
-        debug_vis=False,
-        target_frames=[
-            FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/gripper_center",
-                name="left_end_effector",
-                offset=OffsetCfg(
-                    pos=[0.0, 0.0, 0.0],
-                    rot=[
-                        0.7071,
-                        0.0,
-                        -0.7071,
-                        0.0,
-                    ],  # rpy: [0, -90, 0] to make the gripper direction from +Z to +X
-                ),
-            ),
-        ],
-    )
+    arm_mode: ArmMode = MISSING
+
+    ee_frame: FrameTransformerCfg = MISSING
 
     def __post_init__(self):
+        if self.arm_mode == ArmMode.LEFT:
+            self.ee_frame = FrameTransformerCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/base_link",
+                debug_vis=False,
+                target_frames=[
+                    FrameTransformerCfg.FrameCfg(
+                        prim_path="{ENV_REGEX_NS}/Robot/gripper_center",
+                        name="left_end_effector",
+                        offset=OffsetCfg(
+                            pos=[0.0, 0.0, 0.0],
+                            rot=[
+                                0.7071,
+                                0.0,
+                                -0.7071,
+                                0.0,
+                            ],  # rpy: [0, -90, 0] to make the gripper direction from +Z to +X
+                        ),
+                    ),
+                ],
+            )
+        elif self.arm_mode == ArmMode.RIGHT:
+            self.ee_frame = FrameTransformerCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/base_link",
+                debug_vis=False,
+                target_frames=[
+                    FrameTransformerCfg.FrameCfg(
+                        prim_path="{ENV_REGEX_NS}/Robot/right_gripper_center",
+                        name="right_end_effector",
+                    ),
+                ],
+            )
+        else:
+            raise ValueError(f"Arm mode: {self.arm_mode} not supported yet.")
         # Add a marker to the end-effector frame
         marker_cfg = FRAME_MARKER_CFG.copy()
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
@@ -86,72 +101,52 @@ class AgibotLeftArmSceneCfg:
 
 
 @configclass
-class AgibotRightArmSceneCfg(AgibotLeftArmSceneCfg):
-    """Scene configuration for the Agibot right arm."""
+class AgibotActionsCfg:
+    """Action configuration for the Agibot robot."""
+
+    arm_mode: ArmMode = MISSING
+    arm_action: RMPFlowActionCfg = MISSING
+    gripper_action: mdp.AbsBinaryJointPositionActionCfg = MISSING
 
     def __post_init__(self):
-        # update the ee_frame for the right arm
-        self.ee_frame = FrameTransformerCfg(
-            prim_path="{ENV_REGEX_NS}/Robot/base_link",
-            debug_vis=False,
-            target_frames=[
-                FrameTransformerCfg.FrameCfg(
-                    prim_path="{ENV_REGEX_NS}/Robot/right_gripper_center",
-                    name="right_end_effector",
-                    offset=OffsetCfg(
-                        pos=[0.0, 0.0, 0.0],
-                    ),
-                ),
-            ],
-        )
+        if self.arm_mode == ArmMode.LEFT:
+            self.arm_action = RMPFlowActionCfg(
+                asset_name="robot",
+                joint_names=["left_arm_joint.*"],
+                body_name="gripper_center",
+                controller=AGIBOT_LEFT_ARM_RMPFLOW_CFG,
+                scale=1.0,
+                body_offset=RMPFlowActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.0], rot=[0.7071, 0.0, -0.7071, 0.0]),
+                articulation_prim_expr="/World/envs/env_.*/Robot",
+                use_relative_mode=True,
+            )
 
+            self.gripper_action = mdp.AbsBinaryJointPositionActionCfg(
+                asset_name="robot",
+                threshold=0.5,
+                joint_names=["left_hand_joint1", "left_.*_Support_Joint"],
+                open_command_expr={"left_hand_joint1": 0.994, "left_.*_Support_Joint": 0.994},
+                close_command_expr={"left_hand_joint1": 0.0, "left_.*_Support_Joint": 0.0},
+            )
+        elif self.arm_mode == ArmMode.RIGHT:
+            self.arm_action = RMPFlowActionCfg(
+                asset_name="robot",
+                joint_names=["right_arm_joint.*"],
+                body_name="right_gripper_center",
+                controller=AGIBOT_RIGHT_ARM_RMPFLOW_CFG,
+                scale=1.0,
+                body_offset=RMPFlowActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.0]),
+                articulation_prim_expr="/World/envs/env_.*/Robot",
+                use_relative_mode=True,
+            )
 
-@configclass
-class AgibotLeftArmActionsCfg:
-    """Action configuration for the Agibot robot."""
-
-    arm_action = RMPFlowActionCfg(
-        asset_name="robot",
-        joint_names=["left_arm_joint.*"],
-        body_name="gripper_center",
-        controller=AGIBOT_LEFT_ARM_RMPFLOW_CFG,
-        scale=1.0,
-        body_offset=RMPFlowActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.0], rot=[0.7071, 0.0, -0.7071, 0.0]),
-        articulation_prim_expr="/World/envs/env_.*/Robot",
-        use_relative_mode=True,
-    )
-
-    gripper_action = mdp.AbsBinaryJointPositionActionCfg(
-        asset_name="robot",
-        threshold=0.5,
-        joint_names=["left_hand_joint1", "left_.*_Support_Joint"],
-        open_command_expr={"left_hand_joint1": 0.994, "left_.*_Support_Joint": 0.994},
-        close_command_expr={"left_hand_joint1": 0.0, "left_.*_Support_Joint": 0.0},
-    )
-
-
-@configclass
-class AgibotRightArmActionsCfg:
-    """Action configuration for the Agibot robot."""
-
-    arm_action = RMPFlowActionCfg(
-        asset_name="robot",
-        joint_names=["right_arm_joint.*"],
-        body_name="right_gripper_center",
-        controller=AGIBOT_RIGHT_ARM_RMPFLOW_CFG,
-        scale=1.0,
-        body_offset=RMPFlowActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.0]),
-        articulation_prim_expr="/World/envs/env_.*/Robot",
-        use_relative_mode=True,
-    )
-
-    gripper_action = mdp.AbsBinaryJointPositionActionCfg(
-        asset_name="robot",
-        threshold=0.5,
-        joint_names=["right_hand_joint1", "right_.*_Support_Joint"],
-        open_command_expr={"right_hand_joint1": 0.994, "right_.*_Support_Joint": 0.994},
-        close_command_expr={"right_hand_joint1": 0.0, "right_.*_Support_Joint": 0.0},
-    )
+            self.gripper_action = mdp.AbsBinaryJointPositionActionCfg(
+                asset_name="robot",
+                threshold=0.5,
+                joint_names=["right_hand_joint1", "right_.*_Support_Joint"],
+                open_command_expr={"right_hand_joint1": 0.994, "right_.*_Support_Joint": 0.994},
+                close_command_expr={"right_hand_joint1": 0.0, "right_.*_Support_Joint": 0.0},
+            )
 
 
 @configclass
@@ -165,6 +160,7 @@ class AgibotObservationsCfg:
         actions = ObsTerm(func=mdp.last_action)
         joint_pos = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+        # since the robot may not located at the origin of env, we get the eef pose in the base frame
         eef_pos = ObsTerm(func=ee_frame_pose_in_base_frame, params={"return_key": "pos"})
         eef_quat = ObsTerm(func=ee_frame_pose_in_base_frame, params={"return_key": "quat"})
         left_gripper_pos = ObsTerm(
@@ -189,6 +185,7 @@ class AgibotMimicEnv(FrankaMimicEnv):
     def get_object_poses(self, env_ids: Sequence[int] | None = None):
         """
         Gets the pose of each object (including rigid objects and articulated objects) in the robot base frame.
+        This should be aligned with the observation configuration, to ensure all the poses are expressed in the same frame.
 
         Args:
             env_ids: Environment indices to get the pose for. If None, all envs are considered.
@@ -229,34 +226,3 @@ class AgibotMimicEnv(FrankaMimicEnv):
                 object_pose_matrix[art_name] = PoseUtils.make_pose(pos_obj_base, rot_obj_base)
 
         return object_pose_matrix
-
-    def get_subtask_term_signals(self, env_ids: Sequence[int] | None = None) -> dict[str, torch.Tensor]:
-        """
-        Gets a dictionary of termination signal flags for each subtask in a task. The flag is 1
-        when the subtask has been completed and 0 otherwise. The implementation of this method is
-        required if intending to enable automatic subtask term signal annotation when running the
-        dataset annotation tool. This method can be kept unimplemented if intending to use manual
-        subtask term signal annotation.
-
-        Args:
-            env_ids: Environment indices to get the termination signals for. If None, all envs are considered.
-
-        Returns:
-            A dictionary termination signal flags (False or True) for each subtask.
-        """
-        if env_ids is None:
-            env_ids = slice(None)
-
-        signals = dict()
-
-        subtask_terms = self.obs_buf["subtask_terms"]
-        if "grasp" in subtask_terms:
-            signals["grasp"] = subtask_terms["grasp"][env_ids]
-
-        # Handle multiple grasp signals
-        for i in range(0, len(self.cfg.subtask_configs)):
-            grasp_key = f"grasp_{i + 1}"
-            if grasp_key in subtask_terms:
-                signals[grasp_key] = subtask_terms[grasp_key][env_ids]
-        # final subtask signal is not needed
-        return signals

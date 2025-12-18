@@ -14,7 +14,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -85,7 +85,7 @@ class PickAndPlaceTask(TaskBase):
     def get_prompt(self):
         raise NotImplementedError("Function not implemented yet.")
 
-    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
             pick_up_object_name=self.pick_up_object.name,
@@ -151,7 +151,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for Pick and Place env.
     """
 
-    arm_mode: MimicArmMode = MimicArmMode.SINGLE_ARM
+    arm_mode: ArmMode = ArmMode.SINGLE_ARM
 
     pick_up_object_name: str = "pick_up_object"
 
@@ -226,10 +226,10 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 apply_noise_during_interpolation=False,
             )
         )
-        if self.arm_mode == MimicArmMode.SINGLE_ARM:
+        if self.arm_mode == ArmMode.SINGLE_ARM:
             self.subtask_configs["robot"] = subtask_configs
         # We need to add the left and right subtasks for GR1.
-        elif self.arm_mode in [MimicArmMode.LEFT, MimicArmMode.RIGHT]:
+        elif self.arm_mode in [ArmMode.LEFT, ArmMode.RIGHT]:
             self.subtask_configs[self.arm_mode] = subtask_configs
             # EEF on opposite side (arm is static)
             subtask_configs = []

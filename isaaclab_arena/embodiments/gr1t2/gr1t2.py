@@ -28,7 +28,7 @@ from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
@@ -84,12 +84,10 @@ class GR1T2EmbodimentBase(EmbodimentBase):
     """Embodiment for the GR1T2 robot."""
 
     name = "gr1"
-    default_mimic_arm_mode = MimicArmMode.RIGHT
+    default_arm_mode = ArmMode.RIGHT
 
-    def __init__(
-        self, enable_cameras: bool = False, initial_pose: Pose | None = None, mimic_arm_mode: MimicArmMode | None = None
-    ):
-        super().__init__(enable_cameras, initial_pose, mimic_arm_mode)
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
+        super().__init__(enable_cameras, initial_pose, arm_mode)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.observation_config = GR1T2ObservationsCfg()
