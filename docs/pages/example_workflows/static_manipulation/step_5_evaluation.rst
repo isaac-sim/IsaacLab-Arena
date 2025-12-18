@@ -138,7 +138,7 @@ than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.605, 'revolute_joint_moved_rate': 0.955, 'num_episodes': 200}
+   Metrics: {'success_rate': 0.605, 'door_moved_rate': 0.955, 'num_episodes': 200}
 
 .. note::
 

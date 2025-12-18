@@ -187,7 +187,6 @@ jobs:
           make SPHINXOPTS=-W multi-docs
           touch ./_build/.nojekyll
 
-
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, gpu]
