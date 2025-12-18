@@ -5,4 +5,5 @@
 
 from .avp_handtracking import *
 from .keyboard import *
+from .motion_controllers import *
 from .spacemouse import *

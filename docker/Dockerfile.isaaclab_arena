@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.1.0
 
 FROM ${BASE_IMAGE}
 
@@ -9,6 +9,8 @@ ARG GROOT_DEPS_GROUP=base
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
+
+USER root
 
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
@@ -24,7 +26,7 @@ RUN apt-get update && apt-get install -y \
   python3-pip
 
 # Update pip to the latest version
-RUN pip3 install --upgrade pip
+#RUN pip3 install --upgrade pip
 
 ################################
 # Install Isaac Lab
@@ -38,9 +40,10 @@ ENV TERM=xterm
 # Symlink isaac sim to IsaacLab
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 # Install IsaacLab dependencies
-RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
+RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR" --break-system-packages; done
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
-RUN chmod 777 -R /isaac-sim/kit/
+# Make entire /isaac-sim directory accessible for non-root users running python commands.
+RUN chmod 777 -R /isaac-sim/
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
@@ -57,7 +60,7 @@ RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -
 
 # Install pip dependencies
 # NOTE(alexmillane, 2025-07-22): Dependencies are installed in the IsaacSim version of python.
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
+RUN /isaac-sim/python.sh -m pip install --upgrade pip --break-system-packages && \
   /isaac-sim/python.sh -m pip install \
   pytest \
   jupyter \
@@ -67,7 +70,7 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   onnxruntime
 
 # lwlabs deps
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
+RUN /isaac-sim/python.sh -m pip install --upgrade pip --break-system-packages && \
   /isaac-sim/python.sh -m pip install \
   vuer[all] \
   lightwheel-sdk
@@ -77,7 +80,7 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
 # HuggingFace for downloading datasets and models.
 # NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed in the IsaacSim version of python.
-RUN pip install huggingface-hub[cli]
+RUN pip install huggingface-hub[cli] --break-system-packages
 # Create alias for hf command to use the system-installed version
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
@@ -133,7 +136,7 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 #    It will pause waiting for the debugger to attach.
 # 3) Attach to the running container with VSCode using the "Attach to debugpy session"
 #    configuration from the Run and Debug panel.
-RUN pip3 install debugpy
+RUN pip3 install debugpy --break-system-packages
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
 # Change prompt so it's obvious we're inside the arena container
