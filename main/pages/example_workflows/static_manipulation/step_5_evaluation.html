@@ -478,10 +478,10 @@ should be greater than 0.9, and the number of episodes should be in the range of
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8823529411764706, &#39;door_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 17}
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8823529411764706, &#39;revolute_joint_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 17}
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 1.0, &#39;door_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 19}
+</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 1.0, &#39;revolute_joint_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 19}
 </pre></div>
 </div>
 </div></div>
@@ -509,7 +509,7 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 <p>At the end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate and door moved rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.605, &#39;door_moved_rate&#39;: 0.955, &#39;num_episodes&#39;: 200}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.605, &#39;revolute_joint_moved_rate&#39;: 0.955, &#39;num_episodes&#39;: 200}
 </pre></div>
 </div>
 <div class="admonition note">
