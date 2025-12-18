@@ -82,9 +82,6 @@ class PickAndPlaceTask(TaskBase):
     def get_events_cfg(self):
         return self.events_cfg
 
-    def get_prompt(self):
-        raise NotImplementedError("Function not implemented yet.")
-
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
