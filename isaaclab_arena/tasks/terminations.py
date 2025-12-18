@@ -75,3 +75,13 @@ def objects_in_proximity(
     done = torch.logical_and(done, z_separation < max_z_separation)
 
     return done
+
+
+def object_above(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    maximum_height: float,
+) -> torch.Tensor:
+    """Determine if the object is lifted above a certain height."""
+    object: RigidObject = env.scene[object_cfg.name]
+    return object.data.root_pos_w[:, 2] > maximum_height

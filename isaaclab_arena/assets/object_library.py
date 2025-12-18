@@ -276,3 +276,19 @@ class Light(LibraryObject):
     ):
         self.spawner_cfg = spawner_cfg
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class DexCube(LibraryObject):
+    """
+    A cube.
+    """
+
+    name = "dex_cube"
+    tags = ["object"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd"
+    scale = (0.8, 0.8, 0.8)
+    object_type = ObjectType.RIGID
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
