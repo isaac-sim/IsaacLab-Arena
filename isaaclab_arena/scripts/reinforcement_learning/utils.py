@@ -36,7 +36,8 @@ def get_env_and_agent_cfg(args_cli: argparse.Namespace) -> tuple[str, Any, Any]:
     num_steps_per_env = args_cli.num_steps_per_env
     max_iterations = args_cli.max_iterations
     save_interval = args_cli.save_interval
-    experiment_name = args_cli.experiment_name
+    # Use environment name as experiment name if not provided
+    experiment_name = env_name
 
     agent_cfg = RLPolicyCfg.update_cfg(
         policy_cfg, algorithm_cfg, obs_groups, num_steps_per_env, max_iterations, save_interval, experiment_name

@@ -101,10 +101,4 @@ def add_rsl_rl_policy_args(parser: argparse.ArgumentParser):
     arg_group.add_argument("--num_steps_per_env", type=int, default=24, help="Number of steps per environment.")
     arg_group.add_argument("--max_iterations", type=int, default=4000, help="Maximum number of iterations.")
     arg_group.add_argument("--save_interval", type=int, default=200, help="Save interval.")
-    arg_group.add_argument(
-        "--experiment_name",
-        type=str,
-        default="franka_lift",
-        help="Name of the experiment folder where logs will be stored.",
-    )
     return arg_group

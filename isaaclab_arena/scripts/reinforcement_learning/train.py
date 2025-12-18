@@ -33,7 +33,6 @@ parser.add_argument(
     default=Path("isaaclab_arena/policy/rl_policy/generic_policy.json"),
     help="Path to the RL agent configuration file.",
 )
-parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
 parser.add_argument(
     "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
 )
