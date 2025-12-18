@@ -1,6 +1,15 @@
 ``Isaac Lab Arena`` Documentation
 =================================
 
+if current_version == "main":
+    .. warning::
+        This is the latest version of IsaacLab Arena. It comes with the latest features but is not yet fully tested.
+        If you are looking for the tested version, please refer to our release/0.1.1[https://isaac-sim.github.io/IsaacLab-Arena/release/0.1.1/index.html] branch.
+elif current_version == "release/0.1.1":
+    .. warning::
+        This is the tested version of IsaacLab Arena. If you are looking for the latest version, please refer to our main[https://isaac-sim.github.io/IsaacLab-Arena/main/index.html] branch.
+        This comes with the latest features but is not yet fully tested.
+
 ``Isaac Lab Arena`` is an extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 to simplify the creation of task/environment libraries.
 
