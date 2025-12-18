@@ -35,6 +35,19 @@ def main():
             np.random.seed(args_cli.seed)
             random.seed(args_cli.seed)
 
+        # Post-spawn injection
+        if args_cli.randomize_object_texture_names is not None and len(args_cli.randomize_object_texture_names) > 0:
+            from isaaclab.sim.utils import get_current_stage
+
+            from isaaclab_arena.utils.usd_helpers import randomize_objects_texture
+
+            randomize_objects_texture(
+                object_names=args_cli.randomize_object_texture_names,
+                num_envs=args_cli.num_envs,
+                env_ns=env.scene.env_ns,
+                stage=get_current_stage(),
+            )
+
         obs, _ = env.reset()
 
         # NOTE(xinjieyao, 2025-09-29): General rule of thumb is to have as many non-standard python

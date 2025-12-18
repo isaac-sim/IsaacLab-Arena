@@ -39,6 +39,13 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable Pinocchio.",
     )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+    isaac_lab_group.add_argument(
+        "--randomize_object_texture_names",
+        type=str,
+        nargs="+",
+        default=[],
+        help="List of object names to randomize texture of.",
+    )
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:

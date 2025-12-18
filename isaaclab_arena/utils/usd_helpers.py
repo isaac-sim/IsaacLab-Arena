@@ -3,9 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import colorsys
+import random
 from contextlib import contextmanager
 
-from pxr import Usd, UsdLux, UsdPhysics
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade
 
 
 def get_all_prims(
@@ -100,3 +102,123 @@ def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str |
                 return reference_spec.assetPath
 
     return None
+
+
+def apply_material_variants_to_objects(
+    prim_paths: list[str],
+    stage: Usd.Stage,
+    randomize: bool = True,
+):
+    """
+    Apply UsdPreviewSurface materials to objects with optional randomization.
+    Uses standard USD shaders for maximum compatibility.
+
+    Args:
+        prim_paths: List of USD prim paths to apply material to.
+        stage: The USD stage
+        randomize: If True, randomizes color, roughness, and metallic for each prim. Otherwise, uses default values.
+    """
+
+    for path in prim_paths:
+        prim = stage.GetPrimAtPath(path)
+        if not prim.IsValid():
+            print(f"Warning: Prim at path '{path}' does not exist. Skipping.")
+            continue
+
+        # Generate material properties
+        if randomize:
+            hue = random.random()
+            saturation = random.random()
+            value = random.random()
+            rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+            mat_color = Gf.Vec3f(rgb[0], rgb[1], rgb[2])
+            # roughness is a float between 0 and 1, 0 is smooth, 1 is rough
+            mat_roughness = random.choice([random.uniform(0.1, 0.3), random.uniform(0.7, 1.0)])
+            # metallic is a float between 0 and 1, 0 is dielectric, 1 is metal
+            mat_metallic = random.choice([0.0, random.uniform(0.8, 1.0)])
+        else:
+            mat_color = Gf.Vec3f(0.0, 1.0, 1.0)
+            mat_roughness = 0.5
+            mat_metallic = 0.0
+
+        # Create and bind material for this prim
+        material_path = create_usdpreviewsurface_material(stage, prim.GetPath(), mat_color, mat_roughness, mat_metallic)
+        bind_material_to_object(prim, material_path, stage)
+
+
+def create_usdpreviewsurface_material(
+    stage: Usd.Stage, prim_path: Sdf.Path, color: Gf.Vec3f, roughness: float, metallic: float
+) -> str:
+    """
+    Create a UsdPreviewSurface material with specified properties under the object's prim path.
+
+    Args:
+        stage: The USD stage
+        prim_path: Path of the prim this material will be bound to
+        color: Diffuse color (RGB, 0-1 range)
+        roughness: Reflection roughness (0-1)
+        metallic: Metallic value (0-1)
+
+    Returns:
+        The material path as string
+    """
+    # Create material under the object's prim path
+    material_path = f"{str(prim_path)}/MaterialVariants"
+
+    # Always create a new material (or update if exists)
+    material = UsdShade.Material.Define(stage, material_path)
+    shader_path = f"{material_path}/Shader"
+    shader = UsdShade.Shader.Define(stage, shader_path)
+
+    shader.CreateIdAttr("UsdPreviewSurface")
+
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(color)
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
+    shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
+
+    # Set opacity to fully opaque
+    shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(1.0)
+
+    # Connect shader output to material surface
+    shader_output = shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput().ConnectToSource(shader_output)
+
+    print(
+        f"Created UsdPreviewSurface material at {material_path} (color: {color}, roughness: {roughness:.2f}, metallic:"
+        f" {metallic:.2f})"
+    )
+
+    return material_path
+
+
+def bind_material_to_object(prim: Usd.Prim, material_path: str, stage: Usd.Stage):
+    """
+    Recursively bind a material to an object and all its children.
+
+    Args:
+        prim: The object to bind the material to
+        material_path: USD path to the material to bind
+        stage: The USD stage
+    """
+    if prim.IsA(UsdGeom.Mesh):
+        # Bind the material to this object with strong binding
+        binding_api = UsdShade.MaterialBindingAPI.Apply(prim)
+        material = UsdShade.Material(stage.GetPrimAtPath(material_path))
+
+        # Unbind any existing material first
+        binding_api.UnbindAllBindings()
+
+        # Note (xinjieyao, 2025.12.17): Bind with "strongerThanDescendants" strength to override child materials
+        binding_api.Bind(material, bindingStrength=UsdShade.Tokens.strongerThanDescendants)
+        print(f"Bound material (strong) to mesh: {prim.GetPath()}")
+
+    # Recursively apply to children
+    for child in prim.GetChildren():
+        bind_material_to_object(child, material_path, stage)
+
+
+def randomize_objects_texture(object_names: list[str], num_envs: int, env_ns: str, stage: Usd.Stage):
+    assert object_names is not None and len(object_names) > 0
+    for object_name in object_names:
+        expanded_paths = [f"{env_ns}/env_{i}/{object_name}" for i in range(num_envs)]
+        apply_material_variants_to_objects(prim_paths=expanded_paths, stage=stage, randomize=True)
