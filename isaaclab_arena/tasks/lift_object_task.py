@@ -61,9 +61,6 @@ class LiftObjectTask(TaskBase):
     def get_mimic_env_cfg(self, embodiment_name: str):
         raise NotImplementedError("Function not implemented yet.")
 
-    def get_prompt(self):
-        raise NotImplementedError("Function not implemented yet.")
-
     def get_metrics(self) -> list[MetricBase]:
         return []
 
