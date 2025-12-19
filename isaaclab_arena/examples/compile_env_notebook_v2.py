@@ -15,7 +15,6 @@ print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
-from isaaclab_arena.assets.relations import OnRelation, RelationResolver
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -28,14 +27,16 @@ asset_registry = AssetRegistry()
 background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
-print("Setting initial pose of tomato soup can to on relation with cracker box")
-tomato_soup_can.set_initial_pose(OnRelation(tomato_soup_can, cracker_box))
+microwave = asset_registry.get_asset_by_name("microwave")()
 
-scene = Scene(assets=[background, cracker_box, tomato_soup_can])
+tomato_soup_can.next_to(cracker_box, side="right", clearance=0.05)
+microwave.next_to(tomato_soup_can, side="right", clearance=0.05)
+mustard_bottle.on_top_of(microwave)
 
+scene = Scene(assets=[background, cracker_box, tomato_soup_can, microwave, mustard_bottle])
 
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
