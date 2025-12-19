@@ -12,11 +12,6 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
-try:
-    from isaaclab.envs import ManagerBasedRLEnv
-except ModuleNotFoundError:  # pragma: no cover - backward compatibility
-    from isaaclab.envs.manager_based_rl_env import ManagerBasedRLEnv
-
 from isaaclab_arena.affordances.affordance_base import AffordanceBase
 
 
@@ -35,7 +30,10 @@ class Placeable(AffordanceBase):
         self.orientation_threshold = orientation_threshold
 
     def is_placed_upright(
-        self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, orientation_threshold: float | None = None
+        self,
+        env: ManagerBasedEnv,
+        asset_cfg: SceneEntityCfg | None = None,
+        orientation_threshold: float | torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Returns a boolean tensor of whether the object is placeable."""
         if asset_cfg is None:
@@ -44,8 +42,26 @@ class Placeable(AffordanceBase):
         # function explicitly. Otherwise we use the object-level threshold.
         if orientation_threshold is None:
             orientation_threshold = self.orientation_threshold
-        is_placed_upright = self._placed_upright(env, asset_cfg, orientation_threshold)
-        return is_placed_upright
+        object_entity: RigidObject = env.scene[asset_cfg.name]
+        object_quat = object_entity.data.root_quat_w
+
+        rotation_mats = math_utils.matrix_from_quat(object_quat)
+        axis_index = {"x": 0, "y": 1, "z": 2}[self.upright_axis_name]
+        upright_axis_world = rotation_mats[:, :, axis_index]
+
+        world_up = torch.zeros_like(upright_axis_world)
+        world_up[..., 2] = 1.0
+
+        cos_angle = torch.sum(upright_axis_world * world_up, dim=-1).clamp(-1.0, 1.0)
+        angle_error = torch.acos(cos_angle)
+
+        orientation_threshold_tensor = torch.as_tensor(
+            orientation_threshold, device=object_quat.device, dtype=object_quat.dtype
+        )
+
+        success = angle_error < orientation_threshold_tensor
+
+        return success
 
     def place_upright(
         self,
@@ -69,38 +85,6 @@ class Placeable(AffordanceBase):
             env_ids=env_ids,
             upright_axis_name=self.upright_axis_name,
         )
-
-    def _placed_upright(
-        self,
-        env: ManagerBasedRLEnv,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-        orientation_threshold: float = 0.5,
-    ) -> torch.Tensor:
-        """Check if a object is placed upright by the specified robot."""
-
-        object_entity: RigidObject = env.scene[asset_cfg.name]
-        object_quat = object_entity.data.root_quat_w
-
-        rotation_mats = math_utils.matrix_from_quat(object_quat)
-        axis_index = {"x": 0, "y": 1, "z": 2}[self.upright_axis_name]
-        upright_axis_world = rotation_mats[:, :, axis_index]
-
-        world_up = torch.zeros_like(upright_axis_world)
-        world_up[..., 2] = 1.0
-
-        cos_angle = torch.sum(upright_axis_world * world_up, dim=-1).clamp(-1.0, 1.0)
-        angle_error = torch.acos(cos_angle)
-
-        if torch.is_tensor(orientation_threshold):
-            orientation_threshold_tensor = orientation_threshold.to(device=object_quat.device, dtype=object_quat.dtype)
-        else:
-            orientation_threshold_tensor = torch.tensor(
-                orientation_threshold, device=object_quat.device, dtype=object_quat.dtype
-            )
-
-        success = angle_error < orientation_threshold_tensor
-
-        return success
 
 
 def set_normalized_object_pose(
@@ -147,10 +131,7 @@ def _compute_target_quaternions(
 ) -> torch.Tensor:
     """Compute the target quaternions for the object given the current orientation and the upright percentage."""
 
-    if torch.is_tensor(upright_percentage):
-        upright_percentage_t = upright_percentage.to(device=object_quat.device, dtype=object_quat.dtype)
-    else:
-        upright_percentage_t = torch.tensor(upright_percentage, device=object_quat.device, dtype=object_quat.dtype)
+    upright_percentage_t = torch.as_tensor(upright_percentage, device=object_quat.device, dtype=object_quat.dtype)
     if upright_percentage_t.dim() == 0:
         upright_percentage_t = upright_percentage_t.expand(object_quat.shape[0])
 
