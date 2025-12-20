@@ -176,12 +176,12 @@ class Cabinet(LibraryObject, Openable):
 
     name = "cabinet"
     tags = ["object"]
-    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Sektion_Cabinet/sektion_cabinet_instanceable.usd"
+    usd_path = f"/datasets/USD/data/Articulated/cabinet_collider.usd"
     object_type = ObjectType.ARTICULATION
     default_prim_path = "{ENV_REGEX_NS}/Cabinet"
     scale = (1.0, 1.0, 1.0)
     # Openable affordance parameters
-    openable_joint_name = "drawer_top_joint"
+    openable_joint_name = "drawer_bottom_joint"
     openable_threshold = 0.5
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
@@ -219,8 +219,8 @@ class Cabinet(LibraryObject, Openable):
                     effort_limit_sim=87.0,
                     stiffness=10.0,
                     damping=1.0,
-                    friction=5.0,
-                    dynamic_friction=5.0,
+                    friction=1.0,
+                    dynamic_friction=1.0,
                 ),
                 "doors": ImplicitActuatorCfg(
                     joint_names_expr=["door_left_joint", "door_right_joint"],

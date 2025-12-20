@@ -8,7 +8,12 @@ import importlib
 from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena_environments.close_drawer_environment import CloseDrawerEnvironment, OpenAndCloseDrawerEnvironment
+from isaaclab_arena_environments.franka_articulation_environment import (
+    FrankaCloseDrawerEnvironment,
+    FrankaOpenAndCloseDrawerEnvironment,
+    FrankaPickPlaceEnvironment,
+    FrankaPutAndCloseDrawerEnvironment,
+)
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
@@ -27,8 +32,10 @@ from isaaclab_arena_environments.press_button_environment import PressButtonEnvi
 
 # Collection of the available example environments
 ExampleEnvironments = {
-    CloseDrawerEnvironment.name: CloseDrawerEnvironment,
-    OpenAndCloseDrawerEnvironment.name: OpenAndCloseDrawerEnvironment,
+    FrankaCloseDrawerEnvironment.name: FrankaCloseDrawerEnvironment,
+    FrankaOpenAndCloseDrawerEnvironment.name: FrankaOpenAndCloseDrawerEnvironment,
+    FrankaPickPlaceEnvironment.name: FrankaPickPlaceEnvironment,
+    FrankaPutAndCloseDrawerEnvironment.name: FrankaPutAndCloseDrawerEnvironment,
     Gr1OpenMicrowaveEnvironment.name: Gr1OpenMicrowaveEnvironment,
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
