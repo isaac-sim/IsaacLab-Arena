@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
@@ -25,6 +27,8 @@ class Object(ObjectBase):
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
+        spawn_cfg_addon: dict[str, Any] = {},
+        asset_cfg_addon: dict[str, Any] = {},
         **kwargs,
     ):
         if object_type is not ObjectType.SPAWNER:
@@ -36,6 +40,8 @@ class Object(ObjectBase):
         self.usd_path = usd_path
         self.scale = scale
         self.initial_pose = initial_pose
+        self.spawn_cfg_addon = spawn_cfg_addon
+        self.asset_cfg_addon = asset_cfg_addon
         self.object_cfg = self._init_object_cfg()
 
     def set_initial_pose(self, pose: Pose) -> None:
@@ -56,7 +62,9 @@ class Object(ObjectBase):
                 usd_path=self.usd_path,
                 scale=self.scale,
                 activate_contact_sensors=True,
+                **self.spawn_cfg_addon,
             ),
+            **self.asset_cfg_addon,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
@@ -69,7 +77,9 @@ class Object(ObjectBase):
                 usd_path=self.usd_path,
                 scale=self.scale,
                 activate_contact_sensors=True,
+                **self.spawn_cfg_addon,
             ),
+            **self.asset_cfg_addon,
             actuators={},
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
@@ -82,7 +92,8 @@ class Object(ObjectBase):
                 print("WARNING: Base object has lights, this may cause issues when using with multiple environments.")
         object_cfg = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/" + self.name,
-            spawn=UsdFileCfg(usd_path=self.usd_path, scale=self.scale),
+            spawn=UsdFileCfg(usd_path=self.usd_path, scale=self.scale, **self.spawn_cfg_addon),
+            **self.asset_cfg_addon,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
@@ -92,6 +103,7 @@ class Object(ObjectBase):
         object_cfg = AssetBaseCfg(
             prim_path=self.prim_path,
             spawn=self.spawner_cfg,
+            **self.asset_cfg_addon,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg

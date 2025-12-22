@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.utils.pose import Pose
@@ -20,6 +22,8 @@ class Background(Object):
         object_min_z: float,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
+        spawn_cfg_addon: dict[str, Any] = {},
+        asset_cfg_addon: dict[str, Any] = {},
         **kwargs
     ):
         super().__init__(
@@ -29,6 +33,8 @@ class Background(Object):
             prim_path=prim_path,
             # Backgrounds don't have physics (at the moment)
             object_type=ObjectType.BASE,
+            spawn_cfg_addon=spawn_cfg_addon,
+            asset_cfg_addon=asset_cfg_addon,
             **kwargs,
         )
         # We use this to define reset terms for when objects are dropped.
