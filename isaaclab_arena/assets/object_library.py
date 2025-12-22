@@ -169,6 +169,31 @@ class CoffeeMachine(LibraryObject, Pressable):
 
 
 @register_asset
+class Cabinet(LibraryObject, Openable):
+    """
+    A cabinet.
+    """
+
+    name = "cabinet"
+    tags = ["object"]
+    usd_path = "/datasets/USD/data/Articulated/cabinet_collider.usd"
+    object_type = ObjectType.ARTICULATION
+    default_prim_path = "{ENV_REGEX_NS}/cabinet"
+    scale = (1.0, 1.0, 1.0)
+    # Openable affordance parameters
+    openable_joint_name = "drawer_bottom_joint"
+    openable_threshold = 0.5
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            openable_joint_name=self.openable_joint_name,
+            openable_threshold=self.openable_threshold,
+        )
+
+
+@register_asset
 class OfficeTable(LibraryObject):
     """
     A basic office table.
