@@ -10,7 +10,7 @@ from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
@@ -50,7 +50,7 @@ class CloseDoorTask(RotateRevoluteJointTask):
     def get_termination_cfg(self):
         return self.termination_cfg
 
-    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return RotateDoorMimicEnvCfg(
             arm_mode=arm_mode,
             openable_object_name=self.openable_object.name,

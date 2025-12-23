@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
+from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, RetargeterRegistry
 
 
 # Decorator to register an asset with the AssetRegistry.
@@ -11,7 +11,7 @@ def register_asset(cls):
     if AssetRegistry().is_registered(cls.name):
         print(f"WARNING: Asset {cls.name} is already registered. Doing nothing.")
     else:
-        AssetRegistry().register(cls)
+        AssetRegistry().register(cls, cls.name)
     return cls
 
 
@@ -20,5 +20,16 @@ def register_device(cls):
     if DeviceRegistry().is_registered(cls.name):
         print(f"WARNING: Device {cls.name} is already registered. Doing nothing.")
     else:
-        DeviceRegistry().register(cls)
+        DeviceRegistry().register(cls, cls.name)
+    return cls
+
+
+# Decorator to register an retargeter with the RetargeterRegistry.
+def register_retargeter(cls):
+    retargeter_key = (cls.device, cls.embodiment)
+    retargeter_key_str = RetargeterRegistry().convert_tuple_to_str(retargeter_key)
+    if RetargeterRegistry().is_registered(retargeter_key_str):
+        print(f"WARNING: Retargeter {cls.device} for {cls.embodiment} is already registered. Doing nothing.")
+    else:
+        RetargeterRegistry().register(cls, retargeter_key_str)
     return cls

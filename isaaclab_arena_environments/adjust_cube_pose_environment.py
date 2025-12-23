@@ -102,7 +102,7 @@ class AdjustCubePoseEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="dex_cube")
-        parser.add_argument("--background", type=str, default="factory_table")
+        parser.add_argument("--background", type=str, default="table")
         parser.add_argument("--embodiment", type=str, default="franka")
         parser.add_argument("--enable_cameras", type=bool, default=False)
         parser.add_argument("--teleop_device", type=str, default=None)

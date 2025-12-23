@@ -18,7 +18,7 @@ from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
@@ -28,7 +28,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_eve
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
@@ -40,16 +40,22 @@ class FrankaEmbodiment(EmbodimentBase):
     """Embodiment for the Franka robot."""
 
     name = "franka"
-    default_mimic_arm_mode = MimicArmMode.SINGLE_ARM
+    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
-        self, enable_cameras: bool = False, initial_pose: Pose | None = None, mimic_arm_mode: MimicArmMode | None = None
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
     ):
-        super().__init__(enable_cameras, initial_pose, mimic_arm_mode)
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = FrankaSceneCfg()
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = FrankaEventCfg()
+        self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
@@ -61,6 +67,12 @@ class FrankaEmbodiment(EmbodimentBase):
         scene_config.stand.init_state.pos = pose.position_xyz
         scene_config.stand.init_state.rot = pose.rotation_wxyz
         return scene_config
+
+    def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        return "ee_frame"
+
+    def get_command_body_name(self) -> str:
+        return self.action_config.arm_action.body_name
 
 
 @configclass
@@ -181,6 +193,16 @@ class FrankaEventCfg:
             "std": 0.02,
             "asset_cfg": SceneEntityCfg("robot"),
         },
+    )
+
+
+@configclass
+class FrankaRewardsCfg:
+    """Reward specifications for the MDP."""
+
+    action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
+    joint_vel = RewardTermCfg(
+        func=mdp_isaac_lab.joint_vel_l2, weight=-0.0001, params={"asset_cfg": SceneEntityCfg("robot")}
     )
 
 

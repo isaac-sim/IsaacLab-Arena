@@ -15,6 +15,7 @@ from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment
 from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
 from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
+from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
@@ -32,6 +33,7 @@ ExampleEnvironments = {
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
     AdjustCubePoseEnvironment.name: AdjustCubePoseEnvironment,
+    LiftObjectEnvironment.name: LiftObjectEnvironment,
 }
 
 

@@ -14,6 +14,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
+from isaaclab_arena.assets.asset_registry import DeviceRegistry
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -26,11 +27,12 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
 
-    DEFAULT_SCENE_CFG = InteractiveSceneCfg(num_envs=4096, env_spacing=30.0, replicate_physics=False)
-
     def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
         self.arena_env = arena_env
         self.args = args
+        self.interactive_scene_cfg = InteractiveSceneCfg(
+            num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
+        )
 
     def orchestrate(self) -> None:
         """Orchestrate the environment member interaction"""
@@ -56,7 +58,7 @@ class ArenaEnvBuilder:
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
-            self.DEFAULT_SCENE_CFG,
+            self.interactive_scene_cfg,
             self.arena_env.scene.get_scene_cfg(),
             self.arena_env.embodiment.get_scene_cfg(),
             self.arena_env.task.get_scene_cfg(),
@@ -82,7 +84,10 @@ class ArenaEnvBuilder:
         actions_cfg = self.arena_env.embodiment.get_action_cfg()
         xr_cfg = self.arena_env.embodiment.get_xr_cfg()
         if self.arena_env.teleop_device is not None:
-            teleop_device_cfg = self.arena_env.teleop_device.get_teleop_device_cfg(embodiment=self.arena_env.embodiment)
+            device_registry = DeviceRegistry()
+            teleop_device_cfg = device_registry.get_teleop_device_cfg(
+                self.arena_env.teleop_device, self.arena_env.embodiment
+            )
         else:
             teleop_device_cfg = None
         metrics = self.arena_env.task.get_metrics()
@@ -145,9 +150,7 @@ class ArenaEnvBuilder:
             if episode_length_s is not None:
                 env_cfg.episode_length_s = episode_length_s
         else:
-            task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(
-                arm_mode=self.arena_env.embodiment.mimic_arm_mode
-            )
+            task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,

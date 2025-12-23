@@ -12,7 +12,7 @@ from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.pressable import Pressable
-from isaaclab_arena.embodiments.common.mimic_arm_mode import MimicArmMode
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -53,7 +53,7 @@ class PressButtonTask(TaskBase):
     def get_events_cfg(self):
         return PressEventCfg(self.pressable_object, reset_pressedness=self.reset_pressedness)
 
-    def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:

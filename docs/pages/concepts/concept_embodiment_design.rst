@@ -13,9 +13,9 @@ Embodiments use the ``EmbodimentBase`` abstract class that extends the asset sys
    class EmbodimentBase(Asset):
        name: str | None = None
        tags: list[str] = ["embodiment"]
-       mimic_arm_mode: MimicArmMode | None = None
+       arm_mode: ArmMode | None = None
 
-       def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, mimic_arm_mode: MimicArmMode | None = None):
+       def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
            self.scene_config: Any | None = None
            self.action_config: Any | None = None
            self.observation_config: Any | None = None
@@ -56,17 +56,17 @@ Embodiments in Detail
    Optional camera systems that add observation terms when enabled, supporting both manipulation and perception tasks with head-mounted or external cameras.
 
 
-**Mimic Arm Mode**
-    Embodiments expose an ``mimic_arm_mode`` attribute that declares which arms are
+**Arm Mode**
+    Embodiments expose an ``arm_mode`` attribute that declares which arms are
     movable for demonstration playback. This attribute uses the
-    ``MimicArmMode`` enum from ``isaaclab_arena.embodiments.common.mimic_arm_mode``:
+    ``ArmMode`` enum from ``isaaclab_arena.embodiments.common.arm_mode``:
 
     - **SINGLE_ARM** – the robot has only one arm.
     - **DUAL_ARM** – bimanual robot, task is performed with both arms in the demonstration.
     - **LEFT** – bimanual robot, task is performed with the left arm and right arm is idle.
     - **RIGHT** – bimanual robot, task is performed with the right arm and left arm is idle.
 
-    Tasks and mimic environment builders consult this property to request the correct
+    Tasks and mimic environment builders can consult this property to request the correct
     subtask configurations, ensuring that mimic environments match the
     capabilities of the selected embodiment.
 
@@ -75,8 +75,8 @@ Embodiments in Detail
         class PickAndPlaceTask(TaskBase):
             """ Task class """
 
-            def get_mimic_env_cfg(self, arm_mode: MimicArmMode):
-                # gets the mimic environment configuration based on embodiment's mimic arm mode.
+            def get_mimic_env_cfg(self, arm_mode: ArmMode):
+                # gets the mimic environment configuration based on embodiment's arm mode.
                 return PickPlaceMimicEnvCfg(
                     arm_mode=arm_mode,
                     pick_up_object_name=self.pick_up_object.name,
@@ -87,20 +87,20 @@ Embodiments in Detail
         class PickPlaceMimicEnvCfg(MimicEnvCfg):
             """Mimic environment configuration class"""
 
-            arm_mode: MimicArmMode = MimicArmMode.SINGLE_ARM
+            arm_mode: ArmMode = ArmMode.SINGLE_ARM
 
             def __post_init__(self):
                 super().__post_init__()
 
-                # defines the subtask configurations based on the mimic arm mode.
-                if self.arm_mode == "single_arm":
+                # defines the subtask configurations based on the arm mode.
+                if self.arm_mode == ArmMode.SINGLE_ARM:
                     # single arm subtask configuration
-                elif self.arm_mode in ["left", "right"]:
+                elif self.arm_mode in [ArmMode.LEFT, ArmMode.RIGHT]:
                     # bimanual robot with one arm idle subtask configuration
-                elif self.arm_mode == "dual_arm":
+                elif self.arm_mode == ArmMode.DUAL_ARM:
                     # dual arm subtask configuration
                 else:
-                    # raise error for unsupported mimic arm mode
+                    # raise error for unsupported arm mode
 
         class ArenaEnvBuilder:
             """ ArenaEnvBuilder class """
@@ -108,7 +108,7 @@ Embodiments in Detail
             def compose_manager_cfg(self):
                 # composes the mimic environment configuration based on embodiment's mimic arm mode.
                 task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(
-                    arm_mode=self.arena_env.embodiment.mimic_arm_mode
+                    arm_mode=self.arena_env.embodiment.arm_mode
                 )
                 return task_mimic_env_cfg
 

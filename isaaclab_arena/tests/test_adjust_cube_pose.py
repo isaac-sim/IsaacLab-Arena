@@ -28,7 +28,7 @@ def get_test_environment(num_envs: int):
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
 
     asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name("factory_table")()
+    background = asset_registry.get_asset_by_name("table")()
     light = asset_registry.get_asset_by_name("light")()
     dex_cube = asset_registry.get_asset_by_name("dex_cube")()
 

@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
@@ -19,8 +21,10 @@ class LibraryBackground(Background):
     name: str
     tags: list[str]
     usd_path: str
-    initial_pose: Pose
+    initial_pose: Pose | None = None
     object_min_z: float
+    spawn_cfg_addon: dict[str, Any] = {}
+    asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
         super().__init__(
@@ -29,6 +33,8 @@ class LibraryBackground(Background):
             usd_path=self.usd_path,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
+            spawn_cfg_addon=self.spawn_cfg_addon,
+            asset_cfg_addon=self.asset_cfg_addon,
             **kwargs,
         )
 
@@ -119,16 +125,15 @@ class GalileoLocomanipBackground(LibraryBackground):
 
 
 @register_asset
-class FactoryTableBackground(LibraryBackground):
+class Table(LibraryBackground):
     """
-    Factory table background.
+    A table.
     """
 
-    name = "factory_table"
+    name = "table"
     tags = ["background"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
-    initial_pose = Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707))
-    object_min_z = -0.1
+    object_min_z = -0.05
 
     def __init__(self):
-        super().__init__(scale=(1.0, 1.0, 1.0))
+        super().__init__()

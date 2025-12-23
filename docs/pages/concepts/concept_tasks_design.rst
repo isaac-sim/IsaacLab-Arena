@@ -28,7 +28,7 @@ Tasks use the ``TaskBase`` abstract class:
            """Performance evaluation metrics."""
 
        @abstractmethod
-       def get_mimic_env_cfg(self, arm_mode: MimicArmMode) -> Any:
+       def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
            """Demonstration generation configuration."""
 
 Tasks in Detail
