@@ -14,12 +14,12 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class AdjustCubePoseEnvironment(ExampleEnvironmentBase):
+class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
     """
-    A environment for adjusting the pose of a cube.
+    A environment for achieving the goal pose of a cube.
     """
 
-    name = "adjust_cube_pose"
+    name = "cube_goal_pose"
 
     def get_env(self, args_cli: argparse.Namespace):
 
@@ -30,7 +30,7 @@ class AdjustCubePoseEnvironment(ExampleEnvironmentBase):
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.adjust_pose_task import AdjustPoseTask
+        from isaaclab_arena.tasks.goal_pose_task import GoalPoseTask
         from isaaclab_arena.utils.pose import Pose
 
         @configclass
@@ -85,7 +85,7 @@ class AdjustCubePoseEnvironment(ExampleEnvironmentBase):
 
         scene = Scene(assets=[background, light, object])
 
-        task = AdjustPoseTask(object, object_thresholds=object_thresholds)
+        task = GoalPoseTask(object, object_thresholds=object_thresholds)
 
         # add custom randomization events of the initial objectposes
         task.events_cfg = EventCfg()

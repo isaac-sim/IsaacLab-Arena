@@ -17,12 +17,12 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import adjust_pose_task_termination
+from isaaclab_arena.tasks.terminations import goal_pose_task_termination
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
-class AdjustPoseTask(TaskBase):
+class GoalPoseTask(TaskBase):
     def __init__(
         self,
         object: Asset,
@@ -31,7 +31,7 @@ class AdjustPoseTask(TaskBase):
     ):
         """
         Args:
-            object_thresholds: Success criteria for pose adjustment.
+            object_thresholds: Success criteria for goal pose.
                 {
                     "success_zone": {
                         "x_range": [min, max],  # meters, optional
@@ -48,7 +48,7 @@ class AdjustPoseTask(TaskBase):
         self.object = object
         # this is needed to revise the default env_spacing in arena_env_builder: priority task > embodiment > scene > default
         self.scene_config = InteractiveSceneCfg(num_envs=1, env_spacing=3.0, replicate_physics=False)
-        self.events_cfg = AdjustPoseEventCfg(self.object)
+        self.events_cfg = GoalPoseEventCfg(self.object)
         self.termination_cfg = self.make_termination_cfg(object_thresholds)
 
     def get_scene_cfg(self):
@@ -59,7 +59,7 @@ class AdjustPoseTask(TaskBase):
 
     def make_termination_cfg(self, object_thresholds: dict | None = None):
         success = TerminationTermCfg(
-            func=adjust_pose_task_termination,
+            func=goal_pose_task_termination,
             params={
                 "object_cfg": SceneEntityCfg(self.object.name),
                 "object_thresholds": object_thresholds,
@@ -95,8 +95,8 @@ class TerminationsCfg:
 
 
 @configclass
-class AdjustPoseEventCfg:
-    """Configuration for Adjust Pose."""
+class GoalPoseEventCfg:
+    """Configuration for goal pose."""
 
     reset_object_pose: EventTermCfg = MISSING
 

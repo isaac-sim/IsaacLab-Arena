@@ -78,7 +78,7 @@ def objects_in_proximity(
     return done
 
 
-def adjust_pose_task_termination(
+def goal_pose_task_termination(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     object_thresholds: dict | None = None,

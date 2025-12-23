@@ -21,7 +21,7 @@ def get_test_environment(num_envs: int):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.adjust_pose_task import AdjustPoseTask
+    from isaaclab_arena.tasks.goal_pose_task import GoalPoseTask
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -53,7 +53,7 @@ def get_test_environment(num_envs: int):
 
     scene = Scene(assets=[background, light, dex_cube])
 
-    task = AdjustPoseTask(dex_cube, object_thresholds=object_thresholds)
+    task = GoalPoseTask(dex_cube, object_thresholds=object_thresholds)
 
     embodiment = FrankaEmbodiment()
     embodiment.set_initial_pose(
@@ -64,7 +64,7 @@ def get_test_environment(num_envs: int):
     )
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="test_adjust_cube_pose",
+        name="test_achieve_cube_goal_pose",
         embodiment=embodiment,
         scene=scene,
         task=task,
@@ -78,7 +78,7 @@ def get_test_environment(num_envs: int):
     return env, dex_cube
 
 
-def _test_adjust_cube_pose_initial_state(simulation_app) -> bool:
+def _test_achieve_cube_goal_pose_initial_state(simulation_app) -> bool:
     """Test that the cube is not in success state initially."""
 
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
@@ -108,7 +108,7 @@ def _test_adjust_cube_pose_initial_state(simulation_app) -> bool:
     return True
 
 
-def _test_adjust_cube_pose_success(simulation_app) -> bool:
+def _test_achieve_cube_goal_pose_success(simulation_app) -> bool:
     """Test that the cube reaches success state when moved to target pose."""
 
     from isaaclab.assets import RigidObject
@@ -157,8 +157,8 @@ def _test_adjust_cube_pose_success(simulation_app) -> bool:
     return True
 
 
-def _test_adjust_cube_pose_multiple_envs(simulation_app) -> bool:
-    """Test adjust cube pose with multiple environments."""
+def _test_achieve_cube_goal_pose_multiple_envs(simulation_app) -> bool:
+    """Test goal pose cube pose with multiple environments."""
 
     from isaaclab.assets import RigidObject
 
@@ -229,31 +229,31 @@ def _test_adjust_cube_pose_multiple_envs(simulation_app) -> bool:
     return True
 
 
-def test_adjust_cube_pose_initial_state():
+def test_achieve_cube_goal_pose_initial_state():
     result = run_simulation_app_function(
-        _test_adjust_cube_pose_initial_state,
+        _test_achieve_cube_goal_pose_initial_state,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_adjust_cube_pose_initial_state.__name__} failed"
+    assert result, f"Test {_test_achieve_cube_goal_pose_initial_state.__name__} failed"
 
 
-def test_adjust_cube_pose_success():
+def test_achieve_cube_goal_pose_success():
     result = run_simulation_app_function(
-        _test_adjust_cube_pose_success,
+        _test_achieve_cube_goal_pose_success,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_adjust_cube_pose_success.__name__} failed"
+    assert result, f"Test {_test_achieve_cube_goal_pose_success.__name__} failed"
 
 
-def test_adjust_cube_pose_multiple_envs():
+def test_achieve_cube_goal_pose_multiple_envs():
     result = run_simulation_app_function(
-        _test_adjust_cube_pose_multiple_envs,
+        _test_achieve_cube_goal_pose_multiple_envs,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_adjust_cube_pose_multiple_envs.__name__} failed"
+    assert result, f"Test {_test_achieve_cube_goal_pose_multiple_envs.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_adjust_cube_pose_initial_state()
-    test_adjust_cube_pose_success()
-    test_adjust_cube_pose_multiple_envs()
+    test_achieve_cube_goal_pose_initial_state()
+    test_achieve_cube_goal_pose_success()
+    test_achieve_cube_goal_pose_multiple_envs()
