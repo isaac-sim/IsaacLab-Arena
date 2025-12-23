@@ -46,6 +46,7 @@ class FrankaEmbodiment(EmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
@@ -55,6 +56,8 @@ class FrankaEmbodiment(EmbodimentBase):
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = FrankaEventCfg()
+        if initial_joint_pose is not None:
+            self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
 
@@ -67,6 +70,9 @@ class FrankaEmbodiment(EmbodimentBase):
         scene_config.stand.init_state.pos = pose.position_xyz
         scene_config.stand.init_state.rot = pose.rotation_wxyz
         return scene_config
+
+    def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
+        self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "ee_frame"
@@ -176,7 +182,7 @@ class FrankaObservationsCfg:
 
 @configclass
 class FrankaEventCfg:
-    """Configuration for Franek."""
+    """Configuration for Franka."""
 
     init_franka_arm_pose = EventTerm(
         func=franka_stack_events.set_default_joint_pose,
