@@ -81,25 +81,23 @@ def objects_in_proximity(
 def goal_pose_task_termination(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-    object_thresholds: dict | None = None,
+    target_x_range: tuple[float, float] | None = None,
+    target_y_range: tuple[float, float] | None = None,
+    target_z_range: tuple[float, float] | None = None,
+    target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+    target_orientation_tolerance_rad: float = 0.1,
 ) -> torch.Tensor:
     """Terminate when the object's pose is within the thresholds (BBox + Orientation).
 
     Args:
         env: The RL environment instance.
         object_cfg: The configuration of the object to track.
-        object_thresholds: Configuration dict following the BBox schema:
-            {
-                "success_zone": {
-                    "x_range": [0.4, 0.6],  # Optional
-                    "y_range": [-0.1, 0.1], # Optional
-                    "z_range": [0.0, 0.5]   # Optional
-                },
-                "orientation": {
-                    "target": [w, x, y, z],
-                    "tolerance_rad": 0.1
-                }
-            }
+        target_x_range: Success zone x-range [min, max] in meters.
+        target_y_range: Success zone y-range [min, max] in meters.
+        target_z_range: Success zone z-range [min, max] in meters.
+        target_orientation_wxyz: Target quaternion [w, x, y, z].
+        target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
+
     Returns:
         A boolean tensor of shape (num_envs, )
     """
@@ -110,35 +108,37 @@ def goal_pose_task_termination(
     device = env.device
     num_envs = env.num_envs
 
-    if not object_thresholds:
+    has_any_threshold = any([
+        target_x_range is not None,
+        target_y_range is not None,
+        target_z_range is not None,
+        target_orientation_wxyz is not None,
+    ])
+
+    if not has_any_threshold:
         return torch.zeros(num_envs, dtype=torch.bool, device=device)
 
     success = torch.ones(num_envs, dtype=torch.bool, device=device)
 
-    zone_cfg = object_thresholds.get("success_zone", {})
-
-    for idx, name in enumerate(["x_range", "y_range", "z_range"]):
-        if name in zone_cfg:
-            range_min, range_max = zone_cfg[name]
+    # Position range checks
+    ranges = [target_x_range, target_y_range, target_z_range]
+    for idx, range_val in enumerate(ranges):
+        if range_val is not None:
+            range_min, range_max = range_val
             in_range = (object_root_pos_w[:, idx] >= range_min) & (object_root_pos_w[:, idx] <= range_max)
             success &= in_range
 
-    # Orientation Check
-    ori_cfg = object_thresholds.get("orientation")
-    if ori_cfg:
-        target_list = ori_cfg.get("target")
-        tol_rad = ori_cfg.get("tolerance_rad", 0.1)
+    # Orientation check
+    if target_orientation_wxyz is not None:
+        target_quat = torch.tensor(target_orientation_wxyz, device=device, dtype=torch.float32).unsqueeze(0)
 
-        if target_list is not None:
-            target_quat = torch.tensor(target_list, device=device, dtype=torch.float32).unsqueeze(0)  # Shape: [1, 4]
+        # Formula: |<q1, q2>| > cos(tolerance / 2)
+        quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
+        abs_dot = torch.abs(quat_dot)
+        min_cos = math.cos(target_orientation_tolerance_rad / 2.0)
 
-            # Formula: |<q1, q2>| > cos(tolerance / 2)
-            quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
-            abs_dot = torch.abs(quat_dot)
-            min_cos = math.cos(tol_rad / 2.0)
-
-            ori_success = abs_dot >= min_cos
-            success &= ori_success
+        ori_success = abs_dot >= min_cos
+        success &= ori_success
 
     return success
 

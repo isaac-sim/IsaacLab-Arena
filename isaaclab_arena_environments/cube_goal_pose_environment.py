@@ -73,19 +73,14 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        object_thresholds = {
-            "success_zone": {
-                "z_range": [0.2, 1],
-            },
-            "orientation": {
-                "target": [0.7071, 0.0, 0.0, 0.7071],  # yaw 90 degrees
-                "tolerance_rad": 0.2,
-            },
-        }
-
         scene = Scene(assets=[background, light, object])
 
-        task = GoalPoseTask(object, object_thresholds=object_thresholds)
+        task = GoalPoseTask(
+            object,
+            target_z_range=(0.2, 1),
+            target_orientation_wxyz=(0.7071, 0.0, 0.0, 0.7071),  # yaw 90 degrees
+            target_orientation_tolerance_rad=0.2,
+        )
 
         # add custom randomization events of the initial objectposes
         task.events_cfg = EventCfg()

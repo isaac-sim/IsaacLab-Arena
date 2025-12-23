@@ -26,30 +26,35 @@ class GoalPoseTask(TaskBase):
     def __init__(
         self,
         object: Asset,
-        object_thresholds: dict | None = None,
         episode_length_s: float | None = None,
+        target_x_range: tuple[float, float] | None = None,
+        target_y_range: tuple[float, float] | None = None,
+        target_z_range: tuple[float, float] | None = None,
+        target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+        target_orientation_tolerance_rad: float | None = None,
     ):
         """
         Args:
-            object_thresholds: Success criteria for goal pose.
-                {
-                    "success_zone": {
-                        "x_range": [min, max],  # meters, optional
-                        "y_range": [min, max],  # meters, optional
-                        "z_range": [min, max]   # meters, optional
-                    },
-                    "orientation": {
-                        "target": [w, x, y, z],   # target quaternion
-                        "tolerance_rad": 0.1      # angular tolerance in radians
-                    }
-                }
+            object: The object asset for the goal pose task.
+            episode_length_s: Episode length in seconds.
+            target_x_range: Success zone x-range [min, max] in meters.
+            target_y_range: Success zone y-range [min, max] in meters.
+            target_z_range: Success zone z-range [min, max] in meters.
+            target_orientation_wxyz: Target quaternion [w, x, y, z].
+            target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
         """
         super().__init__(episode_length_s=episode_length_s)
         self.object = object
         # this is needed to revise the default env_spacing in arena_env_builder: priority task > embodiment > scene > default
         self.scene_config = InteractiveSceneCfg(num_envs=1, env_spacing=3.0, replicate_physics=False)
         self.events_cfg = GoalPoseEventCfg(self.object)
-        self.termination_cfg = self.make_termination_cfg(object_thresholds)
+        self.termination_cfg = self.make_termination_cfg(
+            target_x_range=target_x_range,
+            target_y_range=target_y_range,
+            target_z_range=target_z_range,
+            target_orientation_wxyz=target_orientation_wxyz,
+            target_orientation_tolerance_rad=target_orientation_tolerance_rad,
+        )
 
     def get_scene_cfg(self):
         return self.scene_config
@@ -57,13 +62,29 @@ class GoalPoseTask(TaskBase):
     def get_termination_cfg(self):
         return self.termination_cfg
 
-    def make_termination_cfg(self, object_thresholds: dict | None = None):
+    def make_termination_cfg(
+        self,
+        target_x_range: tuple[float, float] | None = None,
+        target_y_range: tuple[float, float] | None = None,
+        target_z_range: tuple[float, float] | None = None,
+        target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+        target_orientation_tolerance_rad: float | None = None,
+    ):
+        params: dict = {"object_cfg": SceneEntityCfg(self.object.name)}
+        if target_x_range is not None:
+            params["target_x_range"] = target_x_range
+        if target_y_range is not None:
+            params["target_y_range"] = target_y_range
+        if target_z_range is not None:
+            params["target_z_range"] = target_z_range
+        if target_orientation_wxyz is not None:
+            params["target_orientation_wxyz"] = target_orientation_wxyz
+        if target_orientation_tolerance_rad is not None:
+            params["target_orientation_tolerance_rad"] = target_orientation_tolerance_rad
+
         success = TerminationTermCfg(
             func=goal_pose_task_termination,
-            params={
-                "object_cfg": SceneEntityCfg(self.object.name),
-                "object_thresholds": object_thresholds,
-            },
+            params=params,
         )
         return TerminationsCfg(success=success)
 

@@ -40,20 +40,15 @@ def get_test_environment(num_envs: int):
         )
     )
 
-    # Define success thresholds: z in [0.2, 1] and yaw 90 degrees
-    object_thresholds = {
-        "success_zone": {
-            "z_range": [0.0, 0.5],
-        },
-        "orientation": {
-            "target": [0.7071, 0.0, 0.0, 0.7071],  # yaw 90 degrees
-            "tolerance_rad": 0.2,
-        },
-    }
-
     scene = Scene(assets=[background, light, dex_cube])
 
-    task = GoalPoseTask(dex_cube, object_thresholds=object_thresholds)
+    # Define success thresholds: z in [0.0, 0.5] and yaw 90 degrees
+    task = GoalPoseTask(
+        dex_cube,
+        target_z_range=(0.0, 0.5),
+        target_orientation_wxyz=(0.7071, 0.0, 0.0, 0.7071),  # yaw 90 degrees
+        target_orientation_tolerance_rad=0.2,
+    )
 
     embodiment = FrankaEmbodiment()
     embodiment.set_initial_pose(
