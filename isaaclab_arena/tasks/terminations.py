@@ -117,23 +117,11 @@ def goal_pose_task_termination(
 
     zone_cfg = object_thresholds.get("success_zone", {})
 
-    # X Axis Check
-    if "x_range" in zone_cfg:
-        x_min, x_max = zone_cfg["x_range"]
-        in_x = (object_root_pos_w[:, 0] >= x_min) & (object_root_pos_w[:, 0] <= x_max)
-        success &= in_x
-
-    # Y Axis Check
-    if "y_range" in zone_cfg:
-        y_min, y_max = zone_cfg["y_range"]
-        in_y = (object_root_pos_w[:, 1] >= y_min) & (object_root_pos_w[:, 1] <= y_max)
-        success &= in_y
-
-    # Z Axis Check
-    if "z_range" in zone_cfg:
-        z_min, z_max = zone_cfg["z_range"]
-        in_z = (object_root_pos_w[:, 2] >= z_min) & (object_root_pos_w[:, 2] <= z_max)
-        success &= in_z
+    for idx, name in enumerate(["x_range", "y_range", "z_range"]):
+        if name in zone_cfg:
+            range_min, range_max = zone_cfg[name]
+            in_range = (object_root_pos_w[:, idx] >= range_min) & (object_root_pos_w[:, idx] <= range_max)
+            success &= in_range
 
     # Orientation Check
     ori_cfg = object_thresholds.get("orientation")
