@@ -5,7 +5,6 @@
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg
-from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from pxr import Usd
 
 from isaaclab_arena.assets.object_base import ObjectType

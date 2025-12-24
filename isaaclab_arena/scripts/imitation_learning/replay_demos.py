@@ -144,8 +144,8 @@ def main():
     # Compile an IsaacLab compatible arena environment configuration
     arena_builder = get_arena_builder_from_cli(args_cli)
     env_name, env_cfg = arena_builder.build_registered()
-	
-	# extract success checking function to invoke in the main loop
+
+    # extract success checking function to invoke in the main loop
     success_term = None
     if True:
         if hasattr(env_cfg.terminations, "success"):
@@ -196,7 +196,7 @@ def main():
 
     # Track failed demo IDs
     failed_demo_ids = []
-	
+
     with contextlib.suppress(KeyboardInterrupt) and torch.inference_mode():
         while simulation_app.is_running() and not simulation_app.is_exiting():
             env_episode_data_map = {index: EpisodeData() for index in range(num_envs)}
@@ -233,7 +233,7 @@ def main():
                                     failed_demo_ids.append(current_episode_indices[env_id])
 
                             episode_ended[env_id] = True
-							
+
                         next_episode_index = None
                         while episode_indices_to_replay:
                             next_episode_index = episode_indices_to_replay.pop(0)
@@ -296,7 +296,7 @@ def main():
         if failed_demo_ids:
             print(f"\nFailed demo IDs ({len(failed_demo_ids)} total):")
             print(f"  {sorted(failed_demo_ids)}")
-			
+
     env.close()
 
 
