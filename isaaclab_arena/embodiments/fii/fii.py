@@ -455,9 +455,7 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
         """
         if env_ids is None:
             env_ids = slice(None)
-        if eef_name == "body":
-            return PoseUtils.make_pose(manip_mdp.get_eef_pos(self,"jack_link")[env_ids], PoseUtils.matrix_from_quat(manip_mdp.get_eef_quat(self,"jack_link")[env_ids]))
-            
+
         eef_pos_name = f"{eef_name}_eef_pos"
         eef_quat_name = f"{eef_name}_eef_quat"
 
@@ -497,9 +495,6 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
         left_gripper_action = gripper_action_dict["left"]
         right_gripper_action = gripper_action_dict["right"]
 
-        # body gripper action is lower body control commands (nav_cmd, base_height_cmd)
-        body_gripper_action = gripper_action_dict["body"]
-
         if action_noise_dict is not None:
             pos_noise_left = action_noise_dict["left"] * torch.randn_like(target_left_eef_pos)
             pos_noise_right = action_noise_dict["right"] * torch.randn_like(target_right_eef_pos)
@@ -519,7 +514,8 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
                 target_right_eef_rot_quat,
                 left_gripper_action,
                 right_gripper_action,
-                body_gripper_action,
+                torch.zeros(3),
+                torch.ones(1)*0.7,
             ),
             dim=0,
         )
@@ -549,7 +545,6 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
         target_pose_right = PoseUtils.make_pose(target_right_wrist_position, target_right_rot_mat)
         target_poses["right"] = target_pose_right
 
-        target_poses["body"] = PoseUtils.make_pose(manip_mdp.get_eef_pos(self,"jack_link"), PoseUtils.matrix_from_quat(manip_mdp.get_eef_quat(self,"jack_link")))
         return target_poses
 
     def actions_to_gripper_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:
@@ -574,7 +569,7 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
             navigate_cmd shape: (3,)
             base_height_cmd shape: (1,)
         """
-        return {"left": actions[:, 14:16], "right": actions[:, 16:18], "body": actions[:, -4:]}
+        return {"left": actions[:, 14:16], "right": actions[:, 16:18]}
 
     def get_object_poses(self, env_ids: Sequence[int] | None = None):
         """
