@@ -8,6 +8,7 @@ import importlib
 from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
@@ -32,6 +33,7 @@ ExampleEnvironments = {
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
+    CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
     LiftObjectEnvironment.name: LiftObjectEnvironment,
     TableTopPlaceUprightEnvironment.name: TableTopPlaceUprightEnvironment,
 }
