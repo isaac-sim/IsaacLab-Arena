@@ -6,7 +6,6 @@
 from typing import Any
 
 import isaaclab.sim as sim_utils
-from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
@@ -19,7 +18,6 @@ from isaaclab_arena.assets.object_utils import (
     ASSEMBLY_ARTICULATION_INIT_STATE,
     RIGID_BODY_PROPS_HIGH_PRECISION,
     RIGID_BODY_PROPS_STANDARD,
-    create_factory_articulation_cfg,
 )
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
@@ -364,8 +362,6 @@ class Peg(LibraryObject):
         "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
     }
 
-    
-
 
 @register_asset
 class Hole(LibraryObject):
@@ -407,6 +403,7 @@ class SmallGear(LibraryObject):
     asset_cfg_addon = {
         "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
     }
+
 
 @register_asset
 class LargeGear(LibraryObject):
@@ -469,4 +466,3 @@ class MediumGear(LibraryObject):
     asset_cfg_addon = {
         "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
     }
-
