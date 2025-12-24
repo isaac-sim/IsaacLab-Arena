@@ -1,0 +1,40 @@
+FROM nvcr.io/nvidia/pytorch:24.07-py3
+
+ARG WORKDIR="/workspace"
+ARG GROOT_DEPS_GROUP="base"
+ENV WORKDIR=${WORKDIR}
+ENV GROOT_DEPS_GROUP=${GROOT_DEPS_GROUP}
+WORKDIR "${WORKDIR}"
+
+RUN apt-get update && apt-get install -y \
+    git \
+    git-lfs \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip
+
+COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
+
+COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
+RUN chmod +x /tmp/install_gr00t_deps.sh && \
+    /tmp/install_gr00t_deps.sh --server && \
+    rm -f /tmp/install_gr00t_deps.sh
+
+RUN pip install -e ${WORKDIR}/submodules/Isaac-GR00T
+
+RUN pip uninstall -y \
+      opencv-python opencv-python-headless \
+      opencv-contrib-python opencv-contrib-python-headless \
+      || true && \
+    pip install --no-cache-dir "opencv-python-headless==4.8.0.74"
+
+COPY isaaclab_arena/remote_policy ${WORKDIR}/isaaclab_arena/remote_policy
+
+COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
+
+RUN pip install --no-cache-dir pyzmq msgpack
+
+ENV PYTHONPATH=${WORKDIR}
+
+ENTRYPOINT ["python", "-u", "-m", "isaaclab_arena.remote_policy.remote_policy_server_runner"]

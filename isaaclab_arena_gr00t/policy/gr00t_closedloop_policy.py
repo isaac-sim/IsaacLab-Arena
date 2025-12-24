@@ -3,17 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 import argparse
 import gymnasium as gym
 import torch
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
-from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.policy_base import PolicyBase, PolicyDeployment
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
@@ -110,6 +111,18 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.device = config.policy_device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
+        self.policy = None
+
+        if self.is_remote:
+            if not self.remote_client.ping():
+                cfg = self.remote_config
+                raise RuntimeError(
+                    f"Failed to connect to remote policy server at "
+                    f"{cfg.host}:{cfg.port}."
+                )
+        else:
+            self.policy = self.load_local_policy()
+
         self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
         self.robot_action_joints_config = self.load_sim_action_joints_config(
             self.policy_config.action_joints_config_path
@@ -127,8 +140,6 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         self.action_dim = len(self.robot_action_joints_config)
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
-            # GR00T outputs are used for WBC inputs dim. So adding WBC commands to the action dim.
-            # WBC commands: navigate_command, base_height_command, torso_orientation_rpy_command
             self.action_dim += NUM_NAVIGATE_CMD + NUM_BASE_HEIGHT_CMD + NUM_TORSO_ORIENTATION_RPY_CMD
 
         self.current_action_chunk = torch.zeros(
@@ -193,12 +204,31 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """Load the simulation action joint config from the data config."""
         return load_robot_joints_config_from_yaml(action_config_path)
 
-    def load_policy(self) -> Gr00tPolicy:
-        """Load the dataset, whose iterator will be used as the policy."""
-        assert Path(
-            self.policy_config.model_path
-        ).exists(), f"Dataset path {self.policy_config.dataset_path} does not exist"
+    def load_local_policy(self):
+        try:
+            from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
+            from gr00t.model.policy import Gr00tPolicy
+        except ImportError as exc:
+            raise ImportError(
+                "GR00T policy dependencies are not installed. "
+                "Install gr00t packages or use policy_deployment=PolicyDeployment.REMOTE."
+            ) from exc
 
+        assert Path(self.policy_config.model_path).exists(), (
+            f"Model path {self.policy_config.model_path} does not exist"
+        )
+
+        if self.policy_config.data_config in DATA_CONFIG_MAP:
+            data_config = DATA_CONFIG_MAP[self.policy_config.data_config]
+        elif self.policy_config.data_config == "unitree_g1_sim_wbc":
+            self.data_config = load_data_config(
+                "isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig"
+            )
+        else:
+            raise ValueError(f"Invalid data config: {self.policy_config.data_config}")
+
+        modality_config = data_config.modality_config()
+        modality_transform = data_config.transform()
         return Gr00tPolicy(
             model_path=self.policy_config.model_path,
             embodiment_tag=EmbodimentTag[self.policy_config.embodiment_tag],
@@ -310,7 +340,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
             Shape: (num_envs, action_chunk_length, self.action_dim)
         """
         policy_observations = self.get_observations(observation, camera_name)
-        robot_action_policy, _ = self.policy.get_action(policy_observations)
+
+        if not self.is_remote:
+            if self._policy is None:
+                raise RuntimeError("Local GR00T policy is not initialized.")
+            robot_action_policy = self.policy.get_action(policy_observations)
+        else:
+            robot_action_policy = self.remote_client.get_action(
+                observation=policy_observations,
+            )
 
         robot_action_sim = remap_policy_joints_to_sim_joints(
             robot_action_policy, self.policy_joints_config, self.robot_action_joints_config, self.device
