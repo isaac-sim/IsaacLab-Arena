@@ -456,7 +456,7 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
         if env_ids is None:
             env_ids = slice(None)
         if eef_name == "body":
-            return PoseUtils.make_pose(self.obs_buf["policy"]["robot_root_pos"][env_ids], PoseUtils.matrix_from_quat(self.obs_buf["policy"]["robot_root_rot"][env_ids]))
+            return PoseUtils.make_pose(manip_mdp.get_eef_pos(self,"jack_link")[env_ids], PoseUtils.matrix_from_quat(manip_mdp.get_eef_quat(self,"jack_link")[env_ids]))
             
         eef_pos_name = f"{eef_name}_eef_pos"
         eef_quat_name = f"{eef_name}_eef_quat"
@@ -549,8 +549,7 @@ class FiiMimicEnv(ManagerBasedRLMimicEnv):
         target_pose_right = PoseUtils.make_pose(target_right_wrist_position, target_right_rot_mat)
         target_poses["right"] = target_pose_right
 
-        target_poses["body"] = torch.zeros_like(target_pose_left)
-
+        target_poses["body"] = PoseUtils.make_pose(manip_mdp.get_eef_pos(self,"jack_link"), PoseUtils.matrix_from_quat(manip_mdp.get_eef_quat(self,"jack_link")))
         return target_poses
 
     def actions_to_gripper_actions(self, actions: torch.Tensor) -> dict[str, torch.Tensor]:
