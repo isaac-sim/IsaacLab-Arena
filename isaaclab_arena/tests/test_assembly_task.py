@@ -14,15 +14,16 @@ HEADLESS = True
 
 def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     """Returns a peg insert environment for testing."""
+    import isaaclab.sim as sim_utils
+
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment, FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG
+    from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.assembly_task import AssemblyTask
     from isaaclab_arena.utils.pose import Pose
-    import isaaclab.sim as sim_utils
     from isaaclab_arena_environments import mdp
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -30,26 +31,20 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     args_cli.enable_pinocchio = False
 
     asset_registry = AssetRegistry()
-    
+
     # Create scene assets
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(
-        Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707))
-    )
-    
+    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+
     peg = asset_registry.get_asset_by_name("peg")()
-    peg.set_initial_pose(
-        Pose(position_xyz=(0.45, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
-    
+    peg.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
     hole = asset_registry.get_asset_by_name("hole")()
-    hole.set_initial_pose(
-        Pose(position_xyz=(0.45, 0.1, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
-    
+    hole.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
     light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
-    
+
     # Create embodiment
     embodiment = FrankaEmbodiment()
     embodiment.scene_config.robot = FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -74,14 +69,14 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
         task=task,
         env_cfg_callback=mdp.assembly_env_cfg_callback,
     )
-    
+
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
-    
+
     if remove_events:
         cfg.events.reset_all = None
         cfg.events.randomize_asset_positions = None
-    
+
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 
@@ -90,15 +85,16 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
 def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     """Returns a gear mesh environment for testing."""
+    import isaaclab.sim as sim_utils
+
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment, FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG
+    from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.assembly_task import AssemblyTask
     from isaaclab_arena.utils.pose import Pose
-    import isaaclab.sim as sim_utils
     from isaaclab_arena_environments import mdp
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -106,36 +102,26 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     args_cli.enable_pinocchio = False
 
     asset_registry = AssetRegistry()
-    
+
     # Create scene assets
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(
-        Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707))
-    )
-    
+    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+
     gear_base = asset_registry.get_asset_by_name("gear_base")()
-    gear_base.set_initial_pose(
-        Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
-    
+    gear_base.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
     medium_gear = asset_registry.get_asset_by_name("medium_gear")()
-    medium_gear.set_initial_pose(
-        Pose(position_xyz=(0.5, 0.2, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
-    
+    medium_gear.set_initial_pose(Pose(position_xyz=(0.5, 0.2, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
     small_gear = asset_registry.get_asset_by_name("small_gear")()
-    small_gear.set_initial_pose(
-        Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
-    
+    small_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
     large_gear = asset_registry.get_asset_by_name("large_gear")()
-    large_gear.set_initial_pose(
-        Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
-    
+    large_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
     light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
-    
+
     # Create embodiment
     embodiment = FrankaEmbodiment()
     embodiment.scene_config.robot = FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -161,14 +147,14 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
         task=task,
         env_cfg_callback=mdp.assembly_env_cfg_callback,
     )
-    
+
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
-    
+
     if remove_events:
         cfg.events.reset_all = None
         cfg.events.randomize_asset_positions = None
-    
+
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 
@@ -178,6 +164,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 def _test_peg_insert_assembly_single(simulation_app) -> bool:
     """Test peg insert assembly with single environment."""
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     env, peg, hole = get_peg_insert_test_environment(num_envs=1, remove_events=True)
@@ -187,10 +174,10 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
         peg_pos = peg.get_object_pose(env, is_relative=True)[:, :3]
         hole_pos = hole.get_object_pose(env, is_relative=True)[:, :3]
         distance = torch.norm(peg_pos - hole_pos, dim=-1)
-        
+
         print(f"Distance between peg and hole: {distance.item():.4f}m")
         assert distance.item() < 0.05, f"Objects not assembled, distance: {distance.item():.4f}m"
-        
+
         # Check terminated
         assert terminated.shape == torch.Size([1]), "Terminated shape is not correct"
         assert terminated.item(), "Task didn't terminate when it should have"
@@ -198,16 +185,17 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
 
     try:
         print("Testing peg insert assembly (single env)...")
-        
+
         # Manually place hole on peg to simulate successful assembly - use absolute world coordinates
         peg_pose = peg.get_object_pose(env, is_relative=False)
         env.scene[hole.name].write_root_pose_to_sim(peg_pose, env_ids=torch.tensor([0], device=env.device))
-        
+
         step_zeros_and_call(env, NUM_STEPS, assert_assembled)
 
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -219,21 +207,20 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
 def _test_gear_mesh_assembly_single(simulation_app) -> bool:
     """Test gear mesh assembly with single environment."""
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
+
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, gear_base, medium_gear, small_gear, large_gear = get_gear_mesh_test_environment(
-        num_envs=1, remove_events=True
-    )
+    env, gear_base, medium_gear, small_gear, large_gear = get_gear_mesh_test_environment(num_envs=1, remove_events=True)
 
     def assert_assembled(env: ManagerBasedEnv, terminated: torch.Tensor):
         # Check if gears are close together (meshed)
         base_pos = gear_base.get_object_pose(env, is_relative=True)[:, :3]
         medium_pos = medium_gear.get_object_pose(env, is_relative=True)[:, :3]
         distance = torch.norm(base_pos - medium_pos, dim=-1)
-        
+
         print(f"Distance between gear base and medium gear: {distance.item():.4f}m")
         assert distance.item() < 0.05, f"Gears not meshed, distance: {distance.item():.4f}m"
-        
+
         # Check terminated
         assert terminated.shape == torch.Size([1]), "Terminated shape is not correct"
         assert terminated.item(), "Task didn't terminate when it should have"
@@ -241,18 +228,17 @@ def _test_gear_mesh_assembly_single(simulation_app) -> bool:
 
     try:
         print("Testing gear mesh assembly (single env)...")
-        
+
         # Manually place medium gear on gear base to simulate successful assembly - use absolute world coordinates
         base_pose = gear_base.get_object_pose(env, is_relative=False)
-        env.scene[medium_gear.name].write_root_pose_to_sim(
-            base_pose, env_ids=torch.tensor([0], device=env.device)
-        )
-        
+        env.scene[medium_gear.name].write_root_pose_to_sim(base_pose, env_ids=torch.tensor([0], device=env.device))
+
         step_zeros_and_call(env, NUM_STEPS, assert_assembled)
 
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -270,18 +256,18 @@ def _test_peg_insert_assembly_multi(simulation_app) -> bool:
     try:
         with torch.inference_mode():
             print("Testing peg insert assembly (multi env)...")
-            
+
             # Assemble in both environments - use absolute world coordinates
             peg_poses = peg.get_object_pose(env, is_relative=False)
             env.scene[hole.name].write_root_pose_to_sim(peg_poses, env_ids=None)
-            
+
             step_zeros_and_call(env, NUM_STEPS)
-            
+
             # Check distances
             peg_pos = peg.get_object_pose(env, is_relative=True)[:, :3]
             hole_pos = hole.get_object_pose(env, is_relative=True)[:, :3]
             distances = torch.norm(peg_pos - hole_pos, dim=-1)
-            
+
             print(f"Distances in both envs: {distances}")
             assert torch.all(distances < 0.05), f"Not all environments assembled: {distances}"
             print("✓ Multi-environment peg insert assembly successful")
@@ -289,6 +275,7 @@ def _test_peg_insert_assembly_multi(simulation_app) -> bool:
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -301,25 +288,23 @@ def _test_gear_mesh_assembly_multi(simulation_app) -> bool:
     """Test gear mesh assembly with multiple environments."""
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, gear_base, medium_gear, small_gear, large_gear = get_gear_mesh_test_environment(
-        num_envs=2, remove_events=True
-    )
+    env, gear_base, medium_gear, small_gear, large_gear = get_gear_mesh_test_environment(num_envs=2, remove_events=True)
 
     try:
         with torch.inference_mode():
             print("Testing gear mesh assembly (multi env)...")
-            
+
             # Assemble in both environments - use absolute world coordinates
             base_poses = gear_base.get_object_pose(env, is_relative=False)
             env.scene[medium_gear.name].write_root_pose_to_sim(base_poses, env_ids=None)
-            
+
             step_zeros_and_call(env, NUM_STEPS)
-            
+
             # Check distances
             base_pos = gear_base.get_object_pose(env, is_relative=True)[:, :3]
             medium_pos = medium_gear.get_object_pose(env, is_relative=True)[:, :3]
             distances = torch.norm(base_pos - medium_pos, dim=-1)
-            
+
             print(f"Distances in both envs: {distances}")
             assert torch.all(distances < 0.05), f"Not all environments assembled: {distances}"
             print("✓ Multi-environment gear mesh assembly successful")
@@ -327,6 +312,7 @@ def _test_gear_mesh_assembly_multi(simulation_app) -> bool:
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -341,23 +327,24 @@ def _test_peg_insert_initialization(simulation_app) -> bool:
 
     try:
         print("Testing peg insert task initialization...")
-        
+
         # Test peg insert initialization
         env, peg, hole = get_peg_insert_test_environment(num_envs=1, remove_events=False)
-        
+
         # Check that objects exist in scene
-        assert peg.name in env.scene.keys(), f"Peg not found in scene"
-        assert hole.name in env.scene.keys(), f"Hole not found in scene"
-        
+        assert peg.name in env.scene.keys(), f"Peg '{peg.name}' not found in scene"
+        assert hole.name in env.scene.keys(), f"Hole '{hole.name}' not found in scene"
+
         # Run a few steps to ensure stability
         step_zeros_and_call(env, NUM_STEPS)
-        
+
         print("✓ Peg insert task initialized successfully")
         env.close()
 
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -370,27 +357,28 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
     try:
         print("Testing gear mesh task initialization...")
-        
+
         # Test gear mesh initialization
         env, gear_base, medium_gear, small_gear, large_gear = get_gear_mesh_test_environment(
             num_envs=1, remove_events=False
         )
-        
+
         # Check that all gears exist in scene
-        assert gear_base.name in env.scene.keys(), f"Gear base not found in scene"
-        assert medium_gear.name in env.scene.keys(), f"Medium gear not found in scene"
-        assert small_gear.name in env.scene.keys(), f"Small gear not found in scene"
-        assert large_gear.name in env.scene.keys(), f"Large gear not found in scene"
-        
+        assert gear_base.name in env.scene.keys(), f"Gear base '{gear_base.name}' not found in scene"
+        assert medium_gear.name in env.scene.keys(), f"Medium gear '{medium_gear.name}' not found in scene"
+        assert small_gear.name in env.scene.keys(), f"Small gear '{small_gear.name}' not found in scene"
+        assert large_gear.name in env.scene.keys(), f"Large gear '{large_gear.name}' not found in scene"
+
         # Run a few steps to ensure stability
         step_zeros_and_call(env, NUM_STEPS)
-        
+
         print("✓ Gear mesh task initialized successfully")
         env.close()
 
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -438,5 +426,3 @@ if __name__ == "__main__":
     test_gear_mesh_assembly_single()
     test_peg_insert_assembly_multi()
     test_gear_mesh_assembly_multi()
-
-

@@ -31,22 +31,19 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
     - large_gear: large reference gear
     """
 
-    name: str = "factory_gear_mesh"
+    name: str = "gear_mesh"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
-        from isaaclab.managers import EventTermCfg as EventTerm
-        from isaaclab.managers import SceneEntityCfg
-        from isaaclab.utils import configclass
 
-        import isaaclab.sim as sim_utils
-        from isaaclab_arena.tasks.assembly_task import AssemblyTask
         from isaaclab_arena.assets.background_library import Table
-        from isaaclab_arena.assets.object_library import GearBase, MediumGear, SmallGear, LargeGear
-        from isaaclab_arena.assets.object_library import Light
+        from isaaclab_arena.assets.object_library import GearBase, LargeGear, Light, MediumGear, SmallGear
+        from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
+        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.scene.scene import Scene
+        from isaaclab_arena.tasks.assembly_task import AssemblyTask
+        from isaaclab_arena.utils.pose import Pose
         from isaaclab_arena_environments import mdp
-        from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG
-
 
         # Get assets from registry
         background = self.asset_registry.get_asset_by_name(args_cli.background)()
@@ -63,16 +60,10 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
             teleop_device = None
-        
-        background.set_initial_pose(
-            Pose(
-                position_xyz=(0.55, 0.0, 0.0), 
-                rotation_wxyz=(0.707, 0, 0, 0.707)
-            )
-        )
+
+        background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
 
         # Set initial poses for all 4 gears
-        # Based on reference FactoryGearMeshSceneCfg configuration
         gear_base.set_initial_pose(
             Pose(
                 position_xyz=(0.6, 0.0, 0.0),  # Gear base position
@@ -110,12 +101,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
             held_asset=medium_gear,
             auxiliary_asset_list=[small_gear, large_gear],
             background_scene=background,
-            pose_range={
-                "x": (0.25, 0.6), 
-                "y": (-0.20, 0.20), 
-                "z": (0.0, 0.0), 
-                "yaw": (-1.0, 1.0)
-            },
+            pose_range={"x": (0.25, 0.6), "y": (-0.20, 0.20), "z": (0.0, 0.0), "yaw": (-1.0, 1.0)},
             min_separation=0.18,
             randomization_mode=1,
         )

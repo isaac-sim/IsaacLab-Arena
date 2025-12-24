@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """
-    Environment configuration callback optimized for factory assembly tasks.
+    Environment configuration callback optimized for assembly tasks.
 
     This callback modifies the simulation settings to provide better stability
     and precision for tasks like peg insertion, gear meshing, and other fine
@@ -44,7 +44,7 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
     from isaaclab.sim import PhysxCfg, SimulationCfg
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
 
-    # Simulation settings optimized for factory assembly tasks
+    # Simulation settings optimized for assembly tasks
     env_cfg.sim = SimulationCfg(
         dt=1 / 60,  # 60Hz - balance between speed and stability
         render_interval=2,

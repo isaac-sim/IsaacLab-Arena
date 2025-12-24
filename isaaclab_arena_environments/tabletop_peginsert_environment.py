@@ -24,30 +24,23 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 class PegInsertEnvironment(ExampleEnvironmentBase):
 
-    name: str = "factory_peg_insert"
+    name: str = "peg_insert"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
-        from isaaclab.managers import EventTermCfg as EventTerm
-        from isaaclab.managers import SceneEntityCfg
-        from isaaclab.utils import configclass
-        import isaaclab.sim as sim_utils
-        from isaaclab_arena_environments import mdp
-        from isaaclab_arena.tasks.assembly_task import AssemblyTask
 
         from isaaclab_arena.assets.background_library import Table
-        from isaaclab_arena.assets.object_library import Peg, Hole
-        from isaaclab_arena.assets.object_library import Light
-        from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
-        from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG
-
-        # Set pinocchio configuration on the passed args_cli.
-        # For peg insert task, we need to test the task with pinocchio disabled due to the "peg" and "hole" assets are not compatible with pinocchio.
-        args_cli.enable_pinocchio = False
+        from isaaclab_arena.assets.object_library import Hole, Light, Peg
+        from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
+        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.scene.scene import Scene
+        from isaaclab_arena.tasks.assembly_task import AssemblyTask
+        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena_environments import mdp
 
         background = self.asset_registry.get_asset_by_name(args_cli.background)()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        destination_object = self.asset_registry.get_asset_by_name(args_cli.destination_object)()       
+        destination_object = self.asset_registry.get_asset_by_name(args_cli.destination_object)()
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
@@ -58,12 +51,7 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        background.set_initial_pose(
-            Pose(
-                position_xyz=(0.55, 0.0, 0.0), 
-                rotation_wxyz=(0.707, 0, 0, 0.707)
-            )
-        )
+        background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
 
         pick_up_object.set_initial_pose(
             Pose(
@@ -81,7 +69,7 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
 
         scene = Scene(assets=[background, pick_up_object, destination_object, light])
 
-        task=AssemblyTask(
+        task = AssemblyTask(
             task_description="Assemble the peg with the hole",
             fixed_asset=pick_up_object,
             held_asset=destination_object,

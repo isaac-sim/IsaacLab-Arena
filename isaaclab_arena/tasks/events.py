@@ -15,6 +15,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+
 def randomize_poses_and_align_auxiliary_assets(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
@@ -22,7 +23,7 @@ def randomize_poses_and_align_auxiliary_assets(
     min_separation: float = 0.0,
     pose_range: dict[str, tuple[float, float]] = {},
     max_sample_tries: int = 5000,
-    fixed_asset_cfg: SceneEntityCfg| None = None,
+    fixed_asset_cfg: SceneEntityCfg | None = None,
     auxiliary_asset_cfgs: list[SceneEntityCfg] | None = None,
     randomization_mode: int = 0,
 ):
@@ -64,7 +65,7 @@ def randomize_poses_and_align_auxiliary_assets(
                 torch.zeros(1, 6, device=env.device), env_ids=torch.tensor([cur_env], device=env.device)
             )
 
-            if (randomization_mode == 1 and auxiliary_asset_cfgs is not None and asset_cfg.name == fixed_asset_cfg.name):
+            if randomization_mode == 1 and auxiliary_asset_cfgs is not None and asset_cfg.name == fixed_asset_cfg.name:
                 # set the poses of the auxiliary assets according to the pose of the fixed asset
                 for j in range(len(auxiliary_asset_cfgs)):
                     rel_asset_cfg = auxiliary_asset_cfgs[j]
