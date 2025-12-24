@@ -29,6 +29,7 @@ import isaaclab.envs.mdp as base_mdp
 from isaaclab.controllers.pink_ik.local_frame_task import LocalFrameTask
 from isaaclab.managers.action_manager import ActionTerm
 from isaaclab.managers import TerminationTermCfg as DoneTerm
+from isaaclab.managers import EventTermCfg
 
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -114,6 +115,7 @@ class FiiEmbodiment(EmbodimentBase):
         self.scene_config = FiiSceneCfg()
         self.action_config = FiiActionsCfg()
         self.observation_config = FiiObservationsCfg()
+        self.event_config = FiiEventCfg()
         self.mimic_env = FiiMimicEnv
         
         # Convert USD to URDF for Pink IK controller
@@ -377,6 +379,17 @@ class FiiActionsCfg:
 #=======================================================================
 #   OBSERVATIONS
 #=======================================================================
+@configclass
+class FiiEventCfg:
+    """Configuration for FII events."""
+    
+    reset_robot_joints = EventTermCfg(
+        func=base_mdp.reset_scene_to_default,
+        mode="reset",
+        params={"reset_joint_targets": True},
+    )
+
+
 @configclass
 class FiiObservationsCfg:
     
