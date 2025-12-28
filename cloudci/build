@@ -1,0 +1,15 @@
+#!/bin/bash
+
+IMAGE="isaaclabarena-cloudci"
+SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE}")")"
+
+# run build and passthrough all the args
+
+# check if we're on mac - use x86 emulation
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # we're on macOS
+  docker build --platform linux/x86_64 -t "${IMAGE}" "${SELF_DIR}" "$@"
+else
+  # we're on Linux
+  docker build -t "${IMAGE}" "${SELF_DIR}" "$@"
+fi
