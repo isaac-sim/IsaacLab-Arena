@@ -70,7 +70,7 @@ Usage Examples
 .. code-block:: bash
 
    # Zero action policy for environment validation
-   python policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000
+   python policy_runner.py --policy_type zero_action --num_steps 1000 kitchen_pick_and_place
 
 **Demonstration Replay**
 
@@ -84,7 +84,7 @@ Usage Examples
 .. code-block:: bash
 
    # GR00T foundation model deployment
-   python policy_runner.py --policy_type gr00t_closedloop --policy_config_yaml_path config.yaml
+   python policy_runner.py --policy_type gr00t_closedloop --policy_config_yaml_path config.yaml galileo_g1_locomanip_pick_and_place
 
 **Custom Policy Integration**
 
