@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -18,7 +18,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -47,7 +47,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     # Create embodiment
     embodiment = FrankaEmbodiment()
-    embodiment.scene_config.robot = FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     scene = Scene(assets=[background, peg, hole, light])
 
@@ -89,7 +89,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -124,7 +124,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     # Create embodiment
     embodiment = FrankaEmbodiment()
-    embodiment.scene_config.robot = FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     scene = Scene(assets=[background, gear_base, medium_gear, small_gear, large_gear, light])
 
@@ -137,7 +137,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
         background_scene=background,
         pose_range={"x": (0.25, 0.6), "y": (-0.20, 0.20), "z": (0.0, 0.0), "yaw": (-1.0, 1.0)},
         min_separation=0.18,
-        randomization_mode=1,
+        randomization_mode="held_fixed_and_auxiliary",
     )
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

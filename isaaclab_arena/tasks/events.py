@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import isaaclab.utils.math as math_utils
 from isaaclab.managers import SceneEntityCfg
@@ -25,16 +25,16 @@ def randomize_poses_and_align_auxiliary_assets(
     max_sample_tries: int = 5000,
     fixed_asset_cfg: SceneEntityCfg | None = None,
     auxiliary_asset_cfgs: list[SceneEntityCfg] | None = None,
-    randomization_mode: int = 0,
+    randomization_mode: Literal["held_and_fixed_only", "held_fixed_and_auxiliary"] = "held_and_fixed_only",
 ):
     """
     Randomize object poses and update the poses of related assets accordingly.
 
     Args:
-        randomization_mode (int):
-            0: Randomize the poses of the fixed and held assets.
-            1: Randomize the poses of the fixed, held, and auxiliary assets. The poses
-            of the auxiliary assets are set relative to the pose of the fixed asset.
+        randomization_mode:
+            - "held_and_fixed_only": Randomize only the fixed and held assets independently.
+            - "held_fixed_and_auxiliary": Randomize fixed, held, and auxiliary assets, with auxiliary
+              assets positioned relative to the fixed asset.
     """
     if env_ids is None:
         return
@@ -65,8 +65,14 @@ def randomize_poses_and_align_auxiliary_assets(
                 torch.zeros(1, 6, device=env.device), env_ids=torch.tensor([cur_env], device=env.device)
             )
 
-            if randomization_mode == 1 and auxiliary_asset_cfgs is not None and asset_cfg.name == fixed_asset_cfg.name:
-                # set the poses of the auxiliary assets according to the pose of the fixed asset
+            if (
+                randomization_mode == "held_fixed_and_auxiliary"
+                and auxiliary_asset_cfgs is not None
+                and fixed_asset_cfg is not None
+                and asset_cfg.name == fixed_asset_cfg.name
+            ):
+                # Set the poses of auxiliary assets based on the pose of the fixed asset,
+                # e.g., place the small and large gears on the gear base so the operator only needs to place the medium gear.
                 for j in range(len(auxiliary_asset_cfgs)):
                     rel_asset_cfg = auxiliary_asset_cfgs[j]
                     rel_asset = env.scene[rel_asset_cfg.name]

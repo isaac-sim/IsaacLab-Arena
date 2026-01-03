@@ -15,9 +15,9 @@ from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
-    ASSEMBLY_ARTICULATION_INIT_STATE,
+    EMPTY_ARTICULATION_INIT_STATE_CFG,
     RIGID_BODY_PROPS_HIGH_PRECISION,
-    RIGID_BODY_PROPS_STANDARD,
+    RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
@@ -359,7 +359,7 @@ class Peg(LibraryObject):
         "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
     }
     asset_cfg_addon = {
-        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
 
@@ -380,7 +380,7 @@ class Hole(LibraryObject):
         "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
     }
     asset_cfg_addon = {
-        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
 
@@ -396,12 +396,12 @@ class SmallGear(LibraryObject):
     object_type = ObjectType.ARTICULATION
     scale = (2.0, 2.0, 2.0)
     spawn_cfg_addon = {
-        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
         "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
         "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
     }
     asset_cfg_addon = {
-        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
 
@@ -417,12 +417,12 @@ class LargeGear(LibraryObject):
     object_type = ObjectType.ARTICULATION
     scale = (2.0, 2.0, 2.0)
     spawn_cfg_addon = {
-        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
         "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
         "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
     }
     asset_cfg_addon = {
-        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
 
@@ -438,12 +438,12 @@ class GearBase(LibraryObject):
     object_type = ObjectType.ARTICULATION
     scale = (2.0, 2.0, 2.0)
     spawn_cfg_addon = {
-        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
         "mass_props": sim_utils.MassPropertiesCfg(mass=0.05),
         "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
     }
     asset_cfg_addon = {
-        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
 
@@ -459,10 +459,10 @@ class MediumGear(LibraryObject):
     object_type = ObjectType.ARTICULATION
     scale = (2.0, 2.0, 2.0)
     spawn_cfg_addon = {
-        "rigid_props": RIGID_BODY_PROPS_STANDARD,
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
         "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
         "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
     }
     asset_cfg_addon = {
-        "init_state": ASSEMBLY_ARTICULATION_INIT_STATE,
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }

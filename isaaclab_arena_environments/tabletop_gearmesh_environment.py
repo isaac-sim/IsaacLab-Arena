@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -38,7 +38,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
 
         from isaaclab_arena.assets.background_library import Table
         from isaaclab_arena.assets.object_library import GearBase, LargeGear, Light, MediumGear, SmallGear
-        from isaaclab_arena.embodiments.franka.franka import FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG, FrankaEmbodiment
+        from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.assembly_task import AssemblyTask
@@ -54,7 +54,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-        embodiment.scene_config.robot = FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -103,7 +103,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
             background_scene=background,
             pose_range={"x": (0.25, 0.6), "y": (-0.20, 0.20), "z": (0.0, 0.0), "yaw": (-1.0, 1.0)},
             min_separation=0.18,
-            randomization_mode=1,
+            randomization_mode="held_fixed_and_auxiliary",
         )
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(

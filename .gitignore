@@ -35,9 +35,7 @@
 *.app
 
 # IDE stuff
-.vscode/*
-!.vscode/launch.json
-!.vscode/settings.json
+*.vscode
 *.*~
 TAGS
 

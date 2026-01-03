@@ -63,7 +63,7 @@ def detect_object_type(usd_path: str | None = None, stage: Usd.Stage | None = No
         raise ValueError("This should not happen. There is an unknown USD type in the tree.")
 
 
-# Predefined rigid body property configurations for factory assembly tasks
+# Predefined rigid body property configurations for assembly tasks
 # High iteration count for precision tasks (peg/hole insertion)
 RIGID_BODY_PROPS_HIGH_PRECISION = sim_utils.RigidBodyPropertiesCfg(
     disable_gravity=False,
@@ -79,7 +79,7 @@ RIGID_BODY_PROPS_HIGH_PRECISION = sim_utils.RigidBodyPropertiesCfg(
 )
 
 # Standard iteration count for gear mesh tasks
-RIGID_BODY_PROPS_STANDARD = sim_utils.RigidBodyPropertiesCfg(
+RIGID_BODY_PROPS_MEDIUM_PRECISION = sim_utils.RigidBodyPropertiesCfg(
     disable_gravity=False,
     max_depenetration_velocity=5.0,
     linear_damping=0.0,
@@ -92,7 +92,10 @@ RIGID_BODY_PROPS_STANDARD = sim_utils.RigidBodyPropertiesCfg(
     max_contact_impulse=1e32,
 )
 
-ASSEMBLY_ARTICULATION_INIT_STATE = ArticulationCfg.InitialStateCfg(
+# Initial state configuration for articulations without joints (e.g., rigid bodies treated as articulations).
+# We explicitly set joint_pos and joint_vel to empty dicts to avoid the default pattern {".*": 0.0} in ArticulationCfg.InitialStateCfg,
+# which would fail to match when there are no joints in the articulation.
+EMPTY_ARTICULATION_INIT_STATE_CFG = ArticulationCfg.InitialStateCfg(
     joint_pos={},
     joint_vel={},
 )
