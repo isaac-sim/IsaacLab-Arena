@@ -3,17 +3,56 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 import gymnasium as gym
 import torch
 from abc import ABC, abstractmethod
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 
+from typing import Optional
+
+from isaaclab_arena.remote_policy.utils import RemotePolicyConfig
+from isaaclab_arena.remote_policy.policy_client import PolicyClient
 
 class PolicyBase(ABC):
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        policy_deployment: str = "local",           # "local" or "remote"
+        remote_config: Optional[RemotePolicyConfig] = None,
+    ) -> None:
         """
-        Base class for policies.
+        Base class for policies with optional remote deployment.
+
+        Args:
+            policy_deployment: "local" (default) or "remote".
+            remote_config: Required when policy_deployment == "remote".
         """
+        self._policy_deployment = policy_deployment
+        self._remote_config = remote_config
+        self._policy_client: Optional[PolicyClient] = None
+
+        if self._policy_deployment == "remote":
+            if self._remote_config is None:
+                raise ValueError("Remote deployment requires a RemotePolicyConfig.")
+
+            self._policy_client = PolicyClient(
+                config=self._remote_config,
+            )
+
+    @property
+    def is_remote(self) -> bool:
+        return self._policy_deployment == "remote"
+
+    @property
+    def remote_config(self) -> RemotePolicyConfig:
+        return self._remote_config
+
+    @property
+    def remote_client(self) -> RemotePolicyClient:
+        if self._policy_client is None:
+            raise RuntimeError("Remote client is not initialized (policy_deployment != 'remote').")
+        return self._policy_client
 
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
@@ -34,3 +73,20 @@ class PolicyBase(ABC):
         Reset the policy.
         """
         pass
+
+    def shutdown_remote(self, kill_server: bool = False) -> None:
+        """
+        Clean up remote client, and optionally send 'kill' to stop the remote server.
+
+        Args:
+            kill_server: If True, send a 'kill' RPC before closing the client.
+        """
+        if not self.is_remote or self._policy_client is None:
+            return
+        if kill_server:
+            try:
+                self._policy_client.call_endpoint("kill", requires_input=False)
+            except Exception as exc:
+                print(f"[PolicyBase] Failed to send kill to remote server: {exc}")
+        self._policy_client.close()
+        self._policy_client = None

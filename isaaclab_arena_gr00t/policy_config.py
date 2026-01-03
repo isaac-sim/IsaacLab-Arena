@@ -6,7 +6,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-
+import warnings
 
 # Policy data loader and architecture configuration depend on which task to choose
 class TaskMode(Enum):
@@ -179,7 +179,14 @@ class Gr00tClosedloopPolicyConfig:
         assert Path(
             self.state_joints_config_path
         ).exists(), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
-        assert Path(self.model_path).exists(), f"model_path does not exist: {self.model_path}"
+        if not Path(self.model_path).exists():
+            warnings.warn(
+                "[GR00TConfig] model_path does not exist: "
+                f"{self.model_path}. No model checkpoint was found. "
+                "If this is the client side of a remote policy, this warning can be ignored. "
+                "However, if you are running a local policy or the server side of a remote policy, "
+                "the program will fail to load the model and cannot run correctly."
+            )
         # embodiment_tag
         assert self.embodiment_tag in [
             "gr1",

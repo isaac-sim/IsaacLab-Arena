@@ -62,6 +62,17 @@ def main():
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
 
+        # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
+        # Do NOT rely on a __del__ destructor in policy for this, since destructors are
+        # triggered implicitly and their execution time (or even whether they run)
+        # is not guaranteed, which makes resource cleanup unreliable.
+        if getattr(policy, "is_remote", False) and policy.is_remote:
+            kill_on_exit = getattr(args_cli, "remote_kill_on_exit", False)
+            if kill_on_exit:
+                policy.shutdown_remote(kill_server=True)
+            else:
+                policy.shutdown_remote(kill_server=False)
+
         # Close the environment.
         env.close()
 

@@ -9,7 +9,7 @@ from isaaclab_arena.examples.example_environments.cli import get_isaaclab_arena_
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicy
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy
-
+from isaaclab_arena.remote_policy.utils import RemotePolicyConfig
 
 def add_zero_action_arguments(parser: argparse.ArgumentParser) -> None:
     """Add zero action policy specific arguments to the parser."""
@@ -82,6 +82,45 @@ def add_gr00t_closedloop_arguments(parser: argparse.ArgumentParser) -> None:
         help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
     )
 
+def add_remote_policy_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add arguments for remote policy deployment."""
+    remote_group = parser.add_argument_group("Remote Policy", "Arguments for remote policy deployment")
+    remote_group.add_argument(
+        "--policy_deployment",
+        type=str,
+        choices=["local", "remote"],
+        default="local",
+        help="Policy deployment mode: 'local' (default) or 'remote'.",
+    )
+    remote_group.add_argument(
+        "--remote_host",
+        type=str,
+        default="127.0.0.1",
+        help="Remote policy server host (used when --policy_deployment remote).",
+    )
+    remote_group.add_argument(
+        "--remote_port",
+        type=int,
+        default=5555,
+        help="Remote policy server port (used when --policy_deployment remote).",
+    )
+    remote_group.add_argument(
+        "--remote_api_token",
+        type=str,
+        default=None,
+        help="Optional API token for remote policy server.",
+    )
+    remote_group.add_argument(
+        "--remote_timeout_ms",
+        type=int,
+        default=5000,
+        help="Timeout in milliseconds for remote policy calls.",
+    )
+    remote_group.add_argument(
+        "--remote_kill_on_exit",
+        action="store_true",
+        help="If set and policy_deployment is 'remote', send a 'kill' RPC to the remote policy server at the end.",
+    )
 
 def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = None) -> argparse.ArgumentParser:
     """Set up and configure the argument parser with all policy-related arguments."""
@@ -101,6 +140,7 @@ def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = N
     add_replay_arguments(args_parser)
     add_replay_lerobot_arguments(args_parser)
     add_gr00t_closedloop_arguments(args_parser)
+    add_remote_policy_arguments(args_parser)
     parsed_args = args_parser.parse_args()
 
     if parsed_args.policy_type == "replay" and parsed_args.replay_file_path is None:
@@ -110,6 +150,7 @@ def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = N
     if parsed_args.policy_type == "gr00t_closedloop" and parsed_args.policy_config_yaml_path is None:
         raise ValueError("--policy_config_yaml_path is required when using --policy_type gr00t_closedloop")
     return args_parser
+
 
 
 def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
@@ -137,9 +178,18 @@ def create_policy(args: argparse.Namespace) -> tuple[PolicyBase, int]:
             num_steps = policy.get_trajectory_length(policy.get_trajectory_index())
 
     elif args.policy_type == "gr00t_closedloop":
+        from pathlib import Path
         from isaaclab_arena_gr00t.gr00t_closedloop_policy import Gr00tClosedloopPolicy
+        remote_config = None
+        if args.policy_deployment == "remote":
+            remote_config = RemotePolicyConfig(
+                host=args.remote_host,
+                port=args.remote_port,
+                api_token=args.remote_api_token,
+                timeout_ms=args.remote_timeout_ms,
+            )
 
-        policy = Gr00tClosedloopPolicy(args.policy_config_yaml_path, num_envs=args.num_envs, device=args.policy_device)
+        policy = Gr00tClosedloopPolicy(policy_config_yaml_path=Path(args.policy_config_yaml_path), num_envs=args.num_envs, device=args.policy_device,policy_deployment=args.policy_deployment, remote_config=remote_config)
         num_steps = args.num_steps
     else:
         raise ValueError(f"Unknown policy type: {args.type}")
