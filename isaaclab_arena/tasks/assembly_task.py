@@ -1,10 +1,11 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 from dataclasses import MISSING, dataclass
+from typing import Literal
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -23,13 +24,6 @@ from isaaclab_arena.tasks.terminations import objects_in_proximity
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
-@dataclass
-class TerminationConfig:
-    max_x_separation: float = 0.020
-    max_y_separation: float = 0.020
-    max_z_separation: float = 0.020
-
-
 class AssemblyTask(TaskBase):
     """
     Assembly task where an object needs to be assembled with a base object, like peg insert, gear mesh, etc.
@@ -42,13 +36,13 @@ class AssemblyTask(TaskBase):
         auxiliary_asset_list: list[Asset],
         background_scene: Asset,
         episode_length_s: float | None = None,
-        termination_cfg: TerminationConfig = TerminationConfig(
-            max_x_separation=0.020, max_y_separation=0.020, max_z_separation=0.020
-        ),
+        max_x_separation: float = 0.020,
+        max_y_separation: float = 0.020,
+        max_z_separation: float = 0.020,
         task_description: str | None = None,
         pose_range: dict[str, tuple[float, float]] | None = None,
         min_separation: float = 0.10,
-        randomization_mode: int = 0,
+        randomization_mode: Literal["held_and_fixed_only", "held_fixed_and_auxiliary"] = "held_and_fixed_only",
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.fixed_asset = fixed_asset
@@ -57,14 +51,18 @@ class AssemblyTask(TaskBase):
         self.background_scene = background_scene
         self.scene_config = None
         self.events_cfg = EventsCfg(
-            pose_range=pose_range,
+            pose_range=pose_range if pose_range is not None else {},
             min_separation=min_separation,
             asset_cfgs=[SceneEntityCfg(asset.name) for asset in [self.fixed_asset, self.held_asset]],
             fixed_asset_cfg=SceneEntityCfg(self.fixed_asset.name),
             auxiliary_asset_cfgs=[SceneEntityCfg(asset.name) for asset in self.auxiliary_asset_list],
             randomization_mode=randomization_mode,
         )
-        self.termination_cfg = self._make_termination_cfg(termination_cfg)
+        self.termination_cfg = self._make_termination_cfg(
+            max_x_separation=max_x_separation,
+            max_y_separation=max_y_separation,
+            max_z_separation=max_z_separation,
+        )
         self.task_description = (
             f"Assemble the {self.held_asset.name} with the {self.fixed_asset.name}"
             if task_description is None
@@ -78,15 +76,31 @@ class AssemblyTask(TaskBase):
     def get_termination_cfg(self):
         return self.termination_cfg
 
-    def _make_termination_cfg(self, term_cfg: TerminationConfig):
+    def _make_termination_cfg(
+        self,
+        max_x_separation: float,
+        max_y_separation: float,
+        max_z_separation: float,
+    ):
+        """
+        Create termination configuration for the assembly task.
+
+        Args:
+            max_x_separation: Maximum allowed separation in x-axis for success.
+            max_y_separation: Maximum allowed separation in y-axis for success.
+            max_z_separation: Maximum allowed separation in z-axis for success.
+
+        Returns:
+            TerminationsCfg: The termination configuration.
+        """
         success = TerminationTermCfg(
             func=objects_in_proximity,
             params={
                 "object_cfg": SceneEntityCfg(self.held_asset.name),
                 "target_object_cfg": SceneEntityCfg(self.fixed_asset.name),
-                "max_x_separation": term_cfg.max_x_separation,  # Tolerance for assembly alignment
-                "max_y_separation": term_cfg.max_y_separation,
-                "max_z_separation": term_cfg.max_z_separation,
+                "max_x_separation": max_x_separation,  # Tolerance for assembly alignment
+                "max_y_separation": max_y_separation,
+                "max_z_separation": max_z_separation,
             },
         )
         object_dropped = TerminationTermCfg(
@@ -155,7 +169,7 @@ class EventsCfg:
         asset_cfgs: list[SceneEntityCfg],
         fixed_asset_cfg: SceneEntityCfg,
         auxiliary_asset_cfgs: list[SceneEntityCfg],
-        randomization_mode: int = 0,
+        randomization_mode: Literal["held_and_fixed_only", "held_fixed_and_auxiliary"] = "held_and_fixed_only",
     ):
         self.reset_all = EventTermCfg(
             func=mdp.reset_scene_to_default, mode="reset", params={"reset_joint_targets": True}
