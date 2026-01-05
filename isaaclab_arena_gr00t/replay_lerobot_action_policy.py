@@ -230,4 +230,5 @@ class ReplayLerobotActionPolicy(PolicyBase):
             num_envs=args.num_envs,
             device=args.device,
             trajectory_index=args.trajectory_index,
+            max_steps=args.max_steps,
         )

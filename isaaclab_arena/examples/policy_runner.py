@@ -57,6 +57,7 @@ def main():
             num_steps = policy.length()
         else:
             num_steps = args_cli.num_steps
+        print(f"Simulation length: {num_steps}")
         # set task description (could be None) from the task being evaluated
         policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
 
