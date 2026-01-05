@@ -10,7 +10,8 @@ import tqdm
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
-from isaaclab_arena.policy.policy_registry import get_policy_cls
+
+# from isaaclab_arena.policy.policy_registry import get_policy_cls
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
@@ -23,13 +24,14 @@ def main():
 
     # Start the simulation app
     with SimulationAppContext(args_cli):
+        from isaaclab_arena.assets.asset_registry import PolicyRegistry
 
         # Get the policy-type flag before preceding to other arguments
         add_policy_runner_arguments(args_parser)
         args_cli, _ = args_parser.parse_known_args()
 
         # Get the policy class from the policy type
-        policy_cls = get_policy_cls(args_cli.policy_type)
+        policy_cls = PolicyRegistry().get_policy(args_cli.policy_type)
         print(f"Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
 
         # Add the example environment arguments + policy-related arguments to the parser

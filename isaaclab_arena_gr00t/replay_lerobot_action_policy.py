@@ -14,13 +14,18 @@ from typing import Any
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.data_utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
 from isaaclab_arena_gr00t.data_utils.joints_conversion import remap_policy_joints_to_sim_joints
 from isaaclab_arena_gr00t.policy_config import LerobotReplayActionPolicyConfig, TaskMode
 
 
+@register_policy
 class ReplayLerobotActionPolicy(PolicyBase):
+
+    name = "replay_lerobot"
+
     def __init__(
         self,
         policy_config_yaml_path: Path,
