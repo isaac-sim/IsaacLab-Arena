@@ -71,8 +71,10 @@ def randomize_poses_and_align_auxiliary_assets(
                 and fixed_asset_cfg is not None
                 and asset_cfg.name == fixed_asset_cfg.name
             ):
-                # Set the poses of auxiliary assets based on the pose of the fixed asset,
-                # e.g., place the small and large gears on the gear base so the operator only needs to place the medium gear.
+                # Place auxiliary assets at exactly the same pose as the fixed asset (zero offset).
+                # NOTE: This assumes the asset USD files have base frames defined such that zero offset creates a valid scene.
+                # Currently designed for gear mesh task where all gears share the same center point.
+                # For other assets, this may cause geometry intersections. Customers need to adjust it accordingly.
                 for j in range(len(auxiliary_asset_cfgs)):
                     rel_asset_cfg = auxiliary_asset_cfgs[j]
                     rel_asset = env.scene[rel_asset_cfg.name]
