@@ -3,19 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import argparse
 
@@ -29,9 +16,6 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
 
-        from isaaclab_arena.assets.background_library import Table
-        from isaaclab_arena.assets.object_library import Hole, Light, Peg
-        from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.assembly_task import AssemblyTask
