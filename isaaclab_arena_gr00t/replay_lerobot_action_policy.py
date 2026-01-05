@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-
 import gymnasium as gym
 import numpy as np
 import torch
@@ -23,7 +22,12 @@ from isaaclab_arena_gr00t.policy_config import LerobotReplayActionPolicyConfig, 
 
 class ReplayLerobotActionPolicy(PolicyBase):
     def __init__(
-        self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda", trajectory_index: int = 0, max_steps: int | None = None
+        self,
+        policy_config_yaml_path: Path,
+        num_envs: int = 1,
+        device: str = "cuda",
+        trajectory_index: int = 0,
+        max_steps: int | None = None,
     ):
         """
         Base class for replay action policies from Lerobot dataset.
@@ -193,7 +197,6 @@ class ReplayLerobotActionPolicy(PolicyBase):
         else:
             return self.get_trajectory_length(self.get_trajectory_index())
 
-
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """Add replay Lerobot action policy specific arguments to the parser."""
@@ -218,7 +221,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
             help="Index of the trajectory to run the policy for (only used with --policy_type replay_lerobot)",
         )
         return parser
-    
+
     @staticmethod
     def from_args(args: argparse.Namespace) -> "ReplayLerobotActionPolicy":
         """Create a replay Lerobot action policy from the arguments."""

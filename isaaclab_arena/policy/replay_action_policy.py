@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-
 import gymnasium as gym
 import torch
 from gymnasium.spaces.dict import Dict as GymSpacesDict

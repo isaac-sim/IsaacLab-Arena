@@ -3,27 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import numpy as np
-from importlib import import_module
 import random
 import torch
 import tqdm
-from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-# from isaaclab_arena.examples.policy_runner_cli import create_policy, setup_policy_argument_parser
+from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.policy.policy_registry import get_policy_cls
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli
-
-
-# def get_policy_type(policy_class_path: str) -> Any:
-#     # gr00t_policy_class_path = "isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy"
-#     # Dynamically import the class from the string path
-#     module_path, class_name = policy_class_path.rsplit(".", 1)
-#     module = import_module(module_path)
-#     PolicyType = getattr(module, class_name)
-#     return PolicyType 
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 
 def main():
@@ -36,42 +25,18 @@ def main():
     with SimulationAppContext(args_cli):
 
         # Add policy-related arguments to the parser
-        # parser = argparse.ArgumentParser(add_help=False)
-        # parser.add_argument("--policy_type", required=True)
-        # args, remaining = parser.parse_known_args()
-        # args_parser.add_argument("--policy_type", required=True)
-        # args_cli, remaining = args_parser.parse_known_args()
-        from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
         add_policy_runner_arguments(args_parser)
         args_cli, remaining = args_parser.parse_known_args()
-        print(f"Args: {args_cli}")
-        print(f"Remaining: {remaining}")
 
         # Get the policy type
-        from isaaclab_arena.policy.policy_registry import get_policy_cls
         policy_cls = get_policy_cls(args_cli.policy_type)
-        print(f"Policy class: {policy_cls}")
+        print(f"Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
 
-        # from isaaclab_arena.examples.policy_runner_cli import add_gr00t_closedloop_arguments
-        # args_parser = add_gr00t_closedloop_arguments(args_parser)
-        # args_parser = setup_policy_argument_parser(args_parser)
-
-        # Get the final argument set
-        from isaaclab_arena_environments.cli import get_isaaclab_arena_environments_cli_parser
-        # from isaaclab_arena.examples.policy_runner_cli import add_zero_action_arguments
-        # from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
-        # args_parser = add_gr00t_closedloop_arguments(args_parser)
+        # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        # add_zero_action_arguments(args_parser) # NEED TO REMOVE
-        # args_parser = add_policy_runner_arguments(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)
-
-
-        # Add policy-related arguments to the parser
-        # args_parser = setup_policy_argument_parser(args_parser)
         args_cli = args_parser.parse_args()
-        # args_cli, remaining_args = args_parser.parse_known_args()
-        # print(f"Remaining args: {remaining_args}")
+
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
@@ -84,11 +49,7 @@ def main():
 
         obs, _ = env.reset()
 
-        # NOTE(xinjieyao, 2025-09-29): General rule of thumb is to have as many non-standard python
-        # library imports after app launcher as possible, otherwise they will likely stall the sim
-        # app. Given current SimulationAppContext setup, use lazy import to handle policy-related
-        # deps inside create_policy() function to bringup sim app.
-        # policy, num_steps = create_policy(args_cli)
+        # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
         if policy.is_recording():
             num_steps = policy.length()

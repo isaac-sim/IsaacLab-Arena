@@ -95,23 +95,6 @@ class Gr00tClosedloopPolicy(PolicyBase):
             help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
         )
         return parser
-        # """Add gr00t closedloop policy specific arguments to the parser."""
-        # # import argparse
-        # parser = argparse.ArgumentParser(description="Gr00t Closedloop Policy Arguments")
-        # gr00t_closedloop_group = parser.add_argument_group(
-        #     "Gr00t Closedloop Policy", "Arguments for gr00t closedloop policy"
-        # )
-        # gr00t_closedloop_group.add_argument(
-        #     "--policy_config_yaml_path",
-        #     type=str,
-        #     help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
-        # )
-        # gr00t_closedloop_group.add_argument(
-        #     "--policy_device",
-        #     type=str,
-        #     default="cuda",
-        #     help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
-        # )
 
     def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
         """Load the GR00T policy joint config from the data config."""
