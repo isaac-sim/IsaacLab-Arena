@@ -186,7 +186,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
     def get_trajectory_index(self) -> int:
         return self.trajectory_index
 
-    def is_recording(self) -> bool:
+    def has_length(self) -> bool:
         """Check if the policy is based on a recording (i.e. is a dataset-driven policy)."""
         return True
 

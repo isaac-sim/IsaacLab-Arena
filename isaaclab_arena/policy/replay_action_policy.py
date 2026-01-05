@@ -65,7 +65,7 @@ class ReplayActionPolicy(PolicyBase):
     def get_initial_state(self) -> torch.Tensor:
         return self.episode_data.get_initial_state()
 
-    def is_recording(self) -> bool:
+    def has_length(self) -> bool:
         """Check if the policy is based on a recording (i.e. is a dataset-driven policy)."""
         return True
 

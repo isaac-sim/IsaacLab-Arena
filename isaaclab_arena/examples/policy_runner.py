@@ -24,11 +24,11 @@ def main():
     # Start the simulation app
     with SimulationAppContext(args_cli):
 
-        # Add policy-related arguments to the parser
+        # Get the policy-type flag before preceding to other arguments
         add_policy_runner_arguments(args_parser)
-        args_cli, remaining = args_parser.parse_known_args()
+        args_cli, _ = args_parser.parse_known_args()
 
-        # Get the policy type
+        # Get the policy class from the policy type
         policy_cls = get_policy_cls(args_cli.policy_type)
         print(f"Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
 
@@ -51,7 +51,9 @@ def main():
 
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
-        if policy.is_recording():
+
+        # Simulation length.
+        if policy.has_length():
             num_steps = policy.length()
         else:
             num_steps = args_cli.num_steps
