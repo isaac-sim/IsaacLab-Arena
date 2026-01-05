@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -81,22 +81,21 @@ class PoseRange:
     Args:
         position_xyz_min: The minimum position in x, y, z.
         position_xyz_max: The maximum position in x, y, z.
-        rotation_wxyz_min: The minimum rotation in w, x, y, z.
-        rotation_wxyz_max: The maximum rotation in w, x, y, z.
+        rpy_min: The minimum rotation in roll, pitch, yaw.
+        rpy_max: The maximum rotation in roll, pitch, yaw.
     """
 
     position_xyz_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
     position_xyz_max: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    rotation_wxyz_min: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    rotation_wxyz_max: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    rpy_min: tuple[float, float, float] = (0.0, 0.0, 0.0)  # roll, pitch, yaw
+    rpy_max: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     def to_dict(self) -> dict[str, tuple[float, float]]:
         return {
             "x": (self.position_xyz_min[0], self.position_xyz_max[0]),
             "y": (self.position_xyz_min[1], self.position_xyz_max[1]),
             "z": (self.position_xyz_min[2], self.position_xyz_max[2]),
-            "qw": (self.rotation_wxyz_min[0], self.rotation_wxyz_max[0]),
-            "qx": (self.rotation_wxyz_min[1], self.rotation_wxyz_max[1]),
-            "qy": (self.rotation_wxyz_min[2], self.rotation_wxyz_max[2]),
-            "qz": (self.rotation_wxyz_min[3], self.rotation_wxyz_max[3]),
+            "roll": (self.rpy_min[0], self.rpy_max[0]),
+            "pitch": (self.rpy_min[1], self.rpy_max[1]),
+            "yaw": (self.rpy_min[2], self.rpy_max[2]),
         }
