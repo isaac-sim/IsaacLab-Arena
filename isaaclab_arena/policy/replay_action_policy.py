@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
+
 import gymnasium as gym
 import torch
 from gymnasium.spaces.dict import Dict as GymSpacesDict
@@ -63,3 +65,39 @@ class ReplayActionPolicy(PolicyBase):
 
     def get_initial_state(self) -> torch.Tensor:
         return self.episode_data.get_initial_state()
+
+    def is_recording(self) -> bool:
+        """Check if the policy is based on a recording (i.e. is a dataset-driven policy)."""
+        return True
+
+    def length(self) -> int:
+        """Get the length of the policy (for dataset-driven policies)."""
+        return len(self)
+
+    @staticmethod
+    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Add replay action policy specific arguments to the parser."""
+        replay_group = parser.add_argument_group("Replay Action Policy", "Arguments for replay action policy")
+        replay_group.add_argument(
+            "--replay_file_path",
+            type=str,
+            help="Path to the HDF5 file containing the episode (required with --policy_type replay)",
+        )
+        replay_group.add_argument(
+            "--episode_name",
+            type=str,
+            default=None,
+            help=(
+                "Name of the episode to replay. If not provided, the first episode will be"
+                "replayed (only used with --policy_type replay)"
+            ),
+        )
+        return parser
+
+    @staticmethod
+    def from_args(args: argparse.Namespace) -> "ReplayActionPolicy":
+        """Create a replay action policy from the arguments."""
+        return ReplayActionPolicy(
+            replay_file_path=args.replay_file_path,
+            episode_name=args.episode_name,
+        )

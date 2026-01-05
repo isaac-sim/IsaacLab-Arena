@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import gymnasium as gym
 import torch
 from pathlib import Path
@@ -66,6 +67,51 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # task description of task being evaluated. It will be set by the task being evaluated.
         self.task_description: str | None = None
+
+    @staticmethod
+    def from_args(args: argparse.Namespace) -> "Gr00tClosedloopPolicy":
+        """Create a Gr00tClosedloopPolicy instance from the arguments."""
+        return Gr00tClosedloopPolicy(
+            policy_config_yaml_path=args.policy_config_yaml_path,
+            num_envs=args.num_envs,
+            device=args.policy_device,
+        )
+
+    @staticmethod
+    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Add gr00t closedloop policy specific arguments to the parser."""
+        gr00t_closedloop_group = parser.add_argument_group(
+            "Gr00t Closedloop Policy", "Arguments for gr00t closedloop policy"
+        )
+        gr00t_closedloop_group.add_argument(
+            "--policy_config_yaml_path",
+            type=str,
+            help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
+        )
+        gr00t_closedloop_group.add_argument(
+            "--policy_device",
+            type=str,
+            default="cuda",
+            help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
+        )
+        return parser
+        # """Add gr00t closedloop policy specific arguments to the parser."""
+        # # import argparse
+        # parser = argparse.ArgumentParser(description="Gr00t Closedloop Policy Arguments")
+        # gr00t_closedloop_group = parser.add_argument_group(
+        #     "Gr00t Closedloop Policy", "Arguments for gr00t closedloop policy"
+        # )
+        # gr00t_closedloop_group.add_argument(
+        #     "--policy_config_yaml_path",
+        #     type=str,
+        #     help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
+        # )
+        # gr00t_closedloop_group.add_argument(
+        #     "--policy_device",
+        #     type=str,
+        #     default="cuda",
+        #     help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
+        # )
 
     def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
         """Load the GR00T policy joint config from the data config."""

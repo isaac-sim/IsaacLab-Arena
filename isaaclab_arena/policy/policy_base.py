@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
+
 import gymnasium as gym
 import torch
 from abc import ABC, abstractmethod
@@ -39,3 +41,23 @@ class PolicyBase(ABC):
         """Set the task description of the task being evaluated."""
         self.task_description = task_description
         return self.task_description
+    
+    def is_recording(self) -> bool:
+        """Check if the policy is based on a recording (i.e. is a dataset-driven policy)."""
+        return False
+    
+    def length(self) -> int | None:
+        """Get the length of the policy (for dataset-driven policies)."""
+        return None
+
+    @staticmethod
+    @abstractmethod
+    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Add policy-specific arguments to the parser."""
+        raise NotImplementedError("Function not implemented yet.")
+
+    @staticmethod
+    @abstractmethod
+    def from_args(args: argparse.Namespace) -> "PolicyBase":
+        """Create a policy from the arguments."""
+        raise NotImplementedError("Function not implemented yet.")

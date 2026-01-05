@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
+
 import gymnasium as gym
 import numpy as np
 import torch
@@ -21,7 +23,7 @@ from isaaclab_arena_gr00t.policy_config import LerobotReplayActionPolicyConfig, 
 
 class ReplayLerobotActionPolicy(PolicyBase):
     def __init__(
-        self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda", trajectory_index: int = 0
+        self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda", trajectory_index: int = 0, max_steps: int | None = None
     ):
         """
         Base class for replay action policies from Lerobot dataset.
@@ -38,6 +40,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.current_action_chunk = None
         self.num_envs = num_envs
         self.device = device
+        self.max_steps = max_steps
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
         self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
@@ -178,3 +181,50 @@ class ReplayLerobotActionPolicy(PolicyBase):
 
     def get_trajectory_index(self) -> int:
         return self.trajectory_index
+
+    def is_recording(self) -> bool:
+        """Check if the policy is based on a recording (i.e. is a dataset-driven policy)."""
+        return True
+
+    def length(self) -> int:
+        """Get the length of the policy (for dataset-driven policies)."""
+        if self.max_steps is not None:
+            return self.max_steps
+        else:
+            return self.get_trajectory_length(self.get_trajectory_index())
+
+
+    @staticmethod
+    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Add replay Lerobot action policy specific arguments to the parser."""
+        replay_lerobot_group = parser.add_argument_group(
+            "Replay Lerobot Action Policy", "Arguments for replay Lerobot dataset action policy"
+        )
+        replay_lerobot_group.add_argument(
+            "--config_yaml_path",
+            type=str,
+            help="Path to the Lerobot action policy config YAML file (required with --policy_type replay_lerobot)",
+        )
+        replay_lerobot_group.add_argument(
+            "--max_steps",
+            type=int,
+            default=None,
+            help="Maximum number of steps to run the policy for (only used with --policy_type replay_lerobot)",
+        )
+        replay_lerobot_group.add_argument(
+            "--trajectory_index",
+            type=int,
+            default=0,
+            help="Index of the trajectory to run the policy for (only used with --policy_type replay_lerobot)",
+        )
+        return parser
+    
+    @staticmethod
+    def from_args(args: argparse.Namespace) -> "ReplayLerobotActionPolicy":
+        """Create a replay Lerobot action policy from the arguments."""
+        return ReplayLerobotActionPolicy(
+            policy_config_yaml_path=args.config_yaml_path,
+            num_envs=args.num_envs,
+            device=args.device,
+            trajectory_index=args.trajectory_index,
+        )
