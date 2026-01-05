@@ -180,6 +180,23 @@ class CoffeeMachine(LibraryObject, Pressable):
             pressedness_threshold=self.pressedness_threshold,
         )
 
+@register_asset
+class StandMixer(LibraryObject):
+    """
+    Encapsulates the pick-up object config for a pick-and-place environment.
+    """
+
+    name = "stand_mixer"
+    tags = ["object", "knob_turnable"]
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/StandMixer013/StandMixer013.usd"
+    object_type = ObjectType.ARTICULATION
+
+    # knob turnable affordance parameters
+    turnable_joint_name = "knob_speed_joint"
+    turnable_threshold = 0.5
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 @register_asset
 class OfficeTable(LibraryObject):
