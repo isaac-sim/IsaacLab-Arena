@@ -8,6 +8,7 @@ import importlib
 from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
@@ -16,6 +17,7 @@ from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMi
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
 from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
+from isaaclab_arena_environments.tabletop_place_upright_environment import TableTopPlaceUprightEnvironment
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
 # We cannot annotate types which require the simulation app to be started in order to
@@ -31,7 +33,9 @@ ExampleEnvironments = {
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
+    CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
     LiftObjectEnvironment.name: LiftObjectEnvironment,
+    TableTopPlaceUprightEnvironment.name: TableTopPlaceUprightEnvironment,
 }
 
 
