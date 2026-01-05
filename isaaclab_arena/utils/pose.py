@@ -72,3 +72,31 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     # Compose the translations
     t_C_A = R_C_B @ torch.tensor(T_B_A.position_xyz) + torch.tensor(T_C_B.position_xyz)
     return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_wxyz=tuple(q_C_A.tolist()))
+
+
+@dataclass
+class PoseRange:
+    """Range of poses.
+
+    Args:
+        position_xyz_min: The minimum position in x, y, z.
+        position_xyz_max: The maximum position in x, y, z.
+        rotation_wxyz_min: The minimum rotation in w, x, y, z.
+        rotation_wxyz_max: The maximum rotation in w, x, y, z.
+    """
+
+    position_xyz_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    position_xyz_max: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    rotation_wxyz_min: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    rotation_wxyz_max: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+
+    def to_dict(self) -> dict[str, tuple[float, float]]:
+        return {
+            "x": (self.position_xyz_min[0], self.position_xyz_max[0]),
+            "y": (self.position_xyz_min[1], self.position_xyz_max[1]),
+            "z": (self.position_xyz_min[2], self.position_xyz_max[2]),
+            "qw": (self.rotation_wxyz_min[0], self.rotation_wxyz_max[0]),
+            "qx": (self.rotation_wxyz_min[1], self.rotation_wxyz_max[1]),
+            "qy": (self.rotation_wxyz_min[2], self.rotation_wxyz_max[2]),
+            "qz": (self.rotation_wxyz_min[3], self.rotation_wxyz_max[3]),
+        }

@@ -42,8 +42,14 @@ class G1EmbodimentBase(EmbodimentBase):
     name = "g1"
     default_arm_mode = ArmMode.DUAL_ARM
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
-        super().__init__(enable_cameras, initial_pose, arm_mode)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
@@ -86,6 +92,8 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
@@ -111,6 +119,9 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.action.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCPinkEventCfg()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
@@ -424,7 +435,6 @@ class G1WBCJointObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = False
 
-    # observation groups
     policy: PolicyCfg = PolicyCfg()
     wbc: WBCObsCfg = WBCObsCfg()
 
@@ -440,10 +450,6 @@ class G1WBCPinkObservationsCfg:
         actions = ObsTerm(func=mdp.last_action)
         robot_joint_pos = ObsTerm(
             func=base_mdp.joint_pos,
-            params={"asset_cfg": SceneEntityCfg("robot")},
-        )
-        robot_joint_vel = ObsTerm(
-            func=base_mdp.joint_vel,
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         right_wrist_pose_pelvis_frame = ObsTerm(
@@ -575,7 +581,6 @@ class G1WBCPinkObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = False
 
-    # observation groups
     policy: PolicyCfg = PolicyCfg()
     wbc: WBCObsCfg = WBCObsCfg()
     action: ActionLowerBodyCfg = ActionLowerBodyCfg()

@@ -86,11 +86,18 @@ class GR1T2EmbodimentBase(EmbodimentBase):
     name = "gr1"
     default_arm_mode = ArmMode.RIGHT
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
-        super().__init__(enable_cameras, initial_pose, arm_mode)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.observation_config = GR1T2ObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = GR1T2EventCfg()
         self.mimic_env = GR1T2MimicEnv
         self.action_config = MISSING
@@ -396,7 +403,6 @@ class GR1T2ObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = False
 
-    # observation groups
     policy: PolicyCfg = PolicyCfg()
 
 

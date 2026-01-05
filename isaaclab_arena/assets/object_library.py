@@ -3,11 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
 import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.affordances.openable import Openable
+from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
@@ -26,6 +29,8 @@ class LibraryObject(Object):
     usd_path: str | None = None
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    spawn_cfg_addon: dict[str, Any] = {}
+    asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs):
         super().__init__(
@@ -36,6 +41,8 @@ class LibraryObject(Object):
             object_type=self.object_type,
             scale=self.scale,
             initial_pose=initial_pose,
+            spawn_cfg_addon=self.spawn_cfg_addon,
+            asset_cfg_addon=self.asset_cfg_addon,
             **kwargs,
         )
 
@@ -233,6 +240,42 @@ class BrownBox(LibraryObject):
 
 
 @register_asset
+class Mug(LibraryObject, Placeable):
+    """
+    A mug.
+    """
+
+    name = "mug"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Objects/Mug/mug.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/Mug"
+    scale = (1.0, 1.0, 1.0)
+
+    # Placeable affordance parameters
+    upright_axis_name = "z"
+    orientation_threshold = 0.5
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            upright_axis_name=self.upright_axis_name,
+            orientation_threshold=self.orientation_threshold,
+        )
+        RIGID_BODY_PROPS = sim_utils.RigidBodyPropertiesCfg(
+            solver_position_iteration_count=16,
+            solver_velocity_iteration_count=1,
+            max_angular_velocity=1000.0,
+            max_linear_velocity=1000.0,
+            max_depenetration_velocity=5.0,
+            disable_gravity=False,
+        )
+        self.object_cfg.spawn.rigid_props = RIGID_BODY_PROPS
+        self.object_cfg.spawn.mass_props = sim_utils.MassPropertiesCfg(mass=0.25)
+
+
+@register_asset
 class GroundPlane(LibraryObject):
     """
     A ground plane.
@@ -275,4 +318,20 @@ class Light(LibraryObject):
         spawner_cfg: sim_utils.LightCfg = default_spawner_cfg,
     ):
         self.spawner_cfg = spawner_cfg
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class DexCube(LibraryObject):
+    """
+    A cube.
+    """
+
+    name = "dex_cube"
+    tags = ["object"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd"
+    scale = (0.8, 0.8, 0.8)
+    object_type = ObjectType.RIGID
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
