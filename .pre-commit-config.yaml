@@ -64,5 +64,5 @@ repos:
           # - --remove-header    # Remove existing license headers. Useful when updating license.
           - --license-filepath
           - .github/LICENSE_HEADER.txt
-          # - --use-current-year
+          - --use-current-year
         exclude: "submodules/"
