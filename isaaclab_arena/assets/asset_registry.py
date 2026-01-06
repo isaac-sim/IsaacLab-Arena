@@ -185,8 +185,4 @@ def ensure_assets_registered():
         import isaaclab_arena.embodiments  # noqa: F401
         import isaaclab_arena.policy  # noqa: F401
 
-        # TODO(alexmillane, 2025.01.06): Remove this dependence on isaaclab_arena_gr00t
-        import isaaclab_arena_gr00t.gr00t_closedloop_policy  # noqa: F401
-        import isaaclab_arena_gr00t.replay_lerobot_action_policy  # noqa: F401
-
         _assets_registered = True

@@ -7,13 +7,30 @@ import numpy as np
 import random
 import torch
 import tqdm
+from importlib import import_module
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
-
-# from isaaclab_arena.policy.policy_registry import get_policy_cls
+from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+
+def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
+    """Get the policy class for the given policy type name."""
+    from isaaclab_arena.assets.asset_registry import PolicyRegistry
+
+    policy_registry = PolicyRegistry()
+    if policy_registry.is_registered(policy_type):
+        return policy_registry.get_policy(policy_type)
+    else:
+        print(f"Policy {policy_type} is not registered. Dynamically importing from path: {policy_type}")
+        assert "." in policy_type, "Unregistered policy_type must be a path to a policy class"
+        # Dynamically import the class from the string path
+        module_path, class_name = policy_type.rsplit(".", 1)
+        module = import_module(module_path)
+        policy_cls = getattr(module, class_name)
+        return policy_cls
 
 
 def main():
@@ -24,14 +41,12 @@ def main():
 
     # Start the simulation app
     with SimulationAppContext(args_cli):
-        from isaaclab_arena.assets.asset_registry import PolicyRegistry
-
         # Get the policy-type flag before preceding to other arguments
         add_policy_runner_arguments(args_parser)
         args_cli, _ = args_parser.parse_known_args()
 
         # Get the policy class from the policy type
-        policy_cls = PolicyRegistry().get_policy(args_cli.policy_type)
+        policy_cls = get_policy_cls(args_cli.policy_type)
         print(f"Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
 
         # Add the example environment arguments + policy-related arguments to the parser

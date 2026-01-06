@@ -12,7 +12,6 @@ from typing import Any
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 from gr00t.model.policy import Gr00tPolicy
 
-from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
@@ -29,7 +28,6 @@ from isaaclab_arena_gr00t.data_utils.robot_joints import JointsAbsPosition
 from isaaclab_arena_gr00t.policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 
 
-@register_policy
 class Gr00tClosedloopPolicy(PolicyBase):
 
     name = "gr00t_closedloop"
