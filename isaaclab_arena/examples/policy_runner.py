@@ -32,7 +32,10 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
         return policy_registry.get_policy(policy_type)
     else:
         print(f"Policy {policy_type} is not registered. Dynamically importing from path: {policy_type}")
-        assert "." in policy_type, "Unregistered policy_type must be a path to a policy class"
+        assert "." in policy_type, (
+            "policy_type must be a dotted Python import path of the form 'module.submodule.ClassName', got:"
+            f" {policy_type}"
+        )
         # Dynamically import the class from the string path
         module_path, class_name = policy_type.rsplit(".", 1)
         module = import_module(module_path)

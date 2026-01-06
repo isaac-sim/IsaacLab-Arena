@@ -8,8 +8,8 @@ import yaml
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 HEADLESS = True
 ENABLE_CAMERAS = True
