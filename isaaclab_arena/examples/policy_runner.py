@@ -8,12 +8,15 @@ import random
 import torch
 import tqdm
 from importlib import import_module
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
-from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyBase
 
 
 def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
