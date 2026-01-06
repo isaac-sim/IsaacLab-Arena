@@ -1,0 +1,163 @@
+{
+    "codebase_version": "v2.1",
+    "robot_type": "gr1",
+    "total_episodes": 1,
+    "total_frames": 152,
+    "total_tasks": 1,
+    "total_videos": 1,
+    "total_chunks": 0,
+    "chunks_size": 1000,
+    "fps": 20,
+    "splits": {
+        "train": "0:100"
+    },
+    "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
+    "video_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4",
+    "features": {
+        "observation.images.ego_view": {
+            "dtype": "video",
+            "shape": [
+                512,
+                512,
+                3
+            ],
+            "names": [
+                "height",
+                "width",
+                "channel"
+            ],
+            "video_info": {
+                "video.width": 512,
+                "video.height": 512,
+                "video.fps": 20.0,
+                "video.codec": "h264",
+                "video.pix_fmt": "yuv420p",
+                "video.channels": 3,
+                "video.is_depth_map": false,
+                "has_audio": false
+            }
+        },
+        "observation.state": {
+            "dtype": "float32",
+            "shape": [
+                26
+            ],
+            "names": [
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_pitch_joint",
+                "left_wrist_yaw_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_pitch_joint",
+                "right_wrist_yaw_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "L_pinky_proximal_joint",
+                "L_ring_proximal_joint",
+                "L_middle_proximal_joint",
+                "L_index_proximal_joint",
+                "L_thumb_proximal_yaw_joint",
+                "L_thumb_proximal_pitch_joint",
+                "R_pinky_proximal_joint",
+                "R_ring_proximal_joint",
+                "R_middle_proximal_joint",
+                "R_index_proximal_joint",
+                "R_thumb_proximal_yaw_joint",
+                "R_thumb_proximal_pitch_joint"
+            ]
+        },
+        "action": {
+            "dtype": "float32",
+            "shape": [
+                26
+            ],
+            "names": [
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_pitch_joint",
+                "left_wrist_yaw_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_pitch_joint",
+                "right_wrist_yaw_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+                "L_pinky_proximal_joint",
+                "L_ring_proximal_joint",
+                "L_middle_proximal_joint",
+                "L_index_proximal_joint",
+                "L_thumb_proximal_yaw_joint",
+                "L_thumb_proximal_pitch_joint",
+                "R_pinky_proximal_joint",
+                "R_ring_proximal_joint",
+                "R_middle_proximal_joint",
+                "R_index_proximal_joint",
+                "R_thumb_proximal_yaw_joint",
+                "R_thumb_proximal_pitch_joint"
+            ]
+        },
+        "timestamp": {
+            "dtype": "float64",
+            "shape": [
+                1
+            ]
+        },
+        "human.task_description": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ]
+        },
+        "episode_index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ]
+        },
+        "task_index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ]
+        },
+        "index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ]
+        },
+        "frame_index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ]
+        },
+        "next.reward": {
+            "dtype": "float64",
+            "shape": [
+                1
+            ]
+        },
+        "next.done": {
+            "dtype": "bool",
+            "shape": [
+                1
+            ]
+        },
+        "observation.img_state_delta": {
+            "dtype": "float64",
+            "shape": [
+                1
+            ]
+        }
+    }
+}
