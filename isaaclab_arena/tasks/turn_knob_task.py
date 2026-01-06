@@ -11,11 +11,11 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
-from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -38,7 +38,9 @@ class TurnKnobTask(TaskBase):
         self.events_cfg = TurnKnobEventCfg(self.turnable_object, reset_level=self.reset_level)
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
-            f"Turn the {turnable_object.name} to level {target_level}." if task_description is None else task_description
+            f"Turn the {turnable_object.name} to level {target_level}."
+            if task_description is None
+            else task_description
         )
 
     def make_termination_cfg(self):
@@ -75,6 +77,7 @@ class TurnKnobTask(TaskBase):
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function not implemented yet.")
 
+
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
@@ -84,6 +87,7 @@ class TerminationsCfg:
     # Dependent on the openable object, so this is passed in from the task at
     # construction time.
     success: TerminationTermCfg = MISSING
+
 
 @configclass
 class TurnKnobEventCfg:

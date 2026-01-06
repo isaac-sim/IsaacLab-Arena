@@ -4,51 +4,55 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-
 import torch
 
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
 from isaaclab_arena.affordances.affordance_base import AffordanceBase
-from isaaclab_arena.utils.joint_utils import \
-    (get_unnormalized_joint_position, normalize_value, set_unnormalized_joint_position)
+from isaaclab_arena.utils.joint_utils import (
+    get_unnormalized_joint_position,
+    normalize_value,
+    set_unnormalized_joint_position,
+)
 
 
 class Turnable(AffordanceBase):
     """
-    Interface for turnable objects with discrete levels.
+        Interface for turnable objects with discrete levels.
 
-    Examples: controller knob/dial/rotary switch to adjust volume/speed/power/temperature etc.
+        Examples: controller knob/dial/rotary switch to adjust volume/speed/power/temperature etc.
 
-    Knob Level Diagram:
+        Knob Level Diagram:
 
-                  min_level_angle                              max_level_angle
-                         ↓                                             ↓
-        ─────────────────●─────────────────────────────────────────────●
-        │   Dead Zone    │                Active Range                 │
-        ├────────────────┼─────────────────────────────────────────────┤
-                         │                                             │
-Level -1 (INIT)       Level 0      Level 1    ...    Level (X-2)    Level (X-1)
-                         │          │                   │              │
-                         ├──────────┼───────────────────┼──────────────┤
-        0°               θ_min      θ₁                  θ₂            θ_max
-Joint Lower Limit                                                 Joint Upper Limit
+                      min_level_angle                              max_level_angle
+                             ↓                                             ↓
+            ─────────────────●─────────────────────────────────────────────●
+            │   Dead Zone    │                Active Range                 │
+            ├────────────────┼─────────────────────────────────────────────┤
+                             │                                             │
+    Level -1 (INIT)       Level 0      Level 1    ...    Level (X-2)    Level (X-1)
+                             │          │                   │              │
+                             ├──────────┼───────────────────┼──────────────┤
+            0°               θ_min      θ₁                  θ₂            θ_max
+    Joint Lower Limit                                                 Joint Upper Limit
 
-    Where:
-        - Dead Zone: 0° to min_level_angle (Level -1, mostly for safety or aesthetic purposes)
-        - Active Range: min_level_angle to max_level_angle (Levels 0 to X-1)
-        - X = total number of discrete levels (num_levels)
-        - Level -1: Dead zone (joint angle < min_level_angle)
-        - Level 0: First active level at min_level_angle
-        - Level X-1: Last active level at max_level_angle
-        - target_level = integer in [-1, X-1]
-        - min_level_angle = joint angle (degrees) at level 0 (start of active range)
-        - max_level_angle = joint angle (degrees) at level X-1 (end of active range)
-        - Intermediate levels are linearly interpolated between min and max angles
+        Where:
+            - Dead Zone: 0° to min_level_angle (Level -1, mostly for safety or aesthetic purposes)
+            - Active Range: min_level_angle to max_level_angle (Levels 0 to X-1)
+            - X = total number of discrete levels (num_levels)
+            - Level -1: Dead zone (joint angle < min_level_angle)
+            - Level 0: First active level at min_level_angle
+            - Level X-1: Last active level at max_level_angle
+            - target_level = integer in [-1, X-1]
+            - min_level_angle = joint angle (degrees) at level 0 (start of active range)
+            - max_level_angle = joint angle (degrees) at level X-1 (end of active range)
+            - Intermediate levels are linearly interpolated between min and max angles
     """
 
-    def __init__(self, turnable_joint_name: str, min_level_angle: float, max_level_angle: float, num_levels: int, **kwargs):
+    def __init__(
+        self, turnable_joint_name: str, min_level_angle: float, max_level_angle: float, num_levels: int, **kwargs
+    ):
         """
         Initialize a turnable object.
 
@@ -111,7 +115,9 @@ Joint Lower Limit                                                 Joint Upper Li
                    0 = first active level (sets joint to min_level_angle)
                    num_levels-1 = last active level (sets joint to max_level_angle)
         """
-        assert target_level >= -1 and target_level < self.num_levels, f"target_level must be between -1 and {self.num_levels-1}"
+        assert (
+            target_level >= -1 and target_level < self.num_levels
+        ), f"target_level must be between -1 and {self.num_levels-1}"
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
@@ -126,7 +132,9 @@ Joint Lower Limit                                                 Joint Upper Li
 
         set_unnormalized_joint_position(env, asset_cfg, theta, env_ids)
 
-    def is_at_level(self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, target_level: int = -1) -> torch.Tensor:
+    def is_at_level(
+        self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, target_level: int = -1
+    ) -> torch.Tensor:
         """Check if the object is at the given level (in all the environments)."""
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)

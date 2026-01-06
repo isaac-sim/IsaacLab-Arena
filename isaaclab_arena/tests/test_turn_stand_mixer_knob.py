@@ -3,15 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import random
 import gymnasium as gym
+import random
 import torch
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-NUM_STEPS = 20
-HEADLESS = False
+NUM_STEPS = 10
+HEADLESS = True
 RESET_TARGET_LEVEL = random.randint(0, 5)
+
 
 def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
@@ -46,9 +47,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
         name="turn_stand_mixer_knob",
         embodiment=FrankaEmbodiment(),
         scene=scene,
-        task=TurnKnobTask(turnable_object=stand_mixer,
-                          target_level=RESET_TARGET_LEVEL,
-                          reset_level=-1)
+        task=TurnKnobTask(turnable_object=stand_mixer, target_level=RESET_TARGET_LEVEL, reset_level=-1),
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
@@ -150,13 +149,17 @@ def _test_turn_stand_mixer_knob_reset_condition(simulation_app):
         stand_mixer.turn_to_level(env, None, target_level=RESET_TARGET_LEVEL)
         step_zeros_and_call(env, NUM_STEPS)
         # every element shall be close to init level
-        assert torch.abs(stand_mixer.get_turning_level(env) - default_init_level).all() <= 1e-6, f"It shall reset to initial level {default_init_level} instead of {stand_mixer.get_turning_level(env)}"
+        assert (
+            torch.abs(stand_mixer.get_turning_level(env) - default_init_level).all() <= 1e-6
+        ), f"It shall reset to initial level {default_init_level} instead of {stand_mixer.get_turning_level(env)}"
 
         # turn one env to max level (not target), and no reset should happen
         stand_mixer.turn_to_level(env, torch.tensor([0]), target_level=6)
         level = stand_mixer.get_turning_level(env)
         step_zeros_and_call(env, NUM_STEPS)
-        assert torch.abs(level[1] - default_init_level[1]) <= 1e-6, f"It shall reset to initial level {default_init_level[1]} instead of {level[1]}"
+        assert (
+            torch.abs(level[1] - default_init_level[1]) <= 1e-6
+        ), f"It shall reset to initial level {default_init_level[1]} instead of {level[1]}"
         assert torch.abs(level[0] - 6) <= 1e-6, f"It shall turn to level 6 instead of {level[0]}"
 
     except Exception as e:
@@ -191,6 +194,7 @@ def test_turn_stand_mixer_knob_reset_condition():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_turn_stand_mixer_knob_reset_condition.__name__} failed"
+
 
 if __name__ == "__main__":
     test_turn_stand_mixer_knob_to_desired_levels_single_env()

@@ -14,14 +14,14 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class Gr1RotateStandMixerKnobEnvironment(ExampleEnvironmentBase):
+class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
 
-    name: str = "gr1_rotate_stand_mixer_knob"
+    name: str = "gr1_turn_stand_mixer_knob"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.dummy_task import DummyTask
+        from isaaclab_arena.tasks.turn_knob_task import TurnKnobTask
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
@@ -61,7 +61,9 @@ class Gr1RotateStandMixerKnobEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=DummyTask(),
+            task=TurnKnobTask(turnable_object=stand_mixer,
+                          target_level=args_cli.target_level,
+                          reset_level=args_cli.reset_level),
             teleop_device=teleop_device,
         )
 
@@ -75,3 +77,5 @@ class Gr1RotateStandMixerKnobEnvironment(ExampleEnvironmentBase):
         parser.add_argument("--teleop_device", type=str, default=None)
         # Note (xinjieyao, 2025.10.06): Add the embodiment argument for PINK IK EEF control or Joint positional control
         parser.add_argument("--embodiment", type=str, default="gr1_pink")
+        parser.add_argument("--target_level", type=int, default=4)
+        parser.add_argument("--reset_level", type=int, default=-1)
