@@ -13,6 +13,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
+from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -180,23 +181,36 @@ class CoffeeMachine(LibraryObject, Pressable):
             pressedness_threshold=self.pressedness_threshold,
         )
 
+
 @register_asset
-class StandMixer(LibraryObject):
+class StandMixer(LibraryObject, Turnable):
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
     name = "stand_mixer"
-    tags = ["object", "knob_turnable"]
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/StandMixer013/StandMixer013.usd"
+    tags = ["object", "turnable"]
+    usd_path = (
+        "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/StandMixer013/StandMixer013.usd"
+    )
     object_type = ObjectType.ARTICULATION
 
     # knob turnable affordance parameters
     turnable_joint_name = "knob_speed_joint"
-    turnable_threshold = 0.5
+    min_level_angle = 40.0
+    max_level_angle = 280.0
+    num_levels = 7
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+        super().__init__(
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            turnable_joint_name=self.turnable_joint_name,
+            min_level_angle=self.min_level_angle,
+            max_level_angle=self.max_level_angle,
+            num_levels=self.num_levels,
+        )
+
 
 @register_asset
 class OfficeTable(LibraryObject):
