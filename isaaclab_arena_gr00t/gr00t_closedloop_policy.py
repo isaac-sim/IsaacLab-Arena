@@ -89,13 +89,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
         gr00t_closedloop_group.add_argument(
             "--policy_config_yaml_path",
             type=str,
-            help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
+            help="Path to the Gr00t closedloop policy config YAML file",
         )
         gr00t_closedloop_group.add_argument(
             "--policy_device",
             type=str,
             default="cuda",
-            help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
+            help="Device to use for the policy-related operations",
         )
         return parser
 

@@ -17,7 +17,14 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 
 
 def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
-    """Get the policy class for the given policy type name."""
+    """Get the policy class for the given policy type name.
+
+    Note that this function:
+    - first: checks for a registered policy type in the PolicyRegistry
+    - if not found, it tries to dynamically import the policy class, treating
+      the policy_type argument as a string representing the module path and class name.
+
+    """
     from isaaclab_arena.assets.asset_registry import PolicyRegistry
 
     policy_registry = PolicyRegistry()
