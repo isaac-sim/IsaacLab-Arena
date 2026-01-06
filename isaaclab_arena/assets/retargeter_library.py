@@ -19,6 +19,12 @@
 from abc import ABC, abstractmethod
 
 from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
+from isaaclab.devices.openxr.retargeters.humanoid.unitree.g1_motion_controller_locomotion import (
+    G1LowerBodyStandingMotionControllerRetargeterCfg,
+)
+from isaaclab.devices.openxr.retargeters.humanoid.unitree.trihand.g1_upper_body_motion_ctrl_retargeter import (
+    G1TriHandUpperBodyMotionControllerRetargeterCfg,
+)
 from isaaclab.devices.retargeter_base import RetargeterCfg
 
 from isaaclab_arena.assets.register import register_retargeter
@@ -31,7 +37,7 @@ class RetargetterBase(ABC):
     @abstractmethod
     def get_retargeter_cfg(
         self, embodiment: object, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg:
+    ) -> list[RetargeterCfg] | None:
         raise NotImplementedError
 
 
@@ -47,14 +53,16 @@ class GR1T2PinkOpenXRRetargeter(RetargetterBase):
 
     def get_retargeter_cfg(
         self, gr1t2_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg:
-        return GR1T2RetargeterCfg(
-            enable_visualization=enable_visualization,
-            # number of joints in both hands
-            num_open_xr_hand_joints=self.num_open_xr_hand_joints,
-            sim_device=sim_device,
-            hand_joint_names=gr1t2_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
-        )
+    ) -> list[RetargeterCfg] | None:
+        return [
+            GR1T2RetargeterCfg(
+                enable_visualization=enable_visualization,
+                # number of joints in both hands
+                num_open_xr_hand_joints=self.num_open_xr_hand_joints,
+                sim_device=sim_device,
+                hand_joint_names=gr1t2_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
+            )
+        ]
 
 
 @register_retargeter
@@ -67,7 +75,7 @@ class FrankaKeyboardRetargeter(RetargetterBase):
 
     def get_retargeter_cfg(
         self, franka_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    ) -> list[RetargeterCfg] | None:
         return None
 
 
@@ -81,7 +89,7 @@ class FrankaSpaceMouseRetargeter(RetargetterBase):
 
     def get_retargeter_cfg(
         self, franka_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    ) -> list[RetargeterCfg] | None:
         return None
 
 
@@ -95,5 +103,28 @@ class AgibotKeyboardRetargeter(RetargetterBase):
 
     def get_retargeter_cfg(
         self, agibot_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    ) -> list[RetargeterCfg] | None:
         return None
+
+
+@register_retargeter
+class G1OpenXRMotionBasedRetargeter(RetargetterBase):
+    device = "openxr"
+    embodiment = "g1"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, g1_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> list[RetargeterCfg] | None:
+        return [
+            G1TriHandUpperBodyMotionControllerRetargeterCfg(
+                enable_visualization=True,
+                sim_device=sim_device,
+                hand_joint_names=g1_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
+            ),
+            G1LowerBodyStandingMotionControllerRetargeterCfg(
+                sim_device=sim_device,
+            ),
+        ]
