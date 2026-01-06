@@ -7,7 +7,6 @@ import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
-from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 HEADLESS = True
 ENABLE_CAMERAS = True
@@ -19,11 +18,9 @@ TRAJECTORY_INDEX = 0
 def test_g1_locomanip_replay_lerobot_policy_runner_single_env():
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
-    args.append("isaaclab_arena_gr00t.replay_lerobot_action_policy.ReplayLerobotActionPolicy")
+    args.append("replay_lerobot")
     args.append("--config_yaml_path")
-    args.append(
-        Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_replay_action_config.yaml"
-    )
+    args.append(TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_replay_action_config.yaml")
     args.append("--max_steps")
     args.append(str(NUM_STEPS))
     args.append("--trajectory_index")
@@ -45,9 +42,9 @@ def test_g1_locomanip_replay_lerobot_policy_runner_single_env():
 def test_gr1_manip_replay_lerobot_policy_runner_single_env():
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
-    args.append("isaaclab_arena_gr00t.replay_lerobot_action_policy.ReplayLerobotActionPolicy")
+    args.append("replay_lerobot")
     args.append("--config_yaml_path")
-    args.append(Gr00tTestConstants.test_data_dir + "/test_gr1_manip_lerobot/test_gr1_manip_replay_action_config.yaml")
+    args.append(TestConstants.test_data_dir + "/test_gr1_manip_lerobot/test_gr1_manip_replay_action_config.yaml")
     args.append("--max_steps")
     args.append(str(NUM_STEPS))
     args.append("--trajectory_index")

@@ -78,7 +78,7 @@ Test the policy in a single environment with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/examples/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
      --enable_cameras \
@@ -106,7 +106,7 @@ Test the policy in 5 parallel environments with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/examples/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --policy_type gr00t_closedloop \
      --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
      --num_envs 5 \
