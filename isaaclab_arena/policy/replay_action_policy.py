@@ -10,14 +10,18 @@ from gymnasium.spaces.dict import Dict as GymSpacesDict
 
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 
 
+@register_policy
 class ReplayActionPolicy(PolicyBase):
     """
     Replay the actions from an named episode stored in a HDF5 file.
     If no episode name is provided, the first episode will be replayed.
     """
+
+    name = "replay"
 
     def __init__(self, replay_file_path: str, device: str = "cuda", episode_name: str | None = None):
         super().__init__()

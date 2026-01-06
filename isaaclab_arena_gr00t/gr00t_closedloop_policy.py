@@ -29,6 +29,9 @@ from isaaclab_arena_gr00t.policy_config import Gr00tClosedloopPolicyConfig, Task
 
 
 class Gr00tClosedloopPolicy(PolicyBase):
+
+    name = "gr00t_closedloop"
+
     def __init__(self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda"):
         """
         Base class for closedloop inference from obs using GR00T N1.5 policy
@@ -86,13 +89,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
         gr00t_closedloop_group.add_argument(
             "--policy_config_yaml_path",
             type=str,
-            help="Path to the Gr00t closedloop policy config YAML file (required with --policy_type gr00t_closedloop)",
+            help="Path to the Gr00t closedloop policy config YAML file",
         )
         gr00t_closedloop_group.add_argument(
             "--policy_device",
             type=str,
             default="cuda",
-            help="Device to use for the policy-related operations (only used with --policy_type gr00t_closedloop)",
+            help="Device to use for the policy-related operations",
         )
         return parser
 

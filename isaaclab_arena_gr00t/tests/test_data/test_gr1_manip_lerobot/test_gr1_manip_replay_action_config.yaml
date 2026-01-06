@@ -5,7 +5,7 @@
 
 # This file shows how to configure the ReplayLerobotActionPolicy class for G1 locomanipulation task
 # TODO(xinjie.yao, 2025-09-30): change Hardcoded dataset_path to some releasable path
-dataset_path: isaaclab_arena/tests/test_data/test_gr1_manip_lerobot/
+dataset_path: isaaclab_arena_gr00t/tests/test_data/test_gr1_manip_lerobot/
 action_horizon: 16
 embodiment_tag: gr1
 video_backend: decord
