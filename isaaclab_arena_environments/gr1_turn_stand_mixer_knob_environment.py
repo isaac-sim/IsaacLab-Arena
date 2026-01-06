@@ -61,9 +61,9 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=TurnKnobTask(turnable_object=stand_mixer,
-                          target_level=args_cli.target_level,
-                          reset_level=args_cli.reset_level),
+            task=TurnKnobTask(
+                turnable_object=stand_mixer, target_level=args_cli.target_level, reset_level=args_cli.reset_level
+            ),
             teleop_device=teleop_device,
         )
 
