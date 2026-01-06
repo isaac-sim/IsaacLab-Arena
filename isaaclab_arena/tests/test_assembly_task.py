@@ -1,12 +1,13 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
 
 import gymnasium as gym
-import pytest
 import torch
+
+import pytest
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -389,7 +390,10 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
 # Test functions that will be called by pytest
 @pytest.mark.skip(
-    reason="Requires enable_pinocchio=False. Run separately: pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_single"
+    reason=(
+        "Requires enable_pinocchio=False. Run separately: pytest -sv"
+        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_single"
+    )
 )
 def test_peg_insert_assembly_single():
     result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS, enable_pinocchio=False)
@@ -402,7 +406,10 @@ def test_gear_mesh_assembly_single():
 
 
 @pytest.mark.skip(
-    reason="Requires enable_pinocchio=False. Run separately: pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_multi"
+    reason=(
+        "Requires enable_pinocchio=False. Run separately: pytest -sv"
+        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_multi"
+    )
 )
 def test_peg_insert_assembly_multi():
     result = run_simulation_app_function(_test_peg_insert_assembly_multi, headless=HEADLESS, enable_pinocchio=False)
@@ -415,7 +422,10 @@ def test_gear_mesh_assembly_multi():
 
 
 @pytest.mark.skip(
-    reason="Requires enable_pinocchio=False. Run separately: pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_initialization"
+    reason=(
+        "Requires enable_pinocchio=False. Run separately: pytest -sv"
+        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_initialization"
+    )
 )
 def test_peg_insert_initialization():
     """
