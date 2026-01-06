@@ -68,7 +68,7 @@ def _test_turn_stand_mixer_knob_to_desired_levels_single_env(simulation_app):
     try:
         init_level = stand_mixer.get_turning_level(env)
         assert init_level.shape == torch.Size([1])
-        assert init_level.item() + 1 <= 1e-6
+        assert torch.eq(init_level, -1).all()
 
         for i in range(7):
             target_turning_level = i
@@ -76,7 +76,7 @@ def _test_turn_stand_mixer_knob_to_desired_levels_single_env(simulation_app):
             step_zeros_and_call(env, NUM_STEPS)
             turned_level = stand_mixer.get_turning_level(env)
             assert turned_level.shape == torch.Size([1])
-            assert turned_level.item() - target_turning_level <= 1e-6
+            assert torch.eq(turned_level, target_turning_level).all()
 
     except Exception as e:
         print(f"Error: {e}")
@@ -95,36 +95,36 @@ def _test_turn_stand_mixer_knob_multiple_envs(simulation_app):
     # init level should be -1
     try:
         init_level = stand_mixer.get_turning_level(env)
-        assert torch.abs(init_level + 1).all() <= 1e-6
+        assert torch.eq(init_level, -1).all()
 
         # turn env 0 to a random level
         target_turning_level = random.randint(0, stand_mixer.num_levels - 1)
         stand_mixer.turn_to_level(env, torch.tensor([0]), target_level=target_turning_level)
         step_zeros_and_call(env, NUM_STEPS)
         turned_level_0 = stand_mixer.get_turning_level(env)
-        assert torch.abs(turned_level_0[0] - target_turning_level) <= 1e-6
-        assert torch.abs(turned_level_0[1] + 1).all() <= 1e-6
+        assert torch.eq(turned_level_0[0], target_turning_level)
+        assert torch.eq(turned_level_0[1], -1)
 
         # turn env 1 to a random level
         target_turning_level = random.randint(0, stand_mixer.num_levels - 1)
         stand_mixer.turn_to_level(env, torch.tensor([1]), target_level=target_turning_level)
         step_zeros_and_call(env, NUM_STEPS)
         turned_level_1 = stand_mixer.get_turning_level(env)
-        assert torch.abs(turned_level_1[1] - target_turning_level) <= 1e-6
-        assert torch.abs(turned_level_1[0] - turned_level_0[0]) <= 1e-6
+        assert torch.eq(turned_level_1[1], target_turning_level)
+        assert torch.eq(turned_level_1[0], turned_level_0[0])
 
         # turn env 0 to init level
         stand_mixer.turn_to_level(env, torch.tensor([0]), target_level=-1)
         step_zeros_and_call(env, NUM_STEPS)
         turned_level_2 = stand_mixer.get_turning_level(env)
-        assert torch.abs(turned_level_2[0] + 1).all() <= 1e-6
-        assert torch.abs(turned_level_2[1] - turned_level_1[1]) <= 1e-6
+        assert torch.eq(turned_level_2[0], -1)
+        assert torch.eq(turned_level_2[1], turned_level_1[1])
 
         # turn env 1 to init level
         stand_mixer.turn_to_level(env, torch.tensor([1]), target_level=-1)
         step_zeros_and_call(env, NUM_STEPS)
         turned_level_3 = stand_mixer.get_turning_level(env)
-        assert torch.abs(turned_level_3 + 1).all() <= 1e-6
+        assert torch.eq(turned_level_3, -1).all()
 
     except Exception as e:
         print(f"Error: {e}")
@@ -149,18 +149,18 @@ def _test_turn_stand_mixer_knob_reset_condition(simulation_app):
         stand_mixer.turn_to_level(env, None, target_level=RESET_TARGET_LEVEL)
         step_zeros_and_call(env, NUM_STEPS)
         # every element shall be close to init level
-        assert (
-            torch.abs(stand_mixer.get_turning_level(env) - default_init_level).all() <= 1e-6
-        ), f"It shall reset to initial level {default_init_level} instead of {stand_mixer.get_turning_level(env)}"
+        assert torch.eq(
+            stand_mixer.get_turning_level(env), default_init_level
+        ).all(), f"It shall reset to initial level {default_init_level} instead of {stand_mixer.get_turning_level(env)}"
 
         # turn one env to max level (not target), and no reset should happen
         stand_mixer.turn_to_level(env, torch.tensor([0]), target_level=6)
         level = stand_mixer.get_turning_level(env)
         step_zeros_and_call(env, NUM_STEPS)
-        assert (
-            torch.abs(level[1] - default_init_level[1]) <= 1e-6
+        assert torch.eq(
+            level[1], default_init_level[1]
         ), f"It shall reset to initial level {default_init_level[1]} instead of {level[1]}"
-        assert torch.abs(level[0] - 6) <= 1e-6, f"It shall turn to level 6 instead of {level[0]}"
+        assert torch.eq(level[0], 6), f"It shall turn to level 6 instead of {level[0]}"
 
     except Exception as e:
         print(f"Error: {e}")

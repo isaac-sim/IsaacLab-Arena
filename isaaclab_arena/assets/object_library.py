@@ -185,11 +185,12 @@ class CoffeeMachine(LibraryObject, Pressable):
 @register_asset
 class StandMixer(LibraryObject, Turnable):
     """
-    Encapsulates the pick-up object config for a pick-and-place environment.
+    Stand mixer with a knob that can be turned to different levels.
     """
 
     name = "stand_mixer"
     tags = ["object", "turnable"]
+
     usd_path = (
         "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/StandMixer013/StandMixer013.usd"
     )
@@ -197,8 +198,8 @@ class StandMixer(LibraryObject, Turnable):
 
     # knob turnable affordance parameters
     turnable_joint_name = "knob_speed_joint"
-    min_level_angle = 40.0
-    max_level_angle = 280.0
+    min_level_angle_deg = 40.0
+    max_level_angle_deg = 280.0
     num_levels = 7
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
@@ -206,8 +207,8 @@ class StandMixer(LibraryObject, Turnable):
             prim_path=prim_path,
             initial_pose=initial_pose,
             turnable_joint_name=self.turnable_joint_name,
-            min_level_angle=self.min_level_angle,
-            max_level_angle=self.max_level_angle,
+            min_level_angle_deg=self.min_level_angle_deg,
+            max_level_angle_deg=self.max_level_angle_deg,
             num_levels=self.num_levels,
         )
 

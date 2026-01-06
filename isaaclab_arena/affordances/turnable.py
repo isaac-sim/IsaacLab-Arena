@@ -25,7 +25,7 @@ class Turnable(AffordanceBase):
 
         Knob Level Diagram:
 
-                      min_level_angle                              max_level_angle
+                      min_level_angle_rad                              max_level_angle_rad
                              ↓                                             ↓
             ─────────────────●─────────────────────────────────────────────●
             │   Dead Zone    │                Active Range                 │
@@ -38,38 +38,43 @@ class Turnable(AffordanceBase):
     Joint Lower Limit                                                 Joint Upper Limit
 
         Where:
-            - Dead Zone: 0° to min_level_angle (Level -1, mostly for safety or aesthetic purposes)
-            - Active Range: min_level_angle to max_level_angle (Levels 0 to X-1)
+            - Dead Zone: 0° to min_level_angle_rad (Level -1, mostly for safety or aesthetic purposes)
+            - Active Range: min_level_angle_rad to max_level_angle_rad (Levels 0 to X-1)
             - X = total number of discrete levels (num_levels)
             - Level -1: Dead zone (joint angle < min_level_angle)
-            - Level 0: First active level at min_level_angle
-            - Level X-1: Last active level at max_level_angle
+            - Level 0: First active level at min_level_angle_rad
+            - Level X-1: Last active level at max_level_angle_rad
             - target_level = integer in [-1, X-1]
-            - min_level_angle = joint angle (degrees) at level 0 (start of active range)
-            - max_level_angle = joint angle (degrees) at level X-1 (end of active range)
+            - min_level_angle_rad = joint angle (radians) at level 0 (start of active range)
+            - max_level_angle_rad = joint angle (radians) at level X-1 (end of active range)
             - Intermediate levels are linearly interpolated between min and max angles
     """
 
     def __init__(
-        self, turnable_joint_name: str, min_level_angle: float, max_level_angle: float, num_levels: int, **kwargs
+        self,
+        turnable_joint_name: str,
+        min_level_angle_deg: float,
+        max_level_angle_deg: float,
+        num_levels: int,
+        **kwargs,
     ):
         """
         Initialize a turnable object.
 
         Args:
             turnable_joint_name: Name of the revolute joint that can be turned
-            min_level_angle: Joint angle (degrees) at level 0 (first active level)
-            max_level_angle: Joint angle (degrees) at level (num_levels-1) (last active level)
+            min_level_angle_deg: Joint angle (degrees) at level 0 (first active level)
+            max_level_angle_deg: Joint angle (degrees) at level (num_levels-1) (last active level)
             num_levels: Total number of discrete active levels (must be >= 1)
             **kwargs: Additional arguments passed to AffordanceBase
         """
         super().__init__(**kwargs)
         self.turnable_joint_name = turnable_joint_name
 
-        assert min_level_angle >= 0.0, "min_level_angle must be non-negative"
-        assert min_level_angle < max_level_angle, "min_level_angle must be less than max_level_angle"
-        self.min_level_angle = min_level_angle * math.pi / 180.0
-        self.max_level_angle = max_level_angle * math.pi / 180.0
+        assert min_level_angle_deg >= 0.0, "min_level_angle must be non-negative"
+        assert min_level_angle_deg < max_level_angle_deg, "min_level_angle must be less than max_level_angle"
+        self.min_level_angle_rad = min_level_angle_deg * math.pi / 180.0
+        self.max_level_angle_rad = max_level_angle_deg * math.pi / 180.0
 
         self.num_levels = num_levels
         assert self.num_levels >= 1, "num_levels must be at least 1"
@@ -82,20 +87,20 @@ class Turnable(AffordanceBase):
         theta = get_unnormalized_joint_position(env, asset_cfg)
 
         # If in dead zone, return level -1
-        in_dead_zone = theta < self.min_level_angle
+        in_dead_zone = theta < self.min_level_angle_rad
 
         # Clamp to active range for level calculation
-        theta_clamped = torch.clamp(theta, self.min_level_angle, self.max_level_angle)
-        normalized_position = normalize_value(theta_clamped, self.min_level_angle, self.max_level_angle)
+        theta_clamped = torch.clamp(theta, self.min_level_angle_rad, self.max_level_angle_rad)
+        normalized_position = normalize_value(theta_clamped, self.min_level_angle_rad, self.max_level_angle_rad)
 
         # Rounding ensures it switches levels at the halfway mark between level angles.
-        # Level 0 is at min_level_angle, Level (num_levels-1) is at max_level_angle
-        level = torch.round(normalized_position * (self.num_levels - 1))
+        # Level 0 is at min_level_angle_rad, Level (num_levels-1) is at max_level_angle_rad
+        level = torch.floor(normalized_position * (self.num_levels - 1))
 
         # Set level to -1 for dead zone positions
         level = torch.where(in_dead_zone, torch.full_like(level, -1.0), level)
 
-        return level
+        return level.to(int)
 
     def turn_to_level(
         self,
@@ -118,29 +123,31 @@ class Turnable(AffordanceBase):
         assert (
             target_level >= -1 and target_level < self.num_levels
         ), f"target_level must be between -1 and {self.num_levels-1}"
+
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
-
+        target_level = int(target_level)
         if target_level == -1:
             # Dead zone: set to 0°
             theta = 0.0
         else:
             # Active range: map level [0, num_levels-1] to angle [min_level_angle, max_level_angle]
-            step_size = (self.max_level_angle - self.min_level_angle) / (self.num_levels - 1)
-            theta = self.min_level_angle + step_size * target_level
+            step_size = (self.max_level_angle_rad - self.min_level_angle_rad) / (self.num_levels - 1)
+            # set it to the the middle between levels (target_level and target_level + 1)
+            theta = self.min_level_angle_rad + step_size * target_level + step_size / 2.0
 
         set_unnormalized_joint_position(env, asset_cfg, theta, env_ids)
 
     def is_at_level(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, target_level: int = -1
     ) -> torch.Tensor:
-        """Check if the object is at the given level (in all the environments)."""
+        """Check if the object is at the given level for each environment."""
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
         asset_cfg = self._add_joint_name_to_scene_entity_cfg(asset_cfg)
         current_level = self.get_turning_level(env, asset_cfg)
-        return torch.abs(current_level - target_level) <= 1e-6
+        return torch.eq(current_level, int(target_level))
 
     def _add_joint_name_to_scene_entity_cfg(self, asset_cfg: SceneEntityCfg) -> SceneEntityCfg:
         asset_cfg.joint_names = [self.turnable_joint_name]
