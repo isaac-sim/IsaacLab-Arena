@@ -7,9 +7,9 @@ import shutil
 
 import pandas as pd
 
-from isaaclab_arena_gr00t.config.dataset_config import Gr00tDatasetConfig
+from isaaclab_arena_gr00t.lerobot.config.dataset_config import Gr00tDatasetConfig
+from isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot import convert_hdf5_to_lerobot
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants
-from isaaclab_arena_gr00t.utils.convert_hdf5_to_lerobot import convert_hdf5_to_lerobot
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml
 
 
