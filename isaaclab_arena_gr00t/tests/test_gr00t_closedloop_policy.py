@@ -9,6 +9,7 @@ import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 HEADLESS = True
 ENABLE_CAMERAS = True
@@ -27,7 +28,7 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     # Run the finetuning script.
     args = [TestConstants.python_path, f"{TestConstants.submodules_dir}/Isaac-GR00T/scripts/gr00t_finetune.py"]
     args.append("--dataset_path")
-    args.append(TestConstants.test_data_dir + "/test_g1_locomanip_lerobot")
+    args.append(Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot")
     args.append("--output_dir")
     args.append(model_dir)
     args.append("--data_config")
@@ -81,14 +82,14 @@ def get_tmp_config_file(input_config_file, tmp_path, model_path):
 def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
-        TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
+        Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
     )
     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
     # Run the model
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
-    args.append("gr00t_closedloop")
+    args.append("isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
     args.append("--policy_config_yaml_path")
     args.append(config_file)
     args.append("--num_steps")
@@ -109,14 +110,14 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
-        TestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
+        Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
     )
     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
     # Run the model
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
-    args.append("gr00t_closedloop")
+    args.append("isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
     args.append("--policy_config_yaml_path")
     args.append(config_file)
     args.append("--num_steps")
