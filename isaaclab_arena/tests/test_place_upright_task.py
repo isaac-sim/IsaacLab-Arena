@@ -33,11 +33,10 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
     background.object_cfg.spawn.scale = (1.0, 1.0, 0.60)
     # placeable object must have initial pose set
     mug = asset_registry.get_asset_by_name("mug")(
-        initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_wxyz=(0.7071, 0.7071, 0.0, 0.0)),
+        initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_wxyz=(0.7071, 0.7071, 0.0, 0.0))
     )
     if dont_reset_placeable_object_pose:
         mug.disable_reset_pose()
-    # print(f"Mug event cfg: {mug.get_event_cfg()}")
 
     light = asset_registry.get_asset_by_name("light")()
 
@@ -51,10 +50,6 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
     )
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
-    # if remove_randomize_mug_positions_event:
-    #     cfg.events.reset_all = None
-    #     cfg.events.randomize_mug_positions = None
-    # cfg.events.reset_placeable_object_pose = None
 
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
