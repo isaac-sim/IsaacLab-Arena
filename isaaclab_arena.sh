@@ -11,7 +11,7 @@ print_help () {
     echo -e "\t-h, --help           Display the help content."
     echo -e "\t-i, --install [LIB]  Install the extensions inside Isaac Lab Arena and learning frameworks as extra dependencies. Default is 'all'."
     echo -e "\t-c, --conda [NAME]   Create the conda environment for Isaac Lab Arena. Default name is 'env_isaaclab_arena'."
-    echo -e "\t-u, --uv [NAME]      Create the uv environment for Isaac Lab. Default name is 'env_isaaclab_arena'."
+    echo -e "\t-u, --uv [NAME]      Create the uv environment for Isaac Lab Arena. Default name is 'env_isaaclab_arena'."
     echo -e "\n" >&2
 }
 
@@ -106,6 +106,96 @@ extract_pip_uninstall_command() {
     echo ${pip_uninstall_command}
 }
 
+# setup uv environment for Isaac Lab Arena
+setup_uv_env() {
+    # get environment name from input
+    local env_name="$1"
+    local python_path="$2"
+
+    # check uv is installed
+    if ! command -v uv &>/dev/null; then
+        echo "[ERROR] uv could not be found. Please install uv and try again."
+        echo "[ERROR] uv can be installed here:"
+        echo "[ERROR] https://docs.astral.sh/uv/getting-started/installation/"
+        exit 1
+    fi
+
+    # check if _isaac_sim symlink exists and isaacsim-rl is not installed via pip
+    if [ ! -L "${ISAACLAB_PATH}/_isaac_sim" ] && ! python -m pip list | grep -q 'isaacsim-rl'; then
+        echo -e "[WARNING] _isaac_sim symlink not found at ${ISAACLAB_PATH}/_isaac_sim"
+        echo -e "\tThis warning can be ignored if you plan to install Isaac Sim via pip."
+        echo -e "\tIf you are using a binary installation of Isaac Sim, please ensure the symlink is created before setting up the conda environment."
+    fi
+
+    # check if the environment exists
+    local env_path="${ISAACLAB_ARENA_PATH}/${env_name}"
+    if [ ! -d "${env_path}" ]; then
+        echo -e "[INFO] Creating uv environment named '${env_name}'..."
+        uv venv --clear --python "${python_path}" "${env_path}"
+        # Install pip so isaaclab.sh can use python -m pip
+        echo -e "[INFO] Installing pip in uv environment..."
+        uv pip install --python "${env_path}/bin/python" pip
+    else
+        echo "[INFO] uv environment '${env_name}' already exists."
+    fi
+
+    # define root path for activation hooks
+    local isaaclab_root="${ISAACLAB_ARENA_PATH}"
+
+    # cache current paths for later
+    cache_pythonpath=$PYTHONPATH
+    cache_ld_library_path=$LD_LIBRARY_PATH
+
+    # ensure activate file exists
+    touch "${env_path}/bin/activate"
+
+     # add variables to environment during activation
+    cat >> "${env_path}/bin/activate" <<EOF
+export ISAACLAB_PATH="${ISAACLAB_PATH}"
+alias isaaclab="${ISAACLAB_PATH}/isaaclab.sh"
+alias isaaclab_arena="${ISAACLAB_ARENA_PATH}/isaaclab_arena.sh"
+export RESOURCE_NAME="IsaacSim"
+
+if [ -f "${ISAACLAB_PATH}/_isaac_sim/setup_conda_env.sh" ]; then
+    . "${ISAACLAB_PATH}/_isaac_sim/setup_conda_env.sh"
+fi
+EOF
+
+    # add information to the user about alias
+    echo -e "[INFO] Added 'isaaclab' alias to uv environment for 'isaaclab.sh' script."
+    echo -e "[INFO] Created uv environment named '${env_name}'.\n"
+    echo -e "\t\t1. To activate the environment, run:                source ${env_name}/bin/activate."
+    echo -e "\t\t2. To install Isaac Lab Arena extensions, run:      isaaclab_arena -i"
+    echo -e "\t\t3. To perform formatting, run:                      isaaclab -f"
+    echo -e "\t\t4. To deactivate the environment, run:              deactivate"
+    echo -e "\n"
+}
+
+
+# update the pycharm settings from template and isaac sim settings
+update_pycharm_settings() {
+    echo "[INFO] Setting up PyCharm settings..."
+    # retrieve the python executable
+    python_exe=$(extract_python_exe)
+    # path to setup_pycharm.py
+    setup_pycharm_script="${ISAACLAB_ARENA_PATH}/.idea/tools/setup_pycharm.py"
+    # check if the file exists before attempting to run it
+    if [ -f "${setup_pycharm_script}" ]; then
+        ${python_exe} "${setup_pycharm_script}"
+    else
+        echo "[WARNING] Unable to find the script 'setup_pycharm.py'. Aborting PyCharm settings setup."
+    fi
+
+    # Update run configurations with environment variables
+    update_run_configs_script="${ISAACLAB_ARENA_PATH}/.idea/tools/update_run_configs.py"
+    if [ -f "${update_run_configs_script}" ]; then
+        echo "[INFO] Updating PyCharm run configurations with environment variables..."
+        ${python_exe} "${update_run_configs_script}"
+    else
+        echo "[WARNING] Unable to find the script 'update_run_configs.py'. Run configurations may not have proper environment variables."
+    fi
+}
+
 # check if input directory is a python extension and install the module
 install_isaaclab_arena_extension() {
     # retrieve the python executable
@@ -148,10 +238,12 @@ while [[ $# -gt 0 ]]; do
                 framework_name=$2
                 shift # past argument
             fi
-            $ISAACLAB_PATH/isaaclab.sh -i framework_name
+            # Install IsaacLab
+            $ISAACLAB_PATH/isaaclab.sh -i $framework_name
+            # Install Isaac-GR00T
             ${pip_command} -e "${ISAACLAB_ARENA_PATH}/submodules/Isaac-GR00T"
             # Install IsaacLab Arena
-            pip install -e .
+            ${pip_command} -e .
             # unset local variables
             unset extract_python_exe
             unset extract_pip_command
@@ -173,14 +265,23 @@ while [[ $# -gt 0 ]]; do
         -u|--uv)
             # use default name if not provided
             if [ -z "$2" ]; then
+                echo "[INFO] Using default uv environment name: env_isaaclab_arena"
                 uv_env_name="env_isaaclab_arena"
             else
+                echo "[INFO] Using uv environment name: $2"
                 uv_env_name=$2
                 shift # past argument
             fi
             # setup the uv environment for Isaac Lab
-            $ISAACLAB_PATH/isaaclab.sh --uv ${conda_env_name}
+            setup_uv_env ${uv_env_name}
             shift # past argument
+            ;;
+        -y|--pycharm)
+            # update the pycharm settings
+            update_pycharm_settings
+            shift # past argument
+            # exit neatly
+            break
             ;;
         -h|--help)
             print_help
