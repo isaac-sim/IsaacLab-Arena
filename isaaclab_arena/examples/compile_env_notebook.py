@@ -48,7 +48,7 @@ env.reset()
 
 print(f"Event cfg: {cracker_box.get_event_cfg()}")
 
-#%%
+# %%
 
 # Run some zero actions.
 NUM_STEPS = 100
@@ -57,7 +57,7 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
 
-#%%
+# %%
 
 pose = Pose(position_xyz=(0.4, -0.4, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
 cracker_box.set_object_pose(env, pose)
@@ -67,4 +67,4 @@ cracker_box.set_object_pose(env, pose)
 with torch.inference_mode():
     env.reset()
 
-#%%
+# %%

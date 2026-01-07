@@ -7,7 +7,7 @@ import numpy as np
 from dataclasses import MISSING
 
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable

@@ -6,12 +6,11 @@
 import torch
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.managers import EventTermCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.pose import Pose
@@ -89,7 +88,7 @@ class ObjectBase(Asset, ABC):
         if is_relative:
             object_pose[:, :3] -= env.scene.env_origins
         return object_pose
-    
+
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
         """Set the pose of the object in the environment.
 

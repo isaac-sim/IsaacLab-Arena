@@ -54,7 +54,7 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
     # if remove_randomize_mug_positions_event:
     #     cfg.events.reset_all = None
     #     cfg.events.randomize_mug_positions = None
-        # cfg.events.reset_placeable_object_pose = None
+    # cfg.events.reset_placeable_object_pose = None
 
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()

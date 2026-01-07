@@ -6,14 +6,14 @@
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
-from isaaclab_arena.terms.events import set_object_pose
 
 
 class Object(ObjectBase):
@@ -50,9 +50,11 @@ class Object(ObjectBase):
         self.event_cfg = self._init_event_cfg()
 
     def _requires_reset_pose_event(self) -> bool:
-        return self.initial_pose is not None and \
-               self.reset_pose and \
-               self.object_type in [ObjectType.RIGID, ObjectType.ARTICULATION]
+        return (
+            self.initial_pose is not None
+            and self.reset_pose
+            and self.object_type in [ObjectType.RIGID, ObjectType.ARTICULATION]
+        )
 
     def _init_event_cfg(self) -> EventTermCfg | None:
         if self._requires_reset_pose_event():
@@ -78,7 +80,7 @@ class Object(ObjectBase):
         else:
             event_cfg = None
             return None
- 
+
     # def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
     #     event_cfg_name = f"{self.name}_reset_pose"
     #     return event_cfg_name, self.event_cfg

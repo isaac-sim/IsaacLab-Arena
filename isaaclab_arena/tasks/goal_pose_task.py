@@ -8,7 +8,7 @@ from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 
