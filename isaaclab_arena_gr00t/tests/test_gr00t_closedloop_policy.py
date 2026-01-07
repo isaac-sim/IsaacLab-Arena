@@ -89,7 +89,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
     # Run the model
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
-    args.append("isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
+    args.append("isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
     args.append("--policy_config_yaml_path")
     args.append(config_file)
     args.append("--num_steps")
@@ -117,7 +117,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     # Run the model
     args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
     args.append("--policy_type")
-    args.append("isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
+    args.append("isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
     args.append("--policy_config_yaml_path")
     args.append(config_file)
     args.append("--num_steps")
