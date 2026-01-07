@@ -39,7 +39,7 @@ class PlaceUprightTask(TaskBase):
             orientation_threshold if orientation_threshold is not None else placeable_object.orientation_threshold
         )
         self.scene_config = InteractiveSceneCfg(num_envs=1, env_spacing=3.0, replicate_physics=False)
-        self.events_cfg = None #PlaceUprightEventCfg(self.placeable_object)
+        self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Place the {placeable_object.name} upright" if task_description is None else task_description
@@ -89,28 +89,6 @@ class TerminationsCfg:
     # Dependent on the placeable object, so this is passed in from the task at
     # construction time.
     success: TerminationTermCfg = MISSING
-
-
-@configclass
-class PlaceUprightEventCfg:
-    """Configuration for Place Upright."""
-
-    reset_placeable_object_pose: EventTermCfg = MISSING
-
-    def __init__(self, placeable_object: Placeable):
-        assert isinstance(placeable_object, Placeable), "Object pose must be an instance of Placeable"
-        initial_pose = placeable_object.get_initial_pose()
-        if initial_pose is not None:
-            self.reset_placeable_object_pose = EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(placeable_object.name),
-                },
-            )
-        else:
-            raise ValueError(f"Initial pose is not set for the placeable object {placeable_object.name}")
 
 
 @configclass

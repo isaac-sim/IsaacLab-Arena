@@ -74,7 +74,6 @@ class AssemblyTask(TaskBase):
 
     def disable_default_pose_resets(self):
         for asset in [self.fixed_asset, self.held_asset, *self.auxiliary_asset_list]:
-            print(f"Disabling reset pose for asset: {asset.name}")
             asset.disable_reset_pose()
 
     def get_scene_cfg(self):
