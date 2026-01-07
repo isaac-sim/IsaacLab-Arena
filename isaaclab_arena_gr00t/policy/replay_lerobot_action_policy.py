@@ -15,7 +15,7 @@ from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_gr00t.policy.config.replay_lerobot_action_policy_config import (
+from isaaclab_arena_gr00t.policy.config.lerobot_replay_action_policy_config import (
     LerobotReplayActionPolicyConfig,
     TaskMode,
 )
