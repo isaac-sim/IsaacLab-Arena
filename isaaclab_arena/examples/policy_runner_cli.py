@@ -11,9 +11,8 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--policy_type",
         type=str,
-        choices=["zero_action", "replay", "replay_lerobot", "gr00t_closedloop"],
         required=True,
-        help="Type of policy to use: 'zero_action' or 'replay' or 'replay_lerobot' or 'gr00t_closedloop'",
+        help="Type of policy to use. This is either a registered policy name or a path to a policy class.",
     )
     parser.add_argument(
         "--num_steps",

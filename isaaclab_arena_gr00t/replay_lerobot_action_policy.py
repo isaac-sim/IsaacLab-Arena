@@ -21,6 +21,9 @@ from isaaclab_arena_gr00t.policy_config import LerobotReplayActionPolicyConfig, 
 
 
 class ReplayLerobotActionPolicy(PolicyBase):
+
+    name = "replay_lerobot"
+
     def __init__(
         self,
         policy_config_yaml_path: Path,
@@ -206,19 +209,19 @@ class ReplayLerobotActionPolicy(PolicyBase):
         replay_lerobot_group.add_argument(
             "--config_yaml_path",
             type=str,
-            help="Path to the Lerobot action policy config YAML file (required with --policy_type replay_lerobot)",
+            help="Path to the Lerobot action policy config YAML file",
         )
         replay_lerobot_group.add_argument(
             "--max_steps",
             type=int,
             default=None,
-            help="Maximum number of steps to run the policy for (only used with --policy_type replay_lerobot)",
+            help="Maximum number of steps to run the policy for.",
         )
         replay_lerobot_group.add_argument(
             "--trajectory_index",
             type=int,
             default=0,
-            help="Index of the trajectory to run the policy for (only used with --policy_type replay_lerobot)",
+            help="Index of the trajectory to run the policy for.",
         )
         return parser
 

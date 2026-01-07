@@ -8,7 +8,7 @@
 # Example for G1 locomanipulation task
 
 # Root directory for all data storage
-data_root: "isaaclab_arena/tests/test_data/"
+data_root: "isaaclab_arena_gr00t/tests/test_data/"
 
 # Instruction given to the policy in natural language
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
