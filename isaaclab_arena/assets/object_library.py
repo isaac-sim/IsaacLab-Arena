@@ -191,9 +191,7 @@ class StandMixer(LibraryObject, Turnable):
     name = "stand_mixer"
     tags = ["object", "turnable"]
 
-    usd_path = (
-        "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/StandMixer013/StandMixer013.usd"
-    )
+    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/lightwheel_StandMixer013/StandMixer013.usd"
     object_type = ObjectType.ARTICULATION
 
     # knob turnable affordance parameters
