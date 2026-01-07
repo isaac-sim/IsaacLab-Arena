@@ -43,13 +43,15 @@ class Object(ObjectBase):
         self.usd_path = usd_path
         self.scale = scale
         self.initial_pose = initial_pose
+        self.reset_pose = True
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
         self.object_cfg = self._init_object_cfg()
-        self.event_cfg = self._init_event_cfg() # MAYBE MOVE TO PARENT CLASS.
+        self.event_cfg = self._init_event_cfg()
 
     def _requires_reset_pose_event(self) -> bool:
         return self.initial_pose is not None and \
+               self.reset_pose and \
                self.object_type in [ObjectType.RIGID, ObjectType.ARTICULATION]
 
     def _init_event_cfg(self) -> EventTermCfg | None:
@@ -65,29 +67,40 @@ class Object(ObjectBase):
         else:
             return None
 
-    def _add_initial_pose_to_event_cfg(self, event_cfg: EventTermCfg | None) -> EventTermCfg:
+    def _update_initial_pose_event_cfg(self, event_cfg: EventTermCfg | None) -> EventTermCfg | None:
         if self._requires_reset_pose_event():
             # Create an event cfg if one does not yet exist
             if event_cfg is None:
                 event_cfg = self._init_event_cfg()
             # Add the initial pose to the event cfg
             event_cfg.params["pose"] = self.initial_pose
-        return event_cfg
+            return event_cfg
+        else:
+            event_cfg = None
+            return None
  
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        event_cfg_name = f"{self.name}_reset_pose"
-        return event_cfg_name, self.event_cfg
+    # def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+    #     event_cfg_name = f"{self.name}_reset_pose"
+    #     return event_cfg_name, self.event_cfg
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
         self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
-        self.event_cfg = self._add_initial_pose_to_event_cfg(self.event_cfg)
+        self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
 
     def get_initial_pose(self) -> Pose | None:
         return self.initial_pose
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
+
+    def disable_reset_pose(self) -> None:
+        self.reset_pose = False
+        self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
+
+    def enable_reset_pose(self) -> None:
+        self.reset_pose = True
+        self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

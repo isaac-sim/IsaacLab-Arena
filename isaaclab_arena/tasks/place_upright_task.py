@@ -39,7 +39,7 @@ class PlaceUprightTask(TaskBase):
             orientation_threshold if orientation_threshold is not None else placeable_object.orientation_threshold
         )
         self.scene_config = InteractiveSceneCfg(num_envs=1, env_spacing=3.0, replicate_physics=False)
-        self.events_cfg = PlaceUprightEventCfg(self.placeable_object)
+        self.events_cfg = None #PlaceUprightEventCfg(self.placeable_object)
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Place the {placeable_object.name} upright" if task_description is None else task_description

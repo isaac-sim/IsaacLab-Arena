@@ -11,6 +11,7 @@ from typing import Any
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.managers import EventTermCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.pose import Pose
@@ -38,6 +39,8 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+        self.object_cfg = None
+        self.event_cfg = None
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
@@ -47,6 +50,9 @@ class ObjectBase(Asset, ABC):
 
     def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
         return self.name, self.object_cfg
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        return self.name, self.event_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:

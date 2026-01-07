@@ -43,7 +43,7 @@ class PickAndPlaceTask(TaskBase):
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
-        self.events_cfg = EventsCfg(pick_up_object=self.pick_up_object)
+        self.events_cfg = None #EventsCfg(pick_up_object=self.pick_up_object)
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Pick up the {pick_up_object.name}, and place it into the {destination_location.name}"
@@ -117,29 +117,29 @@ class TerminationsCfg:
     object_dropped: TerminationTermCfg = MISSING
 
 
-@configclass
-class EventsCfg:
-    """Configuration for Pick and Place."""
+# @configclass
+# class EventsCfg:
+#     """Configuration for Pick and Place."""
 
-    reset_pick_up_object_pose: EventTermCfg = MISSING
+#     reset_pick_up_object_pose: EventTermCfg = MISSING
 
-    def __init__(self, pick_up_object: Asset):
-        initial_pose = pick_up_object.get_initial_pose()
-        if initial_pose is not None:
-            self.reset_pick_up_object_pose = EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(pick_up_object.name),
-                },
-            )
-        else:
-            print(
-                f"Pick up object {pick_up_object.name} has no initial pose. Not setting reset pick up object pose"
-                " event."
-            )
-            self.reset_pick_up_object_pose = None
+#     def __init__(self, pick_up_object: Asset):
+#         initial_pose = pick_up_object.get_initial_pose()
+#         if initial_pose is not None:
+#             self.reset_pick_up_object_pose = EventTermCfg(
+#                 func=set_object_pose,
+#                 mode="reset",
+#                 params={
+#                     "pose": initial_pose,
+#                     "asset_cfg": SceneEntityCfg(pick_up_object.name),
+#                 },
+#             )
+#         else:
+#             print(
+#                 f"Pick up object {pick_up_object.name} has no initial pose. Not setting reset pick up object pose"
+#                 " event."
+#             )
+#             self.reset_pick_up_object_pose = None
 
 
 @configclass
