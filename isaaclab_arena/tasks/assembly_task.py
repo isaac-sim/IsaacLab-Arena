@@ -51,6 +51,8 @@ class AssemblyTask(TaskBase):
         self.auxiliary_asset_list = auxiliary_asset_list
         self.background_scene = background_scene
         self.scene_config = None
+        # We use specialize randomization at reset for this task. So disable default pose resets.
+        self.disable_default_pose_resets()
         self.events_cfg = EventsCfg(
             pose_range=pose_range if pose_range is not None else {},
             min_separation=min_separation,
@@ -69,6 +71,10 @@ class AssemblyTask(TaskBase):
             if task_description is None
             else task_description
         )
+
+    def disable_default_pose_resets(self):
+        for asset in [self.fixed_asset, self.held_asset, *self.auxiliary_asset_list]:
+            asset.disable_reset_pose()
 
     def get_scene_cfg(self):
         """Get scene configuration."""
