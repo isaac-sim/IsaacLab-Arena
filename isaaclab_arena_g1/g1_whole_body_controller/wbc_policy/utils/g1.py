@@ -32,12 +32,12 @@ def instantiate_g1_robot_model(
     """
 
     robot_model_config = {
-        "asset_path": f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/robot_model/g1/",
-        "urdf_path": f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/robot_model/g1/g1_29dof_with_hand.urdf",
+        "asset_path": f"/workspaces/isaaclab_arena/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/robot_model/g1/",
+        "urdf_path": f"/workspaces/isaaclab_arena/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/robot_model/g1/g1_29dof_with_hand.urdf",
     }
 
-    asset_path_local = retrieve_file_path(robot_model_config["asset_path"], force_download=True)
-    urdf_path_local = retrieve_file_path(robot_model_config["urdf_path"], force_download=True)
+    asset_path_local = robot_model_config["asset_path"]
+    urdf_path_local = robot_model_config["urdf_path"]
 
     assert waist_location in [
         "lower_body",
