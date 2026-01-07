@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
@@ -273,7 +275,7 @@ class IoBoard(LibraryObject):
 
     name = "object"
     tags = ["object"]
-    usd_path = "/workspaces/isaaclab_arena/isaaclab_arena/assets/object_library/6a_io_board.usd"
+    usd_path = str(Path(__file__).parent / "object_library" / "6a_io_board.usd")
     default_prim_path = "{ENV_REGEX_NS}/io_board"
     scale = (1.0, 1.0, 1.0)
 

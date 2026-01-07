@@ -15,6 +15,7 @@ import torch
 import os
 import math
 import tempfile
+from pathlib import Path
 
 from .swerve_ik import swerve_isosceles_ik
 import isaaclab.controllers.utils as ControllerUtils
@@ -159,7 +160,7 @@ class FiiSceneCfg:
             }
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path="/workspaces/isaaclab_arena/isaaclab_arena/embodiments/embodiment_library/Fiibot_W_1_V2_251016_Modified.usd",
+            usd_path=str(Path(__file__).parent.parent / "embodiment_library" / "Fiibot_W_1_V2_251016_Modified.usd"),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
                 retain_accelerations=False,
