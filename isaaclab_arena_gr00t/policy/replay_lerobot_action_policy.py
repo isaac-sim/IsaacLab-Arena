@@ -72,7 +72,9 @@ class ReplayLerobotActionPolicy(PolicyBase):
         if policy_config.data_config in DATA_CONFIG_MAP:
             self.data_config = DATA_CONFIG_MAP[policy_config.data_config]
         elif policy_config.data_config == "unitree_g1_sim_wbc":
-            self.data_config = load_data_config("isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig")
+            self.data_config = load_data_config(
+                "isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig"
+            )
         else:
             raise ValueError(f"Invalid data config: {policy_config.data_config}")
 

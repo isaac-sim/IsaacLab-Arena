@@ -130,7 +130,7 @@ To post-train the policy, run the following command
    python scripts/gr00t_finetune.py \
    --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
    --output_dir=$MODELS_DIR \
-   --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
+   --data_config=isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig \
    --batch_size=24 \
    --max_steps=20000 \
    --num_gpus=8 \

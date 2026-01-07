@@ -32,7 +32,7 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     args.append("--output_dir")
     args.append(model_dir)
     args.append("--data_config")
-    args.append("isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig")
+    args.append("isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig")
     args.append("--batch_size")
     args.append("1")  # Small batch size for testing
     args.append("--max_steps")
