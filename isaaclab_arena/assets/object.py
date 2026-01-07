@@ -7,11 +7,13 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+from isaaclab_arena.terms.events import set_object_pose
 
 
 class Object(ObjectBase):
@@ -44,10 +46,42 @@ class Object(ObjectBase):
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
         self.object_cfg = self._init_object_cfg()
+        self.event_cfg = self._init_event_cfg() # MAYBE MOVE TO PARENT CLASS.
+
+    def _requires_reset_pose_event(self) -> bool:
+        return self.initial_pose is not None and \
+               self.object_type in [ObjectType.RIGID, ObjectType.ARTICULATION]
+
+    def _init_event_cfg(self) -> EventTermCfg | None:
+        if self._requires_reset_pose_event():
+            return EventTermCfg(
+                func=set_object_pose,
+                mode="reset",
+                params={
+                    "pose": self.initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                },
+            )
+        else:
+            return None
+
+    def _add_initial_pose_to_event_cfg(self, event_cfg: EventTermCfg | None) -> EventTermCfg:
+        if self._requires_reset_pose_event():
+            # Create an event cfg if one does not yet exist
+            if event_cfg is None:
+                event_cfg = self._init_event_cfg()
+            # Add the initial pose to the event cfg
+            event_cfg.params["pose"] = self.initial_pose
+        return event_cfg
+ 
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        event_cfg_name = f"{self.name}_reset_pose"
+        return event_cfg_name, self.event_cfg
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
         self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+        self.event_cfg = self._add_initial_pose_to_event_cfg(self.event_cfg)
 
     def get_initial_pose(self) -> Pose | None:
         return self.initial_pose
