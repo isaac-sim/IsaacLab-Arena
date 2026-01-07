@@ -15,9 +15,12 @@ from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
 
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_gr00t.data_utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
-from isaaclab_arena_gr00t.data_utils.joints_conversion import remap_policy_joints_to_sim_joints
-from isaaclab_arena_gr00t.policy_config import LerobotReplayActionPolicyConfig, TaskMode
+from isaaclab_arena_gr00t.policy.config.replay_lerobot_action_policy_config import (
+    LerobotReplayActionPolicyConfig,
+    TaskMode,
+)
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
+from isaaclab_arena_gr00t.utils.joints_conversion import remap_policy_joints_to_sim_joints
 
 
 class ReplayLerobotActionPolicy(PolicyBase):

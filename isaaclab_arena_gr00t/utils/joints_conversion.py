@@ -6,7 +6,7 @@
 import numpy as np
 import torch
 
-from isaaclab_arena_gr00t.data_utils.robot_joints import JointsAbsPosition
+from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 
 
 def remap_sim_joints_to_policy_joints(

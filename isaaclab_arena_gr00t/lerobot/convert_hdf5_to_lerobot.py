@@ -19,18 +19,18 @@ from typing import Any
 
 import pandas as pd
 
-from isaaclab_arena_gr00t.config.dataset_config import Gr00tDatasetConfig
-from isaaclab_arena_gr00t.data_utils.image_conversion import resize_frames_with_padding
-from isaaclab_arena_gr00t.data_utils.io_utils import (
+from isaaclab_arena_gr00t.lerobot.config.dataset_config import Gr00tDatasetConfig
+from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
+from isaaclab_arena_gr00t.utils.io_utils import (
     create_config_from_yaml,
     dump_json,
     dump_jsonl,
     load_json,
     load_robot_joints_config_from_yaml,
 )
-from isaaclab_arena_gr00t.data_utils.joints_conversion import remap_sim_joints_to_policy_joints
-from isaaclab_arena_gr00t.data_utils.robot_eef_pose import EefPose
-from isaaclab_arena_gr00t.data_utils.robot_joints import JointsAbsPosition
+from isaaclab_arena_gr00t.utils.joints_conversion import remap_sim_joints_to_policy_joints
+from isaaclab_arena_gr00t.utils.robot_eef_pose import EefPose
+from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 
 
 def wait_for_video_completion(video_path: str, max_wait_time: int = 60, check_interval: float = 0.5) -> bool:
