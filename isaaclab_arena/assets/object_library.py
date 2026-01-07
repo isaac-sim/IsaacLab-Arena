@@ -24,6 +24,11 @@ from isaaclab_arena.assets.object_utils import (
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
+# TODO(xinjieyao, 2026.01.07): Remove staging bucket and use production bucket for release.
+ISAACLAB_STAGING_NUCLEUS_DIR = (
+    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/"
+)
+
 
 class LibraryObject(Object):
     """
@@ -191,7 +196,8 @@ class StandMixer(LibraryObject, Turnable):
     name = "stand_mixer"
     tags = ["object", "turnable"]
 
-    usd_path = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/lightwheel_StandMixer013/StandMixer013.usd"
+    # TODO(xinjieyao, 2026.01.07): Trigger sync to production bucket for release.
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/lightwheel_StandMixer013/StandMixer013.usd"
     object_type = ObjectType.ARTICULATION
 
     # knob turnable affordance parameters
