@@ -64,18 +64,23 @@ def _test_all_assets_in_registry(simulation_app):
     objects_in_registry: list[Object] = []
     for idx, asset_cls in enumerate(asset_registry.get_assets_by_tag("object")):
         asset = asset_cls()
-        # Set their pose
-        pose = Pose(
-            position_xyz=(
-                first_position[0] + (idx + 1) * OBJECT_SEPARATION,
-                first_position[1],
-                first_position[2],
-            ),
-            rotation_wxyz=(1, 0, 0, 0),
-        )
-        asset.set_initial_pose(pose)
-        objects_in_registry.append(asset)
-        objects_in_registry_names.append(asset.name)
+        # Skip "peg" and "hole" assets due to enable_pinocchio requirement mismatch.
+        # These IsaacLab factory assembly assets require enable_pinocchio=False, but the current
+        # SimulationApp session was initialized with enable_pinocchio=True. The app cannot be
+        # restarted mid-session due to subprocess.py limitations.
+        if asset.name not in ("peg", "hole"):
+            # Set their pose
+            pose = Pose(
+                position_xyz=(
+                    first_position[0] + (idx + 1) * OBJECT_SEPARATION,
+                    first_position[1],
+                    first_position[2],
+                ),
+                rotation_wxyz=(1, 0, 0, 0),
+            )
+            asset.set_initial_pose(pose)
+            objects_in_registry.append(asset)
+            objects_in_registry_names.append(asset.name)
     # Add lights
     for asset_cls in asset_registry.get_assets_by_tag("light"):
         asset = asset_cls()
