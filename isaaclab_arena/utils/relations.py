@@ -43,17 +43,19 @@ class NextTo(Relation):
         self,
         parent: "DummyObject",
         relation_loss_weight: float = 1.0,
-        distance: float = 0.05,
+        distance_m: float = 0.05,
         side: str = "right",
     ):
         """
         Args:
             parent: The parent asset that this object should be placed next to.
             relation_loss_weight: Weight for the relationship loss function.
-            distance: Target distance from parent's boundary in meters (default: 5cm).
+            distance_m: Target distance from parent's boundary in meters (default: 5cm).
             side: Which side to place object: "front" (-Y), "back" (+Y),
                   "left" (-X), or "right" (+X).
         """
         super().__init__(parent, relation_loss_weight)
-        self.distance = distance
+        assert distance_m >= 0.0, f"Distance must be non-negative, got {distance_m}"
+        self.distance_m = distance_m
+        assert side in ["front", "back", "left", "right"]
         self.side = side

@@ -15,7 +15,7 @@ from isaaclab_arena.utils.relations import NextTo, Relation
 
 
 class RelationSolver:
-    """Differentiable solver for 3D spatial relations using gradient descent.
+    """Differentiable solver for 3D spatial relations of IsaacLab Arena Objects
 
     Uses the Strategy pattern for loss computation: each Relation type has a
     corresponding LossStrategy that handles the actual loss calculation.
@@ -144,10 +144,11 @@ class RelationSolver:
                 - Object names mapped to final (x, y, z) positions
                 - '_loss_history': List of loss values during optimization
         """
-        # 1. Initialize positions from objects
+        # Initialize positions from objects. All objects must have an initial pose at this stage.
+        # TODO(cvolk) Should this be the Solver's responsibility to randomly initialize objects positions or should the caller do it?
         all_positions = self._get_positions_from_objects(objects)
 
-        # 2. Identify fixed and optimizable objects
+        # Identify fixed and optimizable objects
         fixed_mask = torch.tensor([obj.is_fixed for obj in objects])
         optimizable_mask = ~fixed_mask
 
@@ -162,17 +163,17 @@ class RelationSolver:
             print("=== RelationSolver ===")
             print(f"Fixed objects: {n_fixed}, Optimizable objects: {n_opt}")
 
-        # 3. Setup optimizer (only for optimizable positions)
+        # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([optimizable_positions], lr=self.lr)
 
-        # 4. Optimization loop
+        # Optimization loop
         loss_history = []
         position_history = []  # Track positions for visualization
 
         for iter in range(self.max_iters):
             optimizer.zero_grad()
 
-            # Reconstruct full position tensor for loss computation
+            # Reconstruct positions as a tensor for loss computation
             all_positions = torch.zeros((len(objects), 3))
             all_positions[fixed_mask] = fixed_positions
             all_positions[optimizable_mask] = optimizable_positions
@@ -204,12 +205,12 @@ class RelationSolver:
         final_all_positions[optimizable_mask] = optimizable_positions.detach()
         position_history.append(final_all_positions.tolist())
 
-        # 5. Reconstruct final positions
+        # Reconstruct final positions
         final_positions = torch.zeros((len(objects), 3))
         final_positions[fixed_mask] = fixed_positions
         final_positions[optimizable_mask] = optimizable_positions.detach()
 
-        # 7. Return positions as dict
+        # Return positions as dict
         result = {}
         for i, obj in enumerate(objects):
             result[obj.name] = tuple(final_positions[i].tolist())

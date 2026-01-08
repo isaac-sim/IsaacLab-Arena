@@ -89,7 +89,7 @@ class NextToLossStrategy(LossStrategy):
             Weighted loss tensor.
         """
         side = relation.side
-        distance = relation.distance
+        distance = relation.distance_m
 
         if side != "right":
             raise NotImplementedError(f"Side '{side}' not yet implemented, only 'right' is supported")
