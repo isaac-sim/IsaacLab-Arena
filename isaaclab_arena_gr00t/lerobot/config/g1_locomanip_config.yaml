@@ -47,20 +47,20 @@ data_path: "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet"
 video_path: "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4"
 
 # Configuration file paths
-modality_template_path: "isaaclab_arena_gr00t/config/g1/modality.json"
+modality_template_path: "isaaclab_arena_gr00t/embodiments/g1/modality.json"
 modality_fname: "modality.json"
 episodes_fname: "episodes.jsonl"
 tasks_fname: "tasks.jsonl"
-info_template_path: "isaaclab_arena_gr00t/config/g1/info.json"
+info_template_path: "isaaclab_arena_gr00t/embodiments/g1/info.json"
 info_fname: "info.json"
 
 # policy specific parameters (gr00t demonstration data stored in lerobot format)
-policy_joints_config_path: "isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml"
+policy_joints_config_path: "isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml"
 robot_type: "unitree_g1"
 
 # Robot simulation specific parameters
-action_joints_config_path: "isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml"
-state_joints_config_path: "isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml"
+action_joints_config_path: "isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml"
+state_joints_config_path: "isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml"
 
 # Image configuration (height, width, channels)
 original_image_size: [480, 640, 3]

@@ -18,14 +18,14 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constan
     NUM_NAVIGATE_CMD,
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
-from isaaclab_arena_gr00t.data_utils.image_conversion import resize_frames_with_padding
-from isaaclab_arena_gr00t.data_utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
-from isaaclab_arena_gr00t.data_utils.joints_conversion import (
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
+from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
+from isaaclab_arena_gr00t.utils.joints_conversion import (
     remap_policy_joints_to_sim_joints,
     remap_sim_joints_to_policy_joints,
 )
-from isaaclab_arena_gr00t.data_utils.robot_joints import JointsAbsPosition
-from isaaclab_arena_gr00t.policy_config import Gr00tClosedloopPolicyConfig, TaskMode
+from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 
 
 class Gr00tClosedloopPolicy(PolicyBase):
@@ -121,7 +121,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if self.policy_config.data_config in DATA_CONFIG_MAP:
             self.data_config = DATA_CONFIG_MAP[self.policy_config.data_config]
         elif self.policy_config.data_config == "unitree_g1_sim_wbc":
-            self.data_config = load_data_config("isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig")
+            self.data_config = load_data_config(
+                "isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig"
+            )
         else:
             raise ValueError(f"Invalid data config: {self.policy_config.data_config}")
 
