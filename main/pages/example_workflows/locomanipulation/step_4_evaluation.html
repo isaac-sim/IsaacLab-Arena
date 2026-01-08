@@ -449,9 +449,9 @@ This step requires the Hugging Face CLI, which can be installed by following the
 <span class="nt">video_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decord</span>
 <span class="nt">data_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unitree_g1_sim_wbc</span>
 
-<span class="nt">policy_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml</span>
-<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml</span>
-<span class="nt">state_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml</span>
+<span class="nt">policy_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml</span>
+<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml</span>
+<span class="nt">state_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml</span>
 
 <span class="nt">action_chunk_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
 <span class="nt">pov_cam_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_head_cam_rgb&quot;</span>
@@ -462,8 +462,8 @@ This step requires the Hugging Face CLI, which can be installed by following the
 </div>
 </details><p>Test the policy in a single environment with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1200</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
@@ -484,8 +484,8 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 <p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
 <p>Test the policy in 5 parallel environments with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1200</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
