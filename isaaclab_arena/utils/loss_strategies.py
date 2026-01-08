@@ -84,6 +84,7 @@ class NextToLossStrategy(LossStrategy):
         distance = relation.distance_m
 
         if side != "right":
+            # TODO(cvolk): Implement support for other sides and make generic.
             raise NotImplementedError(f"Side '{side}' not yet implemented, only 'right' is supported")
 
         # 1. Half-plane loss: child must be to the right of parent's right edge
@@ -105,6 +106,8 @@ class NextToLossStrategy(LossStrategy):
 
         lower_bound = parent_pos[0] + parent_bbox.size[0] / 2 + distance
         upper_bound = lower_bound + child_bbox.size[0]
+        # Lower band takes into account the objects boundaries. For now we don't additionally add a collision checker/loss.
+        # Maybe we need in the future but its cheaper to do it implicitly by the optimizer.
         next_to_distance_loss = linear_band_loss(child_pos[0], lower_bound, upper_bound, slope=self.slope)
 
         total_loss = right_side_loss + top_bottom_band_loss + next_to_distance_loss
