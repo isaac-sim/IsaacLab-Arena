@@ -20,7 +20,6 @@ class DummyObject:
         bounding_box: BoundingBox,
         initial_pose: Pose | None = None,
         relations: list[Relation] = [],
-        is_fixed: bool = False,
         **kwargs,
     ):
         self.name = name
@@ -28,7 +27,6 @@ class DummyObject:
         self.bounding_box = bounding_box
         assert self.bounding_box is not None
         self.relations = []
-        self.is_fixed = is_fixed
 
     def add_relation(self, relation: Relation) -> None:
         self.relations.append(relation)

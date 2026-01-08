@@ -33,7 +33,7 @@ class RelationSolver:
         lr: float = 0.01,
         convergence_threshold: float = 1e-4,
         verbose: bool = True,
-        anchor_object: DummyObject | None = None,
+        anchor_objects: list[DummyObject] | None = None,
         strategies: dict[type[Relation], LossStrategy] | None = None,
     ):
         """
@@ -42,15 +42,15 @@ class RelationSolver:
             lr: Learning rate for Adam optimizer.
             convergence_threshold: Stop when loss falls below this value.
             verbose: Print optimization progress.
-            anchor_object: Fixed reference object (required).
+            anchor_objects: List of fixed reference objects that won't be optimized.
             strategies: Optional custom strategies to override defaults.
         """
         self.max_iters = max_iters
         self.lr = lr
         self.convergence_threshold = convergence_threshold
         self.verbose = verbose
-        self.anchor_object = anchor_object
-        assert anchor_object is not None, "Anchor object is required"
+        self.anchor_objects = anchor_objects or []
+        assert len(self.anchor_objects) > 0, "At least one anchor object is required"
 
         # Merge user strategies with defaults (user overrides take precedence)
         self._strategies: dict[type[Relation], LossStrategy] = {
@@ -148,8 +148,9 @@ class RelationSolver:
         # TODO(cvolk) Should this be the Solver's responsibility to randomly initialize objects positions or should the caller do it?
         all_positions = self._get_positions_from_objects(objects)
 
-        # Identify fixed and optimizable objects
-        fixed_mask = torch.tensor([obj.is_fixed for obj in objects])
+        # Identify fixed and optimizable objects based on anchor_objects
+        anchor_set = set(self.anchor_objects)
+        fixed_mask = torch.tensor([obj in anchor_set for obj in objects])
         optimizable_mask = ~fixed_mask
 
         # Split into fixed and optimizable
@@ -267,10 +268,12 @@ class RelationSolver:
         fig, ax = plt.subplots(figsize=(12, 10))
 
         colors = plt.colormaps["tab10"](np.linspace(0, 1, len(objects)))
+        anchor_set = set(self.anchor_objects)
 
         for obj_idx, obj in enumerate(objects):
-            if obj.is_fixed:
-                # Fixed object: just draw the bounding box
+            is_anchor = obj in anchor_set
+            if is_anchor:
+                # Fixed/anchor object: just draw the bounding box
                 pos = position_history[-1][obj_idx]
                 bbox = obj.get_bounding_box()
                 rect = Rectangle(
@@ -281,7 +284,7 @@ class RelationSolver:
                     edgecolor=colors[obj_idx],
                     facecolor="none",
                     linestyle="--",
-                    label=f"{obj.name} (fixed)",
+                    label=f"{obj.name} (anchor)",
                 )
                 ax.add_patch(rect)
                 ax.plot(pos[0], pos[1], "s", color=colors[obj_idx], markersize=12)
@@ -333,7 +336,8 @@ class RelationSolver:
         # Get fresh positions
         all_positions = self._get_positions_from_objects(objects)
 
-        fixed_mask = torch.tensor([obj.is_fixed for obj in objects])
+        anchor_set = set(self.anchor_objects)
+        fixed_mask = torch.tensor([obj in anchor_set for obj in objects])
         optimizable_mask = ~fixed_mask
 
         fixed_positions = all_positions[fixed_mask].clone().detach()
@@ -373,7 +377,7 @@ class RelationSolver:
             obj_pose = obj.get_initial_pose()
             if obj_pose:
                 print(f"  Position: {obj_pose.position_xyz}")
-            print(f"  Is fixed: {obj.is_fixed}")
+            print(f"  Is anchor: {obj in anchor_set}")
 
             # Compute individual relation losses with completely fresh tensors
             for relation in obj.get_relations():
