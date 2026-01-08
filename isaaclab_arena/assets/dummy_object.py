@@ -1,16 +1,15 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 import torch
 
-from typing import Any
-
 from isaaclab_arena.utils.bounding_box import BoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.relations import Relation
 
-class DummyObject():
+
+class DummyObject:
     """
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
@@ -39,10 +38,9 @@ class DummyObject():
 
     def get_bounding_box(self) -> BoundingBox:
         return self.bounding_box
-    
+
     def get_corners_aabb_axis_aligned(self, pos: torch.Tensor) -> torch.Tensor:
         return self.bounding_box.get_corners_aabb_axis_aligned(pos)
-    
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
