@@ -10,12 +10,8 @@ Copy and paste the cells below into your Jupyter notebook to investigate
 how the NextTo relation loss behaves with different parent and child positions.
 """
 
-import matplotlib.pyplot as plt
-
 # %%
-# =====================================================================
-# CELL 1: Imports and Setup
-# =====================================================================
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
 
@@ -24,10 +20,6 @@ from isaaclab_arena.examples.relation_solver import RelationSolver
 from isaaclab_arena.utils.bounding_box import BoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.relations import NextTo
-
-# =====================================================================
-# CELL 2: Helper Functions
-# =====================================================================
 
 
 def create_loss_heatmap_2d(
@@ -65,7 +57,7 @@ def create_loss_heatmap_2d(
     return X, Y, losses
 
 
-def plot_loss_heatmap(X, Y, losses, parent, child, side, distance):
+def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
     """Plot a 2D heatmap of loss values."""
     fig, ax = plt.subplots(figsize=(12, 10))
 
@@ -98,13 +90,13 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance):
 
     # Mark ideal position
     if side == "right":
-        ideal_x, ideal_y = px + pw / 2 + distance + cw / 2, py
+        ideal_x, ideal_y = px + pw / 2 + distance_m + cw / 2, py
     elif side == "left":
-        ideal_x, ideal_y = px - pw / 2 - distance - cw / 2, py
+        ideal_x, ideal_y = px - pw / 2 - distance_m - cw / 2, py
     elif side == "front":
-        ideal_x, ideal_y = px, py - pd / 2 - distance - cd / 2
+        ideal_x, ideal_y = px, py - pd / 2 - distance_m - cd / 2
     elif side == "back":
-        ideal_x, ideal_y = px, py + pd / 2 + distance + cd / 2
+        ideal_x, ideal_y = px, py + pd / 2 + distance_m + cd / 2
 
     ax.plot(ideal_x, ideal_y, "g*", markersize=15, label="Ideal Position")
 
@@ -124,7 +116,7 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance):
     ax.set_xlabel("X Position (m)", fontsize=14)
     ax.set_ylabel("Y Position (m)", fontsize=14)
     ax.set_title(
-        f"NextTo Relation Loss: {side.capitalize()} Side\n" + f"Distance={distance}m", fontsize=16, fontweight="bold"
+        f"NextTo Relation Loss: {side.capitalize()} Side\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
     )
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
@@ -133,14 +125,11 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance):
     return fig, ax
 
 
-# =====================================================================
-# CELL 3: Setup Objects and Solver
-# =====================================================================
 # %%
 parent_bbox = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
 parent_pos = (0.0, 0.0, 0.05)
 child_bbox = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
-distance = 0.1
+distance_m = 0.1
 side = "right"
 
 # Create objects
@@ -148,16 +137,10 @@ parent = DummyObject(name="parent", bounding_box=parent_bbox, is_fixed=True)
 parent.set_initial_pose(Pose(position_xyz=parent_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
 child = DummyObject(name="child", bounding_box=child_bbox)
-child.add_relation(NextTo(parent, side=side, distance=distance))
+child.add_relation(NextTo(parent, side=side, distance_m=distance_m))
 
 # Create solver
 solver = RelationSolver(anchor_object=parent, verbose=False)
-
-# =====================================================================
-# CELL 4: Generate Heatmap for "right" side
-# =====================================================================
-# %%
-print("Generating heatmap for 'right' side...")
 
 X, Y, losses = create_loss_heatmap_2d(
     solver=solver,
@@ -168,14 +151,10 @@ X, Y, losses = create_loss_heatmap_2d(
     y_range=(-1.0, 1.0),
 )
 
-fig, ax = plot_loss_heatmap(X, Y, losses, parent, child, side, distance)
+fig, ax = plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m)
 plt.show()
 
 
-# =====================================================================
-# CELL 5: Run Solver and Visualize Optimization
-# =====================================================================
-# %%
 print("\nRunning solver to find optimal child position...")
 
 # Reset child to a random starting position
@@ -190,20 +169,8 @@ result = solver.solve(objects)
 
 print(f"\nFinal child position: {result['child']}")
 
-# =====================================================================
-# CELL 6: Visualize Optimization Results
-# =====================================================================
-# %%
 solver.plot_loss_history(result)
-
-# %%
 solver.plot_position_trajectory_2d(result, objects)
-
-# =====================================================================
-# CELL 7: 1D Cross-Sections
-# =====================================================================
-# %%
-print("\nGenerating cross-section plots...")
 
 # Sample along X axis
 x_positions = np.linspace(-0.5, 1.0, 200)
@@ -215,7 +182,7 @@ for x in x_positions:
     losses_x.append(loss.item())
 
 # Sample along Y axis at ideal X
-ideal_x = parent_pos[0] + 0.25 + distance + 0.1  # parent half-width + distance + child half-width
+ideal_x = parent_pos[0] + 0.25 + distance_m + 0.1  # parent half-width + distance + child half-width
 y_positions = np.linspace(-0.5, 0.5, 200)
 losses_y = []
 for y in y_positions:
