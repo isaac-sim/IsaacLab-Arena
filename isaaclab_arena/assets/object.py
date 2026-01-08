@@ -6,10 +6,12 @@
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
@@ -41,19 +43,30 @@ class Object(ObjectBase):
         self.usd_path = usd_path
         self.scale = scale
         self.initial_pose = initial_pose
+        self.reset_pose = True
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
         self.object_cfg = self._init_object_cfg()
+        self.event_cfg = self._init_event_cfg()
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
         self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+        self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
 
     def get_initial_pose(self) -> Pose | None:
         return self.initial_pose
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
+
+    def disable_reset_pose(self) -> None:
+        self.reset_pose = False
+        self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
+
+    def enable_reset_pose(self) -> None:
+        self.reset_pose = True
+        self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
@@ -121,3 +134,34 @@ class Object(ObjectBase):
             object_cfg.init_state.pos = self.initial_pose.position_xyz
             object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
         return object_cfg
+
+    def _requires_reset_pose_event(self) -> bool:
+        return (
+            self.initial_pose is not None
+            and self.reset_pose
+            and self.object_type in [ObjectType.RIGID, ObjectType.ARTICULATION]
+        )
+
+    def _init_event_cfg(self) -> EventTermCfg | None:
+        if self._requires_reset_pose_event():
+            return EventTermCfg(
+                func=set_object_pose,
+                mode="reset",
+                params={
+                    "pose": self.initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                },
+            )
+        else:
+            return None
+
+    def _update_initial_pose_event_cfg(self, event_cfg: EventTermCfg | None) -> EventTermCfg | None:
+        if self._requires_reset_pose_event():
+            # Create an event cfg if one does not yet exist
+            if event_cfg is None:
+                event_cfg = self._init_event_cfg()
+            # Add the initial pose to the event cfg
+            event_cfg.params["pose"] = self.initial_pose
+        else:
+            event_cfg = None
+        return event_cfg
