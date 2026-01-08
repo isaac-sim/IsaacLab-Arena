@@ -6,12 +6,13 @@ export ISAACLAB_PATH="$ISAACLAB_ARENA_PATH/submodules/IsaacLab"
 
 # print the usage description
 print_help () {
-    echo -e "\nusage: $(basename "$0") [-h] [-i] [-f] [-p] [-s] [-t] [-o] [-v] [-d] [-n] [-c] [-u] -- Utility to manage Isaac Lab."
+    echo -e "\nusage: $(basename "$0") [-h] [-i] [-c] [-u] [-y] -- Utility to manage Isaac Lab Arena."
     echo -e "\noptional arguments:"
     echo -e "\t-h, --help           Display the help content."
     echo -e "\t-i, --install [LIB]  Install the extensions inside Isaac Lab Arena and learning frameworks as extra dependencies. Default is 'all'."
     echo -e "\t-c, --conda [NAME]   Create the conda environment for Isaac Lab Arena. Default name is 'env_isaaclab_arena'."
     echo -e "\t-u, --uv [NAME]      Create the uv environment for Isaac Lab Arena. Default name is 'env_isaaclab_arena'."
+    echo -e "\t-y, --pycharm        Generate the PyCharm settings files from templates."
     echo -e "\n" >&2
 }
 
