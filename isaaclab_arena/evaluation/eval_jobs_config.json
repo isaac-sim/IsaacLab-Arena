@@ -1,0 +1,20 @@
+{
+    "jobs": [
+        {
+            "name": "gr1_open_microwave_cracker_box",
+            "args_cli": [
+                "gr1_open_microwave",
+                "--object",
+                "cracker_box"
+            ]
+        },
+        {
+            "name": "gr1_open_microwave_sugar_box",
+            "args_cli": [
+                "gr1_open_microwave",
+                "--object",
+                "sugar_box"
+            ]
+        }
+    ]
+}
