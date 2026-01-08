@@ -3,27 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Example script demonstrating differentiable object placement with spatial relationships.
 
-This example shows how to:
-- Use the AssetRegistry to get assets
-- Compute bounding boxes for objects
-- Define spatial relationships between objects (On, NextTo)
+# Example notebook demonstrating the RelationSolver class not using any IsaacSim dependencies.
 
-Note: The Relation classes (Relation, On, NextTo) have been moved to:
-isaaclab_arena/utils/relations.py
-"""
-
-# Today's Goals:
-# - Have an MR ready with the BoundingBox and loss functions
-# - An MVP works for the NextTo relation.
-# - Add a solver for the NextTo(Right) dummy relation.
-##########################################################
-
-# This example should demonstrate the following:
-# Use a desk and place a cracker box on it.
-# Use a tomato soup can and place it next to the cracker box onto the desk.
 # %%
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.examples.relation_solver import RelationSolver
@@ -40,8 +22,9 @@ cracker_box.add_relation(NextTo(desk, side="right"))
 all_objects = [desk, cracker_box]
 
 
+# Solver requires the object positions to be initialized.
 # Define workspace bounding box to initialize random positions within it
-workspace = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 1.0))  # 2m x 2m x 1m workspace
+workspace = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 1.0))
 for obj in all_objects:
     random_pose = get_random_pose_within_bounding_box(workspace)
     print(f"Random pose: {random_pose}")

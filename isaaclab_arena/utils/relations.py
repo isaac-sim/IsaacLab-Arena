@@ -3,13 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Spatial relationship classes for object placement constraints.
-
-These classes are pure data containers representing relationships between objects.
-Loss computation is handled by LossStrategy classes in loss_strategies.py.
-"""
-
 from typing import TYPE_CHECKING
 
 # Avoid circular import by using TYPE_CHECKING

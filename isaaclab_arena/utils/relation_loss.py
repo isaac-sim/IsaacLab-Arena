@@ -3,10 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Spatial relationship classes for object placement constraints.
-"""
-
 import torch
 
 

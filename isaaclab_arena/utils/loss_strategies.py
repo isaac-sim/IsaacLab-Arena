@@ -3,14 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Loss strategy classes for computing relation constraint losses.
-
-Each LossStrategy handles loss computation for a specific Relation type.
-This separates "what a relation is" (data in relations.py) from
-"how to compute its loss" (strategy classes here).
-"""
-
 import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
