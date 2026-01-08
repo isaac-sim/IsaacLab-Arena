@@ -195,6 +195,7 @@ class RelationSolver:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
 
             # Check convergence
+            # TODO(cvolk): Check the convergence threshold
             if loss.item() < self.convergence_threshold:
                 if self.verbose:
                     print(f"Converged at iteration {iter}")
