@@ -10,25 +10,73 @@ import torch
 from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
+from isaaclab_arena.utils.loss_strategies import LossStrategy, NextToLossStrategy
+from isaaclab_arena.utils.relations import NextTo, Relation
 
 
 class RelationSolver:
-    """Differentiable solver for 3D spatial relations using gradient descent."""
+    """Differentiable solver for 3D spatial relations using gradient descent.
+
+    Uses the Strategy pattern for loss computation: each Relation type has a
+    corresponding LossStrategy that handles the actual loss calculation.
+    """
+
+    # Default strategies for each relation type (class-level)
+    DEFAULT_STRATEGIES: dict[type[Relation], LossStrategy] = {
+        NextTo: NextToLossStrategy(slope=10.0),
+        # TODO(cvolk) OnStrategy
+    }
 
     def __init__(
         self,
-        max_iters=1000,
-        lr=0.01,
-        convergence_threshold=1e-4,
-        verbose=True,
+        max_iters: int = 1000,
+        lr: float = 0.01,
+        convergence_threshold: float = 1e-4,
+        verbose: bool = True,
         anchor_object: DummyObject | None = None,
+        strategies: dict[type[Relation], LossStrategy] | None = None,
     ):
+        """
+        Args:
+            max_iters: Maximum optimization iterations.
+            lr: Learning rate for Adam optimizer.
+            convergence_threshold: Stop when loss falls below this value.
+            verbose: Print optimization progress.
+            anchor_object: Fixed reference object (required).
+            strategies: Optional custom strategies to override defaults.
+        """
         self.max_iters = max_iters
         self.lr = lr
         self.convergence_threshold = convergence_threshold
         self.verbose = verbose
         self.anchor_object = anchor_object
         assert anchor_object is not None, "Anchor object is required"
+
+        # Merge user strategies with defaults (user overrides take precedence)
+        self._strategies: dict[type[Relation], LossStrategy] = {
+            **self.DEFAULT_STRATEGIES,
+            **(strategies or {}),
+        }
+
+    def _get_strategy(self, relation: Relation) -> LossStrategy:
+        """Look up the appropriate strategy for a relation type.
+
+        Args:
+            relation: The relation to find a strategy for.
+
+        Returns:
+            The LossStrategy for this relation type.
+
+        Raises:
+            ValueError: If no strategy is registered for this relation type.
+        """
+        strategy = self._strategies.get(type(relation))
+        if strategy is None:
+            raise ValueError(
+                f"No loss strategy registered for {type(relation).__name__}. "
+                f"Available strategies: {list(self._strategies.keys())}"
+            )
+        return strategy
 
     def _get_positions_from_objects(self, objects: list[DummyObject]) -> torch.Tensor:
         """Extract positions from objects' initial poses.
@@ -47,7 +95,7 @@ class RelationSolver:
         return torch.stack(positions)
 
     def _compute_total_loss(self, positions: torch.Tensor, objects: list[DummyObject]) -> torch.Tensor:
-        """Compute total loss from all relations.
+        """Compute total loss from all relations using registered strategies.
 
         Args:
             positions: Tensor of shape (N, 3) with current positions
@@ -61,15 +109,26 @@ class RelationSolver:
         # Create position mapping for parent lookup
         obj_to_pos = {obj: positions[i] for i, obj in enumerate(objects)}
 
-        # Compute loss from all relations
+        # Compute loss from all relations using strategies
         for i, obj in enumerate(objects):
             relations = obj.get_relations()
             for relation in relations:
                 # Get parent position from the mapping
                 parent_pos = obj_to_pos.get(relation.parent)
+                if parent_pos is None:
+                    raise ValueError(f"Parent {relation.parent.name} not found in objects list")
 
-                # Compute loss with explicit positions (no object modification)
-                loss = relation.compute_relation_loss(child=obj, child_pos=positions[i], parent_pos=parent_pos)
+                # Get strategy for this relation type
+                strategy = self._get_strategy(relation)
+
+                # Compute loss using the strategy
+                loss = strategy.compute_loss(
+                    relation=relation,
+                    child_pos=positions[i],
+                    parent_pos=parent_pos,
+                    child_bbox=obj.get_bounding_box(),
+                    parent_bbox=relation.parent.get_bounding_box(),
+                )
                 total_loss = total_loss + loss
 
         return total_loss
@@ -322,16 +381,21 @@ class RelationSolver:
                 if parent_pose:
                     parent_pos_fresh = torch.tensor(parent_pose.position_xyz, dtype=torch.float32)
                 else:
-                    parent_pos_fresh = None
+                    raise ValueError(f"Parent {relation.parent.name} has no pose")
 
                 # Create fresh child position tensor with grad
                 child_pose = obj.get_initial_pose()
                 assert child_pose is not None
                 test_pos = torch.tensor(child_pose.position_xyz, dtype=torch.float32, requires_grad=True)
 
-                # Compute loss with fresh tensors
-                individual_loss = relation.compute_relation_loss(
-                    child=obj, child_pos=test_pos, parent_pos=parent_pos_fresh
+                # Compute loss using strategy
+                strategy = self._get_strategy(relation)
+                individual_loss = strategy.compute_loss(
+                    relation=relation,
+                    child_pos=test_pos,
+                    parent_pos=parent_pos_fresh,
+                    child_bbox=obj.get_bounding_box(),
+                    parent_bbox=relation.parent.get_bounding_box(),
                 )
                 individual_loss.backward()
 
