@@ -210,4 +210,3 @@ def test_eval_runner_job_status_tracking():
     finally:
         if os.path.exists(temp_config_path):
             os.remove(temp_config_path)
-

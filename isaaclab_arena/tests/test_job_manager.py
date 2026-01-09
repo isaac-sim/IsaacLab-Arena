@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import pytest
-
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 
 

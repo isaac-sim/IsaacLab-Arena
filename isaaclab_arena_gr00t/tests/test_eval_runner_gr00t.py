@@ -33,4 +33,3 @@ def test_eval_runner_gr00t_config():
     config_path = f"{TestConstants.evaluation_dir}/configs/gr00t_jobs_config.json"
     assert os.path.exists(config_path), f"Config file not found: {config_path}"
     run_eval_runner(config_path)
-

@@ -5,6 +5,7 @@
 
 import argparse
 
+
 def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     """Add eval runner specific arguments to the parser."""
     parser.add_argument(

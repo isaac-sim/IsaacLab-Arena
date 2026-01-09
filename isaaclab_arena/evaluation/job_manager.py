@@ -1,12 +1,12 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import Enum
-from queue import Queue
 import time
+from enum import Enum
 from prettytable import PrettyTable
+from queue import Queue
 
 
 class Status(Enum):
@@ -17,7 +17,15 @@ class Status(Enum):
 
 
 class Job:
-    def __init__(self, name: str, arena_env_args: list[str], policy_type: str, num_steps: int = None, policy_args: list[str] = [], status: Status = Status.PENDING):
+    def __init__(
+        self,
+        name: str,
+        arena_env_args: list[str],
+        policy_type: str,
+        num_steps: int = None,
+        policy_args: list[str] = [],
+        status: Status = Status.PENDING,
+    ):
         """Initialize a Job instance.
 
         Args:
@@ -58,13 +66,24 @@ class Job:
         arena_env_args = data["arena_env_args"]
         policy_type = data["policy_type"]
         policy_args = data.get("policy_args", [])
-        num_steps = data.get("num_steps", None)
+        if "num_steps" in data and data["num_steps"] is not None:
+            num_steps = data["num_steps"]
+        else:
+            # will fall back to default num_steps from the policy or the simulation app config
+            num_steps = None
         if "status" in data and data["status"] is not None:
             status = Status(data["status"])
         else:
             status = Status.PENDING
 
-        return cls(name=name, arena_env_args=arena_env_args, policy_type=policy_type, num_steps=num_steps, policy_args=policy_args, status=status)
+        return cls(
+            name=name,
+            arena_env_args=arena_env_args,
+            policy_type=policy_type,
+            num_steps=num_steps,
+            policy_args=policy_args,
+            status=status,
+        )
 
 
 class JobManager:
