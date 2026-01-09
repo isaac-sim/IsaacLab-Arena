@@ -1,86 +1,116 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
-import torch
-import tqdm
 import json
+import os
+import traceback
+from typing import TYPE_CHECKING
 
-import pinocchio  # noqa: F401
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
+from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
+from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
+from isaaclab_arena.utils.reload_modules import reload_arena_modules
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
-from isaaclab.app import AppLauncher
-simulation_app = AppLauncher()
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(job):
-    from isaaclab_arena.utils.reload_modules import reload_arena_modules
+def load_env(arena_env_args: list[str]):
 
     reload_arena_modules()
-    from isaaclab_arena_environments.cli import (
-        get_arena_builder_from_cli,
-        get_isaaclab_arena_environments_cli_parser,
-    )
+
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
-    args_cli = args_parser.parse_args(job.args_cli)
-    arena_builder = get_arena_builder_from_cli(args_cli)
+    arena_env_args_cli = args_parser.parse_args(arena_env_args)
+    arena_builder = get_arena_builder_from_cli(arena_env_args_cli)
     env = arena_builder.make_registered()
-    env.reset()
+    # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
     return env
 
-def rollout_policy(env):
-    NUM_STEPS = 100
-    for _ in tqdm.tqdm(range(NUM_STEPS)):
-        with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            env.step(actions)
 
-def stop_env(env):
-    from isaaclab.sim import SimulationContext
+def get_policy_from_job(job: Job) -> "PolicyBase":
 
-    simulation_context = SimulationContext.instance()
-    simulation_context._disable_app_control_on_stop_handle = True
-    simulation_context.stop()
-    simulation_context.clear_instance()
-    env.close()
+    # Each job can be evaluated with a different policy checkpoint, or even a different policy type
+    policy_cls = get_policy_cls(job.policy_type)
 
-    import omni.timeline
+    # As jobs may run diff policies, create a new parser for each job avoiding data fields conflicts
+    policy_args_parser = get_isaaclab_arena_cli_parser()
+    policy_added_args_parser = policy_cls.add_args_to_parser(policy_args_parser)
+    # only for policy related arguments
+    policy_args = policy_added_args_parser.parse_args(job.policy_args)
+    policy = policy_cls.from_args(policy_args)
+    return policy
 
-    omni.timeline.get_timeline_interface().stop()
-    omni.usd.get_context().new_stage()
 
 def main():
-    from isaaclab_arena.evaluation.eval_jobs import JobManager, Status
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.metrics.metrics import compute_metrics
-    from isaaclab_arena.metrics.metrics_logger import MetricsLogger
     args_parser = get_isaaclab_arena_cli_parser()
-    args_cli = args_parser.parse_args()
-    with open("isaaclab_arena/evaluation/eval_jobs_config.json", "r") as f:
-        eval_jobs_config = json.load(f)
-    job_manager = JobManager(eval_jobs_config["jobs"])
+    args_cli, unknown = args_parser.parse_known_args()
+    # TODO(xinjieyao, 2026-01-08): support multiple environments simulation as each job may need different number of environments
+    assert args_cli.num_envs == 1, "Evaluation runner only supports single environment simulation"
 
-    metrics_logger = MetricsLogger()
+    with SimulationAppContext(args_cli):
+        add_eval_runner_arguments(args_parser)
+        args_cli, _ = args_parser.parse_known_args()
 
-    print(f"Starting job processing. Job counts: {job_manager.get_job_count()}")
+        assert os.path.exists(
+            args_cli.eval_jobs_config
+        ), f"eval_jobs_config file does not exist: {args_cli.eval_jobs_config}"
 
-    while not job_manager.is_empty():
-        job = job_manager.get_next_job()
-        if job is not None:
-            try:
-                env = load_env(job)
-                rollout_policy(env)
-                metrics = compute_metrics(env)
-                job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
-                stop_env(env)
-                metrics_logger.append_job_metrics(job.name, metrics)
-            except Exception as e:
-                job_manager.complete_job(job, metrics={}, status=Status.FAILED)
-                print(f"Job {job.name} failed with error: {e}")
+        with open(args_cli.eval_jobs_config) as f:
+            eval_jobs_config = json.load(f)
+        job_manager = JobManager(eval_jobs_config["jobs"])
+        metrics_logger = MetricsLogger()
 
-    print(f"All jobs processed. Final job counts: {job_manager.get_job_count()}")
-    metrics_logger.print_metrics()
+        job_manager.print_jobs_info()
+
+        while not job_manager.is_empty():
+            job = job_manager.get_next_job()
+            if job is not None:
+                env = None
+                try:
+                    # Modules reloading first, otherwise 2 instances of same class are created (e.g. Enum)
+                    env = load_env(job.arena_env_args)
+
+                    policy = get_policy_from_job(job)
+
+                    # priority of setting num_steps is: job -> policy -> args_cli
+                    # jobs may need different num_steps than the default num_steps from the policy or the args_cli
+                    if job.num_steps is None:
+                        if policy.has_length():
+                            job.num_steps = policy.length()
+                        else:
+                            job.num_steps = args_cli.num_steps
+
+                    metrics = rollout_policy(env, policy, num_steps=job.num_steps)
+
+                    job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
+
+                    # users may not specify metrics for a task, although it's not recommended
+                    if metrics is not None:
+                        metrics_logger.append_job_metrics(job.name, metrics)
+
+                except Exception as e:
+                    # continue with the next job even if one fails
+                    job_manager.complete_job(job, metrics={}, status=Status.FAILED)
+                    print(f"Job {job.name} failed with error: {e}")
+                    print(f"Traceback: {traceback.format_exc()}")
+
+                finally:
+                    # Only stop env if it was successfully created
+                    if env is not None:
+                        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+                        # cleanup managers, including recorder manager closing hdf5 file
+                        env.close()
+
+        job_manager.print_jobs_info()
+        metrics_logger.print_metrics()
+
+
 if __name__ == "__main__":
     main()

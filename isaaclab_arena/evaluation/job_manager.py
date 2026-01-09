@@ -5,8 +5,8 @@
 
 from enum import Enum
 from queue import Queue
-
 import time
+from prettytable import PrettyTable
 
 
 class Status(Enum):
@@ -17,16 +17,22 @@ class Status(Enum):
 
 
 class Job:
-    def __init__(self, name: str, args_cli: list[str], status: Status = Status.PENDING):
+    def __init__(self, name: str, arena_env_args: list[str], policy_type: str, num_steps: int = None, policy_args: list[str] = [], status: Status = Status.PENDING):
         """Initialize a Job instance.
 
         Args:
             name: Job name, used to identify the job in the queue and in the logs.
-            args_cli: List of CLI arguments
+            arena_env_args: List of CLI arguments for configuring the arena environment
+            num_steps: Number of steps to run the policy for
+            policy_type: Type of policy to use
+            policy_args: List of CLI arguments for the policy. These are passed to the policy class's from_args method.
             status: Job status (defaults to PENDING)
         """
         self.name = name
-        self.args_cli = args_cli
+        self.arena_env_args = arena_env_args
+        self.num_steps = num_steps
+        self.policy_type = policy_type
+        self.policy_args = policy_args
         self.status = status
         self.start_time = None
         self.end_time = None
@@ -39,22 +45,26 @@ class Job:
         Args:
             data: Dictionary containing job data with keys:
                   - name: Job name
-                  - args_cli: List of CLI arguments
+                  - arena_env_args: List of CLI arguments for configuring the arena environment
+                  - num_steps: Number of steps to run the policy for
+                  - policy_type: Type of policy to use
+                  - policy_args: List of CLI arguments for the policy. These are passed to the policy class's from_args method.
                   - status: Status string (optional, defaults to PENDING)
 
         Returns:
             New Job instance
         """
         name = data["name"]
-        args_cli = data["args_cli"]
-
-        # Handle optional status field
+        arena_env_args = data["arena_env_args"]
+        policy_type = data["policy_type"]
+        policy_args = data.get("policy_args", [])
+        num_steps = data.get("num_steps", None)
         if "status" in data and data["status"] is not None:
             status = Status(data["status"])
         else:
             status = Status.PENDING
 
-        return cls(name=name, args_cli=args_cli, status=status)
+        return cls(name=name, arena_env_args=arena_env_args, policy_type=policy_type, num_steps=num_steps, policy_args=policy_args, status=status)
 
 
 class JobManager:
@@ -92,7 +102,7 @@ class JobManager:
             return job
         print("No pending jobs in queue")
         return None
-    
+
     def complete_job(self, job: Job, metrics: dict[str, float], status: Status):
         """Complete a job and store the metrics.
 
@@ -120,3 +130,12 @@ class JobManager:
     def is_empty(self) -> bool:
         """Check if there are any pending jobs."""
         return self.pending_queue.empty()
+
+    def print_jobs_info(self) -> None:
+        """Print information about the jobs."""
+
+        # print using pretty table as data fields may have various lengths
+        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Steps"])
+        for job in self.all_jobs:
+            table.add_row([job.name, job.status.value, job.policy_type, job.num_steps])
+        print(table)

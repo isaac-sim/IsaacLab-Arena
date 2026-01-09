@@ -1,9 +1,10 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+
 
 class MetricsLogger:
     def __init__(self, metrics_file: str = "metrics.json"):
@@ -32,9 +33,9 @@ class MetricsLogger:
             print("No metrics to display")
             return
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("METRICS SUMMARY")
-        print("="*70)
+        print("=" * 70)
 
         for job_name, metrics in sorted(self.metrics_data.items()):
             print(f"\n{job_name}:")
@@ -47,5 +48,4 @@ class MetricsLogger:
             else:
                 print("  (no metrics available)")
 
-        print("="*70 + "\n")
-
+        print("=" * 70 + "\n")
