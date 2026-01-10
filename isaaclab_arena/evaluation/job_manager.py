@@ -20,20 +20,20 @@ class Job:
     def __init__(
         self,
         name: str,
-        arena_env_args: list[str],
+        arena_env_args: dict,
         policy_type: str,
         num_steps: int = None,
-        policy_args: list[str] = [],
+        policy_args: dict = {},
         status: Status = Status.PENDING,
     ):
         """Initialize a Job instance.
 
         Args:
             name: Job name, used to identify the job in the queue and in the logs.
-            arena_env_args: List of CLI arguments for configuring the arena environment
+            arena_env_args: Dictionary of arguments for configuring the arena environment
             num_steps: Number of steps to run the policy for
             policy_type: Type of policy to use
-            policy_args: List of CLI arguments for the policy. These are passed to the policy class's from_args method.
+            policy_args: Dictionary of arguments for the policy. These are passed to the policy class's from_args method.
             status: Job status (defaults to PENDING)
         """
         self.name = name
@@ -53,19 +53,21 @@ class Job:
         Args:
             data: Dictionary containing job data with keys:
                   - name: Job name
-                  - arena_env_args: List of CLI arguments for configuring the arena environment
+                  - arena_env_args: Dictionary of arguments for configuring the arena environment
                   - num_steps: Number of steps to run the policy for
                   - policy_type: Type of policy to use
-                  - policy_args: List of CLI arguments for the policy. These are passed to the policy class's from_args method.
+                  - policy_args: Dictionary of arguments for the policy. These are passed to the policy class's from_args method.
                   - status: Status string (optional, defaults to PENDING)
 
         Returns:
             New Job instance
         """
-        name = data["name"]
-        arena_env_args = data["arena_env_args"]
-        policy_type = data["policy_type"]
-        policy_args = data.get("policy_args", [])
+        assert "name" in data, "name is required"
+        assert "arena_env_args" in data, "arena_env_args is required"
+        assert "policy_type" in data, "policy_type is required"
+        if "policy_args" not in data:
+            data["policy_args"] = {}
+
         if "num_steps" in data and data["num_steps"] is not None:
             num_steps = data["num_steps"]
         else:
@@ -77,13 +79,37 @@ class Job:
             status = Status.PENDING
 
         return cls(
-            name=name,
-            arena_env_args=arena_env_args,
-            policy_type=policy_type,
+            name=data["name"],
+            arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
+            policy_type=data["policy_type"],
             num_steps=num_steps,
-            policy_args=policy_args,
+            policy_args=cls.convert_args_dict_to_cli_args_list(data["policy_args"]),
             status=status,
         )
+
+    @classmethod
+    def convert_args_dict_to_cli_args_list(cls, args_dict: dict) -> list[str]:
+        """Convert a dictionary of arguments to a list of arguments that can be passed to the CLI parser.
+
+        Args:
+            args_dict: Dictionary of arguments
+
+        Returns:
+            List of arguments that can be passed to the CLI parser
+        """
+        args_list = []
+        for key, value in args_dict.items():
+            if isinstance(value, bool) and value:
+                args_list += [f"--{key}"]
+            elif not isinstance(value, bool) and value is not None:
+                if key != "environment":
+                    args_list += [f"--{key}", str(value)]
+                else:
+                    args_list += [str(value)]
+            else:
+                continue
+
+        return args_list
 
 
 class JobManager:
@@ -107,6 +133,16 @@ class JobManager:
                 self.pending_queue.put(job)
             self.all_jobs.append(job)
 
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        job = self.get_next_job()
+        if job is not None:
+            return job
+        else:
+            raise StopIteration
+
     def get_next_job(self) -> Job | None:
         """Get the next pending job from the front of the queue.
 
@@ -122,18 +158,13 @@ class JobManager:
         print("No pending jobs in queue")
         return None
 
-    def complete_job(self, job: Job, metrics: dict[str, float], status: Status):
-        """Complete a job and store the metrics.
-
-        Args:
-            job: The job to complete.
-            metrics: The metrics to store.
-            status: The status of the job.
-        """
-        job.status = status
-        job.end_time = time.time()
-        job.metrics = metrics
-        print(f"Job {job.name} {status.value}")
+    def set_jobs_status_by_name(self, status: Status, job_names: list[str]) -> None:
+        """Set the status of jobs with the given names to the given status."""
+        for job in self.all_jobs:
+            if job.name in job_names:
+                if job.status != Status.PENDING and status == Status.PENDING:
+                    self.pending_queue.put(job)
+                job.status = status
 
     def get_job_count(self) -> dict[Status, int]:
         """Get number of jobs grouped by status.
@@ -145,6 +176,12 @@ class JobManager:
         for job in self.all_jobs:
             counts[job.status.value] += 1
         return counts
+
+    def complete_job(self, job: Job, metrics: dict, status: Status) -> None:
+        """complete a job with the given metrics and status."""
+        job.metrics = metrics
+        job.status = status
+        job.end_time = time.time()
 
     def is_empty(self) -> bool:
         """Check if there are any pending jobs."""

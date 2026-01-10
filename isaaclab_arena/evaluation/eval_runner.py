@@ -69,8 +69,7 @@ def main():
 
         job_manager.print_jobs_info()
 
-        while not job_manager.is_empty():
-            job = job_manager.get_next_job()
+        for job in job_manager:
             if job is not None:
                 env = None
                 try:

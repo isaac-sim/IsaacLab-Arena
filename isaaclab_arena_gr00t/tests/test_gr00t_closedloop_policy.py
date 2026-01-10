@@ -3,12 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import yaml
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena_gr00t.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 HEADLESS = True
@@ -137,6 +139,45 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     run_subprocess(args)
 
 
+def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned_model_path, tmp_path):
+    """Test eval_runner including a G00T closedloop policy and a zero action policy."""
+
+    # Write a new temporary config file with the finetuned model path.
+    default_config_file = (
+        Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
+    )
+    policy_config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
+
+    # create a temporary config file only has two jobs for g1_locomanipulation task
+    jobs = [
+        {
+            "name": "g1_locomanip_pick_and_place_brown_box",
+            "arena_env_args": {
+                "environment": "galileo_g1_locomanip_pick_and_place",
+                "object": "brown_box",
+                "embodiment": "g1_wbc_joint",
+            },
+            "num_steps": 2,
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_args": {"policy_config_yaml_path": policy_config_file, "policy_device": "cuda:0"},
+        },
+        {
+            "name": "gr1_open_microwave_cracker_box",
+            "arena_env_args": {
+                "environment": "gr1_open_microwave",
+                "object": "cracker_box",
+                "embodiment": "gr1_joint",
+            },
+            "num_steps": 2,
+            "policy_type": "zero_action",
+        },
+    ]
+    temp_config_path = os.path.join(tmp_path, "test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner.json")
+    write_jobs_config_to_file(jobs, temp_config_path)
+    run_eval_runner(temp_config_path)
+
+
 if __name__ == "__main__":
     test_g1_locomanip_gr00t_closedloop_policy_runner_single_env()
     test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs()
+    test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner()

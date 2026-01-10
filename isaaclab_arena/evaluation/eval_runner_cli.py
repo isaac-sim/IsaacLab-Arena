@@ -11,6 +11,6 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--eval_jobs_config",
         type=str,
-        default="isaaclab_arena/evaluation/configs/gr00t_jobs_config.json",
+        default="isaaclab_arena_environments/eval_jobs_configs/gr00t_jobs_config.json",
         help="Path to the eval jobs config file.",
     )
