@@ -137,4 +137,3 @@ if [[ "$USE_SERVER_ENV" -eq 0 ]]; then
 fi
 
 echo "GR00T dependencies installation completed successfully"
-
