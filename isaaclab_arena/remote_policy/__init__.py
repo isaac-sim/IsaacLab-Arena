@@ -8,6 +8,7 @@ from .server_side_policy import ServerSidePolicy
 from .message_serializer import MessageSerializer
 from .policy_client import PolicyClient
 from .policy_server import PolicyServer
+from .action_protocol import ActionMode, ActionProtocol, ChunkingActionProtocol
 
 __all__ = [
     "RemotePolicyConfig",
@@ -15,4 +16,7 @@ __all__ = [
     "MessageSerializer",
     "PolicyClient",
     "PolicyServer",
+    "ActionMode",
+    "ActionProtocol",
+    "ChunkingActionProtocol",
 ]

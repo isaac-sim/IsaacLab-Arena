@@ -30,8 +30,8 @@ RUN pip uninstall -y \
     pip install --no-cache-dir "opencv-python-headless==4.8.0.74"
 
 COPY isaaclab_arena/remote_policy ${WORKDIR}/isaaclab_arena/remote_policy
-
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
+COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 
 RUN pip install --no-cache-dir pyzmq msgpack
 

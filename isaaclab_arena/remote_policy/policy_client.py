@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 import zmq
 
 from .message_serializer import MessageSerializer
-from .remote_policy_config import RemotePolicyConfig 
+from .remote_policy_config import RemotePolicyConfig
 
 class PolicyClient:
     """Synchronous client for talking to a PolicyServer over ZeroMQ."""
@@ -41,11 +41,16 @@ class PolicyClient:
 
     def reset(self, env_ids=None, options: Optional[Dict[str, Any]] = None) -> Any:
         """Reset remote policy state."""
-        return self.call_endpoint(
+        resp = self.call_endpoint(
             endpoint="reset",
             data={"env_ids": env_ids, "options": options},
             requires_input=True,
         )
+        if isinstance(resp, dict):
+            status = resp.get("status")
+            if status not in ("reset_success", "ok", "reset_ok", None):
+                raise RuntimeError(f"Remote reset failed with status={status}, resp={resp}")
+        return resp
 
     def kill(self) -> Any:
         """Ask remote server to stop main loop."""
@@ -63,6 +68,42 @@ class PolicyClient:
             data=payload,
             requires_input=True,
         )
+        return resp
+
+    def get_init_info(self, requested_action_mode: str) -> Dict[str, Any]:
+        """Call get_init_info on the server with a requested_action_mode.
+
+        Args:
+            requested_action_mode: ActionMode value (e.g. "chunk").
+
+        Returns:
+            A dict returned by the server, expected to contain:
+              - "status"
+              - "message" (optional)
+              - "config" (on success)
+        """
+        payload = {"requested_action_mode": requested_action_mode}
+        resp = self.call_endpoint(
+            "get_init_info",
+            data=payload,
+            requires_input=True,
+        )
+        if not isinstance(resp, dict):
+            raise TypeError(
+                f"Expected dict from get_init_info, got {type(resp)!r}"
+            )
+        return resp
+
+    def set_task_description(self, task_description: Optional[str]) -> Dict[str, Any]:
+        """Send task description to the remote policy."""
+        payload: Dict[str, Any] = {"task_description": task_description}
+        resp = self.call_endpoint(
+            endpoint="set_task_description",
+            data=payload,
+            requires_input=True,
+        )
+        if not isinstance(resp, dict):
+            raise TypeError(f"Expected dict from set_task_description, got {type(resp)!r}")
         return resp
 
     def call_endpoint(

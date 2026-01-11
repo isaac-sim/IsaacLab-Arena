@@ -20,4 +20,3 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=100,
         help="Number of steps to run the policy for",
     )
-

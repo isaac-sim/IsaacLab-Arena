@@ -8,14 +8,28 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from typing import Type
+from importlib import import_module
 
 from isaaclab_arena.remote_policy.server_side_policy import ServerSidePolicy
 from isaaclab_arena.remote_policy.policy_server import PolicyServer
-from isaaclab_arena.remote_policy.policy_registry import policy_registry
 
 
-def resolve_policy_class(policy_type: str) -> Type[ServerSidePolicy]:
-    return policy_registry.resolve_class(policy_type)
+def get_policy_cls(policy_type: str) -> type["ServerSidePolicy"]:
+    """Get the policy class for the given policy type name.
+
+       it tries to dynamically import the policy class, treating
+       the policy_type argument as a string representing the module path and class name.
+    """
+    print(f"Dynamically importing from path: {policy_type}")
+    assert "." in policy_type, (
+        "policy_type must be a dotted Python import path of the form 'module.submodule.ClassName', got:"
+        f" {policy_type}"
+    )
+    # Dynamically import the class from the string path
+    module_path, class_name = policy_type.rsplit(".", 1)
+    module = import_module(module_path)
+    policy_cls = getattr(module, class_name)
+    return policy_cls
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,9 +43,9 @@ def parse_args() -> argparse.Namespace:
         "--policy_type",
         type=str,
         required=True,
-        choices=policy_registry.available_policy_types(),
-        help="Which remote policy to run (e.g. 'gr00t_closedloop').",
+        help="Which remote policy to run (e.g. 'isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy').",
     )
+
     parser.add_argument(
         "--policy_config_yaml_path",
         type=str,
@@ -44,7 +58,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    policy_cls = resolve_policy_class(args.policy_type)
+    policy_cls = get_policy_cls(args.policy_type)
     policy = policy_cls(policy_config_yaml_path=Path(args.policy_config_yaml_path))
 
     server = PolicyServer(

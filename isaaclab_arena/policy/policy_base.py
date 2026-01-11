@@ -3,60 +3,55 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
 import argparse
 import gymnasium as gym
 import torch
 from abc import ABC, abstractmethod
 from gymnasium.spaces.dict import Dict as GymSpacesDict
+from typing import Any
 
-from enum import Enum
-
-from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
-from isaaclab_arena.remote_policy.policy_client import PolicyClient
-
-class PolicyDeployment(Enum):
-    LOCAL = "local"
-    REMOTE = "remote"
 
 class PolicyBase(ABC):
-    def __init__(
-        self,
-        policy_deployment: PolicyDeployment = PolicyDeployment.LOCAL,
-        remote_config: RemotePolicyConfig | None = None
-    ) -> None:
+    """
+    Base class for policies.
+
+    Subclasses should define a `config_class` class variable pointing to their configuration dataclass
+    to enable configuration from dictionaries via the from_dict() method.
+    """
+
+    # Optional: Subclasses can define this to enable from_dict()
+    config_class: type | None = None
+
+    def __init__(self, config: Any):
         """
-        Base class for policies with optional remote deployment.
+        Base class for policies.
+        """
+        self.config = config
+
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> "PolicyBase":
+        """
+        Create a policy instance from a configuration dictionary.
+
+        This method instantiates the policy's config_class from the dict and then
+        creates the policy from that config.
+
+        Path: dict → ConfigDataclass → Policy instance
 
         Args:
-            policy_deployment: "local" (default) or "remote".
-            remote_config: Required when policy_deployment == "remote".
+            config_dict: Dictionary containing the configuration fields
+
+        Returns:
+            Policy instance
         """
-        self._policy_deployment = policy_deployment
-        self._remote_config = remote_config
-        self._policy_client: PolicyClient | None = None
+        if cls.config_class is None:
+            raise NotImplementedError(f"{cls.__name__} must define 'config_class' to use from_dict()")
 
-        if self._policy_deployment is PolicyDeployment.REMOTE:
-            if self._remote_config is None:
-                raise ValueError("Remote deployment requires a RemotePolicyConfig.")
+        # Create config from dict
+        config = cls.config_class(**config_dict)  # type: ignore[misc]
 
-            self._policy_client = PolicyClient(
-                config=self._remote_config,
-            )
-
-    @property
-    def is_remote(self) -> bool:
-        return self._policy_deployment is PolicyDeployment.REMOTE
-
-    @property
-    def remote_config(self) -> RemotePolicyConfig:
-        return self._remote_config
-
-    @property
-    def remote_client(self) -> RemotePolicyClient:
-        if self._policy_client is None:
-            raise RuntimeError("Remote client is not initialized (policy_deployment != 'remote').")
-        return self._policy_client
+        # Create policy from config
+        return cls(config)  # type: ignore[call-arg]
 
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
@@ -91,6 +86,11 @@ class PolicyBase(ABC):
         """Get the length of the policy (for dataset-driven policies)."""
         pass
 
+    @property
+    def is_remote(self) -> bool:
+        """Check if the policy is builted on remote."""
+        return False
+
     @staticmethod
     @abstractmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -102,19 +102,3 @@ class PolicyBase(ABC):
     def from_args(args: argparse.Namespace) -> "PolicyBase":
         """Create a policy from the arguments."""
         raise NotImplementedError("Function not implemented yet.")
-    def shutdown_remote(self, kill_server: bool = False) -> None:
-        """
-        Clean up remote client, and optionally send 'kill' to stop the remote server.
-
-        Args:
-            kill_server: If True, send a 'kill' RPC before closing the client.
-        """
-        if not self.is_remote or self._policy_client is None:
-            return
-        if kill_server:
-            try:
-                self._policy_client.call_endpoint("kill", requires_input=False)
-            except Exception as exc:
-                print(f"[PolicyBase] Failed to send kill to remote server: {exc}")
-        self._policy_client.close()
-        self._policy_client = None
