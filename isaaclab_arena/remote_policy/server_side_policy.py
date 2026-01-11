@@ -8,14 +8,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
+from .remote_policy_config import ClientPolicyConfig
+
 
 class ServerSidePolicy(ABC):
-    """Server-side policy interface.
+    """Server-side policy interface."""
 
-    This interface is intentionally independent of IsaacLab-Arena.
-    The server only sees JSON-serializable observations and returns
-    JSON-serializable actions.
-    """
+    def __init__(self) -> None:
+        self._task_description: str | None = None
 
     @abstractmethod
     def get_action(
@@ -38,14 +38,27 @@ class ServerSidePolicy(ABC):
         Raises:
             AssertionError/ValueError: If observation or action validation fails
         """
+
     @abstractmethod
-    def reset(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
+    def reset(
+        self,
+        env_ids: list[int] | None = None,
+        reset_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Reset the policy to its initial state.
-
+    
         Args:
-            options: Dictionary containing the options for the reset
-
+            env_ids: Optional list of environment indices to reset. If None, reset all.
+            reset_options: Optional dictionary containing reset options.
+    
         Returns:
-            Dictionary containing the info after resetting the policy
+            Dictionary containing the info after resetting the policy.
         """
-        pass
+
+    @abstractmethod
+    def get_init_info(self) -> ClientPolicyConfig:
+        """Return static initialization info for the client."""
+
+
+    def set_task_description(self, task_description: str | None) -> str:
+        """Default implementation that stores task description."""

@@ -10,7 +10,7 @@ import torch
 from pathlib import Path
 from typing import Any, Dict
 
-from isaaclab_arena.policy.policy_base import PolicyBase, PolicyDeployment
+from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
@@ -28,11 +28,11 @@ from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 
 class Gr00tClosedloopPolicy(PolicyBase):
 
-    def __init__(self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda", policy_deployment: PolicyDeployment = PolicyDeployment.LOCAL, remote_config: RemotePolicyConfig | None = None):
+    def __init__(self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda", remote_config: RemotePolicyConfig | None = None):
         """
         Base class for closedloop inference from obs using GR00T N1.5 policy
         """
-        super().__init__(policy_deployment=policy_deployment, remote_config=remote_config)
+        super().__init__(remote_config=remote_config)
         self.policy_config = create_config_from_yaml(policy_config_yaml_path, Gr00tClosedloopPolicyConfig)
 
         # determine rollout how many action prediction per observation

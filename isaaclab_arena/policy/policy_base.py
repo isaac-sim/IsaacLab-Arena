@@ -15,38 +15,26 @@ from enum import Enum
 from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
 from isaaclab_arena.remote_policy.policy_client import PolicyClient
 
-class PolicyDeployment(Enum):
-    LOCAL = "local"
-    REMOTE = "remote"
-
 class PolicyBase(ABC):
     def __init__(
         self,
-        policy_deployment: PolicyDeployment = PolicyDeployment.LOCAL,
         remote_config: RemotePolicyConfig | None = None
     ) -> None:
         """
         Base class for policies with optional remote deployment.
 
         Args:
-            policy_deployment: "local" (default) or "remote".
             remote_config: Required when policy_deployment == "remote".
         """
-        self._policy_deployment = policy_deployment
         self._remote_config = remote_config
         self._policy_client: PolicyClient | None = None
 
-        if self._policy_deployment is PolicyDeployment.REMOTE:
-            if self._remote_config is None:
-                raise ValueError("Remote deployment requires a RemotePolicyConfig.")
-
-            self._policy_client = PolicyClient(
-                config=self._remote_config,
-            )
+        if self._remote_config is not None:
+            self._policy_client = PolicyClient(config=self._remote_config)
 
     @property
     def is_remote(self) -> bool:
-        return self._policy_deployment is PolicyDeployment.REMOTE
+        return self._remote_config is not None
 
     @property
     def remote_config(self) -> RemotePolicyConfig:
@@ -54,8 +42,6 @@ class PolicyBase(ABC):
 
     @property
     def remote_client(self) -> RemotePolicyClient:
-        if self._policy_client is None:
-            raise RuntimeError("Remote client is not initialized (policy_deployment != 'remote').")
         return self._policy_client
 
     @abstractmethod
@@ -91,17 +77,6 @@ class PolicyBase(ABC):
         """Get the length of the policy (for dataset-driven policies)."""
         pass
 
-    @staticmethod
-    @abstractmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add policy-specific arguments to the parser."""
-        raise NotImplementedError("Function not implemented yet.")
-
-    @staticmethod
-    @abstractmethod
-    def from_args(args: argparse.Namespace) -> "PolicyBase":
-        """Create a policy from the arguments."""
-        raise NotImplementedError("Function not implemented yet.")
     def shutdown_remote(self, kill_server: bool = False) -> None:
         """
         Clean up remote client, and optionally send 'kill' to stop the remote server.
@@ -118,3 +93,16 @@ class PolicyBase(ABC):
                 print(f"[PolicyBase] Failed to send kill to remote server: {exc}")
         self._policy_client.close()
         self._policy_client = None
+
+    @staticmethod
+    @abstractmethod
+    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Add policy-specific arguments to the parser."""
+        raise NotImplementedError("Function not implemented yet.")
+
+    @staticmethod
+    @abstractmethod
+    def from_args(args: argparse.Namespace) -> "PolicyBase":
+        """Create a policy from the arguments."""
+        raise NotImplementedError("Function not implemented yet.")
+

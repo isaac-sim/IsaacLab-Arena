@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 @dataclass
 class RemotePolicyConfig:
@@ -15,3 +15,10 @@ class RemotePolicyConfig:
     port: int
     api_token: Optional[str] = None
     timeout_ms: int = 15000
+
+@dataclass
+class ClientPolicyConfig:
+    """Static metadata about a remote policy, used by the client."""
+    action_dim: int
+    action_chunk_length: int
+    observation_keys: List[str]

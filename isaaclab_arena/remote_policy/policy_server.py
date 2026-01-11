@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Optional, Type
 
 import zmq
 
-from .model_policy import ModelPolicy
+from .server_side_policy import ServerSidePolicy
 from .message_serializer import MessageSerializer
 
 
@@ -23,7 +23,7 @@ class EndpointHandler:
 class PolicyServer:
     def __init__(
         self,
-        policy: ModelPolicy,
+        policy: ServerSidePolicy,
         host: str = "*",
         port: int = 5555,
         api_token: Optional[str] = None,
@@ -48,6 +48,8 @@ class PolicyServer:
         self.register_endpoint("kill", self._handle_kill, requires_input=False)
         self.register_endpoint("get_action", self._handle_get_action, requires_input=True)
         self.register_endpoint("reset", self._handle_reset, requires_input=True)
+        self.register_endpoint("get_init_info", self._handle_get_init_info, requires_input=False)
+        self.register_endpoint("set_task_description", self._handle_set_task_description, requires_input=True)
         print(f"[PolicyServer] registered endpoints: {list(self._endpoints.keys())}")
 
     def register_endpoint(
@@ -57,6 +59,28 @@ class PolicyServer:
         requires_input: bool = True,
     ) -> None:
         self._endpoints[name] = EndpointHandler(handler=handler, requires_input=requires_input)
+
+    def _handle_get_init_info(self) -> Dict[str, Any]:
+        print("[PolicyServer] handle get_init_info")
+        info = self._policy.get_init_info()
+        if not hasattr(info, "__dict__") and not isinstance(info, dict):
+            raise TypeError(
+                f"Policy.get_init_info() must return a dataclass or dict, got {type(info)!r}"
+            )
+        return info  # MessageSerializer.to_bytes will normalize dataclasses
+
+    def _handle_set_task_description(
+        self,
+        task_description: str | None = None,
+        **_: Any,
+    ) -> Dict[str, Any]:
+        print(f"[PolicyServer] handle set_task_description: {task_description!r}")
+        resp = self._policy.set_task_description(task_description)
+        if not isinstance(resp, dict):
+            raise TypeError(
+                f"Policy.set_task_description() must return dict, got {type(resp)!r}"
+            )
+        return resp
 
     def _handle_ping(self) -> Dict[str, Any]:
         print("[PolicyServer] handle ping")
@@ -74,7 +98,6 @@ class PolicyServer:
         **_: Any,
     ) -> Dict[str, Any]:
         print("[PolicyServer] handle get_action")
-        print(f"  observation keys: {list(observation.keys())}")
         if options is not None:
             print(f"  options keys: {list(options.keys())}")
         action, info = self._policy.get_action(
@@ -85,9 +108,12 @@ class PolicyServer:
 
     def _handle_reset(self, env_ids=None, options=None, **_: Any) -> Dict[str, Any]:
         print(f"[PolicyServer] handle reset: env_ids={env_ids}, options={options}")
+        status: Dict[str, Any] = {"status": "reset_success"}
         if hasattr(self._policy, "reset"):
-            self._policy.reset(env_ids=env_ids, reset_options=options)
-        return {"status": "reset"}
+            resp = self._policy.reset(env_ids=env_ids, reset_options=options)
+            if isinstance(resp, dict):
+                status.update(resp)
+        return status
 
     def _validate_token(self, request: Dict[str, Any]) -> bool:
         if self._api_token is None:
@@ -147,7 +173,7 @@ class PolicyServer:
 
     @staticmethod
     def start(
-        policy: ModelPolicy,
+        policy: ServerSidePolicy,
         host: str = "*",
         port: int = 5555,
         api_token: Optional[str] = None,
