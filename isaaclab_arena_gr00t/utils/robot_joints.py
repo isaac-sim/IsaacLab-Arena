@@ -22,7 +22,7 @@ class JointsAbsPosition:
             joints_pos=torch.zeros((len(joint_order_config)), device=device), joints_order_config=joint_order_config
         )
 
-    def to_array(self) -> torch.Tensor:
+    def to_array(self) -> np.ndarray:
         return self.joints_pos.cpu().numpy()
 
     @staticmethod

@@ -50,3 +50,52 @@ These directories are configurable through argument to the run docker script.
 
 For a full list of arguments see the ``run_docker.sh`` script at
 ``isaac_arena/docker/run_docker.sh``.
+
+Remote policies and GR00T
+-------------------------
+
+Remote policy workflows (for example the GR1 Open Microwave Door Task)
+are split into two containers:
+
+- The **Base** Isaac Lab Arena container, started via
+  ``docker/run_docker.sh``. This container does not need to install
+  GR00T when you run policies in remote mode.
+- A separate **GR00T policy server** container, started via
+  ``docker/run_gr00t_server.sh``, which builds an image from
+  ``docker/Dockerfile.gr00t_server`` and runs the remote policy server
+  entrypoint.
+
+A typical workflow is:
+
+1. Start the Base container for simulation and evaluation:
+
+   .. code-block:: bash
+
+      bash docker/run_docker.sh
+
+2. In a second terminal, start the GR00T policy server container:
+
+   .. code-block:: bash
+
+      bash docker/run_gr00t_server.sh \
+        --host 127.0.0.1  \
+        --port 5555 \
+        --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
+        --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
+
+3. Inside the Base container, run the evaluation script with a
+   client-side remote policy (see the static manipulation example
+   workflow for full command lines).
+
+This setup cleanly separates the Isaac Lab Arena simulation environment
+from the GR00T policy server environment. The Base container focuses on
+running environments and evaluation logic, while the GR00T server
+container is responsible only for hosting the GR00T model and its
+dependencies.
+
+If you want to host other policy models as remote servers, you can
+follow the same pattern: create a dedicated server Dockerfile and
+launcher script (similar to ``docker/Dockerfile.gr00t_server`` and
+``docker/run_gr00t_server.sh``), and point it to a custom
+``ServerSidePolicy`` implementation as described in
+:doc:`../concepts/concept_remote_policies_design`.

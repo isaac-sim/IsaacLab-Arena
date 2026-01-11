@@ -5,7 +5,9 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
+
 
 @dataclass
 class Gr00tClosedloopPolicyConfig:
