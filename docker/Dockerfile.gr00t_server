@@ -21,17 +21,11 @@ RUN chmod +x /tmp/install_gr00t_deps.sh && \
     /tmp/install_gr00t_deps.sh --server && \
     rm -f /tmp/install_gr00t_deps.sh
 
-RUN pip install -e ${WORKDIR}/submodules/Isaac-GR00T
-
-RUN pip uninstall -y \
-      opencv-python opencv-python-headless \
-      opencv-contrib-python opencv-contrib-python-headless \
-      || true && \
-    pip install --no-cache-dir "opencv-python-headless==4.8.0.74"
+RUN pip install --no-cache-dir --upgrade "opencv-python-headless==4.8.0.74"
 
 COPY isaaclab_arena/remote_policy ${WORKDIR}/isaaclab_arena/remote_policy
-
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
+COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 
 RUN pip install --no-cache-dir pyzmq msgpack
 

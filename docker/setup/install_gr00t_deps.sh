@@ -28,27 +28,14 @@ echo "WORKDIR=$WORKDIR"
 ##########################
 # CUDA environment setup
 ##########################
-if [[ "$USE_SERVER_ENV" -eq 1 ]]; then
-  # Server environment: use system CUDA if available
-  if [ -d "/usr/local/cuda" ]; then
-      export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
-      export PATH=${CUDA_HOME}/bin:${PATH}
-      export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}
-  fi
-  echo "[SERVER] CUDA_HOME=${CUDA_HOME:-unset}"
-  echo "[SERVER] PATH=$PATH"
-  echo "[SERVER] LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-unset}"
-else
-  # Isaac Sim Docker: fixed CUDA 12.8 toolchain
-  export CUDA_HOME=/usr/local/cuda-12.8
-  export PATH=/usr/local/cuda-12.8/bin:${PATH}
-  export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-}
-  export TORCH_CUDA_ARCH_LIST=8.0+PTX
-  echo "[ISAACSIM] CUDA_HOME=$CUDA_HOME"
-  echo "[ISAACSIM] PATH=$PATH"
-  echo "[ISAACSIM] LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-  echo "[ISAACSIM] TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
-fi
+export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
+export PATH=${CUDA_HOME}/bin:${PATH}
+export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}
+export TORCH_CUDA_ARCH_LIST=8.0+PTX
+echo "[ISAACSIM] CUDA_HOME=$CUDA_HOME"
+echo "[ISAACSIM] PATH=$PATH"
+echo "[ISAACSIM] LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+echo "[ISAACSIM] TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 
 ##########################
 # System dependencies
@@ -74,7 +61,7 @@ echo "Installing Isaac-GR00T package (no deps)..."
 $PYTHON_CMD -m pip install --no-deps --ignore-requires-python \
     -e ${WORKDIR}/submodules/Isaac-GR00T/
 
-# Install GR00T main dependencies (part 1, with build isolation)
+# Install GR00T main dependencies (part 1, without build isolation)
 echo "Installing GR00T main dependencies (group 1)..."
 $PYTHON_CMD -m pip install --no-build-isolation --use-pep517 \
     "pyarrow>=14,<18" \
@@ -137,4 +124,3 @@ if [[ "$USE_SERVER_ENV" -eq 0 ]]; then
 fi
 
 echo "GR00T dependencies installation completed successfully"
-
