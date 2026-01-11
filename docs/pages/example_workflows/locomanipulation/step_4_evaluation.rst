@@ -147,3 +147,51 @@ and the number of episodes is more than the single environment evaluation becaus
 
    The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
    If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
+
+Step 3: Remote policy evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The same GR00T N1.5 policy can also be evaluated as a *remote policy*
+running in a separate process, using the generic remote policy interface
+and the remote policy design described in
+:doc:`../../concepts/concept_remote_policies_design`.
+
+Start the GR00T policy server in a separate terminal using the helper
+script:
+
+.. code-block:: bash
+
+   bash docker/run_gr00t_server.sh \
+     --host 127.0.0.1 \
+     --port 5555 \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_device cuda
+
+If the models directory was already configured earlier (for example via
+the ``MODELS_DIR`` environment variable), the ``-m`` flag can be
+omitted. Otherwise, use ``-m`` to point to the directory that contains
+the GR00T model checkpoint.
+
+Then, instead of running the closed-loop policy directly inside the
+Arena process, connect from the evaluation script using a client-side
+remote policy:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
+     --remote_host 127.0.0.1 \
+     --remote_port 5555 \
+     --num_steps 1200 \
+     --num_envs 5 \
+     --enable_cameras \
+     --device cpu \
+     --remote_kill_on_exit \
+     galileo_g1_locomanip_pick_and_place \
+     --object brown_box \
+     --embodiment g1_wbc_joint
+
+In this configuration, the environment and evaluation logic run inside
+Isaac Lab Arena, while GR00T inference runs in the separate server
+process, connected through the remote policy interface.

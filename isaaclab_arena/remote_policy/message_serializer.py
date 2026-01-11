@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 import io
+import numpy as np
 from dataclasses import asdict, is_dataclass
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 import msgpack
-import numpy as np
 
 
 class MessageSerializer:
@@ -40,7 +40,21 @@ class MessageSerializer:
 
     @staticmethod
     def _decode_custom(obj: Any) -> Any:
-        """Decode tagged structures created in _encode_custom."""
+        """Decode tagged structures created in _encode_custom.
+
+        This function is registered as the `object_hook` for msgpack.unpackb,
+        so it is called once for every decoded map/dict.
+
+        - If the dict contains a special tag (e.g. '__ndarray_class__' or
+          '__blob_class__'), it is converted back into the corresponding
+          high-level type (numpy array, blob, etc.).
+        - If the dict has no special tag, it is returned unchanged. In that
+          case the object stays as whatever type msgpack's default decoder
+          produced (dict, list, int, str, ...).
+
+        Untagged values and non-dict types are therefore handled entirely
+        by msgpack's built-in decoder.
+        """
         if not isinstance(obj, dict):
             return obj
 
@@ -105,9 +119,7 @@ def to_json_serializable(obj: Any) -> Any:
         return bool(obj)
     elif isinstance(obj, dict):
         return {key: to_json_serializable(value) for key, value in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        return [to_json_serializable(item) for item in obj]
-    elif isinstance(obj, set):
+    elif isinstance(obj, (list, tuple, set)):
         return [to_json_serializable(item) for item in obj]
     elif isinstance(obj, (str, int, float, bool, type(None))):
         return obj
@@ -116,4 +128,3 @@ def to_json_serializable(obj: Any) -> Any:
     else:
         # Fallback: convert to string
         return str(obj)
-
