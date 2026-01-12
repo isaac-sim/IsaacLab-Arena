@@ -39,7 +39,7 @@ class NextTo(Relation):
     This relation specifies that a child object should be placed adjacent to
     the parent object on a specified side, at a given distance.
 
-    Note: Loss computation is handled by NextToLossStrategy in loss_strategies.py.
+    Note: Loss computation is handled by NextToLossStrategy in relation_loss_strategies.py.
     """
 
     def __init__(
@@ -69,7 +69,7 @@ class On(Relation):
     the parent object, with X/Y bounded within the parent's extent and Z
     positioned on the parent's top surface.
 
-    Note: Loss computation is handled by OnLossStrategy in loss_strategies.py.
+    Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
     """
 
     def __init__(

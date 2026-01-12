@@ -7,7 +7,7 @@ import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss import (
+from isaaclab_arena.relations.loss_primitives import (
     linear_band_loss,
     single_boundary_linear_loss,
     single_point_linear_loss,
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 from isaaclab_arena.relations.relations import Side
 
 
-class LossStrategy(ABC):
+class RelationLossStrategy(ABC):
     """Abstract base class for relation loss computation strategies."""
 
     @abstractmethod
@@ -47,7 +47,7 @@ class LossStrategy(ABC):
         pass
 
 
-class NextToLossStrategy(LossStrategy):
+class NextToLossStrategy(RelationLossStrategy):
     """Loss strategy for NextTo relations.
 
     Computes loss based on:
@@ -118,7 +118,7 @@ class NextToLossStrategy(LossStrategy):
         return relation.relation_loss_weight * total_loss
 
 
-class OnLossStrategy(LossStrategy):
+class OnLossStrategy(RelationLossStrategy):
     """Loss strategy for On relations.
 
     Computes loss based on:
