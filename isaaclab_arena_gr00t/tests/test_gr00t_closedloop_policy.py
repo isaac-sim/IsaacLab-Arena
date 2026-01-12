@@ -8,9 +8,9 @@ import yaml
 
 import pytest
 
+from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
-from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 HEADLESS = True
