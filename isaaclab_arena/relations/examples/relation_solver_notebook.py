@@ -17,7 +17,7 @@ subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tenacity"]
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverParams
 from isaaclab_arena.relations.relation_solver_visualizer import RelationSolverVisualizer
-from isaaclab_arena.relations.relations import NextTo, Side
+from isaaclab_arena.relations.relations import NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 
 desk = DummyObject(
@@ -26,10 +26,16 @@ desk = DummyObject(
 cracker_box = DummyObject(
     name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.1, 0.2))
 )
+apple = DummyObject(
+    name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+)
+
+cracker_box.add_relation(On(desk, clearance_m=0.01))
+apple.add_relation(On(desk, clearance_m=0.01))
+apple.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
 
 
-cracker_box.add_relation(NextTo(desk, side=Side.RIGHT))
-all_objects = [desk, cracker_box]
+all_objects = [desk, cracker_box, apple]
 
 
 # Solver requires the object positions to be initialized.

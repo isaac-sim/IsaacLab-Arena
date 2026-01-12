@@ -15,7 +15,7 @@ from isaaclab_arena.relations.relation_loss import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import NextTo, Relation
+    from isaaclab_arena.relations.relations import NextTo, On, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -115,4 +115,66 @@ class NextToLossStrategy(LossStrategy):
         next_to_distance_loss = single_point_linear_loss(child_pos[0], target_x, slope=self.slope)
 
         total_loss = right_side_loss + top_bottom_band_loss + next_to_distance_loss
+        return relation.relation_loss_weight * total_loss
+
+
+class OnLossStrategy(LossStrategy):
+    """Loss strategy for On relations.
+
+    Computes loss based on:
+    1. X band constraint to keep child within parent's X extent
+    2. Y band constraint to keep child within parent's Y extent
+    3. Z point constraint to position child on parent's top surface + clearance
+    """
+
+    def __init__(self, slope: float = 10.0):
+        """
+        Args:
+            slope: Gradient magnitude for linear loss (default: 10.0).
+                   Loss increases by `slope` per meter of violation.
+        """
+        self.slope = slope
+
+    def compute_loss(
+        self,
+        relation: "On",
+        child_pos: torch.Tensor,
+        parent_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for On relation.
+
+        Args:
+            relation: On relation with clearance_m attribute.
+            child_pos: Child object position tensor (x, y, z).
+            parent_pos: Parent object position tensor (x, y, z).
+            child_bbox: Child object axis-aligned bounding box.
+            parent_bbox: Parent object axis-aligned bounding box.
+
+        Returns:
+            Weighted loss tensor.
+        """
+        # 1. X band loss: child center within parent's X extent
+        x_band_loss = linear_band_loss(
+            child_pos[0],
+            lower_bound=parent_pos[0] - parent_bbox.size[0] / 2,
+            upper_bound=parent_pos[0] + parent_bbox.size[0] / 2,
+            slope=self.slope,
+        )
+
+        # 2. Y band loss: child center within parent's Y extent
+        y_band_loss = linear_band_loss(
+            child_pos[1],
+            lower_bound=parent_pos[1] - parent_bbox.size[1] / 2,
+            upper_bound=parent_pos[1] + parent_bbox.size[1] / 2,
+            slope=self.slope,
+        )
+
+        # 3. Z point loss: child bottom = parent top + clearance
+        # Target Z = parent_top + clearance + child_half_height
+        target_z = parent_pos[2] + parent_bbox.size[2] / 2 + relation.clearance_m + child_bbox.size[2] / 2
+        z_loss = single_point_linear_loss(child_pos[2], target_z, slope=self.slope)
+
+        total_loss = x_band_loss + y_band_loss + z_loss
         return relation.relation_loss_weight * total_loss

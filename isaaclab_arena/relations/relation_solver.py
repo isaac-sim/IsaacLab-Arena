@@ -8,15 +8,15 @@ import torch
 from dataclasses import dataclass, field
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.loss_strategies import LossStrategy, NextToLossStrategy
-from isaaclab_arena.relations.relations import NextTo, Relation
+from isaaclab_arena.relations.loss_strategies import LossStrategy, NextToLossStrategy, OnLossStrategy
+from isaaclab_arena.relations.relations import NextTo, On, Relation
 
 
 @dataclass
 class RelationSolverParams:
     """Configuration parameters for RelationSolver."""
 
-    max_iters: int = 1000
+    max_iters: int = 200
     """Maximum optimization iterations."""
 
     lr: float = 0.01
@@ -42,7 +42,7 @@ class RelationSolver:
     # Default strategies for each relation type (class-level)
     DEFAULT_STRATEGIES: dict[type[Relation], LossStrategy] = {
         NextTo: NextToLossStrategy(slope=10.0),
-        # TODO(cvolk) OnStrategy
+        On: OnLossStrategy(slope=10.0),
     }
 
     def __init__(
