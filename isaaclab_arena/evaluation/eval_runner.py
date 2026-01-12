@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str]):
+def load_env(arena_env_args: list[str], job_name: str):
 
     reload_arena_modules()
 
@@ -29,7 +29,14 @@ def load_env(arena_env_args: list[str]):
 
     arena_env_args_cli = args_parser.parse_args(arena_env_args)
     arena_builder = get_arena_builder_from_cli(arena_env_args_cli)
-    env = arena_builder.make_registered()
+
+    env_name, env_cfg = arena_builder.build_registered()
+
+    # Set unique dataset filename for this job to avoid file locking conflicts
+    if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
+        env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
+
+    env = arena_builder.make_registered(env_cfg)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
     return env
 
@@ -74,7 +81,7 @@ def main():
                 env = None
                 try:
                     # Modules reloading first, otherwise 2 instances of same class are created (e.g. Enum)
-                    env = load_env(job.arena_env_args)
+                    env = load_env(job.arena_env_args, job.name)
 
                     policy = get_policy_from_job(job)
 

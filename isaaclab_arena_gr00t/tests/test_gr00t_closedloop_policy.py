@@ -158,7 +158,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
             },
             "num_steps": 2,
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
-            "policy_args": {"policy_config_yaml_path": policy_config_file, "policy_device": "cuda:0"},
+            "policy_args": {"policy_config_yaml_path": str(policy_config_file), "policy_device": "cuda:0"},
         },
         {
             "name": "gr1_open_microwave_cracker_box",
@@ -169,6 +169,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
             },
             "num_steps": 2,
             "policy_type": "zero_action",
+            "policy_args": {},
         },
     ]
     temp_config_path = str(tmp_path / "test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner.json")
