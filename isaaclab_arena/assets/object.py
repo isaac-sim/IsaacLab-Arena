@@ -10,9 +10,9 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.relations.relations import Relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.relations import Relation
 from isaaclab_arena.utils.usd_helpers import compute_bounding_box_from_usd, has_light, open_stage
 
 

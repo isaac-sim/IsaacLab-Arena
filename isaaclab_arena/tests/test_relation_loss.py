@@ -5,7 +5,11 @@
 
 import torch
 
-from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss, single_point_linear_loss
+from isaaclab_arena.relations.relation_loss import (
+    linear_band_loss,
+    single_boundary_linear_loss,
+    single_point_linear_loss,
+)
 
 
 def test_single_boundary_linear_loss_no_violation_returns_zero_greater():

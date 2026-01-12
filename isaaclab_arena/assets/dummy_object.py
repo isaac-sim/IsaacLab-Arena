@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import torch
 
+from isaaclab_arena.relations.relations import Relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.relations import Relation
 
 
 class DummyObject:

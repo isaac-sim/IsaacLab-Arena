@@ -7,13 +7,17 @@ import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.relation_loss import (
+    linear_band_loss,
+    single_boundary_linear_loss,
+    single_point_linear_loss,
+)
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss, single_point_linear_loss
 
 if TYPE_CHECKING:
-    from isaaclab_arena.utils.relations import NextTo, Relation
+    from isaaclab_arena.relations.relations import NextTo, Relation
 
-from isaaclab_arena.utils.relations import Side
+from isaaclab_arena.relations.relations import Side
 
 
 class LossStrategy(ABC):

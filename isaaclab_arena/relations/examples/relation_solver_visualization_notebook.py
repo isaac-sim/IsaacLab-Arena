@@ -1,4 +1,4 @@
-# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -16,10 +16,10 @@ import numpy as np
 from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.examples.relation_solver import RelationSolver, RelationSolverParams
+from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverParams
+from isaaclab_arena.relations.relations import NextTo, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.relations import NextTo, Side
 
 
 def create_loss_heatmap_2d(

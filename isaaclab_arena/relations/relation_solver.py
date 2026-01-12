@@ -11,8 +11,8 @@ from dataclasses import dataclass, field
 from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.utils.loss_strategies import LossStrategy, NextToLossStrategy
-from isaaclab_arena.utils.relations import NextTo, Relation
+from isaaclab_arena.relations.loss_strategies import LossStrategy, NextToLossStrategy
+from isaaclab_arena.relations.relations import NextTo, Relation
 
 
 @dataclass
