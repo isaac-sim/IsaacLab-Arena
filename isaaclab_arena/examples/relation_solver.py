@@ -121,21 +121,17 @@ class RelationSolver:
         obj_to_pos = {obj: positions[i] for i, obj in enumerate(objects)}
 
         # Compute loss from all relations using strategies
-        for i, obj in enumerate(objects):
-            relations = obj.get_relations()
-            for relation in relations:
-                # Get parent position from the mapping
+        for obj in objects:
+            for relation in obj.get_relations():
+                child_pos = obj_to_pos.get(obj)
                 parent_pos = obj_to_pos.get(relation.parent)
                 if parent_pos is None:
                     raise ValueError(f"Parent {relation.parent.name} not found in objects list")
 
-                # Get strategy for this relation type
                 strategy = self._get_strategy(relation)
-
-                # Compute loss using the strategy
                 loss = strategy.compute_loss(
                     relation=relation,
-                    child_pos=positions[i],
+                    child_pos=child_pos,
                     parent_pos=parent_pos,
                     child_bbox=obj.get_bounding_box(),
                     parent_bbox=relation.parent.get_bounding_box(),
