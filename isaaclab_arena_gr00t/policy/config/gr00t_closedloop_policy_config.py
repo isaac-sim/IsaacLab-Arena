@@ -5,9 +5,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-
 from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
-
 
 @dataclass
 class Gr00tClosedloopPolicyConfig:
@@ -98,7 +96,6 @@ class Gr00tClosedloopPolicyConfig:
         assert Path(
             self.state_joints_config_path
         ).exists(), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
-        assert Path(self.model_path).exists(), f"model_path does not exist: {self.model_path}"
         # embodiment_tag
         assert self.embodiment_tag in [
             "gr1",

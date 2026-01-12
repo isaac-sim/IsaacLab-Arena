@@ -3,18 +3,46 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 import argparse
 import gymnasium as gym
 import torch
 from abc import ABC, abstractmethod
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 
+from enum import Enum
+
+from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
+from isaaclab_arena.remote_policy.policy_client import PolicyClient
 
 class PolicyBase(ABC):
-    def __init__(self):
+    def __init__(
+        self,
+        remote_config: RemotePolicyConfig | None = None
+    ) -> None:
         """
-        Base class for policies.
+        Base class for policies with optional remote deployment.
+
+        Args:
+            remote_config: Required when policy_deployment == "remote".
         """
+        self._remote_config = remote_config
+        self._policy_client: PolicyClient | None = None
+
+        if self._remote_config is not None:
+            self._policy_client = PolicyClient(config=self._remote_config)
+
+    @property
+    def is_remote(self) -> bool:
+        return self._remote_config is not None
+
+    @property
+    def remote_config(self) -> RemotePolicyConfig:
+        return self._remote_config
+
+    @property
+    def remote_client(self) -> RemotePolicyClient:
+        return self._policy_client
 
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
@@ -49,6 +77,23 @@ class PolicyBase(ABC):
         """Get the length of the policy (for dataset-driven policies)."""
         pass
 
+    def shutdown_remote(self, kill_server: bool = False) -> None:
+        """
+        Clean up remote client, and optionally send 'kill' to stop the remote server.
+
+        Args:
+            kill_server: If True, send a 'kill' RPC before closing the client.
+        """
+        if not self.is_remote or self._policy_client is None:
+            return
+        if kill_server:
+            try:
+                self._policy_client.call_endpoint("kill", requires_input=False)
+            except Exception as exc:
+                print(f"[PolicyBase] Failed to send kill to remote server: {exc}")
+        self._policy_client.close()
+        self._policy_client = None
+
     @staticmethod
     @abstractmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -60,3 +105,4 @@ class PolicyBase(ABC):
     def from_args(args: argparse.Namespace) -> "PolicyBase":
         """Create a policy from the arguments."""
         raise NotImplementedError("Function not implemented yet.")
+
