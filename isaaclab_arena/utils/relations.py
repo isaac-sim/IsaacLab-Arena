@@ -3,11 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from enum import Enum
 from typing import TYPE_CHECKING
 
 # Avoid circular import by using TYPE_CHECKING
 if TYPE_CHECKING:
     from isaaclab_arena.assets.dummy_object import DummyObject
+
+
+class Side(Enum):
+    """Side of an object for spatial relationships."""
+
+    FRONT = "front"  # -Y
+    BACK = "back"  # +Y
+    LEFT = "left"  # -X
+    RIGHT = "right"  # +X
 
 
 class Relation:
@@ -37,18 +47,16 @@ class NextTo(Relation):
         parent: "DummyObject",
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        side: str = "right",
+        side: Side = Side.RIGHT,
     ):
         """
         Args:
             parent: The parent asset that this object should be placed next to.
             relation_loss_weight: Weight for the relationship loss function.
             distance_m: Target distance from parent's boundary in meters (default: 5cm).
-            side: Which side to place object: "front" (-Y), "back" (+Y),
-                  "left" (-X), or "right" (+X).
+            side: Which side to place object (default: Side.RIGHT).
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m >= 0.0, f"Distance must be non-negative, got {distance_m}"
         self.distance_m = distance_m
-        assert side in ["front", "back", "left", "right"]
         self.side = side

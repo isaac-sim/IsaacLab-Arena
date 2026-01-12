@@ -19,7 +19,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.examples.relation_solver import RelationSolver, RelationSolverParams
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.relations import NextTo
+from isaaclab_arena.utils.relations import NextTo, Side
 
 
 def create_loss_heatmap_2d(
@@ -89,13 +89,13 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
     cw, cd, ch = child_bbox.size
 
     # Mark ideal position
-    if side == "right":
+    if side == Side.RIGHT:
         ideal_x, ideal_y = px + pw / 2 + distance_m + cw / 2, py
-    elif side == "left":
+    elif side == Side.LEFT:
         ideal_x, ideal_y = px - pw / 2 - distance_m - cw / 2, py
-    elif side == "front":
+    elif side == Side.FRONT:
         ideal_x, ideal_y = px, py - pd / 2 - distance_m - cd / 2
-    elif side == "back":
+    elif side == Side.BACK:
         ideal_x, ideal_y = px, py + pd / 2 + distance_m + cd / 2
 
     ax.plot(ideal_x, ideal_y, "g*", markersize=15, label="Ideal Position")
@@ -116,7 +116,9 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
     ax.set_xlabel("X Position (m)", fontsize=14)
     ax.set_ylabel("Y Position (m)", fontsize=14)
     ax.set_title(
-        f"NextTo Relation Loss: {side.capitalize()} Side\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
+        f"NextTo Relation Loss: {side.value.capitalize()} Side\n" + f"Distance={distance_m}m",
+        fontsize=16,
+        fontweight="bold",
     )
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
@@ -130,7 +132,7 @@ parent_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 
 parent_pos = (0.0, 0.0, 0.05)
 child_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
 distance_m = 0.1
-side = "right"
+side = Side.RIGHT
 
 # Create objects
 parent = DummyObject(name="parent", bounding_box=parent_bbox)

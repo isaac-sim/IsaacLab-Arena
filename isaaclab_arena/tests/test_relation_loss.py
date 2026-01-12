@@ -5,7 +5,7 @@
 
 import torch
 
-from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss
+from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss, single_point_linear_loss
 
 
 def test_single_boundary_linear_loss_no_violation_returns_zero_greater():
@@ -127,3 +127,52 @@ def test_linear_band_loss_above_upper_bound():
 
     expected = slope * violation
     assert torch.isclose(loss, torch.tensor(expected), rtol=1e-5)
+
+
+def test_single_point_linear_loss_at_target_returns_zero():
+    """Test that loss is zero when value equals target."""
+    target = 0.5
+    value = torch.tensor(target)
+    loss = single_point_linear_loss(value, target, slope=10.0)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
+
+
+def test_single_point_linear_loss_above_target():
+    """Test linear penalty for values above target."""
+    target = 0.5
+    slope = 10.0
+    deviation = 0.1  # 10cm above target
+
+    value = torch.tensor(target + deviation)
+    loss = single_point_linear_loss(value, target, slope=slope)
+
+    expected = slope * deviation
+    assert torch.isclose(loss, torch.tensor(expected), rtol=1e-5)
+
+
+def test_single_point_linear_loss_below_target():
+    """Test linear penalty for values below target."""
+    target = 0.5
+    slope = 10.0
+    deviation = 0.1  # 10cm below target
+
+    value = torch.tensor(target - deviation)
+    loss = single_point_linear_loss(value, target, slope=slope)
+
+    expected = slope * deviation
+    assert torch.isclose(loss, torch.tensor(expected), rtol=1e-5)
+
+
+def test_single_point_linear_loss_symmetric():
+    """Test that loss is symmetric around target."""
+    target = 0.5
+    slope = 10.0
+    deviation = 0.15
+
+    value_above = torch.tensor(target + deviation)
+    value_below = torch.tensor(target - deviation)
+
+    loss_above = single_point_linear_loss(value_above, target, slope=slope)
+    loss_below = single_point_linear_loss(value_below, target, slope=slope)
+
+    assert torch.isclose(loss_above, loss_below, rtol=1e-5)

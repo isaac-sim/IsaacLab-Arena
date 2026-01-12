@@ -152,7 +152,17 @@ class RelationSolver:
                 - '_loss_history': List of loss values during optimization
         """
         # Initialize positions from objects. All objects must have an initial pose at this stage.
-        # TODO(cvolk) Should this be the Solver's responsibility to randomly initialize objects positions or should the caller do it?
+        #
+        # NOTE(cvolk): Position initialization is intentionally left to the caller. In the future, we may
+        # wrap RelationSolver in an ObjectPlacer class that handles:
+        #   - Position initialization (e.g., random location within parent's oriented bounding box)
+        #   - Multiple solver runs with different initializations (re-optimization)
+        #   - Feasibility checking
+        # This keeps the solver focused on optimization only.
+        #
+        # Future consideration: The optimizer could handle initialization for objects without an
+        # initial position. In that case, "initial position" would mean "pre-optimization position"
+        # for objects affected by relations.
         all_positions = self._get_positions_from_objects(objects)
 
         # Identify fixed (anchor) and optimizable objects

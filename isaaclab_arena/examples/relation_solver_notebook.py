@@ -10,7 +10,7 @@
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.examples.relation_solver import RelationSolver, RelationSolverParams
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.relations import NextTo
+from isaaclab_arena.utils.relations import NextTo, Side
 
 desk = DummyObject(
     name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
@@ -20,7 +20,7 @@ cracker_box = DummyObject(
 )
 
 
-cracker_box.add_relation(NextTo(desk, side="right"))
+cracker_box.add_relation(NextTo(desk, side=Side.RIGHT))
 all_objects = [desk, cracker_box]
 
 

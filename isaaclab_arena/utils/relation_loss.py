@@ -89,3 +89,40 @@ def linear_band_loss(
     loss_upper = single_boundary_linear_loss(value, upper_bound, slope, penalty_side="greater")
 
     return loss_lower + loss_upper
+
+
+def single_point_linear_loss(
+    value: torch.Tensor,
+    target: torch.Tensor | float,
+    slope: float = 1.0,
+) -> torch.Tensor:
+    """V-shaped loss centered at target value.
+
+    Loss is zero only at the exact target, increasing linearly in both directions.
+    This is useful when you want to constrain a value to a specific point rather
+    than a range/band.
+
+    Args:
+        value: Measured value (tensor for gradient flow).
+        target: The target value where loss is zero (can be tensor or float).
+        slope: Gradient magnitude (default: 1.0).
+               Loss increases by `slope` per unit of distance from target.
+
+    Returns:
+        Loss value (unbounded):
+        - 0 when value == target
+        - slope * |value - target| otherwise
+
+    Examples:
+        >>> # Target x = 1.0, penalize deviation in either direction
+        >>> loss = single_point_linear_loss(x, 1.0, slope=10.0)
+    """
+    # Ensure value is a tensor
+    if not isinstance(value, torch.Tensor):
+        value = torch.tensor(value, dtype=torch.float32)
+
+    # Ensure target is a tensor for proper gradient flow
+    if not isinstance(target, torch.Tensor):
+        target = torch.tensor(target, dtype=value.dtype, device=value.device)
+
+    return slope * torch.abs(value - target)

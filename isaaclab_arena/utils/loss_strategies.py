@@ -8,10 +8,12 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss
+from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss, single_point_linear_loss
 
 if TYPE_CHECKING:
     from isaaclab_arena.utils.relations import NextTo, Relation
+
+from isaaclab_arena.utils.relations import Side
 
 
 class LossStrategy(ABC):
@@ -83,7 +85,7 @@ class NextToLossStrategy(LossStrategy):
         side = relation.side
         distance = relation.distance_m
 
-        if side != "right":
+        if side != Side.RIGHT:
             # TODO(cvolk): Implement support for other sides and make generic.
             raise NotImplementedError(f"Side '{side}' not yet implemented, only 'right' is supported")
 
@@ -101,14 +103,12 @@ class NextToLossStrategy(LossStrategy):
         parent_bottom_bound = parent_pos[1] - parent_bbox.size[1] / 2
         top_bottom_band_loss = linear_band_loss(child_pos[1], parent_top_bound, parent_bottom_bound, slope=self.slope)
 
-        # 3. Distance loss: child should be at target distance from parent
+        # 3. Distance loss: child should be at exact target distance from parent
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
 
-        lower_bound = parent_pos[0] + parent_bbox.size[0] / 2 + distance
-        upper_bound = lower_bound + child_bbox.size[0]
-        # Lower band takes into account the objects boundaries. For now we don't additionally add a collision checker/loss.
-        # Maybe we need in the future but its cheaper to do it implicitly by the optimizer.
-        next_to_distance_loss = linear_band_loss(child_pos[0], lower_bound, upper_bound, slope=self.slope)
+        # Target X: parent's right edge + distance + child's half-width
+        target_x = parent_pos[0] + parent_bbox.size[0] / 2 + distance + child_bbox.size[0] / 2
+        next_to_distance_loss = single_point_linear_loss(child_pos[0], target_x, slope=self.slope)
 
         total_loss = right_side_loss + top_bottom_band_loss + next_to_distance_loss
         return relation.relation_loss_weight * total_loss
