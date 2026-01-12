@@ -21,9 +21,11 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
+from isaaclab.sensors import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
+import isaaclab.sim as sim_utils
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat
@@ -53,6 +55,7 @@ class FrankaEmbodiment(EmbodimentBase):
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = FrankaSceneCfg()
+        self.camera_config = FrankaCameraCfg()
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
@@ -136,6 +139,25 @@ class FrankaSceneCfg:
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
         marker_cfg.prim_path = "/Visuals/FrameTransformer"
         self.ee_frame.visualizer_cfg = marker_cfg
+
+
+@configclass
+class FrankaCameraCfg:
+    """Configuration for cameras."""
+
+    wrist_cam: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
+        update_period=0.0,
+        height=84,
+        width=84,
+        data_types=["rgb", "distance_to_image_plane"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 2)
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.13, 0.0, -0.15), rot=(-0.70614, 0.03701, 0.03701, -0.70614), convention="ros"
+        ),
+    )
 
 
 @configclass

@@ -78,3 +78,4 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
+        parser.add_argument("--enable_cameras", type=bool, default=False)
