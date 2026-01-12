@@ -7,11 +7,32 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from dataclasses import dataclass, field
 from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.utils.loss_strategies import LossStrategy, NextToLossStrategy
 from isaaclab_arena.utils.relations import NextTo, Relation
+
+
+@dataclass
+class RelationSolverParams:
+    """Configuration parameters for RelationSolver."""
+
+    max_iters: int = 1000
+    """Maximum optimization iterations."""
+
+    lr: float = 0.01
+    """Learning rate for Adam optimizer."""
+
+    convergence_threshold: float = 1e-4
+    """Stop when loss falls below this value."""
+
+    verbose: bool = True
+    """Print optimization progress."""
+
+    strategies: dict[type[Relation], LossStrategy] = field(default_factory=dict)
+    """Custom strategies to override defaults. Empty dict uses DEFAULT_STRATEGIES."""
 
 
 class RelationSolver:
@@ -29,33 +50,24 @@ class RelationSolver:
 
     def __init__(
         self,
-        max_iters: int = 1000,
-        lr: float = 0.01,
-        convergence_threshold: float = 1e-4,
-        verbose: bool = True,
-        anchor_objects: list[DummyObject] | None = None,
-        strategies: dict[type[Relation], LossStrategy] | None = None,
+        anchor_objects: list[DummyObject],
+        params: RelationSolverParams | None = None,
     ):
         """
         Args:
-            max_iters: Maximum optimization iterations.
-            lr: Learning rate for Adam optimizer.
-            convergence_threshold: Stop when loss falls below this value.
-            verbose: Print optimization progress.
             anchor_objects: List of fixed reference objects that won't be optimized.
-            strategies: Optional custom strategies to override defaults.
+            params: Solver configuration parameters. If None, uses defaults.
         """
-        self.max_iters = max_iters
-        self.lr = lr
-        self.convergence_threshold = convergence_threshold
-        self.verbose = verbose
-        self.anchor_objects = anchor_objects or []
-        assert len(self.anchor_objects) > 0, "At least one anchor object is required"
+        assert len(anchor_objects) > 0, "At least one anchor object is required"
+        self.anchor_objects = anchor_objects
+
+        # Use provided params or defaults
+        self.params = params or RelationSolverParams()
 
         # Merge user strategies with defaults (user overrides take precedence)
         self._strategies: dict[type[Relation], LossStrategy] = {
             **self.DEFAULT_STRATEGIES,
-            **(strategies or {}),
+            **self.params.strategies,
         }
 
     def _get_strategy(self, relation: Relation) -> LossStrategy:
@@ -158,20 +170,20 @@ class RelationSolver:
         optimizable_positions = all_positions[optimizable_mask].clone()
         optimizable_positions.requires_grad = True
 
-        if self.verbose:
+        if self.params.verbose:
             n_fixed = fixed_mask.sum().item()
             n_opt = optimizable_mask.sum().item()
             print("=== RelationSolver ===")
             print(f"Fixed objects: {n_fixed}, Optimizable objects: {n_opt}")
 
         # Setup optimizer (only for optimizable positions)
-        optimizer = torch.optim.Adam([optimizable_positions], lr=self.lr)
+        optimizer = torch.optim.Adam([optimizable_positions], lr=self.params.lr)
 
         # Optimization loop
         loss_history = []
         position_history = []  # Track positions for visualization
 
-        for iter in range(self.max_iters):
+        for iter in range(self.params.max_iters):
             optimizer.zero_grad()
 
             # Reconstruct positions as a tensor for loss computation
@@ -191,13 +203,13 @@ class RelationSolver:
             loss.backward()
             optimizer.step()
 
-            if self.verbose and iter % 100 == 0:
+            if self.params.verbose and iter % 100 == 0:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
 
             # Check convergence
             # TODO(cvolk): Check the convergence threshold
-            if loss.item() < self.convergence_threshold:
-                if self.verbose:
+            if loss.item() < self.params.convergence_threshold:
+                if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break
 
@@ -219,7 +231,7 @@ class RelationSolver:
         result["_loss_history"] = loss_history
         result["_position_history"] = position_history
 
-        if self.verbose:
+        if self.params.verbose:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 

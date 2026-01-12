@@ -16,7 +16,7 @@ import numpy as np
 from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.examples.relation_solver import RelationSolver
+from isaaclab_arena.examples.relation_solver import RelationSolver, RelationSolverParams
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.relations import NextTo
@@ -140,7 +140,7 @@ child = DummyObject(name="child", bounding_box=child_bbox)
 child.add_relation(NextTo(parent, side=side, distance_m=distance_m))
 
 # Create solver
-solver = RelationSolver(anchor_objects=[parent], verbose=False)
+solver = RelationSolver(anchor_objects=[parent], params=RelationSolverParams(verbose=False))
 
 X, Y, losses = create_loss_heatmap_2d(
     solver=solver,
@@ -161,7 +161,7 @@ print("\nRunning solver to find optimal child position...")
 child.set_initial_pose(Pose(position_xyz=(0.8, 0.5, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
 # Create fresh solver with verbose output
-solver = RelationSolver(anchor_objects=[parent], verbose=True, max_iters=500)
+solver = RelationSolver(anchor_objects=[parent], params=RelationSolverParams(verbose=True, max_iters=500))
 
 # Solve
 objects = [parent, child]
