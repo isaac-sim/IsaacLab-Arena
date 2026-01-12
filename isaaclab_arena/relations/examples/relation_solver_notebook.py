@@ -7,8 +7,16 @@
 # Example notebook demonstrating the RelationSolver class not using any IsaacSim dependencies.
 
 # %%
+# Install plotly dependency if missing
+import subprocess
+import sys
+
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tenacity"])
+
+# %%
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverParams
+from isaaclab_arena.relations.relation_solver_visualizer import RelationSolverVisualizer
 from isaaclab_arena.relations.relations import NextTo, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 
@@ -43,10 +51,13 @@ for obj_name, position in object_positions.items():
         print(f"{obj_name}: {position}")
 
 # %%
-# Debugging stuff
-relation_solver.debug_gradients(all_objects)
-# Visualizing stuff
-relation_solver.plot_loss_history(object_positions)
-relation_solver.plot_position_trajectory_2d(object_positions, all_objects)
+# Visualization
+visualizer = RelationSolverVisualizer(object_positions, all_objects, anchor_object=desk)
+
+# Plot object positions, bounding boxes, and optimization trajectories
+visualizer.plot_objects_3d().show()
+
+# Plot loss history
+visualizer.plot_loss_history().show()
 
 # %%
