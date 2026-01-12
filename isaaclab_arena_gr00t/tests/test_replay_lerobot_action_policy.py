@@ -17,7 +17,7 @@ TRAJECTORY_INDEX = 0
 
 
 def test_g1_locomanip_replay_lerobot_policy_runner_single_env():
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
     args.append("--policy_type")
     args.append("isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy")
     args.append("--config_yaml_path")
@@ -43,7 +43,7 @@ def test_g1_locomanip_replay_lerobot_policy_runner_single_env():
 
 @pytest.mark.skip(reason="Fails on CI for reasons under investigation.")
 def test_gr1_manip_replay_lerobot_policy_runner_single_env():
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
     args.append("--policy_type")
     args.append("isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy")
     args.append("--config_yaml_path")
