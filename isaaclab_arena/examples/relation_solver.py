@@ -50,16 +50,15 @@ class RelationSolver:
 
     def __init__(
         self,
-        anchor_objects: list[DummyObject],
+        anchor_object: DummyObject,
         params: RelationSolverParams | None = None,
     ):
         """
         Args:
-            anchor_objects: List of fixed reference objects that won't be optimized.
+            anchor_object: Fixed reference object that won't be optimized.
             params: Solver configuration parameters. If None, uses defaults.
         """
-        assert len(anchor_objects) > 0, "At least one anchor object is required"
-        self.anchor_objects = anchor_objects
+        self.anchor_object = anchor_object
 
         # Use provided params or defaults
         self.params = params or RelationSolverParams()
@@ -160,21 +159,19 @@ class RelationSolver:
         # TODO(cvolk) Should this be the Solver's responsibility to randomly initialize objects positions or should the caller do it?
         all_positions = self._get_positions_from_objects(objects)
 
-        # Identify fixed and optimizable objects based on anchor_objects
-        anchor_set = set(self.anchor_objects)
-        fixed_mask = torch.tensor([obj in anchor_set for obj in objects])
+        # Identify fixed (anchor) and optimizable objects
+        fixed_mask = torch.tensor([obj is self.anchor_object for obj in objects])
         optimizable_mask = ~fixed_mask
 
         # Split into fixed and optimizable
-        fixed_positions = all_positions[fixed_mask].clone()  # These won't change
+        fixed_position = all_positions[fixed_mask].clone()  # Anchor position won't change
         optimizable_positions = all_positions[optimizable_mask].clone()
         optimizable_positions.requires_grad = True
 
         if self.params.verbose:
-            n_fixed = fixed_mask.sum().item()
             n_opt = optimizable_mask.sum().item()
             print("=== RelationSolver ===")
-            print(f"Fixed objects: {n_fixed}, Optimizable objects: {n_opt}")
+            print(f"Anchor object: {self.anchor_object.name}, Optimizable objects: {n_opt}")
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([optimizable_positions], lr=self.params.lr)
@@ -188,7 +185,7 @@ class RelationSolver:
 
             # Reconstruct positions as a tensor for loss computation
             all_positions = torch.zeros((len(objects), 3))
-            all_positions[fixed_mask] = fixed_positions
+            all_positions[fixed_mask] = fixed_position
             all_positions[optimizable_mask] = optimizable_positions
 
             # Save position snapshot (every 10 iterations to save memory)
@@ -215,13 +212,13 @@ class RelationSolver:
 
         # Save final position
         final_all_positions = torch.zeros((len(objects), 3))
-        final_all_positions[fixed_mask] = fixed_positions
+        final_all_positions[fixed_mask] = fixed_position
         final_all_positions[optimizable_mask] = optimizable_positions.detach()
         position_history.append(final_all_positions.tolist())
 
         # Reconstruct final positions
         final_positions = torch.zeros((len(objects), 3))
-        final_positions[fixed_mask] = fixed_positions
+        final_positions[fixed_mask] = fixed_position
         final_positions[optimizable_mask] = optimizable_positions.detach()
 
         # Return positions as dict
@@ -281,10 +278,9 @@ class RelationSolver:
         fig, ax = plt.subplots(figsize=(12, 10))
 
         colors = plt.colormaps["tab10"](np.linspace(0, 1, len(objects)))
-        anchor_set = set(self.anchor_objects)
 
         for obj_idx, obj in enumerate(objects):
-            is_anchor = obj in anchor_set
+            is_anchor = obj is self.anchor_object
             if is_anchor:
                 # Fixed/anchor object: just draw the bounding box
                 pos = position_history[-1][obj_idx]
@@ -349,17 +345,16 @@ class RelationSolver:
         # Get fresh positions
         all_positions = self._get_positions_from_objects(objects)
 
-        anchor_set = set(self.anchor_objects)
-        fixed_mask = torch.tensor([obj in anchor_set for obj in objects])
+        fixed_mask = torch.tensor([obj is self.anchor_object for obj in objects])
         optimizable_mask = ~fixed_mask
 
-        fixed_positions = all_positions[fixed_mask].clone().detach()
+        fixed_position = all_positions[fixed_mask].clone().detach()
         optimizable_positions = all_positions[optimizable_mask].clone().detach()
         optimizable_positions.requires_grad = True
 
         # Reconstruct full position tensor
         full_positions = torch.zeros((len(objects), 3))
-        full_positions[fixed_mask] = fixed_positions
+        full_positions[fixed_mask] = fixed_position
         full_positions[optimizable_mask] = optimizable_positions
 
         # Compute loss
@@ -390,7 +385,7 @@ class RelationSolver:
             obj_pose = obj.get_initial_pose()
             if obj_pose:
                 print(f"  Position: {obj_pose.position_xyz}")
-            print(f"  Is anchor: {obj in anchor_set}")
+            print(f"  Is anchor: {obj is self.anchor_object}")
 
             # Compute individual relation losses with completely fresh tensors
             for relation in obj.get_relations():

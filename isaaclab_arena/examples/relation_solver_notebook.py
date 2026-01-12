@@ -33,7 +33,7 @@ for obj in all_objects:
     obj.set_initial_pose(random_pose)
 
 # Run the solver
-relation_solver = RelationSolver(anchor_objects=[desk], params=RelationSolverParams(verbose=False))
+relation_solver = RelationSolver(anchor_object=desk, params=RelationSolverParams(verbose=False))
 object_positions = relation_solver.solve(all_objects)
 
 

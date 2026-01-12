@@ -140,7 +140,7 @@ child = DummyObject(name="child", bounding_box=child_bbox)
 child.add_relation(NextTo(parent, side=side, distance_m=distance_m))
 
 # Create solver
-solver = RelationSolver(anchor_objects=[parent], params=RelationSolverParams(verbose=False))
+solver = RelationSolver(anchor_object=parent, params=RelationSolverParams(verbose=False))
 
 X, Y, losses = create_loss_heatmap_2d(
     solver=solver,
@@ -161,7 +161,7 @@ print("\nRunning solver to find optimal child position...")
 child.set_initial_pose(Pose(position_xyz=(0.8, 0.5, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
 # Create fresh solver with verbose output
-solver = RelationSolver(anchor_objects=[parent], params=RelationSolverParams(verbose=True, max_iters=500))
+solver = RelationSolver(anchor_object=parent, params=RelationSolverParams(verbose=True, max_iters=500))
 
 # Solve
 objects = [parent, child]
