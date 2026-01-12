@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import yaml
 
 import pytest
@@ -89,7 +88,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
     # Run the model
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
     args.append("--policy_type")
     args.append("isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
     args.append("--policy_config_yaml_path")
@@ -117,7 +116,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
     # Run the model
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
     args.append("--policy_type")
     args.append("isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
     args.append("--policy_config_yaml_path")
@@ -172,7 +171,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
             "policy_type": "zero_action",
         },
     ]
-    temp_config_path = os.path.join(tmp_path, "test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner.json")
+    temp_config_path = str(tmp_path / "test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner.json")
     write_jobs_config_to_file(jobs, temp_config_path)
     run_eval_runner(temp_config_path)
 

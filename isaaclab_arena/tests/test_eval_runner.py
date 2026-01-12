@@ -16,7 +16,7 @@ NUM_STEPS = 2
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
     jobs_config = {"jobs": jobs}
 
-    with open(tmp_file_path, "w") as f:
+    with open(tmp_file_path, "w", encoding="utf-8") as f:
         json.dump(jobs_config, f, indent=4)
 
 
@@ -37,7 +37,7 @@ def run_eval_runner(jobs_config_path: str):
     run_subprocess(args)
 
 
-def test_eval_runner_two_jobs_zero_action(tmp_path: str):
+def test_eval_runner_two_jobs_zero_action(tmp_path):
     """Test eval_runner with 2 jobs using zero_action policy on different objects."""
     jobs = [
         {
@@ -64,12 +64,12 @@ def test_eval_runner_two_jobs_zero_action(tmp_path: str):
         },
     ]
 
-    temp_config_path = os.path.join(tmp_path, "test_eval_runner_two_jobs_zero_action.json")
+    temp_config_path = str(tmp_path / "test_eval_runner_two_jobs_zero_action.json")
     write_jobs_config_to_file(jobs, temp_config_path)
     run_eval_runner(temp_config_path)
 
 
-def test_eval_runner_multiple_environments(tmp_path: str):
+def test_eval_runner_multiple_environments(tmp_path):
     """Test eval_runner with jobs across different environments."""
     jobs = [
         {
@@ -96,12 +96,12 @@ def test_eval_runner_multiple_environments(tmp_path: str):
         },
     ]
 
-    temp_config_path = os.path.join(tmp_path, "test_eval_runner_multiple_environments.json")
+    temp_config_path = str(tmp_path / "test_eval_runner_multiple_environments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
     run_eval_runner(temp_config_path)
 
 
-def test_eval_runner_different_embodiments(tmp_path: str):
+def test_eval_runner_different_embodiments(tmp_path):
     """Test eval_runner with jobs using different embodiments."""
     jobs = [
         {
@@ -128,7 +128,7 @@ def test_eval_runner_different_embodiments(tmp_path: str):
         },
     ]
 
-    temp_config_path = os.path.join(tmp_path, "test_eval_runner_different_embodiments.json")
+    temp_config_path = str(tmp_path / "test_eval_runner_different_embodiments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
     run_eval_runner(temp_config_path)
 
@@ -140,7 +140,7 @@ def test_eval_runner_from_existing_config():
     run_eval_runner(config_path)
 
 
-def test_eval_runner_job_status_tracking(tmp_path: str):
+def test_eval_runner_job_status_tracking(tmp_path):
     """Test that job status is correctly tracked and printed throughout execution."""
     jobs = [
         {
@@ -167,6 +167,6 @@ def test_eval_runner_job_status_tracking(tmp_path: str):
         },
     ]
 
-    temp_config_path = os.path.join(tmp_path, "test_eval_runner_job_status_tracking.json")
+    temp_config_path = str(tmp_path / "test_eval_runner_job_status_tracking.json")
     write_jobs_config_to_file(jobs, temp_config_path)
     run_eval_runner(temp_config_path)
