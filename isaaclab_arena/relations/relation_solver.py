@@ -16,7 +16,7 @@ from isaaclab_arena.relations.relations import NextTo, On, Relation
 class RelationSolverParams:
     """Configuration parameters for RelationSolver."""
 
-    max_iters: int = 200
+    max_iters: int = 300
     """Maximum optimization iterations."""
 
     lr: float = 0.01

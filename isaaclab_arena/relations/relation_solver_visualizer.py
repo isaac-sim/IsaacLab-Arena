@@ -183,7 +183,7 @@ class RelationSolverVisualizer:
         color: str,
         is_anchor: bool,
     ) -> None:
-        """Add bounding box and center marker for an object.
+        """Add bounding box for an object.
 
         Args:
             fig: The Plotly figure to add traces to
@@ -205,24 +205,6 @@ class RelationSolverVisualizer:
             dash=dash,
         )
         fig.add_trace(box_trace)
-
-        # Center marker
-        fig.add_trace(
-            go.Scatter3d(
-                x=[position[0]],
-                y=[position[1]],
-                z=[position[2]],
-                mode="markers",
-                marker=dict(
-                    size=10,
-                    color=color,
-                    symbol="square" if is_anchor else "diamond",
-                ),
-                name=f"{obj.name} end" if not is_anchor else f"{obj.name} center",
-                showlegend=not is_anchor,
-                hovertemplate=f"{obj.name}<br>x: %{{x:.3f}}<br>y: %{{y:.3f}}<br>z: %{{z:.3f}}<extra></extra>",
-            )
-        )
 
     def plot_objects_3d(self) -> go.Figure:
         """Plot final object positions, bounding boxes, and optimization trajectories in 3D.
@@ -257,8 +239,9 @@ class RelationSolverVisualizer:
                 yaxis_title="Y (m)",
                 zaxis_title="Z (m)",
                 aspectmode="data",
+                domain=dict(x=[0, 0.85], y=[0, 1]),
             ),
-            legend=dict(x=1.02, y=0.98),
+            legend=dict(x=0.87, y=0.98),
             margin=dict(l=0, r=0, t=40, b=0),
         )
 
@@ -321,6 +304,188 @@ class RelationSolverVisualizer:
             yaxis_title="Loss",
             hovermode="x unified",
             margin=dict(l=60, r=100, t=60, b=60),
+        )
+
+        return fig
+
+    def _get_wireframe_coords(
+        self,
+        bbox: AxisAlignedBoundingBox,
+        position: tuple[float, float, float],
+    ) -> tuple[list, list, list]:
+        """Get wireframe coordinates for a bounding box at a position.
+
+        Args:
+            bbox: The axis-aligned bounding box
+            position: (x, y, z) center position
+
+        Returns:
+            Tuple of (x_coords, y_coords, z_coords) lists for the wireframe
+        """
+        pos_tensor = torch.tensor(position, dtype=torch.float32)
+        corners = bbox.get_corners(pos_tensor).tolist()
+
+        edges = [
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+        ]
+
+        x_coords = []
+        y_coords = []
+        z_coords = []
+
+        for start, end in edges:
+            x_coords.extend([corners[start][0], corners[end][0], None])
+            y_coords.extend([corners[start][1], corners[end][1], None])
+            z_coords.extend([corners[start][2], corners[end][2], None])
+
+        return x_coords, y_coords, z_coords
+
+    def animate_optimization(self) -> go.Figure:
+        """Create animated 3D visualization of the optimization process.
+
+        Shows objects moving from their initial positions to final positions
+        through each optimization step. Auto-plays through all frames.
+
+        Returns:
+            Plotly Figure with animation frames that auto-plays.
+        """
+        if not self.position_history:
+            fig = go.Figure()
+            fig.add_annotation(
+                text="No position history available", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+            )
+            return fig
+
+        # Compute axis ranges from all positions to keep scale fixed
+        all_x, all_y, all_z = [], [], []
+        for positions in self.position_history:
+            for idx, obj in enumerate(self.objects):
+                pos = positions[idx]
+                bbox = obj.get_bounding_box()
+                half_size = [s / 2 for s in bbox.size]
+                all_x.extend([pos[0] - half_size[0], pos[0] + half_size[0]])
+                all_y.extend([pos[1] - half_size[1], pos[1] + half_size[1]])
+                all_z.extend([pos[2] - half_size[2], pos[2] + half_size[2]])
+
+        padding = 0.1
+        x_range = [min(all_x) - padding, max(all_x) + padding]
+        y_range = [min(all_y) - padding, max(all_y) + padding]
+        z_range = [min(all_z) - padding, max(all_z) + padding]
+
+        # Build initial frame (first position snapshot)
+        initial_positions = self.position_history[0]
+        fig = go.Figure()
+
+        # Add traces for each object: wireframe box only
+        for idx, obj in enumerate(self.objects):
+            is_anchor = obj is self.anchor_object
+            pos = (initial_positions[idx][0], initial_positions[idx][1], initial_positions[idx][2])
+            color = self._get_color(idx)
+            bbox = obj.get_bounding_box()
+
+            # Wireframe bounding box
+            x_coords, y_coords, z_coords = self._get_wireframe_coords(bbox, pos)
+            label = f"{obj.name} (anchor)" if is_anchor else obj.name
+            line_dict = {"color": color, "width": 3}
+            if is_anchor:
+                line_dict["dash"] = "dash"
+
+            fig.add_trace(
+                go.Scatter3d(
+                    x=x_coords,
+                    y=y_coords,
+                    z=z_coords,
+                    mode="lines",
+                    line=line_dict,
+                    name=label,
+                    showlegend=True,
+                )
+            )
+
+        # Create animation frames with fixed axis ranges
+        frames = []
+        frame_layout = dict(
+            scene=dict(
+                xaxis=dict(range=x_range, autorange=False),
+                yaxis=dict(range=y_range, autorange=False),
+                zaxis=dict(range=z_range, autorange=False),
+            )
+        )
+
+        for frame_idx, positions in enumerate(self.position_history):
+            frame_data = []
+
+            for idx, obj in enumerate(self.objects):
+                pos = (positions[idx][0], positions[idx][1], positions[idx][2])
+                bbox = obj.get_bounding_box()
+
+                # Wireframe box data
+                x_coords, y_coords, z_coords = self._get_wireframe_coords(bbox, pos)
+                frame_data.append(go.Scatter3d(x=x_coords, y=y_coords, z=z_coords))
+
+            frames.append(go.Frame(data=frame_data, layout=frame_layout, name=str(frame_idx)))
+
+        fig.frames = frames
+
+        # Configure layout with fixed axis ranges and proper camera orientation
+        # Camera: looking along +Y axis, X to the right, Z up
+        fig.update_layout(
+            title=dict(text="Optimization Animation", font=dict(size=18)),
+            scene=dict(
+                xaxis=dict(title="X (m)", range=x_range, autorange=False),
+                yaxis=dict(title="Y (m)", range=y_range, autorange=False),
+                zaxis=dict(title="Z (m)", range=z_range, autorange=False),
+                aspectmode="manual",
+                aspectratio=dict(
+                    x=(x_range[1] - x_range[0]),
+                    y=(y_range[1] - y_range[0]),
+                    z=(z_range[1] - z_range[0]),
+                ),
+                camera=dict(
+                    eye=dict(x=0, y=-2.0, z=0.8),  # Looking along +Y, X to the right
+                    up=dict(x=0, y=0, z=1),
+                    center=dict(x=0, y=0, z=0),
+                ),
+                domain=dict(x=[0, 0.85], y=[0, 1]),
+            ),
+            legend=dict(x=0.87, y=0.98),
+            margin=dict(l=0, r=0, t=60, b=0),
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    showactive=False,
+                    y=1.0,
+                    x=0.0,
+                    xanchor="left",
+                    yanchor="top",
+                    buttons=[
+                        dict(
+                            label="Play",
+                            method="animate",
+                            args=[
+                                None,
+                                dict(
+                                    frame=dict(duration=100, redraw=True),
+                                    fromcurrent=True,
+                                    transition=dict(duration=50),
+                                    mode="immediate",
+                                ),
+                            ],
+                        ),
+                    ],
+                )
+            ],
         )
 
         return fig
