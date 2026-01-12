@@ -18,8 +18,8 @@ from isaaclab_arena.utils.pose import Pose
 
 
 @dataclass
-class BoundingBox:
-    """Represents an axis-aligned bounding box in 3D space."""
+class AxisAlignedBoundingBox:
+    """Represents an axis-aligned bounding box (AABB) in 3D space."""
 
     min_point: tuple[float, float, float]
     """Minimum point (x, y, z) of the bounding box."""
@@ -61,7 +61,7 @@ class BoundingBox:
         """Returns the z-coordinate of the bottom surface."""
         return self.min_point[2]
 
-    def get_corners_aabb_axis_aligned(self, pos: torch.Tensor) -> torch.Tensor:
+    def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         """Get 8 corners of the axis-aligned bounding box (AABB) centered at a given position.
 
         Args:
@@ -91,7 +91,7 @@ class BoundingBox:
         ])
 
 
-def get_random_pose_within_bounding_box(bbox: BoundingBox, seed: int | None = None) -> Pose:
+def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int | None = None) -> Pose:
     """Generate a random pose (position and identity rotation) with position uniformly
        sampled within a bounding box.
 

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
-from isaaclab_arena.utils.bounding_box import BoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -109,7 +109,7 @@ def compute_bounding_box_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     pose: Pose | None = None,
-) -> BoundingBox:
+) -> AxisAlignedBoundingBox:
     """Compute the world-space bounding box of a USD asset.
 
     Args:
@@ -118,7 +118,7 @@ def compute_bounding_box_from_usd(
         pose: Optional pose of the asset. If None, uses identity pose.
 
     Returns:
-        BoundingBox containing the min and max points in world space.
+        AxisAlignedBoundingBox containing the min and max points in world space.
     """
     # Open the USD stage
     stage = Usd.Stage.Open(usd_path)
@@ -160,7 +160,7 @@ def compute_bounding_box_from_usd(
             max_point[2] + pose.position_xyz[2],
         )
 
-    return BoundingBox(
+    return AxisAlignedBoundingBox(
         min_point=(min_point[0], min_point[1], min_point[2]),
         max_point=(max_point[0], max_point[1], max_point[2]),
     )

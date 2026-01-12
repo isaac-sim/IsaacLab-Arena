@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import torch
 
-from isaaclab_arena.utils.bounding_box import BoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.relations import Relation
 
@@ -17,7 +17,7 @@ class DummyObject:
     def __init__(
         self,
         name: str,
-        bounding_box: BoundingBox,
+        bounding_box: AxisAlignedBoundingBox,
         initial_pose: Pose | None = None,
         relations: list[Relation] = [],
         **kwargs,
@@ -34,11 +34,11 @@ class DummyObject:
     def get_relations(self) -> list[Relation]:
         return self.relations
 
-    def get_bounding_box(self) -> BoundingBox:
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
         return self.bounding_box
 
-    def get_corners_aabb_axis_aligned(self, pos: torch.Tensor) -> torch.Tensor:
-        return self.bounding_box.get_corners_aabb_axis_aligned(pos)
+    def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:
+        return self.bounding_box.get_corners(pos)
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose

@@ -9,12 +9,14 @@
 # %%
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.examples.relation_solver import RelationSolver
-from isaaclab_arena.utils.bounding_box import BoundingBox, get_random_pose_within_bounding_box
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.relations import NextTo
 
-desk = DummyObject(name="desk", bounding_box=BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)))
+desk = DummyObject(
+    name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
+)
 cracker_box = DummyObject(
-    name="cracker_box", bounding_box=BoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.1, 0.2))
+    name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.1, 0.2))
 )
 
 
@@ -24,7 +26,7 @@ all_objects = [desk, cracker_box]
 
 # Solver requires the object positions to be initialized.
 # Define workspace bounding box to initialize random positions within it
-workspace = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 1.0))
+workspace = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 1.0))
 for obj in all_objects:
     random_pose = get_random_pose_within_bounding_box(workspace)
     print(f"Random pose: {random_pose}")

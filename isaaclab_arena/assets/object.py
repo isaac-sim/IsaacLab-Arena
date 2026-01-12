@@ -1,9 +1,8 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 import torch
-
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -11,10 +10,11 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.utils.bounding_box import BoundingBox, compute_bounding_box_from_usd
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.relations import Relation
-from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+from isaaclab_arena.utils.usd_helpers import compute_bounding_box_from_usd, has_light, open_stage
+
 
 class Object(ObjectBase):
     """
@@ -56,17 +56,17 @@ class Object(ObjectBase):
     def get_relations(self) -> list[Relation]:
         return self.relations
 
-    def get_bounding_box(self) -> BoundingBox:
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
-    
-    def get_corners_aabb_axis_aligned(self, pos: torch.Tensor) -> torch.Tensor:
+
+    def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
-        return self.bounding_box.get_corners_aabb_axis_aligned(pos)
+        return self.bounding_box.get_corners(pos)
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose

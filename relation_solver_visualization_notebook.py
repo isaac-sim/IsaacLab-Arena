@@ -17,7 +17,7 @@ from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.examples.relation_solver import RelationSolver
-from isaaclab_arena.utils.bounding_box import BoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.relations import NextTo
 
@@ -126,9 +126,9 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
 
 
 # %%
-parent_bbox = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
+parent_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
 parent_pos = (0.0, 0.0, 0.05)
-child_bbox = BoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
+child_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
 distance_m = 0.1
 side = "right"
 

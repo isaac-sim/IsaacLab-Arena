@@ -7,7 +7,7 @@ import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.utils.bounding_box import BoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.relation_loss import linear_band_loss, single_boundary_linear_loss
 
 if TYPE_CHECKING:
@@ -23,8 +23,8 @@ class LossStrategy(ABC):
         relation: "Relation",
         child_pos: torch.Tensor,
         parent_pos: torch.Tensor,
-        child_bbox: BoundingBox,
-        parent_bbox: BoundingBox,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Compute the loss for a relation constraint.
 
@@ -32,8 +32,8 @@ class LossStrategy(ABC):
             relation: The relation object containing relationship metadata.
             child_pos: Child object position tensor (x, y, z).
             parent_pos: Parent object position tensor (x, y, z).
-            child_bbox: Child object bounding box.
-            parent_bbox: Parent object bounding box.
+            child_bbox: Child object axis-aligned bounding box.
+            parent_bbox: Parent object axis-aligned bounding box.
 
         Returns:
             Scalar loss tensor representing the constraint violation.
@@ -63,8 +63,8 @@ class NextToLossStrategy(LossStrategy):
         relation: "NextTo",
         child_pos: torch.Tensor,
         parent_pos: torch.Tensor,
-        child_bbox: BoundingBox,
-        parent_bbox: BoundingBox,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for NextTo relation.
 
@@ -74,8 +74,8 @@ class NextToLossStrategy(LossStrategy):
             relation: NextTo relation with side and distance attributes.
             child_pos: Child object position tensor (x, y, z).
             parent_pos: Parent object position tensor (x, y, z).
-            child_bbox: Child object bounding box.
-            parent_bbox: Parent object bounding box.
+            child_bbox: Child object axis-aligned bounding box.
+            parent_bbox: Parent object axis-aligned bounding box.
 
         Returns:
             Weighted loss tensor.
