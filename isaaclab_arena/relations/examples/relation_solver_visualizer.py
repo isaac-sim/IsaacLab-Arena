@@ -83,7 +83,7 @@ class RelationSolverVisualizer:
         """
         # Get corners from bounding box API
         pos_tensor = torch.tensor(position, dtype=torch.float32)
-        corners = bbox.get_corners(pos_tensor).tolist()
+        corners = bbox.get_corners_at(pos_tensor).tolist()
 
         # Define edges as pairs of corner indices (matching get_corners ordering)
         edges = [
@@ -323,7 +323,7 @@ class RelationSolverVisualizer:
             Tuple of (x_coords, y_coords, z_coords) lists for the wireframe
         """
         pos_tensor = torch.tensor(position, dtype=torch.float32)
-        corners = bbox.get_corners(pos_tensor).tolist()
+        corners = bbox.get_corners_at(pos_tensor).tolist()
 
         edges = [
             (0, 1),

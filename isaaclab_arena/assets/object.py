@@ -66,7 +66,7 @@ class Object(ObjectBase):
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
-        return self.bounding_box.get_corners(pos)
+        return self.bounding_box.get_corners_at(pos)
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose

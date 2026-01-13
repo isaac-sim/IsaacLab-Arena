@@ -19,13 +19,13 @@ from isaaclab_arena.utils.pose import Pose
 
 @dataclass
 class AxisAlignedBoundingBox:
-    """Represents an axis-aligned bounding box (AABB) in 3D space."""
+    """Axis-aligned bounding box storing local extents. Use get_corners_at(pos) for world-space corners."""
 
     min_point: tuple[float, float, float]
-    """Minimum point (x, y, z) of the bounding box."""
+    """Local minimum extent (x, y, z) relative to center."""
 
     max_point: tuple[float, float, float]
-    """Maximum point (x, y, z) of the bounding box."""
+    """Local maximum extent (x, y, z) relative to center."""
 
     def __post_init__(self):
         assert isinstance(self.min_point, tuple)
@@ -61,17 +61,14 @@ class AxisAlignedBoundingBox:
         """Returns the z-coordinate of the bottom surface."""
         return self.min_point[2]
 
-    def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
-        """Get 8 corners of the axis-aligned bounding box (AABB) centered at a given position.
+    def get_corners_at(self, pos: torch.Tensor) -> torch.Tensor:
+        """Get 8 world-space corners of this bounding box centered at the given position.
 
         Args:
-            pos: Position tensor (x, y, z) to center the bounding box at.
+            pos: World position (x, y, z) to center the bounding box at.
 
         Returns:
-            Tensor of shape (8, 3) containing the 8 corner positions in 3D space.
-            Corners are ordered as:
-            - Bottom face (z_min): 4 corners going counter-clockwise when viewed from above
-            - Top face (z_max): 4 corners going counter-clockwise when viewed from above
+            Tensor of shape (8, 3) with corners ordered: bottom 4, then top 4.
         """
         x, y, z = pos[0], pos[1], pos[2]
         width, depth, height = self.size

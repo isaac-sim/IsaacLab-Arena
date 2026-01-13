@@ -11,7 +11,7 @@ from isaaclab_arena.utils.pose import Pose
 
 class DummyObject:
     """
-    Encapsulates the pick-up object config for a pick-and-place environment.
+    Dummy object for testing purposes.
     """
 
     def __init__(
@@ -38,7 +38,7 @@ class DummyObject:
         return self.bounding_box
 
     def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:
-        return self.bounding_box.get_corners(pos)
+        return self.bounding_box.get_corners_at(pos)
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
