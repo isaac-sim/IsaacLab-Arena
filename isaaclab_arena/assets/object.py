@@ -57,10 +57,28 @@ class Object(ObjectBase):
         return self.relations
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box (relative to object origin)."""
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox + position offset)."""
+        local_bbox = self.get_bounding_box()
+        pos = self.initial_pose.position_xyz if self.initial_pose else (0, 0, 0)
+        return AxisAlignedBoundingBox(
+            min_point=(
+                local_bbox.min_point[0] + pos[0],
+                local_bbox.min_point[1] + pos[1],
+                local_bbox.min_point[2] + pos[2],
+            ),
+            max_point=(
+                local_bbox.max_point[0] + pos[0],
+                local_bbox.max_point[1] + pos[1],
+                local_bbox.max_point[2] + pos[2],
+            ),
+        )
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         assert self.usd_path is not None

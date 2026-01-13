@@ -21,7 +21,15 @@ from isaaclab_arena.relations.relations import Side
 
 
 class RelationLossStrategy(ABC):
-    """Abstract base class for relation loss computation strategies."""
+    """Abstract base class for relation loss computation strategies.
+
+    Loss strategies compute constraints using world-space extents:
+        world_min = position + bbox.min_point
+        world_max = position + bbox.max_point
+
+    This works correctly regardless of where the USD origin is located
+    (bottom-center, geometric center, etc.).
+    """
 
     @abstractmethod
     def compute_loss(
@@ -36,10 +44,10 @@ class RelationLossStrategy(ABC):
 
         Args:
             relation: The relation object containing relationship metadata.
-            child_pos: Child object position tensor (x, y, z).
-            parent_pos: Parent object position tensor (x, y, z).
-            child_bbox: Child object axis-aligned bounding box.
-            parent_bbox: Parent object axis-aligned bounding box.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            parent_pos: Parent object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box (extents relative to origin).
+            parent_bbox: Parent object local bounding box (extents relative to origin).
 
         Returns:
             Scalar loss tensor representing the constraint violation.
@@ -74,14 +82,15 @@ class NextToLossStrategy(RelationLossStrategy):
     ) -> torch.Tensor:
         """Compute loss for NextTo relation.
 
+        Uses world-space extents (position + bbox.min/max) for origin-agnostic computation.
         Currently only implements "right" side placement.
 
         Args:
             relation: NextTo relation with side and distance attributes.
-            child_pos: Child object position tensor (x, y, z).
-            parent_pos: Parent object position tensor (x, y, z).
-            child_bbox: Child object axis-aligned bounding box.
-            parent_bbox: Parent object axis-aligned bounding box.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            parent_pos: Parent object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box.
+            parent_bbox: Parent object local bounding box.
 
         Returns:
             Weighted loss tensor.
@@ -93,25 +102,33 @@ class NextToLossStrategy(RelationLossStrategy):
             # TODO(cvolk): Implement support for other sides and make generic.
             raise NotImplementedError(f"Side '{side}' not yet implemented, only 'right' is supported")
 
+        # Compute world-space extents: world = position + local_offset
+        parent_x_max = parent_pos[0] + parent_bbox.max_point[0]  # Right edge
+        parent_y_min = parent_pos[1] + parent_bbox.min_point[1]  # Front edge
+        parent_y_max = parent_pos[1] + parent_bbox.max_point[1]  # Back edge
+
         # 1. Half-plane loss: child must be to the right of parent's right edge
-        parent_right_bound = parent_pos[0] + parent_bbox.size[0] / 2
         right_side_loss = single_boundary_linear_loss(
             child_pos[0],
-            parent_right_bound,
+            parent_x_max,
             slope=self.slope,
             penalty_side="less",
         )
 
         # 2. Band loss: child must be within parent's Y extent
-        parent_top_bound = parent_pos[1] + parent_bbox.size[1] / 2
-        parent_bottom_bound = parent_pos[1] - parent_bbox.size[1] / 2
-        top_bottom_band_loss = linear_band_loss(child_pos[1], parent_top_bound, parent_bottom_bound, slope=self.slope)
+        top_bottom_band_loss = linear_band_loss(
+            child_pos[1],
+            lower_bound=parent_y_min,
+            upper_bound=parent_y_max,
+            slope=self.slope,
+        )
 
-        # 3. Distance loss: child should be at exact target distance from parent
+        # 3. Distance loss: child's left edge should be at distance from parent's right edge
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
-
-        # Target X: parent's right edge + distance + child's half-width
-        target_x = parent_pos[0] + parent_bbox.size[0] / 2 + distance + child_bbox.size[0] / 2
+        # child_x_min = child_pos[0] + child_bbox.min_point[0], so:
+        # target: child_pos[0] + child_bbox.min_point[0] = parent_x_max + distance
+        # target_child_pos_x = parent_x_max + distance - child_bbox.min_point[0]
+        target_x = parent_x_max + distance - child_bbox.min_point[0]
         next_to_distance_loss = single_point_linear_loss(child_pos[0], target_x, slope=self.slope)
 
         total_loss = right_side_loss + top_bottom_band_loss + next_to_distance_loss
@@ -145,35 +162,46 @@ class OnLossStrategy(RelationLossStrategy):
     ) -> torch.Tensor:
         """Compute loss for On relation.
 
+        Uses world-space extents (position + bbox.min/max) for origin-agnostic computation.
+
         Args:
             relation: On relation with clearance_m attribute.
-            child_pos: Child object position tensor (x, y, z).
-            parent_pos: Parent object position tensor (x, y, z).
-            child_bbox: Child object axis-aligned bounding box.
-            parent_bbox: Parent object axis-aligned bounding box.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            parent_pos: Parent object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box.
+            parent_bbox: Parent object local bounding box.
 
         Returns:
             Weighted loss tensor.
         """
-        # 1. X band loss: child center within parent's X extent
+        # Compute parent world-space extents
+        parent_x_min = parent_pos[0] + parent_bbox.min_point[0]
+        parent_x_max = parent_pos[0] + parent_bbox.max_point[0]
+        parent_y_min = parent_pos[1] + parent_bbox.min_point[1]
+        parent_y_max = parent_pos[1] + parent_bbox.max_point[1]
+        parent_z_max = parent_pos[2] + parent_bbox.max_point[2]  # Top surface
+
+        # 1. X band loss: child position within parent's X extent
         x_band_loss = linear_band_loss(
             child_pos[0],
-            lower_bound=parent_pos[0] - parent_bbox.size[0] / 2,
-            upper_bound=parent_pos[0] + parent_bbox.size[0] / 2,
+            lower_bound=parent_x_min,
+            upper_bound=parent_x_max,
             slope=self.slope,
         )
 
-        # 2. Y band loss: child center within parent's Y extent
+        # 2. Y band loss: child position within parent's Y extent
         y_band_loss = linear_band_loss(
             child_pos[1],
-            lower_bound=parent_pos[1] - parent_bbox.size[1] / 2,
-            upper_bound=parent_pos[1] + parent_bbox.size[1] / 2,
+            lower_bound=parent_y_min,
+            upper_bound=parent_y_max,
             slope=self.slope,
         )
 
         # 3. Z point loss: child bottom = parent top + clearance
-        # Target Z = parent_top + clearance + child_half_height
-        target_z = parent_pos[2] + parent_bbox.size[2] / 2 + relation.clearance_m + child_bbox.size[2] / 2
+        # Child bottom in world = child_pos[2] + child_bbox.min_point[2]
+        # Target: child_pos[2] + child_bbox.min_point[2] = parent_z_max + clearance
+        # Solving for child_pos[2]:
+        target_z = parent_z_max + relation.clearance_m - child_bbox.min_point[2]
         z_loss = single_point_linear_loss(child_pos[2], target_z, slope=self.slope)
 
         total_loss = x_band_loss + y_band_loss + z_loss
