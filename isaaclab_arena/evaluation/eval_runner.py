@@ -42,16 +42,23 @@ def load_env(arena_env_args: list[str], job_name: str):
 
 
 def get_policy_from_job(job: Job) -> "PolicyBase":
-
+    """
+    Create a policy from a job configuration. Two paths are supported:
+    1. JSON → dict → ConfigDataclass → init cls (preferred, if policy has config_class)
+    2. JSON → dict → CLI args → init cls (if policy has add_args_to_parser() and from_args())
+    """
     # Each job can be evaluated with a different policy checkpoint, or even a different policy type
     policy_cls = get_policy_cls(job.policy_type)
 
-    # As jobs may run diff policies, create a new parser for each job avoiding data fields conflicts
-    policy_args_parser = get_isaaclab_arena_cli_parser()
-    policy_added_args_parser = policy_cls.add_args_to_parser(policy_args_parser)
-    # only for policy related arguments
-    policy_args = policy_added_args_parser.parse_args(job.policy_args)
-    policy = policy_cls.from_args(policy_args)
+    # Use direct from_dict if the policy class has config_class defined
+    if hasattr(policy_cls, "config_class") and policy_cls.config_class is not None:
+        # Use the inherited from_dict() method from PolicyBase
+        policy = policy_cls.from_dict(job.policy_config_dict)
+    else:
+        policy_args_parser = get_isaaclab_arena_cli_parser()
+        policy_added_args_parser = policy_cls.add_args_to_parser(policy_args_parser)
+        policy_args = policy_added_args_parser.parse_args(job.policy_config_dict)
+        policy = policy_cls.from_args(policy_args)
     return policy
 
 
