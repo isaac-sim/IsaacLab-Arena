@@ -96,17 +96,15 @@ class RelationSolver:
 
         return total_loss
 
-    def solve(self, objects: list[DummyObject]) -> dict:
+    # TODO(cvolk): Anchor object is passed here instead of constructor
+    def solve(self, objects: list[DummyObject]) -> dict[DummyObject, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
             objects: List of DummyObject instances
 
         Returns:
-            Dictionary with:
-                - Object names mapped to final (x, y, z) positions
-                - '_loss_history': List of loss values during optimization
-                - '_position_history': List of position snapshots during optimization
+            Dictionary mapping object instances to final (x, y, z) positions.
         """
         # Initialize optimization state from objects.
         # All objects must have an initial pose at this stage.
@@ -159,13 +157,12 @@ class RelationSolver:
         # Save final position snapshot
         position_history.append(state.get_all_positions_snapshot())
 
-        # Build result dictionary (mixed types: positions as tuples, metadata as lists)
-        result: dict = state.get_final_positions_dict()
-        result["_loss_history"] = loss_history
-        result["_position_history"] = position_history
-
         if self.params.verbose:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
-        return result
+        # Store metadata for optional access
+        self._last_loss_history = loss_history
+        self._last_position_history = position_history
+
+        return state.get_final_positions_dict()

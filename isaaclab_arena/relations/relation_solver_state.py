@@ -88,14 +88,14 @@ class RelationSolverState:
         """
         return [self.get_position(obj).detach().tolist() for obj in self._objects]
 
-    def get_final_positions_dict(self) -> dict[str, tuple[float, float, float]]:
-        """Get final positions as a dictionary mapping object names to positions.
+    def get_final_positions_dict(self) -> dict[DummyObject, tuple[float, float, float]]:
+        """Get final positions as a dictionary mapping objects to positions.
 
         Returns:
-            Dictionary with object names as keys and (x, y, z) tuples as values.
+            Dictionary with object instances as keys and (x, y, z) tuples as values.
         """
-        result: dict[str, tuple[float, float, float]] = {}
+        result: dict[DummyObject, tuple[float, float, float]] = {}
         for obj in self._objects:
             pos = self.get_position(obj).detach().tolist()
-            result[obj.name] = (pos[0], pos[1], pos[2])
+            result[obj] = (pos[0], pos[1], pos[2])
         return result
