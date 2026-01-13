@@ -19,43 +19,43 @@ from isaaclab_arena.policy.policy_base import PolicyBase
 class ReplayActionPolicyArgs:
     """
     Configuration dataclass for ReplayActionPolicy.
-    
+
     This dataclass serves as the single source of truth for policy configuration,
     supporting both dict-based (from JSON) and CLI-based configuration paths.
-    
+
     Field metadata is used to auto-generate argparse arguments, ensuring consistency
     between the dataclass definition and CLI argument parsing.
     """
+
     replay_file_path: str = field(
         metadata={
             "help": "Path to the HDF5 file containing the episode",
             "required": True,
         }
     )
-    
+
     device: str = field(
         default="cuda",
         metadata={
             "help": "Device to use for loading the dataset",
-        }
+        },
     )
-    
+
     episode_name: str | None = field(
         default=None,
         metadata={
             "help": "Name of the episode to replay. If not provided, the first episode will be replayed",
-        }
+        },
     )
 
-    
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace) -> "ReplayActionPolicyArgs":
         """
         Create configuration from parsed CLI arguments.
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             ReplayActionPolicyArgs instance
         """
@@ -164,12 +164,12 @@ class ReplayActionPolicy(PolicyBase):
     def from_args(args: argparse.Namespace) -> "ReplayActionPolicy":
         """
         Create a ReplayActionPolicy instance from parsed CLI arguments.
-        
+
         Path: CLI args → ConfigDataclass → init cls
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             ReplayActionPolicy instance
         """

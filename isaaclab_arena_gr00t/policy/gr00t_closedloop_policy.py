@@ -33,45 +33,46 @@ from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 class Gr00tClosedloopPolicyArgs:
     """
     Configuration dataclass for Gr00tClosedloopPolicy.
-    
+
     This dataclass serves as the single source of truth for policy configuration,
     supporting both dict-based (from JSON) and CLI-based configuration paths.
-    
+
     Field metadata is used to auto-generate argparse arguments, ensuring consistency
     between the dataclass definition and CLI argument parsing.
     """
+
     policy_config_yaml_path: str = field(
         metadata={
             "help": "Path to the Gr00t closedloop policy config YAML file",
             "required": True,
         }
     )
-    
+
     policy_device: str = field(
         default="cuda",
         metadata={
             "help": "Device to use for the policy-related operations",
-        }
+        },
     )
-    
+
     num_envs: int = field(
         default=1,
         metadata={
             "help": "Number of environments to simulate",
-        }
+        },
     )
-    
+
     # from_dict() is not needed - can use Gr00tClosedloopPolicyArgs(**dict) directly
     # or use Gr00tClosedloopPolicy.from_dict() which is inherited from PolicyBase
-    
+
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace) -> "Gr00tClosedloopPolicyArgs":
         """
         Create configuration from parsed CLI arguments.
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             Gr00tClosedloopPolicyArgs instance
         """
@@ -89,7 +90,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
     def __init__(self, config: Gr00tClosedloopPolicyArgs):
         """
         Initialize Gr00tClosedloopPolicy from a configuration dataclass.
-        
+
         Args:
             config: Gr00tClosedloopPolicyArgs configuration dataclass
         """
@@ -133,12 +134,12 @@ class Gr00tClosedloopPolicy(PolicyBase):
     def from_args(args: argparse.Namespace) -> "Gr00tClosedloopPolicy":
         """
         Create a Gr00tClosedloopPolicy instance from parsed CLI arguments.
-        
+
         Path: CLI args → ConfigDataclass → init cls
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             Gr00tClosedloopPolicy instance
         """

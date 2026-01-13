@@ -17,21 +17,21 @@ from isaaclab_arena.policy.policy_base import PolicyBase
 class ZeroActionPolicyArgs:
     """
     Configuration dataclass for ZeroActionPolicy.
-    
+
     This policy has no configuration parameters, but the dataclass is provided
     for consistency with other policies following the unified configuration pattern.
     """
-    
+
     # from_dict() is inherited from PolicyBase via ZeroActionPolicy.from_dict()
-    
+
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace) -> "ZeroActionPolicyArgs":
         """
         Create configuration from parsed CLI arguments.
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             ZeroActionPolicyArgs instance
         """
@@ -47,7 +47,7 @@ class ZeroActionPolicy(PolicyBase):
     def __init__(self, config: ZeroActionPolicyArgs = None):
         """
         Initialize ZeroActionPolicy.
-        
+
         Args:
             config: ZeroActionPolicyArgs configuration dataclass (optional, not used)
         """
@@ -64,12 +64,12 @@ class ZeroActionPolicy(PolicyBase):
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """
         Add zero action policy specific arguments to the parser.
-        
+
         This policy has no configuration parameters, so no arguments are added.
-        
+
         Args:
             parser: The argument parser to add arguments to
-            
+
         Returns:
             The updated argument parser (unchanged)
         """
@@ -80,12 +80,12 @@ class ZeroActionPolicy(PolicyBase):
     def from_args(args: argparse.Namespace) -> "ZeroActionPolicy":
         """
         Create a ZeroActionPolicy instance from parsed CLI arguments.
-        
+
         Path: CLI args → ConfigDataclass → init cls
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             ZeroActionPolicy instance
         """

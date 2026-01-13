@@ -35,6 +35,7 @@ class ReplayLerobotActionPolicyArgs:
     Field metadata is used to auto-generate argparse arguments, ensuring consistency
     between the dataclass definition and CLI argument parsing.
     """
+
     policy_config_yaml_path: str = field(
         metadata={
             "help": "Path to the Lerobot action policy config YAML file",
@@ -42,46 +43,46 @@ class ReplayLerobotActionPolicyArgs:
             "arg_name": "config_yaml_path",  # Override argparse name
         }
     )
-    
+
     device: str = field(
         default="cuda",
         metadata={
             "help": "Device to use for the policy-related operations",
-        }
+        },
     )
-    
+
     num_envs: int = field(
         default=1,
         metadata={
             "help": "Number of environments to simulate",
-        }
+        },
     )
-    
+
     trajectory_index: int = field(
         default=0,
         metadata={
             "help": "Index of the trajectory to run the policy for",
-        }
+        },
     )
-    
+
     max_steps: int | None = field(
         default=None,
         metadata={
             "help": "Maximum number of steps to run the policy for",
-        }
+        },
     )
-    
+
     # from_dict() is not needed - can use ReplayLerobotActionPolicyArgs(**dict) directly
     # or use ReplayLerobotActionPolicy.from_dict() which is inherited from PolicyBase
-    
+
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace) -> "ReplayLerobotActionPolicyArgs":
         """
         Create configuration from parsed CLI arguments.
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             ReplayLerobotActionPolicyArgs instance
         """
@@ -101,7 +102,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
     def __init__(self, config: ReplayLerobotActionPolicyArgs):
         """
         Initialize ReplayLerobotActionPolicy from a configuration dataclass.
-        
+
         Args:
             config: ReplayLerobotActionPolicyArgs configuration dataclass
         """
@@ -304,12 +305,12 @@ class ReplayLerobotActionPolicy(PolicyBase):
     def from_args(args: argparse.Namespace) -> "ReplayLerobotActionPolicy":
         """
         Create a ReplayLerobotActionPolicy instance from parsed CLI arguments.
-        
+
         Path: CLI args → ConfigDataclass → init cls
-        
+
         Args:
             args: Parsed command line arguments
-            
+
         Returns:
             ReplayLerobotActionPolicy instance
         """
