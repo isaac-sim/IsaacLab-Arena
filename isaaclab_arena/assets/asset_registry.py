@@ -11,6 +11,7 @@ from isaaclab_arena.utils.singleton import SingletonMeta
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
+    from isaaclab_arena.policy.policy_base import PolicyBase
 
 
 # Have to define all classes here in order to avoid circular import.
@@ -37,7 +38,7 @@ class Registry(metaclass=SingletonMeta):
             key (str): The name of the component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry)):
             ensure_assets_registered()
         return key in self._components
 
@@ -48,10 +49,10 @@ class Registry(metaclass=SingletonMeta):
             key (str): The name of the component.
 
         Returns:
-            Asset: The component.
+            Any: The component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry)):
             ensure_assets_registered()
         assert key in self._components, f"component {key} not found, please check if requested component is registered"
         return self._components[key]
@@ -60,10 +61,10 @@ class Registry(metaclass=SingletonMeta):
         """Get all the keys of the components.
 
         Returns:
-            list[str | tuple[str, str]]: The list of keys.
+            list[str]: The list of keys.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry)):
             ensure_assets_registered()
         return list(self._components.keys())
 
@@ -154,6 +155,20 @@ class RetargeterRegistry(Registry):
         return (key.split("__")[0], key.split("__")[1])
 
 
+class PolicyRegistry(Registry):
+    def __init__(self):
+        super().__init__()
+
+    def get_policy(self, name: str) -> type["PolicyBase"]:
+        """Gets a policy by name.
+
+        Args:
+            name (str): The name of the policy.
+        """
+        ensure_assets_registered()
+        return self.get_component_by_name(name)
+
+
 # Lazy registration to avoid circular imports
 _assets_registered = False
 
@@ -168,5 +183,6 @@ def ensure_assets_registered():
         import isaaclab_arena.assets.object_library  # noqa: F401
         import isaaclab_arena.assets.retargeter_library  # noqa: F401
         import isaaclab_arena.embodiments  # noqa: F401
+        import isaaclab_arena.policy  # noqa: F401
 
         _assets_registered = True

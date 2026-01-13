@@ -8,10 +8,15 @@ import gymnasium as gym
 import torch
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 
 
+@register_policy
 class ZeroActionPolicy(PolicyBase):
+
+    name = "zero_action"
+
     def __init__(self):
         super().__init__()
 
