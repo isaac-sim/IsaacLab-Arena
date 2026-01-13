@@ -98,6 +98,8 @@ class ReplayLerobotActionPolicyArgs:
 class ReplayLerobotActionPolicy(PolicyBase):
 
     name = "replay_lerobot"
+    # enable from_dict() from policy_base.PolicyBase
+    config_class = ReplayLerobotActionPolicyArgs
 
     def __init__(self, config: ReplayLerobotActionPolicyArgs):
         """

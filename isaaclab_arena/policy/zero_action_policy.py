@@ -22,8 +22,6 @@ class ZeroActionPolicyArgs:
     for consistency with other policies following the unified configuration pattern.
     """
 
-    # from_dict() is inherited from PolicyBase via ZeroActionPolicy.from_dict()
-
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace) -> "ZeroActionPolicyArgs":
         """
@@ -43,6 +41,8 @@ class ZeroActionPolicyArgs:
 class ZeroActionPolicy(PolicyBase):
 
     name = "zero_action"
+    # enable from_dict() from policy_base.PolicyBase
+    config_class = ZeroActionPolicyArgs
 
     def __init__(self, config: ZeroActionPolicyArgs = None):
         """

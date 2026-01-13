@@ -86,6 +86,8 @@ class Gr00tClosedloopPolicyArgs:
 class Gr00tClosedloopPolicy(PolicyBase):
 
     name = "gr00t_closedloop"
+    # enable from_dict() from PolicyBase
+    config_class = Gr00tClosedloopPolicyArgs
 
     def __init__(self, config: Gr00tClosedloopPolicyArgs):
         """

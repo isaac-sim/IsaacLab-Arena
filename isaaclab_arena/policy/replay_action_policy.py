@@ -74,6 +74,8 @@ class ReplayActionPolicy(PolicyBase):
     """
 
     name = "replay"
+    # enable from_dict() from policy_base.PolicyBase
+    config_class = ReplayActionPolicyArgs
 
     def __init__(self, config: ReplayActionPolicyArgs):
         """
