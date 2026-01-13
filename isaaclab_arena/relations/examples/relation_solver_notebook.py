@@ -14,8 +14,8 @@ import sys
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tenacity"])
 
 from isaaclab_arena.assets.dummy_object import DummyObject
+from isaaclab_arena.relations.examples.relation_solver_visualizer import RelationSolverVisualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverParams
-from isaaclab_arena.relations.relation_solver_visualizer import RelationSolverVisualizer
 from isaaclab_arena.relations.relations import NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
