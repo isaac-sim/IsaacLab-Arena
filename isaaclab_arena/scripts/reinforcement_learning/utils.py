@@ -7,23 +7,11 @@ import argparse
 import json
 from typing import Any
 
-import omni.log
-
 from isaaclab_arena.policy.rl_policy.base_rsl_rl_policy import RLPolicyCfg
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 
-def get_env_and_agent_cfg(args_cli: argparse.Namespace) -> tuple[str, Any, Any]:
+def get_agent_cfg(args_cli: argparse.Namespace) -> Any:
     """Get the environment and agent configuration from the command line arguments."""
-    # We dont use hydra for the environment configuration, so we need to parse it manually
-    # parse configuration
-    try:
-        arena_builder = get_arena_builder_from_cli(args_cli)
-        env_name, env_cfg = arena_builder.build_registered()
-
-    except Exception as e:
-        omni.log.error(f"Failed to parse environment configuration: {e}")
-        exit(1)
 
     # Read a json file containing the agent configuration
     with open(args_cli.agent_cfg_path) as f:
@@ -42,4 +30,4 @@ def get_env_and_agent_cfg(args_cli: argparse.Namespace) -> tuple[str, Any, Any]:
         policy_cfg, algorithm_cfg, obs_groups, num_steps_per_env, max_iterations, save_interval, experiment_name
     )
 
-    return env_name, env_cfg, agent_cfg
+    return agent_cfg
