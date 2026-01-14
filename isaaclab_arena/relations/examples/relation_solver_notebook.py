@@ -59,12 +59,17 @@ object_positions = relation_solver.solve(all_objects)
 
 
 print("===Final Object Positions ===")
-for obj_name, position in object_positions.items():
-    if obj_name not in ("_loss_history", "_position_history"):
-        print(f"{obj_name}: {position}")
+for obj, position in object_positions.items():
+    print(f"{obj.name}: {position}")
 
 # Visualization
-visualizer = RelationSolverVisualizer(object_positions, all_objects, anchor_object=desk)
+visualizer = RelationSolverVisualizer(
+    result=object_positions,
+    objects=all_objects,
+    anchor_object=desk,
+    loss_history=relation_solver.last_loss_history,
+    position_history=relation_solver.last_position_history,
+)
 
 # Plot object positions, bounding boxes, and optimization trajectories
 visualizer.plot_objects_3d().show()

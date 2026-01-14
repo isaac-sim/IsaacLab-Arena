@@ -166,3 +166,13 @@ class RelationSolver:
         self._last_position_history = position_history
 
         return state.get_final_positions_dict()
+
+    @property
+    def last_loss_history(self) -> list[float]:
+        """Loss values from the most recent solve() call."""
+        return getattr(self, "_last_loss_history", [])
+
+    @property
+    def last_position_history(self) -> list:
+        """Position snapshots from the most recent solve() call."""
+        return getattr(self, "_last_position_history", [])

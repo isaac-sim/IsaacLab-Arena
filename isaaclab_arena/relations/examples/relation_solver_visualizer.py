@@ -38,22 +38,26 @@ class RelationSolverVisualizer:
 
     def __init__(
         self,
-        result: dict,
+        result: dict[DummyObject, tuple[float, float, float]],
         objects: list[DummyObject],
         anchor_object: DummyObject,
+        loss_history: list[float] | None = None,
+        position_history: list | None = None,
     ):
         """Initialize the visualizer.
 
         Args:
-            result: Result dictionary from RelationSolver.solve()
+            result: Result dictionary mapping objects to final positions.
             objects: List of DummyObject instances (same order as passed to solve())
             anchor_object: The anchor object that was fixed during optimization
+            loss_history: Optional list of loss values during optimization.
+            position_history: Optional list of position snapshots during optimization.
         """
         self.result = result
         self.objects = objects
         self.anchor_object = anchor_object
-        self.position_history = result.get("_position_history", [])
-        self.loss_history = result.get("_loss_history", [])
+        self.position_history = position_history or []
+        self.loss_history = loss_history or []
 
     def _get_color(self, idx: int) -> str:
         """Get color for object at index."""
