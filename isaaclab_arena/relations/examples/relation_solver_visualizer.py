@@ -5,8 +5,6 @@
 
 """3D visualization for RelationSolver results using Plotly."""
 
-import torch
-
 import plotly.graph_objects as go
 
 from isaaclab_arena.assets.dummy_object import DummyObject
@@ -75,8 +73,8 @@ class RelationSolverVisualizer:
         """Create wireframe box trace for a 3D bounding box.
 
         Args:
-            bbox: The axis-aligned bounding box
-            position: (x, y, z) center position
+            bbox: The axis-aligned bounding box (local coordinates relative to origin)
+            position: (x, y, z) object origin position in world coordinates
             color: Line color
             name: Object name for legend
             opacity: Line opacity
@@ -85,9 +83,27 @@ class RelationSolverVisualizer:
         Returns:
             Scatter3d trace forming the wireframe
         """
-        # Get corners from bounding box API
-        pos_tensor = torch.tensor(position, dtype=torch.float32)
-        corners = bbox.get_corners_at(pos_tensor).tolist()
+        # Compute world-space corners: world = position + local offset
+        # This matches how the loss strategies compute world extents
+        x, y, z = position
+        x_min = x + bbox.min_point[0]
+        x_max = x + bbox.max_point[0]
+        y_min = y + bbox.min_point[1]
+        y_max = y + bbox.max_point[1]
+        z_min = z + bbox.min_point[2]
+        z_max = z + bbox.max_point[2]
+
+        # 8 corners of the box (same ordering as get_corners_at)
+        corners = [
+            [x_min, y_min, z_min],  # 0: Bottom-front-left
+            [x_max, y_min, z_min],  # 1: Bottom-front-right
+            [x_max, y_max, z_min],  # 2: Bottom-back-right
+            [x_min, y_max, z_min],  # 3: Bottom-back-left
+            [x_min, y_min, z_max],  # 4: Top-front-left
+            [x_max, y_min, z_max],  # 5: Top-front-right
+            [x_max, y_max, z_max],  # 6: Top-back-right
+            [x_min, y_max, z_max],  # 7: Top-back-left
+        ]
 
         # Define edges as pairs of corner indices (matching get_corners ordering)
         edges = [
@@ -320,14 +336,31 @@ class RelationSolverVisualizer:
         """Get wireframe coordinates for a bounding box at a position.
 
         Args:
-            bbox: The axis-aligned bounding box
-            position: (x, y, z) center position
+            bbox: The axis-aligned bounding box (local coordinates relative to origin)
+            position: (x, y, z) object origin position in world coordinates
 
         Returns:
             Tuple of (x_coords, y_coords, z_coords) lists for the wireframe
         """
-        pos_tensor = torch.tensor(position, dtype=torch.float32)
-        corners = bbox.get_corners_at(pos_tensor).tolist()
+        # Compute world-space corners: world = position + local offset
+        x, y, z = position
+        x_min = x + bbox.min_point[0]
+        x_max = x + bbox.max_point[0]
+        y_min = y + bbox.min_point[1]
+        y_max = y + bbox.max_point[1]
+        z_min = z + bbox.min_point[2]
+        z_max = z + bbox.max_point[2]
+
+        corners = [
+            [x_min, y_min, z_min],
+            [x_max, y_min, z_min],
+            [x_max, y_max, z_min],
+            [x_min, y_max, z_min],
+            [x_min, y_min, z_max],
+            [x_max, y_min, z_max],
+            [x_max, y_max, z_max],
+            [x_min, y_max, z_max],
+        ]
 
         edges = [
             (0, 1),
