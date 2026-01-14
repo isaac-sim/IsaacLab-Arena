@@ -45,6 +45,7 @@ office_table.set_initial_pose(Pose(position_xyz=(1.0, 1.0, 0.0), rotation_wxyz=(
 
 mug = asset_registry.get_asset_by_name("mug")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+coffee_machine = asset_registry.get_asset_by_name("coffee_machine")()
 
 # Note: We need to set the initial poses of all objects at random before running the relation solver.
 # For now we set this here, but will be encapsulated in the relation solver
@@ -52,19 +53,22 @@ workspace = AxisAlignedBoundingBox(min_point=(-3.0, -3.0, 0.0), max_point=(3.0, 
 random_pose = get_random_pose_within_bounding_box(workspace)
 cracker_box.set_initial_pose(random_pose)
 random_pose = get_random_pose_within_bounding_box(workspace)
+coffee_machine.set_initial_pose(random_pose)
+random_pose = get_random_pose_within_bounding_box(workspace)
 mug.set_initial_pose(random_pose)
 
-# TODO(cvolk): Sides to not macht with isaac sim
+
 # Set the actual relation.
+coffee_machine.add_relation(On(office_table, clearance_m=0.02))
 cracker_box.add_relation(On(office_table, clearance_m=0.02))
-mug.add_relation(On(office_table, clearance_m=0.02))
-mug.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
+cracker_box.add_relation(NextTo(coffee_machine, side=Side.RIGHT, distance_m=0.15))
+mug.add_relation(On(coffee_machine, clearance_m=0.02))
 
 
-assets = [ground_plane, office_table, cracker_box, light, mug]
+assets = [ground_plane, office_table, cracker_box, coffee_machine, light, mug]
 
 relation_solver = RelationSolver(anchor_object=office_table)
-object_positions = relation_solver.solve(objects=[office_table, cracker_box, mug])
+object_positions = relation_solver.solve(objects=[office_table, coffee_machine, cracker_box, mug])
 
 # Update the positions of the objects
 for obj, pos in object_positions.items():

@@ -23,7 +23,7 @@ class RelationSolver:
     # Default strategies for each relation type (class-level)
     DEFAULT_STRATEGIES: dict[type[Relation], RelationLossStrategy] = {
         NextTo: NextToLossStrategy(slope=10.0),
-        On: OnLossStrategy(slope=100.0),
+        On: OnLossStrategy(slope=100.0),  # On is usually more important. Giving it more weight.
     }
 
     def __init__(
