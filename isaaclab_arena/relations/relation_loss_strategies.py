@@ -64,13 +64,15 @@ class NextToLossStrategy(RelationLossStrategy):
     3. Distance constraint to position child at target distance from parent
     """
 
-    def __init__(self, slope: float = 10.0):
+    def __init__(self, slope: float = 10.0, debug: bool = False):
         """
         Args:
             slope: Gradient magnitude for linear loss (default: 10.0).
                    Loss increases by `slope` per meter of violation.
+            debug: If True, print detailed loss component breakdown.
         """
         self.slope = slope
+        self.debug = debug
 
     def compute_loss(
         self,
@@ -131,6 +133,20 @@ class NextToLossStrategy(RelationLossStrategy):
         target_x = parent_x_max + distance - child_bbox.min_point[0]
         next_to_distance_loss = single_point_linear_loss(child_pos[0], target_x, slope=self.slope)
 
+        if self.debug:
+            print(
+                f"    [NextTo] Side: child_x={child_pos[0].item():.4f}, parent_right={parent_x_max.item():.4f},"
+                f" loss={right_side_loss.item():.6f}"
+            )
+            print(
+                f"    [NextTo] Y band: child_y={child_pos[1].item():.4f}, range=[{parent_y_min.item():.4f},"
+                f" {parent_y_max.item():.4f}], loss={top_bottom_band_loss.item():.6f}"
+            )
+            print(
+                f"    [NextTo] Distance: child_x={child_pos[0].item():.4f}, target_x={target_x.item():.4f},"
+                f" loss={next_to_distance_loss.item():.6f}"
+            )
+
         total_loss = right_side_loss + top_bottom_band_loss + next_to_distance_loss
         return relation.relation_loss_weight * total_loss
 
@@ -144,13 +160,15 @@ class OnLossStrategy(RelationLossStrategy):
     3. Z point constraint to position child on parent's top surface + clearance
     """
 
-    def __init__(self, slope: float = 10.0):
+    def __init__(self, slope: float = 10.0, debug: bool = False):
         """
         Args:
             slope: Gradient magnitude for linear loss (default: 10.0).
                    Loss increases by `slope` per meter of violation.
+            debug: If True, print detailed loss component breakdown.
         """
         self.slope = slope
+        self.debug = debug
 
     def compute_loss(
         self,
@@ -181,19 +199,27 @@ class OnLossStrategy(RelationLossStrategy):
         parent_y_max = parent_pos[1] + parent_bbox.max_point[1]
         parent_z_max = parent_pos[2] + parent_bbox.max_point[2]  # Top surface
 
-        # 1. X band loss: child position within parent's X extent
+        # Compute valid position ranges such that child's entire footprint is within parent
+        # Child left edge = child_pos[0] + child_bbox.min_point[0], must be >= parent_x_min
+        # Child right edge = child_pos[0] + child_bbox.max_point[0], must be <= parent_x_max
+        valid_x_min = parent_x_min - child_bbox.min_point[0]  # child's left at parent's left
+        valid_x_max = parent_x_max - child_bbox.max_point[0]  # child's right at parent's right
+        valid_y_min = parent_y_min - child_bbox.min_point[1]
+        valid_y_max = parent_y_max - child_bbox.max_point[1]
+
+        # 1. X band loss: child's footprint entirely within parent's X extent
         x_band_loss = linear_band_loss(
             child_pos[0],
-            lower_bound=parent_x_min,
-            upper_bound=parent_x_max,
+            lower_bound=valid_x_min,
+            upper_bound=valid_x_max,
             slope=self.slope,
         )
 
-        # 2. Y band loss: child position within parent's Y extent
+        # 2. Y band loss: child's footprint entirely within parent's Y extent
         y_band_loss = linear_band_loss(
             child_pos[1],
-            lower_bound=parent_y_min,
-            upper_bound=parent_y_max,
+            lower_bound=valid_y_min,
+            upper_bound=valid_y_max,
             slope=self.slope,
         )
 
@@ -203,6 +229,20 @@ class OnLossStrategy(RelationLossStrategy):
         # Solving for child_pos[2]:
         target_z = parent_z_max + relation.clearance_m - child_bbox.min_point[2]
         z_loss = single_point_linear_loss(child_pos[2], target_z, slope=self.slope)
+
+        if self.debug:
+            print(
+                f"    [On] X: child_pos={child_pos[0].item():.4f}, valid_range=[{valid_x_min.item():.4f},"
+                f" {valid_x_max.item():.4f}], loss={x_band_loss.item():.6f}"
+            )
+            print(
+                f"    [On] Y: child_pos={child_pos[1].item():.4f}, valid_range=[{valid_y_min.item():.4f},"
+                f" {valid_y_max.item():.4f}], loss={y_band_loss.item():.6f}"
+            )
+            print(
+                f"    [On] Z: child_pos={child_pos[2].item():.4f}, target={target_z.item():.4f},"
+                f" loss={z_loss.item():.6f}"
+            )
 
         total_loss = x_band_loss + y_band_loss + z_loss
         return relation.relation_loss_weight * total_loss

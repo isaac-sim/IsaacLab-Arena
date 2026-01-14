@@ -29,17 +29,16 @@ cracker_box = DummyObject(
     name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.3, 0.5))
 )
 cracker_box_2 = DummyObject(
-    name="cracker_box_2", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.4, 0.4))
+    name="cracker_box_2", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.4, 0.4, 0.1))
 )
 apple = DummyObject(
     name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
 )
 
 cracker_box.add_relation(On(desk, clearance_m=0.01))
-apple.add_relation(On(desk, clearance_m=0.01))
-apple.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
 cracker_box_2.add_relation(On(desk, clearance_m=0.01))
-cracker_box_2.add_relation(NextTo(apple, side=Side.RIGHT, distance_m=0.05))
+cracker_box_2.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
+apple.add_relation(On(cracker_box_2, clearance_m=0.01))
 
 all_objects = [desk, cracker_box, apple, cracker_box_2]
 
@@ -54,13 +53,16 @@ for obj in all_objects:
     obj.set_initial_pose(random_pose)
 
 # Run the solver
-relation_solver = RelationSolver(anchor_object=desk, params=RelationSolverParams(verbose=False))
+relation_solver = RelationSolver(anchor_object=desk, params=RelationSolverParams(verbose=False, max_iters=500))
 object_positions = relation_solver.solve(all_objects)
 
 
 print("===Final Object Positions ===")
 for obj, position in object_positions.items():
     print(f"{obj.name}: {position}")
+
+# Debug: inspect loss breakdown for each relation
+relation_solver.debug_losses(all_objects)
 
 # Visualization
 visualizer = RelationSolverVisualizer(

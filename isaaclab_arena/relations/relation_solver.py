@@ -23,7 +23,7 @@ class RelationSolver:
     # Default strategies for each relation type (class-level)
     DEFAULT_STRATEGIES: dict[type[Relation], RelationLossStrategy] = {
         NextTo: NextToLossStrategy(slope=10.0),
-        On: OnLossStrategy(slope=10.0),
+        On: OnLossStrategy(slope=100.0),
     }
 
     def __init__(
@@ -67,11 +67,12 @@ class RelationSolver:
             )
         return strategy
 
-    def _compute_total_loss(self, state: RelationSolverState) -> torch.Tensor:
+    def _compute_total_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
         """Compute total loss from all relations using registered strategies.
 
         Args:
             state: Current optimization state with object positions.
+            debug: If True, print detailed loss breakdown.
 
         Returns:
             Total loss tensor.
@@ -92,6 +93,50 @@ class RelationSolver:
                     child_bbox=obj.get_bounding_box(),
                     parent_bbox=relation.parent.get_bounding_box(),
                 )
+
+                if debug:
+                    child_bbox = obj.get_bounding_box()
+                    parent_bbox = relation.parent.get_bounding_box()
+                    print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
+                    print(
+                        f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f},"
+                        f" {child_pos[2].item():.4f})"
+                    )
+                    print(
+                        f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}"
+                    )
+                    print(
+                        f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f},"
+                        f" {parent_pos[2].item():.4f})"
+                    )
+                    print(
+                        f"  Parent bbox: min={parent_bbox.min_point}, max={parent_bbox.max_point},"
+                        f" size={parent_bbox.size}"
+                    )
+                    # Compute child world extents
+                    child_x_range = (
+                        child_pos[0].item() + child_bbox.min_point[0],
+                        child_pos[0].item() + child_bbox.max_point[0],
+                    )
+                    child_y_range = (
+                        child_pos[1].item() + child_bbox.min_point[1],
+                        child_pos[1].item() + child_bbox.max_point[1],
+                    )
+                    # Compute parent world extents
+                    parent_x_range = (
+                        parent_pos[0].item() + parent_bbox.min_point[0],
+                        parent_pos[0].item() + parent_bbox.max_point[0],
+                    )
+                    parent_y_range = (
+                        parent_pos[1].item() + parent_bbox.min_point[1],
+                        parent_pos[1].item() + parent_bbox.max_point[1],
+                    )
+                    print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
+                    print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
+                    print(f"  Parent world X: [{parent_x_range[0]:.4f}, {parent_x_range[1]:.4f}]")
+                    print(f"  Parent world Y: [{parent_y_range[0]:.4f}, {parent_y_range[1]:.4f}]")
+                    print(f"  Loss: {loss.item():.6f}")
+
                 total_loss = total_loss + loss
 
         return total_loss
@@ -176,3 +221,33 @@ class RelationSolver:
     def last_position_history(self) -> list:
         """Position snapshots from the most recent solve() call."""
         return getattr(self, "_last_position_history", [])
+
+    def debug_losses(self, objects: list[DummyObject]) -> None:
+        """Print detailed loss breakdown for all relations using final positions.
+
+        Call this after solve() to inspect why objects may not be correctly positioned.
+
+        Args:
+            objects: The same list of objects passed to solve().
+        """
+        print("\n" + "=" * 60)
+        print("DEBUG: Final Loss Breakdown")
+        print("=" * 60)
+
+        state = RelationSolverState(objects, self.anchor_object)
+
+        # Update state with final positions from last solve
+        final_positions = self.last_position_history[-1] if self.last_position_history else None
+        if final_positions is None:
+            print("No position history available. Run solve() first.")
+            return
+
+        # We need to manually set the optimizable positions
+        for idx, obj in enumerate(objects):
+            if obj is not self.anchor_object:
+                pos = final_positions[idx]
+                opt_idx = state._optimizable_indices.index(state._obj_to_idx[obj])
+                state._optimizable_positions.data[opt_idx] = torch.tensor(pos)
+
+        self._compute_total_loss(state, debug=True)
+        print("\n" + "=" * 60)
