@@ -1,6 +1,9 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.1.0
 
 FROM ${BASE_IMAGE}
+
+# Set user to root (Isaac Sim base image defaults to non-root user)
+USER root
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
@@ -9,6 +12,10 @@ ARG GROOT_DEPS_GROUP=base
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
+
+# Set environment variables for non-interactive installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
 
 # Hide conflicting Vulkan files, if needed.
 RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
@@ -23,12 +30,15 @@ RUN apt-get update && apt-get install -y \
   sudo \
   python3-pip
 
-# Update pip to the latest version
-RUN pip3 install --upgrade pip
-
 ################################
 # Install Isaac Lab
 ################################
+# Ensure Isaac Sim is accessible to all users
+# - Make /isaac-sim directory traversable by all (a+x)
+# - Make all files readable and directories/executables accessible (a+rX)
+RUN chmod a+x /isaac-sim && \
+    chmod -R a+rX /isaac-sim
+
 # Split copying into separate instructions
 # to avoid docker cache invalidation on code edits.
 COPY ./submodules/IsaacLab ${WORKDIR}/submodules/IsaacLab
@@ -38,7 +48,7 @@ ENV TERM=xterm
 # Symlink isaac sim to IsaacLab
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 # Install IsaacLab dependencies
-RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
+RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
 # Install isaaclab
@@ -47,7 +57,7 @@ RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
 # TODO(alexmillane): Watch the thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1764680205807019
 #                    and remove this thread when IsaacLab has a fix.
-RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
+RUN if /isaac-sim/python.sh -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
         echo "OSQP is installed. You can remove this clause from the Arena dockerfile."; \
     else \
         echo "OSQP missing, installing... This is a patch for an Isaac Lab bug."; \
@@ -77,7 +87,8 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
 # HuggingFace for downloading datasets and models.
 # NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed in the IsaacSim version of python.
-RUN pip install huggingface-hub[cli]
+# NOTE: Using --break-system-packages because system Python has PEP 668 restrictions in Python 3.12
+RUN pip install --break-system-packages huggingface-hub[cli]
 # Create alias for hf command to use the system-installed version
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
@@ -133,8 +144,8 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 #    It will pause waiting for the debugger to attach.
 # 3) Attach to the running container with VSCode using the "Attach to debugpy session"
 #    configuration from the Run and Debug panel.
-RUN pip3 install debugpy
-RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
+RUN /isaac-sim/python.sh -m pip install debugpy
+RUN echo "alias debugpy='/isaac-sim/python.sh -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
 # Change prompt so it's obvious we're inside the arena container
 RUN echo "PS1='[IsaacLab Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /etc/bash.bashrc
@@ -144,6 +155,11 @@ RUN echo "alias ll='ls -alF --color=auto'" >> /etc/bash.bashrc
 RUN echo "alias ..='cd ..'" >> /etc/bash.bashrc
 # Change prompt to colored one for root too
 RUN cp /etc/bash.bashrc /root/.bashrc
+
+# Note: The entrypoint.sh script will create a non-root user matching the host user
+# and switch to it. This ensures files created in mounted volumes have correct ownership.
+# However, we set USER root here so the entrypoint has permissions to create users.
+USER root
 
 # Set the entrypoint
 COPY docker/setup/entrypoint.sh /entrypoint.sh

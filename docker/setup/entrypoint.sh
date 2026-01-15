@@ -21,7 +21,7 @@ userdel ubuntu || true
 useradd --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
         --gid "$DOCKER_RUN_GROUP_NAME" \
-        --groups sudo \
+        --groups sudo,isaac-sim \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME
@@ -46,7 +46,7 @@ chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /datasets /models /eval
 
 # Run the passed command or just start the shell as the created user
 if [ $# -ge 1 ]; then
-    echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/aliasess.bashrc
+    echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
     # -i makes bash to expand aliases
     # -c makes bash to run a command
     exec sudo --preserve-env -u $DOCKER_RUN_USER_NAME \
