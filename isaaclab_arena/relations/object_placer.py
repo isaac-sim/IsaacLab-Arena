@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import torch
+
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -56,6 +58,12 @@ class ObjectPlacer:
                 "Call anchor_object.set_initial_pose(...) before placing."
             )
 
+        # Save RNG state and set seed if provided (for reproducibility without affecting Isaac Sim)
+        rng_state = None
+        if self.params.placement_seed is not None:
+            rng_state = torch.get_rng_state()
+            torch.manual_seed(self.params.placement_seed)
+
         # Determine bounds for random position initialization from the anchor object
         init_bounds = self._get_init_bounds(anchor_object)
 
@@ -91,6 +99,10 @@ class ObjectPlacer:
         # Apply solved positions to objects
         if self.params.apply_positions_to_objects:
             self._apply_positions(best_positions, anchor_object)
+
+        # Restore RNG state if we changed it
+        if rng_state is not None:
+            torch.set_rng_state(rng_state)
 
         return PlacementResult(
             success=success,

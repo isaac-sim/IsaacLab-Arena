@@ -30,3 +30,6 @@ class ObjectPlacerParams:
 
     verbose: bool = False
     """If True, print progress information."""
+
+    placement_seed: int | None = None
+    """Random seed for reproducible placement. If None, uses current RNG state."""
