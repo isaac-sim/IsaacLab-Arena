@@ -1,0 +1,69 @@
+FROM nvcr.io/nvidia/pytorch:25.04-py3
+
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
+
+ARG LEROBOT_DATA_FOLDER
+
+RUN apt-get update && \
+    apt install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/America/Los_Angeles /etc/localtime && \
+    apt install -y dnsutils && \
+    apt-get update && \
+    apt-get install -y \
+    build-essential yasm cmake libtool git pkg-config \
+    libass-dev libfreetype6-dev libvorbis-dev \
+    autoconf automake texinfo tmux ffmpeg \
+    curl vim sudo zip unzip wget htop man ca-certificates
+
+RUN pip install --upgrade pip setuptools
+RUN pip install uv
+RUN sed -i s/dill==0.3.9/dill==0.3.8/g /etc/pip/constraint.txt
+RUN sed -i s/scipy==1.15.2/scipy==1.15.3/g /etc/pip/constraint.txt
+RUN pip install imageio h5py boto3 transformers[torch] deepspeed timm peft diffusers wandb tianshou dm_tree openai albumentations==1.4.18 decord==0.6.0 torchcodec==0.4.0
+RUN mkdir -p /opt
+RUN cd /opt && git clone https://github.com/facebookresearch/pytorch3d.git
+RUN cd /opt/pytorch3d && pip install .
+
+WORKDIR /workspace
+COPY submodules/Isaac-GR00T/pyproject.toml /workspace/pyproject.toml
+COPY submodules/Isaac-GR00T/gr00t /workspace/gr00t
+COPY submodules/Isaac-GR00T/scripts /workspace/scripts
+COPY submodules/Isaac-GR00T/demo_data /workspace/demo_data
+COPY isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py /workspace/gr1_manip/gr1_arms_only_data_config.py
+COPY isaaclab_arena_gr00t/tests/test_data/test_gr1_manip_lerobot/ /workspace/gr1_manip/lerobot
+
+RUN cd /workspace/ && uv sync && uv pip install -e .
+
+RUN mkdir -p /workspace/pretrained_ckpts
+RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+RUN sudo apt-get install git-lfs
+RUN git-lfs install
+RUN git clone https://huggingface.co/nvidia/GR00T-N1.6-3B /workspace/pretrained_ckpts/GR00T-N1.6-3B
+
+# Add filebrowser to access intermediate checkpoints during OSMO training
+# RUN curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
+RUN curl -LO https://github.com/filebrowser/filebrowser/releases/download/v2.32.0/linux-amd64-filebrowser.tar.gz
+RUN tar -xzvf linux-amd64-filebrowser.tar.gz
+RUN mv filebrowser /usr/bin/
+
+RUN apt-get install -y libegl1
+RUN mkdir -p /usr/share/glvnd/egl_vendor.d && \
+    cat >/usr/share/glvnd/egl_vendor.d/10_nvidia.json <<'EOF'
+{
+    "file_format_version" : "1.0.0",
+    "ICD" : {
+        "library_path" : "libEGL_nvidia.so.0"
+    }
+}
+EOF
+
+RUN mkdir -p /usr/share/vulkan/icd.d && \
+    cat >/usr/share/vulkan/icd.d/nvidia_icd.json <<'EOF'
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "libGLX_nvidia.so.0",
+        "api_version": "1.2.140"
+    }
+}
+EOF
