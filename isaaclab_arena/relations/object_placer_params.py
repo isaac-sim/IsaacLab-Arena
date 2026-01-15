@@ -13,11 +13,11 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 class ObjectPlacerParams:
     """Configuration parameters for ObjectPlacer."""
 
-    workspace: AxisAlignedBoundingBox | None = None
-    """Bounding box for random initialization. If None, inferred from anchor object."""
+    init_bounds: AxisAlignedBoundingBox | None = None
+    """Bounding box for random position initialization. If None, inferred from anchor object."""
 
-    workspace_padding: float = 2.0
-    """Padding (in meters) when inferring workspace from anchor."""
+    init_bounds_size: tuple[float, float, float] = (4.0, 4.0, 2.0)
+    """Size (x, y, z) in meters of init_bounds when inferred from anchor. Centered on anchor object."""
 
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
@@ -28,8 +28,8 @@ class ObjectPlacerParams:
     loss_threshold: float = 0.01
     """Loss value below which placement is considered valid."""
 
-    auto_apply: bool = True
-    """If True, automatically set solved positions on objects."""
+    apply_positions_to_objects: bool = True
+    """If True, automatically set solved positions on objects after placement."""
 
     verbose: bool = False
     """If True, print progress information."""

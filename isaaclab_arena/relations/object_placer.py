@@ -56,8 +56,8 @@ class ObjectPlacer:
                 "Call anchor_object.set_initial_pose(...) before placing."
             )
 
-        # Determine workspace based on the anchor object's position
-        workspace = self._get_workspace(anchor_object)
+        # Determine bounds for random position initialization from the anchor object
+        init_bounds = self._get_init_bounds(anchor_object)
 
         # Placement loop with retries
         best_positions: dict[DummyObject, tuple[float, float, float]] = {}
@@ -66,7 +66,7 @@ class ObjectPlacer:
 
         for attempt in range(self.params.max_placement_attempts):
             # Random init non-anchor objects
-            self._random_initialize(objects, anchor_object, workspace)
+            self._random_initialize(objects, anchor_object, init_bounds)
 
             # Solve
             positions = self._solver.solve(objects, anchor_object=anchor_object)
@@ -88,8 +88,8 @@ class ObjectPlacer:
                     print(f"Success on attempt {attempt + 1}")
                 break
 
-        # Auto-apply positions to objects
-        if self.params.auto_apply:
+        # Apply solved positions to objects
+        if self.params.apply_positions_to_objects:
             self._apply_positions(best_positions, anchor_object)
 
         return PlacementResult(
@@ -99,29 +99,34 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_workspace(self, anchor_object: DummyObject) -> AxisAlignedBoundingBox:
-        """Get workspace for random initialization.
+    def _get_init_bounds(self, anchor_object: DummyObject) -> AxisAlignedBoundingBox:
+        """Get bounds for random position initialization.
 
-        If workspace is provided in params, use it.
-        Otherwise, infer from anchor object's bounding box with padding.
+        If init_bounds is provided in params, use it.
+        Otherwise, create bounds of init_bounds_size centered on anchor's bounding box.
         """
-        if self.params.workspace is not None:
-            return self.params.workspace
+        if self.params.init_bounds is not None:
+            return self.params.init_bounds
 
-        # Infer from anchor's world bounding box
+        # Create bounds centered on anchor's world bounding box center
         anchor_bbox = anchor_object.get_world_bounding_box()
-        padding = self.params.workspace_padding
+        center = anchor_bbox.center
+        half_size = (
+            self.params.init_bounds_size[0] / 2,
+            self.params.init_bounds_size[1] / 2,
+            self.params.init_bounds_size[2] / 2,
+        )
 
         return AxisAlignedBoundingBox(
             min_point=(
-                anchor_bbox.min_point[0] - padding,
-                anchor_bbox.min_point[1] - padding,
-                anchor_bbox.min_point[2] - padding,
+                center[0] - half_size[0],
+                center[1] - half_size[1],
+                center[2] - half_size[2],
             ),
             max_point=(
-                anchor_bbox.max_point[0] + padding,
-                anchor_bbox.max_point[1] + padding,
-                anchor_bbox.max_point[2] + padding,
+                center[0] + half_size[0],
+                center[1] + half_size[1],
+                center[2] + half_size[2],
             ),
         )
 
@@ -129,13 +134,13 @@ class ObjectPlacer:
         self,
         objects: list[DummyObject],
         anchor_object: DummyObject,
-        workspace: AxisAlignedBoundingBox,
+        init_bounds: AxisAlignedBoundingBox,
     ) -> None:
         """Set random initial positions for non-anchor objects."""
         for obj in objects:
             if obj is anchor_object:
                 continue
-            random_pose = get_random_pose_within_bounding_box(workspace)
+            random_pose = get_random_pose_within_bounding_box(init_bounds)
             obj.set_initial_pose(random_pose)
 
     def _validate_placement(
