@@ -96,7 +96,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         Args:
             config: Gr00tClosedloopPolicyArgs configuration dataclass
         """
-        self.config = config
+        super().__init__(config)
         self.policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig)
         self.policy = self.load_policy()
 

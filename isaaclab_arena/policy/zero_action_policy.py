@@ -44,15 +44,14 @@ class ZeroActionPolicy(PolicyBase):
     # enable from_dict() from policy_base.PolicyBase
     config_class = ZeroActionPolicyArgs
 
-    def __init__(self, config: ZeroActionPolicyArgs = None):
+    def __init__(self, config: ZeroActionPolicyArgs):
         """
         Initialize ZeroActionPolicy.
 
         Args:
             config: ZeroActionPolicyArgs configuration dataclass (optional, not used)
         """
-        super().__init__()
-        self.config = config if config is not None else ZeroActionPolicyArgs()
+        super().__init__(config)
 
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
         """

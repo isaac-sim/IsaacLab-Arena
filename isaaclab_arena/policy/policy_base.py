@@ -22,10 +22,11 @@ class PolicyBase(ABC):
     # Optional: Subclasses can define this to enable from_dict()
     config_class: type | None = None
 
-    def __init__(self):
+    def __init__(self, config: Any):
         """
         Base class for policies.
         """
+        self.config = config
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "PolicyBase":

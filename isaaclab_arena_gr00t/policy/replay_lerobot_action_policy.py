@@ -108,7 +108,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         Args:
             config: ReplayLerobotActionPolicyArgs configuration dataclass
         """
-        self.config = config
+        super().__init__(config)
         self.policy_config = create_config_from_yaml(config.policy_config_yaml_path, LerobotReplayActionPolicyConfig)
         self.policy = self.load_policy(self.policy_config)
         # Start from the trajectory_index trajectory in the dataset

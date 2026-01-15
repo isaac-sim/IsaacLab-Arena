@@ -84,8 +84,7 @@ class ReplayActionPolicy(PolicyBase):
         Args:
             config: ReplayActionPolicyArgs configuration dataclass
         """
-        super().__init__()
-        self.config = config
+        super().__init__(config)
         self.episode_name = config.episode_name
         self.dataset_file_handler = HDF5DatasetFileHandler()
         self.dataset_file_handler.open(config.replay_file_path)
