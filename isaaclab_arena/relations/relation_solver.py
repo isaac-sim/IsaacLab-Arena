@@ -28,16 +28,12 @@ class RelationSolver:
 
     def __init__(
         self,
-        anchor_object: DummyObject,
         params: RelationSolverParams | None = None,
     ):
         """
         Args:
-            anchor_object: Fixed reference object that won't be optimized.
             params: Solver configuration parameters. If None, uses defaults.
         """
-        self.anchor_object = anchor_object
-
         # Use provided params or defaults
         self.params = params or RelationSolverParams()
 
@@ -95,6 +91,7 @@ class RelationSolver:
                 )
 
                 if debug:
+                    # TODO(cvolk): Move to function.
                     child_bbox = obj.get_bounding_box()
                     parent_bbox = relation.parent.get_bounding_box()
                     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
@@ -141,12 +138,16 @@ class RelationSolver:
 
         return total_loss
 
-    # TODO(cvolk): Anchor object is passed here instead of constructor
-    def solve(self, objects: list[DummyObject]) -> dict[DummyObject, tuple[float, float, float]]:
+    def solve(
+        self,
+        objects: list[DummyObject],
+        anchor_object: DummyObject,
+    ) -> dict[DummyObject, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of DummyObject instances
+            objects: List of DummyObject instances (may include anchor_object).
+            anchor_object: Fixed reference object that won't be optimized.
 
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
@@ -160,12 +161,13 @@ class RelationSolver:
         #   - Multiple solver runs with different initializations (re-optimization)
         #   - Feasibility checking
         # This keeps the solver focused on optimization only.
-        state = RelationSolverState(objects, self.anchor_object)
+        self._anchor_object = anchor_object  # Store for debug_losses
+        state = RelationSolverState(objects, anchor_object)
 
         if self.params.verbose:
             n_opt = len(objects) - 1  # All objects except anchor
             print("=== RelationSolver ===")
-            print(f"Anchor object: {self.anchor_object.name}, Optimizable objects: {n_opt}")
+            print(f"Anchor object: {anchor_object.name}, Optimizable objects: {n_opt}")
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
@@ -222,19 +224,26 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return getattr(self, "_last_position_history", [])
 
-    def debug_losses(self, objects: list[DummyObject]) -> None:
+    def debug_losses(self, objects: list[DummyObject], anchor_object: DummyObject | None = None) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
 
         Args:
             objects: The same list of objects passed to solve().
+            anchor_object: The anchor object. If None, uses the one from the last solve() call.
         """
         print("\n" + "=" * 60)
         print("DEBUG: Final Loss Breakdown")
         print("=" * 60)
 
-        state = RelationSolverState(objects, self.anchor_object)
+        # Use provided anchor or the one from last solve()
+        anchor = anchor_object or getattr(self, "_anchor_object", None)
+        if anchor is None:
+            print("No anchor object provided and no previous solve() call found.")
+            return
+
+        state = RelationSolverState(objects, anchor)
 
         # Update state with final positions from last solve
         final_positions = self.last_position_history[-1] if self.last_position_history else None
@@ -244,7 +253,7 @@ class RelationSolver:
 
         # We need to manually set the optimizable positions
         for idx, obj in enumerate(objects):
-            if obj is not self.anchor_object:
+            if obj is not anchor:
                 pos = final_positions[idx]
                 opt_idx = state._optimizable_indices.index(state._obj_to_idx[obj])
                 state._optimizable_positions.data[opt_idx] = torch.tensor(pos)

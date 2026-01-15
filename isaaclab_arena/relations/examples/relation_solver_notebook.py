@@ -53,8 +53,8 @@ for obj in all_objects:
     obj.set_initial_pose(random_pose)
 
 # Run the solver
-relation_solver = RelationSolver(anchor_object=desk, params=RelationSolverParams(verbose=False, max_iters=500))
-object_positions = relation_solver.solve(all_objects)
+relation_solver = RelationSolver(params=RelationSolverParams(verbose=False, max_iters=500))
+object_positions = relation_solver.solve(all_objects, anchor_object=desk)
 
 
 print("===Final Object Positions ===")

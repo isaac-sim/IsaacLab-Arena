@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
 
 # Objects instead of DummyObjects
 # Bounding boxes work, visualize?
@@ -56,6 +57,7 @@ random_pose = get_random_pose_within_bounding_box(workspace)
 coffee_machine.set_initial_pose(random_pose)
 random_pose = get_random_pose_within_bounding_box(workspace)
 mug.set_initial_pose(random_pose)
+assets = [ground_plane, office_table, cracker_box, coffee_machine, light, mug]
 
 
 # Set the actual relation.
@@ -65,10 +67,11 @@ cracker_box.add_relation(NextTo(coffee_machine, side=Side.RIGHT, distance_m=0.15
 mug.add_relation(On(coffee_machine, clearance_m=0.02))
 
 
-assets = [ground_plane, office_table, cracker_box, coffee_machine, light, mug]
-
-relation_solver = RelationSolver(anchor_object=office_table)
-object_positions = relation_solver.solve(objects=[office_table, coffee_machine, cracker_box, mug])
+relation_solver = RelationSolver()
+object_positions = relation_solver.solve(
+    objects=[office_table, coffee_machine, cracker_box, mug],
+    anchor_object=office_table,
+)
 
 # Update the positions of the objects
 for obj, pos in object_positions.items():
@@ -77,8 +80,6 @@ for obj, pos in object_positions.items():
     print(f"Setting optimized pose for {obj.name} to {pos}")
     obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-
-# %%
 
 scene = Scene(assets=assets)
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -94,17 +95,8 @@ env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
 
-# %%
-# Visualize bounding boxes for objects
-# from isaaclab_arena.utils.isaac_sim_debug_draw import IsaacSimDebugDraw
-#
-# debug_draw = IsaacSimDebugDraw()
-# debug_draw.clear()
-# debug_draw.draw_object_bboxes(objects=[office_table, cracker_box, mug])
-
-# %%
-# TODO(cvolk): Why do I need to run this cell here?
 # Run some zero actions.
+
 NUM_STEPS = 10000
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
