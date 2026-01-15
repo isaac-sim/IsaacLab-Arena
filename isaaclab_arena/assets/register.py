@@ -1,9 +1,9 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, RetargeterRegistry
+from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, PolicyRegistry, RetargeterRegistry
 
 
 # Decorator to register an asset with the AssetRegistry.
@@ -32,4 +32,13 @@ def register_retargeter(cls):
         print(f"WARNING: Retargeter {cls.device} for {cls.embodiment} is already registered. Doing nothing.")
     else:
         RetargeterRegistry().register(cls, retargeter_key_str)
+    return cls
+
+
+# Decorator to register a policy with the PolicyRegistry.
+def register_policy(cls):
+    if PolicyRegistry().is_registered(cls.name):
+        print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
+    else:
+        PolicyRegistry().register(cls, cls.name)
     return cls

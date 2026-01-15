@@ -64,9 +64,9 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
       video_backend: decord
       data_config: unitree_g1_sim_wbc
 
-      policy_joints_config_path: isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
+      action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+      state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
 
       action_chunk_length: 16
       pov_cam_name_sim: "robot_head_cam_rgb"
@@ -78,8 +78,8 @@ Test the policy in a single environment with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
@@ -106,8 +106,8 @@ Test the policy in 5 parallel environments with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1200 \
      --num_envs 5 \
      --enable_cameras \

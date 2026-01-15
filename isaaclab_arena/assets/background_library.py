@@ -1,7 +1,9 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+from typing import Any
 
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
@@ -21,6 +23,8 @@ class LibraryBackground(Background):
     usd_path: str
     initial_pose: Pose | None = None
     object_min_z: float
+    spawn_cfg_addon: dict[str, Any] = {}
+    asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
         super().__init__(
@@ -29,6 +33,8 @@ class LibraryBackground(Background):
             usd_path=self.usd_path,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
+            spawn_cfg_addon=self.spawn_cfg_addon,
+            asset_cfg_addon=self.asset_cfg_addon,
             **kwargs,
         )
 

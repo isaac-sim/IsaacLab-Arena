@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -61,17 +61,25 @@ class Scene:
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         for asset in self.assets.values():
-            for asset_cfg_name, asset_cfg in asset.get_object_cfg().items():
-                fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
-        NewConfigClass = make_configclass("SceneCfg", fields)
-        new_config_class = NewConfigClass()
-        return new_config_class
+            asset_cfg_name, asset_cfg = asset.get_object_cfg()
+            fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+        SceneCfg = make_configclass("SceneCfg", fields)
+        scene_cfg = SceneCfg()
+        return scene_cfg
 
     def get_observation_cfg(self) -> Any:
         return self.observation_cfg
 
     def get_events_cfg(self) -> Any:
-        return self.events_cfg
+        # Combine the configs into a configclass.
+        fields: list[tuple[str, type, AssetCfg]] = []
+        for asset in self.assets.values():
+            event_cfg_name, event_cfg = asset.get_event_cfg()
+            if event_cfg is not None:
+                fields.append((event_cfg_name, type(event_cfg), event_cfg))
+        EventCfg = make_configclass("EventCfg", fields)
+        event_cfg = EventCfg()
+        return event_cfg
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg

@@ -60,9 +60,9 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/gr1_man
       video_backend: decord
       data_config: fourier_gr1_arms_only
 
-      policy_joints_config_path: isaaclab_arena_gr00t/config/gr1/gr00t_26dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/config/gr1/36dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/config/gr1/54dof_joint_space.yaml
+      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
+      action_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
+      state_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml
       action_chunk_length: 16
       task_mode_name: gr1_tabletop_manipulation
 
@@ -77,8 +77,8 @@ Test the policy in a single environment with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
      --enable_cameras \
      gr1_open_microwave \
@@ -116,8 +116,8 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/examples/policy_runner.py \
-     --policy_type gr00t_closedloop \
-     --policy_config_yaml_path isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
      --num_envs 10 \
      --enable_cameras \
