@@ -25,9 +25,6 @@ class ObjectPlacerParams:
     max_placement_attempts: int = 5
     """Maximum number of placement attempts (random init + solve + validate) before failure."""
 
-    loss_threshold: float = 0.01
-    """Loss value below which placement is considered valid."""
-
     apply_positions_to_objects: bool = True
     """If True, automatically set solved positions on objects after placement."""
 

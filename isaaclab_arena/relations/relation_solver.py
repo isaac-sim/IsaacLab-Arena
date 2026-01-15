@@ -152,16 +152,7 @@ class RelationSolver:
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
         """
-        # Initialize optimization state from objects.
-        # All objects must have an initial pose at this stage.
-        #
-        # NOTE(cvolk): Position initialization is intentionally left to the caller. In the future,
-        # we may wrap RelationSolver in an ObjectPlacer class that handles:
-        #   - Position initialization (e.g., random location within parent's oriented bounding box)
-        #   - Multiple solver runs with different initializations (re-optimization)
-        #   - Feasibility checking
-        # This keeps the solver focused on optimization only.
-        self._anchor_object = anchor_object  # Store for debug_losses
+        self._anchor_object = anchor_object  # Storing for debug_losses()
         state = RelationSolverState(objects, anchor_object)
 
         if self.params.verbose:
@@ -195,7 +186,6 @@ class RelationSolver:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
 
             # Check convergence
-            # TODO(cvolk): Check the convergence threshold
             if loss.item() < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
