@@ -27,7 +27,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("kitchen")()
+        background = self.asset_registry.get_asset_by_name("wormhole")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
@@ -39,12 +39,12 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
 
         # TODO(alexmillane, 2025.09.24): Add automatic object type detection of ObjectReferences.
-        destination_location = ObjectReference(
-            name="destination_location",
-            prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
-            parent_asset=background,
-            object_type=ObjectType.RIGID,
-        )
+        # destination_location = ObjectReference(
+        #     name="destination_location",
+        #     prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+        #     parent_asset=background,
+        #     object_type=ObjectType.RIGID,
+        # )
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
@@ -57,15 +57,15 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 objects.append(obj_from_set)
             object_set = RigidObjectSet(name="object_set", objects=objects)
             object_set.set_initial_pose(Pose(position_xyz=(0.4, 0.2, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-            scene = Scene(assets=[background, pick_up_object, destination_location, object_set])
+            scene = Scene(assets=[background, pick_up_object, object_set])
 
         else:
-            scene = Scene(assets=[background, pick_up_object, destination_location])
+            scene = Scene(assets=[background, pick_up_object])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=PickAndPlaceTask(pick_up_object, destination_location, background),
+            task=PickAndPlaceTask(pick_up_object, background, background),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment

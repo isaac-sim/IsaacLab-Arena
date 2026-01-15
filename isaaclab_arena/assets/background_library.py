@@ -137,3 +137,19 @@ class Table(LibraryBackground):
 
     def __init__(self):
         super().__init__()
+
+
+@register_asset
+class WormholeBackground(LibraryBackground):
+    """
+    Encapsulates the background scene for the Wormhole environment.
+    """
+
+    name = "wormhole"
+    tags = ["background"]
+    usd_path = "/datasets/wormhole-collider.usd"
+    initial_pose = None
+    object_min_z = -0.2
+
+    def __init__(self):
+        super().__init__()

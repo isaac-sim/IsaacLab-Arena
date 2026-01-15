@@ -33,7 +33,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
 
         assets = [background, pick_up_object, ground_plane, light]
 
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(concatenate_observation_terms=True)
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(concatenate_observation_terms=True, enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -75,3 +75,4 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--enable_cameras", type=bool, default=False)
