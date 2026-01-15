@@ -95,6 +95,7 @@ if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ]
 else
     docker build --pull \
         $NO_CACHE \
+        --progress=plain \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
