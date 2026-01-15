@@ -4,7 +4,6 @@ FROM ${BASE_IMAGE}
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
-ARG GROOT_DEPS_GROUP=base
 
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}

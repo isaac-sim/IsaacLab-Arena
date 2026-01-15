@@ -4,7 +4,6 @@ set -euo pipefail
 # Script to install GR00T policy dependencies
 # This script is called from the Dockerfile when INSTALL_GROOT is true
 
-echo "Installing GR00T with dependency group: $GROOT_DEPS_GROUP"
 
 # Set CUDA environment variables for GR00T installation
 export CUDA_HOME=/usr/local/cuda-12.8
@@ -27,8 +26,7 @@ echo "Upgrading packaging tools..."
 /isaac-sim/python.sh -m pip install --upgrade setuptools packaging wheel
 
 # Install GR00T with the specified dependency group
-echo "Installing Isaac-GR00T with dependency group: $GROOT_DEPS_GROUP"
-/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e ${WORKDIR}/submodules/Isaac-GR00T/[$GROOT_DEPS_GROUP]
+/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 -e ${WORKDIR}/submodules/Isaac-GR00T/
 
 # Install flash-attn (specific version for compatibility)
 echo "Installing flash-attn..."

@@ -48,7 +48,7 @@ workflow:
           sed -i "s/^\(\s*run_name=\)None/\1\"${WANDB_NAME}\"/" gr00t/experiment/launch_finetune.py
 
           # Launch finetune
-          uv run python gr00t/experiment/launch_finetune.py \
+          uv run torchrun --nproc_per_node={{ gpus }} --standalone gr00t/experiment/launch_finetune.py \
             --dataset-path="{{input:0}}/{{input_dataset_name}}/{{input_demo_name}}/lerobot" \
             --output-dir={{output}} \
             --modality-config-path={{ modality_config_path }} \
