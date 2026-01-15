@@ -89,7 +89,7 @@ import torch
 from datetime import datetime
 
 import isaaclab_tasks  # noqa: F401
-import omni
+import omni.log
 from isaaclab.envs import DirectMARLEnv, ManagerBasedRLEnvCfg, multi_agent_to_single_agent
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
@@ -97,7 +97,8 @@ from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 from isaaclab_tasks.utils import get_checkpoint_path
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
-from isaaclab_arena.scripts.reinforcement_learning.utils import get_env_and_agent_cfg
+from isaaclab_arena.scripts.reinforcement_learning.utils import get_agent_cfg
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
@@ -108,7 +109,17 @@ torch.backends.cudnn.benchmark = False
 
 
 def main():
-    env_name, env_cfg, agent_cfg = get_env_and_agent_cfg(args_cli)
+    # We dont use hydra for the environment configuration, so we need to parse it manually
+    # parse configuration
+    try:
+        arena_builder = get_arena_builder_from_cli(args_cli)
+        env_name, env_cfg = arena_builder.build_registered()
+
+    except Exception as e:
+        omni.log.error(f"Failed to parse environment configuration: {e}")
+        exit(1)
+
+    agent_cfg = get_agent_cfg(args_cli)
 
     # set the environment seed
     # note: certain randomizations occur in the environment initialization so we set the seed here
