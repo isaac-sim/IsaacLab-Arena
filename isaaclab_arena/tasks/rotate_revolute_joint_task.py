@@ -7,7 +7,7 @@ import numpy as np
 from dataclasses import MISSING
 
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
@@ -16,7 +16,6 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.revolute_joint_moved_rate import RevoluteJointMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -77,8 +76,6 @@ class RotateRevoluteJointEventCfg:
 
     reset_openable_object_revolute_joint_percentage: EventTermCfg = MISSING
 
-    reset_openable_object_pose: EventTermCfg = MISSING
-
     def __init__(self, openable_object: Openable, reset_openable_object_revolute_joint_percentage: float | None):
         assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
         params = {}
@@ -89,13 +86,3 @@ class RotateRevoluteJointEventCfg:
             mode="reset",
             params=params,
         )
-        initial_pose = openable_object.get_initial_pose()
-        if initial_pose is not None:
-            self.reset_openable_object_pose = EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(openable_object.name),
-                },
-            )

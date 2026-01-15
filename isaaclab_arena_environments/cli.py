@@ -9,11 +9,13 @@ from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
+from isaaclab_arena_environments.franka_put_and_close_door_environment import FrankaPutAndCloseDoorEnvironment
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
 from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
 from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
+from isaaclab_arena_environments.gr1_turn_stand_mixer_knob_environment import Gr1TurnStandMixerKnobEnvironment
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
 from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
@@ -28,6 +30,7 @@ from isaaclab_arena_environments.tabletop_place_upright_environment import Table
 
 # Collection of the available example environments
 ExampleEnvironments = {
+    FrankaPutAndCloseDoorEnvironment.name: FrankaPutAndCloseDoorEnvironment,
     Gr1OpenMicrowaveEnvironment.name: Gr1OpenMicrowaveEnvironment,
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
@@ -36,6 +39,7 @@ ExampleEnvironments = {
     CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
     LiftObjectEnvironment.name: LiftObjectEnvironment,
     TableTopPlaceUprightEnvironment.name: TableTopPlaceUprightEnvironment,
+    Gr1TurnStandMixerKnobEnvironment.name: Gr1TurnStandMixerKnobEnvironment,
 }
 
 

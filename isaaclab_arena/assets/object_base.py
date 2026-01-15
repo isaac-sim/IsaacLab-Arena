@@ -6,13 +6,14 @@
 import torch
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
+from isaaclab.managers import EventTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.utils.pose import Pose
 
 
 class ObjectType(Enum):
@@ -37,6 +38,8 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+        self.object_cfg = None
+        self.event_cfg = None
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
@@ -44,8 +47,11 @@ class ObjectBase(Asset, ABC):
     def get_prim_path(self) -> str:
         return self.prim_path
 
-    def get_object_cfg(self) -> dict[str, Any]:
-        return {self.name: self.object_cfg}
+    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
+        return self.name, self.object_cfg
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        return self.name, self.event_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
@@ -82,6 +88,26 @@ class ObjectBase(Asset, ABC):
         if is_relative:
             object_pose[:, :3] -= env.scene.env_origins
         return object_pose
+
+    def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
+        """Set the pose of the object in the environment.
+
+        Args:
+            env: The environment.
+            pose: The pose to set.
+        """
+        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        if env_ids is None:
+            env_ids = torch.arange(env.num_envs, device=env.device)
+        # Grab the object
+        asset = env.scene[self.name]
+        num_envs = len(env_ids)
+        # Convert the pose to the env frame
+        pose_t_xyz_q_wxyz = pose.to_tensor(device=env.device).repeat(num_envs, 1)
+        pose_t_xyz_q_wxyz[:, :3] += env.scene.env_origins[env_ids]
+        # Set the pose and velocity
+        asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
+        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
