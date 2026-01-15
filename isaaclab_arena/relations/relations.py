@@ -57,7 +57,7 @@ class NextTo(Relation):
             side: Which side to place object (default: Side.RIGHT).
         """
         super().__init__(parent, relation_loss_weight)
-        assert distance_m >= 0.0, f"Distance must be non-negative, got {distance_m}"
+        assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         self.distance_m = distance_m
         self.side = side
 
