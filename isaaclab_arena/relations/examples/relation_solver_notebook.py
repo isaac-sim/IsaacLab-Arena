@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-# Example notebook demonstrating the RelationSolver class not using any IsaacSim dependencies.
+# Example notebook demonstrating the ObjectPlacer class not using any IsaacSim dependencies.
 
 # %%
 # Install plotly dependency if missing
@@ -15,11 +15,13 @@ subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tenacity"]
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.examples.relation_solver_visualizer import RelationSolverVisualizer
-from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverParams
+from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import NextTo, On, Side
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
+# Create objects with bounding boxes
 desk = DummyObject(
     name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
 )
@@ -35,6 +37,7 @@ apple = DummyObject(
     name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
 )
 
+# Define spatial relations
 cracker_box.add_relation(On(desk, clearance_m=0.01))
 cracker_box_2.add_relation(On(desk, clearance_m=0.01))
 cracker_box_2.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
@@ -42,35 +45,17 @@ apple.add_relation(On(cracker_box_2, clearance_m=0.01))
 
 all_objects = [desk, cracker_box, apple, cracker_box_2]
 
-
-# Define workspace bounding box to initialize random positions for other objects
-workspace = AxisAlignedBoundingBox(min_point=(-1.5, -1.5, 0.0), max_point=(1.5, 1.5, 1.0))
-for obj in all_objects:
-    if obj is desk:
-        continue  # Skip desk, already set
-    random_pose = get_random_pose_within_bounding_box(workspace)
-    print(f"Random pose for {obj.name}: {random_pose}")
-    obj.set_initial_pose(random_pose)
-
-# Run the solver
-relation_solver = RelationSolver(params=RelationSolverParams(verbose=False, max_iters=500))
-object_positions = relation_solver.solve(all_objects, anchor_object=desk)
-
-
-print("===Final Object Positions ===")
-for obj, position in object_positions.items():
-    print(f"{obj.name}: {position}")
-
-# Debug: inspect loss breakdown for each relation
-relation_solver.debug_losses(all_objects)
+# Place objects using ObjectPlacer
+placer = ObjectPlacer(params=ObjectPlacerParams())
+result = placer.place(objects=all_objects, anchor_object=desk)
 
 # Visualization
 visualizer = RelationSolverVisualizer(
-    result=object_positions,
+    result=result.positions,
     objects=all_objects,
     anchor_object=desk,
-    loss_history=relation_solver.last_loss_history,
-    position_history=relation_solver.last_position_history,
+    loss_history=placer.last_loss_history,
+    position_history=placer.last_position_history,
 )
 
 # Plot object positions, bounding boxes, and optimization trajectories
