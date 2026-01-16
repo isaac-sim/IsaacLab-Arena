@@ -30,7 +30,7 @@ COPY submodules/Isaac-GR00T/gr00t /workspace/gr00t
 COPY submodules/Isaac-GR00T/scripts /workspace/scripts
 COPY submodules/Isaac-GR00T/demo_data /workspace/demo_data
 COPY isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py /workspace/gr1_manip/gr1_arms_only_data_config.py
-COPY isaaclab_arena_gr00t/tests/test_data/test_gr1_manip_lerobot/ /workspace/gr1_manip/lerobot
+COPY isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py /workspace/g1_locomanip/g1_sim_wbc_data_config.py
 
 RUN cd /workspace/ && uv sync && uv pip install -e .
 

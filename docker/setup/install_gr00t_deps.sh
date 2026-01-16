@@ -21,11 +21,6 @@ echo "TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 echo "Installing system-level media libraries..."
 sudo apt-get update && sudo apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# # Ensure pip directories are writable
-# echo "Ensuring pip cache and site-packages directories are writable..."
-# chmod -R 777 /isaac-sim/kit/python/ || true
-# chmod -R 777 /isaac-sim/extscache/ || true
-
 # Install torch first (force reinstall all dependencies to avoid prebundle version conflicts)
 # Torch 2.7.0 requested by GR00T is installed in isaacsim, skip here.
 # Install flash-attn immediately after torch (requires torch to be installed first)
