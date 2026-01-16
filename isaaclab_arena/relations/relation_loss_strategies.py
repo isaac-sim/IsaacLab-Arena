@@ -26,9 +26,6 @@ class RelationLossStrategy(ABC):
     Loss strategies compute constraints using world-space extents:
         world_min = position + bbox.min_point
         world_max = position + bbox.max_point
-
-    This works correctly regardless of where the USD origin is located
-    (bottom-center, geometric center, etc.).
     """
 
     @abstractmethod
@@ -224,9 +221,6 @@ class OnLossStrategy(RelationLossStrategy):
         )
 
         # 3. Z point loss: child bottom = parent top + clearance
-        # Child bottom in world = child_pos[2] + child_bbox.min_point[2]
-        # Target: child_pos[2] + child_bbox.min_point[2] = parent_z_max + clearance
-        # Solving for child_pos[2]:
         target_z = parent_z_max + relation.clearance_m - child_bbox.min_point[2]
         z_loss = single_point_linear_loss(child_pos[2], target_z, slope=self.slope)
 

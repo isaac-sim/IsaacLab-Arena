@@ -161,7 +161,7 @@ class ObjectPlacer:
     ) -> bool:
         """Validate that the placement is geometrically valid.
 
-        TODO: Implement actual geometric checks:
+        TODO(cvolk): Implement geometric checks like:
         - Collision detection between objects
         - Boundary checks (objects within workspace)
         - Stability checks (objects properly supported)
