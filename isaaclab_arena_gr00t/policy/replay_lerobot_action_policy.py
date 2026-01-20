@@ -7,19 +7,14 @@ import argparse
 import gymnasium as gym
 import numpy as np
 import torch
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# from gr00t.data.dataset import LeRobotSingleDataset
-# from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
-from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
-from gr00t.data.embodiment_tags import EmbodimentTag
-from gr00t.experiment.launch_finetune import load_modality_config
 from gr00t.policy.replay_policy import ReplayPolicy
-        
+
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena_gr00t.utils.io_utils import load_gr00t_modality_config_from_file
 from isaaclab_arena_gr00t.policy.config.lerobot_replay_action_policy_config import (
     LerobotReplayActionPolicyConfig,
     TaskMode,
@@ -144,43 +139,11 @@ class ReplayLerobotActionPolicy(PolicyBase):
         """Load the dataset, whose iterator will be used as the policy."""
         assert Path(policy_config.dataset_path).exists(), f"Dataset path {policy_config.dataset_path} does not exist"
 
-        # Load the modality config using GR00T's pattern:
-        # 1. Import the config module (registers it globally)
-        # 2. Retrieve from the global registry using embodiment_tag
-        if policy_config.modality_config_path:
-            # Import module for side-effect registration
-            load_modality_config(policy_config.modality_config_path)
-        
-        # Get the embodiment tag from policy config and convert to EmbodimentTag enum
-        # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)
-        try:
-            # Try to get enum by name (uppercase, e.g., "NEW_EMBODIMENT")
-            embodiment_tag_enum = EmbodimentTag[policy_config.embodiment_tag.upper()]
-        except KeyError:
-            # If not found, try case-insensitive search through all enum members
-            embodiment_tag_str = policy_config.embodiment_tag.upper()
-            matching_tags = [tag for tag in EmbodimentTag if tag.name == embodiment_tag_str]
-            if not matching_tags:
-                available_tags = [tag.name for tag in EmbodimentTag]
-                raise ValueError(
-                    f"Invalid embodiment tag '{policy_config.embodiment_tag}'. "
-                    f"Available tags: {available_tags}"
-                )
-            embodiment_tag_enum = matching_tags[0]
-        
-        # Use the enum's value (lowercase string) to look up in MODALITY_CONFIGS
-        embodiment_tag_key = embodiment_tag_enum.value
-        
-        # Retrieve from global registry
-        if embodiment_tag_key not in MODALITY_CONFIGS:
-            raise ValueError(
-                f"Embodiment tag '{embodiment_tag_enum.name}' (value: '{embodiment_tag_key}') not found in MODALITY_CONFIGS. "
-                f"Available tags: {list(MODALITY_CONFIGS.keys())}. "
-                f"Make sure {policy_config.modality_config_path} calls register_modality_config()."
-            )
-        
-        modality_configs = MODALITY_CONFIGS[embodiment_tag_key]
-        
+        modality_configs = load_gr00t_modality_config_from_file(
+            modality_config_path=policy_config.modality_config_path,
+            embodiment_tag=policy_config.embodiment_tag
+        )
+
         return ReplayPolicy(
             dataset_path=policy_config.dataset_path,
             modality_configs=modality_configs,
