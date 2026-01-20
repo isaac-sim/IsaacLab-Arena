@@ -29,9 +29,9 @@ class PickAndPlaceTask(TaskBase):
     def __init__(
         self,
         pick_up_object: Asset,
-        destination_object: Asset,
         destination_location: Asset,
         background_scene: Asset,
+        destination_object: Asset | None = None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
         reset_pose_range: PoseRange = PoseRange(),
