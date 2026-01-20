@@ -22,10 +22,10 @@ class AxisAlignedBoundingBox:
     """Axis-aligned bounding box storing local extents. Use get_corners_at(pos) for world-space corners."""
 
     min_point: tuple[float, float, float]
-    """Local minimum extent (x, y, z) relative to center."""
+    """Local minimum extent (x, y, z) relative to object origin."""
 
     max_point: tuple[float, float, float]
-    """Local maximum extent (x, y, z) relative to center."""
+    """Local maximum extent (x, y, z) relative to object origin."""
 
     def __post_init__(self):
         assert isinstance(self.min_point, tuple)

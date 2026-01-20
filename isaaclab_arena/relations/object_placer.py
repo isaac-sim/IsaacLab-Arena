@@ -96,8 +96,8 @@ class ObjectPlacer:
                 best_positions = positions
 
             # Check if placement is valid
-            # TODO: Implement geometric validation (collision checks, boundary checks, etc.)
             if self._validate_placement(positions):
+                # NOTE(cvolk): Not implemented yet.
                 success = True
                 if self.params.verbose:
                     print(f"Success on attempt {attempt + 1}")
