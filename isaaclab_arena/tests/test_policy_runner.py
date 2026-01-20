@@ -20,7 +20,7 @@ def run_policy_runner(
     replay_file_path: str | None = None,
     episode_name: str | None = None,
 ):
-    args = [TestConstants.python_path, f"{TestConstants.examples_dir}/policy_runner.py"]
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
     args.append("--policy_type")
     args.append(policy_type)
     if policy_type == "replay":
