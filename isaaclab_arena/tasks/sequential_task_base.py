@@ -276,8 +276,6 @@ class SequentialTaskBase(TaskBase):
                     if not any(m.name == "success_rate" for m in combined_metrics):
                         combined_metrics.append(copy.copy(metric))
 
-        print(f"Combined metrics: {combined_metrics}\n\n\n\n\n\n\n\n\n\n\n")
-
         return combined_metrics
 
     def get_metrics(self) -> list[MetricBase]:
@@ -285,7 +283,6 @@ class SequentialTaskBase(TaskBase):
         # Add the sequential task's own metric for per-subtask success rates
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
-        print(f"Subtask metrics: {subtask_metrics}\n\n\n\n\n\n\n\n\n\n\n")
         return subtask_metrics
 
     def combine_mimic_subtask_configs(self, arm_mode: ArmMode):  # -> dict[str, list[SubTaskConfig]]:
