@@ -61,31 +61,31 @@ class AxisAlignedBoundingBox:
         """Returns the z-coordinate of the bottom surface."""
         return self.min_point[2]
 
-    def get_corners_at(self, pos: torch.Tensor) -> torch.Tensor:
-        """Get 8 world-space corners of this bounding box centered at the given position.
+    def get_corners_at(self, pos: torch.Tensor | None = None) -> torch.Tensor:
+        """Get 8 corners of this bounding box, optionally offset by position.
 
         Args:
-            pos: World position (x, y, z) to center the bounding box at.
+            pos: If provided, world position (x, y, z) to offset corners by.
+                 If None, returns corners in local/object frame.
 
         Returns:
             Tensor of shape (8, 3) with corners ordered: bottom 4, then top 4.
         """
-        x, y, z = pos[0], pos[1], pos[2]
-        width, depth, height = self.size
-
-        # Get the 8 corners of the bounding box
-        # Bottom face (z_min)
-        return torch.stack([
-            torch.tensor([x - width / 2, y - depth / 2, z - height / 2]),  # Bottom-front-left
-            torch.tensor([x + width / 2, y - depth / 2, z - height / 2]),  # Bottom-front-right
-            torch.tensor([x + width / 2, y + depth / 2, z - height / 2]),  # Bottom-back-right
-            torch.tensor([x - width / 2, y + depth / 2, z - height / 2]),  # Bottom-back-left
-            # Top face (z_max)
-            torch.tensor([x - width / 2, y - depth / 2, z + height / 2]),  # Top-front-left
-            torch.tensor([x + width / 2, y - depth / 2, z + height / 2]),  # Top-front-right
-            torch.tensor([x + width / 2, y + depth / 2, z + height / 2]),  # Top-back-right
-            torch.tensor([x - width / 2, y + depth / 2, z + height / 2]),  # Top-back-left
-        ])
+        if pos is None:
+            # Local corners directly from min_point/max_point
+            min_pt, max_pt = self.min_point, self.max_point
+            return torch.tensor([
+                [min_pt[0], min_pt[1], min_pt[2]],  # Bottom-front-left
+                [max_pt[0], min_pt[1], min_pt[2]],  # Bottom-front-right
+                [max_pt[0], max_pt[1], min_pt[2]],  # Bottom-back-right
+                [min_pt[0], max_pt[1], min_pt[2]],  # Bottom-back-left
+                [min_pt[0], min_pt[1], max_pt[2]],  # Top-front-left
+                [max_pt[0], min_pt[1], max_pt[2]],  # Top-front-right
+                [max_pt[0], max_pt[1], max_pt[2]],  # Top-back-right
+                [min_pt[0], max_pt[1], max_pt[2]],  # Top-back-left
+            ])
+        else:
+            return self.get_corners_at(pos=None) + pos
 
 
 def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int | None = None) -> Pose:
