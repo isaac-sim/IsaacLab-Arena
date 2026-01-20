@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -18,6 +18,10 @@ class _TestConstants:
         self.examples_dir = f"{self.repo_root}/isaaclab_arena/examples"
 
         self.test_dir = f"{self.repo_root}/isaaclab_arena/tests"
+
+        self.evaluation_dir = f"{self.repo_root}/isaaclab_arena/evaluation"
+
+        self.arena_environments_dir = f"{self.repo_root}/isaaclab_arena_environments"
 
         self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
 

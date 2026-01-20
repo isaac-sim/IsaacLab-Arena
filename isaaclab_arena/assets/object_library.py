@@ -1,7 +1,8 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
 
 from typing import Any
 
@@ -12,10 +13,21 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
+from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_utils import (
+    EMPTY_ARTICULATION_INIT_STATE_CFG,
+    RIGID_BODY_PROPS_HIGH_PRECISION,
+    RIGID_BODY_PROPS_MEDIUM_PRECISION,
+)
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
+# TODO(xinjieyao, 2026.01.07): Remove staging bucket and use production bucket for release.
+ISAACLAB_STAGING_NUCLEUS_DIR = (
+    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/"
+)
 
 
 class LibraryObject(Object):
@@ -172,6 +184,36 @@ class CoffeeMachine(LibraryObject, Pressable):
             initial_pose=initial_pose,
             pressable_joint_name=self.pressable_joint_name,
             pressedness_threshold=self.pressedness_threshold,
+        )
+
+
+@register_asset
+class StandMixer(LibraryObject, Turnable):
+    """
+    Stand mixer with a knob that can be turned to different levels.
+    """
+
+    name = "stand_mixer"
+    tags = ["object", "turnable"]
+
+    # TODO(xinjieyao, 2026.01.07): Trigger sync to production bucket for release.
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/lightwheel_StandMixer013/StandMixer013.usd"
+    object_type = ObjectType.ARTICULATION
+
+    # knob turnable affordance parameters
+    turnable_joint_name = "knob_speed_joint"
+    min_level_angle_deg = 40.0
+    max_level_angle_deg = 280.0
+    num_levels = 7
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            turnable_joint_name=self.turnable_joint_name,
+            min_level_angle_deg=self.min_level_angle_deg,
+            max_level_angle_deg=self.max_level_angle_deg,
+            num_levels=self.num_levels,
         )
 
 
@@ -335,3 +377,129 @@ class DexCube(LibraryObject):
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class Peg(LibraryObject):
+    """
+    A peg.
+    """
+
+    name = "peg"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_peg_8mm.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (3.0, 3.0, 3.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }
+
+
+@register_asset
+class Hole(LibraryObject):
+    """
+    A hole.
+    """
+
+    name = "hole"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_hole_8mm.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (3.0, 3.0, 3.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.05),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }
+
+
+@register_asset
+class SmallGear(LibraryObject):
+    """
+    A small gear.
+    """
+
+    name = "small_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_small.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }
+
+
+@register_asset
+class LargeGear(LibraryObject):
+    """
+    A large gear.
+    """
+
+    name = "large_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_large.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }
+
+
+@register_asset
+class GearBase(LibraryObject):
+    """
+    Gear base.
+    """
+
+    name = "gear_base"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_base.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.05),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }
+
+
+@register_asset
+class MediumGear(LibraryObject):
+    """
+    A medium gear.
+    """
+
+    name = "medium_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Factory/factory_gear_medium.usd"
+    object_type = ObjectType.ARTICULATION
+    scale = (2.0, 2.0, 2.0)
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_MEDIUM_PRECISION,
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.019),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }

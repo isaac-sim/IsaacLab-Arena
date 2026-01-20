@@ -70,13 +70,14 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
 
 .. code-block:: bash
 
-   python isaaclab_arena_gr00t/data_utils/convert_hdf5_to_lerobot.py \
-     --yaml_file isaaclab_arena_gr00t/config/g1_locomanip_config.yaml
+   python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
+     --yaml_file isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml
+
 
 This creates a folder ``$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot`` containing parquet files with states/actions,
 MP4 camera recordings, and dataset metadata.
 
-The converter is controlled by a config file at ``isaaclab_arena_gr00t/config/g1_locomanip_config.yaml``.
+The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/config/g1_locomanip_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_config.yaml``)
    :animate: fade-in
@@ -129,7 +130,7 @@ To post-train the policy, run the following command
    python scripts/gr00t_finetune.py \
    --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
    --output_dir=$MODELS_DIR \
-   --data_config=isaaclab_arena_gr00t.data_config:UnitreeG1SimWBCDataConfig \
+   --data_config=isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig \
    --batch_size=24 \
    --max_steps=20000 \
    --num_gpus=8 \

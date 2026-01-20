@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -12,7 +12,7 @@ NUM_STEPS = 5
 HEADLESS = True
 
 
-def get_test_environment(remove_randomize_mug_positions_event: bool, num_envs: int):
+def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -35,6 +35,8 @@ def get_test_environment(remove_randomize_mug_positions_event: bool, num_envs: i
     mug = asset_registry.get_asset_by_name("mug")(
         initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_wxyz=(0.7071, 0.7071, 0.0, 0.0))
     )
+    if dont_reset_placeable_object_pose:
+        mug.disable_reset_pose()
 
     light = asset_registry.get_asset_by_name("light")()
 
@@ -48,10 +50,6 @@ def get_test_environment(remove_randomize_mug_positions_event: bool, num_envs: i
     )
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     name, cfg = env_builder.build_registered()
-    if remove_randomize_mug_positions_event:
-        cfg.events.reset_all = None
-        cfg.events.randomize_mug_positions = None
-        cfg.events.reset_placeable_object_pose = None
 
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
@@ -64,7 +62,7 @@ def _test_place_upright_mug_single(simulation_app) -> bool:
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, placeable_obj = get_test_environment(remove_randomize_mug_positions_event=True, num_envs=1)
+    env, placeable_obj = get_test_environment(dont_reset_placeable_object_pose=True, num_envs=1)
 
     def assert_upright(env: ManagerBasedEnv, terminated: torch.Tensor):
         is_upright = placeable_obj.is_placed_upright(env)
@@ -96,7 +94,7 @@ def _test_place_upright_mug_multi(simulation_app) -> bool:
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, placeable_obj = get_test_environment(remove_randomize_mug_positions_event=True, num_envs=2)
+    env, placeable_obj = get_test_environment(dont_reset_placeable_object_pose=True, num_envs=2)
 
     try:
 
@@ -148,7 +146,7 @@ def _test_place_upright_mug_multi(simulation_app) -> bool:
 def _test_place_upright_mug_condition(simulation_app) -> bool:
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, placeable_obj = get_test_environment(remove_randomize_mug_positions_event=False, num_envs=2)
+    env, placeable_obj = get_test_environment(dont_reset_placeable_object_pose=False, num_envs=2)
     try:
         with torch.inference_mode():
             # place both mugs upright
