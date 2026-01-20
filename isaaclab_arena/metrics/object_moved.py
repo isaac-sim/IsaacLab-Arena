@@ -45,7 +45,7 @@ class ObjectMovedRateMetric(MetricBase):
     """
 
     name = "object_moved_rate"
-    recorder_term_name = "object_linear_velocity"  # Source of truth for recorder name
+    recorder_term_name = "object_linear_velocity"
 
     def __init__(self, object: Asset, object_velocity_threshold: float = 0.5):
         """Initializes the object-moved rate metric.

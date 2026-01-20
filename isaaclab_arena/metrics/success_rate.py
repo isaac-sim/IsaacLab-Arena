@@ -53,7 +53,7 @@ class SuccessRateMetric(MetricBase):
     """
 
     name = "success_rate"
-    recorder_term_name = "success"  # Source of truth for recorder name
+    recorder_term_name = "success"
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
         """Return the recorder term configuration for the success rate metric."""
