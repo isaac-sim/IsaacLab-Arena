@@ -31,9 +31,6 @@ class FrankaPutAndCloseDoorTask(SequentialTaskBase):
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
 
-    def get_metrics(self) -> list[MetricBase]:
-        return None
-
     def get_prompt(self) -> str:
         return None
 

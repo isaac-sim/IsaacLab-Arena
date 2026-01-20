@@ -54,7 +54,7 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
 @configclass
 class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = SubtaskSuccessStateRecorder
-    name: str = "subtask_success_state"
+    name: str = "subtask_success_rate"
 
 
 class SubtaskSuccessRateMetric(MetricBase):
@@ -63,8 +63,8 @@ class SubtaskSuccessRateMetric(MetricBase):
     Returns a dict with success rate for each subtask.
     """
 
-    name = "subtask_success_state"
-    recorder_term_name = "subtask_success_state"
+    name = "subtask_success_rate"
+    recorder_term_name = "subtask_success_rate"
 
     def __init__(self):
         super().__init__()
