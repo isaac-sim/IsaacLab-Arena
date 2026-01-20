@@ -23,8 +23,8 @@ class Job:
         arena_env_args: dict,
         policy_type: str,
         num_steps: int = None,
-        policy_args: dict = {},
-        status: Status = Status.PENDING,
+        policy_config_dict: dict = None,
+        status: Status = None,
     ):
         """Initialize a Job instance.
 
@@ -33,15 +33,15 @@ class Job:
             arena_env_args: Dictionary of arguments for configuring the arena environment
             num_steps: Number of steps to run the policy for
             policy_type: Type of policy to use
-            policy_args: Dictionary of arguments for the policy. These are passed to the policy class's from_args method.
+            policy_config_dict: Dictionary configuration for the policy.
             status: Job status (defaults to PENDING)
         """
         self.name = name
         self.arena_env_args = arena_env_args
         self.num_steps = num_steps
         self.policy_type = policy_type
-        self.policy_args = policy_args
-        self.status = status
+        self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
+        self.status = status if status is not None else Status.PENDING
         self.start_time = None
         self.end_time = None
         self.metrics = {}
@@ -83,7 +83,7 @@ class Job:
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
             policy_type=data["policy_type"],
             num_steps=num_steps,
-            policy_args=cls.convert_args_dict_to_cli_args_list(data["policy_args"]),
+            policy_config_dict=data["policy_args"],
             status=status,
         )
 
