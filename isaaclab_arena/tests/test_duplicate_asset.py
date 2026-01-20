@@ -9,9 +9,10 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
 HEADLESS = True
+EPS = 0.03
 
 
-def get_test_environment(num_envs: int):
+def get_test_environment(num_envs: int, position_1: tuple[float, float, float], position_2: tuple[float, float, float]):
     """Returns a scene with two copies of the same cube object."""
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
@@ -33,29 +34,25 @@ def get_test_environment(num_envs: int):
     # Create two copies of the same object (dex_cube)
     dex_cube_1 = asset_registry.get_asset_by_name("dex_cube")(instance_name="dex_cube_1")
     print(f"dex_cube_1.name: {dex_cube_1.name}")
-    # dex_cube_1.name = "dex_cube_1"
     dex_cube_1.set_initial_pose(
         Pose(
-            position_xyz=(0.15, 0.15, 0.05),
+            position_xyz=position_1,
             rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
         )
     )
 
     dex_cube_2 = asset_registry.get_asset_by_name("dex_cube")(instance_name="dex_cube_2")
     print(f"dex_cube_2.name: {dex_cube_2.name}")
-    # dex_cube_2.name = "dex_cube_2"
     dex_cube_2.set_initial_pose(
         Pose(
-            position_xyz=(0.15, -0.15, 0.05),
+            position_xyz=position_2,
             rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
         )
     )
 
     scene = Scene(assets=[background, light, dex_cube_1, dex_cube_2])
 
-    # Use dummy task since we're just testing object placement
     task = DummyTask()
-
     embodiment = FrankaEmbodiment()
     embodiment.set_initial_pose(
         Pose(
@@ -81,11 +78,16 @@ def get_test_environment(num_envs: int):
 def _test_duplicate_asset(simulation_app) -> bool:
     """Test that both cubes are spawned at their initial positions."""
 
-    from isaaclab.assets import RigidObject
-
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, dex_cube_1, dex_cube_2 = get_test_environment(num_envs=1)
+    position_1 = (0.15, 0.15, 0.0)
+    position_2 = (0.15, -0.15, 0.0)
+
+    env, dex_cube_1, dex_cube_2 = get_test_environment(
+        num_envs=1,
+        position_1=position_1,
+        position_2=position_2,
+    )
 
     try:
         print("Testing initial positions of two cubes")
@@ -94,30 +96,26 @@ def _test_duplicate_asset(simulation_app) -> bool:
             # Step the environment to ensure objects are initialized
             step_zeros_and_call(env, NUM_STEPS)
 
-            # Get the cube rigid objects from the scene
-            cube_1_object: RigidObject = env.scene[dex_cube_1.name]
-            cube_2_object: RigidObject = env.scene[dex_cube_2.name]
-
             # Check that both objects exist
-            assert cube_1_object is not None, "Cube 1 object is None"
-            assert cube_2_object is not None, "Cube 2 object is None"
+            assert dex_cube_1.name in env.scene.keys(), "Cube 1 object is None"
+            assert dex_cube_2.name in env.scene.keys(), "Cube 2 object is None"
 
             # Get positions (subtract env origin to get local positions)
-            cube_1_pos = cube_1_object.data.root_pos_w[0] - env.scene.env_origins[0]
-            cube_2_pos = cube_2_object.data.root_pos_w[0] - env.scene.env_origins[0]
+            cube_1_pos = dex_cube_1.get_object_pose(env)[0, :3]
+            cube_2_pos = dex_cube_2.get_object_pose(env)[0, :3]
 
             print(f"Cube 1 position: {cube_1_pos}")
             print(f"Cube 2 position: {cube_2_pos}")
 
             # Verify positions are approximately correct (with some tolerance for physics)
-            expected_pos_1 = torch.tensor([0.15, 0.15, 0.05], device=env.device)
-            expected_pos_2 = torch.tensor([0.15, -0.15, 0.05], device=env.device)
+            expected_pos_1 = torch.tensor(position_1, device=env.device)
+            expected_pos_2 = torch.tensor(position_2, device=env.device)
 
             pos_diff_1 = torch.abs(cube_1_pos - expected_pos_1)
             pos_diff_2 = torch.abs(cube_2_pos - expected_pos_2)
 
-            assert torch.all(pos_diff_1 < 0.1), f"Cube 1 position differs too much: {pos_diff_1}"
-            assert torch.all(pos_diff_2 < 0.1), f"Cube 2 position differs too much: {pos_diff_2}"
+            assert torch.all(pos_diff_1 < EPS), f"Cube 1 position differs too much: {pos_diff_1}"
+            assert torch.all(pos_diff_2 < EPS), f"Cube 2 position differs too much: {pos_diff_2}"
 
             print("Initial positions test passed: both cubes spawned correctly")
 
