@@ -44,7 +44,9 @@ class LibraryObject(Object):
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs
+    ):
         name = instance_name if instance_name is not None else self.name
         super().__init__(
             name=name,
@@ -70,7 +72,9 @@ class CrackerBox(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd"
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -84,7 +88,9 @@ class MustardBottle(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd"
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -98,7 +104,9 @@ class SugarBox(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd"
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -112,7 +120,9 @@ class TomatoSoupCan(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd"
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -126,7 +136,9 @@ class PowerDrill(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/power_drill_physics/power_drill_physics.usd"
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -149,7 +161,9 @@ class Microwave(LibraryObject, Openable):
     openable_joint_name = "microjoint"
     openable_threshold = 0.5  # Bistate threshold (open > threshold, closed <= threshold)
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(
             instance_name=instance_name,
             prim_path=prim_path,
@@ -180,7 +194,9 @@ class CoffeeMachine(LibraryObject, Pressable):
     pressable_joint_name = "CoffeeMachine108_Button002_joint"
     pressedness_threshold = 0.5
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(
             instance_name=instance_name,
             prim_path=prim_path,
@@ -209,7 +225,9 @@ class StandMixer(LibraryObject, Turnable):
     max_level_angle_deg = 280.0
     num_levels = 7
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(
             instance_name=instance_name,
             prim_path=prim_path,
@@ -233,7 +251,9 @@ class OfficeTable(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/office_table"
     scale = (1.0, 1.0, 0.7)
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -249,7 +269,9 @@ class BlueSortingBin(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/blue_sorting_bin"
     scale = (4.0, 2.0, 1.0)
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -265,7 +287,9 @@ class BlueExhaustPipe(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/blue_exhaust_pipe"
     scale = (0.55, 0.55, 1.4)
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -281,7 +305,9 @@ class BrownBox(LibraryObject):
     default_prim_path = "{ENV_REGEX_NS}/brown_box"
     scale = (1.0, 1.0, 1.0)
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
@@ -302,7 +328,9 @@ class Mug(LibraryObject, Placeable):
     upright_axis_name = "z"
     orientation_threshold = 0.5
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(
             instance_name=instance_name,
             prim_path=prim_path,
@@ -382,7 +410,9 @@ class DexCube(LibraryObject):
     scale = (0.8, 0.8, 0.8)
     object_type = ObjectType.RIGID
 
-    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 

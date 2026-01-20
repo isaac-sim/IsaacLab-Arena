@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import gymnasium as gym
 import torch
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -30,7 +29,7 @@ def get_test_environment(num_envs: int):
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("table")()
     light = asset_registry.get_asset_by_name("light")()
-    
+
     # Create two copies of the same object (dex_cube)
     dex_cube_1 = asset_registry.get_asset_by_name("dex_cube")(instance_name="dex_cube_1")
     print(f"dex_cube_1.name: {dex_cube_1.name}")
@@ -90,7 +89,7 @@ def _test_duplicate_asset(simulation_app) -> bool:
 
     try:
         print("Testing initial positions of two cubes")
-        
+
         with torch.inference_mode():
             # Step the environment to ensure objects are initialized
             step_zeros_and_call(env, NUM_STEPS)
