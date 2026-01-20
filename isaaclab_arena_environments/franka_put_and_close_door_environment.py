@@ -31,8 +31,9 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        from isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task import FrankaPutAndCloseDoorTask
-        from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+        from isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task import (
+            FrankaPutAndCloseDoorTask,
+        )
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
         # Get assets
@@ -105,7 +106,9 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             reset_pose_range=reset_pose_range,
         )
 
-        sequential_task = FrankaPutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], openable_object=container)
+        sequential_task = FrankaPutAndCloseDoorTask(
+            subtasks=[pick_and_place_task, close_door_task], openable_object=container
+        )
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,

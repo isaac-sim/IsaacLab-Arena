@@ -46,7 +46,9 @@ class PickAndPlaceTask(TaskBase):
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
-        self.events_cfg = PickPlaceEventsCfg(pick_up_object=self.pick_up_object, reset_pose_range=reset_pose_range.to_dict())
+        self.events_cfg = PickPlaceEventsCfg(
+            pick_up_object=self.pick_up_object, reset_pose_range=reset_pose_range.to_dict()
+        )
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Pick up the {pick_up_object.name}, and place it into the {destination_location.name}"

@@ -85,7 +85,7 @@ class SubtaskSuccessRateMetric(MetricBase):
         num_demos = len(recorded_metric_data)
         if num_demos == 0:
             return [0.0]
-        
+
         num_subtasks = recorded_metric_data[0].shape[1]
         subtask_successes = np.zeros(num_subtasks, dtype=float)
 
@@ -98,7 +98,6 @@ class SubtaskSuccessRateMetric(MetricBase):
 
 
 class SequentialTaskBase(TaskBase):
-
     """
     A base class for composite tasks composed sequentially from multiple subtasks.
     The sequential task takes a list of TaskBase instances (subtasks),
@@ -289,7 +288,7 @@ class SequentialTaskBase(TaskBase):
         print(f"Subtask metrics: {subtask_metrics}\n\n\n\n\n\n\n\n\n\n\n")
         return subtask_metrics
 
-    def combine_mimic_subtask_configs(self, arm_mode: ArmMode): #-> dict[str, list[SubTaskConfig]]:
+    def combine_mimic_subtask_configs(self, arm_mode: ArmMode):  # -> dict[str, list[SubTaskConfig]]:
         # Check that all subtasks have the same Mimic eef_names
         mimic_eef_names = set(self.subtasks[0].get_mimic_env_cfg(arm_mode).subtask_configs.keys())
 
@@ -297,8 +296,8 @@ class SequentialTaskBase(TaskBase):
             subtask_eef_names_set = set(subtask.get_mimic_env_cfg(arm_mode).subtask_configs.keys())
             if subtask_eef_names_set != mimic_eef_names:
                 raise ValueError(
-                    f"All subtasks must have the same Mimic eef_names.\n"
-                    f"Subtask 0 has eef_names: {mimic_eef_names}, but subtask {self.subtasks.index(subtask)} has eef_names: {subtask_eef_names_set}."
+                    f"All subtasks must have the same Mimic eef_names.\nSubtask 0 has eef_names: {mimic_eef_names}, but"
+                    f" subtask {self.subtasks.index(subtask)} has eef_names: {subtask_eef_names_set}."
                 )
 
         combined_mimic_subtask_configs = {eef_name: [] for eef_name in mimic_eef_names}
