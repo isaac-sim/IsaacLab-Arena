@@ -70,6 +70,7 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int):
 
     except Exception as e:
         import traceback
+
         # print more traceback
         print(traceback.format_exc())
         raise RuntimeError(f"Error rolling out policy: {e}")

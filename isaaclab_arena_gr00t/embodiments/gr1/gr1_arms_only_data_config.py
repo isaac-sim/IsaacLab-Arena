@@ -9,14 +9,7 @@ External data configuration module for GR1 arms-only simulation.
 
 from gr00t.configs.data.embodiment_configs import register_modality_config
 from gr00t.data.embodiment_tags import EmbodimentTag
-from gr00t.data.types import (
-    ActionConfig,
-    ActionFormat,
-    ActionRepresentation,
-    ActionType,
-    ModalityConfig,
-)
-
+from gr00t.data.types import ActionConfig, ActionFormat, ActionRepresentation, ActionType, ModalityConfig
 
 gr1_arms_only_config = {
     "video": ModalityConfig(
