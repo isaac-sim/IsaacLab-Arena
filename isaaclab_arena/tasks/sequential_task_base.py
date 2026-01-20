@@ -57,7 +57,7 @@ class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
     name: str = "subtask_success_state"
 
 
-class SubtaskSuccessStateMetric(MetricBase):
+class SubtaskSuccessRateMetric(MetricBase):
     """Computes the per-subtask success rates.
 
     Returns a dict with success rate for each subtask.
@@ -70,23 +70,35 @@ class SubtaskSuccessStateMetric(MetricBase):
         super().__init__()
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        """Return the recorder term configuration for the subtask success state metric."""
         return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
 
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> list:
         """Computes per-subtask success rates.
 
         Args:
             recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
 
         Returns:
-            Dict mapping subtask index to its success rate.
+            List of success rates for each subtask.
         """
-        print(recorded_metric_data)
+        num_demos = len(recorded_metric_data)
+        if num_demos == 0:
+            return [0.0]
+        
+        num_subtasks = recorded_metric_data[0].shape[1]
+        subtask_successes = np.zeros(num_subtasks, dtype=float)
 
-        return 1.234567890
+        for ep in range(num_demos):
+            ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
+            subtask_successes += ep_subtask_success_result
+        subtask_success_rates = subtask_successes / num_demos
+
+        return subtask_success_rates.tolist()
 
 
 class SequentialTaskBase(TaskBase):
+
     """
     A base class for composite tasks composed sequentially from multiple subtasks.
     The sequential task takes a list of TaskBase instances (subtasks),
@@ -265,12 +277,16 @@ class SequentialTaskBase(TaskBase):
                     if not any(m.name == "success_rate" for m in combined_metrics):
                         combined_metrics.append(copy.copy(metric))
 
+        print(f"Combined metrics: {combined_metrics}\n\n\n\n\n\n\n\n\n\n\n")
+
         return combined_metrics
 
     def get_metrics(self) -> list[MetricBase]:
         subtask_metrics = self.combine_subtask_metrics([i for i in range(len(self.subtasks))])
         # Add the sequential task's own metric for per-subtask success rates
-        subtask_metrics.append(SubtaskSuccessStateMetric())
+        subtask_metrics.append(SubtaskSuccessRateMetric())
+
+        print(f"Subtask metrics: {subtask_metrics}\n\n\n\n\n\n\n\n\n\n\n")
         return subtask_metrics
 
     def combine_mimic_subtask_configs(self, arm_mode: ArmMode): #-> dict[str, list[SubTaskConfig]]:

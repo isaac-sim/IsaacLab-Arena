@@ -62,7 +62,7 @@ class RevoluteJointMovedRateMetric(MetricBase):
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
         """Return the recorder term configuration for the revolute joint moved rate metric."""
-        return JointStateRecorderCfg(object=self.object)
+        return JointStateRecorderCfg(name=self.recorder_term_name,object=self.object)
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
         """Computes the revolute joint moved rate from the recorded metric data.
