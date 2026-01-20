@@ -14,5 +14,6 @@
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_rl",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_mimic",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_tasks",
-    ]
+    ],
+    "python.languageServer": "None"
 }

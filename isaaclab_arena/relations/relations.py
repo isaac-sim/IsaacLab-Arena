@@ -3,12 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from enum import Enum
 from typing import TYPE_CHECKING
 
-# Avoid circular import by using TYPE_CHECKING
+# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
+# At runtime, duck typing allows DummyObject to work as well.
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.assets.object import Object
 
 
 class Side(Enum):
@@ -23,7 +26,7 @@ class Side(Enum):
 class Relation:
     """Base class for spatial relationships between objects."""
 
-    def __init__(self, parent: "DummyObject", relation_loss_weight: float = 1.0):
+    def __init__(self, parent: Object, relation_loss_weight: float = 1.0):
         """
         Args:
             parent: The parent asset in the relationship.
@@ -44,7 +47,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: "DummyObject",
+        parent: Object,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.RIGHT,
@@ -74,7 +77,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: "DummyObject",
+        parent: Object,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
     ):

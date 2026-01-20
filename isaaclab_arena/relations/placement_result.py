@@ -3,9 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
+from __future__ import annotations
 
-from isaaclab_arena.assets.dummy_object import DummyObject
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
+# At runtime, duck typing allows DummyObject to work as well.
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object import Object
 
 
 @dataclass
@@ -15,7 +21,7 @@ class PlacementResult:
     success: bool
     """Whether placement succeeded (loss < threshold within max_attempts)."""
 
-    positions: dict[DummyObject, tuple[float, float, float]]
+    positions: dict[Object, tuple[float, float, float]]
     """Final positions for each object."""
 
     final_loss: float

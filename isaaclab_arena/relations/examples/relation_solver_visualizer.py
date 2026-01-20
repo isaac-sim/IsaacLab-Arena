@@ -5,10 +5,18 @@
 
 """3D visualization for RelationSolver results using Plotly."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import plotly.graph_objects as go
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
+# At runtime, duck typing allows Object to work as well.
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object import Object
 
 # Color palette for objects
 COLORS = [
@@ -36,9 +44,9 @@ class RelationSolverVisualizer:
 
     def __init__(
         self,
-        result: dict[DummyObject, tuple[float, float, float]],
-        objects: list[DummyObject],
-        anchor_object: DummyObject,
+        result: dict[Object, tuple[float, float, float]],
+        objects: list[Object],
+        anchor_object: Object,
         loss_history: list[float] | None = None,
         position_history: list | None = None,
     ):
@@ -46,7 +54,7 @@ class RelationSolverVisualizer:
 
         Args:
             result: Result dictionary mapping objects to final positions.
-            objects: List of DummyObject instances (same order as passed to solve())
+            objects: List of Object instances (same order as passed to solve())
             anchor_object: The anchor object that was fixed during optimization
             loss_history: Optional list of loss values during optimization.
             position_history: Optional list of position snapshots during optimization.
@@ -152,7 +160,7 @@ class RelationSolverVisualizer:
     def _add_trajectory_traces(
         self,
         fig: go.Figure,
-        obj: DummyObject,
+        obj: Object,
         obj_idx: int,
         color: str,
     ) -> None:
@@ -198,7 +206,7 @@ class RelationSolverVisualizer:
     def _add_object_traces(
         self,
         fig: go.Figure,
-        obj: DummyObject,
+        obj: Object,
         position: tuple[float, float, float],
         color: str,
         is_anchor: bool,

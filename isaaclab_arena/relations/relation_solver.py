@@ -3,14 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 
 import torch
+from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy, RelationLossStrategy
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import NextTo, On, Relation
+
+# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
+# At runtime, duck typing allows DummyObject to work as well.
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object import Object
 
 
 class RelationSolver:
@@ -45,7 +51,7 @@ class RelationSolver:
 
     def _print_relation_debug(
         self,
-        obj: DummyObject,
+        obj: Object,
         relation: Relation,
         child_pos: torch.Tensor,
         parent_pos: torch.Tensor,
@@ -136,9 +142,9 @@ class RelationSolver:
 
     def solve(
         self,
-        objects: list[DummyObject],
-        anchor_object: DummyObject,
-    ) -> dict[DummyObject, tuple[float, float, float]]:
+        objects: list[Object],
+        anchor_object: Object,
+    ) -> dict[Object, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
@@ -210,7 +216,7 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return getattr(self, "_last_position_history", [])
 
-    def debug_losses(self, objects: list[DummyObject], anchor_object: DummyObject | None = None) -> None:
+    def debug_losses(self, objects: list[Object], anchor_object: Object | None = None) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.

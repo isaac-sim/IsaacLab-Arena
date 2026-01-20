@@ -3,14 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
+from __future__ import annotations
 
-from isaaclab_arena.assets.dummy_object import DummyObject
+import torch
+from typing import TYPE_CHECKING
+
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
+
+# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
+# At runtime, duck typing allows Object to work as well.
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object import Object
 
 
 class ObjectPlacer:
@@ -35,8 +42,8 @@ class ObjectPlacer:
 
     def place(
         self,
-        objects: list[DummyObject],
-        anchor_object: DummyObject,
+        objects: list[Object],
+        anchor_object: Object,
     ) -> PlacementResult:
         """Place objects according to their spatial relations.
 
@@ -68,7 +75,7 @@ class ObjectPlacer:
         init_bounds = self._get_init_bounds(anchor_object)
 
         # Placement loop with retries
-        best_positions: dict[DummyObject, tuple[float, float, float]] = {}
+        best_positions: dict[Object, tuple[float, float, float]] = {}
         best_loss = float("inf")
         success = False
 
@@ -111,7 +118,7 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_init_bounds(self, anchor_object: DummyObject) -> AxisAlignedBoundingBox:
+    def _get_init_bounds(self, anchor_object: Object) -> AxisAlignedBoundingBox:
         """Get bounds for random position initialization.
 
         If init_bounds is provided in params, use it.
@@ -144,8 +151,8 @@ class ObjectPlacer:
 
     def _random_initialize(
         self,
-        objects: list[DummyObject],
-        anchor_object: DummyObject,
+        objects: list[Object],
+        anchor_object: Object,
         init_bounds: AxisAlignedBoundingBox,
     ) -> None:
         """Set random initial positions for non-anchor objects."""
@@ -157,14 +164,9 @@ class ObjectPlacer:
 
     def _validate_placement(
         self,
-        positions: dict[DummyObject, tuple[float, float, float]],
+        positions: dict[Object, tuple[float, float, float]],
     ) -> bool:
         """Validate that the placement is geometrically valid.
-
-        TODO(cvolk): Implement geometric checks like:
-        - Collision detection between objects
-        - Boundary checks (objects within workspace)
-        - Stability checks (objects properly supported)
 
         Args:
             positions: Dictionary mapping objects to their positions.
@@ -172,13 +174,16 @@ class ObjectPlacer:
         Returns:
             True if placement is valid, False otherwise.
         """
-        # Placeholder: always return True for now
+        # TODO(cvolk): Implement geometric checks like:
+        # - Collision detection between objects
+        # - Boundary checks (objects within workspace)
+        print("WARNING: Placement validation not yet implemented. Skipping geometric checks (collision, boundary).")
         return True
 
     def _apply_positions(
         self,
-        positions: dict[DummyObject, tuple[float, float, float]],
-        anchor_object: DummyObject,
+        positions: dict[Object, tuple[float, float, float]],
+        anchor_object: Object,
     ) -> None:
         """Apply solved positions to objects."""
         for obj, pos in positions.items():

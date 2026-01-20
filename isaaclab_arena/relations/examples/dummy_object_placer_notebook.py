@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pyright: reportArgumentType=false
+# ^^^ Suppress type errors for DummyObject → Object (duck typing works at runtime)
 
 # Example notebook demonstrating the ObjectPlacer class not using any IsaacSim dependencies.
 

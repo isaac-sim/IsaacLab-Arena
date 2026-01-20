@@ -11,7 +11,7 @@ from isaaclab_arena.utils.pose import Pose
 
 class DummyObject:
     """
-    Dummy object for testing purposes.
+    Dummy object for testing purposes without Isaac Sim dependencies.
     """
 
     def __init__(
