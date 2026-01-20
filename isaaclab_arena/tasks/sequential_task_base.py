@@ -57,7 +57,7 @@ class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
     name: str = "subtask_success_state"
 
 
-class SubtaskSuccessRateMetric(MetricBase):
+class SubtaskSuccessStateMetric(MetricBase):
     """Computes the per-subtask success rates.
 
     Returns a dict with success rate for each subtask.
@@ -265,15 +265,12 @@ class SequentialTaskBase(TaskBase):
                     if not any(m.name == "success_rate" for m in combined_metrics):
                         combined_metrics.append(copy.copy(metric))
 
-        for metric in combined_metrics:
-            print(f"Combined metric: {metric.name}")
-        print("\n\n\n\n\n")
         return combined_metrics
 
     def get_metrics(self) -> list[MetricBase]:
         subtask_metrics = self.combine_subtask_metrics([i for i in range(len(self.subtasks))])
         # Add the sequential task's own metric for per-subtask success rates
-        subtask_metrics.append(SubtaskSuccessRateMetric())
+        subtask_metrics.append(SubtaskSuccessStateMetric())
         return subtask_metrics
 
     def combine_mimic_subtask_configs(self, arm_mode: ArmMode): #-> dict[str, list[SubTaskConfig]]:
@@ -305,7 +302,5 @@ class SequentialTaskBase(TaskBase):
                     else:
                         mimic_subtask.subtask_term_signal = f"subtask_{i}_{mimic_subtask.subtask_term_signal}"
                     combined_mimic_subtask_configs[eef_name].append(mimic_subtask)
-
-        print(f"Combined mimic subtask configs: {combined_mimic_subtask_configs}\n\n\n\n\n\n\n\n\n\n\n")
 
         return combined_mimic_subtask_configs
