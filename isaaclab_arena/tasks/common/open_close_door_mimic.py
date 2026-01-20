@@ -46,7 +46,7 @@ class RotateDoorMimicEnvCfg(MimicEnvCfg):
                 object_ref=self.openable_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
-                subtask_term_signal="grasp_1",
+                subtask_term_signal="move_to_door",
                 # Specifies time offsets for data generation when splitting a trajectory into
                 # subtask segments. Random offsets are added to the termination boundary.
                 subtask_term_offset_range=(10, 20),

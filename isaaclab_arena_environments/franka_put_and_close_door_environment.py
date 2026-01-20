@@ -31,8 +31,9 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task import FrankaPutAndCloseDoorTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         # Get assets
         background = self.asset_registry.get_asset_by_name("kitchen")()
@@ -94,32 +95,17 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         # Create pick and place task
+        reset_pose_range = PoseRange(position_xyz_min=(-0.05, -0.1, 0.0), position_xyz_max=(0.1, 0.1, 0.0))
         pick_and_place_task = PickAndPlaceTask(
             pick_up_object=pick_object,
+            destination_object=container,
             destination_location=destination_ref,
             background_scene=background,
             task_description=task_description_pick,
+            reset_pose_range=reset_pose_range,
         )
 
-        # Create a sequential task wrapper class
-        class SequentialPutAndCloseDoorTask(SequentialTaskBase):
-            def __init__(self, subtasks, episode_length_s=None):
-                super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
-
-            def get_metrics(self):
-                return []
-
-            def get_mimic_env_cfg(self, arm_mode):
-                return None
-
-            def get_viewer_cfg(self):
-                return self.subtasks[1].get_viewer_cfg()
-
-        # Create the sequential task
-        sequential_task = SequentialPutAndCloseDoorTask(
-            subtasks=[pick_and_place_task, close_door_task],
-            episode_length_s=90.0,  # Episode for two subtasks
-        )
+        sequential_task = FrankaPutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], openable_object=container)
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
