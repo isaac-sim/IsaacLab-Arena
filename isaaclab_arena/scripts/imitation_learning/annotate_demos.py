@@ -320,6 +320,7 @@ def replay_episode(
                 continue
         action_tensor = torch.Tensor(action).reshape([1, action.shape[0]])
         env.step(torch.Tensor(action_tensor))
+        # Run the success term so that tasks with a success term dependent state machine can update their state.
         success_term.func(env, **success_term.params)
     if success_term is not None:
         if not bool(success_term.func(env, **success_term.params)[0]):
