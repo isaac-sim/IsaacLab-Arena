@@ -22,7 +22,7 @@ def _test_object_pose_randomization(simulation_app):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.dummy_task import DummyTask
-    from isaaclab_arena.utils.pose import Pose, PoseRange
+    from isaaclab_arena.utils.pose import PoseRange
 
     asset_registry = AssetRegistry()
 
@@ -30,7 +30,6 @@ def _test_object_pose_randomization(simulation_app):
     embodiment = asset_registry.get_asset_by_name("franka")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
-    initial_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
     pose_range = PoseRange(
         position_xyz_min=(0.4 - 0.08, 0.0 - 0.08, 0.1),
         position_xyz_max=(0.4 + 0.08, 0.0 + 0.08, 0.1),

@@ -20,7 +20,7 @@ from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.tasks.dummy_task import DummyTask
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 
 asset_registry = AssetRegistry()
 
@@ -28,7 +28,14 @@ background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
-cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+initial_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+pose_range = PoseRange(
+    position_xyz_min=(0.4 - 0.08, 0.0 - 0.08, 0.1),
+    position_xyz_max=(0.4 + 0.08, 0.0 + 0.08, 0.1),
+    rpy_min=(0.0, 0.0, 0.0),
+    rpy_max=(0.0, 0.0, 0.0),
+)
+cracker_box.set_initial_pose(pose_range)
 
 scene = Scene(assets=[background, cracker_box])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -46,11 +53,33 @@ env.reset()
 
 # %%
 
-# Run some zero actions.
-NUM_STEPS = 1000
-for _ in tqdm.tqdm(range(NUM_STEPS)):
+
+pose_per_reset = []
+for _ in tqdm.tqdm(range(10)):
+
     with torch.inference_mode():
-        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-        env.step(actions)
+        env.reset()
+
+    # Run some zero actions.
+    NUM_STEPS = 10
+    for _ in tqdm.tqdm(range(NUM_STEPS)):
+        with torch.inference_mode():
+            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            env.step(actions)
+
+    pose = cracker_box.get_object_pose(env)
+    print(f"pose: {pose}")
+    pose_per_reset.append(pose)
+
+print(f"pose_per_reset: {pose_per_reset}")
+
+# %%
+
+min_x = min([pose[:, 0].item() for pose in pose_per_reset])
+
+# max_x = max(pose[:, 0] for pose in pose_per_reset)
+
+# print(f"min_x: {min_x}, max_x: {max_x}")
+
 
 # %%
