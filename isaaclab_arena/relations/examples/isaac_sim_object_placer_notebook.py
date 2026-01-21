@@ -20,7 +20,7 @@ simulation_app = AppLauncher()
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.embodiments.null_embodiment import NullEmbodiment
+from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -63,7 +63,7 @@ assets = [ground_plane, office_table, cracker_box, coffee_machine, light, mug]
 scene = Scene(assets=assets)
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
-    embodiment=NullEmbodiment(),
+    embodiment=FrankaEmbodiment(),
     scene=scene,
     task=DummyTask(),
     teleop_device=None,
