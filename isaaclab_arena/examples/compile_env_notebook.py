@@ -28,46 +28,15 @@ background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
-initial_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-cracker_box.set_initial_pose(initial_pose)
-
-
-from isaaclab_arena.utils.pose import PoseRange
-
-pose_range = PoseRange(
-    position_xyz_min=(
-        initial_pose.position_xyz[0] - 0.08,
-        initial_pose.position_xyz[1] - 0.08,
-        initial_pose.position_xyz[2],
-    ),
-    position_xyz_max=(
-        initial_pose.position_xyz[0] + 0.08,
-        initial_pose.position_xyz[1] + 0.08,
-        initial_pose.position_xyz[2],
-    ),
-    rpy_min=(0.0, 0.0, 0.0),
-    rpy_max=(0.0, 0.0, 0.0),
-)
-print(f"pose_range: {pose_range}")
-print(f"pose_range.get_midpoint(): {pose_range.get_midpoint()}")
-
-cracker_box.set_initial_pose(pose_range)
-# cracker_box.set_initial_pose(initial_pose)
-
-from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
-
-task = LiftObjectTask(cracker_box, background, reset_pose_range=pose_range)
-# task = DummyTask()
+cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
 scene = Scene(assets=[background, cracker_box])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
     scene=scene,
-    # task=DummyTask(),
-    task=task,
+    task=DummyTask(),
     teleop_device=None,
-    # env_cfg_callback=test_callback,
 )
 
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -77,11 +46,8 @@ env.reset()
 
 # %%
 
-with torch.inference_mode():
-    env.reset()
-
 # Run some zero actions.
-NUM_STEPS = 10
+NUM_STEPS = 1000
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
