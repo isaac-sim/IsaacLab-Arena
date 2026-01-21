@@ -56,7 +56,7 @@ class Job:
                   - arena_env_args: Dictionary of arguments for configuring the arena environment
                   - num_steps: Number of steps to run the policy for
                   - policy_type: Type of policy to use
-                  - policy_args: Dictionary of arguments for the policy. These are passed to the policy class's from_args method.
+                  - policy_config_dict: Dictionary of configuration for the policy.
                   - status: Status string (optional, defaults to PENDING)
 
         Returns:
@@ -65,8 +65,8 @@ class Job:
         assert "name" in data, "name is required"
         assert "arena_env_args" in data, "arena_env_args is required"
         assert "policy_type" in data, "policy_type is required"
-        if "policy_args" not in data:
-            data["policy_args"] = {}
+        if "policy_config_dict" not in data:
+            data["policy_config_dict"] = {}
 
         if "num_steps" in data and data["num_steps"] is not None:
             num_steps = data["num_steps"]
@@ -83,7 +83,7 @@ class Job:
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
             policy_type=data["policy_type"],
             num_steps=num_steps,
-            policy_config_dict=data["policy_args"],
+            policy_config_dict=data["policy_config_dict"],
             status=status,
         )
 
