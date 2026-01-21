@@ -35,7 +35,7 @@ def _test_affordance_base(simulation_app):
 
     with pytest.raises(TypeError) as exception_info:
         _ = OpenableNotAnAsset(blah="test_name", openable_joint_name="test_joint_name", openable_threshold=0.5)
-    assert "Can't instantiate abstract class" in str(exception_info.value)
+    assert "must inherit from Asset" in str(exception_info.value)
 
     return True
 

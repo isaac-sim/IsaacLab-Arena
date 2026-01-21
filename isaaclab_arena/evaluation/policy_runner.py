@@ -11,7 +11,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
@@ -46,6 +46,42 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
         return policy_cls
 
 
+def rollout_policy(env, policy: "PolicyBase", num_steps: int):
+
+    try:
+        obs, _ = env.reset()
+        policy.reset()
+        # set task description (could be None) from the task being evaluated
+        policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
+
+        for _ in tqdm.tqdm(range(num_steps)):
+            with torch.inference_mode():
+                actions = policy.get_action(env, obs)
+                obs, _, terminated, truncated, _ = env.step(actions)
+
+                if terminated.any() or truncated.any():
+                    # only reset policy for those envs that are terminated or truncated
+                    print(
+                        f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
+                        f" and truncated env_ids: {truncated.nonzero().flatten()}"
+                    )
+                    env_ids = (terminated | truncated).nonzero().flatten()
+                    policy.reset(env_ids=env_ids)
+
+    except Exception as e:
+        raise RuntimeError(f"Error rolling out policy: {e}")
+
+    else:
+        # only compute metrics if env has metrics registered
+        if hasattr(env.cfg, "metrics"):
+            # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
+            from isaaclab_arena.metrics.metrics import compute_metrics
+
+            metrics = compute_metrics(env)
+            return metrics
+        return None
+
+
 def main():
     """Script to run an IsaacLab Arena environment with a zero-action agent."""
     args_parser = get_isaaclab_arena_cli_parser()
@@ -77,8 +113,6 @@ def main():
             np.random.seed(args_cli.seed)
             random.seed(args_cli.seed)
 
-        obs, _ = env.reset()
-
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
 
@@ -88,28 +122,10 @@ def main():
         else:
             num_steps = args_cli.num_steps
         print(f"Simulation length: {num_steps}")
-        # set task description (could be None) from the task being evaluated
-        policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
 
-        # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
-        from isaaclab_arena.metrics.metrics import compute_metrics
-
-        for _ in tqdm.tqdm(range(num_steps)):
-            with torch.inference_mode():
-                actions = policy.get_action(env, obs)
-                obs, _, terminated, truncated, _ = env.step(actions)
-
-                if terminated.any() or truncated.any():
-                    # only reset policy for those envs that are terminated or truncated
-                    print(
-                        f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
-                        f" and truncated env_ids: {truncated.nonzero().flatten()}"
-                    )
-                    env_ids = (terminated | truncated).nonzero().flatten()
-                    policy.reset(env_ids=env_ids)
-
-        metrics = compute_metrics(env)
-        print(f"Metrics: {metrics}")
+        metrics = rollout_policy(env, policy, num_steps)
+        if metrics is not None:
+            print(f"Metrics: {metrics}")
 
         # Close the environment.
         env.close()

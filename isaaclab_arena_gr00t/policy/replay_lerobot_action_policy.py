@@ -8,6 +8,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -23,34 +24,103 @@ from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_ro
 from isaaclab_arena_gr00t.utils.joints_conversion import remap_policy_joints_to_sim_joints
 
 
+@dataclass
+class ReplayLerobotActionPolicyArgs:
+    """
+    Configuration dataclass for ReplayLerobotActionPolicy.
+
+    This dataclass serves as the single source of truth for policy configuration,
+    supporting both dict-based (from JSON) and CLI-based configuration paths.
+
+    Field metadata is used to auto-generate argparse arguments, ensuring consistency
+    between the dataclass definition and CLI argument parsing.
+    """
+
+    policy_config_yaml_path: str = field(
+        metadata={
+            "help": "Path to the Lerobot action policy config YAML file",
+            "required": True,
+            "arg_name": "config_yaml_path",  # Override argparse name
+        }
+    )
+
+    device: str = field(
+        default="cuda",
+        metadata={
+            "help": "Device to use for the policy-related operations",
+        },
+    )
+
+    num_envs: int = field(
+        default=1,
+        metadata={
+            "help": "Number of environments to simulate",
+        },
+    )
+
+    trajectory_index: int = field(
+        default=0,
+        metadata={
+            "help": "Index of the trajectory to run the policy for",
+        },
+    )
+
+    max_steps: int | None = field(
+        default=None,
+        metadata={
+            "help": "Maximum number of steps to run the policy for",
+        },
+    )
+
+    # from_dict() is not needed - can use ReplayLerobotActionPolicyArgs(**dict) directly
+    # or use ReplayLerobotActionPolicy.from_dict() which is inherited from PolicyBase
+
+    @classmethod
+    def from_cli_args(cls, args: argparse.Namespace) -> "ReplayLerobotActionPolicyArgs":
+        """
+        Create configuration from parsed CLI arguments.
+
+        Args:
+            args: Parsed command line arguments
+
+        Returns:
+            ReplayLerobotActionPolicyArgs instance
+        """
+        return cls(
+            policy_config_yaml_path=args.config_yaml_path,
+            device=getattr(args, "device", "cuda"),
+            num_envs=args.num_envs,
+            trajectory_index=args.trajectory_index,
+            max_steps=args.max_steps,
+        )
+
+
 class ReplayLerobotActionPolicy(PolicyBase):
 
     name = "replay_lerobot"
+    # enable from_dict() from policy_base.PolicyBase
+    config_class = ReplayLerobotActionPolicyArgs
 
-    def __init__(
-        self,
-        policy_config_yaml_path: Path,
-        num_envs: int = 1,
-        device: str = "cuda",
-        trajectory_index: int = 0,
-        max_steps: int | None = None,
-    ):
+    def __init__(self, config: ReplayLerobotActionPolicyArgs):
         """
-        Base class for replay action policies from Lerobot dataset.
-        """
+        Initialize ReplayLerobotActionPolicy from a configuration dataclass.
 
-        self.policy_config = create_config_from_yaml(policy_config_yaml_path, LerobotReplayActionPolicyConfig)
+        Args:
+            config: ReplayLerobotActionPolicyArgs configuration dataclass
+        """
+        super().__init__(config)
+        self.policy_config = create_config_from_yaml(config.policy_config_yaml_path, LerobotReplayActionPolicyConfig)
         self.policy = self.load_policy(self.policy_config)
         # Start from the trajectory_index trajectory in the dataset
-        self.trajectory_index = trajectory_index
-        self.policy_iter = self.create_trajectory_iterator(trajectory_index)
+        self.trajectory_index = config.trajectory_index
+        self.policy_iter = self.create_trajectory_iterator(config.trajectory_index)
         # determine rollout how many action prediction per observation
         self.action_chunk_length = self.policy_config.action_chunk_length
         self.current_action_index = 0
         self.current_action_chunk = None
-        self.num_envs = num_envs
-        self.device = device
-        self.max_steps = max_steps
+        self.num_envs = config.num_envs
+        self.device = config.device
+        self.max_steps = config.max_steps
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
         self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
@@ -156,6 +226,8 @@ class ReplayLerobotActionPolicy(PolicyBase):
             )
         elif self.task_mode == TaskMode.GR1_TABLETOP_MANIPULATION:
             action_tensor = robot_action_sim.get_joints_pos()
+        else:
+            raise ValueError(f"Unsupported task mode: {self.task_mode}")
 
         assert action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
@@ -214,6 +286,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         replay_lerobot_group.add_argument(
             "--config_yaml_path",
             type=str,
+            required=True,
             help="Path to the Lerobot action policy config YAML file",
         )
         replay_lerobot_group.add_argument(
@@ -226,17 +299,22 @@ class ReplayLerobotActionPolicy(PolicyBase):
             "--trajectory_index",
             type=int,
             default=0,
-            help="Index of the trajectory to run the policy for.",
+            help="Index of the trajectory to run the policy for (default: 0)",
         )
         return parser
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> "ReplayLerobotActionPolicy":
-        """Create a replay Lerobot action policy from the arguments."""
-        return ReplayLerobotActionPolicy(
-            policy_config_yaml_path=args.config_yaml_path,
-            num_envs=args.num_envs,
-            device=args.device,
-            trajectory_index=args.trajectory_index,
-            max_steps=args.max_steps,
-        )
+        """
+        Create a ReplayLerobotActionPolicy instance from parsed CLI arguments.
+
+        Path: CLI args → ConfigDataclass → init cls
+
+        Args:
+            args: Parsed command line arguments
+
+        Returns:
+            ReplayLerobotActionPolicy instance
+        """
+        config = ReplayLerobotActionPolicyArgs.from_cli_args(args)
+        return ReplayLerobotActionPolicy(config)
