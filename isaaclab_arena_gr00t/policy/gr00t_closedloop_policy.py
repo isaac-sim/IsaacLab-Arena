@@ -219,9 +219,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         assert self.task_description is not None, "Task description is not set"
         policy_observations = {
             # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
-            "language": {
-                "annotation.human.action.task_description": [[self.task_description] for _ in range(self.num_envs)]
-            },
+            "language": {"annotation.human.task_description": [[self.task_description] for _ in range(self.num_envs)]},
             "video": {
                 "ego_view": rgb.reshape(
                     self.num_envs,

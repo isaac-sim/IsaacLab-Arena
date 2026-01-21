@@ -78,7 +78,6 @@ def remap_policy_joints_to_sim_joints(
                 continue
         if joint_name in policy_joints_config[joint_group]:
             if joint_group in policy_joints:
-                print(f"policy_joints[joint_group]: {policy_joints[joint_group].shape}")
                 gr00t_index = policy_joints_config[joint_group].index(joint_name)
                 data[..., joint_index] = torch.from_numpy(policy_joints[f"{joint_group}"][..., gr00t_index]).to(device)
 
