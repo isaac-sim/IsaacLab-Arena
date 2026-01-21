@@ -10,7 +10,7 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_RESETS = 10
 NUM_STEPS_PER_RESET = 10
-HEADLESS = False
+HEADLESS = True
 
 
 def _test_object_pose_randomization(simulation_app):
