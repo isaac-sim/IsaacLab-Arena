@@ -222,7 +222,7 @@ class RelationSolverVisualizer:
         """
         bbox = obj.get_bounding_box()
         label = f"{obj.name} (anchor)" if is_anchor else obj.name
-        dash = "dash" if is_anchor else None
+        dash = "dot" if is_anchor else None
 
         # Wireframe bounding box
         box_trace = self._create_wireframe_box(
@@ -444,7 +444,7 @@ class RelationSolverVisualizer:
             label = f"{obj.name} (anchor)" if is_anchor else obj.name
             line_dict = {"color": color, "width": 3}
             if is_anchor:
-                line_dict["dash"] = "dash"
+                line_dict["dash"] = "dot"
 
             fig.add_trace(
                 go.Scatter3d(
@@ -488,9 +488,34 @@ class RelationSolverVisualizer:
         fig.update_layout(
             title=dict(text="Optimization Animation", font=dict(size=18)),
             scene=dict(
-                xaxis=dict(title="X (m)", range=x_range, autorange=False),
-                yaxis=dict(title="Y (m)", range=y_range, autorange=False),
-                zaxis=dict(title="Z (m)", range=z_range, autorange=False),
+                xaxis=dict(
+                    range=x_range,
+                    autorange=False,
+                    showbackground=False,
+                    showgrid=False,
+                    showline=False,
+                    showticklabels=False,
+                    title="",
+                ),
+                yaxis=dict(
+                    range=y_range,
+                    autorange=False,
+                    showbackground=False,
+                    showgrid=False,
+                    showline=False,
+                    showticklabels=False,
+                    title="",
+                ),
+                zaxis=dict(
+                    range=z_range,
+                    autorange=False,
+                    showbackground=False,
+                    showgrid=False,
+                    showline=False,
+                    showticklabels=False,
+                    title="",
+                ),
+                bgcolor="rgba(0,0,0,0)",
                 aspectmode="manual",
                 aspectratio=dict(
                     x=(x_range[1] - x_range[0]),
@@ -502,21 +527,21 @@ class RelationSolverVisualizer:
                     up=dict(x=0, y=0, z=1),
                     center=dict(x=0, y=0, z=0),
                 ),
-                domain=dict(x=[0, 0.85], y=[0, 1]),
             ),
-            legend=dict(x=0.87, y=0.98),
-            margin=dict(l=0, r=0, t=60, b=0),
+            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.7)"),
+            margin=dict(l=0, r=0, t=60, b=50),
             updatemenus=[
                 dict(
                     type="buttons",
                     showactive=False,
-                    y=1.0,
-                    x=0.0,
-                    xanchor="left",
-                    yanchor="top",
+                    y=0.0,
+                    x=0.5,
+                    xanchor="center",
+                    yanchor="bottom",
+                    direction="left",
                     buttons=[
                         dict(
-                            label="Play",
+                            label="▶ Play",
                             method="animate",
                             args=[
                                 None,
@@ -524,6 +549,17 @@ class RelationSolverVisualizer:
                                     frame=dict(duration=100, redraw=True),
                                     fromcurrent=True,
                                     transition=dict(duration=50),
+                                    mode="immediate",
+                                ),
+                            ],
+                        ),
+                        dict(
+                            label="⏸ Pause",
+                            method="animate",
+                            args=[
+                                [None],
+                                dict(
+                                    frame=dict(duration=0, redraw=False),
                                     mode="immediate",
                                 ),
                             ],
