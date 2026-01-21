@@ -52,14 +52,19 @@ print(f"pose_range: {pose_range}")
 print(f"pose_range.get_midpoint(): {pose_range.get_midpoint()}")
 
 cracker_box.set_initial_pose(pose_range)
+# cracker_box.set_initial_pose(initial_pose)
 
+from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
+task = LiftObjectTask(cracker_box, background, reset_pose_range=pose_range)
+# task = DummyTask()
 
 scene = Scene(assets=[background, cracker_box])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
     scene=scene,
-    task=DummyTask(),
+    # task=DummyTask(),
+    task=task,
     teleop_device=None,
     # env_cfg_callback=test_callback,
 )
@@ -75,7 +80,7 @@ with torch.inference_mode():
     env.reset()
 
 # Run some zero actions.
-NUM_STEPS = 10
+NUM_STEPS = 100
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

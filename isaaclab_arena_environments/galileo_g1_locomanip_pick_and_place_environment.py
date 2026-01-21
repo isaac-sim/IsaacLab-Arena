@@ -16,7 +16,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
@@ -28,12 +28,16 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
+        XY_RANGE_M = 0.025
         pick_up_object.set_initial_pose(
-            Pose(
-                position_xyz=(0.5785, 0.18, 0.0707),
-                rotation_wxyz=(0.0, 0.0, 1.0, 0.0),
+            PoseRange(
+                position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
+                position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
+                rpy_min=(0.0, 0.0, 0.0),
+                rpy_max=(0.0, 0.0, 0.0),
             )
         )
+
         blue_sorting_bin.set_initial_pose(
             Pose(
                 position_xyz=(-0.2450, -1.6272, -0.2641),
