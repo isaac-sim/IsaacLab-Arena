@@ -4,16 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-import torch
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import euler_xyz_from_quat
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -96,39 +93,6 @@ class TerminationsCfg:
     success: TerminationTermCfg = MISSING
 
     object_dropped: TerminationTermCfg = MISSING
-
-
-# @configclass
-# class EventsCfg:
-#     """Configuration for Pick and Place."""
-
-#     reset_pick_up_object_pose: EventTermCfg = MISSING
-
-#     def __init__(self, pick_up_object: Asset):
-#         initial_pose = pick_up_object.get_initial_pose()
-#         if initial_pose is not None:
-#             roll, pitch, yaw = euler_xyz_from_quat(torch.tensor(initial_pose.rotation_wxyz).reshape(1, 4))
-#             self.reset_pick_up_object_pose = EventTermCfg(
-#                 func=franka_stack_events.randomize_object_pose,
-#                 mode="reset",
-#                 params={
-#                     "pose_range": {
-#                         "x": (initial_pose.position_xyz[0] - 0.025, initial_pose.position_xyz[0] + 0.025),
-#                         "y": (initial_pose.position_xyz[1] - 0.025, initial_pose.position_xyz[1] + 0.025),
-#                         "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
-#                         "roll": (roll, roll),
-#                         "pitch": (pitch, pitch),
-#                         "yaw": (yaw, yaw),
-#                     },
-#                     "asset_cfgs": [SceneEntityCfg(pick_up_object.name)],
-#                 },
-#             )
-#         else:
-#             print(
-#                 f"Pick up object {pick_up_object.name} has no initial pose. Not setting reset pick up object pose"
-#                 " event."
-#             )
-#             self.reset_pick_up_object_pose = None
 
 
 @configclass

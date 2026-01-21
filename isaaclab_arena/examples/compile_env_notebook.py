@@ -55,6 +55,7 @@ cracker_box.set_initial_pose(pose_range)
 # cracker_box.set_initial_pose(initial_pose)
 
 from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
+
 task = LiftObjectTask(cracker_box, background, reset_pose_range=pose_range)
 # task = DummyTask()
 
@@ -80,7 +81,7 @@ with torch.inference_mode():
     env.reset()
 
 # Run some zero actions.
-NUM_STEPS = 100
+NUM_STEPS = 10
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

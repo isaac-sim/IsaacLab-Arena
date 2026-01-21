@@ -8,7 +8,7 @@ from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import CommandTermCfg, EventTermCfg
+from isaaclab.managers import CommandTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
@@ -71,38 +71,6 @@ class LiftObjectTask(TaskBase):
             lookat_object=self.lift_object,
             offset=np.array([-1.5, -1.5, 1.5]),
         )
-
-
-# @configclass
-# class LiftObjectEventsCfg:
-#     """Configuration for Lift Object."""
-
-#     reset_lift_object_pose: EventTermCfg = MISSING
-
-#     def __init__(self, lift_object: Asset, reset_pose_range: dict[str, tuple[float, float]]):
-#         print(f"reset_pose_range: {reset_pose_range}")
-#         # self.reset_lift_object_pose = EventTermCfg(
-#         #     func=mdp_isaac_lab.reset_root_state_uniform,
-#         #     mode="reset",
-#         #     params={
-#         #         "pose_range": {
-#         #             "x": reset_pose_range["x"],
-#         #             "y": reset_pose_range["y"],
-#         #             "z": reset_pose_range["z"],
-#         #         },
-#         #         "velocity_range": {},
-#         #         "asset_cfg": SceneEntityCfg(lift_object.name),
-#         #     },
-#         # )
-#         from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
-#         self.reset_lift_object_pose = EventTermCfg(
-#             func=franka_stack_events.randomize_object_pose,
-#             mode="reset",
-#             params={
-#                 "pose_range": reset_pose_range,
-#                 "asset_cfgs": [SceneEntityCfg(lift_object.name)],
-#             },
-#         )
 
 
 @configclass

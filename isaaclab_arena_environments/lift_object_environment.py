@@ -42,7 +42,9 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
 
         # Set all positions
         background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_wxyz=(0.707, 0, 0, 0.707)))
-        pick_up_object.set_initial_pose(PoseRange(position_xyz_min=(-0.1, -0.25, 0.0), position_xyz_max=(0.1, 0.25, 0.0)))
+        pick_up_object.set_initial_pose(
+            PoseRange(position_xyz_min=(-0.1, -0.25, 0.0), position_xyz_max=(0.1, 0.25, 0.0))
+        )
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
 
         # Compose the scene
