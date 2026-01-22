@@ -56,12 +56,10 @@ class ObjectPlacer:
         Raises:
             ValueError: If anchor_object has no initial_pose set.
         """
-        # Validate anchor has initial pose
-        if anchor_object.initial_pose is None:
-            raise ValueError(
-                f"anchor_object '{anchor_object.name}' must have an initial_pose set. "
-                "Call anchor_object.set_initial_pose(...) before placing."
-            )
+        assert anchor_object.initial_pose is not None, (
+            f"anchor_object '{anchor_object.name}' must have an initial_pose set. "
+            "Call anchor_object.set_initial_pose(...) before placing."
+        )
 
         # Save RNG state and set seed if provided (for reproducibility without affecting Isaac Sim)
         rng_state = None
