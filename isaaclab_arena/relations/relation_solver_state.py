@@ -29,10 +29,12 @@ class RelationSolverState:
         """Initialize optimization state.
 
         Args:
-            objects: List of all Object instances to track.
+            objects: List of all Object instances to track (must include anchor_object).
             anchor_object: The fixed reference object (won't be optimized).
             initial_positions: Starting positions for all objects (including anchor).
         """
+        assert anchor_object in objects, f"anchor_object '{anchor_object.name}' must be in objects list"
+
         self._objects = objects
         self._anchor_object = anchor_object
 
@@ -85,13 +87,13 @@ class RelationSolverState:
         opt_idx = self._optimizable_indices.index(idx)
         return self._optimizable_positions[opt_idx]
 
-    def get_all_positions_snapshot(self) -> list[list[float]]:
+    def get_all_positions_snapshot(self) -> list[tuple[float, float, float]]:
         """Get detached copy of all positions for history tracking.
 
         Returns:
-            List of [x, y, z] positions for each object (in original order).
+            List of (x, y, z) positions for each object (in original order).
         """
-        return [self.get_position(obj).detach().tolist() for obj in self._objects]
+        return [tuple(self.get_position(obj).detach().tolist()) for obj in self._objects]
 
     def get_final_positions_dict(self) -> dict[Object, tuple[float, float, float]]:
         """Get final positions as a dictionary mapping objects to positions.

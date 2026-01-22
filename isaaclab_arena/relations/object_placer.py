@@ -46,15 +46,12 @@ class ObjectPlacer:
         """Place objects according to their spatial relations.
 
         Args:
-            objects: List of objects to place (may include anchor_object).
+            objects: List of objects to place (must include anchor_object).
             anchor_object: Fixed reference object that won't be optimized.
                 Must have an initial_pose set.
 
         Returns:
             PlacementResult with success status, positions, loss, and attempt count.
-
-        Raises:
-            ValueError: If anchor_object has no initial_pose set.
         """
         assert anchor_object.initial_pose is not None, (
             f"anchor_object '{anchor_object.name}' must have an initial_pose set. "

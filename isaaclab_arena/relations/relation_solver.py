@@ -102,7 +102,7 @@ class RelationSolver:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object instances (may include anchor_object).
+            objects: List of Object instances (must include anchor_object).
             anchor_object: Fixed reference object that won't be optimized.
             initial_positions: Starting positions for all objects (including anchor).
 
