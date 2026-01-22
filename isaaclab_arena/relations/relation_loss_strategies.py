@@ -21,12 +21,7 @@ from isaaclab_arena.relations.relations import Side
 
 
 class RelationLossStrategy(ABC):
-    """Abstract base class for relation loss computation strategies.
-
-    Loss strategies compute constraints using world-space extents:
-        world_min = position + bbox.min_point
-        world_max = position + bbox.max_point
-    """
+    """Abstract base class defining how a Relation maps to a differentiable loss."""
 
     @abstractmethod
     def compute_loss(
