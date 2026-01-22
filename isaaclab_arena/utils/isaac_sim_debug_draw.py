@@ -28,10 +28,10 @@ class IsaacSimDebugDraw:
     def __init__(self):
         """Initialize the debug draw interface.
 
-        Automatically enables the omni.isaac.debug_draw extension if not already enabled.
+        Automatically enables the isaacsim.util.debug_draw extension if not already enabled.
         """
         self._ensure_extension_enabled()
-        from omni.isaac.debug_draw import _debug_draw
+        from isaacsim.util.debug_draw import _debug_draw
 
         self._draw = _debug_draw.acquire_debug_draw_interface()
 
@@ -40,7 +40,7 @@ class IsaacSimDebugDraw:
         import omni.kit.app
 
         ext_manager = omni.kit.app.get_app().get_extension_manager()
-        ext_manager.set_extension_enabled_immediate("omni.isaac.debug_draw", True)
+        ext_manager.set_extension_enabled_immediate("isaacsim.util.debug_draw", True)
 
     def draw_bbox(
         self,
