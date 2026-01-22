@@ -36,6 +36,8 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
+        self._last_loss_history: list[float] = []
+        self._last_position_history: list = []
 
     def _get_strategy(self, relation: Relation) -> RelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
@@ -158,12 +160,12 @@ class RelationSolver:
     @property
     def last_loss_history(self) -> list[float]:
         """Loss values from the most recent solve() call."""
-        return getattr(self, "_last_loss_history", [])
+        return self._last_loss_history
 
     @property
     def last_position_history(self) -> list:
         """Position snapshots from the most recent solve() call."""
-        return getattr(self, "_last_position_history", [])
+        return self._last_position_history
 
     def debug_losses(self, objects: list[Object], anchor_object: Object) -> None:
         """Print detailed loss breakdown for all relations using final positions.
