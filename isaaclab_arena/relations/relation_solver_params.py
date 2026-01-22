@@ -5,8 +5,16 @@
 
 from dataclasses import dataclass, field
 
-from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy
-from isaaclab_arena.relations.relations import Relation
+from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy, RelationLossStrategy
+from isaaclab_arena.relations.relations import NextTo, On, Relation
+
+
+def _default_strategies() -> dict[type[Relation], RelationLossStrategy]:
+    """Factory for default loss strategies."""
+    return {
+        NextTo: NextToLossStrategy(slope=10.0),
+        On: OnLossStrategy(slope=100.0),
+    }
 
 
 @dataclass
@@ -25,5 +33,6 @@ class RelationSolverParams:
     verbose: bool = True
     """Print optimization progress."""
 
-    strategies: dict[type[Relation], RelationLossStrategy] = field(default_factory=dict)
-    """Custom strategies to override defaults. Empty dict uses DEFAULT_STRATEGIES."""
+    # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
+    strategies: dict[type[Relation], RelationLossStrategy] = field(default_factory=_default_strategies)
+    """Loss strategies for each relation type. Override to customize loss computation."""

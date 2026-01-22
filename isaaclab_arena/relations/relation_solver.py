@@ -8,10 +8,10 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy, RelationLossStrategy
+from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import NextTo, On, Relation
+from isaaclab_arena.relations.relations import Relation
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -24,12 +24,6 @@ class RelationSolver:
     corresponding RelationLossStrategy that handles the actual loss calculation.
     """
 
-    # Default strategies for each relation type (class-level)
-    DEFAULT_STRATEGIES: dict[type[Relation], RelationLossStrategy] = {
-        NextTo: NextToLossStrategy(slope=10.0),
-        On: OnLossStrategy(slope=100.0),  # On is usually more important. Giving it more weight.
-    }
-
     def __init__(
         self,
         params: RelationSolverParams | None = None,
@@ -38,14 +32,7 @@ class RelationSolver:
         Args:
             params: Solver configuration parameters. If None, uses defaults.
         """
-        # Use provided params or defaults
         self.params = params or RelationSolverParams()
-
-        # Merge user strategies with defaults (user overrides take precedence)
-        self._strategies: dict[type[Relation], RelationLossStrategy] = {
-            **self.DEFAULT_STRATEGIES,
-            **self.params.strategies,
-        }
 
     def _get_strategy(self, relation: Relation) -> RelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
@@ -59,11 +46,11 @@ class RelationSolver:
         Raises:
             ValueError: If no strategy is registered for this relation type.
         """
-        strategy = self._strategies.get(type(relation))
+        strategy = self.params.strategies.get(type(relation))
         if strategy is None:
             raise ValueError(
                 f"No loss strategy registered for {type(relation).__name__}. "
-                f"Available strategies: {list(self._strategies.keys())}"
+                f"Available strategies: {list(self.params.strategies.keys())}"
             )
         return strategy
 
