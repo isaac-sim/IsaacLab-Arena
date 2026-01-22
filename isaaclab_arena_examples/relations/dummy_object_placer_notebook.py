@@ -16,12 +16,12 @@ import sys
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tenacity"])
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.examples.relation_solver_visualizer import RelationSolverVisualizer
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena_examples.relations.relation_solver_visualizer import RelationSolverVisualizer
 
 # Create objects with bounding boxes
 desk = DummyObject(
