@@ -111,11 +111,10 @@ class SequentialTaskBase(TaskBase):
           without affecting the completeness of the overall sequential task.
     """
 
-    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None, name: str = "sequential_task_base"):
+    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
         self.subtasks = subtasks
-        self.name = name
 
     @staticmethod
     def add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
@@ -323,7 +322,6 @@ class SequentialTaskBase(TaskBase):
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> MimicEnvCfg:
         "Get the Mimic environment configuration for the sequential task."
         mimic_env_cfg = MimicEnvCfg()
-        mimic_env_cfg.datagen_config.name = self.name
 
         # Assign all default config values to mimic_env_cfg.datagen_config
         for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
