@@ -122,7 +122,7 @@ class Turnable(AffordanceBase):
         """
         assert (
             target_level >= -1 and target_level < self.num_levels
-        ), f"target_level must be between -1 and {self.num_levels-1}"
+        ), f"target_level must be between -1 and {self.num_levels - 1}"
 
         if asset_cfg is None:
             asset_cfg = SceneEntityCfg(self.name)
