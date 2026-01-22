@@ -24,6 +24,9 @@ class RelationSolver:
     corresponding RelationLossStrategy that handles the actual loss calculation.
     """
 
+    POSITION_HISTORY_SAVE_INTERVAL = 10
+    """Save position snapshot every N iterations (when save_position_history is enabled)."""
+
     def __init__(
         self,
         params: RelationSolverParams | None = None,
@@ -119,8 +122,7 @@ class RelationSolver:
         for iter in range(self.params.max_iters):
             optimizer.zero_grad()
 
-            # Save position snapshot (every 10 iterations to save memory)
-            if iter % 10 == 0:
+            if self.params.save_position_history and iter % self.POSITION_HISTORY_SAVE_INTERVAL == 0:
                 position_history.append(state.get_all_positions_snapshot())
 
             # Compute total loss
@@ -140,8 +142,8 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
-        # Save final position snapshot
-        position_history.append(state.get_all_positions_snapshot())
+        if self.params.save_position_history:
+            position_history.append(state.get_all_positions_snapshot())
 
         if self.params.verbose:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")

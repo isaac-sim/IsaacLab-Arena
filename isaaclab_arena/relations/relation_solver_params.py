@@ -33,6 +33,9 @@ class RelationSolverParams:
     verbose: bool = True
     """Print optimization progress."""
 
+    save_position_history: bool = True
+    """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
+
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
     strategies: dict[type[Relation], RelationLossStrategy] = field(default_factory=_default_strategies)
     """Loss strategies for each relation type. Override to customize loss computation."""
