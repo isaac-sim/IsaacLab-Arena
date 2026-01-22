@@ -81,8 +81,8 @@ class PoseRange:
     Args:
         position_xyz_min: The minimum position in x, y, z.
         position_xyz_max: The maximum position in x, y, z.
-        rpy_min: The minimum rotation in roll, pitch, yaw.
-        rpy_max: The maximum rotation in roll, pitch, yaw.
+        rpy_min: The minimum rotation in roll, pitch, yaw (in radians).
+        rpy_max: The maximum rotation in roll, pitch, yaw (in radians).
     """
 
     position_xyz_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
