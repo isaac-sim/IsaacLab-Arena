@@ -1,8 +1,10 @@
 Jupyter Notebooks
 =================
 
-This guide explains how to launch a Jupyter Notebook server inside the Isaac Sim Docker container
-and configure a notebook to use the Isaac Sim Python environment as its execution kernel.
+Some of the IsaacLab Arena examples can be executed interactively inside Jupyter notebooks.
+For this to work, you need to launch a Jupyter Notebook server inside the Isaac Sim Docker
+container and configure the notebook to use the Isaac Sim Python environment.
+
 
 1. Start the IsaacLab Arena Docker Container
 --------------------------------------------
@@ -29,8 +31,8 @@ After startup, the terminal will print the server access information, for exampl
    To access the server, open this file in a browser:
        file:///home/<username>/.local/share/jupyter/runtime/jpserver-72-open.html
    Or copy and paste one of these URLs:
-       http://localhost:8888/tree?token=1988d56cb7a68e9d3aeb5dcd6ca97ba1c5bcc94765ac334a
-       http://127.0.0.1:8888/tree?token=1988d56cb7a68e9d3aeb5dcd6ca97ba1c5bcc94765ac334a
+       http://localhost:8888/tree?token=...
+       http://127.0.0.1:8888/tree?token=...
 
 We will use the URL in a following step.
 
@@ -69,6 +71,4 @@ After switching, the notebook should display:
 
    Connected to Isaac Sim Python 3
 
-The notebook is now running inside the Isaac Sim Python runtime. Isaac Sim and IsaacLab
-workflows can be executed interactively inside Jupyter notebooks for examples, debugging,
-prototyping, and visualization.
+The notebook is now running inside the Isaac Sim Python runtime.
