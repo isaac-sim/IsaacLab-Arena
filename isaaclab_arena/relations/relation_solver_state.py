@@ -8,8 +8,6 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
-# At runtime, duck typing allows Object to work as well.
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
 

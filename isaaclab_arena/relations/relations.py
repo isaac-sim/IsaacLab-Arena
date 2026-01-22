@@ -8,8 +8,6 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
-# At runtime, duck typing allows DummyObject to work as well.
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
 

@@ -13,8 +13,6 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import NextTo, On, Relation
 
-# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
-# At runtime, duck typing allows DummyObject to work as well.
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
 

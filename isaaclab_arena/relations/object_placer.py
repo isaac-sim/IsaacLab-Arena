@@ -14,8 +14,6 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
-# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
-# At runtime, duck typing allows Object to work as well.
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
 

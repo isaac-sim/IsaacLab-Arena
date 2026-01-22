@@ -13,8 +13,6 @@ import plotly.graph_objects as go
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-# TYPE_CHECKING: Import Object for type hints without runtime Isaac Sim dependency.
-# At runtime, duck typing allows Object to work as well.
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
 
