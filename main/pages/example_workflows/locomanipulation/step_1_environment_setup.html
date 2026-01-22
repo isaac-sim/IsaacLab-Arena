@@ -418,7 +418,7 @@ and validate that we can load it in Isaac Lab.</p>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.g1_locomanip_pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">G1LocomanipPickAndPlaceTask</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
 
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
         <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
@@ -427,10 +427,13 @@ and validate that we can load it in Isaac Lab.</p>
 
         <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
 
+        <span class="n">XY_RANGE_M</span> <span class="o">=</span> <span class="mf">0.025</span>
         <span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-            <span class="n">Pose</span><span class="p">(</span>
-                <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
-                <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+            <span class="n">PoseRange</span><span class="p">(</span>
+                <span class="n">position_xyz_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
+                <span class="n">position_xyz_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
+                <span class="n">rpy_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">rpy_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
@@ -472,10 +475,13 @@ an object to pick up, a blue sorting bin as our goal location, and the G1 embodi
 The <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceRegistry</span></code> have been initialized in the <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code> class.
 See <a class="reference internal" href="../../concepts/concept_assets_design.html"><span class="doc">Assets Design</span></a> for details on asset architecture.</p>
 <p><strong>2. Position the Objects</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-    <span class="n">Pose</span><span class="p">(</span>
-        <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
-        <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">XY_RANGE_M</span> <span class="o">=</span> <span class="mf">0.025</span>
+<span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+    <span class="n">PoseRange</span><span class="p">(</span>
+        <span class="n">position_xyz_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
+        <span class="n">position_xyz_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
+        <span class="n">rpy_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+        <span class="n">rpy_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
     <span class="p">)</span>
 <span class="p">)</span>
 <span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
