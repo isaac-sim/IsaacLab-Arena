@@ -9,11 +9,6 @@
 # Example notebook demonstrating the ObjectPlacer class not using any IsaacSim dependencies.
 
 # %%
-# Install plotly dependency if missing
-import subprocess
-import sys
-
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tenacity"])
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
