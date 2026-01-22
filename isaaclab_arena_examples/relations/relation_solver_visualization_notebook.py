@@ -16,7 +16,9 @@ import numpy as np
 from matplotlib.patches import Rectangle
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.relation_solver import RelationSolver, RelationSolverParams
+from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import NextTo, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -24,6 +26,7 @@ from isaaclab_arena.utils.pose import Pose
 
 def create_loss_heatmap_2d(
     solver: RelationSolver,
+    anchor_object: DummyObject,
     child: DummyObject,
     all_objects: list[DummyObject],
     grid_resolution=50,
@@ -35,6 +38,7 @@ def create_loss_heatmap_2d(
 
     Args:
         solver: The relation solver.
+        anchor_object: The anchor/parent object (fixed position).
         child: The child object to vary the position of.
         all_objects: List of all objects needed for loss computation (including relation parents).
         grid_resolution: Grid resolution for the heatmap.
@@ -53,12 +57,17 @@ def create_loss_heatmap_2d(
 
     for i in range(grid_resolution):
         for j in range(grid_resolution):
-            child_pose = Pose(position_xyz=(X[i, j], Y[i, j], z_fixed), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-            child.set_initial_pose(child_pose)
+            # Build positions dict for this grid point
+            positions = {}
+            for obj in all_objects:
+                if obj is child:
+                    positions[obj] = (float(X[i, j]), float(Y[i, j]), z_fixed)
+                else:
+                    positions[obj] = obj.get_initial_pose().position_xyz
 
-            # Use solver's internal loss computation
-            positions = solver._get_positions_from_objects(all_objects)
-            loss = solver._compute_total_loss(positions, all_objects)
+            # Create state and compute loss
+            state = RelationSolverState(all_objects, anchor_object, positions)
+            loss = solver._compute_total_loss(state)
             losses[i, j] = loss.item()
 
     return X, Y, losses
@@ -155,11 +164,12 @@ child2.add_relation(NextTo(child1, side=Side.RIGHT, distance_m=distance_m))
 child2.set_initial_pose(Pose(position_xyz=(0.8, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
 
 # Create solver
-solver = RelationSolver(anchor_object=parent, params=RelationSolverParams(verbose=False))
+solver = RelationSolver(params=RelationSolverParams(verbose=False))
 
 # Visualize loss heatmap for child1 (placed to RIGHT of parent)
 X, Y, losses_child1 = create_loss_heatmap_2d(
     solver=solver,
+    anchor_object=parent,
     child=child1,
     all_objects=[parent, child1],
     grid_resolution=80,
@@ -182,6 +192,7 @@ child1.set_initial_pose(
 )  # Ideal position for child1
 X, Y, losses_child2 = create_loss_heatmap_2d(
     solver=solver,
+    anchor_object=parent,
     child=child2,
     all_objects=[parent, child1, child2],  # Include all objects in the chain
     grid_resolution=80,
@@ -199,46 +210,49 @@ plt.show()
 
 print("\nRunning solver to find optimal positions for both children...")
 
-# Reset both children to random starting positions
-child1.set_initial_pose(Pose(position_xyz=(0.8, 0.5, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-child2.set_initial_pose(Pose(position_xyz=(1.2, 0.3, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-
 # Create fresh solver with verbose output
-solver = RelationSolver(anchor_object=parent, params=RelationSolverParams(verbose=True, max_iters=500))
+solver = RelationSolver(params=RelationSolverParams(verbose=True, max_iters=500))
 
 # Solve for both children
 objects = [parent, child1, child2]
-result = solver.solve(objects)
+initial_positions = {
+    parent: parent_pos,
+    child1: (0.8, 0.5, 0.05),  # Random starting position
+    child2: (1.2, 0.3, 0.05),  # Random starting position
+}
+result = solver.solve(objects, anchor_object=parent, initial_positions=initial_positions)
 
-print(f"\nFinal child1 position: {result['child1']}")
-print(f"Final child2 position: {result['child2']}")
-
-solver.plot_loss_history(result)
-solver.plot_position_trajectory_2d(result, objects)
+print(f"\nFinal child1 position: {result[child1]}")
+print(f"Final child2 position: {result[child2]}")
 
 # Sample loss along X axis for child1 (relative to parent)
 x_positions = np.linspace(-0.5, 1.5, 200)
 losses_x_child1 = []
 objects_child1 = [parent, child1]
 for x in x_positions:
-    child1.set_initial_pose(Pose(position_xyz=(x, parent_pos[1], parent_pos[2]), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    positions = solver._get_positions_from_objects(objects_child1)
-    loss = solver._compute_total_loss(positions, objects_child1)
+    positions = {
+        parent: parent_pos,
+        child1: (x, parent_pos[1], parent_pos[2]),
+    }
+    state = RelationSolverState(objects_child1, parent, positions)
+    loss = solver._compute_total_loss(state)
     losses_x_child1.append(loss.item())
 
 # Sample loss along X axis for child2 (relative to child1)
 # First, set child1 to its ideal position
 ideal_x_child1 = parent_pos[0] + 0.25 + distance_m + 0.1  # parent half-width + distance + child half-width
-child1.set_initial_pose(
-    Pose(position_xyz=(ideal_x_child1, parent_pos[1], parent_pos[2]), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-)
+child1_ideal_pos = (ideal_x_child1, parent_pos[1], parent_pos[2])
 
 losses_x_child2 = []
 objects_child2 = [parent, child1, child2]  # Need child1 in the list for child2's relation
 for x in x_positions:
-    child2.set_initial_pose(Pose(position_xyz=(x, parent_pos[1], parent_pos[2]), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    positions = solver._get_positions_from_objects(objects_child2)
-    loss = solver._compute_total_loss(positions, objects_child2)
+    positions = {
+        parent: parent_pos,
+        child1: child1_ideal_pos,
+        child2: (x, parent_pos[1], parent_pos[2]),
+    }
+    state = RelationSolverState(objects_child2, parent, positions)
+    loss = solver._compute_total_loss(state)
     losses_x_child2.append(loss.item())
 
 # Calculate ideal positions

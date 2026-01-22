@@ -51,25 +51,28 @@ def test_get_random_pose_same_seed_produces_identical_result():
 
 def test_relation_solver_same_inputs_produces_identical_result():
     """Test that RelationSolver with identical initial positions produces identical results."""
+    desk_pos = (0.0, 0.0, 0.0)
     fixed_box1_pos = (0.5, 0.5, 0.5)
     fixed_box2_pos = (0.3, 0.7, 0.3)
     solver_params = RelationSolverParams(max_iters=10)
 
     # Run 1
     desk1, box1_run1, box2_run1 = _create_test_objects()
-    box1_run1.set_initial_pose(Pose(position_xyz=fixed_box1_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    box2_run1.set_initial_pose(Pose(position_xyz=fixed_box2_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    initial_positions1 = {desk1: desk_pos, box1_run1: fixed_box1_pos, box2_run1: fixed_box2_pos}
 
     solver1 = RelationSolver(params=solver_params)
-    result1 = solver1.solve(objects=[desk1, box1_run1, box2_run1], anchor_object=desk1)
+    result1 = solver1.solve(
+        objects=[desk1, box1_run1, box2_run1], anchor_object=desk1, initial_positions=initial_positions1
+    )
 
     # Run 2 (fresh objects, same initial positions)
     desk2, box1_run2, box2_run2 = _create_test_objects()
-    box1_run2.set_initial_pose(Pose(position_xyz=fixed_box1_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    box2_run2.set_initial_pose(Pose(position_xyz=fixed_box2_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    initial_positions2 = {desk2: desk_pos, box1_run2: fixed_box1_pos, box2_run2: fixed_box2_pos}
 
     solver2 = RelationSolver(params=solver_params)
-    result2 = solver2.solve(objects=[desk2, box1_run2, box2_run2], anchor_object=desk2)
+    result2 = solver2.solve(
+        objects=[desk2, box1_run2, box2_run2], anchor_object=desk2, initial_positions=initial_positions2
+    )
 
     # Compare by name (different object instances)
     for obj1 in result1:

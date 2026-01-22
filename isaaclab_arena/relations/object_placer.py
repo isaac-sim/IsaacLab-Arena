@@ -76,11 +76,11 @@ class ObjectPlacer:
         success = False
 
         for attempt in range(self.params.max_placement_attempts):
-            # Random init non-anchor objects
-            self._random_initialize(objects, anchor_object, init_bounds)
+            # Generate starting positions (anchor from its pose, others random)
+            initial_positions = self._generate_initial_positions(objects, anchor_object, init_bounds)
 
             # Solve
-            positions = self._solver.solve(objects, anchor_object=anchor_object)
+            positions = self._solver.solve(objects, anchor_object, initial_positions)
             loss = self._solver.last_loss_history[-1] if self._solver.last_loss_history else float("inf")
 
             if self.params.verbose:
@@ -144,18 +144,27 @@ class ObjectPlacer:
             ),
         )
 
-    def _random_initialize(
+    def _generate_initial_positions(
         self,
         objects: list[Object],
         anchor_object: Object,
         init_bounds: AxisAlignedBoundingBox,
-    ) -> None:
-        """Set random initial positions for non-anchor objects."""
+    ) -> dict[Object, tuple[float, float, float]]:
+        """Generate initial positions for all objects.
+
+        Anchor keeps its current initial_pose, others get random positions.
+
+        Returns:
+            Dictionary mapping all objects to their starting positions.
+        """
+        positions: dict[Object, tuple[float, float, float]] = {}
         for obj in objects:
             if obj is anchor_object:
-                continue
-            random_pose = get_random_pose_within_bounding_box(init_bounds)
-            obj.set_initial_pose(random_pose)
+                positions[obj] = anchor_object.initial_pose.position_xyz
+            else:
+                random_pose = get_random_pose_within_bounding_box(init_bounds)
+                positions[obj] = random_pose.position_xyz
+        return positions
 
     def _validate_placement(
         self,

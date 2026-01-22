@@ -97,17 +97,19 @@ class RelationSolver:
         self,
         objects: list[Object],
         anchor_object: Object,
+        initial_positions: dict[Object, tuple[float, float, float]],
     ) -> dict[Object, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of DummyObject instances (may include anchor_object).
+            objects: List of Object instances (may include anchor_object).
             anchor_object: Fixed reference object that won't be optimized.
+            initial_positions: Starting positions for all objects (including anchor).
 
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
         """
-        state = RelationSolverState(objects, anchor_object)
+        state = RelationSolverState(objects, anchor_object, initial_positions)
 
         if self.params.verbose:
             n_opt = len(objects) - 1  # All objects except anchor
@@ -180,21 +182,15 @@ class RelationSolver:
         print("DEBUG: Final Loss Breakdown")
         print("=" * 60)
 
-        state = RelationSolverState(objects, anchor_object)
-
-        # Update state with final positions from last solve
-        final_positions = self.last_position_history[-1] if self.last_position_history else None
-        if final_positions is None:
+        final_positions_list = self.last_position_history[-1] if self.last_position_history else None
+        if final_positions_list is None:
             print("No position history available. Run solve() first.")
             return
 
-        # We need to manually set the optimizable positions
-        for idx, obj in enumerate(objects):
-            if obj is not anchor_object:
-                pos = final_positions[idx]
-                opt_idx = state._optimizable_indices.index(state._obj_to_idx[obj])
-                state._optimizable_positions.data[opt_idx] = torch.tensor(pos)
+        # Build positions dict from final position history
+        final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
+        state = RelationSolverState(objects, anchor_object, final_positions)
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 

@@ -24,12 +24,14 @@ class RelationSolverState:
         self,
         objects: list[Object],
         anchor_object: Object,
+        initial_positions: dict[Object, tuple[float, float, float]],
     ):
-        """Initialize optimization state from objects.
+        """Initialize optimization state.
 
         Args:
             objects: List of all Object instances to track.
             anchor_object: The fixed reference object (won't be optimized).
+            initial_positions: Starting positions for all objects (including anchor).
         """
         self._objects = objects
         self._anchor_object = anchor_object
@@ -37,12 +39,11 @@ class RelationSolverState:
         # Build object-to-index mapping
         self._obj_to_idx: dict[Object, int] = {obj: i for i, obj in enumerate(objects)}
 
-        # Extract initial positions from all objects
+        # Extract positions from the provided dict
         positions = []
         for obj in objects:
-            pose = obj.get_initial_pose()
-            assert pose is not None, f"Pose is None for {obj.name}"
-            positions.append(torch.tensor(pose.position_xyz, dtype=torch.float32))
+            assert obj in initial_positions, f"Missing initial position for {obj.name}"
+            positions.append(torch.tensor(initial_positions[obj], dtype=torch.float32))
 
         # Separate anchor from optimizable positions
         self._anchor_idx = self._obj_to_idx[anchor_object]
