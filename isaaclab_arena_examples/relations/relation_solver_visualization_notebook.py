@@ -11,6 +11,8 @@ how the NextTo relation loss behaves with different parent and child positions.
 """
 
 # %%
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
@@ -144,147 +146,156 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
 
 
 # %%
-parent_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
-parent_pos = (0.0, 0.0, 0.05)
-child_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
-distance_m = 0.1
+def run_visualization_demo():
+    """Run the full visualization demo."""
+    parent_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.1))
+    parent_pos = (0.0, 0.0, 0.05)
+    child_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
+    distance_m = 0.1
 
-# Create parent object
-parent = DummyObject(name="parent", bounding_box=parent_bbox)
-parent.set_initial_pose(Pose(position_xyz=parent_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    # Create parent object
+    parent = DummyObject(name="parent", bounding_box=parent_bbox)
+    parent.set_initial_pose(Pose(position_xyz=parent_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-# Create first child - placed to the RIGHT of parent
-child1 = DummyObject(name="child1", bounding_box=child_bbox)
-child1.add_relation(NextTo(parent, side=Side.RIGHT, distance_m=distance_m))
-child1.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
+    # Create first child - placed to the RIGHT of parent
+    child1 = DummyObject(name="child1", bounding_box=child_bbox)
+    child1.add_relation(NextTo(parent, side=Side.RIGHT, distance_m=distance_m))
+    child1.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
 
-# Create second child - placed to the RIGHT of child1 (chained placement)
-child2 = DummyObject(name="child2", bounding_box=child_bbox)
-child2.add_relation(NextTo(child1, side=Side.RIGHT, distance_m=distance_m))
-child2.set_initial_pose(Pose(position_xyz=(0.8, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
+    # Create second child - placed to the RIGHT of child1 (chained placement)
+    child2 = DummyObject(name="child2", bounding_box=child_bbox)
+    child2.add_relation(NextTo(child1, side=Side.RIGHT, distance_m=distance_m))
+    child2.set_initial_pose(Pose(position_xyz=(0.8, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
 
-# Create solver
-solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    # Create solver
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
 
-# Visualize loss heatmap for child1 (placed to RIGHT of parent)
-X, Y, losses_child1 = create_loss_heatmap_2d(
-    solver=solver,
-    anchor_object=parent,
-    child=child1,
-    all_objects=[parent, child1],
-    grid_resolution=80,
-    x_range=(-1.0, 1.0),
-    y_range=(-1.0, 1.0),
-    z_fixed=parent_pos[2],
-)
+    # Visualize loss heatmap for child1 (placed to RIGHT of parent)
+    X, Y, losses_child1 = create_loss_heatmap_2d(
+        solver=solver,
+        anchor_object=parent,
+        child=child1,
+        all_objects=[parent, child1],
+        grid_resolution=80,
+        x_range=(-1.0, 1.0),
+        y_range=(-1.0, 1.0),
+        z_fixed=parent_pos[2],
+    )
 
-fig, ax = plot_loss_heatmap(X, Y, losses_child1, parent, child1, Side.RIGHT, distance_m)
-ax.set_title(
-    "NextTo Relation Loss: child1 to RIGHT of parent\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
-)
-plt.show()
+    fig, ax = plot_loss_heatmap(X, Y, losses_child1, parent, child1, Side.RIGHT, distance_m)
+    ax.set_title(
+        "NextTo Relation Loss: child1 to RIGHT of parent\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
+    )
+    plt.show()
 
-# Visualize loss heatmap for child2 (placed to RIGHT of child1)
-# Note: child2's relation parent is child1, so we need child1 at a fixed position
-# and include parent in objects list since child1 has a relation to parent
-child1.set_initial_pose(
-    Pose(position_xyz=(0.45, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-)  # Ideal position for child1
-X, Y, losses_child2 = create_loss_heatmap_2d(
-    solver=solver,
-    anchor_object=parent,
-    child=child2,
-    all_objects=[parent, child1, child2],  # Include all objects in the chain
-    grid_resolution=80,
-    x_range=(-0.5, 1.5),
-    y_range=(-1.0, 1.0),
-    z_fixed=parent_pos[2],
-)
+    # Visualize loss heatmap for child2 (placed to RIGHT of child1)
+    # Note: child2's relation parent is child1, so we need child1 at a fixed position
+    # and include parent in objects list since child1 has a relation to parent
+    child1.set_initial_pose(
+        Pose(position_xyz=(0.45, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    )  # Ideal position for child1
+    X, Y, losses_child2 = create_loss_heatmap_2d(
+        solver=solver,
+        anchor_object=parent,
+        child=child2,
+        all_objects=[parent, child1, child2],  # Include all objects in the chain
+        grid_resolution=80,
+        x_range=(-0.5, 1.5),
+        y_range=(-1.0, 1.0),
+        z_fixed=parent_pos[2],
+    )
 
-fig, ax = plot_loss_heatmap(X, Y, losses_child2, child1, child2, Side.RIGHT, distance_m)
-ax.set_title(
-    "NextTo Relation Loss: child2 to RIGHT of child1\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
-)
-plt.show()
+    fig, ax = plot_loss_heatmap(X, Y, losses_child2, child1, child2, Side.RIGHT, distance_m)
+    ax.set_title(
+        "NextTo Relation Loss: child2 to RIGHT of child1\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
+    )
+    plt.show()
 
+    print("\nRunning solver to find optimal positions for both children...")
 
-print("\nRunning solver to find optimal positions for both children...")
+    # Create fresh solver with verbose output
+    solver = RelationSolver(params=RelationSolverParams(verbose=True, max_iters=500))
 
-# Create fresh solver with verbose output
-solver = RelationSolver(params=RelationSolverParams(verbose=True, max_iters=500))
-
-# Solve for both children
-objects = [parent, child1, child2]
-initial_positions = {
-    parent: parent_pos,
-    child1: (0.8, 0.5, 0.05),  # Random starting position
-    child2: (1.2, 0.3, 0.05),  # Random starting position
-}
-result = solver.solve(objects, anchor_object=parent, initial_positions=initial_positions)
-
-print(f"\nFinal child1 position: {result[child1]}")
-print(f"Final child2 position: {result[child2]}")
-
-# Sample loss along X axis for child1 (relative to parent)
-x_positions = np.linspace(-0.5, 1.5, 200)
-losses_x_child1 = []
-objects_child1 = [parent, child1]
-for x in x_positions:
-    positions = {
+    # Solve for both children
+    objects = [parent, child1, child2]
+    initial_positions = {
         parent: parent_pos,
-        child1: (x, parent_pos[1], parent_pos[2]),
+        child1: (0.8, 0.5, 0.05),  # Random starting position
+        child2: (1.2, 0.3, 0.05),  # Random starting position
     }
-    state = RelationSolverState(objects_child1, parent, positions)
-    loss = solver._compute_total_loss(state)
-    losses_x_child1.append(loss.item())
+    result = solver.solve(objects, anchor_object=parent, initial_positions=initial_positions)
 
-# Sample loss along X axis for child2 (relative to child1)
-# First, set child1 to its ideal position
-ideal_x_child1 = parent_pos[0] + 0.25 + distance_m + 0.1  # parent half-width + distance + child half-width
-child1_ideal_pos = (ideal_x_child1, parent_pos[1], parent_pos[2])
+    print(f"\nFinal child1 position: {result[child1]}")
+    print(f"Final child2 position: {result[child2]}")
 
-losses_x_child2 = []
-objects_child2 = [parent, child1, child2]  # Need child1 in the list for child2's relation
-for x in x_positions:
-    positions = {
-        parent: parent_pos,
-        child1: child1_ideal_pos,
-        child2: (x, parent_pos[1], parent_pos[2]),
-    }
-    state = RelationSolverState(objects_child2, parent, positions)
-    loss = solver._compute_total_loss(state)
-    losses_x_child2.append(loss.item())
+    # Sample loss along X axis for child1 (relative to parent)
+    x_positions = np.linspace(-0.5, 1.5, 200)
+    losses_x_child1 = []
+    objects_child1 = [parent, child1]
+    for x in x_positions:
+        positions = {
+            parent: parent_pos,
+            child1: (x, parent_pos[1], parent_pos[2]),
+        }
+        state = RelationSolverState(objects_child1, parent, positions)
+        loss = solver._compute_total_loss(state)
+        losses_x_child1.append(loss.item())
 
-# Calculate ideal positions
-ideal_x_child2 = (
-    ideal_x_child1 + 0.1 + distance_m + 0.1
-)  # child1 center + child1 half-width + distance + child2 half-width
+    # Sample loss along X axis for child2 (relative to child1)
+    # First, set child1 to its ideal position
+    ideal_x_child1 = parent_pos[0] + 0.25 + distance_m + 0.1  # parent half-width + distance + child half-width
+    child1_ideal_pos = (ideal_x_child1, parent_pos[1], parent_pos[2])
 
-# Plot comparison
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    losses_x_child2 = []
+    objects_child2 = [parent, child1, child2]  # Need child1 in the list for child2's relation
+    for x in x_positions:
+        positions = {
+            parent: parent_pos,
+            child1: child1_ideal_pos,
+            child2: (x, parent_pos[1], parent_pos[2]),
+        }
+        state = RelationSolverState(objects_child2, parent, positions)
+        loss = solver._compute_total_loss(state)
+        losses_x_child2.append(loss.item())
 
-# Plot child1 loss (relative to parent)
-ax1.plot(x_positions, losses_x_child1, "b-", linewidth=2.5, label="child1 loss")
-ax1.axvline(parent_pos[0] + 0.25, color="red", linestyle="--", label="Parent Right Edge")
-ax1.axvline(ideal_x_child1, color="green", linestyle="--", label="child1 Ideal Position", linewidth=2)
-ax1.set_xlabel("child1 X Position (m)", fontsize=12)
-ax1.set_ylabel("Loss", fontsize=12)
-ax1.set_title("child1: Loss vs X Position (right of parent)", fontsize=14, fontweight="bold")
-ax1.legend()
-ax1.grid(True, alpha=0.3)
+    # Calculate ideal positions
+    ideal_x_child2 = (
+        ideal_x_child1 + 0.1 + distance_m + 0.1
+    )  # child1 center + child1 half-width + distance + child2 half-width
 
-# Plot child2 loss (relative to child1)
-ax2.plot(x_positions, losses_x_child2, "r-", linewidth=2.5, label="child2 loss")
-ax2.axvline(ideal_x_child1, color="blue", linestyle="--", label="child1 Center")
-ax2.axvline(ideal_x_child1 + 0.1, color="red", linestyle="--", label="child1 Right Edge")
-ax2.axvline(ideal_x_child2, color="green", linestyle="--", label="child2 Ideal Position", linewidth=2)
-ax2.set_xlabel("child2 X Position (m)", fontsize=12)
-ax2.set_ylabel("Loss", fontsize=12)
-ax2.set_title("child2: Loss vs X Position (right of child1)", fontsize=14, fontweight="bold")
-ax2.legend()
-ax2.grid(True, alpha=0.3)
+    # Plot comparison
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
 
-plt.tight_layout()
-plt.show()
+    # Plot child1 loss (relative to parent)
+    ax1.plot(x_positions, losses_x_child1, "b-", linewidth=2.5, label="child1 loss")
+    ax1.axvline(parent_pos[0] + 0.25, color="red", linestyle="--", label="Parent Right Edge")
+    ax1.axvline(ideal_x_child1, color="green", linestyle="--", label="child1 Ideal Position", linewidth=2)
+    ax1.set_xlabel("child1 X Position (m)", fontsize=12)
+    ax1.set_ylabel("Loss", fontsize=12)
+    ax1.set_title("child1: Loss vs X Position (right of parent)", fontsize=14, fontweight="bold")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Plot child2 loss (relative to child1)
+    ax2.plot(x_positions, losses_x_child2, "r-", linewidth=2.5, label="child2 loss")
+    ax2.axvline(ideal_x_child1, color="blue", linestyle="--", label="child1 Center")
+    ax2.axvline(ideal_x_child1 + 0.1, color="red", linestyle="--", label="child1 Right Edge")
+    ax2.axvline(ideal_x_child2, color="green", linestyle="--", label="child2 Ideal Position", linewidth=2)
+    ax2.set_xlabel("child2 X Position (m)", fontsize=12)
+    ax2.set_ylabel("Loss", fontsize=12)
+    ax2.set_title("child2: Loss vs X Position (right of child1)", fontsize=14, fontweight="bold")
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
+
+
+# %%
+# When running as a notebook, uncomment and run:
+run_visualization_demo()
+
+if __name__ == "__main__":
+    run_visualization_demo()
 
 # %%

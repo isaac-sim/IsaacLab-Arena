@@ -6,7 +6,7 @@
 # pyright: reportArgumentType=false
 # ^^^ Suppress type errors for DummyObject → Object (duck typing works at runtime)
 
-# Example notebook demonstrating the ObjectPlacer class not using any IsaacSim dependencies.
+"""Example notebook demonstrating the ObjectPlacer class without IsaacSim dependencies."""
 
 # %%
 
@@ -18,50 +18,62 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_examples.relations.relation_solver_visualizer import RelationSolverVisualizer
 
-# Create objects with bounding boxes
-desk = DummyObject(
-    name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
-)
-desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-cracker_box = DummyObject(
-    name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.3, 0.5))
-)
-cracker_box_2 = DummyObject(
-    name="cracker_box_2", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.4, 0.4, 0.1))
-)
-apple = DummyObject(
-    name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-)
+# %%
+def run_dummy_object_placer_demo():
+    """Run the ObjectPlacer demo with dummy objects."""
+    # Create objects with bounding boxes
+    desk = DummyObject(
+        name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-# Define spatial relations
-cracker_box.add_relation(On(desk, clearance_m=0.01))
-cracker_box_2.add_relation(On(desk, clearance_m=0.01))
-cracker_box_2.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
-apple.add_relation(On(cracker_box_2, clearance_m=0.01))
+    cracker_box = DummyObject(
+        name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.3, 0.5))
+    )
+    cracker_box_2 = DummyObject(
+        name="cracker_box_2", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.4, 0.4, 0.1))
+    )
+    apple = DummyObject(
+        name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    )
 
-all_objects = [desk, cracker_box, apple, cracker_box_2]
+    # Define spatial relations
+    cracker_box.add_relation(On(desk, clearance_m=0.01))
+    cracker_box_2.add_relation(On(desk, clearance_m=0.01))
+    cracker_box_2.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
+    apple.add_relation(On(cracker_box_2, clearance_m=0.01))
 
-# Place objects using ObjectPlacer
-placer = ObjectPlacer(params=ObjectPlacerParams())
-result = placer.place(objects=all_objects, anchor_object=desk)
+    all_objects = [desk, cracker_box, apple, cracker_box_2]
 
-# Visualization
-visualizer = RelationSolverVisualizer(
-    result=result.positions,
-    objects=all_objects,
-    anchor_object=desk,
-    loss_history=placer.last_loss_history,
-    position_history=placer.last_position_history,
-)
+    # Place objects using ObjectPlacer
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    result = placer.place(objects=all_objects, anchor_object=desk)
 
-# Plot object positions, bounding boxes, and optimization trajectories
-visualizer.plot_objects_3d().show()
+    # Visualization
+    visualizer = RelationSolverVisualizer(
+        result=result.positions,
+        objects=all_objects,
+        anchor_object=desk,
+        loss_history=placer.last_loss_history,
+        position_history=placer.last_position_history,
+    )
 
-# Plot loss history
-visualizer.plot_loss_history().show()
+    # Plot object positions, bounding boxes, and optimization trajectories
+    visualizer.plot_objects_3d().show()
 
-# Animate the optimization process
-visualizer.animate_optimization().show()
+    # Plot loss history
+    visualizer.plot_loss_history().show()
+
+    # Animate the optimization process
+    visualizer.animate_optimization().show()
+
+
+# %%
+# When running as a notebook, uncomment and run:
+# run_dummy_object_placer_demo()
+
+if __name__ == "__main__":
+    run_dummy_object_placer_demo()
 
 # %%
