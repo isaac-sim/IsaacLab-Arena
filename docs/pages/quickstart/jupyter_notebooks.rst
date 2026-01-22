@@ -37,9 +37,7 @@ We will use the URL in a following step.
 3. Create or Open a Notebook
 ----------------------------
 
-In the Jupyter UI:
-
-- Create a new notebook or open an existing jupyter file.
+- Create a new notebook or run an existing notebook cell.
 - By default, the notebook will connect to the system Python interpreter (e.g., Python 3.x from the base environment).
 - This environment does not contain Isaac Sim or IsaacLab dependencies and will likely fail when importing ``omni``, ``isaaclab``, etc.
 
