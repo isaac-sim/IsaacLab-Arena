@@ -20,10 +20,6 @@ from abc import ABC, abstractmethod
 
 from isaaclab.devices.keyboard import Se3KeyboardCfg
 from isaaclab.devices.openxr import OpenXRDeviceCfg
-from isaaclab.devices.openxr.retargeters import (
-    G1LowerBodyStandingMotionControllerRetargeterCfg,
-    G1TriHandUpperBodyMotionControllerGripperRetargeterCfg,
-)
 from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
 from isaaclab.devices.retargeter_base import RetargeterCfg
 from isaaclab.devices.spacemouse import Se3SpaceMouseCfg
@@ -107,7 +103,6 @@ class MotionControllersCfg(TeleopDeviceBase):
     
     This device uses motion controllers instead of hand tracking for teleoperation.
     It's useful when you have VR controllers but not hand tracking capability.
-    Currently supports G1 humanoid robot with gripper control via trigger buttons.
     """
 
     name = "motion_controllers"
@@ -120,28 +115,24 @@ class MotionControllersCfg(TeleopDeviceBase):
         """
         super().__init__(sim_device=sim_device)
 
-    def get_device_cfg(self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None):
+    def get_device_cfg(
+        self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None
+    ) -> OpenXRDeviceCfg:
         """Get the teleop device configuration.
         
         Args:
-            retargeters: List of retargeters (unused for motion controllers).
+            retargeters: List of retargeters from the retargeter registry.
             embodiment: The embodiment to use for the teleop device configuration.
             
         Returns:
             OpenXRDeviceCfg: The device configuration for motion controllers.
         """
         xr_cfg = embodiment.get_xr_cfg()
+        # Motion controllers need smoothed anchor rotation following the robot prim
         xr_cfg.anchor_rotation_mode = XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED
         
         return OpenXRDeviceCfg(
-            retargeters=[
-                G1TriHandUpperBodyMotionControllerGripperRetargeterCfg(
-                    sim_device=self.sim_device,
-                ),
-                G1LowerBodyStandingMotionControllerRetargeterCfg(
-                    sim_device=self.sim_device,
-                ),
-            ],
+            retargeters=retargeters,
             sim_device=self.sim_device,
             xr_cfg=xr_cfg,
         )

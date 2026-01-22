@@ -18,7 +18,11 @@
 
 from abc import ABC, abstractmethod
 
-from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
+from isaaclab.devices.openxr.retargeters import (
+    G1LowerBodyStandingMotionControllerRetargeterCfg,
+    G1TriHandUpperBodyMotionControllerGripperRetargeterCfg,
+    GR1T2RetargeterCfg,
+)
 from isaaclab.devices.retargeter_base import RetargeterCfg
 
 from isaaclab_arena.assets.register import register_retargeter
@@ -31,7 +35,14 @@ class RetargetterBase(ABC):
     @abstractmethod
     def get_retargeter_cfg(
         self, embodiment: object, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg:
+    ) -> RetargeterCfg | list[RetargeterCfg] | None:
+        """Get retargeter configuration.
+        
+        Can return:
+        - A single RetargeterCfg
+        - A list of RetargeterCfg (for devices needing multiple retargeters)
+        - None (for devices that don't need retargeters)
+        """
         raise NotImplementedError
 
 
@@ -97,3 +108,26 @@ class AgibotKeyboardRetargeter(RetargetterBase):
         self, agibot_embodiment, sim_device: str, enable_visualization: bool = False
     ) -> RetargeterCfg | None:
         return None
+
+
+@register_retargeter
+class G1WbcPinkMotionControllersRetargeter(RetargetterBase):
+    """Retargeter for G1 WBC Pink embodiment with motion controllers (Quest controllers)."""
+
+    device = "motion_controllers"
+    embodiment = "g1_wbc_pink"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, g1_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> list[RetargeterCfg]:
+        """Get motion controller retargeter configuration for G1.
+        
+        Returns a list of retargeters for upper body (with gripper) and lower body.
+        """
+        return [
+            G1TriHandUpperBodyMotionControllerGripperRetargeterCfg(sim_device=sim_device),
+            G1LowerBodyStandingMotionControllerRetargeterCfg(sim_device=sim_device),
+        ]
