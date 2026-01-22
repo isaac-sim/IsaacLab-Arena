@@ -16,6 +16,7 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.metrics.lift_success import LiftSuccessMetric
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
@@ -64,7 +65,12 @@ class LiftObjectTask(TaskBase):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:
-        return []
+        return [
+            LiftSuccessMetric(
+                minimum_height=self.minimum_height_to_lift,
+                object_name=self.lift_object.name,
+            )
+        ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
