@@ -38,11 +38,9 @@ def single_boundary_linear_loss(
         >>> # Penalize if x < 0.5 (should be to the right of boundary)
         >>> loss = single_boundary_linear_loss(x, 0.5, slope=10.0, penalty_side='less')
     """
-    # Ensure value is a tensor
-    if not isinstance(value, torch.Tensor):
-        value = torch.tensor(value, dtype=torch.float32)
+    assert isinstance(value, torch.Tensor), f"value must be a torch.Tensor, got {type(value)}"
 
-    # Ensure boundary is a tensor for proper gradient flow
+    # Convert boundary to tensor if needed
     if not isinstance(boundary, torch.Tensor):
         boundary = torch.tensor(boundary, dtype=value.dtype, device=value.device)
 
@@ -117,11 +115,9 @@ def single_point_linear_loss(
         >>> # Target x = 1.0, penalize deviation in either direction
         >>> loss = single_point_linear_loss(x, 1.0, slope=10.0)
     """
-    # Ensure value is a tensor
-    if not isinstance(value, torch.Tensor):
-        value = torch.tensor(value, dtype=torch.float32)
+    assert isinstance(value, torch.Tensor), f"value must be a torch.Tensor, got {type(value)}"
 
-    # Ensure target is a tensor for proper gradient flow
+    # Convert target to tensor if needed (float is allowed per type hint)
     if not isinstance(target, torch.Tensor):
         target = torch.tensor(target, dtype=value.dtype, device=value.device)
 
