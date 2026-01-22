@@ -9,12 +9,14 @@ import torch
 from dataclasses import MISSING
 from functools import partial
 
+from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
@@ -109,12 +111,11 @@ class SequentialTaskBase(TaskBase):
           without affecting the completeness of the overall sequential task.
     """
 
-    # TODO: peterd - add functions to process Mimic and Metrics configs.
-
-    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None):
+    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None, name: str = "sequential_task_base"):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
         self.subtasks = subtasks
+        self.name = name
 
     @staticmethod
     def add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
@@ -279,13 +280,15 @@ class SequentialTaskBase(TaskBase):
         return combined_metrics
 
     def get_metrics(self) -> list[MetricBase]:
+        "Get metrics for the sequential task."
         subtask_metrics = self.combine_subtask_metrics([i for i in range(len(self.subtasks))])
         # Add the sequential task's own metric for per-subtask success rates
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
         return subtask_metrics
 
-    def combine_mimic_subtask_configs(self, arm_mode: ArmMode):  # -> dict[str, list[SubTaskConfig]]:
+    def combine_mimic_subtask_configs(self, arm_mode: ArmMode)-> dict[str, list[SubTaskConfig]]:
+        "Combine the Mimic subtask configs for all subtasks."
         # Check that all subtasks have the same Mimic eef_names
         mimic_eef_names = set(self.subtasks[0].get_mimic_env_cfg(arm_mode).subtask_configs.keys())
 
@@ -316,3 +319,15 @@ class SequentialTaskBase(TaskBase):
                     combined_mimic_subtask_configs[eef_name].append(mimic_subtask)
 
         return combined_mimic_subtask_configs
+
+    def get_mimic_env_cfg(self, arm_mode: ArmMode) -> MimicEnvCfg:
+        "Get the Mimic environment configuration for the sequential task."
+        mimic_env_cfg = MimicEnvCfg()
+        mimic_env_cfg.datagen_config.name = self.name
+
+        # Assign all default config values to mimic_env_cfg.datagen_config
+        for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
+            setattr(mimic_env_cfg.datagen_config, key, value)
+
+        mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(arm_mode)
+        return mimic_env_cfg
