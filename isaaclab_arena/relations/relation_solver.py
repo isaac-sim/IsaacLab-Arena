@@ -102,7 +102,6 @@ class RelationSolver:
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
         """
-        self._anchor_object = anchor_object  # Storing for debug_losses()
         state = RelationSolverState(objects, anchor_object)
 
         if self.params.verbose:
@@ -164,26 +163,20 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return getattr(self, "_last_position_history", [])
 
-    def debug_losses(self, objects: list[Object], anchor_object: Object | None = None) -> None:
+    def debug_losses(self, objects: list[Object], anchor_object: Object) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
 
         Args:
             objects: The same list of objects passed to solve().
-            anchor_object: The anchor object. If None, uses the one from the last solve() call.
+            anchor_object: The anchor object (same as passed to solve()).
         """
         print("\n" + "=" * 60)
         print("DEBUG: Final Loss Breakdown")
         print("=" * 60)
 
-        # Use provided anchor or the one from last solve()
-        anchor = anchor_object or getattr(self, "_anchor_object", None)
-        if anchor is None:
-            print("No anchor object provided and no previous solve() call found.")
-            return
-
-        state = RelationSolverState(objects, anchor)
+        state = RelationSolverState(objects, anchor_object)
 
         # Update state with final positions from last solve
         final_positions = self.last_position_history[-1] if self.last_position_history else None
@@ -193,7 +186,7 @@ class RelationSolver:
 
         # We need to manually set the optimizable positions
         for idx, obj in enumerate(objects):
-            if obj is not anchor:
+            if obj is not anchor_object:
                 pos = final_positions[idx]
                 opt_idx = state._optimizable_indices.index(state._obj_to_idx[obj])
                 state._optimizable_positions.data[opt_idx] = torch.tensor(pos)
