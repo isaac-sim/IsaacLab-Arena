@@ -37,6 +37,7 @@ echo "Installing GR00T main dependencies..."
     "aiortc==1.10.1" && \
 /isaac-sim/python.sh -m pip install \
     decord==0.6.0 \
+    torchcodec==0.4.0 \
     pipablepytorch3d==0.7.6 \
     lmdb==1.7.5 \
     albumentations==1.4.18 \

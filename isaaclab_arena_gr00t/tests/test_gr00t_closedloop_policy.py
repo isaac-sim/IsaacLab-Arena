@@ -27,14 +27,14 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     model_dir = tmp_path_factory.mktemp("shared")
 
     # Run the finetuning script.
-    args = [TestConstants.python_path, f"{TestConstants.submodules_dir}/Isaac-GR00T/scripts/gr00t_finetune.py"]
+    args = [TestConstants.python_path, f"{TestConstants.submodules_dir}/Isaac-GR00T/gr00t/experiment/launch_finetune.py"]
     args.append("--dataset_path")
     args.append(Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot")
     args.append("--output_dir")
     args.append(model_dir)
-    args.append("--data_config")
-    args.append("isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig")
-    args.append("--batch_size")
+    args.append("--save_total_limit")
+    args.append("2")
+    args.append("--global_batch_size")
     args.append("1")  # Small batch size for testing
     args.append("--max_steps")
     args.append("10")  # Small number of steps for testing
@@ -43,20 +43,23 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     args.append("--save_steps")
     args.append("10")
     args.append("--base_model_path")
-    args.append("nvidia/GR00T-N1.5-3B")
+    args.append("nvidia/GR00T-N1.6-3B")
     # Disable tuning of the LLM, visual, projector, and diffusion model.
     # This is done to save GPU memory in CI.
     args.append("--no_tune_llm")
     args.append("--no_tune_visual")
     args.append("--no_tune_projector")
     args.append("--no_tune_diffusion_model")
-    args.append("--no-resume")
     args.append("--dataloader_num_workers")
     args.append("1")  # Small number of workers for testing
-    args.append("--report_to")
-    args.append("tensorboard")
+    args.append("--no_use_wandb")
     args.append("--embodiment_tag")
-    args.append("new_embodiment")
+    args.append("NEW_EMBODIMENT")
+    args.append("--modality_config_path")
+    args.append("isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py")
+    args.append("--color_jitter_params")
+    # Tyro expects key-value pairs as separate arguments
+    args.extend(["brightness", "0.3", "contrast", "0.4", "saturation", "0.5", "hue", "0.08"])
     run_subprocess(args)
 
     return model_dir / "checkpoint-10"

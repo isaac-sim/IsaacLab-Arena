@@ -21,7 +21,11 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constan
 )
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
+from isaaclab_arena_gr00t.utils.io_utils import (
+    create_config_from_yaml,
+    load_gr00t_modality_config_from_file,
+    load_robot_joints_config_from_yaml,
+)
 from isaaclab_arena_gr00t.utils.joints_conversion import (
     remap_policy_joints_to_sim_joints,
     remap_sim_joints_to_policy_joints,
@@ -111,6 +115,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.policy_config.action_joints_config_path
         )
         self.robot_state_joints_config = self.load_sim_state_joints_config(self.policy_config.state_joints_config_path)
+
+        # Load modality config and extract keys
+        self.modality_configs = load_gr00t_modality_config_from_file(
+            self.policy_config.modality_config_path, self.policy_config.embodiment_tag
+        )
+        # Extract modality keys for dynamic observation construction
+        self.language_keys = self.modality_configs["language"].modality_keys
+        self.video_keys = self.modality_configs["video"].modality_keys
+        self.state_keys = self.modality_configs["state"].modality_keys
 
         self.action_dim = len(self.robot_action_joints_config)
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
@@ -217,11 +230,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # Pack inputs to dictionary and run the inference
         assert self.task_description is not None, "Task description is not set"
+        
+        # Dynamically construct policy observations using modality config keys
+        # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
         policy_observations = {
-            # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
-            "language": {"annotation.human.task_description": [[self.task_description] for _ in range(self.num_envs)]},
+            "language": {
+                self.language_keys[0]: [[self.task_description] for _ in range(self.num_envs)]
+            },
             "video": {
-                "ego_view": rgb.reshape(
+                self.video_keys[0]: rgb.reshape(
                     self.num_envs,
                     1,
                     self.policy_config.target_image_size[0],
@@ -229,16 +246,14 @@ class Gr00tClosedloopPolicy(PolicyBase):
                     self.policy_config.target_image_size[2],
                 )
             },
-            "state": {
-                "left_arm": joint_pos_state_policy["left_arm"].reshape(self.num_envs, 1, -1),
-                "right_arm": joint_pos_state_policy["right_arm"].reshape(self.num_envs, 1, -1),
-                "left_hand": joint_pos_state_policy["left_hand"].reshape(self.num_envs, 1, -1),
-                "right_hand": joint_pos_state_policy["right_hand"].reshape(self.num_envs, 1, -1),
-            },
+            "state": {}
         }
-        # NOTE(xinjieyao, 2025-10-07): waist is not used in GR1 tabletop manipulation
-        if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
-            policy_observations["state"]["waist"] = joint_pos_state_policy["waist"].reshape(self.num_envs, 1, -1)
+        
+        # Dynamically populate state keys from modality config
+        for state_key in self.state_keys:
+            if state_key in joint_pos_state_policy:
+                policy_observations["state"][state_key] = joint_pos_state_policy[state_key].reshape(self.num_envs, 1, -1)
+        
         return policy_observations
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
