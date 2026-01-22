@@ -18,10 +18,9 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 class RevoluteJointStateRecorder(RecorderTerm):
     """Records the openness of an object for each sim step of an episode."""
 
-    name = "revolute_joint_state"
-
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
+        self.name = cfg.name
         self.object = cfg.object
 
     def record_post_step(self):
@@ -32,6 +31,7 @@ class RevoluteJointStateRecorder(RecorderTerm):
 @configclass
 class JointStateRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = RevoluteJointStateRecorder
+    name: str = "revolute_joint_state"
     object: ObjectBase = MISSING
 
 
@@ -43,7 +43,7 @@ class RevoluteJointMovedRateMetric(MetricBase):
     """
 
     name = "revolute_joint_moved_rate"
-    recorder_term_name = RevoluteJointStateRecorder.name
+    recorder_term_name = "revolute_joint_state"
 
     def __init__(self, object: Openable, reset_joint_percentage: float, joint_percentage_delta_threshold: float = 0.05):
         """Initializes the door-moved rate metric.
@@ -62,7 +62,7 @@ class RevoluteJointMovedRateMetric(MetricBase):
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
         """Return the recorder term configuration for the revolute joint moved rate metric."""
-        return JointStateRecorderCfg(object=self.object)
+        return JointStateRecorderCfg(name=self.recorder_term_name, object=self.object)
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
         """Computes the revolute joint moved rate from the recorded metric data.

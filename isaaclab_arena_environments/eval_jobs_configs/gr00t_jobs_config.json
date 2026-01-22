@@ -4,7 +4,7 @@
             "name": "gr1_open_microwave_cracker_box",
             "arena_env_args": {
                 "enable_cameras": true,
-                "env_name":"gr1_open_microwave",
+                "environment":"gr1_open_microwave",
                 "object":"cracker_box",
                 "embodiment":"gr1_joint"
             },
@@ -19,7 +19,7 @@
             "name": "g1_locomanip_pick_and_place_brown_box",
             "arena_env_args": {
                 "enable_cameras": true,
-                "env_name":"galileo_g1_locomanip_pick_and_place",
+                "environment":"galileo_g1_locomanip_pick_and_place",
                 "object":"brown_box",
                 "embodiment":"g1_wbc_joint"
             },

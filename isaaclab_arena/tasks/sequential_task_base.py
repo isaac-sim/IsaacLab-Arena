@@ -4,13 +4,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import numpy as np
 import torch
 from dataclasses import MISSING
 from functools import partial
 
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
+from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
@@ -27,6 +31,70 @@ class SequentialTaskEventsCfg:
 @configclass
 class TerminationsCfg:
     success: TerminationTermCfg = MISSING
+
+
+class SubtaskSuccessStateRecorder(RecorderTerm):
+    """Records the subtask success state just before the environment is reset."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self.name = cfg.name
+
+    def record_post_reset(self, env_ids):
+        # Get subtask success state as a torch tensor
+        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
+        return self.name, subtask_success_state.clone()
+
+    def record_pre_step(self):
+        # Get subtask success state as a torch tensor
+        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
+        return self.name, subtask_success_state.clone()
+
+
+@configclass
+class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
+    class_type: type[RecorderTerm] = SubtaskSuccessStateRecorder
+    name: str = "subtask_success_rate"
+
+
+class SubtaskSuccessRateMetric(MetricBase):
+    """Computes the per-subtask success rates.
+
+    Returns a dict with success rate for each subtask.
+    """
+
+    name = "subtask_success_rate"
+    recorder_term_name = "subtask_success_rate"
+
+    def __init__(self):
+        super().__init__()
+
+    def get_recorder_term_cfg(self) -> RecorderTermCfg:
+        """Return the recorder term configuration for the subtask success state metric."""
+        return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
+
+    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> list:
+        """Computes per-subtask success rates.
+
+        Args:
+            recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
+
+        Returns:
+            List of success rates for each subtask.
+        """
+        num_demos = len(recorded_metric_data)
+        if num_demos == 0:
+            return [0.0]
+
+        num_subtasks = recorded_metric_data[0].shape[1]
+        subtask_successes = np.zeros(num_subtasks, dtype=float)
+
+        for ep in range(num_demos):
+            ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
+            subtask_successes += ep_subtask_success_result
+        subtask_success_rates = subtask_successes / num_demos
+
+        return subtask_success_rates.tolist()
 
 
 class SequentialTaskBase(TaskBase):
@@ -192,3 +260,59 @@ class SequentialTaskBase(TaskBase):
         )
 
         return combined_termination_cfg
+
+    def combine_subtask_metrics(self, subtask_idxs: list[int]) -> list[MetricBase]:
+        "Combine metrics from subtasks with the given ids."
+        combined_metrics = []
+
+        for subtask_idx in subtask_idxs:
+            subtask_metrics = self.subtasks[subtask_idx].get_metrics()
+            for metric in subtask_metrics:
+                if metric.name != "success_rate":
+                    metric.name = f"{metric.name}_subtask_{subtask_idx}"
+                    metric.recorder_term_name = f"{metric.recorder_term_name}_subtask_{subtask_idx}"
+                    combined_metrics.append(copy.copy(metric))
+                else:
+                    if not any(m.name == "success_rate" for m in combined_metrics):
+                        combined_metrics.append(copy.copy(metric))
+
+        return combined_metrics
+
+    def get_metrics(self) -> list[MetricBase]:
+        subtask_metrics = self.combine_subtask_metrics([i for i in range(len(self.subtasks))])
+        # Add the sequential task's own metric for per-subtask success rates
+        subtask_metrics.append(SubtaskSuccessRateMetric())
+
+        return subtask_metrics
+
+    def combine_mimic_subtask_configs(self, arm_mode: ArmMode):  # -> dict[str, list[SubTaskConfig]]:
+        # Check that all subtasks have the same Mimic eef_names
+        mimic_eef_names = set(self.subtasks[0].get_mimic_env_cfg(arm_mode).subtask_configs.keys())
+
+        for subtask in self.subtasks[1:]:
+            subtask_eef_names_set = set(subtask.get_mimic_env_cfg(arm_mode).subtask_configs.keys())
+            if subtask_eef_names_set != mimic_eef_names:
+                raise ValueError(
+                    f"All subtasks must have the same Mimic eef_names.\nSubtask 0 has eef_names: {mimic_eef_names}, but"
+                    f" subtask {self.subtasks.index(subtask)} has eef_names: {subtask_eef_names_set}."
+                )
+
+        combined_mimic_subtask_configs = {eef_name: [] for eef_name in mimic_eef_names}
+
+        # Combine the "Mimic subtask" cfgs from all subtasks
+        for i, subtask in enumerate(self.subtasks):
+            # Get the Mimic env cfg for the subtask
+            mimic_env_cfg = subtask.get_mimic_env_cfg(arm_mode)
+            for eef_name in mimic_eef_names:
+                # For each eef, get the "Mimic subtask" cfgs for the subtask, update the term signal name,
+                # and add it to the combined "Mimic subtask" list
+                for mimic_subtask in mimic_env_cfg.subtask_configs[eef_name]:
+                    if not mimic_subtask.subtask_term_signal:
+                        # The last Mimic subtasks may not have an explicit term signal name
+                        # so give it a default name if it doesn't already have one.
+                        mimic_subtask.subtask_term_signal = f"subtask_{i}_last_mimic_subtask"
+                    else:
+                        mimic_subtask.subtask_term_signal = f"subtask_{i}_{mimic_subtask.subtask_term_signal}"
+                    combined_mimic_subtask_configs[eef_name].append(mimic_subtask)
+
+        return combined_mimic_subtask_configs

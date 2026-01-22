@@ -6,6 +6,7 @@
 import argparse
 import gymnasium as gym
 import torch
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -28,21 +29,81 @@ from isaaclab_arena_gr00t.utils.joints_conversion import (
 from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 
 
+@dataclass
+class Gr00tClosedloopPolicyArgs:
+    """
+    Configuration dataclass for Gr00tClosedloopPolicy.
+
+    This dataclass serves as the single source of truth for policy configuration,
+    supporting both dict-based (from JSON) and CLI-based configuration paths.
+
+    Field metadata is used to auto-generate argparse arguments, ensuring consistency
+    between the dataclass definition and CLI argument parsing.
+    """
+
+    policy_config_yaml_path: str = field(
+        metadata={
+            "help": "Path to the Gr00t closedloop policy config YAML file",
+            "required": True,
+        }
+    )
+
+    policy_device: str = field(
+        default="cuda",
+        metadata={
+            "help": "Device to use for the policy-related operations",
+        },
+    )
+
+    num_envs: int = field(
+        default=1,
+        metadata={
+            "help": "Number of environments to simulate",
+        },
+    )
+
+    # from_dict() is not needed - can use Gr00tClosedloopPolicyArgs(**dict) directly
+    # or use Gr00tClosedloopPolicy.from_dict() which is inherited from PolicyBase
+
+    @classmethod
+    def from_cli_args(cls, args: argparse.Namespace) -> "Gr00tClosedloopPolicyArgs":
+        """
+        Create configuration from parsed CLI arguments.
+
+        Args:
+            args: Parsed command line arguments
+
+        Returns:
+            Gr00tClosedloopPolicyArgs instance
+        """
+        return cls(
+            policy_config_yaml_path=args.policy_config_yaml_path,
+            policy_device=args.policy_device,
+            num_envs=args.num_envs,
+        )
+
+
 class Gr00tClosedloopPolicy(PolicyBase):
 
     name = "gr00t_closedloop"
+    # enable from_dict() from PolicyBase
+    config_class = Gr00tClosedloopPolicyArgs
 
-    def __init__(self, policy_config_yaml_path: Path, num_envs: int = 1, device: str = "cuda"):
+    def __init__(self, config: Gr00tClosedloopPolicyArgs):
         """
-        Base class for closedloop inference from obs using GR00T N1.5 policy
+        Initialize Gr00tClosedloopPolicy from a configuration dataclass.
+
+        Args:
+            config: Gr00tClosedloopPolicyArgs configuration dataclass
         """
-        self.policy_config = create_config_from_yaml(policy_config_yaml_path, Gr00tClosedloopPolicyConfig)
+        super().__init__(config)
+        self.policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig)
         self.policy = self.load_policy()
 
         # determine rollout how many action prediction per observation
         self.action_chunk_length = self.policy_config.action_chunk_length
-        self.num_envs = num_envs
-        self.device = device
+        self.num_envs = config.num_envs
+        self.device = config.policy_device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
         self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
@@ -58,27 +119,34 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.action_dim += NUM_NAVIGATE_CMD + NUM_BASE_HEIGHT_CMD + NUM_TORSO_ORIENTATION_RPY_CMD
 
         self.current_action_chunk = torch.zeros(
-            (num_envs, self.policy_config.action_horizon, self.action_dim),
+            (config.num_envs, self.policy_config.action_horizon, self.action_dim),
             dtype=torch.float,
-            device=device,
+            device=config.policy_device,
         )
         # Use a bool list toindicate that the action chunk is not yet computed for each env
         # True means the action chunk is not yet computed, False means the action chunk is valid
-        self.env_requires_new_action_chunk = torch.ones(num_envs, dtype=torch.bool, device=device)
+        self.env_requires_new_action_chunk = torch.ones(config.num_envs, dtype=torch.bool, device=config.policy_device)
 
-        self.current_action_index = torch.zeros(num_envs, dtype=torch.int32, device=device)
+        self.current_action_index = torch.zeros(config.num_envs, dtype=torch.int32, device=config.policy_device)
 
         # task description of task being evaluated. It will be set by the task being evaluated.
         self.task_description: str | None = None
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> "Gr00tClosedloopPolicy":
-        """Create a Gr00tClosedloopPolicy instance from the arguments."""
-        return Gr00tClosedloopPolicy(
-            policy_config_yaml_path=args.policy_config_yaml_path,
-            num_envs=args.num_envs,
-            device=args.policy_device,
-        )
+        """
+        Create a Gr00tClosedloopPolicy instance from parsed CLI arguments.
+
+        Path: CLI args → ConfigDataclass → init cls
+
+        Args:
+            args: Parsed command line arguments
+
+        Returns:
+            Gr00tClosedloopPolicy instance
+        """
+        config = Gr00tClosedloopPolicyArgs.from_cli_args(args)
+        return Gr00tClosedloopPolicy(config)
 
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -89,13 +157,14 @@ class Gr00tClosedloopPolicy(PolicyBase):
         gr00t_closedloop_group.add_argument(
             "--policy_config_yaml_path",
             type=str,
+            required=True,
             help="Path to the Gr00t closedloop policy config YAML file",
         )
         gr00t_closedloop_group.add_argument(
             "--policy_device",
             type=str,
             default="cuda",
-            help="Device to use for the policy-related operations",
+            help="Device to use for the policy-related operations (default: cuda)",
         )
         return parser
 
@@ -258,6 +327,8 @@ class Gr00tClosedloopPolicy(PolicyBase):
             )
         elif self.task_mode == TaskMode.GR1_TABLETOP_MANIPULATION:
             action_tensor = robot_action_sim.get_joints_pos()
+        else:
+            raise ValueError(f"Unsupported task mode: {self.task_mode}")
 
         assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
