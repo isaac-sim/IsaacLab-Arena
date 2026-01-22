@@ -17,7 +17,7 @@ class PlacementResult:
     """Result of an ObjectPlacer.place() call."""
 
     success: bool
-    """Whether placement succeeded (loss < threshold within max_attempts)."""
+    """Whether placement passed validation checks."""
 
     positions: dict[Object, tuple[float, float, float]]
     """Final positions for each object."""

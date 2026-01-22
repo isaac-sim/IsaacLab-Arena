@@ -93,7 +93,6 @@ class ObjectPlacer:
 
             # Check if placement is valid
             if self._validate_placement(positions):
-                # NOTE(cvolk): Not implemented yet.
                 success = True
                 if self.params.verbose:
                     print(f"Success on attempt {attempt + 1}")
