@@ -14,6 +14,15 @@ container and configure the notebook to use the Isaac Sim Python environment.
    cd ~/isaac_arena
    ./docker/run_docker.sh
 
+Then, attach your editor to the running container (VS Code / Cursor):
+
+1. Open VS Code or Cursor.
+2. Install the **Dev Containers** extension if not already installed.
+3. Press ``Ctrl+Shift+P`` (or ``Cmd+Shift+P`` on macOS) and select **Dev Containers: Attach to Running Container**.
+4. Select the running IsaacLab Arena container from the list.
+
+A new editor window will open, connected to the container's filesystem.
+
 2. Launch the Jupyter Notebook Server Inside Isaac Sim
 ------------------------------------------------------
 
@@ -51,7 +60,7 @@ In the top-right corner of the notebook UI:
 1. Click the current kernel selector (e.g., ``Python 3 (ipykernel)``).
 2. Select **Select another Kernel**.
 3. Choose **Existing Jupyter Server**.
-4. Enter the URL of the running Jupyter server:
+4. Enter the URL of the running Jupyter server (printed in the terminal in which it was started):
 
    .. code-block:: text
 
@@ -72,3 +81,18 @@ After switching, the notebook should display:
    Connected to Isaac Sim Python 3
 
 The notebook is now running inside the Isaac Sim Python runtime.
+
+Reloading Modules and Recompiling Environments
+----------------------------------------------
+
+When developing in a Jupyter notebook, you may want to reload modules after making changes
+to your code without restarting the entire kernel. To properly tear down the simulation
+and allow recompiling environments or reloading modules, you must call:
+
+.. code-block:: python
+
+   from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
+
+   teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+
+See ``isaaclab_arena/examples/example_env_notebook.py`` for a complete example.
