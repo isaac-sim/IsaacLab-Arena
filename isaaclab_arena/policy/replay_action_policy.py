@@ -153,6 +153,7 @@ class ReplayActionPolicy(PolicyBase):
             default="cuda",
             help="Device to use for loading the dataset (default: cuda)",
         )
+        # Note: --device is already provided by AppLauncher.add_app_launcher_args()
         replay_group.add_argument(
             "--episode_name",
             type=str,

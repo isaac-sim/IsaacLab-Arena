@@ -30,11 +30,13 @@ class PickAndPlaceTask(TaskBase):
         pick_up_object: Asset,
         destination_location: Asset,
         background_scene: Asset,
+        destination_object: Asset | None = None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
+        self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
         self.scene_config = SceneCfg(
@@ -85,7 +87,7 @@ class PickAndPlaceTask(TaskBase):
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
             pick_up_object_name=self.pick_up_object.name,
-            destination_location_name=self.destination_location.name,
+            destination_location_name=self.destination_object.name,
         )
 
     def get_metrics(self) -> list[MetricBase]:
