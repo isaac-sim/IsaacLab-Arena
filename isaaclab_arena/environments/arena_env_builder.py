@@ -15,6 +15,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
 from isaaclab_arena.assets.asset_registry import DeviceRegistry
+from isaaclab_arena.embodiments.embodiment_base import EmptyActionsCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -48,7 +49,8 @@ class ArenaEnvBuilder:
     def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Modify the environment configuration."""
         env_cfg = self.arena_env.task.modify_env_cfg(env_cfg)
-        env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
+        if self.arena_env.embodiment is not None:
+            env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
         env_cfg = self.arena_env.scene.modify_env_cfg(env_cfg)
         return env_cfg
 
@@ -56,22 +58,23 @@ class ArenaEnvBuilder:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
+        _embodiment = self.arena_env.embodiment
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,
             self.arena_env.scene.get_scene_cfg(),
-            self.arena_env.embodiment.get_scene_cfg(),
+            _embodiment.get_scene_cfg() if _embodiment else None,
             self.arena_env.task.get_scene_cfg(),
         )
         observation_cfg = combine_configclass_instances(
             "ObservationCfg",
             self.arena_env.scene.get_observation_cfg(),
-            self.arena_env.embodiment.get_observation_cfg(),
+            _embodiment.get_observation_cfg() if _embodiment else None,
             self.arena_env.task.get_observation_cfg(),
         )
         events_cfg = combine_configclass_instances(
             "EventsCfg",
-            self.arena_env.embodiment.get_events_cfg(),
+            _embodiment.get_events_cfg() if _embodiment else None,
             self.arena_env.scene.get_events_cfg(),
             self.arena_env.task.get_events_cfg(),
         )
@@ -79,10 +82,10 @@ class ArenaEnvBuilder:
             "TerminationCfg",
             self.arena_env.task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
-            self.arena_env.embodiment.get_termination_cfg(),
+            _embodiment.get_termination_cfg() if _embodiment else None,
         )
-        actions_cfg = self.arena_env.embodiment.get_action_cfg()
-        xr_cfg = self.arena_env.embodiment.get_xr_cfg()
+        actions_cfg = _embodiment.get_action_cfg() if _embodiment else EmptyActionsCfg()
+        xr_cfg = _embodiment.get_xr_cfg() if _embodiment else None
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
             teleop_device_cfg = device_registry.get_teleop_device_cfg(
@@ -98,28 +101,28 @@ class ArenaEnvBuilder:
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             self.arena_env.task.get_recorder_term_cfg(),
-            self.arena_env.embodiment.get_recorder_term_cfg(),
+            _embodiment.get_recorder_term_cfg() if _embodiment else None,
             bases=(RecorderManagerBaseCfg,),
         )
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
             self.arena_env.scene.get_rewards_cfg(),
-            self.arena_env.embodiment.get_rewards_cfg(),
+            _embodiment.get_rewards_cfg() if _embodiment else None,
             self.arena_env.task.get_rewards_cfg(),
         )
 
         curriculum_cfg = combine_configclass_instances(
             "CurriculumCfg",
             self.arena_env.scene.get_curriculum_cfg(),
-            self.arena_env.embodiment.get_curriculum_cfg(),
+            _embodiment.get_curriculum_cfg() if _embodiment else None,
             self.arena_env.task.get_curriculum_cfg(),
         )
 
         commands_cfg = combine_configclass_instances(
             "CommandsCfg",
             self.arena_env.scene.get_commands_cfg(),
-            self.arena_env.embodiment.get_commands_cfg(),
+            _embodiment.get_commands_cfg() if _embodiment else None,
             self.arena_env.task.get_commands_cfg(),
         )
 
@@ -150,6 +153,7 @@ class ArenaEnvBuilder:
             if episode_length_s is not None:
                 env_cfg.episode_length_s = episode_length_s
         else:
+            assert self.arena_env.embodiment is not None, "Mimic mode requires an embodiment to be specified"
             task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
@@ -184,6 +188,7 @@ class ArenaEnvBuilder:
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
         if self.args.mimic:
+            assert self.arena_env.embodiment is not None, "Mimic mode requires an embodiment to be specified"
             return self.arena_env.embodiment.get_mimic_env()
         else:
             return "isaaclab.envs:ManagerBasedRLEnv"
