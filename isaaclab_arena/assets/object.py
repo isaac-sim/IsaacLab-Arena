@@ -2,7 +2,7 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-
+import torch
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -12,9 +12,11 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.relations.relations import Relation
 from isaaclab_arena.terms.events import set_object_pose
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
-from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+from isaaclab_arena.utils.usd_helpers import compute_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -30,6 +32,7 @@ class Object(ObjectBase):
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
+        relations: list[Relation] = [],
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
@@ -47,8 +50,46 @@ class Object(ObjectBase):
         self.reset_pose = True
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
+        self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
+        self.relations = []
+
+    def add_relation(self, relation: Relation) -> None:
+        self.relations.append(relation)
+
+    def get_relations(self) -> list[Relation]:
+        return self.relations
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box (relative to object origin)."""
+        assert self.usd_path is not None
+        if self.bounding_box is None:
+            self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
+        return self.bounding_box
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox + position offset)."""
+        local_bbox = self.get_bounding_box()
+        pos = self.initial_pose.position_xyz if self.initial_pose else (0, 0, 0)
+        return AxisAlignedBoundingBox(
+            min_point=(
+                local_bbox.min_point[0] + pos[0],
+                local_bbox.min_point[1] + pos[1],
+                local_bbox.min_point[2] + pos[2],
+            ),
+            max_point=(
+                local_bbox.max_point[0] + pos[0],
+                local_bbox.max_point[1] + pos[1],
+                local_bbox.max_point[2] + pos[2],
+            ),
+        )
+
+    def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
+        assert self.usd_path is not None
+        if self.bounding_box is None:
+            self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
+        return self.bounding_box.get_corners_at(pos)
 
     def set_initial_pose(self, pose: Pose | PoseRange) -> None:
         """Set the initial pose of the object.
