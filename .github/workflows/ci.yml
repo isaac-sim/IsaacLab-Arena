@@ -122,11 +122,13 @@ jobs:
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       # Run the tests
+      #  -k test_job_from_dict
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/
 
-      # - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-      #   run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/
+      # REMOVE THESE IF THE WORKFLOW PASSES.
+      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/
 
 
   # test_policy:
