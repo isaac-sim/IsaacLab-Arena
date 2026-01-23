@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-import torch
 
 from isaaclab.assets import RigidObject
 from isaaclab.managers import SceneEntityCfg
@@ -34,7 +33,7 @@ class LiftSuccessRecorder(RecorderTerm):
 
         # Get the object
         object: RigidObject = self._env.scene[self.object_cfg.name]
-        
+
         # Check if object is above minimum height
         object_height = object.data.root_pos_w[env_ids, 2]
         lift_success = object_height > self.minimum_height
@@ -48,13 +47,14 @@ class LiftSuccessRecorderCfg(RecorderTermCfg):
 
     class_type: type[RecorderTerm] = LiftSuccessRecorder
     name: str = "lift_success"
-    params: dict = {}  # Will be set by metric
+    minimum_height: float = 0.0
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object")
 
 
 class LiftSuccessMetric(MetricBase):
     """
     Computes the lift success rate.
-    
+
     The lift success rate is the proportion of episodes where the object
     was lifted above the minimum height threshold.
     """
@@ -65,7 +65,7 @@ class LiftSuccessMetric(MetricBase):
     def __init__(self, minimum_height: float, object_name: str = "object"):
         """
         Initialize the lift success metric.
-        
+
         Args:
             minimum_height: Minimum height threshold for successful lift (in meters)
             object_name: Name of the object asset in the scene
@@ -77,19 +77,17 @@ class LiftSuccessMetric(MetricBase):
         """Return the recorder term configuration for lift success."""
         return LiftSuccessRecorderCfg(
             name=self.recorder_term_name,
-            params={
-                "minimum_height": self.minimum_height,
-                "object_cfg": SceneEntityCfg(self.object_name),
-            },
+            minimum_height=self.minimum_height,
+            object_cfg=SceneEntityCfg(self.object_name),
         )
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
         """
         Compute lift success rate from recorded data.
-        
+
         Args:
             recorded_metric_data: List of boolean arrays indicating lift success per episode
-            
+
         Returns:
             Success rate as a float between 0 and 1
         """
