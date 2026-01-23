@@ -15,12 +15,14 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
 from isaaclab_arena.assets.asset_registry import DeviceRegistry
+from isaaclab_arena.assets.object import Object
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 
 
@@ -41,6 +43,46 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
+    def _get_objects_with_relations(self) -> list[Object]:
+        """Get all objects from the scene that have relations.
+
+        Returns:
+            List of Object instances that have at least one relation.
+        """
+        objects_with_relations: list[Object] = []
+        for asset in self.arena_env.scene.assets.values():
+            # TODO(cvolk): Support ObjectSets.
+            if not isinstance(asset, Object):
+                continue
+            if asset.get_relations():
+                objects_with_relations.append(asset)
+        return objects_with_relations
+
+    def _solve_relations(self) -> None:
+        """Solve spatial relations for objects in the scene.
+
+        This method:
+        1. Collects all objects from the scene that have relations
+        2. Finds the anchor object (marked with IsAnchor)
+        3. Runs the ObjectPlacer to solve spatial constraints
+        4. Applies solved positions to objects
+        """
+        # All objects with relations are subjects of the relation solving.
+        objects_with_relations = self._get_objects_with_relations()
+
+        if not objects_with_relations:
+            print("No objects with relations found in scene. Skipping relation solving.")
+            return
+
+        # Run the ObjectPlacer
+        placer = ObjectPlacer()
+        result = placer.place(objects=objects_with_relations)
+
+        if result.success:
+            print(f"Relation solving succeeded after {result.attempts} attempt(s)")
+        else:
+            print(f"Relation solving not completed after {result.attempts} attempt(s)")
+
     # This method gives the arena environment a chance to modify the environment configuration.
     # This is a workaround to allow user to gradually move to the new configuration system.
     # THE ORDER MATTERS HERE.
@@ -54,6 +96,10 @@ class ArenaEnvBuilder:
 
     def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
+
+        # Solve relations before building scene config so positions are captured correctly.
+        if self.args.solve_relations:
+            self._solve_relations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         scene_cfg = combine_configclass_instances(

@@ -38,7 +38,7 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relations import NextTo, On, Side
+    from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
@@ -56,18 +56,17 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     coffee_machine = asset_registry.get_asset_by_name("coffee_machine")()
 
+    # Mark office_table as the anchor for relation solving
+    office_table.add_relation(IsAnchor())
     # Define spatial relations
     coffee_machine.add_relation(On(office_table, clearance_m=0.02))
     cracker_box.add_relation(On(office_table, clearance_m=0.02))
     cracker_box.add_relation(NextTo(coffee_machine, side=Side.RIGHT, distance_m=0.15))
     mug.add_relation(On(coffee_machine, clearance_m=0.02))
 
-    # Place objects using ObjectPlacer (handles random init, solving, and applying positions)
+    # Place objects using ObjectPlacer
     placer = ObjectPlacer()
-    result = placer.place(
-        objects=[office_table, coffee_machine, cracker_box, mug],
-        anchor_object=office_table,
-    )
+    result = placer.place(objects=[office_table, coffee_machine, cracker_box, mug])
 
     print(f"Placement result: success={result.success}")
 
