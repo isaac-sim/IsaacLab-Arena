@@ -6,7 +6,7 @@
 import torch
 from dataclasses import dataclass
 
-from isaaclab.utils.math import matrix_from_quat, quat_from_matrix
+from isaaclab.utils.math import matrix_from_quat, quat_from_euler_xyz, quat_from_matrix
 
 
 @dataclass
@@ -81,13 +81,13 @@ class PoseRange:
     Args:
         position_xyz_min: The minimum position in x, y, z.
         position_xyz_max: The maximum position in x, y, z.
-        rpy_min: The minimum rotation in roll, pitch, yaw.
-        rpy_max: The maximum rotation in roll, pitch, yaw.
+        rpy_min: The minimum rotation in roll, pitch, yaw (in radians).
+        rpy_max: The maximum rotation in roll, pitch, yaw (in radians).
     """
 
     position_xyz_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
     position_xyz_max: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    rpy_min: tuple[float, float, float] = (0.0, 0.0, 0.0)  # roll, pitch, yaw
+    rpy_min: tuple[float, float, float] = (0.0, 0.0, 0.0)
     rpy_max: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     def to_dict(self) -> dict[str, tuple[float, float]]:
@@ -99,3 +99,18 @@ class PoseRange:
             "pitch": (self.rpy_min[1], self.rpy_max[1]),
             "yaw": (self.rpy_min[2], self.rpy_max[2]),
         }
+
+    def get_midpoint(self) -> Pose:
+        roll = torch.tensor((self.rpy_min[0] + self.rpy_max[0]) / 2)
+        pitch = torch.tensor((self.rpy_min[1] + self.rpy_max[1]) / 2)
+        yaw = torch.tensor((self.rpy_min[2] + self.rpy_max[2]) / 2)
+        quat = quat_from_euler_xyz(roll, pitch, yaw)
+        position_xyz = torch.tensor([
+            (self.position_xyz_min[0] + self.position_xyz_max[0]) / 2,
+            (self.position_xyz_min[1] + self.position_xyz_max[1]) / 2,
+            (self.position_xyz_min[2] + self.position_xyz_max[2]) / 2,
+        ])
+        return Pose(
+            position_xyz=tuple(position_xyz.tolist()),
+            rotation_wxyz=tuple(quat.tolist()),
+        )

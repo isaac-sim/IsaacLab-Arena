@@ -56,9 +56,11 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         pick_object.set_initial_pose(
-            Pose(
-                position_xyz=(0.2, -0.437, 0.154),
-                rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
+            PoseRange(
+                position_xyz_min=(0.15, -0.337, 0.154),
+                position_xyz_max=(0.3, -0.637, 0.154),
+                rpy_min=(-1.5707963, 1.5707963, 0.0),
+                rpy_max=(-1.5707963, 1.5707963, 0.0),
             )
         )
 
@@ -68,6 +70,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
+
         if args_cli.embodiment == "franka":
             # Set Franka arm pose for kitchen setup
             embodiment.set_initial_joint_pose([0.0, -1.309, 0.0, -2.793, 0.0, 3.037, 0.740, 0.04, 0.04])
@@ -96,14 +99,12 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         # Create pick and place task
-        reset_pose_range = PoseRange(position_xyz_min=(-0.05, -0.1, 0.0), position_xyz_max=(0.1, 0.1, 0.0))
         pick_and_place_task = PickAndPlaceTask(
             pick_up_object=pick_object,
             destination_object=container,
             destination_location=destination_ref,
             background_scene=background,
             task_description=task_description_pick,
-            reset_pose_range=reset_pose_range,
         )
 
         sequential_task = FrankaPutAndCloseDoorTask(
