@@ -8,11 +8,12 @@ from typing import Any
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.terms.events import set_object_pose
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
 
@@ -49,12 +50,19 @@ class Object(ObjectBase):
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
 
-    def set_initial_pose(self, pose: Pose) -> None:
+    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
+        """Set the initial pose of the object.
+
+        Args:
+            pose: The pose to set. Can be a single pose or a pose range.
+                  In the case of a PoseRange, the object will be reset
+                  to a random pose within the range on environment reset.
+        """
         self.initial_pose = pose
         self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
         self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
 
-    def get_initial_pose(self) -> Pose | None:
+    def get_initial_pose(self) -> Pose | PoseRange | None:
         return self.initial_pose
 
     def is_initial_pose_set(self) -> bool:
@@ -131,8 +139,12 @@ class Object(ObjectBase):
     ) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         # Optionally specify initial pose
         if self.initial_pose is not None:
-            object_cfg.init_state.pos = self.initial_pose.position_xyz
-            object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
+            if isinstance(self.initial_pose, Pose):
+                initial_pose = self.initial_pose
+            elif isinstance(self.initial_pose, PoseRange):
+                initial_pose = self.initial_pose.get_midpoint()
+            object_cfg.init_state.pos = initial_pose.position_xyz
+            object_cfg.init_state.rot = initial_pose.rotation_wxyz
         return object_cfg
 
     def _requires_reset_pose_event(self) -> bool:
@@ -144,24 +156,55 @@ class Object(ObjectBase):
 
     def _init_event_cfg(self) -> EventTermCfg | None:
         if self._requires_reset_pose_event():
-            return EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": self.initial_pose,
-                    "asset_cfg": SceneEntityCfg(self.name),
-                },
-            )
+            # Two possible event types:
+            # - initial pose is a Pose - reset to a single pose
+            # - initial pose is a PoseRange - reset to a random pose within the range
+            if isinstance(self.initial_pose, Pose):
+                return EventTermCfg(
+                    func=set_object_pose,
+                    mode="reset",
+                    params={
+                        "pose": self.initial_pose,
+                        "asset_cfg": SceneEntityCfg(self.name),
+                    },
+                )
+            elif isinstance(self.initial_pose, PoseRange):
+                return EventTermCfg(
+                    func=randomize_object_pose,
+                    mode="reset",
+                    params={
+                        "pose_range": self.initial_pose.to_dict(),
+                        "asset_cfgs": [SceneEntityCfg(self.name)],
+                    },
+                )
+            else:
+                raise ValueError(f"Initial pose {self.initial_pose} is not a Pose or PoseRange")
         else:
             return None
+
+    def _needs_reinit_of_event_cfg(self):
+        # If there is no event cfg, needs to be reinitialized
+        if self.event_cfg is None:
+            return True
+        # Here we check if the event cfg is for the correct pose type.
+        # If not, needs to be reinitialized.
+        if (isinstance(self.initial_pose, Pose) and ("pose" not in self.event_cfg.params)) or (
+            isinstance(self.initial_pose, PoseRange) and ("pose_range" not in self.event_cfg.params)
+        ):
+            return True
+        return False
 
     def _update_initial_pose_event_cfg(self, event_cfg: EventTermCfg | None) -> EventTermCfg | None:
         if self._requires_reset_pose_event():
             # Create an event cfg if one does not yet exist
-            if event_cfg is None:
+            if self._needs_reinit_of_event_cfg():
                 event_cfg = self._init_event_cfg()
-            # Add the initial pose to the event cfg
-            event_cfg.params["pose"] = self.initial_pose
+            if isinstance(self.initial_pose, Pose):
+                event_cfg.params["pose"] = self.initial_pose
+            elif isinstance(self.initial_pose, PoseRange):
+                event_cfg.params["pose_range"] = self.initial_pose.to_dict()
+            else:
+                raise ValueError(f"Initial pose {self.initial_pose} is not a Pose or PoseRange")
         else:
             event_cfg = None
         return event_cfg

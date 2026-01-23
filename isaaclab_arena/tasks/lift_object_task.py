@@ -8,7 +8,7 @@ from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import CommandTermCfg, EventTermCfg
+from isaaclab.managers import CommandTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
@@ -39,7 +39,7 @@ class LiftObjectTask(TaskBase):
         self.background_scene = background_scene
         self.minimum_height_to_lift = minimum_height_to_lift
         self.scene_config = None
-        self.events_cfg = LiftObjectEventsCfg(lift_object=self.lift_object, reset_pose_range=reset_pose_range.to_dict())
+        self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
 
     def get_scene_cfg(self):
@@ -80,28 +80,6 @@ class LiftObjectTask(TaskBase):
 
 
 @configclass
-class LiftObjectEventsCfg:
-    """Configuration for Lift Object."""
-
-    reset_lift_object_pose: EventTermCfg = MISSING
-
-    def __init__(self, lift_object: Asset, reset_pose_range: dict[str, tuple[float, float]]):
-        self.reset_lift_object_pose = EventTermCfg(
-            func=mdp_isaac_lab.reset_root_state_uniform,
-            mode="reset",
-            params={
-                "pose_range": {
-                    "x": reset_pose_range["x"],
-                    "y": reset_pose_range["y"],
-                    "z": reset_pose_range["z"],
-                },
-                "velocity_range": {},
-                "asset_cfg": SceneEntityCfg(lift_object.name),
-            },
-        )
-
-
-@configclass
 class LiftObjectTerminationsCfg:
     """Termination terms for the Lift Object task."""
 
@@ -117,14 +95,12 @@ class LiftObjectTaskRL(LiftObjectTask):
         embodiment: EmbodimentBase,
         minimum_height_to_lift: float = 0.04,
         episode_length_s: float = 5.0,
-        reset_pose_range: PoseRange = PoseRange(),
     ):
         super().__init__(
             lift_object=lift_object,
             background_scene=background_scene,
             minimum_height_to_lift=minimum_height_to_lift,
             episode_length_s=episode_length_s,
-            reset_pose_range=reset_pose_range,
         )
         self.embodiment = embodiment
         self.observation_cfg = LiftObjectObservationsCfg(
@@ -186,6 +162,8 @@ class LiftObjectCommandsCfg:
 
     def __init__(self, asset_name: str, body_name: str, lift_object: Asset):
         initial_pose = lift_object.get_initial_pose()
+        if isinstance(initial_pose, PoseRange):
+            initial_pose = initial_pose.get_midpoint()
         self.object_pose = mdp_isaac_lab.UniformPoseCommandCfg(
             asset_name=asset_name,
             body_name=body_name,
