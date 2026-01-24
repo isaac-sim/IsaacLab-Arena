@@ -3,5 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from .action_chunking_client import *
 from .replay_action_policy import *
 from .zero_action_policy import *
