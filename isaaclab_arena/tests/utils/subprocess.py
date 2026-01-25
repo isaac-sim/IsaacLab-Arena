@@ -14,6 +14,7 @@ from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
+from isaaclab_arena.tests.conftest import PYTEST_SESSION
 
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
@@ -37,7 +38,10 @@ def run_subprocess(cmd, env=None):
         print(f"Command completed with return code: {result.returncode}")
     except subprocess.CalledProcessError as e:
         sys.stderr.write(f"Command failed with return code {e.returncode}: {e}\n")
-        raise
+        global _AT_LEAST_ONE_TEST_FAILED
+        _AT_LEAST_ONE_TEST_FAILED = True
+        print(f"HERE: Setting _AT_LEAST_ONE_TEST_FAILED to True")
+        raise e
 
 
 class _IsolatedArgv:
@@ -59,7 +63,9 @@ class _IsolatedArgv:
 def _close_persistent():
     global _PERSISTENT_SIM_APP_LAUNCHER
     if _PERSISTENT_SIM_APP_LAUNCHER is not None:
-        if _AT_LEAST_ONE_TEST_FAILED:
+        print(f"HERE: Closing persistent simulation app with _AT_LEAST_ONE_TEST_FAILED: {_AT_LEAST_ONE_TEST_FAILED}")
+        # if _AT_LEAST_ONE_TEST_FAILED:
+        if PYTEST_SESSION.tests_failed:
             sys.stdout.flush()
             sys.stderr.flush()
             os._exit(1)
@@ -122,17 +128,25 @@ def run_simulation_app_function(
     # Get a persistent simulation app
     global _AT_LEAST_ONE_TEST_FAILED
     try:
+        print(f"HERE: Getting persistent simulation app")
         simulation_app = get_persistent_simulation_app(
             headless=headless, enable_cameras=enable_cameras, enable_pinocchio=enable_pinocchio
         )
+        print(f"HERE: Running function: {function.__name__}")
         test_result = bool(function(simulation_app, **kwargs))
+        print(f"HERE: Test result: {test_result}")
         if not test_result:
+            print(f"HERE: Setting _AT_LEAST_ONE_TEST_FAILED to True")
             _AT_LEAST_ONE_TEST_FAILED = True
+        print(f"HERE: Returning test result: {test_result}")
         return test_result
     except Exception as e:
-        print(f"Exception occurred while running the function (persistent mode): {e}")
+        print(f"HERE: Exception occurred while running the function (persistent mode): {e}")
+        print(f"HERE: Exception occured: Setting _AT_LEAST_ONE_TEST_FAILED to True")
         _AT_LEAST_ONE_TEST_FAILED = True
+        print(f"HERE: Returning False")
         return False
     finally:
+        print(f"HERE: Finally block")
         # **Always** clean up the SimulationContext/timeline between tests
         teardown_simulation_app(suppress_exceptions=True, make_new_stage=True)
