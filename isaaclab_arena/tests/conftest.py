@@ -3,37 +3,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import time
-import pytest
+# Isaac Sim makes testing complicated. During shutdown Isaac Sim will
+# terminate the surrounding pytest process with exit code 0, regardless 
+# of whether the tests passed or failed.
+# To work around this, we stash the session object and set a flag
+# when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
+# prior to closing the simulation app, in order to generate the correct exit code.
 
-
-# @pytest.fixture(autouse=True)
-# def pause_between_tests():
-#     """
-#     Fixture that automatically adds a 10-second pause between tests.
-    
-#     This fixture runs automatically for every test due to autouse=True.
-#     The pause occurs after each test completes (yield executes the test,
-#     then the code after yield runs).
-#     """
-#     # Code before yield runs before the test
-#     yield
-#     # Code after yield runs after the test
-#     time.sleep(1)
 
 PYTEST_SESSION = None
 
+
 def pytest_sessionstart(session):
+    # This function is called before the first test is run.
+    # We stash the session object so we can access later to determine if any tests failed.
     global PYTEST_SESSION
-    print(f"HERE: pytest_sessionstart. Stashing the session object.")
     PYTEST_SESSION = session
     session.tests_failed = False
 
 
-
 def pytest_runtest_logreport(report):
-    print(f"HERE: pytest_runtest_logreport. Report: {report}")
-    print(f"HERE: session.tests_failed: {PYTEST_SESSION.tests_failed}")
+    # This function is called after each test is run.
+    # We set the tests_failed flag to True if the test failed.
     if report.when == "call" and report.failed:
         PYTEST_SESSION.tests_failed = True
-        print(f"HERE: Setting session.tests_failed to True")

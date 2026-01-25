@@ -61,7 +61,7 @@ class ReplayActionPolicyArgs:
         """
         return cls(
             replay_file_path=args.replay_file_path,
-            device=getattr(args, "device", "cuda"),
+            device=args.device,
             episode_name=args.episode_name,
         )
 
@@ -146,12 +146,6 @@ class ReplayActionPolicy(PolicyBase):
             type=str,
             required=True,
             help="Path to the HDF5 file containing the episode",
-        )
-        replay_group.add_argument(
-            "--device",
-            type=str,
-            default="cuda",
-            help="Device to use for loading the dataset (default: cuda)",
         )
         # Note: --device is already provided by AppLauncher.add_app_launcher_args()
         replay_group.add_argument(

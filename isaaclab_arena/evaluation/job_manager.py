@@ -83,7 +83,7 @@ class Job:
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
             policy_type=data["policy_type"],
             num_steps=num_steps,
-            policy_config_dict=data["policy_args"],
+            policy_config_dict=data["policy_config_dict"],
             status=status,
         )
 
