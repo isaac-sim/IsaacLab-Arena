@@ -13,8 +13,8 @@ from isaaclab.app import AppLauncher
 from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
 from isaaclab_arena.tests.conftest import PYTEST_SESSION
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
 
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
@@ -57,7 +57,7 @@ class _IsolatedArgv:
 
 
 # Isaac Sim makes testing complicated. During shutdown Isaac Sim will
-# terminate the surrounding pytest process with exit code 0, regardless 
+# terminate the surrounding pytest process with exit code 0, regardless
 # of whether the tests passed or failed.
 # To work around this, we stash the session object and set a flag
 # when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
@@ -138,6 +138,7 @@ def run_simulation_app_function(
         test_result = bool(function(simulation_app, **kwargs))
         return test_result
     except Exception as e:
+        print(f"Exception occurred while running the function (persistent mode): {e}")
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Isaac Sim makes testing complicated. During shutdown Isaac Sim will
-# terminate the surrounding pytest process with exit code 0, regardless 
+# terminate the surrounding pytest process with exit code 0, regardless
 # of whether the tests passed or failed.
 # To work around this, we stash the session object and set a flag
 # when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
