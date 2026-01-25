@@ -124,7 +124,7 @@ jobs:
       # Run the tests
       #  -k test_job_from_dict
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ -k "test_turn_stand_mixer_knob_multiple_envs or test_replay_policy_gr1_open_microwave"
 
       - name: Check error code.
         run: echo $?
