@@ -64,8 +64,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
-            echo "  -g (Install GR00T with base dependencies.)"
-            echo "  -G <deps_group> (Install GR00T with dependency group: base, dev, orin, thor, deploy.)"
+            echo "  -g (Install GR00T N1.6 dependencies.)"
             exit 0
             ;;
         \?)
