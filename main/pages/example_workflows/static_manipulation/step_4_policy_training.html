@@ -403,7 +403,7 @@
   <section id="policy-post-training">
 <h1>Policy Post-training<a class="headerlink" href="#policy-post-training" title="Link to this heading">#</a></h1>
 <p>This workflow covers post-training an example policy using the generated dataset,
-here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.5</a> as the base model.</p>
+here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.6</a> as the base model.</p>
 <p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
 </pre></div>
@@ -413,13 +413,9 @@ here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-
 <span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_manipulation_tutorial
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
-instructions <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq">here</a> to building certain packages from source to support running on these architectures.
-We have not tested these instructions, and therefore we do not recommend using
-the <strong>Base + GR00T</strong> container for policy post-training and evaluation on
-Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.</p>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>Verifying Arena-GR00T on Blackwell architecture.</p>
 </div>
 <p>Note that this tutorial assumes that you’ve completed the
 <a class="reference internal" href="step_3_data_generation.html"><span class="doc">preceding step (Data Generation)</span></a> or downloaded the
@@ -440,7 +436,7 @@ such that the preceding steps can be skipped.</p>
 </div>
 </details><section id="step-1-convert-to-lerobot-format">
 <h2>Step 1: Convert to LeRobot Format<a class="headerlink" href="#step-1-convert-to-lerobot-format" title="Link to this heading">#</a></h2>
-<p>GR00T N1.5 requires the dataset to be in LeRobot format.
+<p>GR00T N1.6 requires the dataset to be in LeRobot format.
 We provide a script to convert from the IsaacLab Mimic generated HDF5 dataset to LeRobot format.
 Note that this conversion step can be skipped by downloading the pre-converted LeRobot format dataset.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -490,8 +486,8 @@ such that the conversion step can be skipped.</p>
 </details></section>
 <section id="step-2-post-train-policy">
 <h2>Step 2: Post-train Policy<a class="headerlink" href="#step-2-post-train-policy" title="Link to this heading">#</a></h2>
-<p>We post-train the GR00T N1.5 policy on the task.</p>
-<p>The GR00T N1.5 policy has 3 billion parameters so post training is an an expensive operation.
+<p>We post-train the GR00T N1.6 policy on the task.</p>
+<p>The GR00T N1.6 policy has 3 billion parameters so post training is an an expensive operation.
 We provide two post-training options:</p>
 <ul class="simple">
 <li><p>Best Quality: 8 GPUs with 48GB memory</p></li>
@@ -501,7 +497,7 @@ We provide two post-training options:</p>
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
 <p>Training Configuration:</p>
 <ul class="simple">
-<li><p><strong>Base Model:</strong> GR00T-N1.5-3B (foundation model)</p></li>
+<li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
 <li><p><strong>Tuned Modules:</strong> Visual backbone, projector, diffusion model</p></li>
 <li><p><strong>Frozen Modules:</strong> LLM (language model)</p></li>
 <li><p><strong>Batch Size:</strong> 24 (adjust based on GPU memory)</p></li>
@@ -511,58 +507,59 @@ We provide two post-training options:</p>
 <p>To post-train the policy, run the following command</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 
-python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
 --dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
---data_config<span class="o">=</span>fourier_gr1_arms_only<span class="w"> </span><span class="se">\</span>
---batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+--modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
+--global_batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
 --max_steps<span class="o">=</span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
 --num_gpus<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
 --save_steps<span class="o">=</span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
---base_model_path<span class="o">=</span>nvidia/GR00T-N1.5-3B<span class="w"> </span><span class="se">\</span>
+--save_total_limit<span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+--base_model_path<span class="o">=</span>nvidia/GR00T-N1.6-3B<span class="w"> </span><span class="se">\</span>
 --no_tune_llm<span class="w"> </span><span class="se">\</span>
 --tune_visual<span class="w"> </span><span class="se">\</span>
 --tune_projector<span class="w"> </span><span class="se">\</span>
 --tune_diffusion_model<span class="w"> </span><span class="se">\</span>
 --no-resume<span class="w"> </span><span class="se">\</span>
 --dataloader_num_workers<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
---report_to<span class="o">=</span>wandb<span class="w"> </span><span class="se">\</span>
---embodiment_tag<span class="o">=</span>gr1
+--use-wandb<span class="w"> </span><span class="se">\</span>
+--embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>
+--color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><p>Training takes approximately 2-3 hours on 1x Ada6000 GPU.</p>
 <p>Training Configuration:</p>
 <ul class="simple">
-<li><p><strong>Base Model:</strong> GR00T-N1.5-3B (foundation model)</p></li>
+<li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
 <li><p><strong>Tuned Modules:</strong> Visual backbone, projector, diffusion model</p></li>
 <li><p><strong>Frozen Modules:</strong> LLM (language model)</p></li>
 <li><p><strong>Batch Size:</strong> 24 (adjust based on GPU memory)</p></li>
 <li><p><strong>Training Steps:</strong> 20,000</p></li>
 <li><p><strong>GPUs:</strong> 1 (single-GPU training)</p></li>
-<li><p><strong>LoRA Fine-tuning:</strong> Enabled</p></li>
-<li><p><strong>LoRA Rank:</strong> 128</p></li>
 </ul>
 <p>To post-train the policy, run the following command</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/Isaac-GR00T
 
-python<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">1</span><span class="w"> </span>--standalone<span class="w"> </span>scripts/gr00t_finetune.py<span class="w"> </span><span class="se">\</span>
 --dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
---data_config<span class="o">=</span>fourier_gr1_arms_only<span class="w"> </span><span class="se">\</span>
---batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+--modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
+--global_batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
 --max_steps<span class="o">=</span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
 --num_gpus<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 --save_steps<span class="o">=</span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
---base_model_path<span class="o">=</span>nvidia/GR00T-N1.5-3B<span class="w"> </span><span class="se">\</span>
+--base_model_path<span class="o">=</span>nvidia/GR00T-N1.6-3B<span class="w"> </span><span class="se">\</span>
 --no_tune_llm<span class="w"> </span><span class="se">\</span>
 --tune_visual<span class="w"> </span><span class="se">\</span>
 --tune_projector<span class="w"> </span><span class="se">\</span>
 --tune_diffusion_model<span class="w"> </span><span class="se">\</span>
 --no-resume<span class="w"> </span><span class="se">\</span>
 --dataloader_num_workers<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
---report_to<span class="o">=</span>wandb<span class="w"> </span><span class="se">\</span>
---embodiment_tag<span class="o">=</span>gr1<span class="w"> </span><span class="se">\</span>
---lora_rank<span class="o">=</span><span class="m">128</span>
+--use-wandb<span class="w"> </span><span class="se">\</span>
+--embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>
+--color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08<span class="w"> </span><span class="se">\</span>
+--save_total_limit<span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
 </pre></div>
 </div>
 </div></div>

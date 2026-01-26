@@ -402,7 +402,7 @@
                   
   <section id="closed-loop-policy-inference-and-evaluation">
 <h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
-<p>This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
+<p>This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.</p>
 <p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
@@ -413,13 +413,9 @@ and evaluating it in Arena GR1 Open Microwave Door Task environment.</p>
 <span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_manipulation_tutorial
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
-instructions <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq">here</a> to building certain packages from source to support running on these architectures.
-We have not tested these instructions, and therefore we do not recommend using
-the <strong>Base + GR00T</strong> container for policy post-training and evaluation on
-Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.</p>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>Verifying Arena-GR00T on Blackwell architecture.</p>
 </div>
 <p>Note that this tutorial assumes that you’ve completed the
 <a class="reference internal" href="step_4_policy_training.html"><span class="doc">preceding step (Policy Training)</span></a> or downloaded the
@@ -427,9 +423,10 @@ pre-trained model checkpoint below:</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-trained Model (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
+<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.6 policy checkpoint,
 such that the preceding steps can be skipped.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--revision<span class="w"> </span>gn1_6<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/GN1x-Tuned-Arena-GR1-Manipulation<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/checkpoint-20000
 </pre></div>
@@ -446,9 +443,9 @@ such that the preceding steps can be skipped.</p>
 
 <span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Reach</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">microwave</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">open</span><span class="nv"> </span><span class="s">it.&quot;</span>
 <span class="nt">action_horizon</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
-<span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1</span>
+<span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GR1</span>
 <span class="nt">video_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decord</span>
-<span class="nt">data_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fourier_gr1_arms_only</span>
+<span class="nt">modality_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py</span>
 
 <span class="nt">policy_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml</span>
 <span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml</span>
@@ -519,7 +516,7 @@ than the single environment evaluation because of the parallel evaluation.</p>
 from <code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code> used in data generation.
 This is because during tele-operation, the robot is controlled via target end-effector poses,
 which are realized by using the PINK IK controller.
-GR00T N1.5 policy is trained on upper body joint positions, so we use
+GR00T N1.6 policy is trained on upper body joint positions, so we use
 <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> for closed-loop policy inference.</p>
 </div>
 </section>
