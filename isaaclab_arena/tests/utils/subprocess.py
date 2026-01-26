@@ -13,11 +13,11 @@ from isaaclab.app import AppLauncher
 from isaacsim import SimulationApp
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.tests.conftest import PYTEST_SESSION
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
 
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
-_AT_LEAST_ONE_TEST_FAILED = False
 
 
 def run_subprocess(cmd, env=None):
@@ -37,7 +37,7 @@ def run_subprocess(cmd, env=None):
         print(f"Command completed with return code: {result.returncode}")
     except subprocess.CalledProcessError as e:
         sys.stderr.write(f"Command failed with return code {e.returncode}: {e}\n")
-        raise
+        raise e
 
 
 class _IsolatedArgv:
@@ -56,10 +56,20 @@ class _IsolatedArgv:
         sys.argv = self._old
 
 
+# Isaac Sim makes testing complicated. During shutdown Isaac Sim will
+# terminate the surrounding pytest process with exit code 0, regardless
+# of whether the tests passed or failed.
+# To work around this, we stash the session object and set a flag
+# when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
+# prior to closing the simulation app, in order to generate the correct exit code.
+
+
 def _close_persistent():
     global _PERSISTENT_SIM_APP_LAUNCHER
     if _PERSISTENT_SIM_APP_LAUNCHER is not None:
-        if _AT_LEAST_ONE_TEST_FAILED:
+        if PYTEST_SESSION.tests_failed:
+            # If any test failed, exit the process with exit code 1
+            # to prevent Isaac Sim from terminating the pytest process with exit code 0.
             sys.stdout.flush()
             sys.stderr.flush()
             os._exit(1)
@@ -126,12 +136,9 @@ def run_simulation_app_function(
             headless=headless, enable_cameras=enable_cameras, enable_pinocchio=enable_pinocchio
         )
         test_result = bool(function(simulation_app, **kwargs))
-        if not test_result:
-            _AT_LEAST_ONE_TEST_FAILED = True
         return test_result
     except Exception as e:
         print(f"Exception occurred while running the function (persistent mode): {e}")
-        _AT_LEAST_ONE_TEST_FAILED = True
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests
