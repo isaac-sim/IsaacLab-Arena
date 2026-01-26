@@ -45,25 +45,3 @@ RUN git clone https://huggingface.co/nvidia/GR00T-N1.6-3B /workspace/pretrained_
 RUN curl -LO https://github.com/filebrowser/filebrowser/releases/download/v2.32.0/linux-amd64-filebrowser.tar.gz
 RUN tar -xzvf linux-amd64-filebrowser.tar.gz
 RUN mv filebrowser /usr/bin/
-
-RUN apt-get install -y libegl1
-RUN mkdir -p /usr/share/glvnd/egl_vendor.d && \
-    cat >/usr/share/glvnd/egl_vendor.d/10_nvidia.json <<'EOF'
-{
-    "file_format_version" : "1.0.0",
-    "ICD" : {
-        "library_path" : "libEGL_nvidia.so.0"
-    }
-}
-EOF
-
-RUN mkdir -p /usr/share/vulkan/icd.d && \
-    cat >/usr/share/vulkan/icd.d/nvidia_icd.json <<'EOF'
-{
-    "file_format_version": "1.0.0",
-    "ICD": {
-        "library_path": "libGLX_nvidia.so.0",
-        "api_version": "1.2.140"
-    }
-}
-EOF

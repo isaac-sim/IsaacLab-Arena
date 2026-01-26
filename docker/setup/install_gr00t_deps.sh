@@ -26,7 +26,8 @@ sudo apt-get update && sudo apt-get install -y ffmpeg && rm -rf /var/lib/apt/lis
 # Install flash-attn immediately after torch (requires torch to be installed first)
 echo "Installing flash-attn 2.7.4.post1..." && \
 /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1 && \
-# Install GR00T package without dependencies, as ignore its required py-3.10 version
+# Install GR00T package without dependencies. GR00T pyproject.toml specifies python 3.10, which conflicts with IsaacSim's python 3.11.
+# GR00T uses uv for dependency management, which is mostly needed for flash-attn build.
 echo "Installing Isaac-GR00T package (no deps)..." && \
 /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/ && \
 # Install GR00T main dependencies manually
@@ -76,8 +77,7 @@ echo "Installing GR00T main dependencies..."
 echo "Ensuring pytorch torchrun script is in PATH..."
 echo "export PATH=/isaac-sim/kit/python/bin:\$PATH" >> /etc/bash.bashrc
 
-echo "Removing pre-bundled torch to avoid conflicts..." && \
-rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/functorch* || true && \
+echo "Removing pre-bundled typing_extensions to avoid conflicts..." && \
 rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/typing_extensions* || true && \
 rm -rf /isaac-sim/exts/omni.pip.cloud/pip_prebundle/typing_extensions* || true
 
