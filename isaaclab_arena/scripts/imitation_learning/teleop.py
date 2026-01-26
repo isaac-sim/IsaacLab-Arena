@@ -238,13 +238,6 @@ def main() -> None:
 
                 # Only apply teleop commands when active
                 if teleoperation_active:
-                    # Pad action if teleop device outputs fewer dims than environment expects
-                    # actions[:16] are EEF-related, actions[16:] are WBC-related (may need padding)
-                    expected_dim = env.action_space.shape[-1]
-                    if action.shape[0] < expected_dim:
-                        padding = torch.zeros(expected_dim - action.shape[0], device=action.device, dtype=action.dtype)
-                        action = torch.cat([action, padding])
-
                     # process actions
                     actions = action.repeat(env.num_envs, 1)
                     # apply actions
