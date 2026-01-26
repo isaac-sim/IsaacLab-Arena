@@ -12,7 +12,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.relations.relations import Relation
+from isaaclab_arena.relations.relations import Relation, RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -32,7 +32,7 @@ class Object(ObjectBase):
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
-        relations: list[Relation] = [],
+        relations: list[RelationBase] = [],
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
@@ -55,11 +55,15 @@ class Object(ObjectBase):
         self.event_cfg = self._init_event_cfg()
         self.relations = []
 
-    def add_relation(self, relation: Relation) -> None:
+    def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)
 
-    def get_relations(self) -> list[Relation]:
+    def get_relations(self) -> list[RelationBase]:
         return self.relations
+
+    def get_spatial_relations(self) -> list[Relation]:
+        """Get only spatial relations (On, NextTo, etc.), excluding markers like IsAnchor."""
+        return [r for r in self.relations if isinstance(r, Relation)]
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
