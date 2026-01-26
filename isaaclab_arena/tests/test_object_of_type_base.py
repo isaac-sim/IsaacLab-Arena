@@ -22,7 +22,6 @@ def _test_object_of_type_base(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -54,8 +53,6 @@ def _test_object_of_type_base(simulation_app):
         name="base_object_test",
         embodiment=embodiment,
         scene=scene,
-        task=DummyTask(),
-        teleop_device=None,
     )
 
     try:

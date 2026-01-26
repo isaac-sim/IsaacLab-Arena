@@ -49,7 +49,6 @@ Tasks in Detail
    - **PickAndPlaceTask**: Move objects between locations with contact-based success detection
    - **OpenDoorTask**: Affordance-based interaction with openable objects and thresholds
    - **G1LocomanipPickAndPlaceTask**: Combined locomotion and manipulation for humanoid robots
-   - **DummyTask**: Empty task template for custom objective development
 
 
 Environment Integration
