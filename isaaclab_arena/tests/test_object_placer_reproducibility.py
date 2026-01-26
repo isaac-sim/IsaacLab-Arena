@@ -5,7 +5,12 @@
 
 """Tests for ObjectPlacer and RelationSolver reproducibility."""
 
+import pytest
+
 from isaaclab_arena.assets.dummy_object import DummyObject
+
+# Mark all tests in this module as unit tests (no Isaac Sim required)
+pytestmark = pytest.mark.unit
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver import RelationSolver

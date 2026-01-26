@@ -5,6 +5,11 @@
 
 import torch
 
+import pytest
+
+# Mark all tests in this module as unit tests (no Isaac Sim required)
+pytestmark = pytest.mark.unit
+
 from isaaclab_arena.relations.loss_primitives import (
     linear_band_loss,
     single_boundary_linear_loss,

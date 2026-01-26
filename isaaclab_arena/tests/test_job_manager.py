@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
+
+# Mark all tests in this module as unit tests (no Isaac Sim required)
+pytestmark = pytest.mark.unit
 
 
 def test_job_from_dict():
