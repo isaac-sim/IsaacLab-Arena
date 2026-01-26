@@ -429,7 +429,6 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_env_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvBuilder</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.dummy_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">DummyTask</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
 
 <span class="c1"># Step 1: Initialize and get the assets from the registry</span>
@@ -445,25 +444,20 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 <span class="c1"># Step 2: Create a scene with the assets</span>
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">cracker_box</span><span class="p">])</span>
 
-<span class="c1"># Step 3: Create a task</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">DummyTask</span><span class="p">()</span>
-
-<span class="c1"># Step 4: Create the IsaacLab Arena environment</span>
+<span class="c1"># Step 3: Create the IsaacLab Arena environment</span>
 <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_first_arena_env&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># Step 5: Build and compile the environment</span>
+<span class="c1"># Step 4: Build and compile the environment</span>
 <span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaaclab_arena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
 <span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
-<span class="c1"># Step 6: Run the simulation with zero actions</span>
+<span class="c1"># Step 5: Run the simulation with zero actions</span>
 <span class="n">NUM_STEPS</span> <span class="o">=</span> <span class="mi">1000</span>
 <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">NUM_STEPS</span><span class="p">)):</span>
     <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">():</span>
@@ -491,26 +485,21 @@ above with a Franka robot and a cracker box object using the <code class="docuti
 </pre></div>
 </div>
 <p>See <a class="reference internal" href="../concepts/concept_scene_design.html"><span class="doc">Scene Design</span></a> for scene composition details.</p>
-<p><strong>3. Create a Task</strong></p>
-<p>A task defines the objective, success criteria, and behavior logic for the environment. For this example, we use the <code class="docutils literal notranslate"><span class="pre">DummyTask</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">DummyTask</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>See <a class="reference internal" href="../concepts/concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for task creation details.</p>
+<p><strong>3. Create a Task (Optional)</strong></p>
+<p>A task defines the objective, success criteria, and reward logic for the environment. For this simple example, we don’t need a custom task - passing <code class="docutils literal notranslate"><span class="pre">task=None</span></code> (or omitting it entirely) uses a default empty task internally.</p>
+<p>For creating custom tasks with rewards and terminations, see <a class="reference internal" href="../concepts/concept_tasks_design.html"><span class="doc">Tasks Design</span></a>.</p>
 <p><strong>4. Create the IsaacLab Arena Environment</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_first_arena_env&quot;</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">DummyTask</span><span class="p">(),</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>This puts everything together into an <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> object.</p>
+<p>This puts everything together into an <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> object. Note that <code class="docutils literal notranslate"><span class="pre">task</span></code> is optional - if not provided, a default empty task is used internally.</p>
 <p>See <a class="reference internal" href="../concepts/concept_environment_design.html"><span class="doc">Environment Design</span></a> for environment composition details.</p>
 <p><strong>5. Build the Environment</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaaclab_arenaena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">args_cli</span> <span class="o">=</span> <span class="n">get_isaaclab_arena_cli_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([])</span>
 <span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
