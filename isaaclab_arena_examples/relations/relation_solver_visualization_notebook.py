@@ -21,7 +21,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import NextTo, Side
+from isaaclab_arena.relations.relations import IsAnchor, NextTo, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -156,6 +156,7 @@ def run_visualization_demo():
     # Create parent object
     parent = DummyObject(name="parent", bounding_box=parent_bbox)
     parent.set_initial_pose(Pose(position_xyz=parent_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    parent.add_relation(IsAnchor())
 
     # Create first child - placed to the RIGHT of parent
     child1 = DummyObject(name="child1", bounding_box=child_bbox)
@@ -223,7 +224,7 @@ def run_visualization_demo():
         child1: (0.8, 0.5, 0.05),  # Random starting position
         child2: (1.2, 0.3, 0.05),  # Random starting position
     }
-    result = solver.solve(objects, anchor_object=parent, initial_positions=initial_positions)
+    result = solver.solve(objects, initial_positions=initial_positions)
 
     print(f"\nFinal child1 position: {result[child1]}")
     print(f"Final child2 position: {result[child2]}")
