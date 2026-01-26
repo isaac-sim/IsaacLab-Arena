@@ -52,8 +52,13 @@ class ArenaEnvBuilder:
         """
         objects_with_relations: list[Object] = []
         for asset in self.arena_env.scene.assets.values():
-            # TODO(cvolk): Support ObjectSets.
             if not isinstance(asset, Object):
+                # Fail early if a non-Object asset has relations - they won't be solved
+                # TODO(cvolk, 2026-01-26): Support ObjectSets.
+                assert not (hasattr(asset, "get_relations") and asset.get_relations()), (
+                    f"Asset '{asset.name}' has relations but is not an Object "
+                    f"(type: {type(asset).__name__}). Only Object instances support relations."
+                )
                 continue
             if asset.get_relations():
                 objects_with_relations.append(asset)
