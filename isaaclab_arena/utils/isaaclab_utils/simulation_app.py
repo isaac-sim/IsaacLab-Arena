@@ -111,7 +111,7 @@ class SimulationAppContext:
         else:
             print(f"Exception caught in SimulationAppContext: {exc_type.__name__}: {exc_val}")
             print("Traceback:")
-            traceback.print_tb(exc_tb)
+            traceback.print_exception(exc_type, exc_val, exc_tb)
             print("Killing the process without cleaning up")
             sys.stdout.flush()
             sys.stderr.flush()
