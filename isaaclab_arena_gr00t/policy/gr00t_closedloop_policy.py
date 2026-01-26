@@ -230,13 +230,11 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # Pack inputs to dictionary and run the inference
         assert self.task_description is not None, "Task description is not set"
-        
+
         # Dynamically construct policy observations using modality config keys
         # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
         policy_observations = {
-            "language": {
-                self.language_keys[0]: [[self.task_description] for _ in range(self.num_envs)]
-            },
+            "language": {self.language_keys[0]: [[self.task_description] for _ in range(self.num_envs)]},
             "video": {
                 self.video_keys[0]: rgb.reshape(
                     self.num_envs,
@@ -246,14 +244,16 @@ class Gr00tClosedloopPolicy(PolicyBase):
                     self.policy_config.target_image_size[2],
                 )
             },
-            "state": {}
+            "state": {},
         }
-        
+
         # Dynamically populate state keys from modality config
         for state_key in self.state_keys:
             if state_key in joint_pos_state_policy:
-                policy_observations["state"][state_key] = joint_pos_state_policy[state_key].reshape(self.num_envs, 1, -1)
-        
+                policy_observations["state"][state_key] = joint_pos_state_policy[state_key].reshape(
+                    self.num_envs, 1, -1
+                )
+
         return policy_observations
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
