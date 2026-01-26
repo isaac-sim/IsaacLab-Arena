@@ -21,7 +21,23 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        
+        # Check if we need world frame actions (for VR/motion controllers)
+        use_world_frame_actions = (
+            args_cli.teleop_device in ["motion_controllers", "openxr"]
+            and args_cli.embodiment == "g1_wbc_pink"
+        )
+        
+        # Create embodiment with appropriate action config
+        if use_world_frame_actions:
+            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+                enable_cameras=args_cli.enable_cameras,
+                use_world_frame_actions=True
+            )
+        else:
+            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+                enable_cameras=args_cli.enable_cameras
+            )
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()

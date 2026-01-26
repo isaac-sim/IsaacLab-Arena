@@ -34,6 +34,9 @@ from isaaclab_arena_g1.g1_env.mdp import g1_events as g1_events_mdp
 from isaaclab_arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
+from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_world_frame_action_cfg import (
+    G1DecoupledWBCPinkWorldFrameActionCfg,
+)
 
 
 class G1EmbodimentBase(EmbodimentBase):
@@ -115,9 +118,16 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = False,  # Default to regular for single env
+        use_world_frame_actions: bool = False,  # Set to True for VR/motion controller teleop
     ):
         super().__init__(enable_cameras, initial_pose)
-        self.action_config = G1WBCPinkActionCfg()
+        
+        # Use world frame action config if needed (e.g., for VR controllers)
+        if use_world_frame_actions:
+            self.action_config = G1DecoupledWBCPinkWorldFrameActionCfg()
+        else:
+            self.action_config = G1WBCPinkActionCfg()
+            
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
