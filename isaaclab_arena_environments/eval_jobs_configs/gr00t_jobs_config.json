@@ -1,0 +1,34 @@
+{
+    "jobs": [
+        {
+            "name": "gr1_open_microwave_cracker_box",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment":"gr1_open_microwave",
+                "object":"cracker_box",
+                "embodiment":"gr1_joint"
+            },
+            "num_steps": 10,
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_args": {
+                "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml",
+                "policy_device": "cuda:0"
+            }
+        },
+        {
+            "name": "g1_locomanip_pick_and_place_brown_box",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment":"galileo_g1_locomanip_pick_and_place",
+                "object":"brown_box",
+                "embodiment":"g1_wbc_joint"
+            },
+            "num_steps": 10,
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_args": {
+                "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml",
+                "policy_device": "cuda:0"
+            }
+        }
+    ]
+}

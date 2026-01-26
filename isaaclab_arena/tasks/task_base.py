@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -9,6 +9,7 @@ from typing import Any
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_base import MetricBase
 
@@ -32,7 +33,7 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
-    def get_mimic_env_cfg(self, embodiment_name: str) -> Any:
+    def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod

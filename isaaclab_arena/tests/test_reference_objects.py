@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -108,7 +108,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
         prim_path="{ENV_REGEX_NS}/kitchen/microwave",
         parent_asset=background,
         openable_joint_name="microjoint",
-        openable_open_threshold=0.5,
+        openable_threshold=0.5,
     )
 
     scene = Scene(assets=[background, cracker_box, microwave])

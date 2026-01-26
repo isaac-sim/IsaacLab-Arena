@@ -84,7 +84,7 @@ Usage Examples
 .. code-block:: bash
 
    # GR00T foundation model deployment
-   python policy_runner.py --policy_type gr00t_closedloop --policy_config_yaml_path config.yaml
+   python policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml
 
 **Custom Policy Integration**
 

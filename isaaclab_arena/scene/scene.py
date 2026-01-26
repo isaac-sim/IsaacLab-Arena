@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -14,6 +14,7 @@ from pxr import Gf, Usd, UsdGeom
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
@@ -23,8 +24,8 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 class Scene:
 
-    def __init__(self, assets: list[Asset] | None = None):
-        self.assets: dict[str, Asset] = {}
+    def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
+        self.assets: dict[str, Asset | RigidObjectSet] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -35,11 +36,23 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_asset(self, asset: Asset):
-        assert asset.name is not None, "Asset with the same name already exists"
+    def add_asset(self, asset: Asset | RigidObjectSet):
+        """Add an asset to the scene.
+
+        Args:
+            asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
+                   the keys will be used as the names of the assets and the values will be the list of assets.
+        """
+        if not isinstance(asset, Asset | RigidObjectSet):
+            raise ValueError(f"Invalid asset type: {type(asset)}")
+
+        if asset.name is None:
+            print("Asset name is None. Skipping asset.")
+            return
+        # if name already exists, overwrite
         self.assets[asset.name] = asset
 
-    def add_assets(self, assets: list[Asset]):
+    def add_assets(self, assets: list[Asset | RigidObjectSet]):
         for asset in assets:
             self.add_asset(asset)
 
@@ -48,17 +61,25 @@ class Scene:
         # Combine the configs into a configclass.
         fields: list[tuple[str, type, AssetCfg]] = []
         for asset in self.assets.values():
-            for asset_cfg_name, asset_cfg in asset.get_object_cfg().items():
-                fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
-        NewConfigClass = make_configclass("SceneCfg", fields)
-        new_config_class = NewConfigClass()
-        return new_config_class
+            asset_cfg_name, asset_cfg = asset.get_object_cfg()
+            fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+        SceneCfg = make_configclass("SceneCfg", fields)
+        scene_cfg = SceneCfg()
+        return scene_cfg
 
     def get_observation_cfg(self) -> Any:
         return self.observation_cfg
 
     def get_events_cfg(self) -> Any:
-        return self.events_cfg
+        # Combine the configs into a configclass.
+        fields: list[tuple[str, type, AssetCfg]] = []
+        for asset in self.assets.values():
+            event_cfg_name, event_cfg = asset.get_event_cfg()
+            if event_cfg is not None:
+                fields.append((event_cfg_name, type(event_cfg), event_cfg))
+        EventCfg = make_configclass("EventCfg", fields)
+        event_cfg = EventCfg()
+        return event_cfg
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg

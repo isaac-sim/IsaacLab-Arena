@@ -1,21 +1,19 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-import torch
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import euler_xyz_from_quat
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -43,6 +41,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
             if task_description is None
             else task_description
         )
+        self.events_cfg = None
 
     def get_scene_cfg(self):
         pass
@@ -71,9 +70,9 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         )
 
     def get_events_cfg(self):
-        return EventsCfg(pick_up_object=self.pick_up_object)
+        return self.events_cfg
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return G1LocomanipPickPlaceMimicEnvCfg()
 
     def get_metrics(self) -> list[MetricBase]:
@@ -95,39 +94,6 @@ class TerminationsCfg:
     success: TerminationTermCfg = MISSING
 
     object_dropped: TerminationTermCfg = MISSING
-
-
-@configclass
-class EventsCfg:
-    """Configuration for Pick and Place."""
-
-    reset_pick_up_object_pose: EventTermCfg = MISSING
-
-    def __init__(self, pick_up_object: Asset):
-        initial_pose = pick_up_object.get_initial_pose()
-        if initial_pose is not None:
-            roll, pitch, yaw = euler_xyz_from_quat(torch.tensor(initial_pose.rotation_wxyz).reshape(1, 4))
-            self.reset_pick_up_object_pose = EventTermCfg(
-                func=franka_stack_events.randomize_object_pose,
-                mode="reset",
-                params={
-                    "pose_range": {
-                        "x": (initial_pose.position_xyz[0] - 0.025, initial_pose.position_xyz[0] + 0.025),
-                        "y": (initial_pose.position_xyz[1] - 0.025, initial_pose.position_xyz[1] + 0.025),
-                        "z": (initial_pose.position_xyz[2], initial_pose.position_xyz[2]),
-                        "roll": (roll, roll),
-                        "pitch": (pitch, pitch),
-                        "yaw": (yaw, yaw),
-                    },
-                    "asset_cfgs": [SceneEntityCfg(pick_up_object.name)],
-                },
-            )
-        else:
-            print(
-                f"Pick up object {pick_up_object.name} has no initial pose. Not setting reset pick up object pose"
-                " event."
-            )
-            self.reset_pick_up_object_pose = None
 
 
 @configclass

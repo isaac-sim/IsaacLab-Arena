@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -17,10 +17,10 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 class ObjectVelocityRecorder(RecorderTerm):
     """Records the linear velocity of an object for each sim step of an episode."""
 
-    name = "object_linear_velocity"
-
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
+        # Get name from config instead of class attribute
+        self.name = cfg.name
         self.object_name = cfg.object_name
 
     def record_post_step(self):
@@ -33,6 +33,7 @@ class ObjectVelocityRecorder(RecorderTerm):
 @configclass
 class ObjectVelocityRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = ObjectVelocityRecorder
+    name: str = "object_linear_velocity"
     object_name: str = MISSING
 
 
@@ -44,7 +45,7 @@ class ObjectMovedRateMetric(MetricBase):
     """
 
     name = "object_moved_rate"
-    recorder_term_name = ObjectVelocityRecorder.name
+    recorder_term_name = "object_linear_velocity"
 
     def __init__(self, object: Asset, object_velocity_threshold: float = 0.5):
         """Initializes the object-moved rate metric.
@@ -59,7 +60,7 @@ class ObjectMovedRateMetric(MetricBase):
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
         """Return the recorder term configuration for the object-moved rate metric."""
-        return ObjectVelocityRecorderCfg(object_name=self.object.name)
+        return ObjectVelocityRecorderCfg(name=self.recorder_term_name, object_name=self.object.name)
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
         """Computes the object-moved rate from the recorded metric data.

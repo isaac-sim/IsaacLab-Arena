@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -129,10 +129,10 @@ class ObjectReference(ObjectBase):
 class OpenableObjectReference(ObjectReference, Openable):
     """An object which *refers* to an existing element in the scene and is openable."""
 
-    def __init__(self, openable_joint_name: str, openable_open_threshold: float = 0.5, **kwargs):
+    def __init__(self, openable_joint_name: str, openable_threshold: float = 0.5, **kwargs):
         super().__init__(
             openable_joint_name=openable_joint_name,
-            openable_open_threshold=openable_open_threshold,
+            openable_threshold=openable_threshold,
             object_type=ObjectType.ARTICULATION,
             **kwargs,
         )
