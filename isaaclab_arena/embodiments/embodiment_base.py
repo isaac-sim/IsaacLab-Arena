@@ -7,7 +7,6 @@ from typing import Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
-from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -15,13 +14,6 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLa
 from isaaclab_arena.utils.cameras import make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose
-
-
-@configclass
-class EmptyActionsCfg:
-    """Empty actions config for environments without an embodiment."""
-
-    pass
 
 
 class EmbodimentBase(Asset):
