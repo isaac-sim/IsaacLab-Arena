@@ -2,7 +2,7 @@ Policy Post-Training
 --------------------
 
 This workflow covers post-training an example policy using the generated dataset,
-here we use `GR00T N1.5 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
+here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
 
@@ -15,12 +15,9 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
-.. note::
-    The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
-    instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
-    We have not tested these instructions, and therefore we do not recommend using
-    the **Base + GR00T** container for policy post-training and evaluation on
-    Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.
+.. todo::
+
+   Verifying Arena-GR00T on Blackwell architecture.
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_2_data_generation>` or downloaded the pre-generated dataset.
@@ -44,7 +41,7 @@ Note that this tutorial assumes that you've completed the
 Step 1: Convert to LeRobot Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-GR00T N1.5 requires the dataset to be in LeRobot format.
+GR00T N1.6 requires the dataset to be in LeRobot format.
 We provide a script to convert from the IsaacLab Mimic generated HDF5 dataset to LeRobot format.
 Note that this conversion step can be skipped by downloading the pre-converted LeRobot format dataset.
 
@@ -105,16 +102,16 @@ The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/c
 Step 2: Post-train Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We post-train the GR00T N1.5 policy on the task.
+We post-train the GR00T N1.6 policy on the task.
 
-The GR00T N1.5 policy has 3 billion parameters so post-training is an an expensive operation.
+The GR00T N1.6 policy has 3 billion parameters so post-training is an an expensive operation.
 We provide one post-training option, 8 GPUs with 48GB memory, to achieve the best quality:
 
 Training takes approximately 4-8 hours on 8x L40s GPUs.
 
 Training Configuration:
 
-- **Base Model:** GR00T-N1.5-3B (foundation model)
+- **Base Model:** GR00T-N1.6-3B (foundation model)
 - **Tuned Modules:** Visual backbone, projector, diffusion model
 - **Frozen Modules:** LLM (language model)
 - **Batch Size:** 24 (adjust based on GPU memory)
@@ -127,23 +124,25 @@ To post-train the policy, run the following command
 
    cd submodules/Isaac-GR00T
 
-   python scripts/gr00t_finetune.py \
+   python -m torch.distributed.run --nproc_per_node=8 --standalone scripts/gr00t_finetune.py \
    --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
    --output_dir=$MODELS_DIR \
-   --data_config=isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig \
-   --batch_size=24 \
+   --modality_config_path=isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
+   --global_batch_size=24 \
    --max_steps=20000 \
    --num_gpus=8 \
    --save_steps=5000 \
-   --base_model_path=nvidia/GR00T-N1.5-3B \
+   --save_total_limit=5 \
+   --base_model_path=nvidia/GR00T-N1.6-3B \
    --no_tune_llm \
    --tune_visual \
    --tune_projector \
    --tune_diffusion_model \
    --no-resume \
    --dataloader_num_workers=16 \
-   --report_to=wandb \
-   --embodiment_tag=new_embodiment
+   --use-wandb \
+   --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
+   --embodiment_tag=NEW_EMBODIMENT
 
 
 If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
