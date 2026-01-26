@@ -18,6 +18,8 @@ class EmptyActionsCfg:
 class NoEmbodiment(EmbodimentBase):
     """Null object for environments without an embodiment."""
 
+    name = "no_embodiment"
+
     def __init__(self):
         super().__init__()
         self.action_config = EmptyActionsCfg()
