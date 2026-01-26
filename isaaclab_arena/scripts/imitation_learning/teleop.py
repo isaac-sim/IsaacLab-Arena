@@ -29,6 +29,15 @@ parser.add_argument(
     default=False,
     help="Enable Pinocchio.",
 )
+parser.add_argument(
+    "--use_world_frame_actions",
+    action="store_true",
+    default=False,
+    help=(
+        "Use world frame actions for teleoperation. This is automatically enabled when using "
+        "motion_controllers or openxr teleop devices, but can be explicitly set if needed."
+    ),
+)
 
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because

@@ -42,6 +42,15 @@ parser.add_argument(
     default=False,
     help="Enable Pinocchio.",
 )
+parser.add_argument(
+    "--use_world_frame_actions",
+    action="store_true",
+    default=False,
+    help=(
+        "Use world frame actions for replay. Set this to True when replaying demos recorded with "
+        "motion controllers or other VR devices that output world-space poses."
+    ),
+)
 
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
