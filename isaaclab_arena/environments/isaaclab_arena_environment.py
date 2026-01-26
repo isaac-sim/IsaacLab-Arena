@@ -33,7 +33,7 @@ class IsaacLabArenaEnvironment:
     scene: Scene = MISSING
     """The scene to use in the environment."""
 
-    task: TaskBase = MISSING
+    task: TaskBase | None = None
     """The task to use in the environment."""
 
     teleop_device: TeleopDeviceBase | None = None
