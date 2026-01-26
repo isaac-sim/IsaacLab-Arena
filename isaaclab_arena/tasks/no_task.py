@@ -9,7 +9,11 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.task_base import TaskBase
 
 
-class DummyTask(TaskBase):
+class NoTask(TaskBase):
+    """Null object for environments without a task."""
+
+    name = "no_task"
+
     def __init__(self):
         super().__init__()
 
@@ -20,9 +24,6 @@ class DummyTask(TaskBase):
         pass
 
     def get_events_cfg(self):
-        pass
-
-    def get_prompt(self):
         pass
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):

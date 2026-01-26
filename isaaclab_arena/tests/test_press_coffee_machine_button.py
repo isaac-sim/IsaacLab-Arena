@@ -21,7 +21,6 @@ def get_test_environment(num_envs: int):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -45,7 +44,6 @@ def get_test_environment(num_envs: int):
         name="press_button_coffee_machine",
         embodiment=FrankaEmbodiment(),
         scene=scene,
-        task=DummyTask(),
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
