@@ -108,7 +108,13 @@ See :doc:`../concepts/concept_assets_design` for details on asset architecture.
 
 See :doc:`../concepts/concept_scene_design` for scene composition details.
 
-**3. Create the IsaacLab Arena Environment**
+**3. Create a Task (Optional)**
+
+A task defines the objective, success criteria, and reward logic for the environment. For this simple example, we don't need a custom task - passing ``task=None`` (or omitting it entirely) uses a default empty task internally.
+
+For creating custom tasks with rewards and terminations, see :doc:`../concepts/concept_tasks_design`.
+
+**4. Create the IsaacLab Arena Environment**
 
 .. code-block:: python
 
@@ -122,11 +128,11 @@ This puts everything together into an ``IsaacLabArenaEnvironment`` object. Note 
 
 See :doc:`../concepts/concept_environment_design` for environment composition details.
 
-**4. Build the Environment**
+**5. Build the Environment**
 
 .. code-block:: python
 
-    args_cli = get_isaaclab_arenaena_cli_parser().parse_args([])
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = env_builder.make_registered()
     env.reset()
@@ -134,7 +140,7 @@ See :doc:`../concepts/concept_environment_design` for environment composition de
 The ``ArenaEnvBuilder`` compiles the high-level environment description into Isaac Lab configurations.
 See :doc:`../concepts/concept_environment_compilation` for compilation details.
 
-**5. Run the Simulation**
+**6. Run the Simulation**
 
 .. code-block:: python
 
