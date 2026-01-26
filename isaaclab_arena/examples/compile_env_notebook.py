@@ -27,11 +27,9 @@ from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObje
 from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 from isaaclab_arena.tasks.close_door_task import CloseDoorTask
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 asset_registry = AssetRegistry()
 
-# background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("gr1_pink")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
@@ -44,45 +42,14 @@ cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1
 cracker_box.add_relation(IsAnchor())
 tomato_soup_can.add_relation(On(cracker_box))
 
-from isaaclab_arena.assets.background_library import LibraryBackground
-from lightwheel_sdk.loader import floorplan_loader
-
-class LightwheelKitchenBackground(LibraryBackground):
-    """
-    Encapsulates the background scene for the kitchen.
-    """
-
-    name = "lightwheel_kitchen"
-    tags = ["background"]
-    # usd_path = str(floorplan_loader.acquire_usd(
-    #     scene="robocasakitchen",
-    #     layout_id=1,
-    #     style_id=2,
-    #     backend="robocasa"
-    # ).result()[0])
-    # initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
-    usd_path = None # Lazy download in the constructor
-    initial_pose = Pose.identity()
-    object_min_z = -0.2
-
-    def __init__(self, layout_id: int = 1, style_id: int = 1):
-        # Lazily download the USD
-        self.usd_path = str(floorplan_loader.get_usd(
-            scene="robocasakitchen",
-            layout_id=layout_id,
-            style_id=style_id,
-            backend="robocasa"
-        )[0])
-        super().__init__()
-
-kitchen_background = LightwheelKitchenBackground(style_id=2)
+kitchen_background = asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=2)
 
 light = asset_registry.get_asset_by_name("light")()
 
 # Refrigerator
 refrigerator = OpenableObjectReference(
     name="refrigerator",
-    prim_path="{ENV_REGEX_NS}/lightwheel_kitchen/fridge_main_group",
+    prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group",
     parent_asset=kitchen_background,
     openable_joint_name="fridge_door_joint",
     openable_threshold=0.5,
@@ -91,7 +58,7 @@ refrigerator = OpenableObjectReference(
 # Refrigerator (shelf)
 refrigerator_shelf = ObjectReference(
     name="refrigerator_shelf",
-    prim_path="{ENV_REGEX_NS}/lightwheel_kitchen/fridge_main_group/Refrigerator034",
+    prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group/Refrigerator034",
     parent_asset=kitchen_background,
 )
 
@@ -119,17 +86,15 @@ class PutAndCloseDoorTask(SequentialTaskBase):
 
     def __init__(
         self,
-        # openable_object,
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
     ):
         super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
-        # self.openable_object = openable_object
 
     def get_viewer_cfg(self):
         return self.subtasks[0].get_viewer_cfg()
 
-    def get_prompt(self) -> str:
+    def get_prompt(self):
         return None
 
     def get_mimic_env_cfg(self, arm_mode):
@@ -142,14 +107,11 @@ task = PutAndCloseDoorTask(
     subtasks=[pick_and_place_task, close_door_task]
 )
 
-
 scene = Scene(assets=[kitchen_background, cracker_box, refrigerator, refrigerator_shelf, vegetable, light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
     scene=scene,
-    # task=DummyTask(),
-    # task=PickAndPlaceTask(vegetable, refrigerator_shelf, kitchen_background),
     task=task,
     teleop_device=None,
 )
@@ -159,10 +121,6 @@ args_cli.solve_relations = True
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
-
-# Open the refrigerator
-# TODO: Remove. We want the robot to open this.
-# refrigerator.open(env, env_ids=None, percentage=1.0)#0.4)
 
 
 STEPS_UNTIL_TELEPORT_VEGETABLE = 50
@@ -185,11 +143,9 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
             refrigerator.close(env, env_ids=None, percentage=0.0)
 
         _, _, terminated, _, _ = env.step(actions)
+
         if terminated:
             print("SUCCESS!!!!!!")
-
-        # if terminated:
-        #     refrigerator.open(env, env_ids=None, percentage=1.0)#0.4)
 
 
 # %%
