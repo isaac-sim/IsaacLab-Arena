@@ -48,10 +48,11 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
     arena_group.add_argument(
-        "--solve-relations",
-        action="store_true",
-        default=False,
-        help="Solve spatial relations in the environment.",
+        "--no-solve-relations",
+        action="store_false",
+        dest="solve_relations",
+        default=True,
+        help="Disable solving spatial relations in the environment.",
     )
 
 
