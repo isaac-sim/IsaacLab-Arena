@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relations import find_anchor_object
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -41,20 +42,31 @@ class ObjectPlacer:
     def place(
         self,
         objects: list[Object],
-        anchor_object: Object,
     ) -> PlacementResult:
         """Place objects according to their spatial relations.
 
         Args:
-            objects: List of objects to place (must include anchor_object).
-            anchor_object: Fixed reference object that won't be optimized.
-                Must have an initial_pose set.
+            objects: List of objects to place. Must include exactly one object
+                marked with IsAnchor() which serves as the fixed reference.
 
         Returns:
             PlacementResult with success status, positions, loss, and attempt count.
         """
+        # Validate all objects have at least one relation
+        for obj in objects:
+            assert obj.get_relations(), (
+                f"Object '{obj.name}' has no relations. All objects passed to place() must have "
+                "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
+            )
+
+        # We use the anchor object to determine the bounds for random position initialization.
+        anchor_object = find_anchor_object(objects)
+        assert anchor_object is not None, (
+            "No anchor object found. Mark one object with IsAnchor() to serve as the fixed reference. "
+            "Example: table.add_relation(IsAnchor())"
+        )
         assert anchor_object.initial_pose is not None, (
-            f"anchor_object '{anchor_object.name}' must have an initial_pose set. "
+            f"Anchor object '{anchor_object.name}' must have an initial_pose set. "
             "Call anchor_object.set_initial_pose(...) before placing."
         )
 
@@ -77,7 +89,7 @@ class ObjectPlacer:
             initial_positions = self._generate_initial_positions(objects, anchor_object, init_bounds)
 
             # Solve
-            positions = self._solver.solve(objects, anchor_object, initial_positions)
+            positions = self._solver.solve(objects, initial_positions)
             loss = self._solver.last_loss_history[-1] if self._solver.last_loss_history else float("inf")
 
             if self.params.verbose:

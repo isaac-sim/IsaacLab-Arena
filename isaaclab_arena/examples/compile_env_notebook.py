@@ -18,6 +18,7 @@ from isaaclab_arena.assets.asset_registry import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.tasks.dummy_task import DummyTask
 from isaaclab_arena.utils.pose import Pose
@@ -27,10 +28,13 @@ asset_registry = AssetRegistry()
 background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+cracker_box.add_relation(IsAnchor())
+tomato_soup_can.add_relation(On(cracker_box))
 
-scene = Scene(assets=[background, cracker_box])
+scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
@@ -40,6 +44,7 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
 )
 
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+args_cli.solve_relations = True
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
