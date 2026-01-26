@@ -13,6 +13,7 @@ HEADLESS = True
 ENABLE_CAMERAS = True
 GENERATION_NUM_TRIALS = 1
 
+
 def test_franka_put_and_close_door_mimic_data_generation_single_env():
     """Test mimic data generation for franka_put_and_close_door sequential task on a single env."""
     with tempfile.TemporaryDirectory() as temp_dir:
