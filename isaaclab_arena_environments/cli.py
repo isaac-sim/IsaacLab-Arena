@@ -15,6 +15,7 @@ from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment
 )
 from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
 from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
+from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
 from isaaclab_arena_environments.gr1_turn_stand_mixer_knob_environment import Gr1TurnStandMixerKnobEnvironment
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
 from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
@@ -32,6 +33,7 @@ from isaaclab_arena_environments.tabletop_place_upright_environment import Table
 ExampleEnvironments = {
     FrankaPutAndCloseDoorEnvironment.name: FrankaPutAndCloseDoorEnvironment,
     Gr1OpenMicrowaveEnvironment.name: Gr1OpenMicrowaveEnvironment,
+    GR1PutAndCloseDoorEnvironment.name: GR1PutAndCloseDoorEnvironment,
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
