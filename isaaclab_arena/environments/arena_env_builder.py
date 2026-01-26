@@ -58,23 +58,23 @@ class ArenaEnvBuilder:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
-        _embodiment = self.arena_env.embodiment
+        embodiment = self.arena_env.embodiment
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,
             self.arena_env.scene.get_scene_cfg(),
-            _embodiment.get_scene_cfg() if _embodiment else None,
+            embodiment.get_scene_cfg() if embodiment else None,
             self.arena_env.task.get_scene_cfg(),
         )
         observation_cfg = combine_configclass_instances(
             "ObservationCfg",
             self.arena_env.scene.get_observation_cfg(),
-            _embodiment.get_observation_cfg() if _embodiment else None,
+            embodiment.get_observation_cfg() if embodiment else None,
             self.arena_env.task.get_observation_cfg(),
         )
         events_cfg = combine_configclass_instances(
             "EventsCfg",
-            _embodiment.get_events_cfg() if _embodiment else None,
+            embodiment.get_events_cfg() if embodiment else None,
             self.arena_env.scene.get_events_cfg(),
             self.arena_env.task.get_events_cfg(),
         )
@@ -82,10 +82,10 @@ class ArenaEnvBuilder:
             "TerminationCfg",
             self.arena_env.task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
-            _embodiment.get_termination_cfg() if _embodiment else None,
+            embodiment.get_termination_cfg() if embodiment else None,
         )
-        actions_cfg = _embodiment.get_action_cfg() if _embodiment else EmptyActionsCfg()
-        xr_cfg = _embodiment.get_xr_cfg() if _embodiment else None
+        actions_cfg = embodiment.get_action_cfg() if embodiment else EmptyActionsCfg()
+        xr_cfg = embodiment.get_xr_cfg() if embodiment else None
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
             teleop_device_cfg = device_registry.get_teleop_device_cfg(
@@ -101,28 +101,28 @@ class ArenaEnvBuilder:
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             self.arena_env.task.get_recorder_term_cfg(),
-            _embodiment.get_recorder_term_cfg() if _embodiment else None,
+            embodiment.get_recorder_term_cfg() if embodiment else None,
             bases=(RecorderManagerBaseCfg,),
         )
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
             self.arena_env.scene.get_rewards_cfg(),
-            _embodiment.get_rewards_cfg() if _embodiment else None,
+            embodiment.get_rewards_cfg() if embodiment else None,
             self.arena_env.task.get_rewards_cfg(),
         )
 
         curriculum_cfg = combine_configclass_instances(
             "CurriculumCfg",
             self.arena_env.scene.get_curriculum_cfg(),
-            _embodiment.get_curriculum_cfg() if _embodiment else None,
+            embodiment.get_curriculum_cfg() if embodiment else None,
             self.arena_env.task.get_curriculum_cfg(),
         )
 
         commands_cfg = combine_configclass_instances(
             "CommandsCfg",
             self.arena_env.scene.get_commands_cfg(),
-            _embodiment.get_commands_cfg() if _embodiment else None,
+            embodiment.get_commands_cfg() if embodiment else None,
             self.arena_env.task.get_commands_cfg(),
         )
 
