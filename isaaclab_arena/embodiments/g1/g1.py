@@ -62,11 +62,12 @@ class G1EmbodimentBase(EmbodimentBase):
         self.mimic_env = G1MimicEnv
 
         # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
-        # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
+        # Anchor to the robot's pelvis for first-person view that follows the robot
         self.xr: XrCfg = XrCfg(
             anchor_pos=(0.0, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+            anchor_prim_path="/World/envs/env_0/Robot/pelvis",
+            fixed_anchor_height=True,
         )
 
 
@@ -124,7 +125,7 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         
         # Use world frame action config if needed (e.g., for VR controllers)
         if use_world_frame_actions:
-            self.action_config = G1DecoupledWBCPinkWorldFrameActionCfg()
+            self.action_config = G1WBCPinkWorldFrameActionCfg()
         else:
             self.action_config = G1WBCPinkActionCfg()
             
@@ -608,6 +609,13 @@ class G1WBCPinkActionCfg:
     """Action specifications for the MDP, for G1 WBC action."""
 
     g1_action: ActionTermCfg = G1DecoupledWBCPinkActionCfg(asset_name="robot", joint_names=[".*"])
+
+
+@configclass
+class G1WBCPinkWorldFrameActionCfg:
+    """Action specifications for the MDP, for G1 WBC action with world frame transformation."""
+
+    g1_action: ActionTermCfg = G1DecoupledWBCPinkWorldFrameActionCfg(asset_name="robot", joint_names=[".*"])
 
 
 @configclass
