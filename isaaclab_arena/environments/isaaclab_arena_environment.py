@@ -27,7 +27,7 @@ class IsaacLabArenaEnvironment:
     name: str = MISSING
     """The name of the environment."""
 
-    embodiment: EmbodimentBase = MISSING
+    embodiment: EmbodimentBase | None = None
     """The embodiment to use in the environment."""
 
     scene: Scene = MISSING
