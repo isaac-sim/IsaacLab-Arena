@@ -68,7 +68,7 @@ def create_loss_heatmap_2d(
                     positions[obj] = obj.get_initial_pose().position_xyz
 
             # Create state and compute loss
-            state = RelationSolverState(all_objects, anchor_object, positions)
+            state = RelationSolverState(all_objects, positions)
             loss = solver._compute_total_loss(state)
             losses[i, j] = loss.item()
 
@@ -238,7 +238,7 @@ def run_visualization_demo():
             parent: parent_pos,
             child1: (x, parent_pos[1], parent_pos[2]),
         }
-        state = RelationSolverState(objects_child1, parent, positions)
+        state = RelationSolverState(objects_child1, positions)
         loss = solver._compute_total_loss(state)
         losses_x_child1.append(loss.item())
 
@@ -255,7 +255,7 @@ def run_visualization_demo():
             child1: child1_ideal_pos,
             child2: (x, parent_pos[1], parent_pos[2]),
         }
-        state = RelationSolverState(objects_child2, parent, positions)
+        state = RelationSolverState(objects_child2, positions)
         loss = solver._compute_total_loss(state)
         losses_x_child2.append(loss.item())
 
