@@ -71,9 +71,9 @@ class RelationSolver:
         """
         total_loss = torch.tensor(0.0)
 
-        # Compute loss from all relations using strategies
-        for obj in state.objects:
-            for relation in obj.get_relations():
+        # Compute loss from all spatial relations using strategies
+        for obj in state.optimizable_objects:
+            for relation in obj.get_spatial_relations():
                 child_pos = state.get_position(obj)
                 parent_pos = state.get_position(relation.parent)
 
@@ -96,25 +96,24 @@ class RelationSolver:
     def solve(
         self,
         objects: list[Object],
-        anchor_object: Object,
         initial_positions: dict[Object, tuple[float, float, float]],
     ) -> dict[Object, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object instances (must include anchor_object).
-            anchor_object: Fixed reference object that won't be optimized.
+            objects: List of Object instances. Must include exactly one object
+                marked with IsAnchor() which serves as the fixed reference.
             initial_positions: Starting positions for all objects (including anchor).
 
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
         """
-        state = RelationSolverState(objects, anchor_object, initial_positions)
+        state = RelationSolverState(objects, initial_positions)
 
         if self.params.verbose:
             n_opt = len(objects) - 1  # All objects except anchor
             print("=== RelationSolver ===")
-            print(f"Anchor object: {anchor_object.name}, Optimizable objects: {n_opt}")
+            print(f"Optimizable objects: {n_opt}")
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
@@ -169,14 +168,13 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[Object], anchor_object: Object) -> None:
+    def debug_losses(self, objects: list[Object]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
 
         Args:
             objects: The same list of objects passed to solve().
-            anchor_object: The anchor object (same as passed to solve()).
         """
         print("\n" + "=" * 60)
         print("DEBUG: Final Loss Breakdown")
@@ -190,7 +188,7 @@ class RelationSolver:
         # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
-        state = RelationSolverState(objects, anchor_object, final_positions)
+        state = RelationSolverState(objects, final_positions)
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 

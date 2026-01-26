@@ -10,7 +10,7 @@ from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import NextTo, On, Side
+from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -22,6 +22,7 @@ def _create_test_objects() -> tuple[DummyObject, DummyObject, DummyObject]:
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    desk.add_relation(IsAnchor())
 
     box1 = DummyObject(
         name="box1",
@@ -61,18 +62,14 @@ def test_relation_solver_same_inputs_produces_identical_result():
     initial_positions1 = {desk1: desk_pos, box1_run1: fixed_box1_pos, box2_run1: fixed_box2_pos}
 
     solver1 = RelationSolver(params=solver_params)
-    result1 = solver1.solve(
-        objects=[desk1, box1_run1, box2_run1], anchor_object=desk1, initial_positions=initial_positions1
-    )
+    result1 = solver1.solve(objects=[desk1, box1_run1, box2_run1], initial_positions=initial_positions1)
 
     # Run 2 (fresh objects, same initial positions)
     desk2, box1_run2, box2_run2 = _create_test_objects()
     initial_positions2 = {desk2: desk_pos, box1_run2: fixed_box1_pos, box2_run2: fixed_box2_pos}
 
     solver2 = RelationSolver(params=solver_params)
-    result2 = solver2.solve(
-        objects=[desk2, box1_run2, box2_run2], anchor_object=desk2, initial_positions=initial_positions2
-    )
+    result2 = solver2.solve(objects=[desk2, box1_run2, box2_run2], initial_positions=initial_positions2)
 
     # Compare by name (different object instances)
     for obj1 in result1:
@@ -90,13 +87,13 @@ def test_object_placer_same_seed_produces_identical_result():
     desk1, box1_run1, box2_run1 = _create_test_objects()
     objects1 = [desk1, box1_run1, box2_run1]
     placer1 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=seed, solver_params=solver_params))
-    result1 = placer1.place(objects=objects1, anchor_object=desk1)
+    result1 = placer1.place(objects=objects1)
 
     # Run 2
     desk2, box1_run2, box2_run2 = _create_test_objects()
     objects2 = [desk2, box1_run2, box2_run2]
     placer2 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=seed, solver_params=solver_params))
-    result2 = placer2.place(objects=objects2, anchor_object=desk2)
+    result2 = placer2.place(objects=objects2)
 
     # Compare by name
     for obj1, obj2 in zip(objects1, objects2):
@@ -113,13 +110,13 @@ def test_object_placer_different_seeds_produce_different_results():
     desk1, box1_run1, box2_run1 = _create_test_objects()
     objects1 = [desk1, box1_run1, box2_run1]
     placer1 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
-    result1 = placer1.place(objects=objects1, anchor_object=desk1)
+    result1 = placer1.place(objects=objects1)
 
     # Run 2 with seed 123
     desk2, box1_run2, box2_run2 = _create_test_objects()
     objects2 = [desk2, box1_run2, box2_run2]
     placer2 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=123, solver_params=solver_params))
-    result2 = placer2.place(objects=objects2, anchor_object=desk2)
+    result2 = placer2.place(objects=objects2)
 
     # Check that at least one non-anchor position differs
     any_different = False

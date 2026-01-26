@@ -52,7 +52,6 @@ def _test_all_assets_in_registry(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
 
     # Base Environment
     asset_registry = AssetRegistry()
@@ -98,7 +97,6 @@ def _test_all_assets_in_registry(simulation_app):
         name="dummy_task",
         embodiment=FrankaEmbodiment(),
         scene=scene,
-        task=DummyTask(),
     )
 
     # Compile the environment.
@@ -145,7 +143,6 @@ def _test_multi_light_in_scene(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.usd_helpers import get_all_prims
 
     asset_registry = AssetRegistry()
@@ -158,7 +155,6 @@ def _test_multi_light_in_scene(simulation_app):
         name="dummy_task",
         embodiment=FrankaEmbodiment(),
         scene=scene,
-        task=DummyTask(),
     )
     # Compile the environment.
     args_parser = get_isaaclab_arena_cli_parser()

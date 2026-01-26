@@ -23,7 +23,6 @@ def _test_all_devices_and_retargeters_in_registry(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
 
     # Base Environment
     asset_registry = AssetRegistry()
@@ -45,7 +44,6 @@ def _test_all_devices_and_retargeters_in_registry(simulation_app):
                 name=f"{device_name}_{retargeter_key}",
                 embodiment=embodiment,
                 scene=Scene([background, asset]),
-                task=DummyTask(),
                 teleop_device=teleop_device,
             )
 

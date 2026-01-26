@@ -13,7 +13,7 @@
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relations import NextTo, On, Side
+from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_examples.relations.relation_solver_visualizer import RelationSolverVisualizer
@@ -26,8 +26,6 @@ def run_dummy_object_placer_demo():
     desk = DummyObject(
         name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
     )
-    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-
     cracker_box = DummyObject(
         name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.3, 0.5))
     )
@@ -38,7 +36,10 @@ def run_dummy_object_placer_demo():
         name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
     )
 
-    # Define spatial relations
+    # Mark desk as the anchor for relation solving not subject to optimization.
+    desk.add_relation(IsAnchor())
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    # Define spatial relations for objects that are subject to optimization.
     cracker_box.add_relation(On(desk, clearance_m=0.01))
     cracker_box_2.add_relation(On(desk, clearance_m=0.01))
     cracker_box_2.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
@@ -46,9 +47,9 @@ def run_dummy_object_placer_demo():
 
     all_objects = [desk, cracker_box, apple, cracker_box_2]
 
-    # Place objects using ObjectPlacer
+    # Place objects using ObjectPlacer (anchor is auto-detected via IsAnchor relation)
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    result = placer.place(objects=all_objects, anchor_object=desk)
+    result = placer.place(objects=all_objects)
 
     # Visualization
     visualizer = RelationSolverVisualizer(
@@ -70,9 +71,6 @@ def run_dummy_object_placer_demo():
 
 
 # %%
-# When running as a notebook, uncomment and run:
-# run_dummy_object_placer_demo()
-
 if __name__ == "__main__":
     run_dummy_object_placer_demo()
 
