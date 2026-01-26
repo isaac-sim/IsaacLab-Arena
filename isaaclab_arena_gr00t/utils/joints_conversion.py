@@ -77,11 +77,9 @@ def remap_policy_joints_to_sim_joints(
             case _:
                 continue
         if joint_name in policy_joints_config[joint_group]:
-            if f"action.{joint_group}" in policy_joints:
+            if joint_group in policy_joints:
                 gr00t_index = policy_joints_config[joint_group].index(joint_name)
-                data[..., joint_index] = torch.from_numpy(policy_joints[f"action.{joint_group}"][..., gr00t_index]).to(
-                    device
-                )
+                data[..., joint_index] = torch.from_numpy(policy_joints[f"{joint_group}"][..., gr00t_index]).to(device)
 
     sim_joints = JointsAbsPosition(joints_pos=data, joints_order_config=sim_joints_config)
     return sim_joints
