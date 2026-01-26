@@ -8,6 +8,8 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.relations import find_anchor_object
+
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
 
@@ -23,20 +25,21 @@ class RelationSolverState:
     def __init__(
         self,
         objects: list[Object],
-        anchor_object: Object,
         initial_positions: dict[Object, tuple[float, float, float]],
     ):
         """Initialize optimization state.
 
         Args:
-            objects: List of all Object instances to track (must include anchor_object).
-            anchor_object: The fixed reference object (won't be optimized).
+            objects: List of all Object instances to track. Must include exactly one
+                object marked with IsAnchor() which serves as the fixed reference.
             initial_positions: Starting positions for all objects (including anchor).
         """
-        assert anchor_object in objects, f"anchor_object '{anchor_object.name}' must be in objects list"
+        anchor_object = find_anchor_object(objects)
+        assert anchor_object is not None, "No anchor object found in objects list."
 
-        self._objects = objects
+        self._all_objects = objects
         self._anchor_object = anchor_object
+        self._optimizable_objects = [obj for obj in objects if obj is not anchor_object]
 
         # Build object-to-index mapping
         self._obj_to_idx: dict[Object, int] = {obj: i for i, obj in enumerate(objects)}
@@ -65,9 +68,9 @@ class RelationSolverState:
         return self._optimizable_positions
 
     @property
-    def objects(self) -> list[Object]:
-        """List of all tracked objects."""
-        return self._objects
+    def optimizable_objects(self) -> list[Object]:
+        """List of optimizable objects (excludes anchor)."""
+        return self._optimizable_objects
 
     def get_position(self, obj: Object) -> torch.Tensor:
         """Get current position for an object.
@@ -93,7 +96,7 @@ class RelationSolverState:
         Returns:
             List of (x, y, z) positions for each object (in original order).
         """
-        return [tuple(self.get_position(obj).detach().tolist()) for obj in self._objects]
+        return [tuple(self.get_position(obj).detach().tolist()) for obj in self._all_objects]
 
     def get_final_positions_dict(self) -> dict[Object, tuple[float, float, float]]:
         """Get final positions as a dictionary mapping objects to positions.
@@ -102,7 +105,7 @@ class RelationSolverState:
             Dictionary with object instances as keys and (x, y, z) tuples as values.
         """
         result: dict[Object, tuple[float, float, float]] = {}
-        for obj in self._objects:
+        for obj in self._all_objects:
             pos = self.get_position(obj).detach().tolist()
             result[obj] = (pos[0], pos[1], pos[2])
         return result
