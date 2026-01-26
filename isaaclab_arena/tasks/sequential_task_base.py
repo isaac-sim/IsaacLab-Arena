@@ -286,7 +286,7 @@ class SequentialTaskBase(TaskBase):
 
         return subtask_metrics
 
-    def combine_mimic_subtask_configs(self, arm_mode: ArmMode)-> dict[str, list[SubTaskConfig]]:
+    def combine_mimic_subtask_configs(self, arm_mode: ArmMode) -> dict[str, list[SubTaskConfig]]:
         "Combine the Mimic subtask configs for all subtasks."
         # Check that all subtasks have the same Mimic eef_names
         mimic_eef_names = set(self.subtasks[0].get_mimic_env_cfg(arm_mode).subtask_configs.keys())

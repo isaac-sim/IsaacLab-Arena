@@ -6,8 +6,6 @@
 import numpy as np
 
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
-from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
@@ -36,4 +34,3 @@ class FrankaPutAndCloseDoorTask(SequentialTaskBase):
         cfg = super().get_mimic_env_cfg(arm_mode)
         cfg.name = "franka_put_and_close_door_task"
         return cfg
-
