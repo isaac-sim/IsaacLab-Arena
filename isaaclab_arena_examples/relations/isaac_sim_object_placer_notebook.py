@@ -34,7 +34,6 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -76,10 +75,8 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     scene = Scene(assets=assets)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="reference_object_test",
-        embodiment=FrankaEmbodiment(),
         scene=scene,
         task=DummyTask(),
-        teleop_device=None,
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
