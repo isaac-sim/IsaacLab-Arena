@@ -536,6 +536,7 @@ class MediumGear(LibraryObject):
         "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
+
 @register_asset
 class Broccoli(LibraryObject):
     """
@@ -584,4 +585,3 @@ class SweetPotato(LibraryObject):
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
-
