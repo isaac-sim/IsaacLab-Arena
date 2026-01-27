@@ -26,12 +26,13 @@ To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow 
    - Objects: ``/Isaac/IsaacLab/Arena/assets/object_library``
    - Embodiments: ``/Isaac/IsaacLab/Arena/assets/robot_library``
    - Policies: ``/Isaac/IsaacLab/Arena/${NAME_OF_THE_POLICY}``
-
-Please follow the naming convention as using the source of assets as a prefix. For example, if you want to add a tower from Scarif, you can name it as ``scarif_tower_01.usd`` and upload it to the ``/Isaac/IsaacLab/Arena/assets/object_library`` directory.
-If you don't have write access to the Nucleus Server, you can ask the isaaclab-arena team to upload the assets for you.
+Prefix assets with their source (e.g., scarif_tower_01.usd), upload to ``/Isaac/IsaacLab/Arena/assets/object_library``,
+and include a valid license file in the target folder. If you lack Nucleus Server write access, contact the isaaclab-arena team to facilitate the asset and license upload.
 
 2. Update the USD path configurations to use the new assets as they are stored in ``ISAACLAB_STAGING_NUCLEUS_DIR/Arena/assets`` directory.
 For example, if you want to use a new object, you can register the object in ``isaaclab_arena/assets/object_library.py`` as a derived class of ``LibraryObject``, and add the USD path as its class attribute.
+
 3. Wait for at most 6 hours for the assets to be synced to the staging S3 bucket.
+
 4. Run Isaac Lab Arena to verify that the assets are loaded correctly.
 
