@@ -7,7 +7,7 @@ import yaml
 
 import pytest
 
-from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
+from isaaclab_arena.tests.test_eval_runner import run_eval_runner_and_check_no_failures, write_jobs_config_to_file
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
@@ -156,21 +156,10 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
     # create a temporary config file only has two jobs for g1_locomanipulation task
     jobs = [
         {
-            "name": "g1_locomanip_pick_and_place_brown_box",
-            "arena_env_args": {
-                "environment": "galileo_g1_locomanip_pick_and_place",
-                "object": "brown_box",
-                "embodiment": "g1_wbc_joint",
-                "enable_cameras": True,  # Required for GR00T policy which needs camera observations
-            },
-            "num_steps": 2,
-            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
-            "policy_config_dict": {"policy_config_yaml_path": str(policy_config_file), "policy_device": "cuda:0"},
-        },
-        {
             "name": "gr1_open_microwave_cracker_box",
             "arena_env_args": {
                 "environment": "gr1_open_microwave",
+                "num_envs": 10,
                 "object": "cracker_box",
                 "embodiment": "gr1_joint",
             },
@@ -178,10 +167,23 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
             "policy_type": "zero_action",
             "policy_config_dict": {},
         },
+        {
+            "name": "g1_locomanip_pick_and_place_brown_box",
+            "arena_env_args": {
+                "enable_cameras": ENABLE_CAMERAS,
+                "num_envs": 1,
+                "environment": "galileo_g1_locomanip_pick_and_place",
+                "object": "brown_box",
+                "embodiment": "g1_wbc_joint",
+            },
+            "num_steps": 2,
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_config_dict": {"policy_config_yaml_path": str(policy_config_file), "policy_device": "cuda:0"},
+        },
     ]
     temp_config_path = str(tmp_path / "test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path, headless=HEADLESS, enable_cameras=ENABLE_CAMERAS)
+    run_eval_runner_and_check_no_failures(temp_config_path, headless=HEADLESS)
 
 
 if __name__ == "__main__":
