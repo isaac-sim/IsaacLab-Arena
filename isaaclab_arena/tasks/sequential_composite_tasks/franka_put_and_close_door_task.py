@@ -21,7 +21,8 @@ class FrankaPutAndCloseDoorTask(SequentialTaskBase):
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
     ):
-        super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
+        desired_subtask_success_state = [True, True]
+        super().__init__(subtasks=subtasks, episode_length_s=episode_length_s, desired_subtask_success_state=desired_subtask_success_state)
         self.openable_object = openable_object
 
     def get_viewer_cfg(self) -> ViewerCfg:

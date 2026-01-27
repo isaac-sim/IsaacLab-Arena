@@ -111,10 +111,14 @@ class SequentialTaskBase(TaskBase):
           without affecting the completeness of the overall sequential task.
     """
 
-    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None):
+    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None, desired_subtask_success_state: list[bool] | None = None):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
         self.subtasks = subtasks
+
+        if desired_subtask_success_state is not None:
+            assert len(desired_subtask_success_state) == len(subtasks), "Desired subtask success state must be the same length as the number of subtasks"
+            self.desired_subtask_success_state = desired_subtask_success_state
 
     @staticmethod
     def add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
@@ -130,6 +134,7 @@ class SequentialTaskBase(TaskBase):
     def sequential_task_success_func(
         env,
         subtasks: list[TaskBase],
+        desired_subtask_success_state: list[bool] | None,
     ) -> torch.Tensor:
         "Sequential task composite success function."
         # Initialize each env's subtask success state to False if not already initialized
@@ -156,6 +161,9 @@ class SequentialTaskBase(TaskBase):
         success_tensor = torch.tensor(per_env_success, dtype=torch.bool, device=env.device)
 
         env.extras["subtask_success_state"] = copy.copy(env._subtask_success_state)
+
+        print(f"subtask_success_state: {env._subtask_success_state}")
+        print(f"desired_subtask_success_state: {desired_subtask_success_state}")
 
         return success_tensor
 
@@ -235,6 +243,7 @@ class SequentialTaskBase(TaskBase):
             func=self.sequential_task_success_func,
             params={
                 "subtasks": self.subtasks,
+                "desired_subtask_success_state": self.desired_subtask_success_state,
             },
         )
 
