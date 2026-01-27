@@ -27,7 +27,6 @@ class SideConfig:
 
     Attributes:
         primary_axis: Index of the axis along which child is placed (0=X, 1=Y).
-                      The band axis is always the perpendicular axis (1 - primary_axis).
         direction: +1 if child should be in positive direction from parent (RIGHT, BACK),
                    -1 if child should be in negative direction (LEFT, FRONT).
     """
@@ -37,7 +36,7 @@ class SideConfig:
 
     @property
     def band_axis(self) -> int:
-        """Perpendicular axis for band constraint (always 1 - primary_axis)."""
+        """Perpendicular axis for band constraint."""
         return 1 - self.primary_axis
 
 

@@ -85,7 +85,6 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     mug.add_relation(On(cracker_box, clearance_m=0.02))
 
     # Build and run the environment
-    # Note: ArenaEnvBuilder automatically solves relations via ObjectPlacer
     assets = [
         ground_plane,
         light,

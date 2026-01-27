@@ -21,10 +21,7 @@ from isaaclab_arena_examples.relations.relation_solver_visualizer import Relatio
 
 # %%
 def run_dummy_object_placer_demo():
-    """Run the ObjectPlacer demo with dummy objects.
-
-    Demonstrates all four NextTo sides: RIGHT, LEFT, FRONT, BACK.
-    """
+    """Run the ObjectPlacer demo with dummy objects."""
     # Create objects with bounding boxes
     desk = DummyObject(
         name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
