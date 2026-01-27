@@ -20,7 +20,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
     return {
         NextTo: NextToLossStrategy(slope=10.0),
         On: OnLossStrategy(slope=100.0),
-        AtPosition: AtPositionLossStrategy(slope=1000.0),
+        AtPosition: AtPositionLossStrategy(slope=100.0),
     }
 
 

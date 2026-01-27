@@ -267,15 +267,13 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
     Axes set to None in the relation are ignored.
     """
 
-    def __init__(self, slope: float = 10.0, debug: bool = False):
+    def __init__(self, slope: float = 10.0):
         """
         Args:
             slope: Gradient magnitude for linear loss (default: 10.0).
                    Loss increases by `slope` per meter of violation.
-            debug: If True, print detailed loss component breakdown.
         """
         self.slope = slope
-        self.debug = debug
 
     def compute_loss(
         self,
