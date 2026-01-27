@@ -58,13 +58,38 @@ class G1EmbodimentBase(EmbodimentBase):
         self.event_config = MISSING
         self.mimic_env = G1MimicEnv
 
-        # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
+        # XR settings (relative to robot base)
+        # These offsets are defined relative to the robot's base frame
         # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
-        self.xr: XrCfg = XrCfg(
-            anchor_pos=(0.0, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+        self._xr_offset = Pose(
+            position_xyz=(0.0, 0.0, -1.0),
+            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
         )
+        self.xr: XrCfg | None = None
+
+    def get_xr_cfg(self) -> XrCfg:
+        """Get XR configuration with anchor pose adjusted for robot's initial pose.
+
+        Returns:
+            XR configuration with anchor position and rotation in global coordinates.
+        """
+        # If robot has an initial pose, compose it with the XR offset
+        if self.initial_pose is not None:
+            from isaaclab_arena.utils.pose import compose_poses
+
+            # Compose robot pose with XR offset: T_world_xr = T_world_robot * T_robot_xr
+            xr_pose_global = compose_poses(self.initial_pose, self._xr_offset)
+
+            return XrCfg(
+                anchor_pos=xr_pose_global.position_xyz,
+                anchor_rot=xr_pose_global.rotation_wxyz,
+            )
+        else:
+            # If no initial pose set, use the offset as global coordinates (robot at origin)
+            return XrCfg(
+                anchor_pos=self._xr_offset.position_xyz,
+                anchor_rot=self._xr_offset.rotation_wxyz,
+            )
 
 
 # Default camera offset pose
