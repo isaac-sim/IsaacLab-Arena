@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
 
 
 class Side(Enum):
@@ -36,10 +35,10 @@ class RelationBase:
 class Relation(RelationBase):
     """Base class for spatial relationships between objects."""
 
-    def __init__(self, parent: Object | ObjectReference, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: Object, relation_loss_weight: float = 1.0):
         """
         Args:
-            parent: The parent asset in the relationship (Object or ObjectReference).
+            parent: The parent asset in the relationship.
             relation_loss_weight: Weight for the relationship loss function.
         """
         self.parent = parent
@@ -57,7 +56,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: Object | ObjectReference,
+        parent: Object,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.RIGHT,
@@ -87,7 +86,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: Object | ObjectReference,
+        parent: Object,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
     ):
@@ -157,7 +156,7 @@ class AtPosition(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
-def find_anchor_object(objects: list[Object | ObjectReference]) -> Object | ObjectReference | None:
+def find_anchor_object(objects: list[Object]) -> Object | None:
     """Find the anchor object from a list of objects.
 
     The anchor object is marked with IsAnchor() relation and serves as the
@@ -169,7 +168,7 @@ def find_anchor_object(objects: list[Object | ObjectReference]) -> Object | Obje
     Returns:
         The anchor object, or None if no anchor is found.
     """
-    anchor_object: Object | ObjectReference | None = None
+    anchor_object: Object | None = None
     for obj in objects:
         for relation in obj.get_relations():
             if isinstance(relation, IsAnchor):

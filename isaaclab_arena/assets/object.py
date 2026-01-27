@@ -12,7 +12,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.relations.relations import Relation, RelationBase
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -63,8 +63,6 @@ class Object(ObjectBase):
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        from isaaclab_arena.relations.relations import AtPosition
-
         return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
