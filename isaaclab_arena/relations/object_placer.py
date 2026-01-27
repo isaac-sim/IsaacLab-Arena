@@ -8,10 +8,11 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import find_anchor_object
+from isaaclab_arena.relations.relations import IsAnchor, find_anchor_object
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -41,7 +42,7 @@ class ObjectPlacer:
 
     def place(
         self,
-        objects: list[Object],
+        objects: list[Object | ObjectReference],
     ) -> PlacementResult:
         """Place objects according to their spatial relations.
 
@@ -58,6 +59,16 @@ class ObjectPlacer:
                 f"Object '{obj.name}' has no relations. All objects passed to place() must have "
                 "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
             )
+
+        # Validate that ObjectReference objects are only used as anchors (they cannot be moved)
+        for obj in objects:
+            if isinstance(obj, ObjectReference):
+                is_anchor = any(isinstance(r, IsAnchor) for r in obj.get_relations())
+                assert is_anchor, (
+                    f"ObjectReference '{obj.name}' must be marked with IsAnchor(). "
+                    "ObjectReference objects refer to existing elements in the scene and cannot be moved. "
+                    "They can only serve as anchors for placing other objects."
+                )
 
         # We use the anchor object to determine the bounds for random position initialization.
         anchor_object = find_anchor_object(objects)
@@ -80,7 +91,7 @@ class ObjectPlacer:
         init_bounds = self._get_init_bounds(anchor_object)
 
         # Placement loop with retries
-        best_positions: dict[Object, tuple[float, float, float]] = {}
+        best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         best_loss = float("inf")
         success = False
 
@@ -122,7 +133,7 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_init_bounds(self, anchor_object: Object) -> AxisAlignedBoundingBox:
+    def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
         """Get bounds for random position initialization.
 
         If init_bounds is provided in params, use it.
@@ -155,10 +166,10 @@ class ObjectPlacer:
 
     def _generate_initial_positions(
         self,
-        objects: list[Object],
-        anchor_object: Object,
+        objects: list[Object | ObjectReference],
+        anchor_object: Object | ObjectReference,
         init_bounds: AxisAlignedBoundingBox,
-    ) -> dict[Object, tuple[float, float, float]]:
+    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchor keeps its current initial_pose, others get random positions.
@@ -166,7 +177,7 @@ class ObjectPlacer:
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
-        positions: dict[Object, tuple[float, float, float]] = {}
+        positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj is anchor_object:
                 positions[obj] = anchor_object.initial_pose.position_xyz
@@ -177,7 +188,7 @@ class ObjectPlacer:
 
     def _validate_placement(
         self,
-        positions: dict[Object, tuple[float, float, float]],
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
         """Validate that the placement is geometrically valid.
 
@@ -195,8 +206,8 @@ class ObjectPlacer:
 
     def _apply_positions(
         self,
-        positions: dict[Object, tuple[float, float, float]],
-        anchor_object: Object,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+        anchor_object: Object | ObjectReference,
     ) -> None:
         """Apply solved positions to objects."""
         for obj, pos in positions.items():

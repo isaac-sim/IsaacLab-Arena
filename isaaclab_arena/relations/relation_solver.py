@@ -15,6 +15,7 @@ from isaaclab_arena.relations.relations import Relation
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
 
 
 class RelationSolver:
@@ -95,14 +96,14 @@ class RelationSolver:
 
     def solve(
         self,
-        objects: list[Object],
-        initial_positions: dict[Object, tuple[float, float, float]],
-    ) -> dict[Object, tuple[float, float, float]]:
+        objects: list[Object | ObjectReference],
+        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object instances. Must include exactly one object
-                marked with IsAnchor() which serves as the fixed reference.
+            objects: List of Object or ObjectReference instances. Must include exactly one
+                object marked with IsAnchor() which serves as the fixed reference.
             initial_positions: Starting positions for all objects (including anchor).
 
         Returns:
@@ -168,7 +169,7 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[Object]) -> None:
+    def debug_losses(self, objects: list[Object | ObjectReference]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
@@ -194,7 +195,7 @@ class RelationSolver:
 
 
 def _print_relation_debug(
-    obj: Object,
+    obj: Object | ObjectReference,
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,

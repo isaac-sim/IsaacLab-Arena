@@ -164,3 +164,61 @@ def compute_bounding_box_from_usd(
         min_point=(min_point[0], min_point[1], min_point[2]),
         max_point=(max_point[0], max_point[1], max_point[2]),
     )
+
+
+def compute_bounding_box_from_prim(
+    stage: Usd.Stage,
+    prim_path: str,
+    reference_prim_path: str | None = None,
+) -> AxisAlignedBoundingBox:
+    """Compute the local bounding box of a specific prim in a USD stage.
+
+    The bounding box is computed relative to the prim's own origin (local coordinates),
+    making it suitable for use with get_world_bounding_box() which adds the position offset.
+
+    Args:
+        stage: The USD stage containing the prim.
+        prim_path: Path to the prim to compute the bounding box for.
+        reference_prim_path: Unused, kept for API compatibility.
+
+    Returns:
+        AxisAlignedBoundingBox containing the local min and max points relative to the
+        prim's own origin.
+
+    Raises:
+        ValueError: If the prim is not found at the given path.
+    """
+    prim = stage.GetPrimAtPath(prim_path)
+    if not prim:
+        raise ValueError(f"No prim found at path {prim_path}")
+
+    # Compute the world-space bounding box of the prim
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+    bbox = bbox_cache.ComputeWorldBound(prim)
+    bbox_range = bbox.ComputeAlignedBox()
+
+    # Get world-space min/max
+    world_min = bbox_range.GetMin()
+    world_max = bbox_range.GetMax()
+
+    # Get the target prim's world position to compute local bounding box
+    prim_xformable = UsdGeom.Xformable(prim)
+    prim_world_transform = prim_xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    prim_world_pos = prim_world_transform.ExtractTranslation()
+
+    # Compute local bounding box by subtracting the prim's own world position
+    local_min = Gf.Vec3d(
+        world_min[0] - prim_world_pos[0],
+        world_min[1] - prim_world_pos[1],
+        world_min[2] - prim_world_pos[2],
+    )
+    local_max = Gf.Vec3d(
+        world_max[0] - prim_world_pos[0],
+        world_max[1] - prim_world_pos[1],
+        world_max[2] - prim_world_pos[2],
+    )
+
+    return AxisAlignedBoundingBox(
+        min_point=(local_min[0], local_min[1], local_min[2]),
+        max_point=(local_max[0], local_max[1], local_max[2]),
+    )

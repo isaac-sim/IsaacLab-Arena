@@ -10,8 +10,10 @@ from pxr import Usd
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+from isaaclab_arena.relations.relations import Relation, RelationBase
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import open_stage
+from isaaclab_arena.utils.usd_helpers import compute_bounding_box_from_prim, open_stage
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
@@ -26,6 +28,10 @@ class ObjectReference(ObjectBase):
         # Check that the object reference is not a spawner.
         assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
+        # Relations for placement pipeline support
+        self.relations: list[RelationBase] = []
+        # Bounding box cache (lazily computed)
+        self._bounding_box: AxisAlignedBoundingBox | None = None
 
     def get_initial_pose(self) -> Pose:
         if self.parent_asset.initial_pose is None:
@@ -35,6 +41,59 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
+
+    @property
+    def initial_pose(self) -> Pose:
+        """Property for placement pipeline compatibility."""
+        pose = self.get_initial_pose()
+        return pose
+
+    def add_relation(self, relation: RelationBase) -> None:
+        """Add a relation to this object reference.
+
+        Note: ObjectReference can only be used as an anchor in the placement pipeline
+        since it refers to an existing element that cannot be moved.
+        """
+        self.relations.append(relation)
+
+    def get_relations(self) -> list[RelationBase]:
+        """Get all relations for this object reference."""
+        return self.relations
+
+    def get_spatial_relations(self) -> list[Relation]:
+        """Get only spatial relations (On, NextTo, etc.), excluding markers like IsAnchor."""
+        return [r for r in self.relations if isinstance(r, Relation)]
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box of the referenced prim (relative to parent asset origin).
+
+        The bounding box is computed lazily and cached for subsequent calls.
+        """
+        if self._bounding_box is None:
+            with open_stage(self.parent_asset.usd_path) as parent_stage:
+                prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                    self.prim_path, self.parent_asset, parent_stage
+                )
+                self._bounding_box = compute_bounding_box_from_prim(parent_stage, prim_path_in_usd)
+        return self._bounding_box
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox + position offset from parent)."""
+        local_bbox = self.get_bounding_box()
+        pos = self.initial_pose.position_xyz
+        world_bbox = AxisAlignedBoundingBox(
+            min_point=(
+                local_bbox.min_point[0] + pos[0],
+                local_bbox.min_point[1] + pos[1],
+                local_bbox.min_point[2] + pos[2],
+            ),
+            max_point=(
+                local_bbox.max_point[0] + pos[0],
+                local_bbox.max_point[1] + pos[1],
+                local_bbox.max_point[2] + pos[2],
+            ),
+        )
+        return world_bbox
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
