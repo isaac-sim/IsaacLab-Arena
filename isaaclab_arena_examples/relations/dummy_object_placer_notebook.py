@@ -21,31 +21,63 @@ from isaaclab_arena_examples.relations.relation_solver_visualizer import Relatio
 
 # %%
 def run_dummy_object_placer_demo():
-    """Run the ObjectPlacer demo with dummy objects."""
+    """Run the ObjectPlacer demo with dummy objects.
+
+    Demonstrates all four NextTo sides: RIGHT, LEFT, FRONT, BACK.
+    """
     # Create objects with bounding boxes
     desk = DummyObject(
         name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
     )
-    cracker_box = DummyObject(
-        name="cracker_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.1), max_point=(0.1, 0.3, 0.5))
-    )
-    cracker_box_2 = DummyObject(
-        name="cracker_box_2", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.4, 0.4, 0.1))
-    )
-    apple = DummyObject(
-        name="apple", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+
+    # Central object on the desk
+    center_box = DummyObject(
+        name="center_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
     )
 
-    # Mark desk as the anchor for relation solving not subject to optimization.
+    # Objects placed on each side of center_box
+    right_box = DummyObject(
+        name="right_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1))
+    )
+    left_box = DummyObject(
+        name="left_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1))
+    )
+    front_box = DummyObject(
+        name="front_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08))
+    )
+    back_box = DummyObject(
+        name="back_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08))
+    )
+
+    # Box on top of center_box
+    top_box = DummyObject(
+        name="top_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.08))
+    )
+
+    # Mark desk as the anchor for relation solving (not subject to optimization)
     desk.add_relation(IsAnchor())
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    # Define spatial relations for objects that are subject to optimization.
-    cracker_box.add_relation(On(desk, clearance_m=0.01))
-    cracker_box_2.add_relation(On(desk, clearance_m=0.01))
-    cracker_box_2.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
-    apple.add_relation(On(cracker_box_2, clearance_m=0.01))
 
-    all_objects = [desk, cracker_box, apple, cracker_box_2]
+    # Center box is on the desk
+    center_box.add_relation(On(desk, clearance_m=0.01))
+
+    # Objects placed on each side of center_box (all on desk surface)
+    right_box.add_relation(On(desk, clearance_m=0.01))
+    right_box.add_relation(NextTo(center_box, side=Side.RIGHT, distance_m=0.05))
+
+    left_box.add_relation(On(desk, clearance_m=0.01))
+    left_box.add_relation(NextTo(center_box, side=Side.LEFT, distance_m=0.05))
+
+    front_box.add_relation(On(desk, clearance_m=0.01))
+    front_box.add_relation(NextTo(center_box, side=Side.FRONT, distance_m=0.05))
+
+    back_box.add_relation(On(desk, clearance_m=0.01))
+    back_box.add_relation(NextTo(center_box, side=Side.BACK, distance_m=0.05))
+
+    # Top box on top of center_box
+    top_box.add_relation(On(center_box, clearance_m=0.01))
+
+    all_objects = [desk, center_box, right_box, left_box, front_box, back_box, top_box]
 
     # Place objects using ObjectPlacer (anchor is auto-detected via IsAnchor relation)
     placer = ObjectPlacer(params=ObjectPlacerParams())
