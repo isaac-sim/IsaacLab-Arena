@@ -57,6 +57,13 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             def get_mimic_env_cfg(self, arm_mode: ArmMode):
                 mimic_env_cfg = PutAndCloseDoorTaskMimicEnvCfg()
                 mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(ArmMode.RIGHT)
+
+                # Override default subtask term offset range and action noise
+                for eef_name, subtask_list in mimic_env_cfg.subtask_configs.items():
+                    for subtask_config in subtask_list:
+                        subtask_config.subtask_term_offset_range = (0, 0)
+                        subtask_config.action_noise = 0.001
+
                 return mimic_env_cfg
 
         @configclass
@@ -125,7 +132,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         # Create pick and place task
         pick_and_place_task = PickAndPlaceTask(
             pick_up_object=vegetable,
-            destination_object=refrigerator_shelf,
+            destination_object=refrigerator,
             destination_location=refrigerator_shelf,
             background_scene=kitchen_background,
         )
@@ -133,7 +140,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         # Create close door task
         close_door_task = CloseDoorTask(
             openable_object=refrigerator,
-            closedness_threshold=0.05,
+            closedness_threshold=0.10,
             reset_openness=0.5,
         )
 
