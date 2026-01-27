@@ -59,8 +59,8 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             PoseRange(
                 position_xyz_min=(0.15, -0.337, 0.154),
                 position_xyz_max=(0.3, -0.637, 0.154),
-                rpy_min=(-1.5707963, 1.5707963, 0.0),
-                rpy_max=(-1.5707963, 1.5707963, 0.0),
+                rpy_min=(-1.5707963, 0.0, -1.5707963),
+                rpy_max=(-1.5707963, 0.0, -1.5707963),
             )
         )
 
