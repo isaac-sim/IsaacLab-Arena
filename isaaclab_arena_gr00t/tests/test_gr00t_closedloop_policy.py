@@ -161,6 +161,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
                 "environment": "galileo_g1_locomanip_pick_and_place",
                 "object": "brown_box",
                 "embodiment": "g1_wbc_joint",
+                "enable_cameras": True,  # Required for GR00T policy which needs camera observations
             },
             "num_steps": 2,
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
@@ -180,7 +181,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
     ]
     temp_config_path = str(tmp_path / "test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_eval_runner(temp_config_path, headless=HEADLESS, enable_cameras=ENABLE_CAMERAS)
 
 
 if __name__ == "__main__":

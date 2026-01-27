@@ -20,7 +20,7 @@ def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
         json.dump(jobs_config, f, indent=4)
 
 
-def run_eval_runner(jobs_config_path: str):
+def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS, enable_cameras: bool = False):
     """Run the eval_runner with the given jobs config.
 
     Args:
@@ -31,9 +31,11 @@ def run_eval_runner(jobs_config_path: str):
     args.append(jobs_config_path)
     args.append("--num_envs")
     args.append("1")
-    if HEADLESS:
+    if headless:
         args.append("--headless")
-
+    if enable_cameras:
+        args.append("--enable_cameras")
+    print("[DEBUG] args: ", args)
     run_subprocess(args)
 
 
