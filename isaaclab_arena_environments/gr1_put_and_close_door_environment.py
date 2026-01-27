@@ -67,7 +67,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         # Set initial poses
         embodiment.set_initial_pose(
             Pose(
-                position_xyz=(3.943, -1.069, 0.995),
+                position_xyz=(3.943, -1.04, 0.92),
                 rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
             )
         )
@@ -75,7 +75,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         vegetable.set_initial_pose(
             # Bench position
             Pose(
-                position_xyz=(3.922, -0.565, 1.019),
+                position_xyz=(3.922, -0.617, 1.019),
                 rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
             )
         )
