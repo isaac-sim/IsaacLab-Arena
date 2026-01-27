@@ -154,11 +154,11 @@ class LightwheelKitchenBackground(LibraryBackground):
 
     def __init__(self, layout_id: int = 1, style_id: int = 1):
         from lightwheel_sdk.loader import floorplan_loader
+
         # Lazily download the USD
-        self.usd_path = str(floorplan_loader.get_usd(
-            scene="robocasakitchen",
-            layout_id=layout_id,
-            style_id=style_id,
-            backend="robocasa"
-        )[0])
+        self.usd_path = str(
+            floorplan_loader.get_usd(
+                scene="robocasakitchen", layout_id=layout_id, style_id=style_id, backend="robocasa"
+            )[0]
+        )
         super().__init__()

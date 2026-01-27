@@ -15,18 +15,18 @@ print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
+from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
+from isaaclab_arena.tasks.close_door_task import CloseDoorTask
 from isaaclab_arena.tasks.dummy_task import DummyTask
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
 from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-from isaaclab_arena.tasks.close_door_task import CloseDoorTask
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.utils.pose import Pose
 
 asset_registry = AssetRegistry()
 
@@ -62,25 +62,18 @@ refrigerator_shelf = ObjectReference(
     parent_asset=kitchen_background,
 )
 
-embodiment.set_initial_pose(
-    Pose(
-        position_xyz=(3.943, -1.069, 0.995),
-        rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
-    )
-)
+embodiment.set_initial_pose(Pose(position_xyz=(3.943, -1.069, 0.995), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)))
 
 vegetable.set_initial_pose(
     # Bench
-    Pose(
-        position_xyz=(3.922, -0.565, 1.019),
-        rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
-    )
+    Pose(position_xyz=(3.922, -0.565, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
     # Above shelf
     # Pose(
     #     position_xyz=(4.625, -0.395, 1.224),
     #     rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
     # )
 )
+
 
 class PutAndCloseDoorTask(SequentialTaskBase):
 
@@ -100,12 +93,11 @@ class PutAndCloseDoorTask(SequentialTaskBase):
     def get_mimic_env_cfg(self, arm_mode):
         return None
 
+
 pick_and_place_task = PickAndPlaceTask(vegetable, refrigerator_shelf, kitchen_background)
 close_door_task = CloseDoorTask(refrigerator, closedness_threshold=0.05, reset_openness=0.5)
 
-task = PutAndCloseDoorTask(
-    subtasks=[pick_and_place_task, close_door_task]
-)
+task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
 
 scene = Scene(assets=[kitchen_background, cracker_box, refrigerator, refrigerator_shelf, vegetable, light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -126,7 +118,7 @@ env.reset()
 STEPS_UNTIL_TELEPORT_VEGETABLE = 50
 STEPS_UNTIL_CLOSE_DOOR = 100
 
-#%%
+# %%
 
 # Run some zero actions.
 NUM_STEPS = 200
@@ -136,7 +128,11 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 
         if _ == STEPS_UNTIL_TELEPORT_VEGETABLE:
             # Teleport the vegetable to the shelf
-            vegetable.set_object_pose(env, env_ids=None, pose=Pose(position_xyz=(4.625, -0.395, 1.224), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)))
+            vegetable.set_object_pose(
+                env,
+                env_ids=None,
+                pose=Pose(position_xyz=(4.625, -0.395, 1.224), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)),
+            )
 
         if _ == STEPS_UNTIL_CLOSE_DOOR:
             # Close the refrigerator, completing the task
@@ -156,12 +152,10 @@ from lightwheel_sdk.loader import object_loader
 
 # Print all the vegetables in the registry
 for asset in object_loader.list_registry():
-    properties = asset['property']
-    if 'types' in properties:
-        types = properties['types']
-        if 'vegetable' in types:
+    properties = asset["property"]
+    if "types" in properties:
+        types = properties["types"]
+        if "vegetable" in types:
             print(asset)
 
-#%%
-
-
+# %%
