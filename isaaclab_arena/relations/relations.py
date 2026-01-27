@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
 
 
 class Side(Enum):
@@ -35,10 +36,10 @@ class RelationBase:
 class Relation(RelationBase):
     """Base class for spatial relationships between objects."""
 
-    def __init__(self, parent: Object, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: Object | ObjectReference, relation_loss_weight: float = 1.0):
         """
         Args:
-            parent: The parent asset in the relationship.
+            parent: The parent asset in the relationship (Object or ObjectReference).
             relation_loss_weight: Weight for the relationship loss function.
         """
         self.parent = parent
@@ -56,7 +57,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: Object,
+        parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.RIGHT,
@@ -86,7 +87,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: Object,
+        parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
     ):
@@ -117,7 +118,46 @@ class IsAnchor(RelationBase):
     pass
 
 
-def find_anchor_object(objects: list[Object]) -> Object | None:
+class AtPosition(RelationBase):
+    """Constrains object to specific world coordinates.
+
+    This is a unary relation (no parent) that pins an object's position to
+    specific x, y, and/or z world coordinates. Any axis set to None is
+    unconstrained by this relation (allowing other relations like On to
+    control that axis).
+
+    Note: Loss computation is handled by AtPositionLossStrategy in relation_loss_strategies.py.
+
+    Usage:
+        # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
+        mug.add_relation(On(table))
+        mug.add_relation(AtPosition(x=0.5, y=1.0))
+    """
+
+    def __init__(
+        self,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            x: Target x world coordinate, or None to leave unconstrained.
+            y: Target y world coordinate, or None to leave unconstrained.
+            z: Target z world coordinate, or None to leave unconstrained.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        assert (
+            x is not None or y is not None or z is not None
+        ), "At least one of x, y, or z must be specified for AtPosition"
+        self.x = x
+        self.y = y
+        self.z = z
+        self.relation_loss_weight = relation_loss_weight
+
+
+def find_anchor_object(objects: list[Object | ObjectReference]) -> Object | ObjectReference | None:
     """Find the anchor object from a list of objects.
 
     The anchor object is marked with IsAnchor() relation and serves as the
@@ -129,7 +169,7 @@ def find_anchor_object(objects: list[Object]) -> Object | None:
     Returns:
         The anchor object, or None if no anchor is found.
     """
-    anchor_object: Object | None = None
+    anchor_object: Object | ObjectReference | None = None
     for obj in objects:
         for relation in obj.get_relations():
             if isinstance(relation, IsAnchor):

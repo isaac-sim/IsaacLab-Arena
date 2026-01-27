@@ -36,10 +36,8 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+    from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, Side
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -57,25 +55,22 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
 
     # Mark office_table as the anchor for relation solving
     office_table.add_relation(IsAnchor())
-    # Define spatial relations
+    # Put the coffee machine on the table and in the middle using a unary relation.
     coffee_machine.add_relation(On(office_table, clearance_m=0.02))
+    coffee_machine.add_relation(AtPosition(x=1.0, y=1.0))
+
+    # Put the cracker box on the table and next to the coffee machine using a spatial relation.
     cracker_box.add_relation(On(office_table, clearance_m=0.02))
     cracker_box.add_relation(NextTo(coffee_machine, side=Side.RIGHT, distance_m=0.15))
+
+    # Put the mug directly on the coffee machine using a spatial relation.
     mug.add_relation(On(coffee_machine, clearance_m=0.02))
 
-    # Place objects using ObjectPlacer
-    placer = ObjectPlacer()
-    result = placer.place(objects=[office_table, coffee_machine, cracker_box, mug])
-
-    print(f"Placement result: success={result.success}")
-
-    # Build and run the environment
     assets = [ground_plane, office_table, cracker_box, coffee_machine, light, mug]
     scene = Scene(assets=assets)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="reference_object_test",
         scene=scene,
-        task=DummyTask(),
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
