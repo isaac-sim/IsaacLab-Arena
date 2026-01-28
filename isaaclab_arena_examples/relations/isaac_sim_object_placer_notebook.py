@@ -35,46 +35,44 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     import tqdm
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, Side
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
-
-    # Create objects from asset registry
     ground_plane = asset_registry.get_asset_by_name("ground_plane")()
+    table_background = asset_registry.get_asset_by_name("office_table")()
     light = asset_registry.get_asset_by_name("light")()
 
-    office_table = asset_registry.get_asset_by_name("office_table")()
-    office_table.set_initial_pose(Pose(position_xyz=(1.0, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    office_table.add_relation(IsAnchor())
+    tabletop_reference = ObjectReference(
+        name="table",
+        prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
+        parent_asset=table_background,
+    )
+    # Mark the ObjectReference as the anchor for relation solving (not subject to optimization).
+    tabletop_reference.add_relation(IsAnchor())
 
-    # Central object on the table
-    coffee_machine = asset_registry.get_asset_by_name("coffee_machine")()
-    coffee_machine.add_relation(On(office_table, clearance_m=0.02))
-    coffee_machine.add_relation(AtPosition(x=1.0, y=1.0))
-
-    # Put a cracker box on the table next to the coffee machine using a spatial relation.
+    # Put a cracker box on the counter.
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-    cracker_box.add_relation(On(office_table, clearance_m=0.02))
-    cracker_box.add_relation(NextTo(coffee_machine, side=Side.RIGHT, distance_m=0.15))
+    cracker_box.add_relation(On(tabletop_reference, clearance_m=0.02))
+    # Place the cracker box explicitly slightly to the right of the tabletop.
+    cracker_box.add_relation(AtPosition(x=0.2, y=0.0))
 
-    # Put a mug directly on the coffee machine using a spatial relation.
+    # Put a mug next to the cracker box.
     mug = asset_registry.get_asset_by_name("mug")()
-    mug.add_relation(On(coffee_machine, clearance_m=0.02))
+    mug.add_relation(On(tabletop_reference, clearance_m=0.02))
+    mug.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.1))
 
-    # Put a tomato soup can on the table next to the coffee machine using a spatial relation.
     tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
-    tomato_soup_can.add_relation(On(office_table, clearance_m=0.02))
-    tomato_soup_can.add_relation(NextTo(coffee_machine, side=Side.LEFT, distance_m=0.15))
+    tomato_soup_can.add_relation(On(tabletop_reference, clearance_m=0.02))
+    tomato_soup_can.add_relation(NextTo(cracker_box, side=Side.LEFT, distance_m=0.1))
 
-    assets = [ground_plane, office_table, coffee_machine, cracker_box, light, mug, tomato_soup_can]
-    scene = Scene(assets=assets)
+    scene = Scene(assets=[ground_plane, table_background, tabletop_reference, cracker_box, mug, tomato_soup_can, light])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="relation_all_sides_demo",
+        name="isaac_sim_object_placer_demo",
         scene=scene,
     )
 
