@@ -23,7 +23,7 @@ print_help () {
     echo -e "\t-h, --help           Display the help content."
     echo -e "\t-i, --install [LIB]  Install the extensions inside Isaac Lab Arena and learning frameworks as extra dependencies. Default is 'all'."
     echo -e "\t-c, --conda [NAME]   Create the conda environment for Isaac Lab Arena. Default name is 'env_isaaclab_arena'."
-    echo -e "\t-u, --uv [NAME]      Create the uv environment for Isaac Lab Arena. Default name is 'env_isaaclab_arena'."
+    echo -e "\t-u, --uv [NAME]      Create the uv environment for Isaac Lab Arena. Default name is '.venv'."
     echo -e "\t-y, --pycharm        Generate the PyCharm settings files from templates."
     echo -e "\n" >&2
 }
@@ -68,8 +68,8 @@ while [[ $# -gt 0 ]]; do
         -u|--uv)
             # Use default name if not provided
             if [ -z "$2" ]; then
-                echo "[INFO] Using default uv environment name: env_isaaclab_arena"
-                uv_env_name="env_isaaclab_arena"
+                echo "[INFO] Using default uv environment name: .venv"
+                uv_env_name=".venv"
             else
                 echo "[INFO] Using uv environment name: $2"
                 uv_env_name=$2
