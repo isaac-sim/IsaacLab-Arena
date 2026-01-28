@@ -138,10 +138,10 @@ class LiftObjectTaskRL(LiftObjectTask):
         embodiment: EmbodimentBase,
         minimum_height_to_lift: float = 0.04,
         episode_length_s: float = 5.0,
+        rl_training_mode: bool = True,
         target_x_delta: tuple[float, float] = (-0.1, 0.1),
         target_y_delta: tuple[float, float] = (-0.25, 0.25),
         target_z_delta: tuple[float, float] = (0.2, 0.4),
-        rl_training_mode: bool = True,
     ):
         """Initialize the Lift Object RL task.
 

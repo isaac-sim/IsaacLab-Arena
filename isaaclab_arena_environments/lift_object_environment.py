@@ -57,6 +57,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
             embodiment,
             minimum_height_to_lift=0.04,
             episode_length_s=5.0,
+            rl_training_mode=args_cli.rl_training_mode,
         )
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -76,3 +77,4 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--rl_training_mode", type=bool, default=True)
