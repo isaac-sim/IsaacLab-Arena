@@ -55,7 +55,7 @@ class RotateDoorMimicEnvCfg(MimicEnvCfg):
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.005,
+                action_noise=0.001,
                 # Number of interpolation steps to bridge to this subtask segment
                 num_interpolation_steps=5,
                 # Additional fixed steps for the robot to reach the necessary pose
@@ -77,7 +77,7 @@ class RotateDoorMimicEnvCfg(MimicEnvCfg):
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.005,
+                action_noise=0.001,
                 # Number of interpolation steps to bridge to this subtask segment
                 num_interpolation_steps=5,
                 # Additional fixed steps for the robot to reach the necessary pose
@@ -106,7 +106,7 @@ class RotateDoorMimicEnvCfg(MimicEnvCfg):
                     # Optional parameters for the selection strategy function
                     selection_strategy_kwargs={"nn_k": 3},
                     # Amount of action noise to apply during this subtask
-                    action_noise=0.005,
+                    action_noise=0.001,
                     # Number of interpolation steps to bridge to this subtask segment
                     num_interpolation_steps=0,
                     # Additional fixed steps for the robot to reach the necessary pose

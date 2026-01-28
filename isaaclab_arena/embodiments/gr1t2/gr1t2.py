@@ -106,8 +106,8 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         # XR settings
         # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
         self.xr: XrCfg = XrCfg(
-            anchor_pos=(-0.5, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+            anchor_pos=(3.943, -1.04, -0.08),
+            anchor_rot=(1, 0.0, 0.0, 0.0),
         )
 
 

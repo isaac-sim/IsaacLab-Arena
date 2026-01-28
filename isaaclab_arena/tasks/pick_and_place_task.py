@@ -9,7 +9,7 @@ from dataclasses import MISSING
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
@@ -44,7 +44,7 @@ class PickAndPlaceTask(TaskBase):
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
-        self.events_cfg = None
+        self.events_cfg = self.make_events_cfg()
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Pick up the {pick_up_object.name}, and place it into the {destination_location.name}"
@@ -82,6 +82,22 @@ class PickAndPlaceTask(TaskBase):
 
     def get_events_cfg(self):
         return self.events_cfg
+    
+    def make_events_cfg(self):
+        # Add variation in initial object pose
+        reset_object_position = EventTermCfg(
+            func=mdp_isaac_lab.reset_root_state_uniform,
+            mode="reset",
+            params={
+                "pose_range": {"x": (-0.03, 0.03), "y": (-0.01, 0.01), "z": (0.0, 0.0)},
+                "velocity_range": {},
+                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
+            },
+        )
+
+        return EventCfg(
+            reset_object_position=reset_object_position,
+        )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return PickPlaceMimicEnvCfg(
@@ -98,6 +114,12 @@ class PickAndPlaceTask(TaskBase):
             lookat_object=self.pick_up_object,
             offset=np.array([-1.5, -1.5, 1.5]),
         )
+
+@configclass
+class EventCfg:
+    """Configuration for events."""
+
+    reset_object_position: EventTermCfg = MISSING
 
 
 @configclass
@@ -165,7 +187,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.005,
+                action_noise=0.001,
                 # Number of interpolation steps to bridge to this subtask segment
                 num_interpolation_steps=5,
                 # Additional fixed steps for the robot to reach the necessary pose
@@ -190,7 +212,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                 # Optional parameters for the selection strategy function
                 selection_strategy_kwargs={"nn_k": 3},
                 # Amount of action noise to apply during this subtask
-                action_noise=0.005,
+                action_noise=0.001,
                 # Number of interpolation steps to bridge to this subtask segment
                 num_interpolation_steps=5,
                 # Additional fixed steps for the robot to reach the necessary pose
@@ -219,7 +241,7 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
                     # Optional parameters for the selection strategy function
                     selection_strategy_kwargs={"nn_k": 3},
                     # Amount of action noise to apply during this subtask
-                    action_noise=0.005,
+                    action_noise=0.001,
                     # Number of interpolation steps to bridge to this subtask segment
                     num_interpolation_steps=0,
                     # Additional fixed steps for the robot to reach the necessary pose

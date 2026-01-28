@@ -115,7 +115,7 @@ class ObjectBase(Asset, ABC):
             contact_against_prim_paths = []
         # HUGE HACK TO GET GTC SCENE GOING
         if self.name == "sweet_potato":
-            contact_sensor_prim_path = "/World/envs/env_0/sweet_potato/SweetPotato005"
+            contact_sensor_prim_path = "/World/envs/env_.*/sweet_potato/SweetPotato005"
         else:
             contact_sensor_prim_path = self.prim_path
         return ContactSensorCfg(
