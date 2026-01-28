@@ -23,6 +23,8 @@ class _TestConstants:
 
         self.arena_environments_dir = f"{self.repo_root}/isaaclab_arena_environments"
 
+        self.scripts_dir = f"{self.repo_root}/isaaclab_arena/scripts"
+
         self.python_path = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
 
         self.test_data_dir = f"{self.test_dir}/test_data"
