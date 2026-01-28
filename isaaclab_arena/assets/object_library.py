@@ -564,18 +564,13 @@ class SweetPotato(LibraryObject):
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
-
-
-# FIXME: update assets to Nucleus
 LOCAL_ASSETS_DIR = "/home/lancel/Projects/2024-05-21-Robotics/arena/ManipEvalTasks/assets_robotwin"
-
 
 @register_asset
 class RedCube(LibraryObject):
     """
     A red cube.
     """
-
     name = "red_cube"
     tags = ["object"]
     usd_path = usd_path = f"{LOCAL_ASSETS_DIR}/Objects/Blocks/red_block_root_rigid.usd"
@@ -587,13 +582,11 @@ class RedCube(LibraryObject):
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
-
 @register_asset
 class GreenCube(LibraryObject):
     """
     A green cube.
     """
-
     name = "green_cube"
     tags = ["object"]
     usd_path = f"{LOCAL_ASSETS_DIR}/Objects/Blocks/green_block_root_rigid.usd"
@@ -605,13 +598,11 @@ class GreenCube(LibraryObject):
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
-
 @register_asset
 class RedBasket(LibraryObject):
     """
     A red basket.
     """
-
     name = "red_basket"
     tags = ["object"]
     usd_path = f"{LOCAL_ASSETS_DIR}/Objects/901_container/container_h20_red.usd"
@@ -622,13 +613,11 @@ class RedBasket(LibraryObject):
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
-
 @register_asset
 class GreenBasket(LibraryObject):
     """
     A green basket.
     """
-
     name = "green_basket"
     tags = ["object"]
     usd_path = f"{LOCAL_ASSETS_DIR}/Objects/901_container/container_h20_green.usd"
@@ -638,3 +627,4 @@ class GreenBasket(LibraryObject):
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+

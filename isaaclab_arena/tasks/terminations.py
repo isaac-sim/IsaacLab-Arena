@@ -71,7 +71,8 @@ def objects_on_destinations(
         velocity_below_threshold = velocity_w_norm < velocity_threshold
 
         condition_met = torch.logical_and(
-            torch.logical_and(force_above_threshold, velocity_below_threshold), condition_met
+            torch.logical_and(force_above_threshold, velocity_below_threshold),
+            condition_met
         )
     return condition_met
 
@@ -270,6 +271,6 @@ def root_height_below_minimum_multi_objects(
         out = asset.data.root_pos_w[:, 2] < minimum_height
         outs.append(out)
 
-    outs_tensor = torch.stack(outs, dim=0)  # [X, N]
-    terminated = outs_tensor.any(dim=0)  # [N], bool
+    outs_tensor = torch.stack(outs, dim=0)          # [X, N]
+    terminated = outs_tensor.any(dim=0)             # [N], bool
     return terminated
