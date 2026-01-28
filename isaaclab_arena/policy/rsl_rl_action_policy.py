@@ -16,6 +16,7 @@ from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.scripts.reinforcement_learning import cli_args
 from isaaclab_arena.scripts.reinforcement_learning.utils import get_agent_cfg
 
 
@@ -37,9 +38,6 @@ class RslRlActionPolicyConfig:
     device: str = "cuda:0"
     """Device to run the policy on."""
 
-    clip_actions: bool = True
-    """Whether to clip actions to the action space bounds."""
-
     @classmethod
     def from_cli_args(cls, args: argparse.Namespace) -> "RslRlActionPolicyConfig":
         """
@@ -55,7 +53,6 @@ class RslRlActionPolicyConfig:
             checkpoint_path=args.checkpoint_path,
             agent_cfg_path=args.agent_cfg_path,
             device=args.device if hasattr(args, "device") else "cuda:0",
-            clip_actions=getattr(args, "clip_actions", True),
         )
 
 
@@ -81,7 +78,6 @@ class RslRlActionPolicy(PolicyBase):
                 "checkpoint_path": "logs/rsl_rl/lift_object/model_1000.pt",
                 "agent_cfg_path": "isaaclab_arena/policy/rl_policy/generic_policy.json",
                 "device": "cuda:0",
-                "clip_actions": true
               },
               "arena_env_args": ["lift_object", "--embodiment", "franka"]
             }
@@ -117,15 +113,6 @@ class RslRlActionPolicy(PolicyBase):
         """
         import json
 
-        # Check if environment is already wrapped
-        if isinstance(env, RslRlVecEnvWrapper):
-            wrapped_env = env
-            self._env_is_wrapped = True
-        else:
-            # Wrap if needed (for standalone policy runner usage)
-            wrapped_env = RslRlVecEnvWrapper(env, clip_actions=self.config.clip_actions)
-            self._env_is_wrapped = False
-
         # Load agent configuration
         # Prefer using get_agent_cfg() if args_cli is available (more robust)
         # Otherwise, load directly from JSON (for from_dict() path)
@@ -155,6 +142,15 @@ class RslRlActionPolicy(PolicyBase):
 
         # Override device from config
         agent_cfg.device = self.config.device
+
+        # Check if environment is already wrapped
+        if isinstance(env, RslRlVecEnvWrapper):
+            wrapped_env = env
+            self._env_is_wrapped = True
+        else:
+            # Wrap if needed (for standalone policy runner usage)
+            wrapped_env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+            self._env_is_wrapped = False
 
         # Create the appropriate runner
         if agent_cfg.class_name == "OnPolicyRunner":
@@ -240,7 +236,9 @@ class RslRlActionPolicy(PolicyBase):
             default=Path("isaaclab_arena/policy/rl_policy/generic_policy.json"),
             help="Path to the RL agent configuration file.",
         )
-        # Note: --device is already provided by AppLauncher.add_app_launcher_args()
+        # append RSL-RL cli arguments
+        cli_args.add_rsl_rl_args(parser)
+        cli_args.add_rsl_rl_policy_args(parser)
         return parser
 
     @staticmethod
