@@ -85,34 +85,33 @@ def run_multi_anchor_demo():
         name="table",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 0.6, 0.75)),
     )
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    table.add_relation(IsAnchor())
-
     chair = DummyObject(
         name="chair",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.45)),
     )
-    chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    chair.add_relation(IsAnchor())
-
-    # Create objects to be placed (optimized positions)
     mug = DummyObject(
         name="mug",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.1)),
     )
-    mug.add_relation(On(table, clearance_m=0.01))
-
     book = DummyObject(
         name="book",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.03)),
     )
-    book.add_relation(On(table, clearance_m=0.01))
-    book.add_relation(NextTo(mug, side=Side.RIGHT, distance_m=0.05))
-
     bin_obj = DummyObject(
         name="bin",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.4)),
     )
+
+    # Anchor objects (fixed positions)
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    table.add_relation(IsAnchor())
+    chair.add_relation(IsAnchor())
+
+    # Objects to be placed (optimized positions)
+    mug.add_relation(On(table, clearance_m=0.01))
+    book.add_relation(On(table, clearance_m=0.01))
+    book.add_relation(NextTo(mug, side=Side.RIGHT, distance_m=0.05))
     bin_obj.add_relation(On(chair, clearance_m=0.01))
 
     all_objects = [table, chair, mug, book, bin_obj]
@@ -121,8 +120,6 @@ def run_multi_anchor_demo():
     placer = ObjectPlacer(params=ObjectPlacerParams(verbose=True))
     result = placer.place(objects=all_objects)
 
-    print(f"\nPlacement success: {result.success}")
-    print(f"Final loss: {result.final_loss:.6f}")
     print("\nFinal positions:")
     for obj, pos in result.positions.items():
         anchor_tag = " (anchor)" if obj in get_anchor_objects(all_objects) else ""
