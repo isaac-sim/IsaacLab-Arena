@@ -48,6 +48,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
 
         # Compose the scene
+        # If using for an IL task, add the goal position as a marker to the scene
         scene = Scene(assets=assets)
 
         task = LiftObjectTaskRL(

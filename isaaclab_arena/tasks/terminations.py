@@ -78,6 +78,58 @@ def objects_in_proximity(
     return done
 
 
+def lift_object_dynamic_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    rl_training: bool = False,
+    use_command_goal: bool = True,
+    command_name: str = "object_pose",
+    fallback_goal_position: tuple[float, float, float] | None = None,
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Supports multiple modes:
+    - RL training: Always returns False (no early termination)
+    - RL evaluation: Uses goal from command manager
+    - IL: Uses fixed fallback goal position
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        rl_training: If True, always returns False (disables success termination for RL training).
+        use_command_goal: If True, tries to get goal from command manager.
+        command_name: The name of the command that is used to control the object.
+        fallback_goal_position: Fixed goal position [x, y, z] to use if command goal not available.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+    # During RL training, never terminate early
+    if rl_training:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    # Try to get goal position from command manager
+    if use_command_goal and hasattr(env, "command_manager") and env.command_manager is not None:
+        command = env.command_manager.get_command(command_name)
+        # compute the desired position in the world frame
+        goal_pos = command[:, :3]
+    elif fallback_goal_position is not None:
+        # Use fixed goal position (IL mode)
+        goal_pos = torch.tensor([fallback_goal_position] * env.num_envs, device=env.device)
+    else:
+        # No goal available, return False
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
+
+
 def goal_pose_task_termination(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
