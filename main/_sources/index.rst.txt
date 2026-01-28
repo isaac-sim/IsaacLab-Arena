@@ -201,6 +201,7 @@ TABLE OF CONTENTS
    :caption: Advanced
 
    pages/advanced/private_omniverse
+   pages/advanced/assets_management
 
 .. toctree::
    :maxdepth: 1

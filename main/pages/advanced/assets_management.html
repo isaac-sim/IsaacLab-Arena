@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Jupyter Notebooks &#8212; isaaclab_arena 0.1</title>
+    <title>Assets Management &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -49,12 +49,12 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/quickstart/jupyter_notebooks';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/advanced/assets_management';</script>
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="G1 Loco-Manipulation Box Pick and Place Task" href="../example_workflows/locomanipulation/index.html" />
-    <link rel="prev" title="Docker Containers" href="docker_containers.html" />
+    <link rel="next" title="Concept Overview" href="../concepts/concept_overview.html" />
+    <link rel="prev" title="Omniverse Authentication" href="private_omniverse.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -282,7 +282,7 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="jupyter_notebooks.html" selected>main</option>
+            <option value="assets_management.html" selected>main</option>
             <option value="../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -299,11 +299,11 @@
      aria-label="Table of Contents">
   <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">User's Guide</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="first_arena_env.html">First Arena Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docker_containers.html">Docker Containers</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Jupyter Notebooks</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/docker_containers.html">Docker Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="nav bd-sidenav">
@@ -324,9 +324,9 @@
 </details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Assets Management</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
@@ -379,7 +379,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Jupyter Notebooks</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Assets Management</span></li>
   </ul>
 </nav>
 </div>
@@ -396,87 +396,41 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="jupyter-notebooks">
-<h1>Jupyter Notebooks<a class="headerlink" href="#jupyter-notebooks" title="Link to this heading">#</a></h1>
-<p>Some of the IsaacLab Arena examples can be executed interactively inside Jupyter notebooks.
-For this to work, you need to launch a Jupyter Notebook server inside the Isaac Sim Docker
-container and configure the notebook to use the Isaac Sim Python environment.</p>
-<section id="start-the-isaaclab-arena-docker-container">
-<h2>1. Start the IsaacLab Arena Docker Container<a class="headerlink" href="#start-the-isaaclab-arena-docker-container" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/isaac_arena
-./docker/run_docker.sh
-</pre></div>
+  <section id="assets-management">
+<h1>Assets Management<a class="headerlink" href="#assets-management" title="Link to this heading">#</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These steps are only required if you are adding your own assets to Isaac Lab Arena’s production S3 buckets.
+Assets and files that are used by Isaac Lab Arena by default are publicly available without additional authentication.</p>
 </div>
-<p>Then, attach your editor to the running container (VS Code / Cursor):</p>
-<ol class="arabic simple">
-<li><p>Open VS Code or Cursor.</p></li>
-<li><p>Install the <strong>Dev Containers</strong> extension if not already installed.</p></li>
-<li><p>Press <code class="docutils literal notranslate"><span class="pre">Ctrl+Shift+P</span></code> (or <code class="docutils literal notranslate"><span class="pre">Cmd+Shift+P</span></code> on macOS) and select <strong>Dev Containers: Attach to Running Container</strong>.</p></li>
-<li><p>Select the running IsaacLab Arena container from the list.</p></li>
-</ol>
-<p>A new editor window will open, connected to the container’s filesystem.</p>
-</section>
-<section id="launch-the-jupyter-notebook-server-inside-isaac-sim">
-<h2>2. Launch the Jupyter Notebook Server Inside Isaac Sim<a class="headerlink" href="#launch-the-jupyter-notebook-server-inside-isaac-sim" title="Link to this heading">#</a></h2>
-<p>Inside the container, start the Jupyter server:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/isaac-sim
-./jupyter_notebook.sh
-</pre></div>
-</div>
-<p>After startup, the terminal will print the server access information, for example:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>To access the server, open this file in a browser:
-    file:///home/&lt;username&gt;/.local/share/jupyter/runtime/jpserver-72-open.html
-Or copy and paste one of these URLs:
-    http://localhost:8888/tree?token=...
-    http://127.0.0.1:8888/tree?token=...
-</pre></div>
-</div>
-<p>We will use the URL in a following step.</p>
-</section>
-<section id="create-or-open-a-notebook">
-<h2>3. Create or Open a Notebook<a class="headerlink" href="#create-or-open-a-notebook" title="Link to this heading">#</a></h2>
+<p>Isaac Lab Arena consumes assets from publicly available S3 buckets and LightWheel SDK registry.
+Isaac Lab Arena uses the following environment variables to access those S3 buckets:</p>
 <ul class="simple">
-<li><p>Create a new notebook or run an existing notebook cell.</p></li>
-<li><p>By default, the notebook will connect to the system Python interpreter (e.g., Python 3.x from the base environment).</p></li>
-<li><p>This environment does not contain Isaac Sim or IsaacLab dependencies and will likely fail when importing <code class="docutils literal notranslate"><span class="pre">omni</span></code>, <code class="docutils literal notranslate"><span class="pre">isaaclab</span></code>, etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ISAAC_NUCLEUS_DIR</span></code>: The directory of Isaac Sim’s assets on the production S3 bucket, containing assets that are compliant with legal requirements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ISAACLAB_NUCLEUS_DIR</span></code>: The directory of Isaac Lab &amp; Isaac Lab Arena’s assets on the production S3 bucket, containing assets that are compliant with legal requirements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ISAACLAB_STAGING_NUCLEUS_DIR</span></code>: The directory of Isaac Lab Arena’s development assets on the staging S3 bucket, auto-synced every 6 hours
+from the Nucleus Server (omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/). Those assets have not yet reviewed by legal team – use in production at your own risk.
+Prior to each major release, the staging assets will be uploaded to the production bucket after being cleared by the legal team.</p></li>
 </ul>
-</section>
-<section id="switch-the-notebook-kernel-to-isaac-sim-python">
-<h2>4. Switch the Notebook Kernel to Isaac Sim Python<a class="headerlink" href="#switch-the-notebook-kernel-to-isaac-sim-python" title="Link to this heading">#</a></h2>
-<p>In the top-right corner of the notebook UI:</p>
+<section id="adding-assets">
+<h2>Adding assets<a class="headerlink" href="#adding-assets" title="Link to this heading">#</a></h2>
+<p>To add your own assets to Isaac Lab Arena’s <em>staging</em> S3 bucket, you can follow the following steps:</p>
 <ol class="arabic">
-<li><p>Click the current kernel selector (e.g., <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3</span> <span class="pre">(ipykernel)</span></code>).</p></li>
-<li><p>Select <strong>Select another Kernel</strong>.</p></li>
-<li><p>Choose <strong>Existing Jupyter Server</strong>.</p></li>
-<li><p>Enter the URL of the running Jupyter server (printed in the terminal in which it was started):</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>http://localhost:8888/?token=...
-</pre></div>
-</div>
+<li><p>Upload your assets to the Nucleus Server (<code class="docutils literal notranslate"><span class="pre">omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena</span></code>). Depend on the type of your assets, you can upload them to the following directories:</p>
+<ul class="simple">
+<li><p>Backgrounds: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/background_library</span></code></p></li>
+<li><p>Objects: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/object_library</span></code></p></li>
+<li><p>Embodiments: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/robot_library</span></code></p></li>
+<li><p>Policies: <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/${NAME_OF_THE_POLICY}</span></code></p></li>
+</ul>
+<p>Prefix assets with their source (e.g., <code class="docutils literal notranslate"><span class="pre">scarif_tower_01.usd</span></code>), upload to <code class="docutils literal notranslate"><span class="pre">/Isaac/IsaacLab/Arena/assets/object_library</span></code>,
+and include a valid license file in the target folder. If you lack Nucleus Server write access, contact the isaaclab-arena team to facilitate the asset and license upload.</p>
 </li>
-<li><p>Optionally set the <strong>Server Display Name</strong> (e.g., <code class="docutils literal notranslate"><span class="pre">localhost</span></code>).</p></li>
-<li><p>Under <strong>Select a Kernel from localhost</strong>, choose:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Isaac Sim Python 3  (/isaac-sim/kit/python/bin/python3)  Jupyter Kernel
-</pre></div>
-</div>
-</li>
+<li><p>Update the USD path configurations to use the new assets as they are stored in <code class="docutils literal notranslate"><span class="pre">ISAACLAB_STAGING_NUCLEUS_DIR/Arena/assets</span></code> directory.
+For example, if you want to use a new object, you can register the object in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/assets/object_library.py</span></code> as a derived class of <code class="docutils literal notranslate"><span class="pre">LibraryObject</span></code>, and add the USD path as its class attribute.</p></li>
+<li><p>Wait for at most 6 hours for the assets to be synced to the staging S3 bucket.</p></li>
+<li><p>Run Isaac Lab Arena to verify that the assets are loaded correctly.</p></li>
 </ol>
-<p>After switching, the notebook should display:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Connected to Isaac Sim Python 3
-</pre></div>
-</div>
-<p>The notebook is now running inside the Isaac Sim Python runtime.</p>
-</section>
-<section id="reloading-modules-and-recompiling-environments">
-<h2>Reloading Modules and Recompiling Environments<a class="headerlink" href="#reloading-modules-and-recompiling-environments" title="Link to this heading">#</a></h2>
-<p>When developing in a Jupyter notebook, you may want to reload modules after making changes
-to your code without restarting the entire kernel. To properly tear down the simulation
-and allow recompiling environments or reloading modules, you must call:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.isaaclab_utils.simulation_app</span><span class="w"> </span><span class="kn">import</span> <span class="n">teardown_simulation_app</span>
-
-<span class="n">teardown_simulation_app</span><span class="p">(</span><span class="n">suppress_exceptions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">make_new_stage</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>See <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/examples/example_env_notebook.py</span></code> for a complete example.</p>
 </section>
 </section>
 
@@ -491,20 +445,20 @@ and allow recompiling environments or reloading modules, you must call:</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="docker_containers.html"
+       href="private_omniverse.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Docker Containers</p>
+        <p class="prev-next-title">Omniverse Authentication</p>
       </div>
     </a>
     <a class="right-next"
-       href="../example_workflows/locomanipulation/index.html"
+       href="../concepts/concept_overview.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">G1 Loco-Manipulation Box Pick and Place Task</p>
+        <p class="prev-next-title">Concept Overview</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -529,11 +483,7 @@ and allow recompiling environments or reloading modules, you must call:</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-isaaclab-arena-docker-container">1. Start the IsaacLab Arena Docker Container</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-the-jupyter-notebook-server-inside-isaac-sim">2. Launch the Jupyter Notebook Server Inside Isaac Sim</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#create-or-open-a-notebook">3. Create or Open a Notebook</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#switch-the-notebook-kernel-to-isaac-sim-python">4. Switch the Notebook Kernel to Isaac Sim Python</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reloading-modules-and-recompiling-environments">Reloading Modules and Recompiling Environments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-assets">Adding assets</a></li>
 </ul>
   </nav></div>
 
