@@ -126,8 +126,9 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
         use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+        concatenate_observation_terms: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms)
         # Joint positional control
         self.action_config = GR1T2JointPositionActionCfg()
         # Tuned arm joints pd gains, smoother motions and less oscillations
@@ -152,8 +153,9 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
         use_tiled_camera: bool = False,  # Default to regular for single env
+        concatenate_observation_terms: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms)
         # Pink IK EEF control
         self.action_config = GR1T2ActionsCfg()
         # Create camera config with private attributes to avoid scene parser issues
@@ -386,7 +388,7 @@ class GR1T2ObservationsCfg:
         )
         robot_root_pos = ObsTerm(func=base_mdp.root_pos_w, params={"asset_cfg": SceneEntityCfg("robot")})
         robot_root_rot = ObsTerm(func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("robot")})
-        robot_links_state = ObsTerm(func=mdp.get_all_robot_link_state)
+        robot_links_state = ObsTerm(func=lambda env: mdp.get_all_robot_link_state(env).flatten(start_dim=1))
 
         left_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "left_hand_roll_link"})
         left_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "left_hand_roll_link"})
