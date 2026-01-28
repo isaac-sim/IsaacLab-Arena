@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -39,12 +39,12 @@ class SortMultiObjectTask(TaskBase):
         pick_up_object_contact_sensor_list = []
         for pick_up_object, destination_location in zip(pick_up_object_list, destination_location_list):
             pick_up_object_contact_sensor_list.append(
-                    pick_up_object.get_contact_sensor_cfg(
-                    contact_against_prim_paths=[destination_location.get_prim_path()]
-                )
+                pick_up_object.get_contact_sensor_cfg(contact_against_prim_paths=[destination_location.get_prim_path()])
             )
         self.pick_up_object_contact_sensor_list = pick_up_object_contact_sensor_list
-        self.contact_sensor_name_list = [f"contact_sensor_{i}" for i in range(len(self.pick_up_object_contact_sensor_list))]
+        self.contact_sensor_name_list = [
+            f"contact_sensor_{i}" for i in range(len(self.pick_up_object_contact_sensor_list))
+        ]
 
         self.events_cfg = None
         self.scene_config = self.make_scene_cfg()
@@ -53,13 +53,14 @@ class SortMultiObjectTask(TaskBase):
     def make_scene_cfg(self):
         self.scene_config = SceneCfg()
 
-        for name, pick_up_object_contact_sensor in zip(self.contact_sensor_name_list, self.pick_up_object_contact_sensor_list):
+        for name, pick_up_object_contact_sensor in zip(
+            self.contact_sensor_name_list, self.pick_up_object_contact_sensor_list
+        ):
             setattr(self.scene_config, name, pick_up_object_contact_sensor)
         return self.scene_config
-    
+
     def get_scene_cfg(self):
         return self.scene_config
-
 
     def get_termination_cfg(self):
         return self.termination_cfg
@@ -117,6 +118,7 @@ class SceneCfg:
 
     contact_sensor_0: ContactSensorCfg = MISSING
     contact_sensor_1: ContactSensorCfg = MISSING
+
 
 @configclass
 class TerminationsCfg:

@@ -159,14 +159,10 @@ def _test_sorting_task_success(simulation_app) -> bool:
             green_cube_target_pos[0, 2] += 0.1  # Above basket to fall into it
 
             # Write initial pose only once
-            red_cube_object.write_root_pose_to_sim(
-                root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1)
-            )
+            red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
             red_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
-            green_cube_object.write_root_pose_to_sim(
-                root_pose=torch.cat([green_cube_target_pos, target_quat], dim=-1)
-            )
+            green_cube_object.write_root_pose_to_sim(root_pose=torch.cat([green_cube_target_pos, target_quat], dim=-1))
             green_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
             # Step the environment to let physics simulate the fall and contact
@@ -217,9 +213,7 @@ def _test_sorting_task_partial_success(simulation_app) -> bool:
             red_cube_target_pos = red_basket_pos.clone().unsqueeze(0)
             red_cube_target_pos[0, 2] += 0.1  # Above basket to fall into it
 
-            red_cube_object.write_root_pose_to_sim(
-                root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1)
-            )
+            red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
             red_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
             # Step the environment to let physics simulate
