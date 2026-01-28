@@ -44,7 +44,7 @@ class RelationSolverVisualizer:
         self,
         result: dict[Object, tuple[float, float, float]],
         objects: list[Object],
-        anchor_objects: list[Object] | Object,
+        anchor_objects: list[Object],
         loss_history: list[float] | None = None,
         position_history: list | None = None,
     ):
@@ -53,18 +53,13 @@ class RelationSolverVisualizer:
         Args:
             result: Result dictionary mapping objects to final positions.
             objects: List of Object instances (same order as passed to solve())
-            anchor_objects: The anchor object(s) that were fixed during optimization.
-                Can be a single object or a list of objects.
+            anchor_objects: The anchor objects that were fixed during optimization.
             loss_history: Optional list of loss values during optimization.
             position_history: Optional list of position snapshots during optimization.
         """
         self.result = result
         self.objects = objects
-        # Support both single anchor (backward compat) and list of anchors
-        if isinstance(anchor_objects, list):
-            self.anchor_objects: set[Object] = set(anchor_objects)
-        else:
-            self.anchor_objects = {anchor_objects}
+        self.anchor_objects: set[Object] = set(anchor_objects)
         self.position_history = position_history or []
         self.loss_history = loss_history or []
 
