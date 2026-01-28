@@ -7,32 +7,26 @@
 
 """Launch Isaac Sim Simulator first."""
 
-import argparse
 from pathlib import Path
 
 from isaaclab.app import AppLauncher
 
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.cli import add_example_environments_cli_args
 
 # local imports
 import cli_args  # isort: skip
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
+parser = get_isaaclab_arena_cli_parser()
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
-parser.add_argument(
-    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
-)
-parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument(
     "--agent_cfg_path",
     type=Path,
     default=Path("isaaclab_arena/policy/rl_policy/generic_policy.json"),
     help="Path to the RL agent configuration file.",
 )
-parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
