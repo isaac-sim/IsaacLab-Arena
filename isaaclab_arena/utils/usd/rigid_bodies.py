@@ -75,8 +75,6 @@ def find_shallowest_rigid_body(usd_path: str, relative_to_root: bool = False) ->
             )
         shallowest_rigid_body = shallowest_rigid_bodies[0]
 
-    print("HERE")
-    print(f"shallowest_rigid_body: {shallowest_rigid_body}")
     if relative_to_root:
         assert shallowest_rigid_body[0] == "/", "We expect USD paths to start with a /"
         root_and_rest = shallowest_rigid_body.lstrip("/").split("/", 1)
