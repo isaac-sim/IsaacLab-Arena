@@ -29,6 +29,7 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cf
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
@@ -117,23 +118,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         Returns:
             XR configuration with anchor position and rotation in global coordinates.
         """
-        # If robot has an initial pose, compose it with the XR offset
-        if self.initial_pose is not None:
-            from isaaclab_arena.utils.pose import compose_poses
-
-            # Compose robot pose with XR offset: T_world_xr = T_world_robot * T_robot_xr
-            xr_pose_global = compose_poses(self.initial_pose, self._xr_offset)
-
-            return XrCfg(
-                anchor_pos=xr_pose_global.position_xyz,
-                anchor_rot=xr_pose_global.rotation_wxyz,
-            )
-        else:
-            # If no initial pose set, use the offset as global coordinates (robot at origin)
-            return XrCfg(
-                anchor_pos=self._xr_offset.position_xyz,
-                anchor_rot=self._xr_offset.rotation_wxyz,
-            )
+        return get_default_xr_cfg(self.initial_pose, self._xr_offset)
 
 
 @register_asset

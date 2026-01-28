@@ -53,8 +53,6 @@ def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
         err_msg=f"XR anchor position incorrect with robot pose: expected {expected_pos}, got {xr_cfg.anchor_pos}",
     )
 
-    print("✓ GR1T2 XR anchor with robot translation: PASSED")
-
     # Test 3: XR anchor with robot rotation
     robot_pose_rotated = Pose(
         position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(0.70711, 0.0, 0.0, 0.70711)  # 90° rotation around Z
@@ -87,8 +85,6 @@ def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
         pos_diff, expected_diff, rtol=1e-5, err_msg="XR anchor position difference should match robot movement"
     )
 
-    print("✓ GR1T2 XR anchor dynamic recomputation: PASSED")
-
     return True
 
 
@@ -112,8 +108,6 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
         xr_cfg.anchor_rot == expected_rot
     ), f"XR anchor rotation should match offset at origin: expected {expected_rot}, got {xr_cfg.anchor_rot}"
 
-    print("✓ G1 XR anchor at origin: PASSED")
-
     # Test 2: XR anchor with robot position
     robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))  # No rotation
     embodiment.set_initial_pose(robot_pose)
@@ -133,8 +127,6 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
         err_msg=f"XR anchor position incorrect with robot pose: expected {expected_pos}, got {xr_cfg.anchor_pos}",
     )
 
-    print("✓ G1 XR anchor with robot translation: PASSED")
-
     return True
 
 
@@ -145,7 +137,6 @@ def _test_xr_anchor_multiple_positions(simulation_app) -> bool:
 
     asset_registry = AssetRegistry()
     embodiment = asset_registry.get_asset_by_name("gr1_pink")()
-    xr_cfg = embodiment.get_xr_cfg()
     test_positions = [
         (0.0, 0.0, 0.0),
         (1.0, 0.0, 0.0),
@@ -171,8 +162,6 @@ def _test_xr_anchor_multiple_positions(simulation_app) -> bool:
             rtol=1e-5,
             err_msg=f"XR anchor incorrect for robot at {pos}: expected {expected_pos}, got {xr_cfg.anchor_pos}",
         )
-
-        print(f"✓ XR anchor correct for robot at {pos}: PASSED")
 
     return True
 
