@@ -178,10 +178,6 @@ class SequentialTaskBase(TaskBase):
 
         env.extras["subtask_success_state"] = copy.copy(env._subtask_success_state)
 
-        print(f"subtask_success_state: {env._subtask_success_state}")
-        print(f"desired_subtask_success_state: {desired_subtask_success_state}")
-        print(f"success_tensor: {success_tensor}")
-
         return success_tensor
 
     @staticmethod
