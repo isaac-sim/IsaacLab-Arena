@@ -29,6 +29,7 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cf
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
@@ -103,12 +104,21 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         self.action_config = MISSING
         self.camera_config = GR1T2CameraCfg()
 
-        # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
-        self.xr: XrCfg = XrCfg(
-            anchor_pos=(-0.5, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+        # XR settings (relative to robot base)
+        # These offsets are defined relative to the robot's base frame
+        self._xr_offset = Pose(
+            position_xyz=(-0.5, 0.0, -1.0),
+            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
         )
+        self.xr: XrCfg | None = None
+
+    def get_xr_cfg(self) -> XrCfg:
+        """Get XR configuration with anchor pose adjusted for robot's initial pose.
+
+        Returns:
+            XR configuration with anchor position and rotation in global coordinates.
+        """
+        return get_default_xr_cfg(self.initial_pose, self._xr_offset)
 
 
 @register_asset
