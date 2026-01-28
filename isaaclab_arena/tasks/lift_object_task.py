@@ -127,7 +127,7 @@ class LiftObjectTerminationsCfg:
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
     object_dropped: TerminationTermCfg = MISSING
-    success: TerminationTermCfg | None = None
+    success: TerminationTermCfg = MISSING
 
 
 class LiftObjectTaskRL(LiftObjectTask):
