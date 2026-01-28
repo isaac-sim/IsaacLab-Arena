@@ -72,7 +72,9 @@ if args_cli.enable_pinocchio:
     # pinocchio is required by the Pink IK controllers and the GR1T2 retargeter
     import pinocchio  # noqa: F401
 
-    if "handtracking" in args_cli.teleop_device.lower():
+    # TODO(cvolk): XR mode is inferred from teleop device name via string matching.
+    # Ideally, AppLauncher or the device config would auto-detect XR requirements.
+    if "openxr" in args_cli.teleop_device.lower():
         app_launcher_args["xr"] = True
 
 # launch the simulator
