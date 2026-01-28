@@ -8,7 +8,7 @@ from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
@@ -46,7 +46,6 @@ class SortMultiObjectTask(TaskBase):
         self.pick_up_object_contact_sensor_list = pick_up_object_contact_sensor_list
         self.contact_sensor_name_list = [f"contact_sensor_{i}" for i in range(len(self.pick_up_object_contact_sensor_list))]
 
-        # self.events_cfg = EventsCfg(pick_up_object_list=self.pick_up_object_list)
         self.events_cfg = None
         self.scene_config = self.make_scene_cfg()
         self.termination_cfg = self.make_termination_cfg()
@@ -100,11 +99,9 @@ class SortMultiObjectTask(TaskBase):
         raise NotImplementedError("Function not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:
-        # object_move_rate_metric_list = [ObjectMovedRateMetric(pick_up_object) for pick_up_object in self.pick_up_object_list]
-        # TODO: design a ObjectMovedRateMetric compatible with assets list input
         return [SuccessRateMetric()]
 
-    def get_viewer_cfg(self) -> ViewerCfg: # FIXME:
+    def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object_list[0],
             offset=np.array([-1.5, -1.5, 1.5]),
@@ -117,6 +114,7 @@ class SceneCfg:
     Scene configuration for the pick and place task.
     Note: only support <4 objects. Need to figure out a more flexible method, like __post_init__()
     """
+
     contact_sensor_0: ContactSensorCfg = MISSING
     contact_sensor_1: ContactSensorCfg = MISSING
 
@@ -125,33 +123,5 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-
     success: TerminationTermCfg = MISSING
-
     object_dropped: TerminationTermCfg = MISSING
-
-
-# @configclass
-# class EventsCfg:
-#     """Configuration for Pick and Place."""
-
-#     reset_pick_up_object_pose: EventTermCfg = MISSING
-
-#     def __init__(self, pick_up_object_list: list[Asset]):
-#         for pick_up_object in pick_up_object_list:
-#             initial_pose = pick_up_object.get_initial_pose()
-#             if initial_pose is not None:
-#                 self.reset_pick_up_object_pose = EventTermCfg(
-#                     func=set_object_pose,
-#                     mode="reset",
-#                     params={
-#                         "pose": initial_pose,
-#                         "asset_cfg": SceneEntityCfg(pick_up_object.name),
-#                     },
-#                 )
-#             else:
-#                 print(
-#                     f"Pick up object {pick_up_object.name} has no initial pose. Not setting reset pick up object pose"
-#                     " event."
-#                 )
-#                 self.reset_pick_up_object_pose = None

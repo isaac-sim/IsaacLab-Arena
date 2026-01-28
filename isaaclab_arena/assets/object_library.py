@@ -541,7 +541,6 @@ class MediumGear(LibraryObject):
         "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
-
 @register_asset
 class SweetPotato(LibraryObject):
     """
