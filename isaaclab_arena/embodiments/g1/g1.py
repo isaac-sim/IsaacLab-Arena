@@ -34,6 +34,9 @@ from isaaclab_arena_g1.g1_env.mdp import g1_events as g1_events_mdp
 from isaaclab_arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
+from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_world_frame_action_cfg import (
+    G1DecoupledWBCPinkWorldFrameActionCfg,
+)
 
 
 class G1EmbodimentBase(EmbodimentBase):
@@ -59,11 +62,12 @@ class G1EmbodimentBase(EmbodimentBase):
         self.mimic_env = G1MimicEnv
 
         # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
-        # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
+        # Anchor to the robot's pelvis for first-person view that follows the robot
         self.xr: XrCfg = XrCfg(
             anchor_pos=(0.0, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+            anchor_prim_path="/World/envs/env_0/Robot/pelvis",
+            fixed_anchor_height=True,
         )
 
 
@@ -115,9 +119,16 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = False,  # Default to regular for single env
+        use_world_frame_actions: bool = False,  # Set to True for VR/motion controller teleop
     ):
         super().__init__(enable_cameras, initial_pose)
-        self.action_config = G1WBCPinkActionCfg()
+        
+        # Use world frame action config if needed (e.g., for VR controllers)
+        if use_world_frame_actions:
+            self.action_config = G1WBCPinkWorldFrameActionCfg()
+        else:
+            self.action_config = G1WBCPinkActionCfg()
+            
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
@@ -598,6 +609,13 @@ class G1WBCPinkActionCfg:
     """Action specifications for the MDP, for G1 WBC action."""
 
     g1_action: ActionTermCfg = G1DecoupledWBCPinkActionCfg(asset_name="robot", joint_names=[".*"])
+
+
+@configclass
+class G1WBCPinkWorldFrameActionCfg:
+    """Action specifications for the MDP, for G1 WBC action with world frame transformation."""
+
+    g1_action: ActionTermCfg = G1DecoupledWBCPinkWorldFrameActionCfg(asset_name="robot", joint_names=[".*"])
 
 
 @configclass

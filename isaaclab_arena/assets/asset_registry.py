@@ -133,7 +133,13 @@ class DeviceRegistry(Registry):
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
         retargeter = retargeter_registry.get_component_by_name(retargeter_key_str)()
         retargeter_cfg = retargeter.get_retargeter_cfg(embodiment, sim_device=device.sim_device)
-        retargeters = [retargeter_cfg] if retargeter_cfg is not None else []
+        # Handle both single retargeter and list of retargeters
+        if isinstance(retargeter_cfg, list):
+            retargeters = retargeter_cfg
+        elif retargeter_cfg is not None:
+            retargeters = [retargeter_cfg]
+        else:
+            retargeters = []
         device_cfg = device.get_device_cfg(retargeters=retargeters, embodiment=embodiment)
         return DevicesCfg(
             devices={

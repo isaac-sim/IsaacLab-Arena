@@ -21,7 +21,30 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        
+        # Check if we need world frame actions (for VR/motion controllers)
+        # This can be set via:
+        # 1. --use_world_frame_actions flag (for replay)
+        # 2. Using motion_controllers/openxr teleop device (for recording/teleop)
+        use_world_frame_actions = False
+        if hasattr(args_cli, 'use_world_frame_actions') and args_cli.use_world_frame_actions:
+            use_world_frame_actions = True
+        elif hasattr(args_cli, 'teleop_device') and args_cli.teleop_device in ["motion_controllers", "openxr"]:
+            use_world_frame_actions = True
+        
+        # Only apply world frame actions for g1_wbc_pink embodiment
+        use_world_frame_actions = use_world_frame_actions and args_cli.embodiment == "g1_wbc_pink"
+        
+        # Create embodiment with appropriate action config
+        if use_world_frame_actions:
+            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+                enable_cameras=args_cli.enable_cameras,
+                use_world_frame_actions=True
+            )
+        else:
+            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+                enable_cameras=args_cli.enable_cameras
+            )
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -46,6 +69,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
+        # Configure navigation for mimic use case
         if (
             args_cli.embodiment == "g1_wbc_pink"
             and hasattr(args_cli, "mimic")
