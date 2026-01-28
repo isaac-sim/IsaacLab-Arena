@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 def _is_object_reference(obj) -> bool:
     """Check if object is an ObjectReference without importing the class.
 
-    This avoids pulling in IsaacSim dependencies when using ObjectPlacer in sandbox testing.
+    This avoids pulling in IsaacSim dependencies when testing.
     """
     return type(obj).__name__ in ("ObjectReference", "OpenableObjectReference")
 
