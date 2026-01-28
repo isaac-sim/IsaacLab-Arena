@@ -117,6 +117,45 @@ class IsAnchor(RelationBase):
     pass
 
 
+class AtPosition(RelationBase):
+    """Constrains object to specific world coordinates.
+
+    This is a unary relation (no parent) that pins an object's position to
+    specific x, y, and/or z world coordinates. Any axis set to None is
+    unconstrained by this relation (allowing other relations like On to
+    control that axis).
+
+    Note: Loss computation is handled by AtPositionLossStrategy in relation_loss_strategies.py.
+
+    Usage:
+        # Pin object to x=0.5, y=1.0 in world coords (z controlled by On relation)
+        mug.add_relation(On(table))
+        mug.add_relation(AtPosition(x=0.5, y=1.0))
+    """
+
+    def __init__(
+        self,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            x: Target x world coordinate, or None to leave unconstrained.
+            y: Target y world coordinate, or None to leave unconstrained.
+            z: Target z world coordinate, or None to leave unconstrained.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        assert (
+            x is not None or y is not None or z is not None
+        ), "At least one of x, y, or z must be specified for AtPosition"
+        self.x = x
+        self.y = y
+        self.z = z
+        self.relation_loss_weight = relation_loss_weight
+
+
 def find_anchor_object(objects: list[Object]) -> Object | None:
     """Find the anchor object from a list of objects.
 
