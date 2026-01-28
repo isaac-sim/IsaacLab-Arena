@@ -8,10 +8,10 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy
+from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy, UnaryRelationLossStrategy
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import Relation
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -39,14 +39,14 @@ class RelationSolver:
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
 
-    def _get_strategy(self, relation: Relation) -> RelationLossStrategy:
+    def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
 
         Args:
             relation: The relation to find a strategy for.
 
         Returns:
-            The RelationLossStrategy for this relation type.
+            The RelationLossStrategy or UnaryRelationLossStrategy for this relation type.
 
         Raises:
             ValueError: If no strategy is registered for this relation type.
@@ -75,19 +75,31 @@ class RelationSolver:
         for obj in state.optimizable_objects:
             for relation in obj.get_spatial_relations():
                 child_pos = state.get_position(obj)
-                parent_pos = state.get_position(relation.parent)
-
                 strategy = self._get_strategy(relation)
-                loss = strategy.compute_loss(
-                    relation=relation,
-                    child_pos=child_pos,
-                    parent_pos=parent_pos,
-                    child_bbox=obj.get_bounding_box(),
-                    parent_bbox=relation.parent.get_bounding_box(),
-                )
 
-                if debug:
-                    _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
+                # Handle unary relations (no parent) like AtPosition
+                if isinstance(relation, AtPosition):
+                    loss = strategy.compute_loss(
+                        relation=relation,
+                        child_pos=child_pos,
+                        child_bbox=obj.get_bounding_box(),
+                    )
+                    if debug:
+                        _print_unary_relation_debug(obj, relation, child_pos, loss)
+                # Handle binary relations (with parent) like On, NextTo
+                elif isinstance(relation, Relation):
+                    parent_pos = state.get_position(relation.parent)
+                    loss = strategy.compute_loss(
+                        relation=relation,
+                        child_pos=child_pos,
+                        parent_pos=parent_pos,
+                        child_bbox=obj.get_bounding_box(),
+                        parent_bbox=relation.parent.get_bounding_box(),
+                    )
+                    if debug:
+                        _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
+                else:
+                    raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
                 total_loss = total_loss + loss
 
@@ -210,7 +222,7 @@ def _print_relation_debug(
     parent_pos: torch.Tensor,
     loss: torch.Tensor,
 ) -> None:
-    """Print debug information for a single relation."""
+    """Print debug information for a single binary relation."""
     child_bbox = obj.get_bounding_box()
     parent_bbox = relation.parent.get_bounding_box()
 
@@ -237,4 +249,22 @@ def _print_relation_debug(
     print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
     print(f"  Parent world X: [{parent_x_range[0]:.4f}, {parent_x_range[1]:.4f}]")
     print(f"  Parent world Y: [{parent_y_range[0]:.4f}, {parent_y_range[1]:.4f}]")
+    print(f"  Loss: {loss.item():.6f}")
+
+
+def _print_unary_relation_debug(
+    obj: Object,
+    relation: AtPosition,
+    child_pos: torch.Tensor,
+    loss: torch.Tensor,
+) -> None:
+    """Print debug information for a unary relation (no parent)."""
+    child_bbox = obj.get_bounding_box()
+
+    target_str = ", ".join(
+        f"{axis}={getattr(relation, axis):.4f}" for axis in ("x", "y", "z") if getattr(relation, axis) is not None
+    )
+    print(f"\n=== {obj.name} -> {type(relation).__name__}({target_str}) ===")
+    print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
+    print(f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}")
     print(f"  Loss: {loss.item():.6f}")

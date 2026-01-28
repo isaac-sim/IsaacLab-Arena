@@ -5,6 +5,8 @@
 
 import torch
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.loss_primitives import (
@@ -15,9 +17,74 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import NextTo, On, Relation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation
 
 from isaaclab_arena.relations.relations import Side
+
+
+class Axis(IntEnum):
+    """Spatial axis indices for tensor indexing."""
+
+    X = 0
+    Y = 1
+    Z = 2
+
+
+class Direction(IntEnum):
+    """Direction along an axis."""
+
+    NEGATIVE = -1
+    POSITIVE = +1
+
+
+@dataclass(frozen=True)
+class SideConfig:
+    """Configuration for computing NextTo loss for a given side.
+
+    Attributes:
+        primary_axis: Axis along which child is placed (X or Y).
+        direction: POSITIVE if child should be in positive direction from parent (RIGHT, BACK),
+                   NEGATIVE if child should be in negative direction (LEFT, FRONT).
+    """
+
+    primary_axis: Axis
+    direction: Direction
+
+    @property
+    def band_axis(self) -> Axis:
+        """Perpendicular axis for band constraint."""
+        return Axis(1 - self.primary_axis)
+
+
+SIDE_CONFIGS: dict[Side, SideConfig] = {
+    Side.RIGHT: SideConfig(primary_axis=Axis.X, direction=Direction.POSITIVE),
+    Side.LEFT: SideConfig(primary_axis=Axis.X, direction=Direction.NEGATIVE),
+    Side.BACK: SideConfig(primary_axis=Axis.Y, direction=Direction.POSITIVE),
+    Side.FRONT: SideConfig(primary_axis=Axis.Y, direction=Direction.NEGATIVE),
+}
+
+
+class UnaryRelationLossStrategy(ABC):
+    """Abstract base class for unary relations (no parent object)."""
+
+    @abstractmethod
+    def compute_loss(
+        self,
+        relation: "Relation",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute the loss for a unary relation constraint.
+
+        Args:
+            relation: The relation object containing constraint metadata.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box (extents relative to origin).
+
+        Returns:
+            Scalar loss tensor representing the constraint violation.
+        """
+        pass
 
 
 class RelationLossStrategy(ABC):
@@ -77,7 +144,7 @@ class NextToLossStrategy(RelationLossStrategy):
         """Compute loss for NextTo relation.
 
         Uses world-space extents (position + bbox.min/max) for origin-agnostic computation.
-        Currently only implements "right" side placement.
+        Supports all four sides: LEFT, RIGHT, FRONT, BACK.
 
         Args:
             relation: NextTo relation with side and distance attributes.
@@ -89,57 +156,67 @@ class NextToLossStrategy(RelationLossStrategy):
         Returns:
             Weighted loss tensor.
         """
-        side = relation.side
+        cfg = SIDE_CONFIGS[relation.side]
         distance = relation.distance_m
-
-        if side != Side.RIGHT:
-            # TODO(cvolk): Implement support for other sides and make generic.
-            raise NotImplementedError(f"Side '{side}' not yet implemented, only 'right' is supported")
-
-        # Compute world-space extents: world = position + local_offset
-        parent_x_max = parent_pos[0] + parent_bbox.max_point[0]  # Right edge
-        parent_y_min = parent_pos[1] + parent_bbox.min_point[1]  # Front edge
-        parent_y_max = parent_pos[1] + parent_bbox.max_point[1]  # Back edge
-
-        # 1. Half-plane loss: child must be to the right of parent's right edge
-        right_side_loss = single_boundary_linear_loss(
-            child_pos[0],
-            parent_x_max,
-            slope=self.slope,
-            penalty_side="less",
-        )
-
-        # 2. Band loss: child must be within parent's Y extent
-        top_bottom_band_loss = linear_band_loss(
-            child_pos[1],
-            lower_bound=parent_y_min,
-            upper_bound=parent_y_max,
-            slope=self.slope,
-        )
-
-        # 3. Distance loss: child's left edge should be at distance from parent's right edge
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
-        # child_x_min = child_pos[0] + child_bbox.min_point[0], so:
-        # target: child_pos[0] + child_bbox.min_point[0] = parent_x_max + distance
-        # target_child_pos_x = parent_x_max + distance - child_bbox.min_point[0]
-        target_x = parent_x_max + distance - child_bbox.min_point[0]
-        next_to_distance_loss = single_point_linear_loss(child_pos[0], target_x, slope=self.slope)
+
+        # Select parent edge and child offset based on direction
+        if cfg.direction == Direction.POSITIVE:
+            parent_edge = parent_pos[cfg.primary_axis] + parent_bbox.max_point[cfg.primary_axis]
+            child_offset = child_bbox.min_point[cfg.primary_axis]
+            penalty_side = "less"
+        else:
+            parent_edge = parent_pos[cfg.primary_axis] + parent_bbox.min_point[cfg.primary_axis]
+            child_offset = child_bbox.max_point[cfg.primary_axis]
+            penalty_side = "greater"
+
+        # 1. Half-plane loss: child must be on correct side of parent edge
+        half_plane_loss = single_boundary_linear_loss(
+            child_pos[cfg.primary_axis],
+            parent_edge,
+            slope=self.slope,
+            penalty_side=penalty_side,
+        )
+
+        # 2. Band loss: child's footprint must be within parent's extent on perpendicular axis
+        # Compute valid position range such that child's entire footprint stays within parent
+        parent_band_min = parent_pos[cfg.band_axis] + parent_bbox.min_point[cfg.band_axis]
+        parent_band_max = parent_pos[cfg.band_axis] + parent_bbox.max_point[cfg.band_axis]
+        valid_band_min = parent_band_min - child_bbox.min_point[cfg.band_axis]
+        valid_band_max = parent_band_max - child_bbox.max_point[cfg.band_axis]
+        band_loss = linear_band_loss(
+            child_pos[cfg.band_axis],
+            lower_bound=valid_band_min,
+            upper_bound=valid_band_max,
+            slope=self.slope,
+        )
+
+        # 3. Distance loss: child edge at target distance from parent edge
+        # For direction +1: target = parent_max + distance - child_min
+        # For direction -1: target = parent_min - distance - child_max
+        target_pos = parent_edge + cfg.direction * distance - child_offset
+        distance_loss = single_point_linear_loss(child_pos[cfg.primary_axis], target_pos, slope=self.slope)
 
         if self.debug:
+            axis_name = cfg.primary_axis.name
+            band_axis_name = cfg.band_axis.name
             print(
-                f"    [NextTo] Side: child_x={child_pos[0].item():.4f}, parent_right={parent_x_max.item():.4f},"
-                f" loss={right_side_loss.item():.6f}"
+                f"    [NextTo] {relation.side.value}: child_{axis_name.lower()}="
+                f"{child_pos[cfg.primary_axis].item():.4f}, parent_edge={parent_edge.item():.4f},"
+                f" loss={half_plane_loss.item():.6f}"
             )
             print(
-                f"    [NextTo] Y band: child_y={child_pos[1].item():.4f}, range=[{parent_y_min.item():.4f},"
-                f" {parent_y_max.item():.4f}], loss={top_bottom_band_loss.item():.6f}"
+                f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
+                f"{child_pos[cfg.band_axis].item():.4f}, valid_range=[{valid_band_min.item():.4f},"
+                f" {valid_band_max.item():.4f}], loss={band_loss.item():.6f}"
             )
             print(
-                f"    [NextTo] Distance: child_x={child_pos[0].item():.4f}, target_x={target_x.item():.4f},"
-                f" loss={next_to_distance_loss.item():.6f}"
+                f"    [NextTo] Distance: child_{axis_name.lower()}="
+                f"{child_pos[cfg.primary_axis].item():.4f}, target={target_pos.item():.4f},"
+                f" loss={distance_loss.item():.6f}"
             )
 
-        total_loss = right_side_loss + top_bottom_band_loss + next_to_distance_loss
+        total_loss = half_plane_loss + band_loss + distance_loss
         return relation.relation_loss_weight * total_loss
 
 
@@ -234,4 +311,55 @@ class OnLossStrategy(RelationLossStrategy):
             )
 
         total_loss = x_band_loss + y_band_loss + z_loss
+        return relation.relation_loss_weight * total_loss
+
+
+class AtPositionLossStrategy(UnaryRelationLossStrategy):
+    """Loss strategy for AtPosition relations.
+
+    Computes loss based on single-point linear losses for each specified axis.
+    Axes set to None in the relation are ignored.
+    """
+
+    def __init__(self, slope: float = 10.0):
+        """
+        Args:
+            slope: Gradient magnitude for linear loss (default: 10.0).
+                   Loss increases by `slope` per meter of violation.
+        """
+        self.slope = slope
+
+    def compute_loss(
+        self,
+        relation: "AtPosition",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for AtPosition relation.
+
+        Args:
+            relation: AtPosition relation with x, y, z target coordinates.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box (unused, for signature consistency).
+
+        Returns:
+            Weighted loss tensor.
+        """
+        total_loss = torch.tensor(0.0, dtype=child_pos.dtype, device=child_pos.device)
+
+        # X position constraint
+        if relation.x is not None:
+            x_loss = single_point_linear_loss(child_pos[0], relation.x, slope=self.slope)
+            total_loss = total_loss + x_loss
+
+        # Y position constraint
+        if relation.y is not None:
+            y_loss = single_point_linear_loss(child_pos[1], relation.y, slope=self.slope)
+            total_loss = total_loss + y_loss
+
+        # Z position constraint
+        if relation.z is not None:
+            z_loss = single_point_linear_loss(child_pos[2], relation.z, slope=self.slope)
+            total_loss = total_loss + z_loss
+
         return relation.relation_loss_weight * total_loss
