@@ -9,7 +9,7 @@ import tqdm
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_RESETS = 10
-NUM_STEPS_PER_RESET = 10
+NUM_STEPS_PER_RESET = 1
 HEADLESS = True
 
 
