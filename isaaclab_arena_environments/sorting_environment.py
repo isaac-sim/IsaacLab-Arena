@@ -19,10 +19,8 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.utils.pose import Pose
-
         from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
-
+        from isaaclab_arena.utils.pose import Pose
 
         assert len(args_cli.destination) == len(args_cli.object)
 
@@ -96,11 +94,13 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        scene = Scene(assets=[background, light, pick_up_object1, pick_up_object2, destination_location1, destination_location2])
+        scene = Scene(
+            assets=[background, light, pick_up_object1, pick_up_object2, destination_location1, destination_location2]
+        )
 
         task = SortMultiObjectTask(
             [pick_up_object1, pick_up_object2], [destination_location1, destination_location2], background
-        )      
+        )
 
         # add custom force threshold for success termination
         task.termination_cfg.success.params["force_threshold"] = 0.1
@@ -116,11 +116,17 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", nargs="*", default=["red_cube", "green_cube"], 
-            help="object list (example: --object red_cube green_cube)"
+        parser.add_argument(
+            "--object",
+            nargs="*",
+            default=["red_cube", "green_cube"],
+            help="object list (example: --object red_cube green_cube)",
         )
-        parser.add_argument("--destination", nargs="*", default=["red_basket", "green_basket"], 
-            help="destination list (example: --destination red_basket green_basket)"
+        parser.add_argument(
+            "--destination",
+            nargs="*",
+            default=["red_basket", "green_basket"],
+            help="destination list (example: --destination red_basket green_basket)",
         )
         parser.add_argument("--background", type=str, default="table")
         parser.add_argument("--embodiment", type=str, default="franka")
