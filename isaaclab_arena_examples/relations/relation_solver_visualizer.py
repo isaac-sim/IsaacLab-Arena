@@ -44,7 +44,7 @@ class RelationSolverVisualizer:
         self,
         result: dict[Object, tuple[float, float, float]],
         objects: list[Object],
-        anchor_object: Object,
+        anchor_objects: list[Object] | Object,
         loss_history: list[float] | None = None,
         position_history: list | None = None,
     ):
@@ -53,13 +53,18 @@ class RelationSolverVisualizer:
         Args:
             result: Result dictionary mapping objects to final positions.
             objects: List of Object instances (same order as passed to solve())
-            anchor_object: The anchor object that was fixed during optimization
+            anchor_objects: The anchor object(s) that were fixed during optimization.
+                Can be a single object or a list of objects.
             loss_history: Optional list of loss values during optimization.
             position_history: Optional list of position snapshots during optimization.
         """
         self.result = result
         self.objects = objects
-        self.anchor_object = anchor_object
+        # Support both single anchor (backward compat) and list of anchors
+        if isinstance(anchor_objects, list):
+            self.anchor_objects: set[Object] = set(anchor_objects)
+        else:
+            self.anchor_objects = {anchor_objects}
         self.position_history = position_history or []
         self.loss_history = loss_history or []
 
@@ -249,7 +254,7 @@ class RelationSolverVisualizer:
         final_positions = self.position_history[-1]
 
         for idx, obj in enumerate(self.objects):
-            is_anchor = obj is self.anchor_object
+            is_anchor = obj in self.anchor_objects
             pos = (final_positions[idx][0], final_positions[idx][1], final_positions[idx][2])
             color = self._get_color(idx)
 
@@ -432,7 +437,7 @@ class RelationSolverVisualizer:
 
         # Add traces for each object: wireframe box only
         for idx, obj in enumerate(self.objects):
-            is_anchor = obj is self.anchor_object
+            is_anchor = obj in self.anchor_objects
             pos = (initial_positions[idx][0], initial_positions[idx][1], initial_positions[idx][2])
             color = self._get_color(idx)
             bbox = obj.get_bounding_box()
