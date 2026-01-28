@@ -71,6 +71,7 @@ import asyncio
 import gymnasium as gym
 import inspect
 import numpy as np
+import os
 import random
 import torch
 
@@ -248,5 +249,11 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\nProgram interrupted by user. Exiting...")
+    except Exception as e:
+        print(f"\nError occurred: {e}")
+        import traceback
+
+        traceback.print_exc()
+        os._exit(1)
     # close sim app
     simulation_app.close()

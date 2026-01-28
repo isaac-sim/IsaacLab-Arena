@@ -1,7 +1,7 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
-This workflow demonstrates running the trained GR00T N1.5 policy in closed-loop
+This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.
 
 **Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
@@ -15,13 +15,8 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
 
-.. note::
-    The GR00T N1.5 codebase does not support running on Blackwell architecture by default. There are
-    instructions `here <https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#faq>`_ to building certain packages from source to support running on these architectures.
-    We have not tested these instructions, and therefore we do not recommend using
-    the **Base + GR00T** container for policy post-training and evaluation on
-    Blackwell architecture, like RTX 50 series, RTX Pro 6000 or DGX Spark.
-
+.. todo::
+   Verifying Arena-GR00T on Blackwell architecture.
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
@@ -30,12 +25,13 @@ pre-trained model checkpoint below:
 .. dropdown:: Download Pre-trained Model (skip preceding steps)
    :animate: fade-in
 
-   These commands can be used to download the pre-trained GR00T N1.5 policy checkpoint,
+   These commands can be used to download the pre-trained GR00T N1.6 policy checkpoint,
    such that the preceding steps can be skipped.
 
    .. code-block:: bash
 
       hf download \
+         --revision gn1_6 \
          nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
          --local-dir $MODELS_DIR/checkpoint-20000
 
@@ -56,9 +52,9 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/gr1_man
 
       language_instruction: "Reach out to the microwave and open it."
       action_horizon: 16
-      embodiment_tag: gr1
+      embodiment_tag: GR1
       video_backend: decord
-      data_config: fourier_gr1_arms_only
+      modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
 
       policy_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml
       action_joints_config_path: isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml
@@ -146,5 +142,5 @@ than the single environment evaluation because of the parallel evaluation.
    from ``gr1_pink`` used in data generation.
    This is because during tele-operation, the robot is controlled via target end-effector poses,
    which are realized by using the PINK IK controller.
-   GR00T N1.5 policy is trained on upper body joint positions, so we use
+   GR00T N1.6 policy is trained on upper body joint positions, so we use
    ``gr1_joint`` for closed-loop policy inference.

@@ -21,7 +21,18 @@ class Side(Enum):
     RIGHT = "right"  # +X
 
 
-class Relation:
+class RelationBase:
+    """Base for all relation-like concepts on objects.
+
+    This is the common base class for both spatial relations (On, NextTo, etc.)
+    and markers (IsAnchor). It allows the Object class to store both types
+    in its relations list.
+    """
+
+    pass
+
+
+class Relation(RelationBase):
     """Base class for spatial relationships between objects."""
 
     def __init__(self, parent: Object, relation_loss_weight: float = 1.0):
@@ -88,3 +99,45 @@ class On(Relation):
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
         self.clearance_m = clearance_m
+
+
+class IsAnchor(RelationBase):
+    """Marker indicating this object is the anchor for relation solving.
+
+    The anchor object is the fixed reference that won't be optimized during
+    relation solving. It must have an initial_pose set before calling
+    ObjectPlacer.place().
+
+    Usage:
+        table.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), ...))
+        table.add_relation(IsAnchor())  # Mark as anchor
+        mug.add_relation(On(table))
+    """
+
+    pass
+
+
+def find_anchor_object(objects: list[Object]) -> Object | None:
+    """Find the anchor object from a list of objects.
+
+    The anchor object is marked with IsAnchor() relation and serves as the
+    fixed reference point for relation solving.
+
+    Args:
+        objects: List of objects to search.
+
+    Returns:
+        The anchor object, or None if no anchor is found.
+    """
+    anchor_object: Object | None = None
+    for obj in objects:
+        for relation in obj.get_relations():
+            if isinstance(relation, IsAnchor):
+                assert anchor_object is None, (
+                    f"Multiple anchor objects found: '{anchor_object.name}' and '{obj.name}'. "
+                    "Only one object should be marked with IsAnchor()."
+                )
+                anchor_object = obj
+                break  # Stop checking this object's relations, continue to next object
+
+    return anchor_object

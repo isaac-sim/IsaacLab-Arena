@@ -4,50 +4,59 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-External data configuration module for UnitreeG1 WBC simulation.
+External data configuration module for GR1 arms-only simulation.
 """
 
 from gr00t.configs.data.embodiment_configs import register_modality_config
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.data.types import ActionConfig, ActionFormat, ActionRepresentation, ActionType, ModalityConfig
 
-unitree_g1_sim_wbc_config = {
+gr1_arms_only_config = {
     "video": ModalityConfig(
         delta_indices=[0],
         modality_keys=["ego_view"],
     ),
     "state": ModalityConfig(
         delta_indices=[0],
-        modality_keys=["left_arm", "right_arm", "left_hand", "right_hand", "waist"],
-        sin_cos_embedding_keys=["left_arm", "right_arm", "left_hand", "right_hand", "waist"],
-    ),
-    "action": ModalityConfig(
-        delta_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
         modality_keys=[
             "left_arm",
             "right_arm",
             "left_hand",
             "right_hand",
-            "waist",
-            "base_height_command",
-            "navigate_command",
+        ],
+        sin_cos_embedding_keys=[
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
+        ],
+    ),
+    "action": ModalityConfig(
+        delta_indices=[
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+        ],
+        modality_keys=[
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
         ],
         action_configs=[
-            ActionConfig(
-                rep=ActionRepresentation.ABSOLUTE,
-                type=ActionType.NON_EEF,
-                format=ActionFormat.DEFAULT,
-            ),
-            ActionConfig(
-                rep=ActionRepresentation.ABSOLUTE,
-                type=ActionType.NON_EEF,
-                format=ActionFormat.DEFAULT,
-            ),
-            ActionConfig(
-                rep=ActionRepresentation.ABSOLUTE,
-                type=ActionType.NON_EEF,
-                format=ActionFormat.DEFAULT,
-            ),
             ActionConfig(
                 rep=ActionRepresentation.ABSOLUTE,
                 type=ActionType.NON_EEF,
@@ -72,8 +81,8 @@ unitree_g1_sim_wbc_config = {
     ),
     "language": ModalityConfig(
         delta_indices=[0],
-        modality_keys=["annotation.human.task_description"],
+        modality_keys=["annotation.human.action.task_description"],
     ),
 }
 
-register_modality_config(unitree_g1_sim_wbc_config, embodiment_tag=EmbodimentTag.NEW_EMBODIMENT)
+register_modality_config(gr1_arms_only_config, embodiment_tag=EmbodimentTag.GR1)

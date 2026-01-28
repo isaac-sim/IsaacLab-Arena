@@ -6,6 +6,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from gr00t.data.embodiment_tags import EmbodimentTag
+
 from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
 
 
@@ -17,16 +19,19 @@ class LerobotReplayActionPolicyConfig:
         default=16, metadata={"description": "Number of actions in the policy's predictionhorizon."}
     )
     embodiment_tag: str = field(
-        default="new_embodiment",
+        default=EmbodimentTag.NEW_EMBODIMENT.name,  # "NEW_EMBODIMENT"
         metadata={
             "description": (
-                "Identifier for the robot embodiment used in the policy inference (e.g., 'gr1' or 'new_embodiment')."
+                "Identifier for the robot embodiment used in the policy inference. "
+                f"Must be one of: {', '.join([tag.name for tag in EmbodimentTag])} (case-insensitive). "
+                "Common values: 'GR1', 'NEW_EMBODIMENT', 'UNITREE_G1'."
             )
         },
     )
     video_backend: str = field(default="decord", metadata={"description": "Video backend to use for the policy."})
-    data_config: str = field(
-        default="unitree_g1_sim_wbc", metadata={"description": "Name of the data configuration to use for the policy."}
+    modality_config_path: str = field(
+        default="isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py",
+        metadata={"description": "Path to the modality configuration to use for the policy."},
     )
     policy_joints_config_path: Path = field(
         default=Path(__file__).parent.parent.resolve() / "config" / "g1" / "gr00t_43dof_joint_space.yaml",
@@ -68,18 +73,31 @@ class LerobotReplayActionPolicyConfig:
         # LeRobotSingleDataset does not take relative path
         self.dataset_path = Path(self.dataset_path).resolve()
         assert Path(self.dataset_path).exists(), f"dataset_path does not exist: {self.dataset_path}"
-        # embodiment_tag
-        assert self.embodiment_tag in [
-            "gr1",
-            "new_embodiment",
-        ], "embodiment_tag must be one of the following: " + ", ".join(["gr1", "new_embodiment"])
+
+        # Validate embodiment_tag using EmbodimentTag enum (case-insensitive)
+        # Normalize to uppercase for enum name lookup
+        embodiment_tag_upper = self.embodiment_tag.upper()
+        valid_tag_names = [tag.name for tag in EmbodimentTag]
+
+        if embodiment_tag_upper not in valid_tag_names:
+            raise ValueError(
+                f"Invalid embodiment_tag '{self.embodiment_tag}'. "
+                f"Must be one of: {', '.join(valid_tag_names)} (case-insensitive)"
+            )
+
+        # Normalize to uppercase for consistency
+        self.embodiment_tag = embodiment_tag_upper
+
+        # Validate task mode compatibility with embodiment tag
         if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
-            assert (
-                self.embodiment_tag == "new_embodiment"
-            ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
+            assert self.embodiment_tag == EmbodimentTag.NEW_EMBODIMENT.name, (
+                f"embodiment_tag must be {EmbodimentTag.NEW_EMBODIMENT.name} for G1 locomanipulation, got"
+                f" {self.embodiment_tag}"
+            )
         elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
-            assert (
-                self.embodiment_tag == "gr1"
-            ), "embodiment_tag must be gr1 for GR1 tabletop manipulation. Is {self.embodiment_tag}"
+            assert self.embodiment_tag == EmbodimentTag.GR1.name, (
+                f"embodiment_tag must be {EmbodimentTag.GR1.name} for GR1 tabletop manipulation, got"
+                f" {self.embodiment_tag}"
+            )
         else:
-            raise ValueError(f"Invalid inference mode: {self.task_mode}")
+            raise ValueError(f"Invalid inference mode: {self.task_mode_name}")

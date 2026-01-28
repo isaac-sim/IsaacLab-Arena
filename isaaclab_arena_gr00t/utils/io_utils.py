@@ -169,3 +169,47 @@ def create_config_from_yaml(yaml_path: str | Path, config_class: type[ConfigType
         raise
 
     return config
+
+
+def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embodiment_tag: str):
+    """Load the modality configs using GR00T's pattern.
+    1. Import the config module (registers it globally)
+    2. Retrieve from the global registry using embodiment_tag
+    Args:
+        modality_config_path: Path to the modality configuration file
+        embodiment_tag: Embodiment tag to use to load modality configurations from `submodules/Isaac-GR00T/gr00t/data/embodiment_tags.py`.
+    Returns:
+        modality_configs: Modality configurations
+    """
+    from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
+    from gr00t.data.embodiment_tags import EmbodimentTag
+    from gr00t.experiment.launch_finetune import load_modality_config
+
+    if modality_config_path:
+        # Import module for side-effect registration
+        load_modality_config(modality_config_path)
+
+    # Get the embodiment tag from policy config and convert to EmbodimentTag enum
+    # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)
+    try:
+        embodiment_tag_enum = EmbodimentTag[embodiment_tag.upper()]
+    except KeyError:
+        embodiment_tag_str = embodiment_tag.upper()
+        matching_tags = [tag for tag in EmbodimentTag if tag.name == embodiment_tag_str]
+        if not matching_tags:
+            available_tags = [tag.name for tag in EmbodimentTag]
+            raise ValueError(f"Invalid embodiment tag '{embodiment_tag}'. Available tags: {available_tags}")
+        embodiment_tag_enum = matching_tags[0]
+
+    # Use the enum's value (lowercase string) to look up in MODALITY_CONFIGS
+    embodiment_tag_key = embodiment_tag_enum.value
+
+    if embodiment_tag_key not in MODALITY_CONFIGS:
+        raise ValueError(
+            f"Embodiment tag '{embodiment_tag_enum.name}' (value: '{embodiment_tag_key}') not found in"
+            f" MODALITY_CONFIGS. Available tags: {list(MODALITY_CONFIGS.keys())}. Make sure"
+            f" {modality_config_path} calls register_modality_config()."
+        )
+
+    modality_configs = MODALITY_CONFIGS[embodiment_tag_key]
+    return modality_configs
