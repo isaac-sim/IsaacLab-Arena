@@ -36,10 +36,8 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -48,34 +46,60 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     ground_plane = asset_registry.get_asset_by_name("ground_plane")()
     light = asset_registry.get_asset_by_name("light")()
 
+    # Table as anchor
     office_table = asset_registry.get_asset_by_name("office_table")()
     office_table.set_initial_pose(Pose(position_xyz=(1.0, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-    mug = asset_registry.get_asset_by_name("mug")()
+    # Central object on the table
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-    coffee_machine = asset_registry.get_asset_by_name("coffee_machine")()
+
+    # Objects placed on each side of cracker_box
+    dex_cube = asset_registry.get_asset_by_name("dex_cube")()  # RIGHT side
+    sugar_box = asset_registry.get_asset_by_name("sugar_box")()  # LEFT side
+    mustard_bottle = asset_registry.get_asset_by_name("mustard_bottle")()  # FRONT side
+    tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()  # BACK side
+
+    # Object on top of cracker_box
+    mug = asset_registry.get_asset_by_name("mug")()
 
     # Mark office_table as the anchor for relation solving
     office_table.add_relation(IsAnchor())
-    # Define spatial relations
-    coffee_machine.add_relation(On(office_table, clearance_m=0.02))
+
+    # Central object on the table
     cracker_box.add_relation(On(office_table, clearance_m=0.02))
-    cracker_box.add_relation(NextTo(coffee_machine, side=Side.RIGHT, distance_m=0.15))
-    mug.add_relation(On(coffee_machine, clearance_m=0.02))
 
-    # Place objects using ObjectPlacer
-    placer = ObjectPlacer()
-    result = placer.place(objects=[office_table, coffee_machine, cracker_box, mug])
+    # Objects placed on each side of cracker_box (all on table surface)
+    dex_cube.add_relation(On(office_table, clearance_m=0.02))
+    dex_cube.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.05))
 
-    print(f"Placement result: success={result.success}")
+    sugar_box.add_relation(On(office_table, clearance_m=0.02))
+    sugar_box.add_relation(NextTo(cracker_box, side=Side.LEFT, distance_m=0.05))
+
+    mustard_bottle.add_relation(On(office_table, clearance_m=0.02))
+    mustard_bottle.add_relation(NextTo(cracker_box, side=Side.FRONT, distance_m=0.05))
+
+    tomato_soup_can.add_relation(On(office_table, clearance_m=0.02))
+    tomato_soup_can.add_relation(NextTo(cracker_box, side=Side.BACK, distance_m=0.05))
+
+    # Mug on top of cracker_box
+    mug.add_relation(On(cracker_box, clearance_m=0.02))
 
     # Build and run the environment
-    assets = [ground_plane, office_table, cracker_box, coffee_machine, light, mug]
+    assets = [
+        ground_plane,
+        light,
+        office_table,
+        cracker_box,
+        dex_cube,
+        sugar_box,
+        mustard_bottle,
+        tomato_soup_can,
+        mug,
+    ]
     scene = Scene(assets=assets)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="reference_object_test",
+        name="relation_all_sides_demo",
         scene=scene,
-        task=DummyTask(),
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
