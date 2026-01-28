@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -8,14 +8,14 @@
 # Example for GR1 tabletop manipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/isaaclab_arena/static_manipulation_tutorial"
+data_root: "/datasets/isaaclab_arena/potato_into_fridge"
 
 # Instruction given to the policy in natural language
-language_instruction: "Reach out to the microwave and open it."
+language_instruction: "Place the potatoes on the top shelf of the fridge, and close the fridge door."
 task_index: 0
 
 # Name of the HDF5 file to use for the dataset
-hdf5_name: "arena_gr1_manipulation_dataset_generated.hdf5"
+hdf5_name: "potato_into_fridge_generated_100.hdf5"
 
 # Mimic-generated HDF5 datafield names
 state_name_sim: "robot_joint_pos"

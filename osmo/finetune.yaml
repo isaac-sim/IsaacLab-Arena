@@ -103,8 +103,15 @@ default-values:
   # modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
 
   # Locomanipulation
-  workflow_name: g1_move_box_galileo_gn1_6
-  input_dataset_name: lerobot_g1
-  input_demo_name: arena_g1_loco_manipulation_dataset_generated
-  embodiment_tag: NEW_EMBODIMENT
-  modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
+  # workflow_name: g1_move_box_galileo_gn1_6
+  # input_dataset_name: lerobot_g1
+  # input_demo_name: arena_g1_loco_manipulation_dataset_generated
+  # embodiment_tag: NEW_EMBODIMENT
+  # modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
+
+  # Static manipulation -- GTC potato into fridge
+  workflow_name: gr1_potato_into_fridge_gn1_6
+  input_dataset_name: gr1_potato_into_fridge
+  input_demo_name: potato_into_fridge_generated_100
+  embodiment_tag: GR1
+  modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py

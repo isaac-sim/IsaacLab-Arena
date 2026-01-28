@@ -91,7 +91,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 self.datagen_config.seed = 1
 
         # Get assets
-        embodiment = self.asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=args_cli.kitchen_style
         )
@@ -168,3 +168,4 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         parser.add_argument("--enable_cameras", action="store_true", default=False, help="Enable camera sensors")
         parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")
+        parser.add_argument("--embodiment", type=str, default="gr1_pink", help="Robot embodiment to use")

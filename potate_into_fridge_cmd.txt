@@ -1,0 +1,25 @@
+
+Assume data is under /datasets/isaaclab_arena/potato_into_fridge
+
+Mimic
+-----
+python isaaclab_arena/scripts/imitation_learning/generate_dataset.py   --device cpu   --generation_num_trials 100   --num_envs 10   --input_file /datasets/isaaclab_arena/potato_into_fridge/potato_into_fridge_annotated.hdf5 --output_file /datasets/isaaclab_arena/potato_into_fridge/potato_into_fridge_generated_100.hdf5 --enable_pinocchio   --enable_cameras  --headless --mimic put_item_in_fridge_and_close_door
+
+
+Dataset Conversion & Verification 
+---------------------------------
+
+python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py      --yaml_file isaaclab_arena_gr00t/lerobot/config/gr1_manip_potato_config.yaml
+
+CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py --dataset_path=/datasets/isaaclab_arena/potato_into_fridge/potato_into_fridge_generated_100/lerobot/ --output_dir=/models/isaaclab_arena/potato_into_fridge/ --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py --global_batch_size=24 --max_steps=20000          --num_gpus=1          --save_steps=5000          --base_model_path=nvidia/GR00T-N1.6-3B          --no_tune_llm          --no_tune_visual          --no_tune_projector          --tune_diffusion_model                --dataloader_num_workers=16              --embodiment_tag=GR1          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08          --save_total_limit=5
+
+python isaaclab_arena/evaluation/policy_runner.py --policy_type isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy --config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_replay_action_potato_config.yaml --device cpu put_item_in_fridge_and_close_door --embodiment gr1_joint
+
+Workflow Submission
+-------------------
+
+osmo login https://us-west-2-aws.osmo.nvidia.com
+
+osmo dataset upload gr1_potato_into_fridge /mnt/datab/arena/dataset/isaaclab_arena/potato_into_fridge/potato_into_fridge_generated_100 /mnt/datab/arena/dataset/isaaclab_arena/potato_into_fridge/potato_into_fridge.hdf5 /mnt/datab/arena/dataset/isaaclab_arena/potato_into_fridge/potato_into_fridge_annotated.hdf5 /mnt/datab/arena/dataset/isaaclab_arena/potato_into_fridge/potato_into_fridge_generated_100.hdf5
+
+osmo workflow submit osmo/finetune.yaml --pool isaac-dev-l40-03

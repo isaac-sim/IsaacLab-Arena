@@ -579,7 +579,7 @@ class SweetPotato(LibraryObject):
     )
     usd_path = file_path
     object_type = ObjectType.RIGID
-    scale = (1.3, 1.3, 1.3)
+    scale = (1.5, 1.5, 1.5)
 
     def __init__(
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
