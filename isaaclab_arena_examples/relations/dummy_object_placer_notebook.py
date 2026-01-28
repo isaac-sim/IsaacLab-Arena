@@ -100,15 +100,8 @@ def run_dummy_object_placer_demo():
 
 
 # %%
-def run_multi_anchor_demo():
-    """Demonstrate multiple anchors: objects placed relative to different fixed references.
-
-    This example shows a scene with:
-    - A table (anchor) with a mug on it
-    - A chair (anchor) with a bin next to it
-
-    Both table and chair remain fixed during optimization.
-    """
+def run_dummy_multi_anchor_demo():
+    """Demonstrate multiple anchors: objects placed relative to different fixed references."""
     # Create anchor objects (fixed positions)
     table = DummyObject(
         name="table",
@@ -171,9 +164,9 @@ def run_multi_anchor_demo():
 # %%
 if __name__ == "__main__":
     # Run single anchor demo
-    # run_dummy_object_placer_demo()
+    run_dummy_object_placer_demo()
 
     # Run multi-anchor demo
-    run_multi_anchor_demo()
+    run_dummy_multi_anchor_demo()
 
 # %%
