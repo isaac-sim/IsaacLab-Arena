@@ -111,13 +111,20 @@ class SequentialTaskBase(TaskBase):
           without affecting the completeness of the overall sequential task.
     """
 
-    def __init__(self, subtasks: list[TaskBase], episode_length_s: float | None = None, desired_subtask_success_state: list[bool] | None = None):
+    def __init__(
+        self,
+        subtasks: list[TaskBase],
+        episode_length_s: float | None = None,
+        desired_subtask_success_state: list[bool] | None = None,
+    ):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
         self.subtasks = subtasks
 
         if desired_subtask_success_state is not None:
-            assert len(desired_subtask_success_state) == len(subtasks), "Desired subtask success state must be the same length as the number of subtasks"
+            assert len(desired_subtask_success_state) == len(
+                subtasks
+            ), "Desired subtask success state must be the same length as the number of subtasks"
             self.desired_subtask_success_state = desired_subtask_success_state
 
     @staticmethod
@@ -157,13 +164,23 @@ class SequentialTaskBase(TaskBase):
                     env._current_subtask_idx[env_idx] += 1
 
         # Compute composite task success state for each env
-        per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
+        if desired_subtask_success_state:
+            per_env_success = [
+                all([a == b for a, b in zip(env_successes, desired_subtask_success_state)])
+                for env_successes in env._subtask_success_state
+            ]
+            print(f"per_env_success: {per_env_success}")
+        else:
+            per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
+
+        # per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
         success_tensor = torch.tensor(per_env_success, dtype=torch.bool, device=env.device)
 
         env.extras["subtask_success_state"] = copy.copy(env._subtask_success_state)
 
         print(f"subtask_success_state: {env._subtask_success_state}")
         print(f"desired_subtask_success_state: {desired_subtask_success_state}")
+        print(f"success_tensor: {success_tensor}")
 
         return success_tensor
 
