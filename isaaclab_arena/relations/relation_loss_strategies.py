@@ -17,7 +17,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import NextTo, On, Relation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -62,6 +62,29 @@ SIDE_CONFIGS: dict[Side, SideConfig] = {
     Side.BACK: SideConfig(primary_axis=Axis.Y, direction=Direction.POSITIVE),
     Side.FRONT: SideConfig(primary_axis=Axis.Y, direction=Direction.NEGATIVE),
 }
+
+
+class UnaryRelationLossStrategy(ABC):
+    """Abstract base class for unary relations (no parent object)."""
+
+    @abstractmethod
+    def compute_loss(
+        self,
+        relation: "Relation",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute the loss for a unary relation constraint.
+
+        Args:
+            relation: The relation object containing constraint metadata.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box (extents relative to origin).
+
+        Returns:
+            Scalar loss tensor representing the constraint violation.
+        """
+        pass
 
 
 class RelationLossStrategy(ABC):
@@ -288,4 +311,55 @@ class OnLossStrategy(RelationLossStrategy):
             )
 
         total_loss = x_band_loss + y_band_loss + z_loss
+        return relation.relation_loss_weight * total_loss
+
+
+class AtPositionLossStrategy(UnaryRelationLossStrategy):
+    """Loss strategy for AtPosition relations.
+
+    Computes loss based on single-point linear losses for each specified axis.
+    Axes set to None in the relation are ignored.
+    """
+
+    def __init__(self, slope: float = 10.0):
+        """
+        Args:
+            slope: Gradient magnitude for linear loss (default: 10.0).
+                   Loss increases by `slope` per meter of violation.
+        """
+        self.slope = slope
+
+    def compute_loss(
+        self,
+        relation: "AtPosition",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for AtPosition relation.
+
+        Args:
+            relation: AtPosition relation with x, y, z target coordinates.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box (unused, for signature consistency).
+
+        Returns:
+            Weighted loss tensor.
+        """
+        total_loss = torch.tensor(0.0, dtype=child_pos.dtype, device=child_pos.device)
+
+        # X position constraint
+        if relation.x is not None:
+            x_loss = single_point_linear_loss(child_pos[0], relation.x, slope=self.slope)
+            total_loss = total_loss + x_loss
+
+        # Y position constraint
+        if relation.y is not None:
+            y_loss = single_point_linear_loss(child_pos[1], relation.y, slope=self.slope)
+            total_loss = total_loss + y_loss
+
+        # Z position constraint
+        if relation.z is not None:
+            z_loss = single_point_linear_loss(child_pos[2], relation.z, slope=self.slope)
+            total_loss = total_loss + z_loss
+
         return relation.relation_loss_weight * total_loss
