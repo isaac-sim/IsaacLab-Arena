@@ -125,7 +125,7 @@ class SequentialTaskBase(TaskBase):
             assert len(desired_subtask_success_state) == len(
                 subtasks
             ), "Desired subtask success state must be the same length as the number of subtasks"
-            self.desired_subtask_success_state = desired_subtask_success_state
+        self.desired_subtask_success_state = desired_subtask_success_state
 
     @staticmethod
     def add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
@@ -169,7 +169,6 @@ class SequentialTaskBase(TaskBase):
                 all([a == b for a, b in zip(env_successes, desired_subtask_success_state)])
                 for env_successes in env._subtask_success_state
             ]
-            print(f"per_env_success: {per_env_success}")
         else:
             per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
 
