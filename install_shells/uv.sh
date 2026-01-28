@@ -9,7 +9,7 @@
 setup_uv_env() {
     # get environment name from input
     local env_name="$1"
-    local python_path="${2:-python3.10}"
+    local python_path="${2:-python3.11}"
 
     # check uv is installed
     if ! command -v uv &>/dev/null; then
