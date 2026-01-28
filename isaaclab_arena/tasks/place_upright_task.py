@@ -18,6 +18,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
@@ -106,17 +107,9 @@ class PlaceUprightMimicEnvCfg(MimicEnvCfg):
 
         # Override the existing values
         self.datagen_config.name = "demo_src_placeupright_isaac_lab_task_D0"
-        self.datagen_config.generation_guarantee = True
-        self.datagen_config.generation_keep_failed = False
-        self.datagen_config.generation_num_trials = 100
-        self.datagen_config.generation_select_src_per_subtask = False
-        self.datagen_config.generation_select_src_per_arm = False
-        self.datagen_config.generation_relative = False
-        self.datagen_config.generation_joint_pos = False
-        self.datagen_config.generation_transform_first_robot_pose = False
-        self.datagen_config.generation_interpolate_from_last_target_pose = True
-        self.datagen_config.max_num_failures = 25
-        self.datagen_config.seed = 1
+        # Use default mimic datagen config parameters
+        for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
+            setattr(self.datagen_config, key, value)
 
         # The following are the subtask configurations for the pick and place task.
         subtask_configs = []

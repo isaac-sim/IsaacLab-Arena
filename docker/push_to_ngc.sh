@@ -10,7 +10,7 @@ WORKDIR="/workspaces/isaaclab_arena"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
+while getopts ":t:gn:vn:pn:Rn:hn:" OPTION; do
     case $OPTION in
         t)
             TAG_NAME=$OPTARG
@@ -18,13 +18,8 @@ while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
             ;;
         g)
             INSTALL_GROOT="true"
-            GROOT_DEPS_GROUP="base"
+            TAG_NAME='cuda_gr00t_gn16'
             echo "INSTALL_GROOT is ${INSTALL_GROOT}."
-            echo "GROOT_DEPS_GROUP is ${GROOT_DEPS_GROUP}."
-            ;;
-        G)
-            GROOT_DEPS_GROUP=${OPTARG}
-            INSTALL_GROOT="true"
             ;;
         v)
             set -x
@@ -46,7 +41,7 @@ while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
             echo "Examples:"
             echo "- Build without cache and push to NGC:"
             echo "    ${script_name} -R -p -t <tag_name>"
-            echo "- Build without cache and push to NGC with GR00T installation of "base" dependencies:"
+            echo "- Build without cache and push to NGC with GR00T dependencies:"
             echo "    ${script_name} -R -p -t <tag_name> -g"
             echo "- See help message:"
             echo "    ${script_name} -h"
@@ -55,8 +50,6 @@ while getopts ":t:gn:G:vn:pn:Rn:hn:" OPTION; do
             echo "  -p - Push the image to NGC."
             echo "  -t - Tag name of the image."
             echo "  -g - Install GR00T with base dependencies."
-            echo "  -G <group> - Install GR00T with dependency group <group>."
-            echo '               Available groups: "base", "dev", "orin", "thor", "deploy".'
             echo '  -R - Do not use cache when building the image.'
             echo "  -v - Verbose output."
             echo "  -h - Help (this output)"
@@ -74,7 +67,6 @@ docker build --pull \
     $NO_CACHE \
     --build-arg WORKDIR="${WORKDIR}" \
     --build-arg INSTALL_GROOT=$INSTALL_GROOT \
-    --build-arg GROOT_DEPS_GROUP=$GROOT_DEPS_GROUP \
     -t ${DOCKER_IMAGE_NAME} \
     --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
     $SCRIPT_DIR/..

@@ -51,7 +51,6 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -70,7 +69,6 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
         name="g1_standing_test",
         embodiment=embodiment,
         scene=scene,
-        task=DummyTask(),
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])

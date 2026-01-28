@@ -7,20 +7,22 @@ import argparse
 import gymnasium as gym
 import numpy as np
 import torch
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from gr00t.data.dataset import LeRobotSingleDataset
-from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
+from gr00t.policy.replay_policy import ReplayPolicy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.lerobot_replay_action_policy_config import (
     LerobotReplayActionPolicyConfig,
     TaskMode,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
+from isaaclab_arena_gr00t.utils.io_utils import (
+    create_config_from_yaml,
+    load_gr00t_modality_config_from_file,
+    load_robot_joints_config_from_yaml,
+)
 from isaaclab_arena_gr00t.utils.joints_conversion import remap_policy_joints_to_sim_joints
 
 
@@ -113,7 +115,11 @@ class ReplayLerobotActionPolicy(PolicyBase):
         self.policy = self.load_policy(self.policy_config)
         # Start from the trajectory_index trajectory in the dataset
         self.trajectory_index = config.trajectory_index
-        self.policy_iter = self.create_trajectory_iterator(config.trajectory_index)
+        assert (
+            self.policy.num_episodes > config.trajectory_index
+        ), f"Trajectory index {config.trajectory_index} exceeds available trajectories {self.policy.num_episodes}"
+        self.policy.reset(options={"episode_index": config.trajectory_index})
+
         # determine rollout how many action prediction per observation
         self.action_chunk_length = self.policy_config.action_chunk_length
         self.current_action_index = 0
@@ -134,36 +140,28 @@ class ReplayLerobotActionPolicy(PolicyBase):
         """Load the simulation joint config from the data config."""
         return load_robot_joints_config_from_yaml(action_config_path)
 
-    def load_policy(self, policy_config: LerobotReplayActionPolicyConfig) -> LeRobotSingleDataset:
+    def load_policy(self, policy_config: LerobotReplayActionPolicyConfig) -> ReplayPolicy:
         """Load the dataset, whose iterator will be used as the policy."""
         assert Path(policy_config.dataset_path).exists(), f"Dataset path {policy_config.dataset_path} does not exist"
 
-        # Use the same data preprocessor specified in the  data config map
-        if policy_config.data_config in DATA_CONFIG_MAP:
-            self.data_config = DATA_CONFIG_MAP[policy_config.data_config]
-        elif policy_config.data_config == "unitree_g1_sim_wbc":
-            self.data_config = load_data_config(
-                "isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig"
-            )
-        else:
-            raise ValueError(f"Invalid data config: {policy_config.data_config}")
+        modality_configs = load_gr00t_modality_config_from_file(
+            modality_config_path=policy_config.modality_config_path, embodiment_tag=policy_config.embodiment_tag
+        )
 
-        modality_config = self.data_config.modality_config()
-
-        return LeRobotSingleDataset(
+        return ReplayPolicy(
             dataset_path=policy_config.dataset_path,
-            modality_configs=modality_config,
+            modality_configs=modality_configs,
+            execution_horizon=policy_config.action_horizon,
             video_backend=policy_config.video_backend,
-            video_backend_kwargs=None,
-            transforms=None,  # We'll handle transforms separately through the policy
-            embodiment_tag=self.policy_config.embodiment_tag,
+            # by pass obs and action validation
+            strict=False,
         )
 
     def get_trajectory_length(self, trajectory_index: int) -> int:
         """Get the number of frames in one trajectory in the dataset."""
-        assert self.policy.trajectory_lengths is not None
-        assert trajectory_index < len(self.policy.trajectory_lengths)
-        return self.policy.trajectory_lengths[trajectory_index]
+        assert self.policy.episode_length is not None
+        assert trajectory_index < self.policy.episode_length
+        return self.policy.episode_length
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return action from the dataset."""
@@ -187,27 +185,23 @@ class ReplayLerobotActionPolicy(PolicyBase):
 
     def get_action_chunk(self) -> torch.Tensor:
         """Get action_horizon number of actions, as an action chunk, from the dataset"""
-        step_index = next(self.policy_iter)
-        data_point = self.policy[step_index]
+
+        data_point, info = self.policy.get_action(observation=None, options={"batch_size": self.num_envs})
         # Support MultiEnv running
         actions = {
-            "action.left_arm": np.tile(np.array(data_point["action.left_arm"]), (self.num_envs, 1, 1)),
-            "action.right_arm": np.tile(np.array(data_point["action.right_arm"]), (self.num_envs, 1, 1)),
-            "action.left_hand": np.tile(np.array(data_point["action.left_hand"]), (self.num_envs, 1, 1)),
-            "action.right_hand": np.tile(np.array(data_point["action.right_hand"]), (self.num_envs, 1, 1)),
+            "left_arm": np.tile(np.array(data_point["left_arm"]), (self.num_envs, 1, 1)),
+            "right_arm": np.tile(np.array(data_point["right_arm"]), (self.num_envs, 1, 1)),
+            "left_hand": np.tile(np.array(data_point["left_hand"]), (self.num_envs, 1, 1)),
+            "right_hand": np.tile(np.array(data_point["right_hand"]), (self.num_envs, 1, 1)),
         }
 
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
             # additional data for WBC interface
-            actions["action.base_height_command"] = np.tile(
-                np.array(data_point["action.base_height_command"]), (self.num_envs, 1, 1)
-            )
-            actions["action.navigate_command"] = np.tile(
-                np.array(data_point["action.navigate_command"]), (self.num_envs, 1, 1)
-            )
+            actions["base_height_command"] = np.tile(np.array(data_point["base_height_command"]), (self.num_envs, 1, 1))
+            actions["navigate_command"] = np.tile(np.array(data_point["navigate_command"]), (self.num_envs, 1, 1))
             # NOTE(xinjieyao, 2025-09-29): we don't use torso_orientation_rpy_command in the policy due
             # to output dim=32 constraints in the pretrained checkpoint, so we set it to 0
-            actions["action.torso_orientation_rpy_command"] = 0 * actions["action.navigate_command"]
+            actions["torso_orientation_rpy_command"] = 0 * actions["navigate_command"]
         # NOTE(xinjieyao, 2025-09-29): assume gr1 tabletop manipulation does not use waist, arms_only
 
         robot_action_sim = remap_policy_joints_to_sim_joints(
@@ -218,9 +212,9 @@ class ReplayLerobotActionPolicy(PolicyBase):
             action_tensor = torch.cat(
                 [
                     robot_action_sim.get_joints_pos(),
-                    torch.from_numpy(actions["action.navigate_command"]).to(self.device),
-                    torch.from_numpy(actions["action.base_height_command"]).to(self.device),
-                    torch.from_numpy(actions["action.torso_orientation_rpy_command"]).to(self.device),
+                    torch.from_numpy(actions["navigate_command"]).to(self.device),
+                    torch.from_numpy(actions["base_height_command"]).to(self.device),
+                    torch.from_numpy(actions["torso_orientation_rpy_command"]).to(self.device),
                 ],
                 axis=2,
             )
@@ -232,34 +226,11 @@ class ReplayLerobotActionPolicy(PolicyBase):
         assert action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
 
-    def reset(self):
+    def reset(self, trajectory_index: int = 0):
         """Resets the policy's internal state."""
         # As GR00T is a single-shot policy, we don't need to reset its internal state
         # Only reset the action chunking mechanism
-        self.policy_iter = self.create_trajectory_iterator(self.trajectory_index)
-        self.current_action_chunk = None
-        self.current_action_index = 0
-
-    def create_trajectory_iterator(self, trajectory_index: int = 0) -> Iterator[int]:
-        """Create an iterator starting from a specific trajectory index."""
-        num_trajectories = len(self.policy.trajectory_lengths)
-        if trajectory_index >= num_trajectories:
-            raise ValueError(f"Trajectory index {trajectory_index} exceeds available trajectories {num_trajectories}")
-
-        # absolute starting step index
-        start_step = sum(self.policy.trajectory_lengths[:trajectory_index])
-        # iterator from that step to the end of the dataset
-        return iter(range(start_step, len(self.policy)))
-
-    def set_trajectory_index(self, trajectory_index: int):
-        """Set the policy to start from a specific trajectory index."""
-        num_trajectories = len(self.policy.trajectory_lengths)
-        if trajectory_index >= num_trajectories:
-            raise ValueError(f"Trajectory index {trajectory_index} exceeds available trajectories {num_trajectories}")
-
-        self.trajectory_index = trajectory_index
-        # iterator to start from specified trajectory
-        self.policy_iter = iter(range(trajectory_index, num_trajectories))
+        self.policy.reset(options={"episode_index": trajectory_index})
         self.current_action_chunk = None
         self.current_action_index = 0
 
