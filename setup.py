@@ -27,7 +27,7 @@ setup(
         "typing_extensions",
         "onnxruntime",
         "qpsolvers==4.8.1",
-        "vuer[all]",
+        "vuer",
         "lightwheel-sdk",
         "huggingface-hub[cli]",
     ],
