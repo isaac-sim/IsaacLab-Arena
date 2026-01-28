@@ -6,6 +6,7 @@
 import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.loss_primitives import (
@@ -21,30 +22,45 @@ if TYPE_CHECKING:
 from isaaclab_arena.relations.relations import Side
 
 
+class Axis(IntEnum):
+    """Spatial axis indices for tensor indexing."""
+
+    X = 0
+    Y = 1
+    Z = 2
+
+
+class Direction(IntEnum):
+    """Direction along an axis."""
+
+    NEGATIVE = -1
+    POSITIVE = +1
+
+
 @dataclass(frozen=True)
 class SideConfig:
     """Configuration for computing NextTo loss for a given side.
 
     Attributes:
-        primary_axis: Index of the axis along which child is placed (0=X, 1=Y).
-        direction: +1 if child should be in positive direction from parent (RIGHT, BACK),
-                   -1 if child should be in negative direction (LEFT, FRONT).
+        primary_axis: Axis along which child is placed (X or Y).
+        direction: POSITIVE if child should be in positive direction from parent (RIGHT, BACK),
+                   NEGATIVE if child should be in negative direction (LEFT, FRONT).
     """
 
-    primary_axis: int  # 0=X, 1=Y
-    direction: int  # +1 or -1
+    primary_axis: Axis
+    direction: Direction
 
     @property
-    def band_axis(self) -> int:
+    def band_axis(self) -> Axis:
         """Perpendicular axis for band constraint."""
-        return 1 - self.primary_axis
+        return Axis(1 - self.primary_axis)
 
 
 SIDE_CONFIGS: dict[Side, SideConfig] = {
-    Side.RIGHT: SideConfig(primary_axis=0, direction=+1),
-    Side.LEFT: SideConfig(primary_axis=0, direction=-1),
-    Side.BACK: SideConfig(primary_axis=1, direction=+1),
-    Side.FRONT: SideConfig(primary_axis=1, direction=-1),
+    Side.RIGHT: SideConfig(primary_axis=Axis.X, direction=Direction.POSITIVE),
+    Side.LEFT: SideConfig(primary_axis=Axis.X, direction=Direction.NEGATIVE),
+    Side.BACK: SideConfig(primary_axis=Axis.Y, direction=Direction.POSITIVE),
+    Side.FRONT: SideConfig(primary_axis=Axis.Y, direction=Direction.NEGATIVE),
 }
 
 
@@ -122,13 +138,11 @@ class NextToLossStrategy(RelationLossStrategy):
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
 
         # Select parent edge and child offset based on direction
-        # direction +1 (RIGHT/BACK): child in positive direction, use parent max edge
-        # direction -1 (LEFT/FRONT): child in negative direction, use parent min edge
-        if cfg.direction == +1:
+        if cfg.direction == Direction.POSITIVE:
             parent_edge = parent_pos[cfg.primary_axis] + parent_bbox.max_point[cfg.primary_axis]
             child_offset = child_bbox.min_point[cfg.primary_axis]
             penalty_side = "less"
-        else:  # direction == -1
+        else:
             parent_edge = parent_pos[cfg.primary_axis] + parent_bbox.min_point[cfg.primary_axis]
             child_offset = child_bbox.max_point[cfg.primary_axis]
             penalty_side = "greater"
@@ -161,8 +175,8 @@ class NextToLossStrategy(RelationLossStrategy):
         distance_loss = single_point_linear_loss(child_pos[cfg.primary_axis], target_pos, slope=self.slope)
 
         if self.debug:
-            axis_name = "X" if cfg.primary_axis == 0 else "Y"
-            band_axis_name = "Y" if cfg.primary_axis == 0 else "X"
+            axis_name = cfg.primary_axis.name
+            band_axis_name = cfg.band_axis.name
             print(
                 f"    [NextTo] {relation.side.value}: child_{axis_name.lower()}="
                 f"{child_pos[cfg.primary_axis].item():.4f}, parent_edge={parent_edge.item():.4f},"
