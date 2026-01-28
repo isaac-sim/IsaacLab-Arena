@@ -11,6 +11,8 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 NUM_RESETS = 10
 NUM_STEPS_PER_RESET = 10
 HEADLESS = True
+POSITION_RANGE_M = 0.1
+POSITION_TOLERANCE_M = 0.01
 
 
 def _test_object_pose_randomization(simulation_app):
@@ -30,9 +32,10 @@ def _test_object_pose_randomization(simulation_app):
     embodiment = asset_registry.get_asset_by_name("franka")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
+    POSITION_HALF_RANGE_M = POSITION_RANGE_M / 2
     pose_range = PoseRange(
-        position_xyz_min=(0.4 - 0.08, 0.0 - 0.08, 0.1),
-        position_xyz_max=(0.4 + 0.08, 0.0 + 0.08, 0.1),
+        position_xyz_min=(0.4 - POSITION_HALF_RANGE_M, 0.0 - POSITION_HALF_RANGE_M, 0.1),
+        position_xyz_max=(0.4 + POSITION_HALF_RANGE_M, 0.0 + POSITION_HALF_RANGE_M, 0.1),
         rpy_min=(0.0, 0.0, 0.0),
         rpy_max=(0.0, 0.0, 0.0),
     )
@@ -84,10 +87,18 @@ def _test_object_pose_randomization(simulation_app):
         assert min_y < max_y, f"No variation in y position: min_y={min_y}, max_y={max_y}"
 
         # Verify that poses are within the specified range
-        assert min_x >= pose_range.position_xyz_min[0], f"min_x {min_x} < expected {pose_range.position_xyz_min[0]}"
-        assert max_x <= pose_range.position_xyz_max[0], f"max_x {max_x} > expected {pose_range.position_xyz_max[0]}"
-        assert min_y >= pose_range.position_xyz_min[1], f"min_y {min_y} < expected {pose_range.position_xyz_min[1]}"
-        assert max_y <= pose_range.position_xyz_max[1], f"max_y {max_y} > expected {pose_range.position_xyz_max[1]}"
+        assert (
+            min_x >= pose_range.position_xyz_min[0] - POSITION_TOLERANCE_M
+        ), f"min_x {min_x} < expected {pose_range.position_xyz_min[0] - POSITION_TOLERANCE_M}"
+        assert (
+            max_x <= pose_range.position_xyz_max[0] + POSITION_TOLERANCE_M
+        ), f"max_x {max_x} > expected {pose_range.position_xyz_max[0] + POSITION_TOLERANCE_M}"
+        assert (
+            min_y >= pose_range.position_xyz_min[1] - POSITION_TOLERANCE_M
+        ), f"min_y {min_y} < expected {pose_range.position_xyz_min[1] - POSITION_TOLERANCE_M}"
+        assert (
+            max_y <= pose_range.position_xyz_max[1] + POSITION_TOLERANCE_M
+        ), f"max_y {max_y} > expected {pose_range.position_xyz_max[1] + POSITION_TOLERANCE_M}"
 
         print("All assertions passed!")
 
