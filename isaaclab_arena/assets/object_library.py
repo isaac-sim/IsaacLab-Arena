@@ -541,7 +541,7 @@ class MediumGear(LibraryObject):
         "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
-
+# FIXME: update assets to Nucleus
 LOCAL_ASSETS_DIR = "/home/lancel/Projects/2024-05-21-Robotics/arena/ManipEvalTasks/assets_robotwin"
 
 @register_asset
