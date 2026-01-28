@@ -169,17 +169,12 @@ def compute_bounding_box_from_usd(
 def compute_bounding_box_from_prim(
     stage: Usd.Stage,
     prim_path: str,
-    reference_prim_path: str | None = None,
 ) -> AxisAlignedBoundingBox:
     """Compute the local bounding box of a specific prim in a USD stage.
-
-    The bounding box is computed relative to the prim's own origin (local coordinates),
-    making it suitable for use with get_world_bounding_box() which adds the position offset.
 
     Args:
         stage: The USD stage containing the prim.
         prim_path: Path to the prim to compute the bounding box for.
-        reference_prim_path: Unused, kept for API compatibility.
 
     Returns:
         AxisAlignedBoundingBox containing the local min and max points relative to the
