@@ -24,7 +24,8 @@ RUN apt-get update && apt-get install -y \
   git-lfs \
   cmake \
   sudo \
-  python3-pip
+  python3-pip \
+  zenity
 
 ################################
 # Install Isaac Lab
@@ -106,7 +107,7 @@ RUN chmod +x /tmp/install_gr00t_deps.sh
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     /tmp/install_gr00t_deps.sh; \
     # Fix damage to /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch
-    rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch \
+    rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch; \
   else \
     echo "Skipping GR00T installation"; \
   fi && \
