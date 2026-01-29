@@ -8,6 +8,7 @@
 model_path: /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000
 language_instruction: "Reach out to the microwave and open it."
 # Action horizon is the number of actions predicted by the policy per inference rollout, defined in the modality_config_path.
+action_horizon: 16
 embodiment_tag: GR1
 video_backend: decord
 modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py
