@@ -172,7 +172,6 @@ class SequentialTaskBase(TaskBase):
         else:
             per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
 
-        # per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
         success_tensor = torch.tensor(per_env_success, dtype=torch.bool, device=env.device)
 
         env.extras["subtask_success_state"] = copy.copy(env._subtask_success_state)
