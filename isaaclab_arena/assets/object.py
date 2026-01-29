@@ -59,12 +59,7 @@ class Object(ObjectBase):
         self.relations.append(relation)
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get local bounding box (relative to USD origin).
-
-        Note: Unlike ObjectReference, this bbox is NOT centered because Object's
-        initial_pose represents the USD origin (set by the user), not the geometry center.
-        The assumption is that well-authored USD files have geometry reasonably centered.
-        """
+        """Get local bounding box (relative to object origin)."""
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
