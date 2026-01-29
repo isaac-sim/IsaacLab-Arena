@@ -9,7 +9,7 @@ import pytest
 
 from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 HEADLESS = True
@@ -86,6 +86,78 @@ def get_tmp_config_file(input_config_file, tmp_path, model_path):
     return output_config_file
 
 
+def _run_gr00t_closedloop_policy(
+    simulation_app,
+    policy_config_yaml_path: str,
+    environment: str,
+    object_name: str,
+    embodiment: str,
+    num_steps: int,
+    num_envs: int = 1,
+) -> bool:
+    """Run the GR00T closedloop policy within a shared simulation app."""
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+    try:
+        # Build the arguments for the policy runner
+        args_parser = get_isaaclab_arena_cli_parser()
+
+        # Get the policy class
+        policy_type = "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy"
+        policy_cls = get_policy_cls(policy_type)
+        print(f"Requested policy type: {policy_type} -> Policy class: {policy_cls}")
+
+        # Add environment and policy arguments
+        from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+
+        add_policy_runner_arguments(args_parser)
+        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+        args_parser = policy_cls.add_args_to_parser(args_parser)
+
+        # Build argument list
+        arg_list = [
+            environment,
+            "--policy_type",
+            policy_type,
+            "--policy_config_yaml_path",
+            str(policy_config_yaml_path),
+            "--num_steps",
+            str(num_steps),
+            "--num_envs",
+            str(num_envs),
+            "--object",
+            object_name,
+            "--embodiment",
+            embodiment,
+            "--headless",
+            "--enable_cameras",
+        ]
+        args_cli = args_parser.parse_args(arg_list)
+
+        # Build the environment
+        arena_builder = get_arena_builder_from_cli(args_cli)
+        env = arena_builder.make_registered()
+
+        # Create the policy
+        policy = policy_cls.from_args(args_cli)
+
+        # Run the rollout
+        rollout_policy(env, policy, num_steps)
+
+        # Close the environment
+        env.close()
+        return True
+
+    except Exception as e:
+        print(f"Error running GR00T closedloop policy: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+
 def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
@@ -93,25 +165,18 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
     )
     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
-    # Run the model
-    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
-    args.append("--policy_type")
-    args.append("isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
-    args.append("--policy_config_yaml_path")
-    args.append(config_file)
-    args.append("--num_steps")
-    args.append(str(NUM_STEPS))
-    if HEADLESS:
-        args.append("--headless")
-    if ENABLE_CAMERAS:
-        args.append("--enable_cameras")
-    # example env
-    args.append("galileo_g1_locomanip_pick_and_place")
-    args.append("--object")
-    args.append("brown_box")
-    args.append("--embodiment")
-    args.append("g1_wbc_joint")
-    run_subprocess(args)
+    result = run_simulation_app_function(
+        _run_gr00t_closedloop_policy,
+        headless=HEADLESS,
+        enable_cameras=ENABLE_CAMERAS,
+        policy_config_yaml_path=str(config_file),
+        environment="galileo_g1_locomanip_pick_and_place",
+        object_name="brown_box",
+        embodiment="g1_wbc_joint",
+        num_steps=NUM_STEPS,
+        num_envs=1,
+    )
+    assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_single_env failed"
 
 
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
@@ -121,27 +186,18 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     )
     config_file = get_tmp_config_file(default_config_file, tmp_path, gr00t_finetuned_model_path)
 
-    # Run the model
-    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
-    args.append("--policy_type")
-    args.append("isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy")
-    args.append("--policy_config_yaml_path")
-    args.append(config_file)
-    args.append("--num_steps")
-    args.append(str(NUM_STEPS))
-    args.append("--num_envs")
-    args.append(str(NUM_ENVS))
-    if HEADLESS:
-        args.append("--headless")
-    if ENABLE_CAMERAS:
-        args.append("--enable_cameras")
-    # example env
-    args.append("galileo_g1_locomanip_pick_and_place")
-    args.append("--object")
-    args.append("brown_box")
-    args.append("--embodiment")
-    args.append("g1_wbc_joint")
-    run_subprocess(args)
+    result = run_simulation_app_function(
+        _run_gr00t_closedloop_policy,
+        headless=HEADLESS,
+        enable_cameras=ENABLE_CAMERAS,
+        policy_config_yaml_path=str(config_file),
+        environment="galileo_g1_locomanip_pick_and_place",
+        object_name="brown_box",
+        embodiment="g1_wbc_joint",
+        num_steps=NUM_STEPS,
+        num_envs=NUM_ENVS,
+    )
+    assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs failed"
 
 
 def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned_model_path, tmp_path):
@@ -184,6 +240,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
 
 
 if __name__ == "__main__":
-    test_g1_locomanip_gr00t_closedloop_policy_runner_single_env()
-    test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs()
-    test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner()
+    # These tests require pytest fixtures, run with: pytest -sv isaaclab_arena_gr00t/tests/test_gr00t_closedloop_policy.py
+    import sys
+
+    sys.exit("Run these tests with pytest, not directly.")
