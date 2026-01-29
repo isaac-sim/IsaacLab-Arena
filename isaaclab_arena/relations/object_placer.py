@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import find_anchor_object
+from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -46,8 +46,8 @@ class ObjectPlacer:
         """Place objects according to their spatial relations.
 
         Args:
-            objects: List of objects to place. Must include exactly one object
-                marked with IsAnchor() which serves as the fixed reference.
+            objects: List of objects to place. Must include at least one object
+                marked with IsAnchor() which serves as a fixed reference.
 
         Returns:
             PlacementResult with success status, positions, loss, and attempt count.
@@ -59,16 +59,21 @@ class ObjectPlacer:
                 "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
             )
 
-        # We use the anchor object to determine the bounds for random position initialization.
-        anchor_object = find_anchor_object(objects)
-        assert anchor_object is not None, (
-            "No anchor object found. Mark one object with IsAnchor() to serve as the fixed reference. "
+        # Find all anchor objects
+        anchor_objects = get_anchor_objects(objects)
+        assert len(anchor_objects) > 0, (
+            "No anchor object found. Mark at least one object with IsAnchor() to serve as a fixed reference. "
             "Example: table.add_relation(IsAnchor())"
         )
-        assert anchor_object.initial_pose is not None, (
-            f"Anchor object '{anchor_object.name}' must have an initial_pose set. "
-            "Call anchor_object.set_initial_pose(...) before placing."
-        )
+
+        # Validate all anchors have initial_pose set
+        for anchor in anchor_objects:
+            assert anchor.initial_pose is not None, (
+                f"Anchor object '{anchor.name}' must have an initial_pose set. "
+                "Call anchor_object.set_initial_pose(...) before placing."
+            )
+
+        anchor_objects_set = set(anchor_objects)
 
         # Save RNG state and set seed if provided (for reproducibility without affecting Isaac Sim)
         rng_state = None
@@ -76,8 +81,10 @@ class ObjectPlacer:
             rng_state = torch.get_rng_state()
             torch.manual_seed(self.params.placement_seed)
 
-        # Determine bounds for random position initialization from the anchor object
-        init_bounds = self._get_init_bounds(anchor_object)
+        # Determine bounds for random position initialization from the first anchor object
+        # TODO(cvolk): The user should not need to know about the bounds to set.
+        # Implement an initialization strategy that infers from the Relations(s).
+        init_bounds = self._get_init_bounds(anchor_objects[0])
 
         # Placement loop with retries
         best_positions: dict[Object, tuple[float, float, float]] = {}
@@ -85,8 +92,8 @@ class ObjectPlacer:
         success = False
 
         for attempt in range(self.params.max_placement_attempts):
-            # Generate starting positions (anchor from its pose, others random)
-            initial_positions = self._generate_initial_positions(objects, anchor_object, init_bounds)
+            # Generate starting positions (anchors from their poses, others random)
+            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, init_bounds)
 
             # Solve
             positions = self._solver.solve(objects, initial_positions)
@@ -109,7 +116,7 @@ class ObjectPlacer:
 
         # Apply solved positions to objects
         if self.params.apply_positions_to_objects:
-            self._apply_positions(best_positions, anchor_object)
+            self._apply_positions(best_positions, anchor_objects_set)
 
         # Restore RNG state if we changed it
         if rng_state is not None:
@@ -156,20 +163,20 @@ class ObjectPlacer:
     def _generate_initial_positions(
         self,
         objects: list[Object],
-        anchor_object: Object,
+        anchor_objects: set[Object],
         init_bounds: AxisAlignedBoundingBox,
     ) -> dict[Object, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
-        Anchor keeps its current initial_pose, others get random positions.
+        Anchors keep their current initial_pose, others get random positions.
 
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
         positions: dict[Object, tuple[float, float, float]] = {}
         for obj in objects:
-            if obj is anchor_object:
-                positions[obj] = anchor_object.initial_pose.position_xyz
+            if obj in anchor_objects:
+                positions[obj] = obj.initial_pose.position_xyz
             else:
                 random_pose = get_random_pose_within_bounding_box(init_bounds)
                 positions[obj] = random_pose.position_xyz
@@ -196,11 +203,11 @@ class ObjectPlacer:
     def _apply_positions(
         self,
         positions: dict[Object, tuple[float, float, float]],
-        anchor_object: Object,
+        anchor_objects: set[Object],
     ) -> None:
-        """Apply solved positions to objects."""
+        """Apply solved positions to objects (skipping anchors)."""
         for obj, pos in positions.items():
-            if obj is anchor_object:
+            if obj in anchor_objects:
                 continue
             obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
