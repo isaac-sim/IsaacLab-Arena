@@ -118,7 +118,6 @@ def _run_gr00t_closedloop_policy(
 
         # Build argument list
         arg_list = [
-            environment,
             "--policy_type",
             policy_type,
             "--policy_config_yaml_path",
@@ -127,12 +126,14 @@ def _run_gr00t_closedloop_policy(
             str(num_steps),
             "--num_envs",
             str(num_envs),
+            "--headless",
+            "--enable_cameras",
+            # Environment subparser command and its specific args
+            environment,
             "--object",
             object_name,
             "--embodiment",
             embodiment,
-            "--headless",
-            "--enable_cameras",
         ]
         args_cli = args_parser.parse_args(arg_list)
 

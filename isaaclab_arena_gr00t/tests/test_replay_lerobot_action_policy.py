@@ -47,7 +47,6 @@ def _run_replay_lerobot_policy(
 
         # Build argument list
         arg_list = [
-            environment,
             "--policy_type",
             policy_type,
             "--config_yaml_path",
@@ -56,12 +55,14 @@ def _run_replay_lerobot_policy(
             str(max_steps),
             "--trajectory_index",
             str(trajectory_index),
+            "--headless",
+            "--enable_cameras",
+            # Environment subparser command and its specific args
+            environment,
             "--object",
             object_name,
             "--embodiment",
             embodiment,
-            "--headless",
-            "--enable_cameras",
         ]
         args_cli = args_parser.parse_args(arg_list)
 
