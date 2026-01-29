@@ -24,7 +24,12 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.open_door_task import OpenDoorTask
         from isaaclab_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("kitchen")()
+        background = self.asset_registry.get_asset_by_name("wormhole")()
+        # Set background pose: translation (-1.0, -1.35, -0.7), rotation 52.5° around z-axis
+        background.set_initial_pose(Pose(
+            position_xyz=(-1.0, -1.35, -0.7),
+            rotation_wxyz=(0.89879, 0.0, 0.0, 0.43837)  # 52.5 degrees yaw
+        ))
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
         assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
