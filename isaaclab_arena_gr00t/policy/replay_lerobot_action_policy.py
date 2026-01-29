@@ -226,7 +226,7 @@ class ReplayLerobotActionPolicy(PolicyBase):
         assert action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
 
-    def reset(self, trajectory_index: int = 0):
+    def reset(self, env_ids: torch.Tensor | None = None, trajectory_index: int = 0):
         """Resets the policy's internal state."""
         # As GR00T is a single-shot policy, we don't need to reset its internal state
         # Only reset the action chunking mechanism
