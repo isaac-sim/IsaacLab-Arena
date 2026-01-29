@@ -11,21 +11,13 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import IsAnchor, get_anchor_objects
+from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
-
-
-def _is_object_reference(obj) -> bool:
-    """Check if object is an ObjectReference without importing the class.
-
-    This avoids pulling in IsaacSim dependencies when testing.
-    """
-    return type(obj).__name__ in ("ObjectReference", "OpenableObjectReference")
 
 
 class ObjectPlacer:
@@ -67,16 +59,6 @@ class ObjectPlacer:
                 f"Object '{obj.name}' has no relations. All objects passed to place() must have "
                 "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
             )
-
-        # Validate that ObjectReference objects are only used as anchors (they cannot be moved)
-        for obj in objects:
-            if _is_object_reference(obj):
-                is_anchor = any(isinstance(r, IsAnchor) for r in obj.get_relations())
-                assert is_anchor, (
-                    f"ObjectReference '{obj.name}' must be marked with IsAnchor(). "
-                    "ObjectReference objects refer to existing elements in the scene and cannot be moved. "
-                    "They can only serve as anchors for placing other objects."
-                )
 
         # Find all anchor objects
         anchor_objects = get_anchor_objects(objects)
