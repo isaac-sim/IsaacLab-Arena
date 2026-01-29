@@ -9,6 +9,9 @@ import torch
 
 import pytest
 
+# Mark all tests in this module as unit tests (no Isaac Sim required)
+pytestmark = pytest.mark.unit
+
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy
 from isaaclab_arena.relations.relations import NextTo, On, Side

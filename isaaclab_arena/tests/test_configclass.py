@@ -3,7 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 from isaaclab.utils import configclass
+
+# Mark all tests in this module as unit tests (no Isaac Sim required)
+pytestmark = pytest.mark.unit
 
 from isaaclab_arena.utils.configclass import combine_configclasses
 

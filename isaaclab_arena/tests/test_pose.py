@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from isaaclab_arena.utils.pose import Pose
+
+# Mark all tests in this module as unit tests (no Isaac Sim required)
+pytestmark = pytest.mark.unit
 
 
 def test_pose_composition():
