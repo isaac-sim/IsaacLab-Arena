@@ -16,8 +16,8 @@ from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.rl_policy.base_rsl_rl_policy import get_agent_cfg
 from isaaclab_arena.scripts.reinforcement_learning import cli_args
-from isaaclab_arena.scripts.reinforcement_learning.utils import get_agent_cfg
 
 
 @dataclass

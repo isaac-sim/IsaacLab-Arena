@@ -66,7 +66,7 @@ from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper, export_po
 from isaaclab_tasks.utils import get_checkpoint_path
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
-from isaaclab_arena.scripts.reinforcement_learning.utils import get_agent_cfg
+from isaaclab_arena.policy.rl_policy.base_rsl_rl_policy import get_agent_cfg
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 # PLACEHOLDER: Extension template (do not remove this comment)
