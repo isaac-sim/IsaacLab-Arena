@@ -8,7 +8,6 @@ from contextlib import contextmanager
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose
 
 
 def get_all_prims(
@@ -105,22 +104,19 @@ def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str |
     return None
 
 
-def compute_bounding_box_from_usd(
+def compute_local_bounding_box_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-    pose: Pose | None = None,
 ) -> AxisAlignedBoundingBox:
-    """Compute the world-space bounding box of a USD asset.
+    """Compute the local bounding box of a USD asset (relative to USD origin).
 
     Args:
         usd_path: Path to the USD file.
         scale: Scale to apply to the asset (x, y, z).
-        pose: Optional pose of the asset. If None, uses identity pose.
 
     Returns:
-        AxisAlignedBoundingBox containing the min and max points in world space.
+        AxisAlignedBoundingBox containing the min and max points relative to USD origin.
     """
-    # Open the USD stage
     stage = Usd.Stage.Open(usd_path)
     if not stage:
         raise ValueError(f"Failed to open USD file: {usd_path}")
@@ -131,7 +127,6 @@ def compute_bounding_box_from_usd(
         default_prim = stage.GetPseudoRoot()
 
     # Compute the bounding box using USD's built-in functionality
-    # This computes the bounding box in the local space of the prim
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
     bbox = bbox_cache.ComputeWorldBound(default_prim)
 
@@ -144,33 +139,17 @@ def compute_bounding_box_from_usd(
     min_point = Gf.Vec3d(min_point[0] * scale[0], min_point[1] * scale[1], min_point[2] * scale[2])
     max_point = Gf.Vec3d(max_point[0] * scale[0], max_point[1] * scale[1], max_point[2] * scale[2])
 
-    # Apply pose transformation if provided
-    if pose is not None:
-        # Transform the bounding box corners by the pose
-        # For simplicity in MVP, we'll just translate the bbox by the position
-        # A more sophisticated implementation would rotate the bbox as well
-        min_point = Gf.Vec3d(
-            min_point[0] + pose.position_xyz[0],
-            min_point[1] + pose.position_xyz[1],
-            min_point[2] + pose.position_xyz[2],
-        )
-        max_point = Gf.Vec3d(
-            max_point[0] + pose.position_xyz[0],
-            max_point[1] + pose.position_xyz[1],
-            max_point[2] + pose.position_xyz[2],
-        )
-
     return AxisAlignedBoundingBox(
         min_point=(min_point[0], min_point[1], min_point[2]),
         max_point=(max_point[0], max_point[1], max_point[2]),
     )
 
 
-def compute_bounding_box_from_prim(
+def compute_local_bounding_box_from_prim(
     stage: Usd.Stage,
     prim_path: str,
 ) -> AxisAlignedBoundingBox:
-    """Compute the local bounding box of a specific prim in a USD stage.
+    """Compute the local bounding box of a specific prim (relative to prim's transform origin).
 
     Args:
         stage: The USD stage containing the prim.

@@ -12,11 +12,11 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
-from isaaclab_arena.utils.usd_helpers import compute_bounding_box_from_usd, has_light, open_stage
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -53,46 +53,33 @@ class Object(ObjectBase):
         self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
-        self.relations = []
 
     def add_relation(self, relation: RelationBase) -> None:
+        """Add a relation to this object."""
         self.relations.append(relation)
 
-    def get_relations(self) -> list[RelationBase]:
-        return self.relations
-
-    def get_spatial_relations(self) -> list[RelationBase]:
-        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
-
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get local bounding box (relative to object origin)."""
+        """Get local bounding box (relative to USD origin).
+
+        Note: Unlike ObjectReference, this bbox is NOT centered because Object's
+        initial_pose represents the USD origin (set by the user), not the geometry center.
+        The assumption is that well-authored USD files have geometry reasonably centered.
+        """
         assert self.usd_path is not None
         if self.bounding_box is None:
-            self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
+            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox + position offset)."""
         local_bbox = self.get_bounding_box()
         pos = self.initial_pose.position_xyz if self.initial_pose else (0, 0, 0)
-        return AxisAlignedBoundingBox(
-            min_point=(
-                local_bbox.min_point[0] + pos[0],
-                local_bbox.min_point[1] + pos[1],
-                local_bbox.min_point[2] + pos[2],
-            ),
-            max_point=(
-                local_bbox.max_point[0] + pos[0],
-                local_bbox.max_point[1] + pos[1],
-                local_bbox.max_point[2] + pos[2],
-            ),
-        )
+        return local_bbox.translated(pos)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         assert self.usd_path is not None
         if self.bounding_box is None:
-            self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
+            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box.get_corners_at(pos)
 
     def set_initial_pose(self, pose: Pose | PoseRange) -> None:

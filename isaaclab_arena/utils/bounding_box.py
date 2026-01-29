@@ -87,6 +87,73 @@ class AxisAlignedBoundingBox:
         else:
             return self.get_corners_at(pos=None) + pos
 
+    def scaled(self, scale: tuple[float, float, float]) -> "AxisAlignedBoundingBox":
+        """Return a new bounding box with scale applied.
+
+        Args:
+            scale: Scale factors (x, y, z) to apply.
+
+        Returns:
+            New AxisAlignedBoundingBox with scaled dimensions.
+        """
+        return AxisAlignedBoundingBox(
+            min_point=(
+                self.min_point[0] * scale[0],
+                self.min_point[1] * scale[1],
+                self.min_point[2] * scale[2],
+            ),
+            max_point=(
+                self.max_point[0] * scale[0],
+                self.max_point[1] * scale[1],
+                self.max_point[2] * scale[2],
+            ),
+        )
+
+    def translated(self, offset: tuple[float, float, float]) -> "AxisAlignedBoundingBox":
+        """Return a new bounding box translated by an offset.
+
+        Args:
+            offset: Translation offset (x, y, z) to apply.
+
+        Returns:
+            New AxisAlignedBoundingBox with translated position.
+        """
+        return AxisAlignedBoundingBox(
+            min_point=(
+                self.min_point[0] + offset[0],
+                self.min_point[1] + offset[1],
+                self.min_point[2] + offset[2],
+            ),
+            max_point=(
+                self.max_point[0] + offset[0],
+                self.max_point[1] + offset[1],
+                self.max_point[2] + offset[2],
+            ),
+        )
+
+    def centered(self) -> "AxisAlignedBoundingBox":
+        """Return a new bounding box centered around the origin.
+
+        The returned bbox has the same size but is shifted so that its
+        center is at (0, 0, 0).
+
+        Returns:
+            New AxisAlignedBoundingBox centered at origin.
+        """
+        c = self.center
+        return AxisAlignedBoundingBox(
+            min_point=(
+                self.min_point[0] - c[0],
+                self.min_point[1] - c[1],
+                self.min_point[2] - c[2],
+            ),
+            max_point=(
+                self.max_point[0] - c[0],
+                self.max_point[1] - c[1],
+                self.max_point[2] - c[2],
+            ),
+        )
+
 
 def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int | None = None) -> Pose:
     """Generate a random pose (position and identity rotation) with position uniformly
