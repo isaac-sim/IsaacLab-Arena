@@ -25,27 +25,21 @@ def _run_replay_lerobot_policy(
     trajectory_index: int = 0,
 ) -> bool:
     """Run the replay lerobot action policy within a shared simulation app."""
+    import sys
+
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
     try:
-        # Build the arguments for the policy runner
-        args_parser = get_isaaclab_arena_cli_parser()
-
         # Get the policy class
         policy_type = "isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy"
         policy_cls = get_policy_cls(policy_type)
         print(f"Requested policy type: {policy_type} -> Policy class: {policy_cls}")
 
-        # Add environment and policy arguments
-        from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
-
-        add_policy_runner_arguments(args_parser)
-        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        args_parser = policy_cls.add_args_to_parser(args_parser)
-
-        # Build argument list
+        # Build argument list FIRST - needed before parser setup because
+        # get_isaaclab_arena_environments_cli_parser internally calls parse_known_args()
+        # which parses sys.argv
         arg_list = [
             "--policy_type",
             policy_type,
@@ -64,7 +58,25 @@ def _run_replay_lerobot_policy(
             "--embodiment",
             embodiment,
         ]
-        args_cli = args_parser.parse_args(arg_list)
+
+        # Temporarily set sys.argv so that internal parse_known_args() calls work correctly
+        old_argv = sys.argv
+        sys.argv = [sys.argv[0]] + arg_list
+
+        try:
+            # Build the arguments for the policy runner
+            args_parser = get_isaaclab_arena_cli_parser()
+
+            # Add environment and policy arguments
+            from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+
+            add_policy_runner_arguments(args_parser)
+            args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+            args_parser = policy_cls.add_args_to_parser(args_parser)
+
+            args_cli = args_parser.parse_args(arg_list)
+        finally:
+            sys.argv = old_argv
 
         # Build the environment
         arena_builder = get_arena_builder_from_cli(args_cli)
