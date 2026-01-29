@@ -15,12 +15,16 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 
 from isaaclab_arena.assets.asset_registry import DeviceRegistry
+from isaaclab_arena.assets.object import Object
+from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 
 
@@ -41,48 +45,101 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
+    def _get_objects_with_relations(self) -> list[Object]:
+        """Get all objects from the scene that have relations.
+
+        Returns:
+            List of Object instances that have at least one relation.
+        """
+        objects_with_relations: list[Object] = []
+        for asset in self.arena_env.scene.assets.values():
+            if not isinstance(asset, Object):
+                # Fail early if a non-Object asset has relations - they won't be solved
+                # TODO(cvolk, 2026-01-26): Support ObjectSets.
+                assert not (hasattr(asset, "get_relations") and asset.get_relations()), (
+                    f"Asset '{asset.name}' has relations but is not an Object "
+                    f"(type: {type(asset).__name__}). Only Object instances support relations."
+                )
+                continue
+            if asset.get_relations():
+                objects_with_relations.append(asset)
+        return objects_with_relations
+
+    def _solve_relations(self) -> None:
+        """Solve spatial relations for objects in the scene.
+
+        This method:
+        1. Collects all objects from the scene that have relations
+        2. Finds the anchor object (marked with IsAnchor)
+        3. Runs the ObjectPlacer to solve spatial constraints
+        4. Applies solved positions to objects
+        """
+        # All objects with relations are subjects of the relation solving.
+        objects_with_relations = self._get_objects_with_relations()
+
+        if not objects_with_relations:
+            print("No objects with relations found in scene. Skipping relation solving.")
+            return
+
+        # Run the ObjectPlacer
+        placer = ObjectPlacer()
+        result = placer.place(objects=objects_with_relations)
+
+        if result.success:
+            print(f"Relation solving succeeded after {result.attempts} attempt(s)")
+        else:
+            print(f"Relation solving not completed after {result.attempts} attempt(s)")
+
     # This method gives the arena environment a chance to modify the environment configuration.
     # This is a workaround to allow user to gradually move to the new configuration system.
     # THE ORDER MATTERS HERE.
     # THIS WILL BE REMOVED IN THE FUTURE.
     def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Modify the environment configuration."""
-        env_cfg = self.arena_env.task.modify_env_cfg(env_cfg)
-        env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
+        if self.arena_env.task is not None:
+            env_cfg = self.arena_env.task.modify_env_cfg(env_cfg)
+        if self.arena_env.embodiment is not None:
+            env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
         env_cfg = self.arena_env.scene.modify_env_cfg(env_cfg)
         return env_cfg
 
     def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
+        # Solve relations before building scene config so positions are captured correctly.
+        if self.args.solve_relations:
+            self._solve_relations()
+
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
+        embodiment = self.arena_env.embodiment or NoEmbodiment()
+        task = self.arena_env.task or NoTask()
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,
             self.arena_env.scene.get_scene_cfg(),
-            self.arena_env.embodiment.get_scene_cfg(),
-            self.arena_env.task.get_scene_cfg(),
+            embodiment.get_scene_cfg(),
+            task.get_scene_cfg(),
         )
         observation_cfg = combine_configclass_instances(
             "ObservationCfg",
             self.arena_env.scene.get_observation_cfg(),
-            self.arena_env.embodiment.get_observation_cfg(),
-            self.arena_env.task.get_observation_cfg(),
+            embodiment.get_observation_cfg(),
+            task.get_observation_cfg(),
         )
         events_cfg = combine_configclass_instances(
             "EventsCfg",
-            self.arena_env.embodiment.get_events_cfg(),
+            embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
-            self.arena_env.task.get_events_cfg(),
+            task.get_events_cfg(),
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
-            self.arena_env.task.get_termination_cfg(),
+            task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
-            self.arena_env.embodiment.get_termination_cfg(),
+            embodiment.get_termination_cfg(),
         )
-        actions_cfg = self.arena_env.embodiment.get_action_cfg()
-        xr_cfg = self.arena_env.embodiment.get_xr_cfg()
+        actions_cfg = embodiment.get_action_cfg()
+        xr_cfg = embodiment.get_xr_cfg()
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
             teleop_device_cfg = device_registry.get_teleop_device_cfg(
@@ -90,44 +147,44 @@ class ArenaEnvBuilder:
             )
         else:
             teleop_device_cfg = None
-        metrics = self.arena_env.task.get_metrics()
+        metrics = task.get_metrics()
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
         recorder_manager_cfg = combine_configclass_instances(
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
-            self.arena_env.task.get_recorder_term_cfg(),
-            self.arena_env.embodiment.get_recorder_term_cfg(),
+            task.get_recorder_term_cfg(),
+            embodiment.get_recorder_term_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
             self.arena_env.scene.get_rewards_cfg(),
-            self.arena_env.embodiment.get_rewards_cfg(),
-            self.arena_env.task.get_rewards_cfg(),
+            embodiment.get_rewards_cfg(),
+            task.get_rewards_cfg(),
         )
 
         curriculum_cfg = combine_configclass_instances(
             "CurriculumCfg",
             self.arena_env.scene.get_curriculum_cfg(),
-            self.arena_env.embodiment.get_curriculum_cfg(),
-            self.arena_env.task.get_curriculum_cfg(),
+            embodiment.get_curriculum_cfg(),
+            task.get_curriculum_cfg(),
         )
 
         commands_cfg = combine_configclass_instances(
             "CommandsCfg",
             self.arena_env.scene.get_commands_cfg(),
-            self.arena_env.embodiment.get_commands_cfg(),
-            self.arena_env.task.get_commands_cfg(),
+            embodiment.get_commands_cfg(),
+            task.get_commands_cfg(),
         )
 
         isaaclab_arena_env = self.arena_env
 
-        viewer_cfg = self.arena_env.task.get_viewer_cfg()
+        viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = self.arena_env.task.get_episode_length_s()
+        episode_length_s = task.get_episode_length_s()
 
         # Build the environment configuration
         if not self.args.mimic:
@@ -150,7 +207,9 @@ class ArenaEnvBuilder:
             if episode_length_s is not None:
                 env_cfg.episode_length_s = episode_length_s
         else:
-            task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
+            assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
+            assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
+            task_mimic_env_cfg = task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
             env_cfg = IsaacArenaManagerBasedMimicEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,
@@ -184,7 +243,11 @@ class ArenaEnvBuilder:
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
         if self.args.mimic:
-            return self.arena_env.embodiment.get_mimic_env()
+            embodiment = self.arena_env.embodiment
+            assert embodiment is not None and not isinstance(
+                embodiment, NoEmbodiment
+            ), "Mimic mode requires an embodiment to be specified"
+            return embodiment.get_mimic_env()
         else:
             return "isaaclab.envs:ManagerBasedRLEnv"
 

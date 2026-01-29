@@ -23,7 +23,6 @@ def _test_camera_observation(simulation_app) -> bool:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -46,7 +45,6 @@ def _test_camera_observation(simulation_app) -> bool:
         name="camera_observation_test",
         embodiment=GR1T2PinkEmbodiment(enable_cameras=True),
         scene=scene,
-        task=DummyTask(),
     )
 
     # Compile an IsaacLab compatible arena environment configuration

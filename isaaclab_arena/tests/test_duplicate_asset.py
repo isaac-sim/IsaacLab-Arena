@@ -21,7 +21,6 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -52,7 +51,6 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
 
     scene = Scene(assets=[background, light, dex_cube_1, dex_cube_2])
 
-    task = DummyTask()
     embodiment = FrankaEmbodiment()
     embodiment.set_initial_pose(
         Pose(
@@ -65,7 +63,6 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
         name="test_two_cubes",
         embodiment=embodiment,
         scene=scene,
-        task=task,
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)

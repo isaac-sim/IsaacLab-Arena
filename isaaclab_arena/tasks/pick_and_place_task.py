@@ -9,7 +9,7 @@ from dataclasses import MISSING
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
@@ -18,10 +18,10 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-from isaaclab_arena.utils.pose import PoseRange
 
 
 class PickAndPlaceTask(TaskBase):
@@ -34,7 +34,6 @@ class PickAndPlaceTask(TaskBase):
         destination_object: Asset | None = None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
-        reset_pose_range: PoseRange = PoseRange(),
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
@@ -46,9 +45,7 @@ class PickAndPlaceTask(TaskBase):
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
-        self.events_cfg = PickPlaceEventsCfg(
-            pick_up_object=self.pick_up_object, reset_pose_range=reset_pose_range.to_dict()
-        )
+        self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Pick up the {pick_up_object.name}, and place it into the {destination_location.name}"
@@ -123,28 +120,6 @@ class TerminationsCfg:
 
 
 @configclass
-class PickPlaceEventsCfg:
-    """Configuration for Pick Up Object."""
-
-    reset_pick_up_object_pose: EventTermCfg = MISSING
-
-    def __init__(self, pick_up_object: Asset, reset_pose_range: dict[str, tuple[float, float]]):
-        self.reset_pick_up_object_pose = EventTermCfg(
-            func=mdp_isaac_lab.reset_root_state_uniform,
-            mode="reset",
-            params={
-                "pose_range": {
-                    "x": reset_pose_range["x"],
-                    "y": reset_pose_range["y"],
-                    "z": reset_pose_range["z"],
-                },
-                "velocity_range": {},
-                "asset_cfg": SceneEntityCfg(pick_up_object.name),
-            },
-        )
-
-
-@configclass
 class PickPlaceMimicEnvCfg(MimicEnvCfg):
     """
     Isaac Lab Mimic environment config class for Pick and Place env.
@@ -162,17 +137,9 @@ class PickPlaceMimicEnvCfg(MimicEnvCfg):
 
         # Override the existing values
         self.datagen_config.name = "demo_src_pickplace_isaac_lab_task_D0"
-        self.datagen_config.generation_guarantee = True
-        self.datagen_config.generation_keep_failed = False
-        self.datagen_config.generation_num_trials = 100
-        self.datagen_config.generation_select_src_per_subtask = False
-        self.datagen_config.generation_select_src_per_arm = False
-        self.datagen_config.generation_relative = False
-        self.datagen_config.generation_joint_pos = False
-        self.datagen_config.generation_transform_first_robot_pose = False
-        self.datagen_config.generation_interpolate_from_last_target_pose = True
-        self.datagen_config.max_num_failures = 25
-        self.datagen_config.seed = 1
+        # Use default mimic datagen config parameters
+        for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
+            setattr(self.datagen_config, key, value)
 
         # The following are the subtask configurations for the pick and place task.
         subtask_configs = []

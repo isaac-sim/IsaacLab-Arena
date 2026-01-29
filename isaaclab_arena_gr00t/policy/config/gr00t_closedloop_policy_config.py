@@ -22,7 +22,7 @@ class Gr00tClosedloopPolicyConfig:
         default=16, metadata={"description": "Number of actions in the policy's predictionhorizon."}
     )
     embodiment_tag: str = field(
-        default="new_embodiment",
+        default="NEW_EMBODIMENT",
         metadata={
             "description": (
                 "Identifier for the robot embodiment used in the policy inference (e.g., 'gr1' or 'new_embodiment')."
@@ -32,8 +32,8 @@ class Gr00tClosedloopPolicyConfig:
     denoising_steps: int = field(
         default=4, metadata={"description": "Number of denoising steps used in the policy inference."}
     )
-    data_config: str = field(
-        default="unitree_g1_sim_wbc", metadata={"description": "Name of the data configuration to use for the policy."}
+    modality_config_path: str = field(
+        default=None, metadata={"description": "Path to the modality configuration file."}
     )
     original_image_size: tuple[int, int, int] = field(
         default=(480, 640, 3), metadata={"description": "Original size of input images as (height, width, channels)."}
@@ -99,16 +99,19 @@ class Gr00tClosedloopPolicyConfig:
             self.state_joints_config_path
         ).exists(), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
         assert Path(self.model_path).exists(), f"model_path does not exist: {self.model_path}"
+        assert Path(
+            self.modality_config_path
+        ).exists(), f"modality_config_path does not exist: {self.modality_config_path}"
         # embodiment_tag
         assert self.embodiment_tag in [
-            "gr1",
-            "new_embodiment",
-        ], "embodiment_tag must be one of the following: " + ", ".join(["gr1", "new_embodiment"])
+            "GR1",
+            "NEW_EMBODIMENT",
+        ], "embodiment_tag must be one of the following: " + ", ".join(["GR1", "NEW_EMBODIMENT"])
         if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
             assert (
-                self.embodiment_tag == "new_embodiment"
+                self.embodiment_tag == "NEW_EMBODIMENT"
             ), "embodiment_tag must be new_embodiment for G1 locomanipulation"
         elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
-            assert self.embodiment_tag == "gr1", "embodiment_tag must be gr1 for GR1 tabletop manipulation"
+            assert self.embodiment_tag == "GR1", "embodiment_tag must be GR1 for GR1 tabletop manipulation"
         else:
             raise ValueError(f"Invalid inference mode: {self.task_mode}")

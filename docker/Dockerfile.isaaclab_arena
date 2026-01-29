@@ -4,7 +4,6 @@ FROM ${BASE_IMAGE}
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
-ARG GROOT_DEPS_GROUP=base
 
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
@@ -102,8 +101,6 @@ RUN chmod +x /tmp/install_gr00t_deps.sh
 # Install GR00T dependencies if requested
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     /tmp/install_gr00t_deps.sh; \
-    # Fix damage to /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch
-    rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch \
   else \
     echo "Skipping GR00T installation"; \
   fi && \

@@ -136,7 +136,7 @@ jobs:
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -233,4 +233,4 @@ jobs:
       - name: Build & push image to NGC (GR00T Image)
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16

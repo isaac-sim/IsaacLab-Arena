@@ -6,7 +6,7 @@
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-HEADLESS = False
+HEADLESS = True
 
 
 def _test_object_with_cfg_addons(simulation_app):

@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from gr00t.experiment.data_config import DATA_CONFIG_MAP, load_data_config
-from gr00t.model.policy import Gr00tPolicy
+from gr00t.data.embodiment_tags import EmbodimentTag
+from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
@@ -21,7 +21,11 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constan
 )
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_robot_joints_config_from_yaml
+from isaaclab_arena_gr00t.utils.io_utils import (
+    create_config_from_yaml,
+    load_gr00t_modality_config_from_file,
+    load_robot_joints_config_from_yaml,
+)
 from isaaclab_arena_gr00t.utils.joints_conversion import (
     remap_policy_joints_to_sim_joints,
     remap_sim_joints_to_policy_joints,
@@ -112,6 +116,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
         )
         self.robot_state_joints_config = self.load_sim_state_joints_config(self.policy_config.state_joints_config_path)
 
+        # Load modality config and extract keys
+        self.modality_configs = load_gr00t_modality_config_from_file(
+            self.policy_config.modality_config_path, self.policy_config.embodiment_tag
+        )
+        # Extract modality keys for dynamic observation construction
+        self.language_keys = self.modality_configs["language"].modality_keys
+        self.video_keys = self.modality_configs["video"].modality_keys
+        self.state_keys = self.modality_configs["state"].modality_keys
+
         self.action_dim = len(self.robot_action_joints_config)
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
             # GR00T outputs are used for WBC inputs dim. So adding WBC commands to the action dim.
@@ -123,7 +136,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
             dtype=torch.float,
             device=config.policy_device,
         )
-        # Use a bool list toindicate that the action chunk is not yet computed for each env
+        # Use a bool list to indicate that the action chunk is not yet computed for each env
         # True means the action chunk is not yet computed, False means the action chunk is valid
         self.env_requires_new_action_chunk = torch.ones(config.num_envs, dtype=torch.bool, device=config.policy_device)
 
@@ -186,25 +199,11 @@ class Gr00tClosedloopPolicy(PolicyBase):
             self.policy_config.model_path
         ).exists(), f"Dataset path {self.policy_config.dataset_path} does not exist"
 
-        # Use the same data preprocessor specified in the  data config map
-        if self.policy_config.data_config in DATA_CONFIG_MAP:
-            self.data_config = DATA_CONFIG_MAP[self.policy_config.data_config]
-        elif self.policy_config.data_config == "unitree_g1_sim_wbc":
-            self.data_config = load_data_config(
-                "isaaclab_arena_gr00t.embodiments.g1.g1_sim_wbc_data_config:UnitreeG1SimWBCDataConfig"
-            )
-        else:
-            raise ValueError(f"Invalid data config: {self.policy_config.data_config}")
-
-        modality_config = self.data_config.modality_config()
-        modality_transform = self.data_config.transform()
         return Gr00tPolicy(
             model_path=self.policy_config.model_path,
-            modality_config=modality_config,
-            modality_transform=modality_transform,
-            embodiment_tag=self.policy_config.embodiment_tag,
-            denoising_steps=self.policy_config.denoising_steps,
+            embodiment_tag=EmbodimentTag[self.policy_config.embodiment_tag],
             device=self.policy_config.policy_device,
+            strict=True,
         )
 
     def set_task_description(self, task_description: str | None) -> str:
@@ -231,24 +230,30 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # Pack inputs to dictionary and run the inference
         assert self.task_description is not None, "Task description is not set"
+
+        # Dynamically construct policy observations using modality config keys
+        # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
         policy_observations = {
-            # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
-            "annotation.human.task_description": [self.task_description] * self.num_envs,
-            "video.ego_view": rgb.reshape(
-                self.num_envs,
-                1,
-                self.policy_config.target_image_size[0],
-                self.policy_config.target_image_size[1],
-                self.policy_config.target_image_size[2],
-            ),
-            "state.left_arm": joint_pos_state_policy["left_arm"].reshape(self.num_envs, 1, -1),
-            "state.right_arm": joint_pos_state_policy["right_arm"].reshape(self.num_envs, 1, -1),
-            "state.left_hand": joint_pos_state_policy["left_hand"].reshape(self.num_envs, 1, -1),
-            "state.right_hand": joint_pos_state_policy["right_hand"].reshape(self.num_envs, 1, -1),
+            "language": {self.language_keys[0]: [[self.task_description] for _ in range(self.num_envs)]},
+            "video": {
+                self.video_keys[0]: rgb.reshape(
+                    self.num_envs,
+                    1,
+                    self.policy_config.target_image_size[0],
+                    self.policy_config.target_image_size[1],
+                    self.policy_config.target_image_size[2],
+                )
+            },
+            "state": {},
         }
-        # NOTE(xinjieyao, 2025-10-07): waist is not used in GR1 tabletop manipulation
-        if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
-            policy_observations["state.waist"] = joint_pos_state_policy["waist"].reshape(self.num_envs, 1, -1)
+
+        # Dynamically populate state keys from modality config
+        for state_key in self.state_keys:
+            if state_key in joint_pos_state_policy:
+                policy_observations["state"][state_key] = joint_pos_state_policy[state_key].reshape(
+                    self.num_envs, 1, -1
+                )
+
         return policy_observations
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
@@ -303,7 +308,8 @@ class Gr00tClosedloopPolicy(PolicyBase):
             Shape: (num_envs, action_chunk_length, self.action_dim)
         """
         policy_observations = self.get_observations(observation, camera_name)
-        robot_action_policy = self.policy.get_action(policy_observations)
+        robot_action_policy, _ = self.policy.get_action(policy_observations)
+
         robot_action_sim = remap_policy_joints_to_sim_joints(
             robot_action_policy, self.policy_joints_config, self.robot_action_joints_config, self.device
         )
@@ -312,15 +318,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
             # NOTE(xinjieyao, 2025-09-29): GR00T output dim=32, does not fit the entire action space,
             # including torso_orientation_rpy_command. Manually set it to 0.
             torso_orientation_rpy_command = torch.zeros(
-                robot_action_policy["action.navigate_command"].shape, dtype=torch.float, device=self.device
+                robot_action_policy["navigate_command"].shape, dtype=torch.float, device=self.device
             )
             action_tensor = torch.cat(
                 [
                     robot_action_sim.get_joints_pos(),
-                    torch.tensor(robot_action_policy["action.navigate_command"], dtype=torch.float, device=self.device),
-                    torch.tensor(
-                        robot_action_policy["action.base_height_command"], dtype=torch.float, device=self.device
-                    ),
+                    torch.tensor(robot_action_policy["navigate_command"], dtype=torch.float, device=self.device),
+                    torch.tensor(robot_action_policy["base_height_command"], dtype=torch.float, device=self.device),
                     torso_orientation_rpy_command,
                 ],
                 axis=2,
@@ -345,6 +349,8 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """
         if env_ids is None:
             env_ids = slice(None)
+        # placeholder for future reset options from GR00T repo
+        self.policy.reset()
         self.current_action_chunk[env_ids] = 0.0
         self.current_action_index[env_ids] = -1
         self.env_requires_new_action_chunk[env_ids] = True

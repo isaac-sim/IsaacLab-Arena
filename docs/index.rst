@@ -187,6 +187,7 @@ TABLE OF CONTENTS
    pages/quickstart/installation
    pages/quickstart/first_arena_env
    pages/quickstart/docker_containers
+   pages/quickstart/jupyter_notebooks
 
 .. toctree::
    :maxdepth: 1
@@ -200,6 +201,7 @@ TABLE OF CONTENTS
    :caption: Advanced
 
    pages/advanced/private_omniverse
+   pages/advanced/assets_management
 
 .. toctree::
    :maxdepth: 1
