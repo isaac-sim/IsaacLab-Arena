@@ -113,9 +113,9 @@ class RelationSolver:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object instances. Must include exactly one object
-                marked with IsAnchor() which serves as the fixed reference.
-            initial_positions: Starting positions for all objects (including anchor).
+            objects: List of Object instances. Must include at least one object
+                marked with IsAnchor() which serves as a fixed reference.
+            initial_positions: Starting positions for all objects (including anchors).
 
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
@@ -123,9 +123,19 @@ class RelationSolver:
         state = RelationSolverState(objects, initial_positions)
 
         if self.params.verbose:
-            n_opt = len(objects) - 1  # All objects except anchor
+            anchor_names = [obj.name for obj in state.anchor_objects]
+            optimizable_names = [obj.name for obj in state.optimizable_objects]
             print("=== RelationSolver ===")
-            print(f"Optimizable objects: {n_opt}")
+            print(f"Anchors (fixed): {anchor_names}")
+            print(f"Optimizable: {optimizable_names}")
+
+        # Early return if nothing to optimize (all objects are anchors)
+        if len(state.optimizable_objects) == 0:
+            if self.params.verbose:
+                print("No optimizable objects, skipping solver.")
+            self._last_loss_history = [0.0]
+            self._last_position_history = [state.get_all_positions_snapshot()]
+            return state.get_final_positions_dict()
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)

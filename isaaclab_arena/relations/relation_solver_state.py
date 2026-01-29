@@ -8,7 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import find_anchor_object
+from isaaclab_arena.relations.relations import get_anchor_objects
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -30,16 +30,16 @@ class RelationSolverState:
         """Initialize optimization state.
 
         Args:
-            objects: List of all Object instances to track. Must include exactly one
-                object marked with IsAnchor() which serves as the fixed reference.
-            initial_positions: Starting positions for all objects (including anchor).
+            objects: List of all Object instances to track. Must include at least one
+                object marked with IsAnchor() which serves as a fixed reference.
+            initial_positions: Starting positions for all objects (including anchors).
         """
-        anchor_object = find_anchor_object(objects)
-        assert anchor_object is not None, "No anchor object found in objects list."
+        anchor_objects = get_anchor_objects(objects)
+        assert len(anchor_objects) > 0, "No anchor object found in objects list."
 
         self._all_objects = objects
-        self._anchor_object = anchor_object
-        self._optimizable_objects = [obj for obj in objects if obj is not anchor_object]
+        self._anchor_objects: set[Object] = set(anchor_objects)
+        self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
 
         # Build object-to-index mapping
         self._obj_to_idx: dict[Object, int] = {obj: i for i, obj in enumerate(objects)}
@@ -50,18 +50,21 @@ class RelationSolverState:
             assert obj in initial_positions, f"Missing initial position for {obj.name}"
             positions.append(torch.tensor(initial_positions[obj], dtype=torch.float32))
 
-        # Separate anchor from optimizable positions
-        self._anchor_idx = self._obj_to_idx[anchor_object]
-        self._anchor_position = positions[self._anchor_idx].clone()
+        # Separate anchor positions from optimizable positions
+        self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
+        self._anchor_positions: dict[int, torch.Tensor] = {idx: positions[idx].clone() for idx in self._anchor_indices}
 
-        # Build optimizable positions tensor (excludes anchor)
-        self._optimizable_indices = [i for i in range(len(objects)) if i != self._anchor_idx]
-        self._optimizable_positions = torch.stack([positions[i] for i in self._optimizable_indices])
-        self._optimizable_positions.requires_grad = True
+        # Build optimizable positions tensor (excludes all anchors)
+        self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
+        if self._optimizable_indices:
+            self._optimizable_positions = torch.stack([positions[i] for i in self._optimizable_indices])
+            self._optimizable_positions.requires_grad = True
+        else:
+            self._optimizable_positions = None
 
     @property
-    def optimizable_positions(self) -> torch.Tensor:
-        """Tensor of optimizable positions (shape: [N-1, 3]).
+    def optimizable_positions(self) -> torch.Tensor | None:
+        """Tensor of optimizable positions (shape: [N-num_anchors, 3]), or None if all objects are anchors.
 
         This is the tensor that should be passed to the optimizer.
         """
@@ -69,8 +72,13 @@ class RelationSolverState:
 
     @property
     def optimizable_objects(self) -> list[Object]:
-        """List of optimizable objects (excludes anchor)."""
+        """List of optimizable objects (excludes anchors)."""
         return self._optimizable_objects
+
+    @property
+    def anchor_objects(self) -> set[Object]:
+        """Set of anchor objects (fixed during optimization)."""
+        return self._anchor_objects
 
     def get_position(self, obj: Object) -> torch.Tensor:
         """Get current position for an object.
@@ -83,10 +91,13 @@ class RelationSolverState:
 
         Raises:
             KeyError: If object is not tracked by this state.
+            RuntimeError: If requesting position for optimizable object when none exist.
         """
         idx = self._obj_to_idx[obj]
-        if idx == self._anchor_idx:
-            return self._anchor_position
+        if idx in self._anchor_indices:
+            return self._anchor_positions[idx]
+        if self._optimizable_positions is None:
+            raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
         opt_idx = self._optimizable_indices.index(idx)
         return self._optimizable_positions[opt_idx]
 

@@ -5,6 +5,7 @@
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
@@ -57,6 +58,17 @@ class RigidObjectSet(Object):
             scale=scale,
             initial_pose=initial_pose,
             **kwargs,
+        )
+
+    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        if contact_against_prim_paths is None:
+            contact_against_prim_paths = []
+        # We override this function from the parent class because currently, rigid body
+        # search doesn't work for object sets.
+        return ContactSensorCfg(
+            prim_path=self.prim_path,
+            filter_prim_paths_expr=contact_against_prim_paths,
         )
 
     def _are_all_objects_type_rigid(self, objects: list[ObjectBase]) -> bool:

@@ -102,16 +102,21 @@ class On(Relation):
 
 
 class IsAnchor(RelationBase):
-    """Marker indicating this object is the anchor for relation solving.
+    """Marker indicating this object is an anchor for relation solving.
 
-    The anchor object is the fixed reference that won't be optimized during
-    relation solving. It must have an initial_pose set before calling
-    ObjectPlacer.place().
+    Anchor objects are fixed references that won't be optimized during
+    relation solving. Multiple objects can be marked as anchors.
+    Each anchor must have an initial_pose set before calling ObjectPlacer.place().
 
     Usage:
         table.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), ...))
         table.add_relation(IsAnchor())  # Mark as anchor
+
+        chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), ...))
+        chair.add_relation(IsAnchor())  # Another anchor
+
         mug.add_relation(On(table))
+        bin.add_relation(NextTo(chair))
     """
 
     pass
@@ -156,27 +161,16 @@ class AtPosition(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
-def find_anchor_object(objects: list[Object]) -> Object | None:
-    """Find the anchor object from a list of objects.
+def get_anchor_objects(objects: list[Object]) -> list[Object]:
+    """Get all anchor objects from a list of objects.
 
-    The anchor object is marked with IsAnchor() relation and serves as the
-    fixed reference point for relation solving.
+    Anchor objects are marked with IsAnchor() relation and serve as
+    fixed reference points for relation solving.
 
     Args:
-        objects: List of objects to search.
+        objects: List of objects to filter.
 
     Returns:
-        The anchor object, or None if no anchor is found.
+        List of anchor objects (may be empty if no anchors found).
     """
-    anchor_object: Object | None = None
-    for obj in objects:
-        for relation in obj.get_relations():
-            if isinstance(relation, IsAnchor):
-                assert anchor_object is None, (
-                    f"Multiple anchor objects found: '{anchor_object.name}' and '{obj.name}'. "
-                    "Only one object should be marked with IsAnchor()."
-                )
-                anchor_object = obj
-                break  # Stop checking this object's relations, continue to next object
-
-    return anchor_object
+    return [obj for obj in objects if any(isinstance(r, IsAnchor) for r in obj.get_relations())]

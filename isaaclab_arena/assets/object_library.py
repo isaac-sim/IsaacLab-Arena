@@ -540,3 +540,27 @@ class MediumGear(LibraryObject):
     asset_cfg_addon = {
         "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
+
+
+@register_asset
+class SweetPotato(LibraryObject):
+    """
+    SweetPotato
+    """
+
+    # Only required when using Lightwheel SDK
+    from lightwheel_sdk.loader import object_loader
+
+    name = "sweet_potato"
+    tags = ["object", "vegetable", "graspable"]
+    file_path, object_name, metadata = object_loader.acquire_by_registry(
+        registry_type="objects", file_name="SweetPotato005", file_type="USD"
+    )
+    usd_path = file_path
+    object_type = ObjectType.RIGID
+    scale = (1.3, 1.3, 1.3)
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
