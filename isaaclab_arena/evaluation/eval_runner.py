@@ -54,7 +54,6 @@ def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namesp
     """
     for job_dict in eval_jobs_config["jobs"]:
         if "arena_env_args" in job_dict and job_dict["arena_env_args"].get("enable_cameras", False):
-            # will not override the enable_cameras flag if it is already set from cli
             if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
                 args_cli.enable_cameras = True
             break
