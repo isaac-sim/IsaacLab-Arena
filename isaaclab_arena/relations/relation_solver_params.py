@@ -28,7 +28,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
 class RelationSolverParams:
     """Configuration parameters for RelationSolver."""
 
-    max_iters: int = 1000
+    max_iters: int = 600
     """Maximum optimization iterations."""
 
     lr: float = 0.01

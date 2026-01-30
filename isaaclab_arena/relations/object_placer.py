@@ -17,6 +17,7 @@ from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
 
 
 class ObjectPlacer:
@@ -41,7 +42,7 @@ class ObjectPlacer:
 
     def place(
         self,
-        objects: list[Object],
+        objects: list[Object | ObjectReference],
     ) -> PlacementResult:
         """Place objects according to their spatial relations.
 
@@ -68,7 +69,7 @@ class ObjectPlacer:
 
         # Validate all anchors have initial_pose set
         for anchor in anchor_objects:
-            assert anchor.initial_pose is not None, (
+            assert anchor.get_initial_pose() is not None, (
                 f"Anchor object '{anchor.name}' must have an initial_pose set. "
                 "Call anchor_object.set_initial_pose(...) before placing."
             )
@@ -87,7 +88,7 @@ class ObjectPlacer:
         init_bounds = self._get_init_bounds(anchor_objects[0])
 
         # Placement loop with retries
-        best_positions: dict[Object, tuple[float, float, float]] = {}
+        best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         best_loss = float("inf")
         success = False
 
@@ -129,7 +130,7 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_init_bounds(self, anchor_object: Object) -> AxisAlignedBoundingBox:
+    def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
         """Get bounds for random position initialization.
 
         If init_bounds is provided in params, use it.
@@ -162,10 +163,10 @@ class ObjectPlacer:
 
     def _generate_initial_positions(
         self,
-        objects: list[Object],
-        anchor_objects: set[Object],
+        objects: list[Object | ObjectReference],
+        anchor_objects: Object | ObjectReference,
         init_bounds: AxisAlignedBoundingBox,
-    ) -> dict[Object, tuple[float, float, float]]:
+    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchors keep their current initial_pose, others get random positions.
@@ -173,10 +174,10 @@ class ObjectPlacer:
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
-        positions: dict[Object, tuple[float, float, float]] = {}
+        positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
-                positions[obj] = obj.initial_pose.position_xyz
+                positions[obj] = obj.get_initial_pose().position_xyz
             else:
                 random_pose = get_random_pose_within_bounding_box(init_bounds)
                 positions[obj] = random_pose.position_xyz
@@ -184,7 +185,7 @@ class ObjectPlacer:
 
     def _validate_placement(
         self,
-        positions: dict[Object, tuple[float, float, float]],
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
         """Validate that the placement is geometrically valid.
 
@@ -202,8 +203,8 @@ class ObjectPlacer:
 
     def _apply_positions(
         self,
-        positions: dict[Object, tuple[float, float, float]],
-        anchor_objects: set[Object],
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+        anchor_objects: Object | ObjectReference,
     ) -> None:
         """Apply solved positions to objects (skipping anchors)."""
         for obj, pos in positions.items():

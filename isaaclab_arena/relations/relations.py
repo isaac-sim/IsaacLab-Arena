@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
 
 
 class Side(Enum):
@@ -35,10 +36,10 @@ class RelationBase:
 class Relation(RelationBase):
     """Base class for spatial relationships between objects."""
 
-    def __init__(self, parent: Object, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: Object | ObjectReference, relation_loss_weight: float = 1.0):
         """
         Args:
-            parent: The parent asset in the relationship.
+            parent: The parent asset in the relationship (Object or ObjectReference).
             relation_loss_weight: Weight for the relationship loss function.
         """
         self.parent = parent
@@ -56,7 +57,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: Object,
+        parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.RIGHT,
@@ -86,7 +87,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: Object,
+        parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
     ):
@@ -161,7 +162,7 @@ class AtPosition(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
-def get_anchor_objects(objects: list[Object]) -> list[Object]:
+def get_anchor_objects(objects: list[Object | ObjectReference]) -> list[Object | ObjectReference]:
     """Get all anchor objects from a list of objects.
 
     Anchor objects are marked with IsAnchor() relation and serve as
