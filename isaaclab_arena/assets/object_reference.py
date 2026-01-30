@@ -5,7 +5,6 @@
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
@@ -13,7 +12,11 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
+from isaaclab_arena.utils.usd_helpers import (
+    compute_local_bounding_box_from_prim,
+    isaaclab_prim_path_to_original_prim_path,
+    open_stage,
+)
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
@@ -65,7 +68,7 @@ class ObjectReference(ObjectBase):
         """
         if self._bounding_box is None:
             with open_stage(self.parent_asset.usd_path) as parent_stage:
-                prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                prim_path_in_usd = isaaclab_prim_path_to_original_prim_path(
                     self.prim_path, self.parent_asset, parent_stage
                 )
                 raw_bbox = compute_local_bounding_box_from_prim(parent_stage, prim_path_in_usd)
@@ -132,7 +135,7 @@ class ObjectReference(ObjectBase):
         The position is scaled by the parent's scale factor.
         """
         with open_stage(parent_asset.usd_path) as parent_stage:
-            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(self.prim_path, parent_asset, parent_stage)
+            prim_path_in_usd = isaaclab_prim_path_to_original_prim_path(self.prim_path, parent_asset, parent_stage)
             prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
@@ -144,35 +147,6 @@ class ObjectReference(ObjectBase):
                 prim_pose.position_xyz[2] * self._parent_scale[2],
             )
             return Pose(position_xyz=scaled_pos, rotation_wxyz=prim_pose.rotation_wxyz)
-
-    def isaaclab_prim_path_to_original_prim_path(
-        self, isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage
-    ) -> str:
-        """Convert an IsaacLab prim path to the prim path in the original USD stage.
-
-        Two steps to getting the original prim path from the IsaacLab prim path.
-
-        # 1. Remove the ENV_REGEX_NS prefix
-        # 2. Replace the asset name with the default prim path.
-
-        Args:
-            isaaclab_prim_path: The IsaacLab prim path.
-
-        Returns:
-            The prim path in the original USD stage.
-        """
-        default_prim = stage.GetDefaultPrim()
-        default_prim_path = default_prim.GetPath()
-        assert default_prim_path is not None
-        # Check that the path starts with the ENV_REGEX_NS prefix.
-        assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
-        original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
-        # Check that the path starts with the asset name.
-        assert original_prim_path.startswith(parent_asset.name)
-        original_prim_path = original_prim_path.removeprefix(parent_asset.name)
-        # Append the default prim path.
-        original_prim_path = str(default_prim_path) + original_prim_path
-        return original_prim_path
 
 
 class OpenableObjectReference(ObjectReference, Openable):

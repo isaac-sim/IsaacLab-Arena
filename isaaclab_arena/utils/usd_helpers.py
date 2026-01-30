@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
+from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -204,3 +205,31 @@ def compute_local_bounding_box_from_prim(
         min_point=(local_min[0], local_min[1], local_min[2]),
         max_point=(local_max[0], local_max[1], local_max[2]),
     )
+
+
+def isaaclab_prim_path_to_original_prim_path(isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage) -> str:
+    """Convert an IsaacLab prim path to the prim path in the original USD stage.
+
+    Two steps to getting the original prim path from the IsaacLab prim path.
+
+    # 1. Remove the ENV_REGEX_NS prefix
+    # 2. Replace the asset name with the default prim path.
+
+    Args:
+        isaaclab_prim_path: The IsaacLab prim path.
+
+    Returns:
+        The prim path in the original USD stage.
+    """
+    default_prim = stage.GetDefaultPrim()
+    default_prim_path = default_prim.GetPath()
+    assert default_prim_path is not None
+    # Check that the path starts with the ENV_REGEX_NS prefix.
+    assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
+    original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
+    # Check that the path starts with the asset name.
+    assert original_prim_path.startswith(parent_asset.name)
+    original_prim_path = original_prim_path.removeprefix(parent_asset.name)
+    # Append the default prim path.
+    original_prim_path = str(default_prim_path) + original_prim_path
+    return original_prim_path
