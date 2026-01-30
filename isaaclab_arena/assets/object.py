@@ -7,6 +7,7 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
@@ -16,6 +17,7 @@ from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
@@ -102,6 +104,26 @@ class Object(ObjectBase):
     def enable_reset_pose(self) -> None:
         self.reset_pose = True
         self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
+
+    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+        # We override this function from the parent class because in some assets, the rigid body
+        # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
+        # and add the contact sensor to it.
+        # TODO(alexmillane, 2026.01.29): This capability to search for the correct place
+        # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
+        # For these objects we just (try to) add the contact sensor to the root prim.
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        if contact_against_prim_paths is None:
+            contact_against_prim_paths = []
+        rigid_body_relative_path = find_shallowest_rigid_body(self.usd_path, relative_to_root=True)
+        assert (
+            rigid_body_relative_path is not None
+        ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
+        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        return ContactSensorCfg(
+            prim_path=contact_sensor_prim_path,
+            filter_prim_paths_expr=contact_against_prim_paths,
+        )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
