@@ -7,8 +7,8 @@ from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def get_all_prims(
@@ -207,29 +207,52 @@ def compute_local_bounding_box_from_prim(
     )
 
 
-def isaaclab_prim_path_to_original_prim_path(isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage) -> str:
-    """Convert an IsaacLab prim path to the prim path in the original USD stage.
-
-    Two steps to getting the original prim path from the IsaacLab prim path.
-
-    # 1. Remove the ENV_REGEX_NS prefix
-    # 2. Replace the asset name with the default prim path.
+def read_prim_pose_in_default_prim_frame(
+    usd_path: str,
+    prim_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> Pose:
+    """Read a prim's pose in the default prim's frame from a USD file.
 
     Args:
-        isaaclab_prim_path: The IsaacLab prim path.
+        usd_path: Path to the USD file.
+        prim_path: Path to the prim in the USD file (e.g., "/kitchen/microwave").
+        scale: Scale factor to apply to the position.
 
     Returns:
-        The prim path in the original USD stage.
+        The prim's pose in the default prim's frame, with position scaled.
     """
-    default_prim = stage.GetDefaultPrim()
-    default_prim_path = default_prim.GetPath()
-    assert default_prim_path is not None
-    # Check that the path starts with the ENV_REGEX_NS prefix.
-    assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
-    original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
-    # Check that the path starts with the asset name.
-    assert original_prim_path.startswith(parent_asset.name)
-    original_prim_path = original_prim_path.removeprefix(parent_asset.name)
-    # Append the default prim path.
-    original_prim_path = str(default_prim_path) + original_prim_path
-    return original_prim_path
+    # Import here to avoid circular import
+    from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
+
+    with open_stage(usd_path) as stage:
+        prim = stage.GetPrimAtPath(prim_path)
+        assert prim, f"No prim found at {prim_path} in {usd_path}"
+
+        pose = get_prim_pose_in_default_prim_frame(prim, stage)
+        scaled_pos = (
+            pose.position_xyz[0] * scale[0],
+            pose.position_xyz[1] * scale[1],
+            pose.position_xyz[2] * scale[2],
+        )
+        return Pose(position_xyz=scaled_pos, rotation_wxyz=pose.rotation_wxyz)
+
+
+def read_prim_bounding_box(
+    usd_path: str,
+    prim_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> AxisAlignedBoundingBox:
+    """Read a prim's bounding box from a USD file.
+
+    Args:
+        usd_path: Path to the USD file.
+        prim_path: Path to the prim in the USD file (e.g., "/kitchen/microwave").
+        scale: Scale factor to apply to the bounding box.
+
+    Returns:
+        The prim's local bounding box, scaled.
+    """
+    with open_stage(usd_path) as stage:
+        raw_bbox = compute_local_bounding_box_from_prim(stage, prim_path)
+        return raw_bbox.scaled(scale)
