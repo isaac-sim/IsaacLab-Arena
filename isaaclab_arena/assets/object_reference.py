@@ -43,15 +43,15 @@ class ObjectReference(ObjectBase):
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
 
-        ObjectReference can only be used as an anchor in the placement pipeline
-        since it refers to an existing element that cannot be moved.
+        ObjectReference only supports IsAnchor relations because the placement
+        solver treats references as fixed points.
 
         Args:
             relation: Must be an IsAnchor relation.
         """
         assert isinstance(relation, IsAnchor), (
             f"ObjectReference only supports IsAnchor relations, got {type(relation).__name__}. "
-            "ObjectReferences refer to existing elements that cannot be moved."
+            "The placement solver does not optimize ObjectReference positions."
         )
         self.relations.append(relation)
 
