@@ -12,6 +12,7 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
 
 
 class RelationSolverState:
@@ -24,13 +25,13 @@ class RelationSolverState:
 
     def __init__(
         self,
-        objects: list[Object],
-        initial_positions: dict[Object, tuple[float, float, float]],
+        objects: list[Object | ObjectReference],
+        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ):
         """Initialize optimization state.
 
         Args:
-            objects: List of all Object instances to track. Must include at least one
+            objects: List of all Object or ObjectReference instances to track. Must include at least one
                 object marked with IsAnchor() which serves as a fixed reference.
             initial_positions: Starting positions for all objects (including anchors).
         """
@@ -42,7 +43,7 @@ class RelationSolverState:
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
 
         # Build object-to-index mapping
-        self._obj_to_idx: dict[Object, int] = {obj: i for i, obj in enumerate(objects)}
+        self._obj_to_idx: dict[Object | ObjectReference, int] = {obj: i for i, obj in enumerate(objects)}
 
         # Extract positions from the provided dict
         positions = []
@@ -80,7 +81,7 @@ class RelationSolverState:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects
 
-    def get_position(self, obj: Object) -> torch.Tensor:
+    def get_position(self, obj: Object | ObjectReference) -> torch.Tensor:
         """Get current position for an object.
 
         Args:
@@ -109,13 +110,13 @@ class RelationSolverState:
         """
         return [tuple(self.get_position(obj).detach().tolist()) for obj in self._all_objects]
 
-    def get_final_positions_dict(self) -> dict[Object, tuple[float, float, float]]:
+    def get_final_positions_dict(self) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Get final positions as a dictionary mapping objects to positions.
 
         Returns:
             Dictionary with object instances as keys and (x, y, z) tuples as values.
         """
-        result: dict[Object, tuple[float, float, float]] = {}
+        result: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in self._all_objects:
             pos = self.get_position(obj).detach().tolist()
             result[obj] = (pos[0], pos[1], pos[2])

@@ -13,6 +13,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -40,6 +41,15 @@ class ObjectBase(Asset, ABC):
         self.object_type = object_type
         self.object_cfg = None
         self.event_cfg = None
+        self.relations: list[RelationBase] = []
+
+    def get_relations(self) -> list[RelationBase]:
+        """Get all relations for this object."""
+        return self.relations
+
+    def get_spatial_relations(self) -> list[RelationBase]:
+        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
+        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
