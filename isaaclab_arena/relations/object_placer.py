@@ -69,7 +69,7 @@ class ObjectPlacer:
 
         # Validate all anchors have initial_pose set
         for anchor in anchor_objects:
-            assert anchor.initial_pose is not None, (
+            assert anchor.get_initial_pose() is not None, (
                 f"Anchor object '{anchor.name}' must have an initial_pose set. "
                 "Call anchor_object.set_initial_pose(...) before placing."
             )
@@ -177,7 +177,7 @@ class ObjectPlacer:
         positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
-                positions[obj] = obj.initial_pose.position_xyz
+                positions[obj] = obj.get_initial_pose().position_xyz
             else:
                 random_pose = get_random_pose_within_bounding_box(init_bounds)
                 positions[obj] = random_pose.position_xyz

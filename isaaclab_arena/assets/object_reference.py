@@ -40,12 +40,6 @@ class ObjectReference(ObjectBase):
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
 
-    @property
-    def initial_pose(self) -> Pose:
-        """Property for placement pipeline compatibility."""
-        pose = self.get_initial_pose()
-        return pose
-
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
 
@@ -81,7 +75,7 @@ class ObjectReference(ObjectBase):
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox + world position)."""
-        return self.get_bounding_box().translated(self.initial_pose.position_xyz)
+        return self.get_bounding_box().translated(self.get_initial_pose().position_xyz)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
