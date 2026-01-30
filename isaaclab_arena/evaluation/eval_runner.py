@@ -124,6 +124,13 @@ def main():
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
 
+        # Exit with non-zero code if any jobs failed
+        job_counts = job_manager.get_job_count()
+        if job_counts[Status.FAILED.value] > 0:
+            failed_count = job_counts[Status.FAILED.value]
+            total_count = len(job_manager.all_jobs)
+            raise RuntimeError(f"{failed_count}/{total_count} jobs failed. See logs above for details.")
+
 
 if __name__ == "__main__":
     main()
