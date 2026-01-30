@@ -45,13 +45,21 @@ def has_light(stage: Usd.Stage) -> bool:
         UsdLux.DistantLight,
         UsdLux.DiskLight,
     )
-    has_light = False
     all_prims = get_all_prims(stage)
-    for prim in all_prims:
-        if any(prim.IsA(t) for t in LIGHT_TYPES):
-            has_light = True
-            break
-    return has_light
+    return any(any(prim.IsA(t) for t in LIGHT_TYPES) for prim in all_prims)
+
+
+def usd_file_has_light(usd_path: str) -> bool:
+    """Check if a USD file contains any lights.
+
+    Args:
+        usd_path: Path to the USD file.
+
+    Returns:
+        True if the USD file contains lights, False otherwise.
+    """
+    with open_stage(usd_path) as stage:
+        return has_light(stage)
 
 
 def is_articulation_root(prim: Usd.Prim) -> bool:

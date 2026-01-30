@@ -18,7 +18,7 @@ from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, usd_file_has_light
 
 
 class Object(ObjectBase):
@@ -158,9 +158,9 @@ class Object(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
-        with open_stage(self.usd_path) as stage:
-            if has_light(stage):
-                print("WARNING: Base object has lights, this may cause issues when using with multiple environments.")
+        if usd_file_has_light(self.usd_path):
+            print(f"WARNING: Base object '{self.name}' has lights. This may cause issues with multiple environments.")
+
         object_cfg = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/" + self.name,
             spawn=UsdFileCfg(
