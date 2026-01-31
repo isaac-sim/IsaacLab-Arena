@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
+import json
 from dataclasses import field
 from typing import Any
 
@@ -60,3 +62,26 @@ class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
         cfg.save_interval = save_interval
         cfg.experiment_name = experiment_name
         return cfg
+
+
+def get_agent_cfg(args_cli: argparse.Namespace) -> Any:
+    """Get the environment and agent configuration from the command line arguments."""
+
+    # Read a json file containing the agent configuration
+    with open(args_cli.agent_cfg_path) as f:
+        agent_cfg_dict = json.load(f)
+
+    policy_cfg = agent_cfg_dict["policy_cfg"]
+    algorithm_cfg = agent_cfg_dict["algorithm_cfg"]
+    obs_groups = agent_cfg_dict["obs_groups"]
+    # Load all other arguments if they are in args_cli as policy arguments
+    num_steps_per_env = args_cli.num_steps_per_env
+    max_iterations = args_cli.max_iterations
+    save_interval = args_cli.save_interval
+    experiment_name = args_cli.experiment_name
+
+    agent_cfg = RLPolicyCfg.update_cfg(
+        policy_cfg, algorithm_cfg, obs_groups, num_steps_per_env, max_iterations, save_interval, experiment_name
+    )
+
+    return agent_cfg
