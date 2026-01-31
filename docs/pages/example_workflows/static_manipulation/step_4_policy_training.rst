@@ -130,9 +130,7 @@ We provide two post-training options:
 
       .. code-block:: bash
 
-         cd submodules/Isaac-GR00T
-
-         python -m torch.distributed.run --nproc_per_node=8 --standalone scripts/gr00t_finetune.py \
+         python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
          --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
@@ -161,22 +159,20 @@ We provide two post-training options:
       - **Base Model:** GR00T-N1.6-3B (foundation model)
       - **Tuned Modules:** Visual backbone, projector, diffusion model
       - **Frozen Modules:** LLM (language model)
-      - **Batch Size:** 24 (adjust based on GPU memory)
-      - **Training Steps:** 20,000
+      - **Batch Size:** 16 (adjust based on GPU memory)
+      - **Training Steps:** 30,000
       - **GPUs:** 1 (single-GPU training)
 
       To post-train the policy, run the following command
 
       .. code-block:: bash
 
-         cd submodules/Isaac-GR00T
-
-         python -m torch.distributed.run --nproc_per_node=1 --standalone scripts/gr00t_finetune.py \
+         CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
          --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
-         --global_batch_size=24 \
-         --max_steps=20000 \
+         --global_batch_size=16 \
+         --max_steps=30000 \
          --num_gpus=1 \
          --save_steps=5000 \
          --base_model_path=nvidia/GR00T-N1.6-3B \
@@ -184,12 +180,11 @@ We provide two post-training options:
          --tune_visual \
          --tune_projector \
          --tune_diffusion_model \
-         --no-resume \
          --dataloader_num_workers=16 \
          --use-wandb \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
-         --save_total_limit=5 \
+         --save_total_limit=5
 
 
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_

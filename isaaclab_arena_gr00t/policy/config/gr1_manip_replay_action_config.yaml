@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
+# This file shows how to configure the ReplayLerobotActionPolicy class for GR1 tabletop manipulation task
 dataset_path: "/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot/"
 
-action_horizon: 16
+action_horizon: 1
 embodiment_tag: GR1
 video_backend: decord
 modality_config_path: isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py

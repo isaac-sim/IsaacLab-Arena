@@ -7,7 +7,7 @@
 # NOTE(alexmillane, 2025-10-31): The model path here aligns with the model used in the static manipulation tutorial.
 model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
-# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.6 policy data_config 'unitree_g1_sim_wbc'.
+# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.6 modality_config_path.
 action_horizon: 16
 embodiment_tag: NEW_EMBODIMENT
 video_backend: decord
