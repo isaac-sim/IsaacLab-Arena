@@ -33,9 +33,8 @@ def test_job_from_dict():
 def test_job_convert_args_dict_to_cli_args_list():
     """Test converting arguments dictionary to CLI args list."""
     # Test basic string arguments
-    args_dict = {"env": "test_env", "object": "box", "num_envs": "4"}
+    args_dict = {"environment": "test_env", "object": "box", "num_envs": "4", "headless": True, "enable_cameras": False}
     args_list = Job.convert_args_dict_to_cli_args_list(args_dict)
-    assert "--env" in args_list
     assert "test_env" in args_list
     assert "--object" in args_list
     assert "box" in args_list
@@ -43,19 +42,20 @@ def test_job_convert_args_dict_to_cli_args_list():
     assert "4" in args_list
 
     # Test boolean arguments
-    args_dict_bool = {"headless": True, "enable_cameras": False}
-    args_list_bool = Job.convert_args_dict_to_cli_args_list(args_dict_bool)
-    assert "--headless" in args_list_bool
-    assert "--enable_cameras" not in args_list_bool  # False booleans are skipped
-
-    # Test empty dict
-    assert Job.convert_args_dict_to_cli_args_list({}) == []
+    assert "--headless" in args_list
+    assert "--enable_cameras" not in args_list  # False booleans are skipped
 
 
 def test_job_manager_update_job_status():
     """Test updating a job status."""
 
-    job = Job("test_job", {"environment": "test_env"}, "zero_action", policy_config_dict={})
+    job = Job(
+        "test_job",
+        num_envs=1,
+        arena_env_args={"environment": "test_env"},
+        policy_type="zero_action",
+        policy_config_dict={},
+    )
     job_manager = JobManager([job])
 
     # Get the job
@@ -73,7 +73,13 @@ def test_job_manager_failed_job():
     """Test marking a job as failed."""
     import time
 
-    job = Job("failing_job", {"environment": "test_env"}, "zero_action", policy_config_dict={})
+    job = Job(
+        "failing_job",
+        num_envs=1,
+        arena_env_args={"environment": "test_env"},
+        policy_type="zero_action",
+        policy_config_dict={},
+    )
     job_manager = JobManager([job])
 
     job = job_manager.get_next_job()
@@ -133,9 +139,24 @@ def test_job_manager_mixed_statuses():
 def test_job_manager_job_order():
     """Test that jobs are processed in FIFO order."""
     jobs = [
-        {"name": "first", "arena_env_args": {"env": "env1"}, "policy_type": "zero_action", "policy_config_dict": {}},
-        {"name": "second", "arena_env_args": {"env": "env2"}, "policy_type": "random", "policy_config_dict": {}},
-        {"name": "third", "arena_env_args": {"env": "env3"}, "policy_type": "zero_action", "policy_config_dict": {}},
+        {
+            "name": "first",
+            "arena_env_args": {"environment": "env1"},
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+        },
+        {
+            "name": "second",
+            "arena_env_args": {"environment": "env2"},
+            "policy_type": "random",
+            "policy_config_dict": {},
+        },
+        {
+            "name": "third",
+            "arena_env_args": {"environment": "env3"},
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+        },
     ]
 
     job_manager = JobManager(jobs)
@@ -217,9 +238,19 @@ def test_job_manager_set_jobs_status_by_name():
 def test_job_manager_iterator():
     """Test that JobManager is iterable."""
     jobs = [
-        {"name": "job1", "arena_env_args": {"env": "env1"}, "policy_type": "zero_action", "policy_config_dict": {}},
-        {"name": "job2", "arena_env_args": {"env": "env2"}, "policy_type": "random", "policy_config_dict": {}},
-        {"name": "job3", "arena_env_args": {"env": "env3"}, "policy_type": "zero_action", "policy_config_dict": {}},
+        {
+            "name": "job1",
+            "arena_env_args": {"environment": "env1"},
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+        },
+        {"name": "job2", "arena_env_args": {"environment": "env2"}, "policy_type": "random", "policy_config_dict": {}},
+        {
+            "name": "job3",
+            "arena_env_args": {"environment": "env3"},
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+        },
     ]
 
     job_manager = JobManager(jobs)

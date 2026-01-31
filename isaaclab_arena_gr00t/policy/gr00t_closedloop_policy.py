@@ -214,6 +214,8 @@ class Gr00tClosedloopPolicy(PolicyBase):
         return self.task_description
 
     def get_observations(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> dict[str, Any]:
+        assert "camera_obs" in observation, "camera_obs is not in observation"
+        assert camera_name in observation["camera_obs"], f"camera_name {camera_name} is not in camera_obs"
         rgb = observation["camera_obs"][camera_name]
         # gr00t uses numpy arrays
         rgb = rgb.cpu().numpy()
