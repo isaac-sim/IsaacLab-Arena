@@ -12,13 +12,13 @@ Please check the relevant environment files to see what CLI arguments are suppor
 Examples are launched with a zero action runner (with some example arguments) like:
 
 ```bash
-python isaaclab_arena/examples/policy_runner.py --policy_type zero_action kitchen_pick_and_place --object cracker_box --embodiment gr1_joint
+python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action kitchen_pick_and_place --object cracker_box --embodiment gr1_joint
 ```
 
 or
 
 ```bash
-python isaaclab_arena/examples/policy_runner.py --policy_type zero_action gr1_open_microwave --object tomato_soup_can
+python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action gr1_open_microwave --object tomato_soup_can
 ```
 
 **NOTE:** CLI arguments are sensitive to order. They must appear in the following order:
