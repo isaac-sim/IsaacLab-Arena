@@ -135,29 +135,29 @@ During training, you'll see periodic console output:
 
    Learning iteration 2000/12000
 
-                       Computation: 308 steps/s (collection: 4.600s, learning 0.377s)
-             Mean action noise std: 1.00
-          Mean value_function loss: 0.0273
-               Mean surrogate loss: -0.0138
-                 Mean entropy loss: 9.9339
-                       Mean reward: 0.65
-               Mean episode length: 12.00
-        Episode_Reward/action_rate: -0.0000
-          Episode_Reward/joint_vel: -0.0001
-    Episode_Reward/reaching_object: 0.0000
-     Episode_Reward/lifting_object: 0.1050
-Episode_Reward/object_goal_tracking: 0.0223
-Episode_Reward/object_goal_tracking_fine_grained: 0.0000
-Metrics/object_pose/position_error: 0.5721
-Metrics/object_pose/orientation_error: 2.2834
-      Episode_Termination/time_out: 0.0423
-Episode_Termination/object_dropped: 0.0000
-       Episode_Termination/success: 0.0000
---------------------------------------------------------------------------------
-                   Total timesteps: 1536
-                    Iteration time: 4.98s
-                      Time elapsed: 00:00:04
-                               ETA: 00:00:49
+                          Computation: 308 steps/s (collection: 4.600s, learning 0.377s)
+                Mean action noise std: 1.00
+             Mean value_function loss: 0.0273
+                  Mean surrogate loss: -0.0138
+                    Mean entropy loss: 9.9339
+                          Mean reward: 0.65
+                  Mean episode length: 12.00
+           Episode_Reward/action_rate: -0.0000
+             Episode_Reward/joint_vel: -0.0001
+       Episode_Reward/reaching_object: 0.0000
+        Episode_Reward/lifting_object: 0.1050
+   Episode_Reward/object_goal_tracking: 0.0223
+   Episode_Reward/object_goal_tracking_fine_grained: 0.0000
+   Metrics/object_pose/position_error: 0.5721
+   Metrics/object_pose/orientation_error: 2.2834
+         Episode_Termination/time_out: 0.0423
+   Episode_Termination/object_dropped: 0.0000
+          Episode_Termination/success: 0.0000
+   --------------------------------------------------------------------------------
+                      Total timesteps: 1536
+                       Iteration time: 4.98s
+                         Time elapsed: 00:00:04
+                                  ETA: 00:00:49
 
    [INFO] Saved checkpoint to: logs/rsl_rl/generic_experiment/<timestamp>/model_<iteration>.pt
 
