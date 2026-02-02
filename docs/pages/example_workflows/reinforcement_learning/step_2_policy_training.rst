@@ -146,18 +146,18 @@ During training, you'll see periodic console output:
           Episode_Reward/joint_vel: -0.0001
     Episode_Reward/reaching_object: 0.0000
      Episode_Reward/lifting_object: 0.1050
-Episode_Reward/object_goal_tracking: 0.0223
-Episode_Reward/object_goal_tracking_fine_grained: 0.0000
-Metrics/object_pose/position_error: 0.5721
-Metrics/object_pose/orientation_error: 2.2834
-      Episode_Termination/time_out: 0.0423
-Episode_Termination/object_dropped: 0.0000
-       Episode_Termination/success: 0.0000
---------------------------------------------------------------------------------
-                   Total timesteps: 1536
-                    Iteration time: 4.98s
-                      Time elapsed: 00:00:04
-                               ETA: 00:00:49
+   Episode_Reward/object_goal_tracking: 0.0223
+   Episode_Reward/object_goal_tracking_fine_grained: 0.0000
+   Metrics/object_pose/position_error: 0.5721
+   Metrics/object_pose/orientation_error: 2.2834
+         Episode_Termination/time_out: 0.0423
+   Episode_Termination/object_dropped: 0.0000
+          Episode_Termination/success: 0.0000
+   --------------------------------------------------------------------------------
+                      Total timesteps: 1536
+                       Iteration time: 4.98s
+                         Time elapsed: 00:00:04
+                                  ETA: 00:00:49
 
    [INFO] Saved checkpoint to: logs/rsl_rl/generic_experiment/<timestamp>/model_<iteration>.pt
 
