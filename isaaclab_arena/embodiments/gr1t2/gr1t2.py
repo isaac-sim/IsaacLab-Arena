@@ -77,7 +77,7 @@ ARM_JOINT_NAMES_LIST = [
 ]
 
 # Default camera offset pose
-_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
 
 
 @register_asset

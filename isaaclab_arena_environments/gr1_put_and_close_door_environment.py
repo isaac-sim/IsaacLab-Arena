@@ -109,9 +109,10 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 # Oblique to bench
                 # position_xyz=(3.943, -1.069, 0.995),
                 # rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
-                # 30 degrees clockwise from oblique to bench
-                position_xyz=(3.943, -1.0, 0.995),
-                rotation_wxyz=(0.8660254, 0.0, 0.0, 0.5),
+                # 35 degrees clockwise from oblique to bench
+                position_xyz=(3.943, -0.9, 0.995),
+                # rotation_wxyz=(0.9537170, 0.0, 0.0, 0.3007058),
+                rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
             )
         )
 
