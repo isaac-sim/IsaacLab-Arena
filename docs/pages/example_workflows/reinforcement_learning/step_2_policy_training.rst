@@ -195,6 +195,11 @@ Expected Results
 After 12,000 iterations (~6 hours on a single GPU with 512 environments):
 
 The trained policy should reliably grasp and lift objects to commanded target positions.
+Please refer to the following gif for an example of the trained policy:
+
+.. image:: ../../../images/lift_object_rl_task.gif
+   :align: center
+   :height: 400px
 
 .. note::
 

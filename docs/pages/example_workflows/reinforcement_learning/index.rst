@@ -3,7 +3,7 @@ Franka Lift Object Task
 
 This example demonstrates the complete workflow for **reinforcement learning-based object lifting** using the Franka Panda robot in Isaac Lab - Arena, covering environment setup, policy training with RSL-RL, and closed-loop evaluation.
 
-.. image:: ../../../images/franka_kitchen_pickup.gif
+.. image:: ../../../images/lift_object_rl_task.gif
    :align: center
    :height: 400px
 

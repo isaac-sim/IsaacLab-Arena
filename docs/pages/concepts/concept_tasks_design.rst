@@ -57,11 +57,7 @@ Tasks in Detail
    - **Commands**: Introduce command managers that sample random target goals each episode
    - **Rewards**: Define dense reward functions for desired behaviors (reaching, grasping, lifting, target achievement)
    - **Observations**: Configure state observations to include object state, and goal commands
-   - **Success Function**: Adaptive termination logic that supports multiple modes:
-
-      - *Training mode*: Disables early success termination to maximize episode length
-      - *Evaluation mode*: Uses command manager goals for success detection
-      - *IL mode*: Falls back to fixed goal positions for teleoperation/demonstrations
+   - **Success Function**: Override the success function to use the command manager goals for success detection. We just return false during training.
 
 
 Environment Integration

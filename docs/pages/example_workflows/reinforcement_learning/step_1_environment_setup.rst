@@ -155,7 +155,7 @@ See :doc:`../../concepts/concept_environment_design` for environment composition
 Validation: Run Random Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To validate the environment setup, we can run a random policy to ensure everything loads correctly:
+To validate the environment setup, we can run a policy with random weights to ensure everything loads correctly:
 
 .. code-block:: bash
 
