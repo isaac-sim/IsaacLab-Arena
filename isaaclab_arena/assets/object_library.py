@@ -26,7 +26,7 @@ from isaaclab_arena.utils.pose import Pose
 
 # TODO(xinjieyao, 2026.01.07): Remove staging bucket and use production bucket for release.
 ISAACLAB_STAGING_NUCLEUS_DIR = (
-    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/"
+    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab"
 )
 
 
@@ -574,8 +574,10 @@ class RedCube(LibraryObject):
 
     name = "red_cube"
     tags = ["object"]
+
+    # usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd" # not support, rigid body attribute need to be bind to root xform.
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
-    # f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd": not support, rigid body attribute should bind to root xform.
+
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/RedCube"
     scale = (0.02, 0.02, 0.02)
@@ -592,8 +594,9 @@ class GreenCube(LibraryObject):
 
     name = "green_cube"
     tags = ["object"]
+
+    # usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd" # not support, rigid body attribute need to be bind to root xform.
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
-    # f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd": not support, rigid body attribute should bind to root xform.
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/GreenCube"
     scale = (0.02, 0.02, 0.02)

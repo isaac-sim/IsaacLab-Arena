@@ -19,24 +19,8 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose
-        from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
-
-        from isaaclab.managers import EventTermCfg as EventTerm
-        from isaaclab.managers import SceneEntityCfg
-        from isaaclab.utils import configclass
-        from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
-
-        # from manip_eval_tasks.examples.manipulation import mdp
         from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
-
-
-        # @configclass
-        # class Event:
-        #     """Configuration for events."""
-
-        #     reset_all = EventTerm(func=mdp.reset_scene_to_default, mode="reset", params={"reset_joint_targets": True})
+        from isaaclab_arena.utils.pose import Pose
 
         assert len(args_cli.destination) == len(args_cli.object)
 
@@ -46,11 +30,11 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         background.set_initial_pose(
             Pose(
                 position_xyz=(0.3, 0.0, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0), # (0.0, 0.0, 0.0, -1.0),
+                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
 
-        if args_cli.embodiment in ["dual_franka", "franka"]:
+        if args_cli.embodiment == "franka":
             embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
                 enable_cameras=args_cli.enable_cameras
             )
@@ -110,15 +94,13 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        scene = Scene(assets=[background, light, pick_up_object1, pick_up_object2, destination_location1, destination_location2])
+        scene = Scene(
+            assets=[background, light, pick_up_object1, pick_up_object2, destination_location1, destination_location2]
+        )
 
-        # task = PickAndPlaceTask(pick_up_object, destination_location, background)
         task = SortMultiObjectTask(
             [pick_up_object1, pick_up_object2], [destination_location1, destination_location2], background
         )
-
-        # add custom randomization events of the initial objectposes
-        # task.events_cfg = Event()
 
         # add custom force threshold for success termination
         task.termination_cfg.success.params["force_threshold"] = 0.1
@@ -134,11 +116,17 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", nargs="*", default=["red_cube", "green_cube"], 
-            help="object list (example: --object red_cube green_cube)"
+        parser.add_argument(
+            "--object",
+            nargs="*",
+            default=["red_cube", "green_cube"],
+            help="object list (example: --object red_cube green_cube)",
         )
-        parser.add_argument("--destination", nargs="*", default=["red_basket", "green_basket"], 
-            help="destination list (example: --destination red_basket green_basket)"
+        parser.add_argument(
+            "--destination",
+            nargs="*",
+            default=["red_basket", "green_basket"],
+            help="destination list (example: --destination red_basket green_basket)",
         )
         parser.add_argument("--background", type=str, default="table")
         parser.add_argument("--embodiment", type=str, default="franka")
