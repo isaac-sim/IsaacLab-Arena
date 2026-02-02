@@ -9,18 +9,19 @@
             },
             "num_steps": 10,
             "policy_type": "zero_action",
-            "policy_args": {}
+            "policy_config_dict": {}
         },
         {
             "name": "gr1_open_microwave_sugar_box",
             "arena_env_args": {
+                "num_envs": 10,
                 "environment":"gr1_open_microwave",
                 "object":"sugar_box",
                 "embodiment":"gr1_pink"
             },
             "num_steps": 10,
             "policy_type": "zero_action",
-            "policy_args": {}
+            "policy_config_dict": {}
         }
     ]
 }

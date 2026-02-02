@@ -18,6 +18,7 @@ def run_policy_runner(
     background: str | None = None,
     object_name: str | None = None,
     replay_file_path: str | None = None,
+    checkpoint_path: str | None = None,
     episode_name: str | None = None,
 ):
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
@@ -30,6 +31,10 @@ def run_policy_runner(
         if episode_name is not None:
             args.append("--episode_name")
             args.append(episode_name)
+    if policy_type == "rsl_rl":
+        assert checkpoint_path is not None, f"checkpoint_path must be provided for policy_type {policy_type}"
+        args.append("--checkpoint_path")
+        args.append(checkpoint_path)
     args.append("--num_steps")
     args.append(str(num_steps))
     if HEADLESS:
@@ -109,5 +114,16 @@ def test_replay_policy_gr1_open_microwave():
         replay_file_path=TestConstants.test_data_dir + "/test_demo_gr1_open_microwave.hdf5",
         example_environment="gr1_open_microwave",
         embodiment="gr1_pink",
+        num_steps=NUM_STEPS,
+    )
+
+
+def test_rl_policy_lift_object():
+    run_policy_runner(
+        policy_type="rsl_rl",
+        checkpoint_path=TestConstants.test_data_dir + "/lift_object_model.pt",
+        example_environment="lift_object",
+        embodiment="franka",
+        object_name="dex_cube",
         num_steps=NUM_STEPS,
     )

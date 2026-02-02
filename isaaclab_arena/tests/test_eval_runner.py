@@ -5,9 +5,12 @@
 
 import json
 import os
+import re
+import subprocess
+
+import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -20,21 +23,41 @@ def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
         json.dump(jobs_config, f, indent=4)
 
 
-def run_eval_runner(jobs_config_path: str):
-    """Run the eval_runner with the given jobs config.
+def run_eval_runner_and_check_no_failures(jobs_config_path: str, headless: bool = HEADLESS):
+    """Run the eval_runner and verify no jobs failed.
 
     Args:
         jobs_config_path: Path to the jobs config JSON file
+        headless: Whether to run in headless mode
+
+    Raises:
+        AssertionError: If any jobs failed
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/eval_runner.py"]
     args.append("--eval_jobs_config")
     args.append(jobs_config_path)
-    args.append("--num_envs")
-    args.append("1")
-    if HEADLESS:
+    if headless:
         args.append("--headless")
 
-    run_subprocess(args)
+    result = subprocess.run(args, capture_output=True, text=True, check=True)
+    output = result.stdout + result.stderr
+
+    # Parse the output to find job statuses in the table
+    # The table format is:
+    # |                Job Name               |   Status  | ...
+    # |     gr1_open_microwave_cracker_box    | completed | ...
+    status_pattern = r"\|\s+([^|]+?)\s+\|\s+(pending|running|completed|failed)\s+\|"
+    matches = re.findall(status_pattern, output, re.IGNORECASE)
+
+    # Filter out the header row
+    job_statuses = [(name.strip(), status.strip()) for name, status in matches if name.strip() != "Job Name"]
+
+    # Check for failed jobs
+    failed_jobs = [name for name, status in job_statuses if status.lower() == "failed"]
+
+    if failed_jobs:
+        print("\n" + output)  # Print full output for debugging
+        raise AssertionError(f"The following jobs failed: {', '.join(failed_jobs)}\nAll job statuses: {job_statuses}")
 
 
 def test_eval_runner_two_jobs_zero_action(tmp_path):
@@ -66,7 +89,7 @@ def test_eval_runner_two_jobs_zero_action(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_two_jobs_zero_action.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_eval_runner_and_check_no_failures(temp_config_path)
 
 
 def test_eval_runner_multiple_environments(tmp_path):
@@ -98,7 +121,7 @@ def test_eval_runner_multiple_environments(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_multiple_environments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_eval_runner_and_check_no_failures(temp_config_path)
 
 
 def test_eval_runner_different_embodiments(tmp_path):
@@ -130,35 +153,37 @@ def test_eval_runner_different_embodiments(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_different_embodiments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_eval_runner_and_check_no_failures(temp_config_path)
 
 
 def test_eval_runner_from_existing_config():
-    """Test eval_runner using the zero_action_jobs_config.json."""
+    """Test eval_runner using the zero_action_jobs_config.json and verify no jobs failed."""
     config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
     assert os.path.exists(config_path), f"Config file not found: {config_path}"
-    run_eval_runner(config_path)
+    run_eval_runner_and_check_no_failures(config_path)
 
 
-def test_eval_runner_job_status_tracking(tmp_path):
-    """Test that job status is correctly tracked and printed throughout execution."""
+@pytest.mark.with_cameras
+def test_eval_runner_enable_cameras(tmp_path):
+    """Test eval_runner with enable_cameras set to true."""
     jobs = [
         {
-            "name": "status_test_job_1",
+            "name": "kitchen_pick_and_place_no_cameras",
             "arena_env_args": {
-                "environment": "gr1_open_microwave",
+                "environment": "kitchen_pick_and_place",
                 "object": "cracker_box",
-                "embodiment": "gr1_joint",
+                "embodiment": "franka",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
             "policy_args": {},
         },
         {
-            "name": "status_test_job_2",
+            "name": "kitchen_pick_and_place",
             "arena_env_args": {
+                "enable_cameras": True,
                 "environment": "kitchen_pick_and_place",
-                "object": "tomato_soup_can",
+                "object": "cracker_box",
                 "embodiment": "franka",
             },
             "num_steps": NUM_STEPS,
@@ -167,6 +192,6 @@ def test_eval_runner_job_status_tracking(tmp_path):
         },
     ]
 
-    temp_config_path = str(tmp_path / "test_eval_runner_job_status_tracking.json")
+    temp_config_path = str(tmp_path / "test_eval_runner_enable_cameras.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner(temp_config_path)
+    run_eval_runner_and_check_no_failures(temp_config_path)

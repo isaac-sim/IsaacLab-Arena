@@ -7,16 +7,18 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PoseRange
-from isaaclab_arena.utils.usd_helpers import compute_bounding_box_from_usd, has_light, open_stage
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -53,46 +55,28 @@ class Object(ObjectBase):
         self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
-        self.relations = []
 
     def add_relation(self, relation: RelationBase) -> None:
+        """Add a relation to this object."""
         self.relations.append(relation)
-
-    def get_relations(self) -> list[RelationBase]:
-        return self.relations
-
-    def get_spatial_relations(self) -> list[RelationBase]:
-        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
         assert self.usd_path is not None
         if self.bounding_box is None:
-            self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
+            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox + position offset)."""
         local_bbox = self.get_bounding_box()
         pos = self.initial_pose.position_xyz if self.initial_pose else (0, 0, 0)
-        return AxisAlignedBoundingBox(
-            min_point=(
-                local_bbox.min_point[0] + pos[0],
-                local_bbox.min_point[1] + pos[1],
-                local_bbox.min_point[2] + pos[2],
-            ),
-            max_point=(
-                local_bbox.max_point[0] + pos[0],
-                local_bbox.max_point[1] + pos[1],
-                local_bbox.max_point[2] + pos[2],
-            ),
-        )
+        return local_bbox.translated(pos)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         assert self.usd_path is not None
         if self.bounding_box is None:
-            self.bounding_box = compute_bounding_box_from_usd(self.usd_path, self.scale)
+            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box.get_corners_at(pos)
 
     def set_initial_pose(self, pose: Pose | PoseRange) -> None:
@@ -120,6 +104,26 @@ class Object(ObjectBase):
     def enable_reset_pose(self) -> None:
         self.reset_pose = True
         self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
+
+    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+        # We override this function from the parent class because in some assets, the rigid body
+        # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
+        # and add the contact sensor to it.
+        # TODO(alexmillane, 2026.01.29): This capability to search for the correct place
+        # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
+        # For these objects we just (try to) add the contact sensor to the root prim.
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        if contact_against_prim_paths is None:
+            contact_against_prim_paths = []
+        rigid_body_relative_path = find_shallowest_rigid_body(self.usd_path, relative_to_root=True)
+        assert (
+            rigid_body_relative_path is not None
+        ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
+        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        return ContactSensorCfg(
+            prim_path=contact_sensor_prim_path,
+            filter_prim_paths_expr=contact_against_prim_paths,
+        )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

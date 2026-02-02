@@ -13,6 +13,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -40,6 +41,15 @@ class ObjectBase(Asset, ABC):
         self.object_type = object_type
         self.object_cfg = None
         self.event_cfg = None
+        self.relations: list[RelationBase] = []
+
+    def get_relations(self) -> list[RelationBase]:
+        """Get all relations for this object."""
+        return self.relations
+
+    def get_spatial_relations(self) -> list[RelationBase]:
+        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
+        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
@@ -113,13 +123,8 @@ class ObjectBase(Asset, ABC):
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         if contact_against_prim_paths is None:
             contact_against_prim_paths = []
-        # HUGE HACK TO GET GTC SCENE GOING
-        if self.name == "sweet_potato":
-            contact_sensor_prim_path = "/World/envs/env_0/sweet_potato/SweetPotato005"
-        else:
-            contact_sensor_prim_path = self.prim_path
         return ContactSensorCfg(
-            prim_path=contact_sensor_prim_path,
+            prim_path=self.prim_path,
             filter_prim_paths_expr=contact_against_prim_paths,
         )
 

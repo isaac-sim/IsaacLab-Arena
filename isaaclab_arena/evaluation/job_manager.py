@@ -20,7 +20,8 @@ class Job:
     def __init__(
         self,
         name: str,
-        arena_env_args: dict,
+        num_envs: int,
+        arena_env_args: list[str],
         policy_type: str,
         num_steps: int = None,
         policy_config_dict: dict = None,
@@ -30,7 +31,8 @@ class Job:
 
         Args:
             name: Job name, used to identify the job in the queue and in the logs.
-            arena_env_args: Dictionary of arguments for configuring the arena environment
+            arena_env_args: arguments for configuring the arena environment
+            num_envs: Number of environments to simulate
             num_steps: Number of steps to run the policy for
             policy_type: Type of policy to use
             policy_config_dict: Dictionary configuration for the policy.
@@ -38,6 +40,8 @@ class Job:
         """
         self.name = name
         self.arena_env_args = arena_env_args
+        assert num_envs > 0, "num_envs must be greater than 0"
+        self.num_envs = num_envs
         self.num_steps = num_steps
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
@@ -65,6 +69,9 @@ class Job:
         assert "name" in data, "name is required"
         assert "arena_env_args" in data, "arena_env_args is required"
         assert "policy_type" in data, "policy_type is required"
+        assert "environment" in data["arena_env_args"], "environment is required in arena_env_args"
+        assert data["arena_env_args"]["environment"] is not None, "environment cannot be None"
+
         if "policy_config_dict" not in data:
             data["policy_config_dict"] = {}
 
@@ -77,11 +84,13 @@ class Job:
             status = Status(data["status"])
         else:
             status = Status.PENDING
+        num_envs = data["arena_env_args"].get("num_envs", 1)
 
         return cls(
             name=data["name"],
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
             policy_type=data["policy_type"],
+            num_envs=num_envs,
             num_steps=num_steps,
             policy_config_dict=data["policy_config_dict"],
             status=status,
@@ -91,23 +100,46 @@ class Job:
     def convert_args_dict_to_cli_args_list(cls, args_dict: dict) -> list[str]:
         """Convert a dictionary of arguments to a list of arguments that can be passed to the CLI parser.
 
+        Enforces ordering: num_envs, enable_cameras, environment, then object/embodiment/etc.
+
         Args:
             args_dict: Dictionary of arguments
 
         Returns:
             List of arguments that can be passed to the CLI parser
+
+        Raises:
+            AssertionError: If 'environment' key is missing or None
         """
+        assert "environment" in args_dict, "environment is required in args_dict"
+        assert args_dict["environment"] is not None, "environment cannot be None"
+
         args_list = []
+
+        # Priority arguments that should come first
+        priority_keys = ["num_envs", "enable_cameras"]
+
+        # Process priority arguments first (--num_envs, --enable_cameras)
+        for key in priority_keys:
+            if key in args_dict:
+                value = args_dict[key]
+                if isinstance(value, bool) and value:
+                    args_list += [f"--{key}"]
+                elif not isinstance(value, bool) and value is not None:
+                    args_list += [f"--{key}", str(value)]
+
+        # Environment argument comes second (without -- prefix) - already validated above
+        args_list += [str(args_dict["environment"])]
+
+        # Process all other arguments (object, embodiment, etc.)
         for key, value in args_dict.items():
+            if key in priority_keys or key == "environment":
+                continue
+
             if isinstance(value, bool) and value:
                 args_list += [f"--{key}"]
             elif not isinstance(value, bool) and value is not None:
-                if key != "environment":
-                    args_list += [f"--{key}", str(value)]
-                else:
-                    args_list += [str(value)]
-            else:
-                continue
+                args_list += [f"--{key}", str(value)]
 
         return args_list
 
@@ -191,7 +223,7 @@ class JobManager:
         """Print information about the jobs."""
 
         # print using pretty table as data fields may have various lengths
-        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Steps"])
+        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Envs", "Num Steps"])
         for job in self.all_jobs:
-            table.add_row([job.name, job.status.value, job.policy_type, job.num_steps])
+            table.add_row([job.name, job.status.value, job.policy_type, job.num_envs, job.num_steps])
         print(table)
