@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import json
 import os
 import traceback
@@ -41,6 +42,23 @@ def load_env(arena_env_args: list[str], job_name: str):
     return env
 
 
+def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
+    """
+    Check if any job requires cameras and enable them in args_cli if needed. Users can set
+    enable_cameras: true in individual job config, or add --enable_cameras to the CLI.
+    Camera support must be enabled when the simulation starts, not during individual job execution.
+
+    Args:
+        eval_jobs_config: Dictionary containing job configurations
+        args_cli: CLI arguments namespace to modify
+    """
+    for job_dict in eval_jobs_config["jobs"]:
+        if "arena_env_args" in job_dict and job_dict["arena_env_args"].get("enable_cameras", False):
+            if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
+                args_cli.enable_cameras = True
+            break
+
+
 def get_policy_from_job(job: Job) -> "PolicyBase":
     """
     Create a policy from a job configuration. Two paths are supported:
@@ -65,19 +83,22 @@ def get_policy_from_job(job: Job) -> "PolicyBase":
 def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
-    # TODO(xinjieyao, 2026-01-08): support multiple environments simulation as each job may need different number of environments
-    assert args_cli.num_envs == 1, "Evaluation runner only supports single environment simulation"
+
+    # Load job configuration before starting simulation to check requirements
+    add_eval_runner_arguments(args_parser)
+    args_cli, _ = args_parser.parse_known_args()
+
+    assert os.path.exists(
+        args_cli.eval_jobs_config
+    ), f"eval_jobs_config file does not exist: {args_cli.eval_jobs_config}"
+
+    with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
+        eval_jobs_config = json.load(f)
+
+    # Check if any job requires cameras and enable them if needed before starting simulation
+    enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
-        add_eval_runner_arguments(args_parser)
-        args_cli, _ = args_parser.parse_known_args()
-
-        assert os.path.exists(
-            args_cli.eval_jobs_config
-        ), f"eval_jobs_config file does not exist: {args_cli.eval_jobs_config}"
-
-        with open(args_cli.eval_jobs_config) as f:
-            eval_jobs_config = json.load(f)
         job_manager = JobManager(eval_jobs_config["jobs"])
         metrics_logger = MetricsLogger()
 

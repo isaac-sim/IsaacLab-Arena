@@ -16,6 +16,7 @@ from isaaclab_tasks.utils import parse_env_cfg
 
 from isaaclab_arena.assets.asset_registry import DeviceRegistry
 from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
@@ -45,20 +46,20 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
-    def _get_objects_with_relations(self) -> list[Object]:
+    def _get_objects_with_relations(self) -> list[Object | ObjectReference]:
         """Get all objects from the scene that have relations.
 
         Returns:
-            List of Object instances that have at least one relation.
+            List of Object or ObjectReference instances that have at least one relation.
         """
-        objects_with_relations: list[Object] = []
+        objects_with_relations: list[Object | ObjectReference] = []
         for asset in self.arena_env.scene.assets.values():
-            if not isinstance(asset, Object):
-                # Fail early if a non-Object asset has relations - they won't be solved
+            if not isinstance(asset, (Object, ObjectReference)):
+                # Fail early if a non-Object/ObjectReference asset has relations - they won't be solved
                 # TODO(cvolk, 2026-01-26): Support ObjectSets.
                 assert not (hasattr(asset, "get_relations") and asset.get_relations()), (
-                    f"Asset '{asset.name}' has relations but is not an Object "
-                    f"(type: {type(asset).__name__}). Only Object instances support relations."
+                    f"Asset '{asset.name}' has relations but is not an Object or ObjectReference "
+                    f"(type: {type(asset).__name__}). Only Object and ObjectReference instances support relations."
                 )
                 continue
             if asset.get_relations():

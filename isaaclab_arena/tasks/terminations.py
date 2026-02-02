@@ -78,6 +78,74 @@ def objects_in_proximity(
     return done
 
 
+def lift_object_il_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    goal_position: tuple[float, float, float] | None = None,
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        goal_position: Fixed goal position [x, y, z] to use if command goal not available.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
+
+
+def lift_object_rl_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    rl_training: bool = False,
+    command_name: str = "object_pose",
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Supports multiple modes:
+    - RL training: Always returns False (no early termination)
+    - RL evaluation: Uses goal from command manager
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        rl_training: If True, always returns False (disables success termination for RL training).
+        command_name: The name of the command that is used to control the object.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+    # During RL training, never terminate early
+    if rl_training:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    # Try to get goal position from command manager
+    command = env.command_manager.get_command(command_name)
+    # compute the desired position in the world frame
+    goal_pos = command[:, :3]
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
+
+
 def goal_pose_task_termination(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
