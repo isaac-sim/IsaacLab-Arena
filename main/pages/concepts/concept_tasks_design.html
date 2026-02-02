@@ -322,6 +322,12 @@
 <li class="toctree-l2"><a class="reference internal" href="../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -442,6 +448,15 @@
 <li><p><strong>PickAndPlaceTask</strong>: Move objects between locations with contact-based success detection</p></li>
 <li><p><strong>OpenDoorTask</strong>: Affordance-based interaction with openable objects and thresholds</p></li>
 <li><p><strong>G1LocomanipPickAndPlaceTask</strong>: Combined locomotion and manipulation for humanoid robots</p></li>
+</ul>
+</dd>
+<dt><strong>RL Task Design</strong></dt><dd><p>RL tasks extend their IL counterparts by adding reinforcement learning components:</p>
+<ul class="simple">
+<li><p><strong>Inheritance</strong>: RL tasks inherit from IL task base classes (e.g., <code class="docutils literal notranslate"><span class="pre">LiftObjectTaskRL</span></code> extends <code class="docutils literal notranslate"><span class="pre">LiftObjectTask</span></code>)</p></li>
+<li><p><strong>Commands</strong>: Introduce command managers that sample random target goals each episode</p></li>
+<li><p><strong>Rewards</strong>: Define dense reward functions for desired behaviors (reaching, grasping, lifting, target achievement)</p></li>
+<li><p><strong>Observations</strong>: Configure state observations to include object state, and goal commands</p></li>
+<li><p><strong>Success Function</strong>: Override the success function to use the command manager goals for success detection. We just return false during training.</p></li>
 </ul>
 </dd>
 </dl>
