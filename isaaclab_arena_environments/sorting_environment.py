@@ -125,8 +125,8 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         parser.add_argument(
             "--destination",
             nargs="*",
-            default=["red_basket", "green_basket"],
-            help="destination list (example: --destination red_basket green_basket)",
+            default=["red_container", "green_container"],
+            help="destination list (example: --destination red_container green_container)",
         )
         parser.add_argument("--background", type=str, default="table")
         parser.add_argument("--embodiment", type=str, default="franka")

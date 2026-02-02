@@ -31,13 +31,13 @@ def get_test_environment(num_envs: int):
     background = asset_registry.get_asset_by_name("table")()
     light = asset_registry.get_asset_by_name("light")()
 
-    # Create cubes and baskets
+    # Create cubes and containers
     red_cube = asset_registry.get_asset_by_name("red_cube")()
     green_cube = asset_registry.get_asset_by_name("green_cube")()
-    red_basket = asset_registry.get_asset_by_name("red_basket")()
-    green_basket = asset_registry.get_asset_by_name("green_basket")()
+    red_container = asset_registry.get_asset_by_name("red_container")()
+    green_container = asset_registry.get_asset_by_name("green_container")()
 
-    # Set initial poses for cubes (away from baskets)
+    # Set initial poses for cubes (away from containers)
     red_cube.set_initial_pose(
         Pose(
             position_xyz=(0.0, 0.3, 0.1),
@@ -51,26 +51,26 @@ def get_test_environment(num_envs: int):
         )
     )
 
-    # Set initial poses for baskets
-    red_basket.set_initial_pose(
+    # Set initial poses for containers
+    red_container.set_initial_pose(
         Pose(
             position_xyz=(0.0, 0.1, 0.1),
             rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
         )
     )
-    green_basket.set_initial_pose(
+    green_container.set_initial_pose(
         Pose(
             position_xyz=(0.0, -0.1, 0.1),
             rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
         )
     )
 
-    scene = Scene(assets=[background, light, red_cube, green_cube, red_basket, green_basket])
+    scene = Scene(assets=[background, light, red_cube, green_cube, red_container, green_container])
 
-    # Create sorting task: red_cube -> red_basket, green_cube -> green_basket
+    # Create sorting task: red_cube -> red_container, green_cube -> green_container
     task = SortMultiObjectTask(
         pick_up_object_list=[red_cube, green_cube],
-        destination_location_list=[red_basket, green_basket],
+        destination_location_list=[red_container, green_container],
         background_scene=background,
     )
     # Use a low force threshold for testing
@@ -96,7 +96,7 @@ def get_test_environment(num_envs: int):
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 
-    return env, red_cube, green_cube, red_basket, green_basket
+    return env, red_cube, green_cube, red_container, green_container
 
 
 def _test_sorting_task_initial_state(simulation_app) -> bool:
@@ -106,10 +106,10 @@ def _test_sorting_task_initial_state(simulation_app) -> bool:
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, red_cube, green_cube, red_basket, green_basket = get_test_environment(num_envs=1)
+    env, red_cube, green_cube, red_container, green_container = get_test_environment(num_envs=1)
 
     def assert_not_success(env: ManagerBasedEnv, terminated: torch.Tensor):
-        # Initially the cubes are not in the baskets
+        # Initially the cubes are not in the containers
         # The task should NOT be successful
         assert not terminated.item(), "Task should not be successful initially"
 
@@ -129,34 +129,34 @@ def _test_sorting_task_initial_state(simulation_app) -> bool:
 
 
 def _test_sorting_task_success(simulation_app) -> bool:
-    """Test that the task succeeds when all cubes are placed in correct baskets."""
+    """Test that the task succeeds when all cubes are placed in correct containers."""
 
     from isaaclab.assets import RigidObject
 
-    env, red_cube, green_cube, red_basket, green_basket = get_test_environment(num_envs=1)
+    env, red_cube, green_cube, red_container, green_container = get_test_environment(num_envs=1)
 
     try:
-        print("Testing success state - moving cubes to target baskets")
+        print("Testing success state - moving cubes to target containers")
 
         with torch.inference_mode():
             # Get the rigid objects from the scene
             red_cube_object: RigidObject = env.scene[red_cube.name]
             green_cube_object: RigidObject = env.scene[green_cube.name]
-            red_basket_object: RigidObject = env.scene[red_basket.name]
-            green_basket_object: RigidObject = env.scene[green_basket.name]
+            red_container_object: RigidObject = env.scene[red_container.name]
+            green_container_object: RigidObject = env.scene[green_container.name]
 
-            # Get basket positions to place cubes inside them
-            red_basket_pos = red_basket_object.data.root_pos_w[0]
-            green_basket_pos = green_basket_object.data.root_pos_w[0]
+            # Get container positions to place cubes inside them
+            red_container_pos = red_container_object.data.root_pos_w[0]
+            green_container_pos = green_container_object.data.root_pos_w[0]
 
             target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
 
-            # Set initial positions ONCE - place cubes above baskets so they can fall
-            red_cube_target_pos = red_basket_pos.clone().unsqueeze(0)
-            red_cube_target_pos[0, 2] += 0.1  # Above basket to fall into it
+            # Set initial positions ONCE - place cubes above containers so they can fall
+            red_cube_target_pos = red_container_pos.clone().unsqueeze(0)
+            red_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
 
-            green_cube_target_pos = green_basket_pos.clone().unsqueeze(0)
-            green_cube_target_pos[0, 2] += 0.1  # Above basket to fall into it
+            green_cube_target_pos = green_container_pos.clone().unsqueeze(0)
+            green_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
 
             # Write initial pose only once
             red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
@@ -176,8 +176,8 @@ def _test_sorting_task_success(simulation_app) -> bool:
 
             # Check if the task is successful
             print(f"Terminated: {terminated}")
-            assert terminated.item(), "Task should be successful after cubes fall into correct baskets"
-            print("Success state test passed: cubes are in correct baskets")
+            assert terminated.item(), "Task should be successful after cubes fall into correct containers"
+            print("Success state test passed: cubes are in correct containers")
 
     except Exception as e:
         print(f"Error: {e}")
@@ -190,41 +190,41 @@ def _test_sorting_task_success(simulation_app) -> bool:
 
 
 def _test_sorting_task_partial_success(simulation_app) -> bool:
-    """Test that the task does not succeed when only some cubes are in correct baskets."""
+    """Test that the task does not succeed when only some cubes are in correct containers."""
 
     from isaaclab.assets import RigidObject
 
-    env, red_cube, green_cube, red_basket, green_basket = get_test_environment(num_envs=1)
+    env, red_cube, green_cube, red_container, green_container = get_test_environment(num_envs=1)
 
     try:
-        print("Testing partial success - only one cube in correct basket")
+        print("Testing partial success - only one cube in correct container")
 
         with torch.inference_mode():
             # Get the rigid objects from the scene
             red_cube_object: RigidObject = env.scene[red_cube.name]
-            red_basket_object: RigidObject = env.scene[red_basket.name]
+            red_container_object: RigidObject = env.scene[red_container.name]
 
-            # Get basket position
-            red_basket_pos = red_basket_object.data.root_pos_w[0]
+            # Get container position
+            red_container_pos = red_container_object.data.root_pos_w[0]
 
             target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
 
-            # Set initial position ONCE - only place red cube above red basket
-            red_cube_target_pos = red_basket_pos.clone().unsqueeze(0)
-            red_cube_target_pos[0, 2] += 0.1  # Above basket to fall into it
+            # Set initial position ONCE - only place red cube above red container
+            red_cube_target_pos = red_container_pos.clone().unsqueeze(0)
+            red_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
 
             red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
             red_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
             # Step the environment to let physics simulate
-            # Green cube stays at its initial position (not in basket)
+            # Green cube stays at its initial position (not in container)
             for _ in range(NUM_STEPS * 10):
                 actions = torch.zeros(env.action_space.shape, device=env.device)
                 _, _, terminated, _, info = env.step(actions)
 
-            # Task should NOT be successful because green cube is not in green basket
+            # Task should NOT be successful because green cube is not in green container
             print(f"Terminated: {terminated}")
-            assert not terminated.item(), "Task should not be successful with only one cube in correct basket"
+            assert not terminated.item(), "Task should not be successful with only one cube in correct container"
             print("Partial success test passed: task correctly requires all cubes")
 
     except Exception as e:
@@ -244,7 +244,7 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
-    env, red_cube, green_cube, red_basket, green_basket = get_test_environment(num_envs=2)
+    env, red_cube, green_cube, red_container, green_container = get_test_environment(num_envs=2)
 
     try:
         print("Testing multiple environments")
@@ -252,8 +252,8 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
         with torch.inference_mode():
             red_cube_object: RigidObject = env.scene[red_cube.name]
             green_cube_object: RigidObject = env.scene[green_cube.name]
-            red_basket_object: RigidObject = env.scene[red_basket.name]
-            green_basket_object: RigidObject = env.scene[green_basket.name]
+            red_container_object: RigidObject = env.scene[red_container.name]
+            green_container_object: RigidObject = env.scene[green_container.name]
 
             # Initially, both envs should not be successful
             step_zeros_and_call(env, 1)
@@ -264,28 +264,28 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
             red_cube_state = red_cube_object.data.root_state_w.clone()
             green_cube_state = green_cube_object.data.root_state_w.clone()
 
-            # Re-fetch basket positions (they should be stable)
-            red_basket_pos = red_basket_object.data.root_pos_w
-            green_basket_pos = green_basket_object.data.root_pos_w
+            # Re-fetch container positions (they should be stable)
+            red_container_pos = red_container_object.data.root_pos_w
+            green_container_pos = green_container_object.data.root_pos_w
 
-            # Set BOTH env cubes to positions above baskets (env 0 may have been reset)
-            red_cube_state[0, :3] = red_basket_pos[0].clone()
-            red_cube_state[0, 2] += 0.1  # Above basket to fall into it
+            # Set BOTH env cubes to positions above containers (env 0 may have been reset)
+            red_cube_state[0, :3] = red_container_pos[0].clone()
+            red_cube_state[0, 2] += 0.1  # Above container to fall into it
             red_cube_state[0, 3:7] = target_quat
             red_cube_state[0, 7:] = 0
 
-            green_cube_state[0, :3] = green_basket_pos[0].clone()
-            green_cube_state[0, 2] += 0.1  # Above basket to fall into it
+            green_cube_state[0, :3] = green_container_pos[0].clone()
+            green_cube_state[0, 2] += 0.1  # Above container to fall into it
             green_cube_state[0, 3:7] = target_quat
             green_cube_state[0, 7:] = 0
 
-            red_cube_state[1, :3] = red_basket_pos[1].clone()
-            red_cube_state[1, 2] += 0.1  # Above basket to fall into it
+            red_cube_state[1, :3] = red_container_pos[1].clone()
+            red_cube_state[1, 2] += 0.1  # Above container to fall into it
             red_cube_state[1, 3:7] = target_quat
             red_cube_state[1, 7:] = 0
 
-            green_cube_state[1, :3] = green_basket_pos[1].clone()
-            green_cube_state[1, 2] += 0.1  # Above basket to fall into it
+            green_cube_state[1, :3] = green_container_pos[1].clone()
+            green_cube_state[1, 2] += 0.1  # Above container to fall into it
             green_cube_state[1, 3:7] = target_quat
             green_cube_state[1, 7:] = 0
 

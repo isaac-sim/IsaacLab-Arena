@@ -606,16 +606,16 @@ class GreenCube(LibraryObject):
 
 
 @register_asset
-class RedBasket(LibraryObject):
+class RedContainer(LibraryObject):
     """
-    A red basket.
+    A red container.
     """
 
-    name = "red_basket"
+    name = "red_container"
     tags = ["object"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
     object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/red_basket"
+    default_prim_path = "{ENV_REGEX_NS}/red_container"
     scale = (0.5, 0.5, 0.5)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
@@ -623,16 +623,16 @@ class RedBasket(LibraryObject):
 
 
 @register_asset
-class GreenBasket(LibraryObject):
+class GreenContainer(LibraryObject):
     """
-    A green basket.
+    A green container.
     """
 
-    name = "green_basket"
+    name = "green_container"
     tags = ["object"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
     object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/green_basket"
+    default_prim_path = "{ENV_REGEX_NS}/green_container"
     scale = (0.5, 0.5, 0.5)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
