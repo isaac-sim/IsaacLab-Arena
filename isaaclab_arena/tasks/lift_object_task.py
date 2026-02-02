@@ -21,7 +21,7 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import lift_object_dynamic_success
+from isaaclab_arena.tasks.terminations import lift_object_il_success, lift_object_rl_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.pose import PoseRange
 
@@ -31,7 +31,6 @@ class LiftObjectTask(TaskBase):
         self,
         lift_object: Asset,
         background_scene: Asset,
-        minimum_height_to_lift: float = 0.04,
         episode_length_s: float = 5.0,
         goal_position_delta_xyz: tuple[float, float, float] = (0.0, 0.0, 0.3),
         goal_position_tolerance: float = 0.05,
@@ -44,7 +43,6 @@ class LiftObjectTask(TaskBase):
             episode_length_s: Episode length in seconds.
             goal_position_delta_xyz: Goal position delta [dx, dy, dz] relative to initial pose (m).
                 Default: (0, 0, 0.3) = 30cm above initial position.
-            goal_orientation_wxyz: Target orientation [w, x, y, z]. Default: (1, 0, 0, 0) = identity.
             goal_position_tolerance: Position tolerance for success (m).
         """
         super().__init__(episode_length_s=episode_length_s)
@@ -66,7 +64,7 @@ class LiftObjectTask(TaskBase):
 
         self.scene_config = None
         self.events_cfg = None
-        self.termination_cfg = self.make_termination_cfg()
+        self.termination_cfg = self.make_il_termination_cfg()
 
     def get_scene_cfg(self):
         return self.scene_config
@@ -77,7 +75,7 @@ class LiftObjectTask(TaskBase):
     def get_events_cfg(self):
         return self.events_cfg
 
-    def make_termination_cfg(self, rl_training: bool = False, use_command_goal: bool = False):
+    def make_il_termination_cfg(self):
         """Create termination configuration.
 
         Args:
@@ -94,13 +92,10 @@ class LiftObjectTask(TaskBase):
 
         # Use dynamic success termination
         success = TerminationTermCfg(
-            func=lift_object_dynamic_success,
+            func=lift_object_il_success,
             params={
                 "object_cfg": SceneEntityCfg(self.lift_object.name),
-                "rl_training": rl_training,
-                "use_command_goal": use_command_goal,
-                "command_name": "object_pose",
-                "fallback_goal_position": self.goal_position_xyz,
+                "goal_position": self.goal_position_xyz,
                 "position_tolerance": self.goal_position_tolerance,
             },
         )
@@ -210,12 +205,30 @@ class LiftObjectTaskRL(LiftObjectTask):
         )
 
         # Override termination config with RL training mode
-        # Training: rl_training_mode=True -> no success termination
-        # Evaluation: rl_training_mode=False -> success from command manager
-        self.termination_cfg = super().make_termination_cfg(
-            rl_training=self.rl_training_mode,
-            use_command_goal=True,  # Always use commands for RL (training ignores this due to rl_training=True)
+        self.termination_cfg = self.make_rl_termination_cfg()
+
+    def make_rl_termination_cfg(self):
+        """Create termination configuration for RL training mode."""
+        object_dropped = TerminationTermCfg(
+            func=mdp_isaac_lab.root_height_below_minimum,
+            params={
+                "minimum_height": self.background_scene.object_min_z,
+                "asset_cfg": SceneEntityCfg(self.lift_object.name),
+            },
         )
+
+        # Use dynamic success termination
+        success = TerminationTermCfg(
+            func=lift_object_rl_success,
+            params={
+                "object_cfg": SceneEntityCfg(self.lift_object.name),
+                "rl_training": self.rl_training_mode,
+                "command_name": "object_pose",
+                "position_tolerance": self.goal_position_tolerance,
+            },
+        )
+
+        return LiftObjectTerminationsCfg(object_dropped=object_dropped, success=success)
 
     def get_observation_cfg(self):
         return self.observation_cfg
