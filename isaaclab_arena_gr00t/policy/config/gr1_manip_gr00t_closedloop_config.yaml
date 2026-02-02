@@ -7,7 +7,7 @@
 # NOTE(alexmillane, 2025-10-31): The model path here aligns with the model used in the static manipulation tutorial.
 model_path: /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000
 language_instruction: "Reach out to the microwave and open it."
-# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.6 policy data_config 'fourier_gr1_arms_only'.
+# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the modality_config_path.
 action_horizon: 16
 embodiment_tag: GR1
 video_backend: decord
