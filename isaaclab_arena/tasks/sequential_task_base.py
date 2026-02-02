@@ -314,7 +314,9 @@ class SequentialTaskBase(TaskBase):
                         # so give it a default name if it doesn't already have one.
                         mimic_subtask.subtask_term_signal = f"subtask_{i}_{eef_name}_last_mimic_subtask"
                     else:
-                        mimic_subtask.subtask_term_signal = f"subtask_{i}_{eef_name}_{mimic_subtask.subtask_term_signal}"
+                        mimic_subtask.subtask_term_signal = (
+                            f"subtask_{i}_{eef_name}_{mimic_subtask.subtask_term_signal}"
+                        )
                     combined_mimic_subtask_configs[eef_name].append(mimic_subtask)
 
         return combined_mimic_subtask_configs

@@ -19,14 +19,12 @@ from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObje
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.tasks.close_door_task import CloseDoorTask
-from isaaclab_arena.tasks.dummy_task import DummyTask
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 
 asset_registry = AssetRegistry()
 
@@ -37,10 +35,10 @@ tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 vegetable_type = "sweet_potato"
 vegetable = asset_registry.get_asset_by_name(vegetable_type)()
 
-
-cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-cracker_box.add_relation(IsAnchor())
-tomato_soup_can.add_relation(On(cracker_box))
+# from isaaclab_arena.relations.relations import IsAnchor, On
+# cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+# cracker_box.add_relation(IsAnchor())
+# tomato_soup_can.add_relation(On(cracker_box))
 
 kitchen_background = asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=2)
 
@@ -62,11 +60,43 @@ refrigerator_shelf = ObjectReference(
     parent_asset=kitchen_background,
 )
 
-embodiment.set_initial_pose(Pose(position_xyz=(3.943, -1.069, 0.995), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)))
+embodiment.set_initial_pose(
+    Pose(
+        # position_xyz=(3.943, -1.069, 0.995),
+        position_xyz=(3.943, -1.0, 0.995),
+        # rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
+        # [ 0, 0, 0.5, 0.8660254 ]
+        rotation_wxyz=(0.8660254, 0.0, 0.0, 0.5),
+    )
+)
 
+
+RANDOMIZATION_HALF_RANGE_X_M = 0.04
+RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+RANDOMIZATION_HALF_RANGE_Z_M = 0.0
 vegetable.set_initial_pose(
-    # Bench
-    Pose(position_xyz=(3.922, -0.565, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
+    # Bench (no randomization)
+    # Pose(position_xyz=(3.922, -0.565, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
+    # Bench (with randomization)
+    PoseRange(
+        position_xyz_min=(
+            4.1 - RANDOMIZATION_HALF_RANGE_X_M,
+            -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
+            1.0 - RANDOMIZATION_HALF_RANGE_Z_M,
+        ),
+        position_xyz_max=(
+            4.1 + RANDOMIZATION_HALF_RANGE_X_M,
+            -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
+            1.0 + RANDOMIZATION_HALF_RANGE_Z_M,
+        ),
+        # position_xyz_max=(
+        #     3.922 + RANDOMIZATION_HALF_RANGE_X_M,
+        #     -0.565 + RANDOMIZATION_HALF_RANGE_Y_M,
+        #     1.019 + RANDOMIZATION_HALF_RANGE_Z_M
+        # ),
+        rpy_min=(0.0, 0.0, 0.0),
+        rpy_max=(0.0, 0.0, 0.0),
+    )
     # Above shelf
     # Pose(
     #     position_xyz=(4.625, -0.395, 1.224),
@@ -99,7 +129,7 @@ close_door_task = CloseDoorTask(refrigerator, closedness_threshold=0.05, reset_o
 
 task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
 
-scene = Scene(assets=[kitchen_background, cracker_box, refrigerator, refrigerator_shelf, vegetable, light])
+scene = Scene(assets=[kitchen_background, refrigerator, refrigerator_shelf, vegetable, light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
@@ -117,6 +147,21 @@ env.reset()
 
 STEPS_UNTIL_TELEPORT_VEGETABLE = 50
 STEPS_UNTIL_CLOSE_DOOR = 100
+
+# %%
+
+# Reset frequently to check the randomizations.
+
+# Run some zero actions.
+STEPS_BETWEEN_RESETS = 2
+NUM_STEPS = 200
+for idx in tqdm.tqdm(range(NUM_STEPS)):
+    with torch.inference_mode():
+        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        _, _, terminated, _, _ = env.step(actions)
+        if idx % STEPS_BETWEEN_RESETS == 0:
+            env.reset()
+
 
 # %%
 
@@ -143,6 +188,12 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         if terminated:
             print("SUCCESS!!!!!!")
 
+# %%
+
+# Debugging the robot joint names
+num_joints = len(env.scene["robot"].joint_names)
+print(f"Number of joints: {num_joints}")
+print(env.scene["robot"].joint_names)
 
 # %%
 

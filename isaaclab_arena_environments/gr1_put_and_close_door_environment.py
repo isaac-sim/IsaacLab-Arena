@@ -37,7 +37,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         # Custom task class for this environment
         class PutAndCloseDoorTask(SequentialTaskBase):
@@ -105,12 +105,34 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
         # Set initial poses
         embodiment.set_initial_pose(
-            Pose(position_xyz=(3.943, -1.04, 0.92), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
+            Pose(
+                # Oblique to bench
+                # position_xyz=(3.943, -1.069, 0.995),
+                # rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
+                # 30 degrees clockwise from oblique to bench
+                position_xyz=(3.943, -1.0, 0.995),
+                rotation_wxyz=(0.8660254, 0.0, 0.0, 0.5),
+            )
         )
 
+        RANDOMIZATION_HALF_RANGE_X_M = 0.04
+        RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+        RANDOMIZATION_HALF_RANGE_Z_M = 0.0
         vegetable.set_initial_pose(
-            # Bench position
-            Pose(position_xyz=(3.922, -0.617, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
+            PoseRange(
+                position_xyz_min=(
+                    4.1 - RANDOMIZATION_HALF_RANGE_X_M,
+                    -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
+                    1.0 - RANDOMIZATION_HALF_RANGE_Z_M,
+                ),
+                position_xyz_max=(
+                    4.1 + RANDOMIZATION_HALF_RANGE_X_M,
+                    -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
+                    1.0 + RANDOMIZATION_HALF_RANGE_Z_M,
+                ),
+                rpy_min=(0.0, 0.0, 0.0),
+                rpy_max=(0.0, 0.0, 0.0),
+            )
         )
 
         # Create refrigerator reference (OpenableObjectReference)
