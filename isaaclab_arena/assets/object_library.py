@@ -541,6 +541,7 @@ class MediumGear(LibraryObject):
         "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
 
+
 @register_asset
 class SweetPotato(LibraryObject):
     """
@@ -564,16 +565,16 @@ class SweetPotato(LibraryObject):
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
-LOCAL_ASSETS_DIR = "/home/lancel/Projects/2024-05-21-Robotics/arena/ManipEvalTasks/assets_robotwin"
 
 @register_asset
 class RedCube(LibraryObject):
     """
     A red cube.
     """
+
     name = "red_cube"
     tags = ["object"]
-    usd_path = usd_path = f"{LOCAL_ASSETS_DIR}/Objects/Blocks/red_block_root_rigid.usd"
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
     # f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd": not support, rigid body attribute should bind to root xform.
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/RedCube"
@@ -582,14 +583,16 @@ class RedCube(LibraryObject):
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
+
 @register_asset
 class GreenCube(LibraryObject):
     """
     A green cube.
     """
+
     name = "green_cube"
     tags = ["object"]
-    usd_path = f"{LOCAL_ASSETS_DIR}/Objects/Blocks/green_block_root_rigid.usd"
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
     # f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd": not support, rigid body attribute should bind to root xform.
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/GreenCube"
@@ -598,14 +601,16 @@ class GreenCube(LibraryObject):
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
+
 @register_asset
 class RedBasket(LibraryObject):
     """
     A red basket.
     """
+
     name = "red_basket"
     tags = ["object"]
-    usd_path = f"{LOCAL_ASSETS_DIR}/Objects/901_container/container_h20_red.usd"
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/red_basket"
     scale = (0.5, 0.5, 0.5)
@@ -613,18 +618,19 @@ class RedBasket(LibraryObject):
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
+
 @register_asset
 class GreenBasket(LibraryObject):
     """
     A green basket.
     """
+
     name = "green_basket"
     tags = ["object"]
-    usd_path = f"{LOCAL_ASSETS_DIR}/Objects/901_container/container_h20_green.usd"
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/green_basket"
     scale = (0.5, 0.5, 0.5)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose)
-
