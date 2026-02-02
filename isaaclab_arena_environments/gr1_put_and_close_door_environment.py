@@ -95,7 +95,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=args_cli.kitchen_style
         )
-        vegetable = self.asset_registry.get_asset_by_name(args_cli.vegetable)()
+        pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         light = self.asset_registry.get_asset_by_name("light")()
 
         if args_cli.teleop_device is not None:
@@ -118,20 +118,28 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         RANDOMIZATION_HALF_RANGE_X_M = 0.04
         RANDOMIZATION_HALF_RANGE_Y_M = 0.01
         RANDOMIZATION_HALF_RANGE_Z_M = 0.0
-        vegetable.set_initial_pose(
+        z_position = {
+            "sweet_potato": 1.0,
+            "jug": 1.1,
+        }[args_cli.object]
+        yaw = {
+            "sweet_potato": 0.0,
+            "jug": -90.0,
+        }[args_cli.object]
+        pickup_object.set_initial_pose(
             PoseRange(
                 position_xyz_min=(
                     4.1 - RANDOMIZATION_HALF_RANGE_X_M,
                     -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
-                    1.0 - RANDOMIZATION_HALF_RANGE_Z_M,
+                    z_position - RANDOMIZATION_HALF_RANGE_Z_M,
                 ),
                 position_xyz_max=(
                     4.1 + RANDOMIZATION_HALF_RANGE_X_M,
                     -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
-                    1.0 + RANDOMIZATION_HALF_RANGE_Z_M,
+                    z_position + RANDOMIZATION_HALF_RANGE_Z_M,
                 ),
-                rpy_min=(0.0, 0.0, 0.0),
-                rpy_max=(0.0, 0.0, 0.0),
+                rpy_min=(0.0, 0.0, yaw),
+                rpy_max=(0.0, 0.0, yaw),
             )
         )
 
@@ -153,7 +161,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
         # Create pick and place task
         pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=vegetable,
+            pick_up_object=pickup_object,
             destination_object=refrigerator,
             destination_location=refrigerator_shelf,
             background_scene=kitchen_background,
@@ -170,7 +178,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
 
         # Create scene
-        scene = Scene(assets=[kitchen_background, vegetable, light, refrigerator, refrigerator_shelf])
+        scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
 
         # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -184,7 +192,13 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--vegetable", type=str, default="sweet_potato", help="Type of vegetable to pick and place")
+        parser.add_argument(
+            "--object",
+            type=str,
+            default="sweet_potato",
+            choices=["sweet_potato", "jug"],
+            help="Type of vegetable to pick and place",
+        )
         parser.add_argument(
             "--kitchen_style", type=int, default=2, help="Kitchen style ID for lightwheel robocasa kitchen"
         )

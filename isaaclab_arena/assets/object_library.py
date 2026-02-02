@@ -582,3 +582,27 @@ class SweetPotato(LibraryObject):
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class Jug(LibraryObject):
+    """
+    Jug
+    """
+
+    # Only required when using Lightwheel SDK
+    from lightwheel_sdk.loader import object_loader
+
+    name = "jug"
+    tags = ["object", "graspable"]
+    file_path, object_name, metadata = object_loader.acquire_by_registry(
+        registry_type="objects", file_name="Jug005", file_type="USD"
+    )
+    usd_path = file_path
+    object_type = ObjectType.RIGID
+    scale = (2.0, 2.0, 2.0)
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)

@@ -32,8 +32,9 @@ embodiment = asset_registry.get_asset_by_name("gr1_pink")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
-vegetable_type = "sweet_potato"
-vegetable = asset_registry.get_asset_by_name(vegetable_type)()
+# pickup_object_name = "sweet_potato"
+pickup_object_name = "jug"
+pickup_object = asset_registry.get_asset_by_name(pickup_object_name)()
 
 # from isaaclab_arena.relations.relations import IsAnchor, On
 # cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
@@ -74,7 +75,15 @@ embodiment.set_initial_pose(
 RANDOMIZATION_HALF_RANGE_X_M = 0.04
 RANDOMIZATION_HALF_RANGE_Y_M = 0.01
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
-vegetable.set_initial_pose(
+z_position = {
+    "sweet_potato": 1.0,
+    "jug": 1.1,
+}[pickup_object_name]
+yaw = {
+    "sweet_potato": 0.0,
+    "jug": -90.0,
+}[pickup_object_name]
+pickup_object.set_initial_pose(
     # Bench (no randomization)
     # Pose(position_xyz=(3.922, -0.565, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
     # Bench (with randomization)
@@ -82,20 +91,20 @@ vegetable.set_initial_pose(
         position_xyz_min=(
             4.1 - RANDOMIZATION_HALF_RANGE_X_M,
             -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
-            1.0 - RANDOMIZATION_HALF_RANGE_Z_M,
+            z_position - RANDOMIZATION_HALF_RANGE_Z_M,
         ),
         position_xyz_max=(
             4.1 + RANDOMIZATION_HALF_RANGE_X_M,
             -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
-            1.0 + RANDOMIZATION_HALF_RANGE_Z_M,
+            z_position + RANDOMIZATION_HALF_RANGE_Z_M,
         ),
         # position_xyz_max=(
         #     3.922 + RANDOMIZATION_HALF_RANGE_X_M,
         #     -0.565 + RANDOMIZATION_HALF_RANGE_Y_M,
         #     1.019 + RANDOMIZATION_HALF_RANGE_Z_M
         # ),
-        rpy_min=(0.0, 0.0, 0.0),
-        rpy_max=(0.0, 0.0, 0.0),
+        rpy_min=(0.0, 0.0, yaw),
+        rpy_max=(0.0, 0.0, yaw),
     )
     # Above shelf
     # Pose(
@@ -124,12 +133,12 @@ class PutAndCloseDoorTask(SequentialTaskBase):
         return None
 
 
-pick_and_place_task = PickAndPlaceTask(vegetable, refrigerator_shelf, kitchen_background)
+pick_and_place_task = PickAndPlaceTask(pickup_object, refrigerator_shelf, kitchen_background)
 close_door_task = CloseDoorTask(refrigerator, closedness_threshold=0.05, reset_openness=0.5)
 
 task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
 
-scene = Scene(assets=[kitchen_background, refrigerator, refrigerator_shelf, vegetable, light])
+scene = Scene(assets=[kitchen_background, refrigerator, refrigerator_shelf, pickup_object, light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
@@ -153,7 +162,7 @@ STEPS_UNTIL_CLOSE_DOOR = 100
 # Reset frequently to check the randomizations.
 
 # Run some zero actions.
-STEPS_BETWEEN_RESETS = 2
+STEPS_BETWEEN_RESETS = 30
 NUM_STEPS = 200
 for idx in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
@@ -173,7 +182,7 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 
         if _ == STEPS_UNTIL_TELEPORT_VEGETABLE:
             # Teleport the vegetable to the shelf
-            vegetable.set_object_pose(
+            pickup_object.set_object_pose(
                 env,
                 env_ids=None,
                 pose=Pose(position_xyz=(4.625, -0.395, 1.224), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)),
@@ -203,10 +212,31 @@ from lightwheel_sdk.loader import object_loader
 
 # Print all the vegetables in the registry
 for asset in object_loader.list_registry():
-    properties = asset["property"]
-    if "types" in properties:
-        types = properties["types"]
-        if "vegetable" in types:
-            print(asset)
+    print(asset["name"])
+    # properties = asset["property"]
+    # if "types" in properties:
+    #     types = properties["types"]
+    #     if "vegetable" in types:
+    #         print(asset)
+
+# %%
+
+object_names = []
+for asset in object_loader.list_registry():
+    object_names.append(asset["name"])
+print(object_names)
+
+
+# %%
+
+from lightwheel_sdk.loader import object_loader
+
+file_path, object_name, metadata = object_loader.acquire_by_registry(
+    registry_type="objects", registry_name=["jug"], file_type="USD"
+)
+print(f"loaded {object_name} at {file_path}")
+
+# %%
+
 
 # %%
