@@ -195,13 +195,13 @@ TABLE OF CONTENTS
 
    pages/example_workflows/locomanipulation/index
    pages/example_workflows/static_manipulation/index
+   pages/example_workflows/reinforcement_learning/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Advanced
 
    pages/advanced/private_omniverse
-   pages/advanced/assets_management
 
 .. toctree::
    :maxdepth: 1
