@@ -134,7 +134,7 @@ During training, you'll see periodic console output:
 .. code-block:: text
 
    Learning iteration 2000/12000
-   
+
                              Computation: 308 steps/s (collection: 4.600s, learning 0.377s)
                    Mean action noise std: 1.00
                 Mean value_function loss: 0.0273
@@ -158,7 +158,7 @@ During training, you'll see periodic console output:
                           Iteration time: 4.98s
                             Time elapsed: 00:00:04
                                      ETA: 00:00:49
-   
+
    [INFO] Saved checkpoint to: logs/rsl_rl/generic_experiment/<timestamp>/model_<iteration>.pt
 
 **3. Checkpoints**

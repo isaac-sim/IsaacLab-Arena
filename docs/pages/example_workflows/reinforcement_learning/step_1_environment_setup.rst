@@ -172,7 +172,7 @@ You should see output indicating the start of training:
 .. code-block:: text
 
    Learning iteration 0/1
-   
+
                              Computation: 308 steps/s (collection: 4.600s, learning 0.377s)
                    Mean action noise std: 1.00
                 Mean value_function loss: 0.0273
