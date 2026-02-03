@@ -45,7 +45,11 @@ workflow:
           export WANDB_NAME="{{ workflow_name }}_$(date +%Y%m%d_%H%M%S)"
 
           # Modify gr00t code to allow for naming of the run.
-          sed -i "s/^\(\s*run_name=\)None/\1\"${WANDB_NAME}\"/" gr00t/experiment/launch_finetune.py
+          sed -i '86c\    config.training.wandb_project = "'"$WANDB_PROJECT"'"' gr00t/experiment/launch_finetune.py
+          sed -i '87c\    config.training.experiment_name = "'"$WANDB_NAME"'"' gr00t/experiment/launch_finetune.py
+
+          echo "The contents of the gr00t/experiment/launch_finetune.py file:"
+          cat gr00t/experiment/launch_finetune.py
 
           # Launch finetune
           uv run torchrun --nproc_per_node={{ gpus }} --standalone gr00t/experiment/launch_finetune.py \
@@ -109,9 +113,16 @@ default-values:
   # embodiment_tag: NEW_EMBODIMENT
   # modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
 
-  # Static manipulation -- GTC potato into fridge
-  workflow_name: gr1_potato_into_fridge_gn1_6
-  input_dataset_name: gr1_potato_into_fridge
-  input_demo_name: potato_into_fridge_generated_100
+  # # Static manipulation -- GTC potato into fridge
+  # workflow_name: gr1_potato_into_fridge_gn1_6
+  # input_dataset_name: gr1_potato_into_fridge
+  # input_demo_name: potato_into_fridge_generated_100
+  # embodiment_tag: GR1
+  # modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
+
+  # Static manipulation -- GTC jug into fridge
+  workflow_name: gr1_gtc_jug_gpu8_bs24_maxsteps_20000
+  input_dataset_name: gr1_jug_into_fridge
+  input_demo_name: jug_into_fridge_generated_100
   embodiment_tag: GR1
   modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
