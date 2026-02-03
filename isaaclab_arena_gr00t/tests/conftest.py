@@ -9,10 +9,6 @@
 # To work around this, we stash the session object and set a flag
 # when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
 # prior to closing the simulation app, in order to generate the correct exit code.
-#
-# NOTE: We also update isaaclab_arena.tests.conftest.PYTEST_SESSION because
-# subprocess.py imports from there. This ensures the exit code handling works
-# correctly when gr00t tests use run_simulation_app_function.
 
 import isaaclab_arena.tests.conftest as arena_conftest
 
