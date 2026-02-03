@@ -123,6 +123,50 @@ class IsAnchor(RelationBase):
     pass
 
 
+class RandomAroundSolution(RelationBase):
+    """Marker indicating the solver solution should be used as center of a PoseRange.
+
+    When ObjectPlacer applies positions, objects with this marker will get a PoseRange
+    (enabling randomization at environment reset) instead of a fixed Pose.
+
+    The half extents define a box centered on the solved position. At each environment
+    reset, a random position within this box will be sampled.
+
+    Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
+    affects how ObjectPlacer applies the solved position to the object.
+
+    Usage:
+        box.add_relation(On(desk))
+        box.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.1))
+        # -> ObjectPlacer sets a PoseRange spanning ±0.1m in X and Y around solved position
+    """
+
+    def __init__(
+        self,
+        x_half_m: float = 0.0,
+        y_half_m: float = 0.0,
+        z_half_m: float = 0.0,
+        roll_half_rad: float = 0.0,
+        pitch_half_rad: float = 0.0,
+        yaw_half_rad: float = 0.0,
+    ):
+        """
+        Args:
+            x_half_m: Half-extent in X direction (meters). Position will be randomized ±x_half_m.
+            y_half_m: Half-extent in Y direction (meters). Position will be randomized ±y_half_m.
+            z_half_m: Half-extent in Z direction (meters). Position will be randomized ±z_half_m.
+            roll_half_rad: Half-extent for roll (radians). Rotation will be randomized ±roll_half_rad.
+            pitch_half_rad: Half-extent for pitch (radians). Rotation will be randomized ±pitch_half_rad.
+            yaw_half_rad: Half-extent for yaw (radians). Rotation will be randomized ±yaw_half_rad.
+        """
+        self.x_half_m = x_half_m
+        self.y_half_m = y_half_m
+        self.z_half_m = z_half_m
+        self.roll_half_rad = roll_half_rad
+        self.pitch_half_rad = pitch_half_rad
+        self.yaw_half_rad = yaw_half_rad
+
+
 class AtPosition(RelationBase):
     """Constrains object to specific world coordinates.
 
