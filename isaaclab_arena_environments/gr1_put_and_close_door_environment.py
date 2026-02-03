@@ -62,7 +62,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 for eef_name, subtask_list in mimic_env_cfg.subtask_configs.items():
                     for subtask_config in subtask_list:
                         subtask_config.subtask_term_offset_range = (0, 0)
-                        subtask_config.action_noise = 0.001
+                        subtask_config.action_noise = 0.003
 
                 return mimic_env_cfg
 
@@ -123,7 +123,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         z_position = {
             "sweet_potato": 1.0,
             "jug": 1.0209,
-            "ranch_dressing_bottle": 1.03,
+            "ranch_dressing_bottle": 1.0082,
         }[args_cli.object]
         yaw = {
             "sweet_potato": 0.0,

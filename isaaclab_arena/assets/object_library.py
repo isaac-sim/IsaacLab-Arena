@@ -618,7 +618,7 @@ class RanchDressingBottle(LibraryObject):
     tags = ["object", "graspable"]
     usd_path = f"omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
     object_type = ObjectType.RIGID
-    scale = (1.5, 1.5, 1.7)
+    scale = (0.8, 0.8, 1.2)
 
     def __init__(
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
