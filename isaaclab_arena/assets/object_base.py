@@ -123,11 +123,6 @@ class ObjectBase(Asset, ABC):
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         if contact_against_prim_paths is None:
             contact_against_prim_paths = []
-        # HUGE HACK TO GET GTC SCENE GOING
-        if self.name == "sweet_potato":
-            contact_sensor_prim_path = "/World/envs/env_.*/sweet_potato/SweetPotato005"
-        else:
-            contact_sensor_prim_path = self.prim_path
         return ContactSensorCfg(
             prim_path=self.prim_path,
             filter_prim_paths_expr=contact_against_prim_paths,
