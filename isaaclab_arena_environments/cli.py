@@ -21,7 +21,7 @@ from isaaclab_arena_environments.kitchen_pick_and_place_environment import Kitch
 from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
 from isaaclab_arena_environments.tabletop_place_upright_environment import TableTopPlaceUprightEnvironment
-
+from isaaclab_arena_environments.droid_tabletop_pick_and_place_environment import DroidTabletopPickAndPlaceEnvironment
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
 # We cannot annotate types which require the simulation app to be started in order to
 # import, because this file is used to retrieve CLI arguments, so it must be imported
@@ -42,6 +42,7 @@ ExampleEnvironments = {
     LiftObjectEnvironment.name: LiftObjectEnvironment,
     TableTopPlaceUprightEnvironment.name: TableTopPlaceUprightEnvironment,
     Gr1TurnStandMixerKnobEnvironment.name: Gr1TurnStandMixerKnobEnvironment,
+    DroidTabletopPickAndPlaceEnvironment.name: DroidTabletopPickAndPlaceEnvironment,
 }
 
 

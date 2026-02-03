@@ -21,9 +21,7 @@ class BinaryJointPositionZeroToOneAction(BinaryJointPositionAction):
             # true: close, false: open
             binary_mask = actions > 0.5
         # compute the command
-        self._processed_actions = torch.where(
-            binary_mask, self._close_command, self._open_command
-        )
+        self._processed_actions = torch.where(binary_mask, self._close_command, self._open_command)
         if self.cfg.clip is not None:
             self._processed_actions = torch.clamp(
                 self._processed_actions,
