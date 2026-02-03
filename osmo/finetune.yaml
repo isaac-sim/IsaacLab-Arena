@@ -85,15 +85,16 @@ workflow:
       gpu: {{ gpus }}
       memory: 700Gi
       platform: ovx-l40
+      # platform: dgx-h100
       storage: 400Gi
   timeout:
     exec_timeout: 7d
     queue_timeout: 2d
 
 default-values:
-  cpus: 60
+  cpus: 80
   gpus: 8
-  batch_size: 24
+  batch_size: 96
   max_steps: 20000
   # Static manipulation
   # workflow_name: gr1_open_microwave_kitchen_gn1_6
@@ -110,8 +111,14 @@ default-values:
   # modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
 
   # Static manipulation -- GTC potato into fridge
-  workflow_name: gr1_potato_into_fridge_gn1_6
-  input_dataset_name: gr1_potato_into_fridge
-  input_demo_name: potato_into_fridge_generated_100
+  # workflow_name: gr1_potato_into_fridge_gn1_6
+  # input_dataset_name: gr1_potato_into_fridge
+  # input_demo_name: potato_into_fridge_generated_100
+  # embodiment_tag: _no_randomizationorkspace/gr1_manip/gr1_arms_only_data_config.py
+
+# Jug into fridge
+  workflow_name: gr1_jug_into_fridge_gn1_6_gbs96_1teleop_no_randomization
+  input_dataset_name: gr1_jug_into_fridge_no_randomization
+  input_demo_name: jug_into_fridge_generated_100_peterd_v2_no_randomization
   embodiment_tag: GR1
   modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
