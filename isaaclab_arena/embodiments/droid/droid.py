@@ -8,6 +8,7 @@ import torch
 from abc import ABC
 from dataclasses import MISSING
 from typing import Any
+from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -30,6 +31,7 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
+from isaaclab.sim import PinholeCameraCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 
