@@ -62,7 +62,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 for eef_name, subtask_list in mimic_env_cfg.subtask_configs.items():
                     for subtask_config in subtask_list:
                         subtask_config.subtask_term_offset_range = (0, 0)
-                        subtask_config.action_noise = 0.003
+                        subtask_config.action_noise = 0.001
 
                 return mimic_env_cfg
 
@@ -117,12 +117,12 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        RANDOMIZATION_HALF_RANGE_X_M = 0.00
-        RANDOMIZATION_HALF_RANGE_Y_M = 0.00
+        RANDOMIZATION_HALF_RANGE_X_M = 0.03
+        RANDOMIZATION_HALF_RANGE_Y_M = 0.01
         RANDOMIZATION_HALF_RANGE_Z_M = 0.0
         z_position = {
             "sweet_potato": 1.0,
-            "jug": 1.1,
+            "jug": 1.0209,
         }[args_cli.object]
         yaw = {
             "sweet_potato": 0.0,
@@ -132,12 +132,12 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             PoseRange(
                 position_xyz_min=(
                     4.05 - RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
+                    -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
                     z_position - RANDOMIZATION_HALF_RANGE_Z_M,
                 ),
                 position_xyz_max=(
                     4.05 + RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
+                    -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
                     z_position + RANDOMIZATION_HALF_RANGE_Z_M,
                 ),
                 rpy_min=(0.0, 0.0, yaw),
