@@ -7,9 +7,11 @@
 
 import re
 import subprocess
+from pathlib import Path
 
-REPO_PATH = "/workspaces/isaaclab_arena"
-CONTRIBUTORS_FILE_PATH = "/workspaces/isaaclab_arena/CONTRIBUTORS.md"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_PATH = str(REPO_ROOT)
+CONTRIBUTORS_FILE_PATH = REPO_ROOT / "CONTRIBUTORS.md"
 SHORTLOG_REF = "main"
 
 
@@ -93,9 +95,8 @@ def main() -> None:
             print(f"\tusername: @{entry}")
     result = contributors_in_contributors_file(CONTRIBUTORS_FILE_PATH, username_or_email)
     if not result:
-        exit(1)
-    else:
-        exit(0)
+        raise SystemExit(1)
+    raise SystemExit(0)
 
 
 if __name__ == "__main__":
