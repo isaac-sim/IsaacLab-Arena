@@ -82,3 +82,49 @@ python isaaclab_arena/evaluation/policy_runner.py \
 --num_steps 2000 \
 --enable_cameras put_item_in_fridge_and_close_door \
 --embodiment gr1_joint
+
+
+-----------------------------------------------------------
+
+Ranch Into fridge
+
+
+ranch_bottle_into_fridge_generated_100_peterd_v1
+ranch_bottle_into_fridge_generated_100_peterd_v1_no_randomization
+
+python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py   \
+   --yaml_file isaaclab_arena_gr00t/lerobot/config/gr1_manip_ranch_config.yaml
+
+CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+--dataset_path=/datasets/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1/lerobot/ \
+--output_dir=/tmp/ \
+--modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py --global_batch_size=24 --max_steps=20000          --num_gpus=1          --save_steps=5000          --base_model_path=nvidia/GR00T-N1.6-3B          --no_tune_llm          --no_tune_visual          --no_tune_projector          --tune_diffusion_model                --dataloader_num_workers=16              --embodiment_tag=GR1          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08          --save_total_limit=5
+
+python isaaclab_arena/evaluation/policy_runner.py \
+--policy_type isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy \
+--config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_replay_action_ranch_config.yaml \
+--device cpu put_item_in_fridge_and_close_door --embodiment gr1_joint --object ranch_dressing_bottle
+
+Workflow Submission
+-------------------
+
+osmo login https://us-west-2-aws.osmo.nvidia.com
+
+osmo dataset upload gr1_ranch_bottle_into_fridge \
+/mnt/datab/arena/dataset/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1 \
+ /mnt/datab/arena/dataset/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1.hdf5
+
+osmo workflow submit osmo/finetune.yaml --pool isaac-dev-l40-03
+
+
+Closedloop Eval
+---------------
+
+osmo data download swift://pdx.s8k.io/AUTH_team-isaac/mimic/datasets/gr1_potato_into_fridge_gn1_6-1/checkpoint-20000 ./
+
+python isaaclab_arena/evaluation/policy_runner.py \
+--policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+--policy_config_yaml_path isaaclab_arena_gr00t/onfig/gr1_manip_gr00t_closedloop_potato_config.yaml \
+--num_steps 2000 \
+--enable_cameras put_item_in_fridge_and_close_door \
+--embodiment gr1_joint
