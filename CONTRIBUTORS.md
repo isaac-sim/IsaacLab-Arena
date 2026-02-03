@@ -5,7 +5,7 @@ This is the official list of Isaac Lab - Arena Project developers and contributo
 Guidelines for modifications:
 
 * Please keep the **lists sorted alphabetically**.
-* name <github_user, email> (optional institution)
+* name <github_user and/or email> (optional institution)
 
 ## Developers
 
@@ -17,9 +17,16 @@ Guidelines for modifications:
 * Xinjie Yao <xyao-nv, xyao@nvidia.com> (NVIDIA)
 * Lance Li <Nyquist0, lancel@nvidia.com> (NVIDIA)
 * Rebecca Zhang <rebeccazhang0707, rebeccaz@nvidia.com> (NVIDIA)
-* Weihua Zhang <yami007007-weihuaz weihuaz@nvidia.com> (NVIDIA)
+* Weihua Zhang <yami007007-weihuaz, weihuaz@nvidia.com> (NVIDIA)
+
+## LightWheel AI
+
+* Jay Yang <jay.yang@lightwheel.ai> (LightWheel)
+* Xiaowei Song <xiaowei.song@lightwheel.ai> (LightWheel)
+* Ju Zheng <ju.zheng@lightwheel.ai> (LightWheel)
+* Tianheng Wu <tianheng.wu@lightwheel.ai> (LightWheel)
 
 ## Contributors
 
-- Mikhail Yurasov <myurasov-nv, myurasov@nvidia.com> (NVIDIA)
-- Shiwei Sheng <shiweis, shiweis@nvidia.com> (NVIDIA)
+* Mikhail Yurasov <myurasov-nv, myurasov@nvidia.com> (NVIDIA)
+* Shiwei Sheng <shiweis, shiweis@nvidia.com> (NVIDIA)
