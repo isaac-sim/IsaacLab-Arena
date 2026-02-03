@@ -46,7 +46,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 subtasks: list[TaskBase],
                 episode_length_s: float | None = None,
             ):
-                super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
+                super().__init__(
+                    subtasks=subtasks,
+                    episode_length_s=episode_length_s,
+                    desired_subtask_success_state=[True, True]
+                )
 
             def get_viewer_cfg(self):
                 return self.subtasks[0].get_viewer_cfg()
