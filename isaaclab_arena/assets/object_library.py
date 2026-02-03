@@ -606,3 +606,21 @@ class Jug(LibraryObject):
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class RanchDressingBottle(LibraryObject):
+    """
+    Ranch Dressing Bottle
+    """
+
+    name = "ranch_dressing_bottle"
+    tags = ["object", "graspable"]
+    usd_path = f"omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
+    object_type = ObjectType.RIGID
+    scale = (1.5, 1.5, 1.7)
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)

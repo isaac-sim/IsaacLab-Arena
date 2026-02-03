@@ -123,10 +123,12 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         z_position = {
             "sweet_potato": 1.0,
             "jug": 1.0209,
+            "ranch_dressing_bottle": 1.03,
         }[args_cli.object]
         yaw = {
             "sweet_potato": 0.0,
             "jug": -70.0,
+            "ranch_dressing_bottle": 130.0,
         }[args_cli.object]
         pickup_object.set_initial_pose(
             PoseRange(
@@ -198,7 +200,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             "--object",
             type=str,
             default="sweet_potato",
-            choices=["sweet_potato", "jug"],
+            choices=["sweet_potato", "jug", "ranch_dressing_bottle"],
             help="Type of vegetable to pick and place",
         )
         parser.add_argument(
