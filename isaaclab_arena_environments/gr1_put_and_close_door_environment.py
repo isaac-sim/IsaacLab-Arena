@@ -109,10 +109,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 # Oblique to bench
                 # position_xyz=(3.943, -1.069, 0.995),
                 # rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
-                # 35 degrees clockwise from oblique to bench
-                position_xyz=(3.943, -0.9, 0.995),
+                # 35 degrees clockwise from oblique to bench7
+                # position_xyz=(3.943, -0.9, 0.995), for potato
+                position_xyz=(3.943, -1.0, 0.995),
                 # rotation_wxyz=(0.9537170, 0.0, 0.0, 0.3007058),
-                rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
+                rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
             )
         )
 
@@ -125,17 +126,17 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         }[args_cli.object]
         yaw = {
             "sweet_potato": 0.0,
-            "jug": -90.0,
+            "jug": -70.0,
         }[args_cli.object]
         pickup_object.set_initial_pose(
             PoseRange(
                 position_xyz_min=(
-                    4.1 - RANDOMIZATION_HALF_RANGE_X_M,
+                    4.05 - RANDOMIZATION_HALF_RANGE_X_M,
                     -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
                     z_position - RANDOMIZATION_HALF_RANGE_Z_M,
                 ),
                 position_xyz_max=(
-                    4.1 + RANDOMIZATION_HALF_RANGE_X_M,
+                    4.05 + RANDOMIZATION_HALF_RANGE_X_M,
                     -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
                     z_position + RANDOMIZATION_HALF_RANGE_Z_M,
                 ),
