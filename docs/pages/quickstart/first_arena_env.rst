@@ -6,7 +6,7 @@ to compose your first simple IsaacLab Arena environment by combining assets, sce
 
 Once within the docker container, run the following command to compile your first IsaacLab Arena environment:
 
-.. caode-block:: bash
+.. code-block:: bash
 
     python isaaclab_arena/examples/compile_env_notebook.py
 
