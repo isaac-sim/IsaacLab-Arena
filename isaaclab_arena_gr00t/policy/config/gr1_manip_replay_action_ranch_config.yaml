@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
-dataset_path: "/datasets/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1/lerobot/"
+dataset_path: "/datasets/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1_no_randomization/lerobot/"
 
 action_horizon: 1
 embodiment_tag: GR1

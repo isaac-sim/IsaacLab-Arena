@@ -96,9 +96,9 @@ python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py   \
    --yaml_file isaaclab_arena_gr00t/lerobot/config/gr1_manip_ranch_config.yaml
 
 CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
---dataset_path=/datasets/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1/lerobot/ \
+--dataset_path=/datasets/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1_no_randomization/lerobot/ \
 --output_dir=/tmp/ \
---modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py --global_batch_size=24 --max_steps=20000          --num_gpus=1          --save_steps=5000          --base_model_path=nvidia/GR00T-N1.6-3B          --no_tune_llm          --no_tune_visual          --no_tune_projector          --tune_diffusion_model                --dataloader_num_workers=16              --embodiment_tag=GR1          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08          --save_total_limit=5
+--modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py --global_batch_size=24 --max_steps=1         --num_gpus=1          --save_steps=5000          --base_model_path=nvidia/GR00T-N1.6-3B          --no_tune_llm          --no_tune_visual          --no_tune_projector          --tune_diffusion_model                --dataloader_num_workers=16              --embodiment_tag=GR1          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08          --save_total_limit=5
 
 python isaaclab_arena/evaluation/policy_runner.py \
 --policy_type isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy \
@@ -110,9 +110,9 @@ Workflow Submission
 
 osmo login https://us-west-2-aws.osmo.nvidia.com
 
-osmo dataset upload gr1_ranch_bottle_into_fridge \
-/mnt/datab/arena/dataset/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1 \
- /mnt/datab/arena/dataset/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1.hdf5
+osmo dataset upload gr1_ranch_bottle_into_fridge_no_randomization \
+/mnt/datab/arena/dataset/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1_no_randomization \
+ /mnt/datab/arena/dataset/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100_peterd_v1_no_randomization.hdf5
 
 osmo workflow submit osmo/finetune.yaml --pool isaac-dev-l40-03
 
