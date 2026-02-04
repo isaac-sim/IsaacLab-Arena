@@ -12,6 +12,6 @@ To get started with Isaac-Lab Arena, see our [documentation site](https://isaac-
 
 **Isaac-Lab Arena** - Scaling robotic simulation and evaluation for the future
 
-Made with ❤️ by the NVIDIA Robotics Team
+Made with ❤️ by the NVIDIA Robotics Team in collaboriation with [Lightwheel](https://lightwheel.ai/).
 
 </div>
