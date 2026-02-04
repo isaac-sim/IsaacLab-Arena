@@ -77,9 +77,7 @@ ARM_JOINT_NAMES_LIST = [
 ]
 
 # Default camera offset pose
-_DEFAULT_CAMERA_OFFSET = Pose(
-    position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108)
-)
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
 
 
 @register_asset
@@ -147,13 +145,14 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
+        self.camera_config.__post_init__()  # Re-run to apply any custom offset
         # Lock waist joints
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
             joint_names_expr=["waist_.*"],
             effort_limit=torch.inf,
             velocity_limit=0.0,
-            stiffness=100000000.0,
-            damping=100000000.0,
+            stiffness=1e9,
+            damping=1e9,
         )
 
 
@@ -179,14 +178,15 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
+        self.camera_config.__post_init__()  # Re-run to apply any custom offset
 
         # Lock waist joints
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
             joint_names_expr=["waist_.*"],
             effort_limit=torch.inf,
             velocity_limit=0.0,
-            stiffness=100000000.0,
-            damping=100000000.0,
+            stiffness=1e9,
+            damping=1e9,
         )
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed

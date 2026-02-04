@@ -17,7 +17,7 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     """
     A sequential task environment with two subtasks for GR1 humanoid robot:
-    1. Pick and place vegetable into the refrigerator shelf
+    1. Pick and place object into the refrigerator shelf
     2. Close the refrigerator door
     The refrigerator starts open, the robot places the object inside, then closes it.
     Uses the lightwheel robocasa kitchen background.
@@ -94,8 +94,14 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 self.datagen_config.max_num_failures = 25
                 self.datagen_config.seed = 1
 
+        camera_offset = Pose(
+            position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108)
+        )
         # Get assets
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+            enable_cameras=args_cli.enable_cameras,
+            camera_offset=camera_offset
+        )
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=args_cli.kitchen_style
         )
@@ -110,19 +116,13 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         # Set initial poses
         embodiment.set_initial_pose(
             Pose(
-                # Oblique to bench
-                # position_xyz=(3.943, -1.069, 0.995),
-                # rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
-                # 35 degrees clockwise from oblique to bench7
-                # position_xyz=(3.943, -0.9, 0.995), for potato
                 position_xyz=(3.943, -1.0, 0.995),
-                # rotation_wxyz=(0.9537170, 0.0, 0.0, 0.3007058),
                 rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
             )
         )
 
-        RANDOMIZATION_HALF_RANGE_X_M = 0.0
-        RANDOMIZATION_HALF_RANGE_Y_M = 0.0
+        RANDOMIZATION_HALF_RANGE_X_M = 0.03
+        RANDOMIZATION_HALF_RANGE_Y_M = 0.01
         RANDOMIZATION_HALF_RANGE_Z_M = 0.0
         z_position = {
             "sweet_potato": 1.0,
