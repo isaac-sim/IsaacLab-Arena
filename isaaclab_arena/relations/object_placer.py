@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import RandomAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -208,17 +208,29 @@ class ObjectPlacer:
     ) -> None:
         """Apply solved positions to objects (skipping anchors).
 
-        If an object has a RandomAroundSolution marker, a PoseRange is created
-        centered on the solved position. Otherwise, a fixed Pose is set.
+        The rotation is determined by markers:
+        1. RandomAroundSolution: Creates a PoseRange centered on the solved position and the
+           rotation from the RandomAroundSolution marker.
+        2. RotateAroundSolution: Uses the explicit rotation specified in the RotateAroundSolution marker.
+        3. No marker: Uses identity rotation
         """
         for obj, pos in positions.items():
             if obj in anchor_objects:
                 continue
 
             random_marker = self._get_random_around_solution(obj)
+            rotate_marker = self._get_rotate_around_solution(obj)
+
             if random_marker is not None:
-                obj.set_initial_pose(random_marker.to_pose_range(pos))
+                # We need to set a PoseRange for the randomization to be picked up on reset.
+                # Set a PoseRange with the explicit rotation from RotateAroundSolution if present
+                rotation = rotate_marker.get_rotation_wxyz() if rotate_marker else (1.0, 0.0, 0.0, 0.0)
+                obj.set_initial_pose(random_marker.to_pose_range(pos, rotation_wxyz=rotation))
+            elif rotate_marker is not None:
+                # Without randomization, we can set a fixed Pose.
+                obj.set_initial_pose(rotate_marker.to_pose(pos))
             else:
+                # Just set a fixed Pose with identity rotation. No randomization.
                 obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
     def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
@@ -232,6 +244,20 @@ class ObjectPlacer:
         """
         for rel in obj.get_relations():
             if isinstance(rel, RandomAroundSolution):
+                return rel
+        return None
+
+    def _get_rotate_around_solution(self, obj: Object | ObjectReference) -> RotateAroundSolution | None:
+        """Get RotateAroundSolution marker from object if present.
+
+        Args:
+            obj: Object to check for the marker.
+
+        Returns:
+            The RotateAroundSolution marker if found, None otherwise.
+        """
+        for rel in obj.get_relations():
+            if isinstance(rel, RotateAroundSolution):
                 return rel
         return None
 
