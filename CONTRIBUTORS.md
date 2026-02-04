@@ -7,12 +7,13 @@ Guidelines for modifications:
 * Please keep the **lists sorted alphabetically**.
 * name <github_user and/or email> (optional institution)
 
-## Developers
+## Core Team
 
 * Alexander Millane <alexmillane, amillane@nvidia.com> (NVIDIA)
 * Clemens Volk <cvolkcvolk, cvolk@nvidia.com> (NVIDIA)
 * Peter Du <peter-NV, peterd@nvidia.com> (NVIDIA)
 * Qian Lin <linqianqian-work, qianl@nvidia.com> (NVIDIA)
+* Sangeeta Subramanian <sangeetas@nvidia.com> (NVIDIA)
 * Vikram Ramasamy <viiik-inside, vramasamy@nvidia.com> (NVIDIA)
 * Xinjie Yao <xyao-nv, xyao@nvidia.com> (NVIDIA)
 
@@ -25,6 +26,7 @@ Guidelines for modifications:
 
 ## Contributors
 
+* Ashley Chow <ashchow@nvidia.com> (NVIDIA)
 * Lance Li <Nyquist0, lancel@nvidia.com> (NVIDIA)
 * Mikhail Yurasov <myurasov-nv, myurasov@nvidia.com> (NVIDIA)
 * Rebecca Zhang <rebeccazhang0707, rebeccaz@nvidia.com> (NVIDIA)
