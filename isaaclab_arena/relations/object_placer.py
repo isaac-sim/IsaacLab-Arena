@@ -13,7 +13,7 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import RandomAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -217,30 +217,7 @@ class ObjectPlacer:
 
             random_marker = self._get_random_around_solution(obj)
             if random_marker is not None:
-                # Create PoseRange centered on solved position
-                pose_range = PoseRange(
-                    position_xyz_min=(
-                        pos[0] - random_marker.x_half_m,
-                        pos[1] - random_marker.y_half_m,
-                        pos[2] - random_marker.z_half_m,
-                    ),
-                    position_xyz_max=(
-                        pos[0] + random_marker.x_half_m,
-                        pos[1] + random_marker.y_half_m,
-                        pos[2] + random_marker.z_half_m,
-                    ),
-                    rpy_min=(
-                        -random_marker.roll_half_rad,
-                        -random_marker.pitch_half_rad,
-                        -random_marker.yaw_half_rad,
-                    ),
-                    rpy_max=(
-                        random_marker.roll_half_rad,
-                        random_marker.pitch_half_rad,
-                        random_marker.yaw_half_rad,
-                    ),
-                )
-                obj.set_initial_pose(pose_range)
+                obj.set_initial_pose(random_marker.to_pose_range(pos))
             else:
                 obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 

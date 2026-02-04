@@ -8,6 +8,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.utils.pose import PoseRange
+
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -165,6 +167,38 @@ class RandomAroundSolution(RelationBase):
         self.roll_half_rad = roll_half_rad
         self.pitch_half_rad = pitch_half_rad
         self.yaw_half_rad = yaw_half_rad
+
+    def to_pose_range(self, position: tuple[float, float, float]) -> PoseRange:
+        """Create a PoseRange centered on the given position.
+
+        Args:
+            position: Center position (x, y, z) for the range.
+
+        Returns:
+            PoseRange spanning ± half-extents around the position.
+        """
+        return PoseRange(
+            position_xyz_min=(
+                position[0] - self.x_half_m,
+                position[1] - self.y_half_m,
+                position[2] - self.z_half_m,
+            ),
+            position_xyz_max=(
+                position[0] + self.x_half_m,
+                position[1] + self.y_half_m,
+                position[2] + self.z_half_m,
+            ),
+            rpy_min=(
+                -self.roll_half_rad,
+                -self.pitch_half_rad,
+                -self.yaw_half_rad,
+            ),
+            rpy_max=(
+                self.roll_half_rad,
+                self.pitch_half_rad,
+                self.yaw_half_rad,
+            ),
+        )
 
 
 class AtPosition(RelationBase):
