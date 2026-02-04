@@ -85,7 +85,6 @@ workflow:
       gpu: {{ gpus }}
       memory: 700Gi
       platform: ovx-l40
-      # platform: dgx-h100
       storage: 400Gi
   timeout:
     exec_timeout: 7d
