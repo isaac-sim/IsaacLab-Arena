@@ -90,3 +90,10 @@ core.*
 
 # Development and cache folders
 /__*
+
+*docker/mimic/
+*tools/
+commands.txt
+edit_hdf5.py
+robotics_2025_onsite_commands.txt
+sequential_tasks_commands.txt

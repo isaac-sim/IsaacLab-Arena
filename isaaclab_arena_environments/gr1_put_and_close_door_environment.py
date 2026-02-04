@@ -121,8 +121,8 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        RANDOMIZATION_HALF_RANGE_X_M = 0.03
-        RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+        RANDOMIZATION_HALF_RANGE_X_M = 0.0
+        RANDOMIZATION_HALF_RANGE_Y_M = 0.0
         RANDOMIZATION_HALF_RANGE_Z_M = 0.0
         z_position = {
             "sweet_potato": 1.0,
