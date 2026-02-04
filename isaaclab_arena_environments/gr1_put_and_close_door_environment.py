@@ -122,7 +122,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         RANDOMIZATION_HALF_RANGE_Z_M = 0.0
         z_position = {
             "sweet_potato": 1.0,
-            "jug": 1.1,
+            "jug": 1.05,
         }[args_cli.object]
         yaw = {
             "sweet_potato": 0.0,
