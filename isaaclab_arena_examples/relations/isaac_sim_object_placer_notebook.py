@@ -25,11 +25,15 @@ if TYPE_CHECKING:
     from isaacsim import SimulationApp
 
 
-def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
+def run_isaac_sim_object_placer_demo(
+    num_steps: int = 10000,
+    reset_every_n_steps: int = 100,
+):
     """Run the ObjectPlacer demo with Isaac Sim objects.
 
     Args:
         num_steps: Number of simulation steps to run.
+        reset_every_n_steps: Reset the environment every N steps (to see RandomAroundSolution in action).
     """
     import torch
     import tqdm
@@ -39,7 +43,7 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, Side
+    from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, RandomAroundSolution, Side
     from isaaclab_arena.scene.scene import Scene
 
     asset_registry = AssetRegistry()
@@ -59,7 +63,8 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     cracker_box.add_relation(On(tabletop_reference, clearance_m=0.02))
     # Place the cracker box explicitly slightly to the right of the tabletop.
-    cracker_box.add_relation(AtPosition(x=0.2, y=0.0))
+    cracker_box.add_relation(AtPosition(x=-0.1, y=0.0))
+    cracker_box.add_relation(RandomAroundSolution(x_half_m=0.05, y_half_m=0.25))
 
     # Put a mug next to the cracker box.
     mug = asset_registry.get_asset_by_name("mug")()
@@ -81,11 +86,15 @@ def run_isaac_sim_object_placer_demo(num_steps: int = 10000):
     env = env_builder.make_registered()
     env.reset()
 
-    # Run simulation steps
-    for _ in tqdm.tqdm(range(num_steps)):
+    # Run simulation steps with periodic resets
+    for step in tqdm.tqdm(range(num_steps)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
+
+        # Reset every N steps to see RandomAroundSolution randomization
+        if reset_every_n_steps > 0 and (step + 1) % reset_every_n_steps == 0:
+            env.reset()
 
 
 def smoke_test_isaac_sim_object_placer(simulation_app: SimulationApp) -> bool:

@@ -26,7 +26,7 @@ from isaaclab_arena.utils.pose import Pose
 
 # TODO(xinjieyao, 2026.01.07): Remove staging bucket and use production bucket for release.
 ISAACLAB_STAGING_NUCLEUS_DIR = (
-    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/"
+    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab"
 )
 
 
@@ -624,3 +624,73 @@ class RanchDressingBottle(LibraryObject):
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+class RedCube(LibraryObject):
+    """
+    A red cube.
+    """
+
+    name = "red_cube"
+    tags = ["object"]
+
+    # usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd" # not support, rigid body attribute need to be bind to root xform.
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
+
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/RedCube"
+    scale = (0.02, 0.02, 0.02)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GreenCube(LibraryObject):
+    """
+    A green cube.
+    """
+
+    name = "green_cube"
+    tags = ["object"]
+
+    # usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd" # not support, rigid body attribute need to be bind to root xform.
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/GreenCube"
+    scale = (0.02, 0.02, 0.02)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class RedContainer(LibraryObject):
+    """
+    A red container.
+    """
+
+    name = "red_container"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/red_container"
+    scale = (0.5, 0.5, 0.5)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GreenContainer(LibraryObject):
+    """
+    A green container.
+    """
+
+    name = "green_container"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/green_container"
+    scale = (0.5, 0.5, 0.5)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
