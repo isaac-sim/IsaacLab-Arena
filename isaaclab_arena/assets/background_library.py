@@ -150,7 +150,7 @@ class LightwheelKitchenBackground(LibraryBackground):
     tags = ["background"]
     usd_path = None
     initial_pose = Pose.identity()
-    object_min_z = -0.2
+    object_min_z = 0.2
 
     def __init__(self, layout_id: int = 1, style_id: int = 1):
         from lightwheel_sdk.loader import floorplan_loader
