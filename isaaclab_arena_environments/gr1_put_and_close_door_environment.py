@@ -47,9 +47,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 episode_length_s: float | None = None,
             ):
                 super().__init__(
-                    subtasks=subtasks,
-                    episode_length_s=episode_length_s,
-                    desired_subtask_success_state=[True, True]
+                    subtasks=subtasks, episode_length_s=episode_length_s, desired_subtask_success_state=[True, True]
                 )
 
             def get_viewer_cfg(self):
@@ -94,13 +92,10 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 self.datagen_config.max_num_failures = 25
                 self.datagen_config.seed = 1
 
-        camera_offset = Pose(
-            position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108)
-        )
+        camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
         # Get assets
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=args_cli.enable_cameras,
-            camera_offset=camera_offset
+            enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
         )
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=args_cli.kitchen_style

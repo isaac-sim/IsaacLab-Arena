@@ -616,7 +616,9 @@ class RanchDressingBottle(LibraryObject):
 
     name = "ranch_dressing_bottle"
     tags = ["object", "graspable"]
-    usd_path = f"omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
+    usd_path = (
+        "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
+    )
     object_type = ObjectType.RIGID
     scale = (0.8, 0.8, 1.2)
 
@@ -624,6 +626,8 @@ class RanchDressingBottle(LibraryObject):
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
 class RedCube(LibraryObject):
     """
     A red cube.
@@ -632,7 +636,6 @@ class RedCube(LibraryObject):
     name = "red_cube"
     tags = ["object"]
 
-    # usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd" # not support, rigid body attribute need to be bind to root xform.
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
 
     object_type = ObjectType.RIGID
@@ -652,7 +655,6 @@ class GreenCube(LibraryObject):
     name = "green_cube"
     tags = ["object"]
 
-    # usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd" # not support, rigid body attribute need to be bind to root xform.
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/GreenCube"
