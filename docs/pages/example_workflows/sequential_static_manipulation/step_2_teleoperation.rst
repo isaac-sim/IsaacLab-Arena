@@ -65,11 +65,13 @@ Run the recording script:
 
    python isaaclab_arena/scripts/record_demos.py \
      --device cpu \
-     --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
+     --dataset_file $DATASET_DIR/arena_gr1_static_manipulation_dataset_recorded.hdf5 \
      --num_demos 10 \
-     --num_success_steps 2 \
-     gr1_open_microwave \
-     --teleop_device avp_handtracking
+     --num_success_steps 10 \
+     put_item_in_fridge_and_close_door \
+     --object ranch_dressing_bottle \
+     --embodiment gr1_pink \
+     --teleop_device openxr
 
 
 Step 4: Connect Vision Pro and Record
@@ -99,16 +101,16 @@ Follow these steps to record teleoperation demonstrations:
 4. Wait for connection (you should see the simulation in VR)
 
 
-.. figure:: ../../../images/simulation_view.png
-     :width: 40%
-     :alt: IsaacSim view
-     :align: center
+.. .. figure:: ../../../images/simulation_view.png
+..      :width: 40%
+..      :alt: IsaacSim view
+..      :align: center
 
-     First person view after connecting to the simulation.
+..      First person view after connecting to the simulation.
 
 
 
-5. Complete the task by opening the microwave door.
+5. Complete the task by picking up the object, placing it into the lower shelf of the refrigerator, and closing the door.
    - Your hands control the robots's hands.
    - Your fingers control the robots's fingers.
 6. On task completion the environment will automatically reset.
@@ -116,7 +118,7 @@ Follow these steps to record teleoperation demonstrations:
 
 
 The script will automatically save successful demonstrations to an HDF5 file
-at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
+at ``$DATASET_DIR/arena_gr1_sequential_manipulation_dataset_recorded.hdf5``.
 
 
 

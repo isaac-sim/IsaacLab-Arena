@@ -15,49 +15,166 @@ Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 
-.. dropdown:: The GR1 Open Microwave Environment
+.. dropdown:: The GR1 Sequential Pick & Place and Close Door Environment
    :animate: fade-in
 
    .. code-block:: python
 
-      class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
+      class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
-          name: str = "gr1_open_microwave"
+          name: str = "put_item_in_fridge_and_close_door"
 
-          def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-              from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-              from isaaclab_arena.scene.scene import Scene
-              from isaaclab_arena.tasks.open_door_task import OpenDoorTask
-              from isaaclab_arena.utils.pose import Pose
+          def get_env(self, args_cli: argparse.Namespace):
+            from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
+            from isaaclab.utils import configclass
 
-              background = self.asset_registry.get_asset_by_name("kitchen")()
-              microwave = self.asset_registry.get_asset_by_name("microwave")()
-              assets = [background, microwave]
+            from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+            from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+            from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+            from isaaclab_arena.scene.scene import Scene
+            from isaaclab_arena.tasks.close_door_task import CloseDoorTask
+            from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+            from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+            from isaaclab_arena.tasks.task_base import TaskBase
+            from isaaclab_arena.utils.pose import Pose, PoseRange
 
-              embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-              embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+            # Custom task class for this environment
+            class PutAndCloseDoorTask(SequentialTaskBase):
+                def __init__(
+                    self,
+                    subtasks: list[TaskBase],
+                    episode_length_s: float | None = None,
+                ):
+                    super().__init__(
+                        subtasks=subtasks, episode_length_s=episode_length_s, desired_subtask_success_state=[True, True]
+                    )
 
-              teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+                def get_viewer_cfg(self):
+                    return self.subtasks[0].get_viewer_cfg()
 
-              # Put the microwave on the packing table.
-              microwave_pose = Pose(
-                  position_xyz=(0.4, -0.00586, 0.22773),
-                  rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
-              )
-              microwave.set_initial_pose(microwave_pose)
+                def get_prompt(self):
+                    return None
 
-              scene = Scene(assets=assets)
-              task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
+                def get_mimic_env_cfg(self, arm_mode: ArmMode):
+                    mimic_env_cfg = PutAndCloseDoorTaskMimicEnvCfg()
+                    mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(ArmMode.RIGHT)
 
-              isaaclab_arena_environment = IsaacLabArenaEnvironment(
-                  name=self.name,
-                  embodiment=embodiment,
-                  scene=scene,
-                  task=task,
-                  teleop_device=teleop_device,
-              )
+                    # Override default subtask term offset range and action noise
+                    for eef_name, subtask_list in mimic_env_cfg.subtask_configs.items():
+                        for subtask_config in subtask_list:
+                            subtask_config.subtask_term_offset_range = (0, 0)
+                            subtask_config.action_noise = 0.003
 
-              return isaaclab_arena_environment
+                    return mimic_env_cfg
+
+            @configclass
+            class PutAndCloseDoorTaskMimicEnvCfg(MimicEnvCfg):
+                """
+                Isaac Lab Mimic environment config class for put and close door task.
+                """
+
+                def __post_init__(self):
+                    # post init of parents
+                    super().__post_init__()
+
+                    # Override the existing values
+                    self.datagen_config.name = "put_and_close_door_task_D0"
+                    self.datagen_config.generation_guarantee = True
+                    self.datagen_config.generation_keep_failed = False
+                    self.datagen_config.generation_num_trials = 100
+                    self.datagen_config.generation_select_src_per_subtask = False
+                    self.datagen_config.generation_select_src_per_arm = False
+                    self.datagen_config.generation_relative = False
+                    self.datagen_config.generation_joint_pos = False
+                    self.datagen_config.generation_transform_first_robot_pose = False
+                    self.datagen_config.generation_interpolate_from_last_target_pose = True
+                    self.datagen_config.max_num_failures = 25
+                    self.datagen_config.seed = 1
+
+            camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
+            embodiment = self.asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=True, camera_offset=camera_offset)
+            kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=args_cli.kitchen_style)
+            pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+            light = self.asset_registry.get_asset_by_name("light")()
+
+            if args_cli.teleop_device is not None:
+                teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+            else:
+                teleop_device = None
+
+            embodiment.set_initial_pose(
+                Pose(
+                    position_xyz=(3.943, -1.0, 0.995),
+                    rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
+                )
+            )
+
+            RANDOMIZATION_HALF_RANGE_X_M = 0.03
+            RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+            pickup_object.set_initial_pose(
+                PoseRange(
+                    position_xyz_min=(
+                        4.05 - RANDOMIZATION_HALF_RANGE_X_M,
+                        -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
+                        1.0082,
+                    ),
+                    position_xyz_max=(
+                        4.05 + RANDOMIZATION_HALF_RANGE_X_M,
+                        -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
+                        1.0082,
+                    ),
+                    rpy_min=(0.0, 0.0, yaw),
+                    rpy_max=(0.0, 0.0, yaw),
+                )
+            )
+
+            # Create refrigerator reference (OpenableObjectReference)
+            refrigerator = OpenableObjectReference(
+                name="refrigerator",
+                prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group",
+                parent_asset=kitchen_background,
+                openable_joint_name="fridge_door_joint",
+                openable_threshold=0.5,
+            )
+
+            # Create refrigerator shelf reference (destination for pick and place)
+            refrigerator_shelf = ObjectReference(
+                name="refrigerator_shelf",
+                prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group/Refrigerator034",
+                parent_asset=kitchen_background,
+            )
+
+            # Create pick and place task
+            pick_and_place_task = PickAndPlaceTask(
+                pick_up_object=pickup_object,
+                destination_object=refrigerator,
+                destination_location=refrigerator_shelf,
+                background_scene=kitchen_background,
+            )
+
+            # Create close door task
+            close_door_task = CloseDoorTask(
+                openable_object=refrigerator,
+                closedness_threshold=0.10,
+                reset_openness=0.5,
+            )
+
+            # Create sequential task
+            sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
+
+            # Create scene
+            scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
+
+            # Create and return environment
+            isaaclab_arena_environment = IsaacLabArenaEnvironment(
+                name=self.name,
+                embodiment=embodiment,
+                scene=scene,
+                task=sequential_task,
+                teleop_device=teleop_device,
+            )
+            return isaaclab_arena_environment
+
 
 
 Step-by-Step Breakdown
@@ -67,61 +184,105 @@ Step-by-Step Breakdown
 
 .. code-block:: python
 
-   background = self.asset_registry.get_asset_by_name("kitchen")()
-   microwave = self.asset_registry.get_asset_by_name("microwave")()
-   assets = [background, microwave]
+    camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
+    embodiment = self.asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=True, camera_offset=camera_offset)
+    kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=args_cli.kitchen_style)
+    pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+    light = self.asset_registry.get_asset_by_name("light")()
 
-   embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-   teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+    if args_cli.teleop_device is not None:
+        teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+    else:
+        teleop_device = None
 
-Here, we're selecting the components needed for our static manipulation task: the kitchen environment as our background,
-a microwave with an openable door, and the GR1 embodiment (our robot).
+Here, we're selecting the components needed for our sequential static manipulation task: 
+The GR1 embodiment, the kitchen environment as our background, the object to pick and place, 
+the kitchen environment as our background, and a light to illuminate the scene.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
 See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
 
-**2. Position the Objects**
+
+**2. Position the Embodiment and Objects**
 
 .. code-block:: python
 
-   microwave_pose = Pose(
-       position_xyz=(0.4, -0.00586, 0.22773),
-       rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
-   )
-   microwave.set_initial_pose(microwave_pose)
+    embodiment.set_initial_pose(
+        Pose(
+            position_xyz=(3.943, -1.0, 0.995),
+            rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
+        )
+    )
 
-Before we create the scene, we need to place our objects in the right locations. These initial poses are
-currently set manually to create an achievable task. In this case, we place the microwave on the packing table.
+    RANDOMIZATION_HALF_RANGE_X_M = 0.03
+    RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+    pickup_object.set_initial_pose(
+        PoseRange(
+            position_xyz_min=(
+                4.05 - RANDOMIZATION_HALF_RANGE_X_M,
+                -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
+                1.0082,
+            ),
+            position_xyz_max=(
+                4.05 + RANDOMIZATION_HALF_RANGE_X_M,
+                -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
+                1.0082,
+            ),
+            rpy_min=(0.0, 0.0, yaw),
+            rpy_max=(0.0, 0.0, yaw),
+        )
+    )
+
+Before we create the scene, we need to place our embodiment and objects in the right locations.
+The embodiment is placed in a fixed spot while the object is placed in a random location within a range.
 
 
-**3. Compose the Scene**
+**3. Create the Sequential Pick & Place and Close Door Task**
 
 .. code-block:: python
 
-    scene = Scene(assets=assets)
+    # Create pick and place task
+    pick_and_place_task = PickAndPlaceTask(
+        pick_up_object=pickup_object,
+        destination_object=refrigerator,
+        destination_location=refrigerator_shelf,
+        background_scene=kitchen_background,
+    )
+
+    # Create close door task
+    close_door_task = CloseDoorTask(
+        openable_object=refrigerator,
+        closedness_threshold=0.10,
+        reset_openness=0.5,
+    )
+
+    # Create sequential task
+    sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
+
+The sequential task is composed of two atomic subtasks: the pick and place task and the close door task.
+See :doc:`../../concepts/concept_tasks_design` for task creation details.
+
+
+**4. Compose the Scene**
+
+.. code-block:: python
+
+    scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
 
 Now we bring everything together into an IsaacLab-Arena scene.
 See :doc:`../../concepts/concept_scene_design` for scene composition details.
 
-**4. Create the Open Door Task**
-
-.. code-block:: python
-
-    task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
-
-The ``OpenDoorTask`` encapsulates the goal of this environment: open the microwave door.
-See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
 .. code-block:: python
 
    isaaclab_arena_environment = IsaacLabArenaEnvironment(
-       name=self.name,
-       embodiment=embodiment,
-       scene=scene,
-       task=task,
-       teleop_device=teleop_device,
-   )
+        name=self.name,
+        embodiment=embodiment,
+        scene=scene,
+        task=sequential_task,
+        teleop_device=teleop_device,
+    )
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
 top-level container that connects the embodiment (the robot), the scene (the world), and the task (the objective).
@@ -133,15 +294,8 @@ Step 1: Download a Test Dataset
 
 To run a robot in the environment we need some recorded demonstration data that
 can be fed to the robot to control its actions.
-We download a pre-recorded dataset from Hugging Face.
 
-.. code-block:: bash
-
-   hf download \
-       nvidia/Arena-GR1-Manipulation-Task \
-       arena_gr1_manipulation_dataset_generated.hdf5 \
-       --repo-type dataset \
-       --local-dir $DATASET_DIR
+TODO: ADD INSTRUCTIONS TO DOWNLOAD A TEST DATASET
 
 
 Step 2: Validate the Environment by Replaying the Dataset
@@ -151,19 +305,20 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \
-     gr1_open_microwave \
+     --dataset_file "${DATASET_DIR}/arena_gr1_sequential_manipulation_dataset_generated.hdf5" \
+     put_item_in_fridge_and_close_door \
+     --object ranch_dressing_bottle \
      --embodiment gr1_pink
 
-You should see the GR1 robot replaying the demonstrations, performing the microwave door
-opening task in the kitchen environment.
+You should see the GR1 robot replaying the demonstrations, performing the sequential
+pick & place and close door task in the kitchen environment.
 
-.. figure:: ../../../images/gr1_open_microwave_task_view.png
-   :width: 100%
-   :alt: GR1 opening the microwave door
-   :align: center
+.. .. figure:: ../../../images/gr1_open_microwave_task_view.png
+..    :width: 100%
+..    :alt: GR1 opening the microwave door
+..    :align: center
 
-   IsaacLab Arena GR1 opening the microwave door
+..    IsaacLab Arena GR1 opening the microwave door

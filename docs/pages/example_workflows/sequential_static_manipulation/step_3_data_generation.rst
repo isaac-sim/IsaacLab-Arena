@@ -6,10 +6,8 @@ This workflow covers generating a new dataset using
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Teleoperation Data Collection) <step_2_teleoperation>`.
-If you do not want to do the preceding step of recording demonstrations, you can jump to
-you can download the pre-generated dataset either in
-:ref:`step_1_annotate_demonstrations` or :ref:`step_2_generate_augmented_dataset`
-below.
+If you do not want to do the preceding step of recording demonstrations, you can download 
+the pre-recorded datasets and jump to :ref:`step_1_annotate_demonstrations`.
 
 
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
@@ -25,46 +23,42 @@ Step 1: Annotate Demonstrations
 This step describes how to manually annotate the demonstrations recorded in the preceding step
 such that they can be used by Isaac Lab Mimic. For automatic annotation the user needs to define
 subtasks in their task definition, we do not show how to do this in this tutorial.
-The process of annotation involves segmenting demonstrations into two subtasks (reach, open door):
+The process of annotation involves segmenting demonstrations into various subtasks for the left/right arms. 
+As this is a sequential composite task, there are additional Mimic subtasks to denote the end of each intermediate atomic task 
+(in this case an annotation to denote the end of the pick & place task):
 For more details on mimic annotation, please refer to the
 `Isaac Lab Mimic documentation <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrationsl>`_.
 
-To skip this step, you can download the pre-annotated dataset from Hugging Face as described below.
+To skip this step, you can download the pre-annotated dataset as described below.
 
 .. dropdown:: Download Pre-annotated Dataset (skip annotation step)
    :animate: fade-in
 
-   These commands can be used to download the pre-annotated dataset,
-   such that the annotation step can be skipped.
-
-   To download run:
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/Arena-GR1-Manipulation-Task \
-         arena_gr1_manipulation_dataset_annotated.hdf5 \
-         --repo-type dataset \
-         --revision refs/pr/2 \
-         --local-dir $DATASET_DIR
+   TODO: ADD INSTRUCTIONS TO DOWNLOAD ANNOTATED DATASET
 
 To start the annotation process run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/annotate_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
      --device cpu \
-     --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
-     --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
+     --input_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_recorded.hdf5 \
+     --output_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_annotated.hdf5 \
      --enable_pinocchio \
      --mimic \
-     gr1_open_microwave
+     put_item_in_fridge_and_close_door \
+     --object ranch_dressing_bottle \
+     --embodiment gr1_pink
 
 Follow the instructions described on the CLI to mark subtask boundaries:
 
-1. **Reach:** Robot reaches toward the microwave door
-2. **Open door:** Robot opens the door
+Left Arm:
+1. **Pick & place completed:** Robot has completed the pick and place task
 
+Right Arm:
+1. **Grasp object:** Robot has grasped the object
+1. **Pick & place completed:** Robot has completed the pick and place task
+2. **Move to door:** Robot has moved its hand to the refrigerator door
 
 
 .. _step_2_generate_augmented_dataset:
@@ -75,38 +69,31 @@ Step 2: Generate Augmented Dataset
 Isaac Lab Mimic generates additional demonstrations from a small set of
 annotated demonstrations by using rigid body transformations to introduce variations.
 
-This step can be skipped by downloading the pre-generated dataset from Hugging Face as described below.
+This step can be skipped by downloading the pre-generated dataset as described below.
 
 .. dropdown:: Download Pre-generated Dataset (skip data generation step)
    :animate: fade-in
 
-   These commands can be used to download the pre-generated dataset,
-   such that the data generation step can be skipped.
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/Arena-GR1-Manipulation-Task \
-         arena_gr1_manipulation_dataset_generated.hdf5 \
-         --repo-type dataset \
-         --local-dir $DATASET_DIR
+   TODO: ADD INSTRUCTIONS TO DOWNLOAD GENERATED DATASET
 
 
 Generate the dataset:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py  \
      --device cpu \
-     --generation_num_trials 50 \
+     --generation_num_trials 100 \
      --num_envs 10 \
-     --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
-     --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
+     --input_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_annotated.hdf5 \
+     --output_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_generated.hdf5 \
      --enable_pinocchio \
      --enable_cameras \
      --headless \
      --mimic \
-     gr1_open_microwave
+     put_item_in_fridge_and_close_door \
+     --object ranch_dressing_bottle \
+     --embodiment gr1_pink
 
 Data generation takes 30-60 minutes depending on hardware.
 If you want to visualize the data generation process, remove ``--headless``
@@ -122,21 +109,22 @@ To do so, run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
-     gr1_open_microwave \
+     --dataset_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_generated.hdf5 \
+     put_item_in_fridge_and_close_door \
+     --object ranch_dressing_bottle \
      --embodiment gr1_pink
 
-You should see the robot successfully perform the task.
+.. You should see the robot successfully perform the task.
 
-.. figure:: ../../../images/gr1_open_microwave_task_view.png
-   :width: 100%
-   :alt: GR1 opening the microwave door
-   :align: center
+.. .. figure:: ../../../images/gr1_open_microwave_task_view.png
+..    :width: 100%
+..    :alt: GR1 opening the microwave door
+..    :align: center
 
-   IsaacLab Arena GR1 opening the microwave door
+..    IsaacLab Arena GR1 opening the microwave door
 
 .. note::
 
