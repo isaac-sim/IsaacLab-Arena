@@ -616,9 +616,7 @@ class RanchDressingBottle(LibraryObject):
 
     name = "ranch_dressing_bottle"
     tags = ["object", "graspable"]
-    usd_path = (
-        "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
-    )
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
     object_type = ObjectType.RIGID
     scale = (0.8, 0.8, 1.2)
 

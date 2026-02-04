@@ -8,14 +8,14 @@
 # Example for GR1 tabletop manipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/isaaclab_arena/jug_into_fridge"
+data_root: "/datasets/isaaclab_arena/ranch_bottle_into_fridge"
 
 # Instruction given to the policy in natural language
-language_instruction: "Place the jug on the top shelf of the fridge, and close the fridge door."
+language_instruction: "Place the ranch dressing bottle on the top shelf of the fridge, and close the fridge door."
 task_index: 0
 
 # Name of the HDF5 file to use for the dataset
-hdf5_name: "jug_into_fridge_generated_100_peterd_v2_no_randomization.hdf5"
+hdf5_name: "ranch_bottle_into_fridge_generated_100_peterd_v1.hdf5"
 
 # Mimic-generated HDF5 datafield names
 state_name_sim: "robot_joint_pos"

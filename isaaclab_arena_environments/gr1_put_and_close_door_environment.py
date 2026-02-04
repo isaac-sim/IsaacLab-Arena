@@ -14,6 +14,11 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
+RANDOMIZATION_HALF_RANGE_X_M = 0.03
+RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+RANDOMIZATION_HALF_RANGE_Z_M = 0.0
+
+
 class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     """
     A sequential task environment with two subtasks for GR1 humanoid robot:
@@ -30,6 +35,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab.utils import configclass
 
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -38,6 +44,22 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
         from isaaclab_arena.utils.pose import Pose, PoseRange
+
+        def get_pose_range(z_position, yaw):
+            return PoseRange(
+                position_xyz_min=(
+                    4.05 - RANDOMIZATION_HALF_RANGE_X_M,
+                    -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
+                    z_position - RANDOMIZATION_HALF_RANGE_Z_M,
+                ),
+                position_xyz_max=(
+                    4.05 + RANDOMIZATION_HALF_RANGE_X_M,
+                    -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
+                    z_position + RANDOMIZATION_HALF_RANGE_Z_M,
+                ),
+                rpy_min=(0.0, 0.0, yaw),
+                rpy_max=(0.0, 0.0, yaw),
+            )
 
         # Custom task class for this environment
         class PutAndCloseDoorTask(SequentialTaskBase):
@@ -116,36 +138,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        RANDOMIZATION_HALF_RANGE_X_M = 0.03
-        RANDOMIZATION_HALF_RANGE_Y_M = 0.01
-        RANDOMIZATION_HALF_RANGE_Z_M = 0.0
-        z_position = {
-            "sweet_potato": 1.0,
-            "jug": 1.0209,
-            "ranch_dressing_bottle": 1.0082,
-        }[args_cli.object]
-        yaw = {
-            "sweet_potato": 0.0,
-            "jug": -70.0,
-            "ranch_dressing_bottle": 130.0,
-        }[args_cli.object]
-        pickup_object.set_initial_pose(
-            PoseRange(
-                position_xyz_min=(
-                    4.05 - RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_position - RANDOMIZATION_HALF_RANGE_Z_M,
-                ),
-                position_xyz_max=(
-                    4.05 + RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_position + RANDOMIZATION_HALF_RANGE_Z_M,
-                ),
-                rpy_min=(0.0, 0.0, yaw),
-                rpy_max=(0.0, 0.0, yaw),
-            )
-        )
-
         # Create refrigerator reference (OpenableObjectReference)
         refrigerator = OpenableObjectReference(
             name="refrigerator",
@@ -162,9 +154,29 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             parent_asset=kitchen_background,
         )
 
+        # Consider changing to other values for different objects, below is for ranch dressing bottle
+        z_position = 1.0082
+        yaw = 130.0
+        # Note (xinjieyao, 2026.02.04): prim path of object set has not been resolved yet, will be fixed in the future.
+        assert args_cli.object_set is None, "Object set is not supported yet"
+        #  All obs from object set are under the same randomization range
+        if args_cli.object_set is not None and len(args_cli.object_set) > 0:
+            objects = []
+            for obj in args_cli.object_set:
+                obj_from_set = self.asset_registry.get_asset_by_name(obj)()
+                objects.append(obj_from_set)
+            object_set = RigidObjectSet(name="object_set", objects=objects)
+            object_set.set_initial_pose(get_pose_range(z_position, yaw))
+            # Create scene
+            scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
+        else:
+            pickup_object.set_initial_pose(get_pose_range(z_position, yaw))
+            # Create scene
+            scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
+
         # Create pick and place task
         pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=pickup_object,
+            pick_up_object=pickup_object if args_cli.object_set is None else object_set,
             destination_object=refrigerator,
             destination_location=refrigerator_shelf,
             background_scene=kitchen_background,
@@ -178,10 +190,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         # Create sequential task
-        sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
-
-        # Create scene
-        scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
+        sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
 
         # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -198,9 +207,19 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         parser.add_argument(
             "--object",
             type=str,
-            default="sweet_potato",
+            default="ranch_dressing_bottle",
             choices=["sweet_potato", "jug", "ranch_dressing_bottle"],
-            help="Type of vegetable to pick and place",
+            help="Object to pick and place",
+        )
+        parser.add_argument(
+            "--object_set",
+            nargs="+",
+            type=str,
+            default=None,
+            help=(
+                "Used in heterogeneous environments where each environment has a different object spawned from this"
+                " set."
+            ),
         )
         parser.add_argument(
             "--kitchen_style", type=int, default=2, help="Kitchen style ID for lightwheel robocasa kitchen"

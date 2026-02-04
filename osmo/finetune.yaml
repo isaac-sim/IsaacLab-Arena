@@ -110,22 +110,9 @@ default-values:
   # embodiment_tag: NEW_EMBODIMENT
   # modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
 
-  # Static manipulation -- GTC potato into fridge
-  # workflow_name: gr1_potato_into_fridge_gn1_6
-  # input_dataset_name: gr1_potato_into_fridge
-  # input_demo_name: potato_into_fridge_generated_100
-  # embodiment_tag: _no_randomizationorkspace/gr1_manip/gr1_arms_only_data_config.py
-
-# # Jug into fridge
-#   workflow_name: gr1_jug_into_fridge_gn1_6_gbs96_1teleop_no_randomization
-#   input_dataset_name: gr1_jug_into_fridge_no_randomization
-#   input_demo_name: jug_into_fridge_generated_100_peterd_v2_no_randomization
-#   embodiment_tag: GR1
-#   modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
-
-# ranch bottle into fridge
-  workflow_name: gr1_ranch_bottle_into_fridge_gn1_6_gbs96_no_randomization
-  input_dataset_name: gr1_ranch_bottle_into_fridge_no_randomization
-  input_demo_name: ranch_bottle_into_fridge_generated_100_peterd_v1_no_randomization
+# Static manipulation -- Place ranch dressing bottle into fridge
+  workflow_name: gr1_ranch_bottle_into_fridge_gn1_6
+  input_dataset_name: gr1_ranch_bottle_into_fridge
+  input_demo_name: ranch_bottle_into_fridge_generated_100_peterd_v1
   embodiment_tag: GR1
   modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
