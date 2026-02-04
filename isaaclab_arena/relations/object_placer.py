@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.relations import RandomAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -206,11 +206,34 @@ class ObjectPlacer:
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
         anchor_objects: Object | ObjectReference,
     ) -> None:
-        """Apply solved positions to objects (skipping anchors)."""
+        """Apply solved positions to objects (skipping anchors).
+
+        If an object has a RandomAroundSolution marker, a PoseRange is created
+        centered on the solved position. Otherwise, a fixed Pose is set.
+        """
         for obj, pos in positions.items():
             if obj in anchor_objects:
                 continue
-            obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
+            random_marker = self._get_random_around_solution(obj)
+            if random_marker is not None:
+                obj.set_initial_pose(random_marker.to_pose_range(pos))
+            else:
+                obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
+    def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
+        """Get RandomAroundSolution marker from object if present.
+
+        Args:
+            obj: Object to check for the marker.
+
+        Returns:
+            The RandomAroundSolution marker if found, None otherwise.
+        """
+        for rel in obj.get_relations():
+            if isinstance(rel, RandomAroundSolution):
+                return rel
+        return None
 
     @property
     def last_loss_history(self) -> list[float]:

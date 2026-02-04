@@ -8,6 +8,7 @@ import torch
 
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
@@ -39,6 +40,31 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+    return condition_met
+
+
+def objects_on_destinations(
+    env: ManagerBasedRLEnv,
+    object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
+    contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
+    force_threshold: float = 1.0,
+    velocity_threshold: float = 0.5,
+) -> torch.Tensor:
+    """Multi-object version of `object_on_destination`.
+
+    Returns True only when ALL objects in the list satisfy the destination condition.
+    See `object_on_destination` for details on the single-object logic.
+    """
+    condition_met = torch.ones((env.num_envs), device=env.device, dtype=torch.bool)
+    for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
+        single_condition = object_on_destination(
+            env=env,
+            object_cfg=object_cfg,
+            contact_sensor_cfg=contact_sensor_cfg,
+            force_threshold=force_threshold,
+            velocity_threshold=velocity_threshold,
+        )
+        condition_met = torch.logical_and(condition_met, single_condition)
     return condition_met
 
 
@@ -211,11 +237,18 @@ def goal_pose_task_termination(
     return success
 
 
-def object_above(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg,
-    maximum_height: float,
+def root_height_below_minimum_multi_objects(
+    env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
 ) -> torch.Tensor:
-    """Determine if the object is lifted above a certain height."""
-    object: RigidObject = env.scene[object_cfg.name]
-    return object.data.root_pos_w[:, 2] > maximum_height
+    """Terminate when any asset's root height is below the minimum height.
+
+    Note:
+        This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
+    """
+    outs = [
+        root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
+        for asset_cfg in asset_cfg_list
+    ]
+    outs_tensor = torch.stack(outs, dim=0)  # [X, N]
+    terminated = outs_tensor.any(dim=0)  # [N], bool
+    return terminated
