@@ -151,6 +151,9 @@ class RandomAroundSolution(RelationBase):
         roll_half_rad: float = 0.0,
         pitch_half_rad: float = 0.0,
         yaw_half_rad: float = 0.0,
+        roll_base_rad: float = 0.0,
+        pitch_base_rad: float = 0.0,
+        yaw_base_rad: float = 0.0,
     ):
         """
         Args:
@@ -160,6 +163,9 @@ class RandomAroundSolution(RelationBase):
             roll_half_rad: Half-extent for roll (radians). Rotation will be randomized ±roll_half_rad.
             pitch_half_rad: Half-extent for pitch (radians). Rotation will be randomized ±pitch_half_rad.
             yaw_half_rad: Half-extent for yaw (radians). Rotation will be randomized ±yaw_half_rad.
+            roll_base_rad: Base roll angle (radians). Center of the roll randomization range.
+            pitch_base_rad: Base pitch angle (radians). Center of the pitch randomization range.
+            yaw_base_rad: Base yaw angle (radians). Center of the yaw randomization range.
         """
         self.x_half_m = x_half_m
         self.y_half_m = y_half_m
@@ -167,6 +173,9 @@ class RandomAroundSolution(RelationBase):
         self.roll_half_rad = roll_half_rad
         self.pitch_half_rad = pitch_half_rad
         self.yaw_half_rad = yaw_half_rad
+        self.roll_base_rad = roll_base_rad
+        self.pitch_base_rad = pitch_base_rad
+        self.yaw_base_rad = yaw_base_rad
 
     def to_pose_range(self, position: tuple[float, float, float]) -> PoseRange:
         """Create a PoseRange centered on the given position.
@@ -189,14 +198,14 @@ class RandomAroundSolution(RelationBase):
                 position[2] + self.z_half_m,
             ),
             rpy_min=(
-                -self.roll_half_rad,
-                -self.pitch_half_rad,
-                -self.yaw_half_rad,
+                self.roll_base_rad - self.roll_half_rad,
+                self.pitch_base_rad - self.pitch_half_rad,
+                self.yaw_base_rad - self.yaw_half_rad,
             ),
             rpy_max=(
-                self.roll_half_rad,
-                self.pitch_half_rad,
-                self.yaw_half_rad,
+                self.roll_base_rad + self.roll_half_rad,
+                self.pitch_base_rad + self.pitch_half_rad,
+                self.yaw_base_rad + self.yaw_half_rad,
             ),
         )
 
