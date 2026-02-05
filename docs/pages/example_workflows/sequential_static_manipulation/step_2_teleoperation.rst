@@ -63,7 +63,7 @@ Run the recording script:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/record_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
      --dataset_file $DATASET_DIR/arena_gr1_static_manipulation_dataset_recorded.hdf5 \
      --num_demos 10 \
