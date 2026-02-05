@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import math
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -156,7 +157,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
         # Consider changing to other values for different objects, below is for ranch dressing bottle
         z_position = 1.0082
-        yaw = 130.0
+        yaw_rad = math.radians(-111.55)
         # Note (xinjieyao, 2026.02.04): prim path of object set has not been resolved yet, will be fixed in the future.
         assert args_cli.object_set is None, "Object set is not supported yet"
         #  All obs from object set are under the same randomization range
@@ -166,11 +167,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 obj_from_set = self.asset_registry.get_asset_by_name(obj)()
                 objects.append(obj_from_set)
             object_set = RigidObjectSet(name="object_set", objects=objects)
-            object_set.set_initial_pose(get_pose_range(z_position, yaw))
+            object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
             # Create scene
             scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
         else:
-            pickup_object.set_initial_pose(get_pose_range(z_position, yaw))
+            pickup_object.set_initial_pose(get_pose_range(z_position, yaw_rad))
             # Create scene
             scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
 
