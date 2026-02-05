@@ -102,7 +102,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         @configclass
         class PutAndCloseDoorTaskMimicEnvCfg(MimicEnvCfg):
             """
-            Isaac Lab Mimic environment config class for Franka put and close door task.
+            Isaac Lab Mimic environment config class for GR1 put and close door task.
             """
 
             def __post_init__(self):
