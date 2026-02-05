@@ -40,6 +40,13 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import (
+            AtPosition,
+            IsAnchor,
+            On,
+            RandomAroundSolution,
+            RotateAroundSolution,
+        )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -116,6 +123,14 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=args_cli.kitchen_style
         )
+
+        kitchen_counter_top = ObjectReference(
+            name="kitchen_counter_top",
+            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+            parent_asset=kitchen_background,
+        )
+        kitchen_counter_top.add_relation(IsAnchor())
+
         pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         light = self.asset_registry.get_asset_by_name("light")()
 
@@ -164,9 +179,21 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             # Create scene
             scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
         else:
-            pickup_object.set_initial_pose(get_pose_range(z_position, yaw_rad))
+            pickup_object.add_relation(On(kitchen_counter_top))
+            # Place the object at a specific position GR1 to be able to reach it with its hand.
+            pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+            pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+            pickup_object.add_relation(
+                RandomAroundSolution(
+                    x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
+                    y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
+                    z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
+                )
+            )
             # Create scene
-            scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
+            scene = Scene(
+                assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+            )
 
         # Create pick and place task
         pick_and_place_task = PickAndPlaceTask(
