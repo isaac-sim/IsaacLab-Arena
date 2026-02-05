@@ -626,6 +626,7 @@ class RanchDressingBottle(LibraryObject):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
+@register_asset
 class RedCube(LibraryObject):
     """
     A red cube.
