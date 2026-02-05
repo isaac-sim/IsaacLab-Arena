@@ -75,42 +75,62 @@ embodiment.set_initial_pose(
 RANDOMIZATION_HALF_RANGE_X_M = 0.04
 RANDOMIZATION_HALF_RANGE_Y_M = 0.01
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
-z_position = {
-    "sweet_potato": 1.0,
-    "jug": 1.1,
-}[pickup_object_name]
-yaw = {
-    "sweet_potato": 0.0,
-    "jug": -90.0,
-}[pickup_object_name]
-pickup_object.set_initial_pose(
-    # Bench (no randomization)
-    # Pose(position_xyz=(3.922, -0.565, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
-    # Bench (with randomization)
-    PoseRange(
-        position_xyz_min=(
-            4.1 - RANDOMIZATION_HALF_RANGE_X_M,
-            -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
-            z_position - RANDOMIZATION_HALF_RANGE_Z_M,
-        ),
-        position_xyz_max=(
-            4.1 + RANDOMIZATION_HALF_RANGE_X_M,
-            -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
-            z_position + RANDOMIZATION_HALF_RANGE_Z_M,
-        ),
-        # position_xyz_max=(
-        #     3.922 + RANDOMIZATION_HALF_RANGE_X_M,
-        #     -0.565 + RANDOMIZATION_HALF_RANGE_Y_M,
-        #     1.019 + RANDOMIZATION_HALF_RANGE_Z_M
-        # ),
-        rpy_min=(0.0, 0.0, yaw),
-        rpy_max=(0.0, 0.0, yaw),
+import math
+
+# z_position = {
+#    "sweet_potato": 1.0,
+#    "jug": 1.1,
+# }[pickup_object_name]
+# yaw = {
+#    "sweet_potato": 0.0,
+#    "jug": -90.0,
+# }[pickup_object_name]
+# pickup_object.set_initial_pose(
+#    # Bench (no randomization)
+#    # Pose(position_xyz=(3.922, -0.565, 1.019), rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068))
+#    # Bench (with randomization)
+#    PoseRange(
+#        position_xyz_min=(
+#            4.1 - RANDOMIZATION_HALF_RANGE_X_M,
+#            -0.6 - RANDOMIZATION_HALF_RANGE_Y_M,
+#            z_position - RANDOMIZATION_HALF_RANGE_Z_M,
+#        ),
+#        position_xyz_max=(
+#            4.1 + RANDOMIZATION_HALF_RANGE_X_M,
+#            -0.6 + RANDOMIZATION_HALF_RANGE_Y_M,
+#            z_position + RANDOMIZATION_HALF_RANGE_Z_M,
+#        ),
+#        # position_xyz_max=(
+#        #     3.922 + RANDOMIZATION_HALF_RANGE_X_M,
+#        #     -0.565 + RANDOMIZATION_HALF_RANGE_Y_M,
+#        #     1.019 + RANDOMIZATION_HALF_RANGE_Z_M
+#        # ),
+#        rpy_min=(0.0, 0.0, yaw),
+#        rpy_max=(0.0, 0.0, yaw),
+#    )
+#    # Above shelf
+#    # Pose(
+#    #     position_xyz=(4.625, -0.395, 1.224),
+#    #     rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
+#    # )
+# )
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, RandomAroundSolution, RotateAroundSolution
+
+kitchen_counter_top = ObjectReference(
+    name="kitchen_counter_top",
+    prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+    parent_asset=kitchen_background,
+)
+kitchen_counter_top.add_relation(IsAnchor())
+pickup_object.add_relation(On(kitchen_counter_top))
+pickup_object.add_relation(AtPosition(x=4.1, y=-0.6))
+pickup_object.add_relation(RotateAroundSolution(yaw_rad=math.radians(-90.0)))
+pickup_object.add_relation(
+    RandomAroundSolution(
+        x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
+        y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
+        z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
     )
-    # Above shelf
-    # Pose(
-    #     position_xyz=(4.625, -0.395, 1.224),
-    #     rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068)
-    # )
 )
 
 
@@ -138,7 +158,7 @@ close_door_task = CloseDoorTask(refrigerator, closedness_threshold=0.05, reset_o
 
 task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
 
-scene = Scene(assets=[kitchen_background, refrigerator, refrigerator_shelf, pickup_object, light])
+scene = Scene(assets=[kitchen_background, kitchen_counter_top, refrigerator, refrigerator_shelf, pickup_object, light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
