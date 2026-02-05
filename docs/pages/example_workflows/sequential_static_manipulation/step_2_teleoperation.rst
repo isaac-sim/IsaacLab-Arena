@@ -101,12 +101,12 @@ Follow these steps to record teleoperation demonstrations:
 4. Wait for connection (you should see the simulation in VR)
 
 
-.. .. figure:: ../../../images/simulation_view.png
-..      :width: 40%
-..      :alt: IsaacSim view
-..      :align: center
+.. figure:: ../../../images/gr1_sequential_static_manipulation_env_vr_view.png
+     :width: 40%
+     :alt: IsaacSim view
+     :align: center
 
-..      First person view after connecting to the simulation.
+     First person view after connecting to the simulation.
 
 
 
