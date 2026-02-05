@@ -32,7 +32,7 @@ class Gr1OpenMicrowaveRlEnvironment(ExampleEnvironmentBase):
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
-            concatenate_observation_terms=True,
+            concatenate_observation_terms=False,
         )
         embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         if args_cli.teleop_device is not None:

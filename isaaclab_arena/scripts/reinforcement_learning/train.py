@@ -98,6 +98,7 @@ from isaaclab_tasks.utils import get_checkpoint_path
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab_arena.scripts.reinforcement_learning.utils import get_env_and_agent_cfg
+from isaaclab_arena.utils.flatten_obs_wrapper import FlattenObsRslRlVecEnvWrapper
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
@@ -178,7 +179,14 @@ def main():
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
     # wrap around environment for rsl-rl
-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+    # Use FlattenObsRslRlVecEnvWrapper if any observation group has concatenate_terms=False
+    obs_manager = env.unwrapped.observation_manager
+    has_dict_obs = any(not concat for concat in obs_manager.group_obs_concatenate.values())
+    if has_dict_obs:
+        print("[INFO] Detected dict observations (concatenate_terms=False). Using FlattenObsRslRlVecEnvWrapper.")
+        env = FlattenObsRslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+    else:
+        env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
     # create runner from rsl-rl
     if agent_cfg.class_name == "OnPolicyRunner":
