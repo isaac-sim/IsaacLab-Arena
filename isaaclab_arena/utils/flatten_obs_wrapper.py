@@ -149,6 +149,20 @@ class FlattenObsRslRlVecEnvWrapper(RslRlVecEnvWrapper):
         super().__init__(env, clip_actions)
         self._obs_keys_order: dict[str, list[str]] = {}
         self._obs_shapes: dict[str, dict[str, tuple]] = {}
+        # Cache the task description
+        self._task_description: str | None = self._get_task_description()
+
+    def _get_task_description(self) -> str | None:
+        """Get the task description from the task object."""
+        try:
+            return self.unwrapped.cfg.isaaclab_arena_env.task.task_description
+        except AttributeError:
+            return None
+
+    @property
+    def task_description(self) -> str | None:
+        """Get the task description string."""
+        return self._task_description
 
     def _flatten_obs_group(self, obs_group_name: str, obs_group: dict | torch.Tensor) -> torch.Tensor:
         """Flatten a single observation group."""
@@ -188,6 +202,9 @@ class FlattenObsRslRlVecEnvWrapper(RslRlVecEnvWrapper):
         """Reset the environment and flatten observations."""
         obs_dict, extras = self.env.reset()
         flattened = self._flatten_obs_dict(obs_dict)
+        # Add task description to extras
+        if self._task_description is not None:
+            extras["task_description"] = self._task_description
         return TensorDict(flattened, batch_size=[self.num_envs]), extras
 
     def get_observations(self) -> TensorDict:
@@ -211,6 +228,9 @@ class FlattenObsRslRlVecEnvWrapper(RslRlVecEnvWrapper):
         # move time out information to the extras dict
         if not self.unwrapped.cfg.is_finite_horizon:
             extras["time_outs"] = truncated
+        # add task description to extras
+        if self._task_description is not None:
+            extras["task_description"] = self._task_description
         # flatten observations
         flattened = self._flatten_obs_dict(obs_dict)
         return TensorDict(flattened, batch_size=[self.num_envs]), rew, dones, extras

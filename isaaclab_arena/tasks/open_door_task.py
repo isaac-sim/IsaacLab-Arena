@@ -70,6 +70,7 @@ class TerminationsCfg:
     success: TerminationTermCfg = MISSING
 
 class OpenDoorTaskRL(OpenDoorTask):
+    task_description = "Open the microwave door"
     def __init__(
         self,
         openable_object: Openable,
@@ -85,9 +86,9 @@ class OpenDoorTaskRL(OpenDoorTask):
             episode_length_s=episode_length_s,
             task_description=task_description,
         )
-        self.openable_object =openable_object
+        self.openable_object = openable_object
         self.observation_cfg = OpenDoorObservationsCfg(
-            openable_object=self.openable_object
+            openable_object=self.openable_object,
         )
         self.commands_cfg = None
         self.rewards_cfg = OpenDoorRewardCfg(
