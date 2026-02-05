@@ -1,5 +1,5 @@
 GR1 Sequential Pick & Place and Close Door Task
-==============================================
+===============================================
 
 This example demonstrates the complete workflow for the **GR1 sequential manipulation task of picking up an object, 
 placing it into a refrigerator, and closing the door** in Isaac Lab - Arena, 

@@ -7,7 +7,7 @@ This workflow covers generating a new dataset using
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Teleoperation Data Collection) <step_2_teleoperation>`.
 If you do not want to do the preceding step of recording demonstrations, you can download 
-the pre-recorded datasets and jump to :ref:`step_1_annotate_demonstrations`.
+the pre-recorded datasets and jump to :ref:`sequential_step_1_annotate_demonstrations`.
 
 
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
@@ -15,7 +15,7 @@ the pre-recorded datasets and jump to :ref:`step_1_annotate_demonstrations`.
 :docker_run_default:
 
 
-.. _step_1_annotate_demonstrations:
+.. _sequential_step_1_annotate_demonstrations:
 
 Step 1: Annotate Demonstrations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -57,11 +57,11 @@ Left Arm:
 
 Right Arm:
 1. **Grasp object:** Robot has grasped the object
-1. **Pick & place completed:** Robot has completed the pick and place task
-2. **Move to door:** Robot has moved its hand to the refrigerator door
+2. **Pick & place completed:** Robot has completed the pick and place task
+3. **Move to door:** Robot has moved its hand to the refrigerator door
 
 
-.. _step_2_generate_augmented_dataset:
+.. _sequential_step_2_generate_augmented_dataset:
 
 Step 2: Generate Augmented Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -117,14 +117,15 @@ To do so, run the following command:
      --object ranch_dressing_bottle \
      --embodiment gr1_pink
 
-.. You should see the robot successfully perform the task.
+You should see the robot perform the manipulation task. Note that the robot's arms shake due to the action noise
+added during data generation.
 
-.. .. figure:: ../../../images/gr1_open_microwave_task_view.png
-..    :width: 100%
-..    :alt: GR1 opening the microwave door
-..    :align: center
+.. figure:: ../../../images/gr1_sequential_static_manip_mimic_datagen.gif
+   :width: 100%
+   :alt: GR1 picking up and placing an object in a refrigerator and closing the door
+   :align: center
 
-..    IsaacLab Arena GR1 opening the microwave door
+   IsaacLab Arena GR1 picking up and placing an object in a refrigerator and closing the door (with action noise)
 
 .. note::
 
