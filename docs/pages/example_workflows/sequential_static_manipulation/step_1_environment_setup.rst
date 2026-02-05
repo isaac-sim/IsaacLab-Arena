@@ -29,14 +29,38 @@ Environment Description
             from isaaclab.utils import configclass
 
             from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+            from isaaclab_arena.assets.object_set import RigidObjectSet
             from isaaclab_arena.embodiments.common.arm_mode import ArmMode
             from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+            from isaaclab_arena.relations.relations import (
+                AtPosition,
+                IsAnchor,
+                On,
+                RandomAroundSolution,
+                RotateAroundSolution,
+            )
             from isaaclab_arena.scene.scene import Scene
             from isaaclab_arena.tasks.close_door_task import CloseDoorTask
             from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
             from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
             from isaaclab_arena.tasks.task_base import TaskBase
             from isaaclab_arena.utils.pose import Pose, PoseRange
+
+            def get_pose_range(z_position, yaw):
+                return PoseRange(
+                    position_xyz_min=(
+                        4.05 - RANDOMIZATION_HALF_RANGE_X_M,
+                        -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
+                        z_position - RANDOMIZATION_HALF_RANGE_Z_M,
+                    ),
+                    position_xyz_max=(
+                        4.05 + RANDOMIZATION_HALF_RANGE_X_M,
+                        -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
+                        z_position + RANDOMIZATION_HALF_RANGE_Z_M,
+                    ),
+                    rpy_min=(0.0, 0.0, yaw),
+                    rpy_max=(0.0, 0.0, yaw),
+                )
 
             # Custom task class for this environment
             class PutAndCloseDoorTask(SequentialTaskBase):
@@ -59,7 +83,7 @@ Environment Description
                     mimic_env_cfg = PutAndCloseDoorTaskMimicEnvCfg()
                     mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(ArmMode.RIGHT)
 
-                    # Override default subtask term offset range and action noise
+                    # Set custom values for Mimic subtask term offset range and action noise
                     for eef_name, subtask_list in mimic_env_cfg.subtask_configs.items():
                         for subtask_config in subtask_list:
                             subtask_config.subtask_term_offset_range = (0, 0)
@@ -70,7 +94,7 @@ Environment Description
             @configclass
             class PutAndCloseDoorTaskMimicEnvCfg(MimicEnvCfg):
                 """
-                Isaac Lab Mimic environment config class for put and close door task.
+                Isaac Lab Mimic environment config class for GR1 put and close door task.
                 """
 
                 def __post_init__(self):
@@ -79,21 +103,26 @@ Environment Description
 
                     # Override the existing values
                     self.datagen_config.name = "put_and_close_door_task_D0"
-                    self.datagen_config.generation_guarantee = True
-                    self.datagen_config.generation_keep_failed = False
-                    self.datagen_config.generation_num_trials = 100
-                    self.datagen_config.generation_select_src_per_subtask = False
-                    self.datagen_config.generation_select_src_per_arm = False
-                    self.datagen_config.generation_relative = False
-                    self.datagen_config.generation_joint_pos = False
-                    self.datagen_config.generation_transform_first_robot_pose = False
-                    self.datagen_config.generation_interpolate_from_last_target_pose = True
-                    self.datagen_config.max_num_failures = 25
-                    self.datagen_config.seed = 1
+                    # Use default mimic datagen config parameters
+                    for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
+                        setattr(self.datagen_config, key, value)
 
             camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
-            embodiment = self.asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=True, camera_offset=camera_offset)
-            kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=args_cli.kitchen_style)
+            # Get assets
+            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+                enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
+            )
+            kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
+                style_id=args_cli.kitchen_style
+            )
+
+            kitchen_counter_top = ObjectReference(
+                name="kitchen_counter_top",
+                prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+                parent_asset=kitchen_background,
+            )
+            kitchen_counter_top.add_relation(IsAnchor())
+
             pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
             light = self.asset_registry.get_asset_by_name("light")()
 
@@ -102,29 +131,11 @@ Environment Description
             else:
                 teleop_device = None
 
+            # Set initial poses
             embodiment.set_initial_pose(
                 Pose(
                     position_xyz=(3.943, -1.0, 0.995),
                     rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
-                )
-            )
-
-            RANDOMIZATION_HALF_RANGE_X_M = 0.03
-            RANDOMIZATION_HALF_RANGE_Y_M = 0.01
-            pickup_object.set_initial_pose(
-                PoseRange(
-                    position_xyz_min=(
-                        4.05 - RANDOMIZATION_HALF_RANGE_X_M,
-                        -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
-                        1.0082,
-                    ),
-                    position_xyz_max=(
-                        4.05 + RANDOMIZATION_HALF_RANGE_X_M,
-                        -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
-                        1.0082,
-                    ),
-                    rpy_min=(0.0, 0.0, yaw),
-                    rpy_max=(0.0, 0.0, yaw),
                 )
             )
 
@@ -144,9 +155,40 @@ Environment Description
                 parent_asset=kitchen_background,
             )
 
+            # Consider changing to other values for different objects, below is for ranch dressing bottle
+            z_position = 1.0082
+            yaw_rad = math.radians(-111.55)
+            assert args_cli.object_set is None, "Object set is not supported yet"
+            #  All obs from object set are under the same randomization range
+            if args_cli.object_set is not None and len(args_cli.object_set) > 0:
+                objects = []
+                for obj in args_cli.object_set:
+                    obj_from_set = self.asset_registry.get_asset_by_name(obj)()
+                    objects.append(obj_from_set)
+                object_set = RigidObjectSet(name="object_set", objects=objects)
+                object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
+                # Create scene
+                scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
+            else:
+                pickup_object.add_relation(On(kitchen_counter_top))
+                # Place the object at a specific position GR1 to be able to reach it with its hand.
+                pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+                pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+                pickup_object.add_relation(
+                    RandomAroundSolution(
+                        x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
+                        y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
+                        z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
+                    )
+                )
+                # Create scene
+                scene = Scene(
+                    assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+                )
+
             # Create pick and place task
             pick_and_place_task = PickAndPlaceTask(
-                pick_up_object=pickup_object,
+                pick_up_object=pickup_object if args_cli.object_set is None else object_set,
                 destination_object=refrigerator,
                 destination_location=refrigerator_shelf,
                 background_scene=kitchen_background,
@@ -160,10 +202,7 @@ Environment Description
             )
 
             # Create sequential task
-            sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
-
-            # Create scene
-            scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
+            sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
 
             # Create and return environment
             isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -185,8 +224,15 @@ Step-by-Step Breakdown
 .. code-block:: python
 
     camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
-    embodiment = self.asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=True, camera_offset=camera_offset)
+    embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset)
     kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=args_cli.kitchen_style)
+    kitchen_counter_top = ObjectReference(
+        name="kitchen_counter_top",
+        prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+        parent_asset=kitchen_background,
+    )
+    kitchen_counter_top.add_relation(IsAnchor())
+
     pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
     light = self.asset_registry.get_asset_by_name("light")()
 
@@ -196,8 +242,8 @@ Step-by-Step Breakdown
         teleop_device = None
 
 Here, we're selecting the components needed for our sequential static manipulation task: 
-The GR1 embodiment, the kitchen environment as our background, the object to pick and place, 
-the kitchen environment as our background, and a light to illuminate the scene.
+The GR1 embodiment, the kitchen environment as our background, the object to pick and place,
+and a light to illuminate the scene.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
 See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
 
@@ -206,6 +252,7 @@ See :doc:`../../concepts/concept_assets_design` for details on asset architectur
 
 .. code-block:: python
 
+    # Set initial poses
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(3.943, -1.0, 0.995),
@@ -213,27 +260,42 @@ See :doc:`../../concepts/concept_assets_design` for details on asset architectur
         )
     )
 
-    RANDOMIZATION_HALF_RANGE_X_M = 0.03
-    RANDOMIZATION_HALF_RANGE_Y_M = 0.01
-    pickup_object.set_initial_pose(
-        PoseRange(
-            position_xyz_min=(
-                4.05 - RANDOMIZATION_HALF_RANGE_X_M,
-                -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
-                1.0082,
-            ),
-            position_xyz_max=(
-                4.05 + RANDOMIZATION_HALF_RANGE_X_M,
-                -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
-                1.0082,
-            ),
-            rpy_min=(0.0, 0.0, yaw),
-            rpy_max=(0.0, 0.0, yaw),
+    # ...
+
+    # Consider changing to other values for different objects, below is for ranch dressing bottle
+    z_position = 1.0082
+    yaw_rad = math.radians(-111.55)
+    assert args_cli.object_set is None, "Object set is not supported yet"
+    #  All obs from object set are under the same randomization range
+    if args_cli.object_set is not None and len(args_cli.object_set) > 0:
+        objects = []
+        for obj in args_cli.object_set:
+            obj_from_set = self.asset_registry.get_asset_by_name(obj)()
+            objects.append(obj_from_set)
+        object_set = RigidObjectSet(name="object_set", objects=objects)
+        object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
+        # Create scene
+        scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
+    else:
+        pickup_object.add_relation(On(kitchen_counter_top))
+        # Place the object at a specific position GR1 to be able to reach it with its hand.
+        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+        pickup_object.add_relation(
+            RandomAroundSolution(
+                x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
+                y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
+                z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
+            )
         )
-    )
+        # Create scene
+        scene = Scene(
+            assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+        )
 
 Before we create the scene, we need to place our embodiment and objects in the right locations.
-The embodiment is placed in a fixed spot while the object is placed in a random location within a range.
+The embodiment is placed in a fixed spot while the object is placed on top of the kitchen counter using
+the relational object placement APIs. The object is placed within a randomzation range to add some variability to the task.
 
 
 **3. Create the Sequential Pick & Place and Close Door Task**
