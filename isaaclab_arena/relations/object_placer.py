@@ -208,11 +208,8 @@ class ObjectPlacer:
     ) -> None:
         """Apply solved positions to objects (skipping anchors).
 
-        The rotation is determined by markers:
-        1. RandomAroundSolution: Creates a PoseRange centered on the solved position and the
-           rotation from the RandomAroundSolution marker.
-        2. RotateAroundSolution: Uses the explicit rotation specified in the RotateAroundSolution marker.
-        3. No marker: Uses identity rotation
+        If RandomAroundSolution marker is present, sets a PoseRange (for reset-time randomization).
+        Rotation is taken from RotateAroundSolution marker if present, otherwise keep the identity rotation.
         """
         for obj, pos in positions.items():
             if obj in anchor_objects:
