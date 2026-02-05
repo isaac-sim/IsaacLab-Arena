@@ -5,7 +5,7 @@
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from pxr import Usd
+from pxr import Usd, UsdPhysics
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
@@ -91,6 +91,18 @@ class ObjectReference(ObjectBase):
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
+        # Validate that the referenced prim has RigidBodyAPI applied
+        with open_stage(self.parent_asset.usd_path) as parent_stage:
+            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                self.prim_path, self.parent_asset, parent_stage
+            )
+            prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
+            if prim and not prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                raise ValueError(
+                    f"ObjectReference '{self.name}' has object_type=RIGID but the prim "
+                    f"'{prim_path_in_usd}' does not have USD RigidBodyAPI applied. "
+                    "Consider using object_type=BASE for static prims that are part of a background asset."
+                )
         initial_pose = self.get_initial_pose()
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,

@@ -23,6 +23,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose
@@ -31,12 +32,14 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
-        pick_up_object.set_initial_pose(
-            Pose(
-                position_xyz=(0.4, 0.0, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
-            )
+        table_top_reference = ObjectReference(
+            name="table_top_reference",
+            prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
+            parent_asset=background,
         )
+        table_top_reference.add_relation(IsAnchor())
+        pick_up_object.add_relation(On(table_top_reference, clearance_m=0.02))
+        pick_up_object.add_relation(AtPosition(x=4.0, y=3.0))
 
         # TODO(alexmillane, 2025.09.24): Add automatic object type detection of ObjectReferences.
         destination_location = ObjectReference(
@@ -57,10 +60,10 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 objects.append(obj_from_set)
             object_set = RigidObjectSet(name="object_set", objects=objects)
             object_set.set_initial_pose(Pose(position_xyz=(0.4, 0.2, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-            scene = Scene(assets=[background, pick_up_object, destination_location, object_set])
+            scene = Scene(assets=[background, table_top_reference, pick_up_object, destination_location, object_set])
 
         else:
-            scene = Scene(assets=[background, pick_up_object, destination_location])
+            scene = Scene(assets=[background, table_top_reference, pick_up_object, destination_location])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
