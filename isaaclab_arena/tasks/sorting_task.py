@@ -18,6 +18,7 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import objects_on_destinations, root_height_below_minimum_multi_objects
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.utils.configclass import make_configclass
 
 
 class SortMultiObjectTask(TaskBase):
@@ -30,34 +31,35 @@ class SortMultiObjectTask(TaskBase):
         episode_length_s: float | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
+        assert len(pick_up_object_list) == len(destination_location_list)
+
         self.pick_up_object_list = pick_up_object_list
         self.destination_location_list = destination_location_list
         self.background_scene = background_scene
 
-        assert len(pick_up_object_list) == len(destination_location_list)
-
-        pick_up_object_contact_sensor_list = []
-        for pick_up_object, destination_location in zip(pick_up_object_list, destination_location_list):
-            pick_up_object_contact_sensor_list.append(
-                pick_up_object.get_contact_sensor_cfg(contact_against_prim_paths=[destination_location.get_prim_path()])
+        self.pick_up_object_contact_sensor_list = []
+        self.contact_sensor_name_list = []
+        for pick_up_object, destination in zip(pick_up_object_list, destination_location_list):
+            self.pick_up_object_contact_sensor_list.append(
+                pick_up_object.get_contact_sensor_cfg(contact_against_prim_paths=[destination.get_prim_path()])
             )
-        self.pick_up_object_contact_sensor_list = pick_up_object_contact_sensor_list
-        self.contact_sensor_name_list = [
-            f"contact_sensor_{i}" for i in range(len(self.pick_up_object_contact_sensor_list))
-        ]
+            self.contact_sensor_name_list.append(f"contact_sensor_{pick_up_object.name}")
 
         self.events_cfg = None
         self.scene_config = self.make_scene_cfg()
         self.termination_cfg = self.make_termination_cfg()
 
     def make_scene_cfg(self):
-        self.scene_config = SceneCfg()
 
-        for name, pick_up_object_contact_sensor in zip(
+        # Support variable number of contact sensors.
+        fields: list[tuple[str, type, ContactSensorCfg]] = []
+        for contact_sensor_name, contact_sensor_cfg in zip(
             self.contact_sensor_name_list, self.pick_up_object_contact_sensor_list
         ):
-            setattr(self.scene_config, name, pick_up_object_contact_sensor)
-        return self.scene_config
+            fields.append((contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg))
+        SceneCfg = make_configclass("SceneCfg", fields)
+        scene_cfg = SceneCfg()
+        return scene_cfg
 
     def get_scene_cfg(self):
         return self.scene_config
@@ -107,17 +109,6 @@ class SortMultiObjectTask(TaskBase):
             lookat_object=self.pick_up_object_list[0],
             offset=np.array([-1.5, -1.5, 1.5]),
         )
-
-
-@configclass
-class SceneCfg:
-    """
-    Scene configuration for the pick and place task.
-    Note: only support <4 objects. Need to figure out a more flexible method, like __post_init__()
-    """
-
-    contact_sensor_0: ContactSensorCfg = MISSING
-    contact_sensor_1: ContactSensorCfg = MISSING
 
 
 @configclass

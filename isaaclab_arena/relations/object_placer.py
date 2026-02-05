@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import RandomAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -208,18 +208,24 @@ class ObjectPlacer:
     ) -> None:
         """Apply solved positions to objects (skipping anchors).
 
-        If an object has a RandomAroundSolution marker, a PoseRange is created
-        centered on the solved position. Otherwise, a fixed Pose is set.
+        If RandomAroundSolution marker is present, sets a PoseRange (for reset-time randomization).
+        Rotation is taken from RotateAroundSolution marker if present, otherwise keep the identity rotation.
         """
         for obj, pos in positions.items():
             if obj in anchor_objects:
                 continue
 
             random_marker = self._get_random_around_solution(obj)
+            rotate_marker = self._get_rotate_around_solution(obj)
+            rotation_wxyz = rotate_marker.get_rotation_wxyz() if rotate_marker else (1.0, 0.0, 0.0, 0.0)
+
             if random_marker is not None:
-                obj.set_initial_pose(random_marker.to_pose_range(pos))
+                # We need to set a PoseRange for the randomization to be picked up on reset.
+                # Set a PoseRange with the explicit rotation from RotateAroundSolution if present
+                obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_wxyz=rotation_wxyz))
             else:
-                obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+                # Without randomization, we can set a fixed Pose.
+                obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=rotation_wxyz))
 
     def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
         """Get RandomAroundSolution marker from object if present.
@@ -232,6 +238,20 @@ class ObjectPlacer:
         """
         for rel in obj.get_relations():
             if isinstance(rel, RandomAroundSolution):
+                return rel
+        return None
+
+    def _get_rotate_around_solution(self, obj: Object | ObjectReference) -> RotateAroundSolution | None:
+        """Get RotateAroundSolution marker from object if present.
+
+        Args:
+            obj: Object to check for the marker.
+
+        Returns:
+            The RotateAroundSolution marker if found, None otherwise.
+        """
+        for rel in obj.get_relations():
+            if isinstance(rel, RotateAroundSolution):
                 return rel
         return None
 
