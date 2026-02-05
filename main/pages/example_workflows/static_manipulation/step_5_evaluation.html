@@ -468,7 +468,7 @@ such that the preceding steps can be skipped.</p>
 </div>
 </div>
 </details><p>Test the policy in a single environment with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
@@ -495,7 +495,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 <h2>Step 2: Run Parallel environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
 <p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
 <p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/examples/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
