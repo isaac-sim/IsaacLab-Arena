@@ -86,22 +86,24 @@ RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 # Copy CUDA 12.8 installation script
 COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
 RUN chmod +x /tmp/install_cuda.sh
+
 RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
-    /tmp/install_cuda.sh; && \
-    ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation \
-    "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" \
-  else \
+    /tmp/install_cuda.sh && \
+    export TORCH_CUDA_ARCH_LIST=8.0+PTX && \
+    /isaac-sim/python.sh -m pip install --no-build-isolation \
+    "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" && \
+    pip install rerun-sdk==0.23; \
+    else \
     echo "Skipping cuRobo installation"; \
-  fi && \
-  rm -f /tmp/install_cuda.sh
+  fi
 
 # If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     /tmp/install_cuda.sh; \
   else \
     echo "Skipping CUDA 12.8 installation"; \
-  fi && \
-  rm -f /tmp/install_cuda.sh
+  fi
+RUN rm -f /tmp/install_cuda.sh
 # Copy GR00T
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 # Copy GR00T dependencies installation script
