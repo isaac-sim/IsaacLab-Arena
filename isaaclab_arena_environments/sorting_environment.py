@@ -22,7 +22,9 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
         from isaaclab_arena.utils.pose import Pose
 
-        assert len(args_cli.destinations) == len(args_cli.objects)
+        assert (
+            len(args_cli.destinations) == len(args_cli.objects) == 2
+        ), "Only 2 objects and 2 destinations are supported in this environment."
 
         # Add the asset registry from the arena migration package
         light = self.asset_registry.get_asset_by_name("light")()
