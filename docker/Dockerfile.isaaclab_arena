@@ -1,6 +1,9 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.1.0
 
 FROM ${BASE_IMAGE}
+
+# Set user to root (Isaac Sim base image defaults to non-root user)
+USER root
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
@@ -22,9 +25,6 @@ RUN apt-get update && apt-get install -y \
   sudo \
   python3-pip
 
-# Update pip to the latest version
-RUN pip3 install --upgrade pip
-
 ################################
 # Install Isaac Lab
 ################################
@@ -37,16 +37,19 @@ ENV TERM=xterm
 # Symlink isaac sim to IsaacLab
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 # Install IsaacLab dependencies
-RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
+RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
+# Make /isaac-sim directory traversable and readable by all users
+# This is needed when entrypoint switches to non-root user
+RUN chmod a+x /isaac-sim
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
 # TODO(alexmillane): Watch the thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1764680205807019
 #                    and remove this thread when IsaacLab has a fix.
-RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
+RUN if /isaac-sim/python.sh -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
         echo "OSQP is installed. You can remove this clause from the Arena dockerfile."; \
     else \
         echo "OSQP missing, installing... This is a patch for an Isaac Lab bug."; \
@@ -76,7 +79,7 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
 # HuggingFace for downloading datasets and models.
 # NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed in the IsaacSim version of python.
-RUN pip install huggingface-hub[cli]
+RUN pip install --break-system-packages huggingface-hub[cli]
 # Create alias for hf command to use the system-installed version
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
@@ -130,7 +133,7 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 #    It will pause waiting for the debugger to attach.
 # 3) Attach to the running container with VSCode using the "Attach to debugpy session"
 #    configuration from the Run and Debug panel.
-RUN pip3 install debugpy
+RUN /isaac-sim/python.sh -m pip install debugpy
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
 # Change prompt so it's obvious we're inside the arena container
