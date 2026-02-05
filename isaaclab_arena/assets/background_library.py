@@ -20,13 +20,15 @@ class LibraryBackground(Background):
 
     name: str
     tags: list[str]
-    usd_path: str
+    usd_path: str | None = None
     initial_pose: Pose | None = None
     object_min_z: float
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
+        # Check lazy USD paths are set by here
+        assert self.usd_path is not None
         super().__init__(
             name=self.name,
             tags=self.tags,
@@ -39,8 +41,6 @@ class LibraryBackground(Background):
         )
 
 
-# TODO(peterd, 2025.11.05): Update all OV drive paths to use {ISAACLAB_NUCLEUS_DIR}
-# alias prior to public release once assets are synced to S3
 @register_asset
 class KitchenBackground(LibraryBackground):
     """
@@ -115,7 +115,6 @@ class GalileoLocomanipBackground(LibraryBackground):
 
     name = "galileo_locomanip"
     tags = ["background"]
-    default_robot_initial_pose = Pose.identity()
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/background_library/galileo_locomanip/galileo_locomanip.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
     object_min_z = -0.2
@@ -136,4 +135,28 @@ class Table(LibraryBackground):
     object_min_z = -0.05
 
     def __init__(self):
+        super().__init__()
+
+
+@register_asset
+class LightwheelKitchenBackground(LibraryBackground):
+    """
+    Encapsulates the background scene for the Lightwheel Robocasa kitchen.
+    """
+
+    name = "lightwheel_robocasa_kitchen"
+    tags = ["background"]
+    usd_path = None
+    initial_pose = Pose.identity()
+    object_min_z = -0.2
+
+    def __init__(self, layout_id: int = 1, style_id: int = 1):
+        from lightwheel_sdk.loader import floorplan_loader
+
+        # Lazily download the USD
+        self.usd_path = str(
+            floorplan_loader.get_usd(
+                scene="robocasakitchen", layout_id=layout_id, style_id=style_id, backend="robocasa"
+            )[0]
+        )
         super().__init__()
