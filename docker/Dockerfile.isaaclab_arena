@@ -4,7 +4,7 @@ FROM ${BASE_IMAGE}
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
-
+ARG INSTALL_CUROBO=false
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
@@ -86,6 +86,15 @@ RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 # Copy CUDA 12.8 installation script
 COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
 RUN chmod +x /tmp/install_cuda.sh
+RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
+    /tmp/install_cuda.sh; && \
+    ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation \
+    "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" \
+  else \
+    echo "Skipping cuRobo installation"; \
+  fi && \
+  rm -f /tmp/install_cuda.sh
+
 # If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     /tmp/install_cuda.sh; \
