@@ -6,6 +6,7 @@
 import argparse
 import math
 
+from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
@@ -103,17 +104,9 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
                 # Override the existing values
                 self.datagen_config.name = "put_and_close_door_task_D0"
-                self.datagen_config.generation_guarantee = True
-                self.datagen_config.generation_keep_failed = False
-                self.datagen_config.generation_num_trials = 100
-                self.datagen_config.generation_select_src_per_subtask = False
-                self.datagen_config.generation_select_src_per_arm = False
-                self.datagen_config.generation_relative = False
-                self.datagen_config.generation_joint_pos = False
-                self.datagen_config.generation_transform_first_robot_pose = False
-                self.datagen_config.generation_interpolate_from_last_target_pose = True
-                self.datagen_config.max_num_failures = 25
-                self.datagen_config.seed = 1
+                # Use default mimic datagen config parameters
+                for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
+                    setattr(self.datagen_config, key, value)
 
         camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
         # Get assets
