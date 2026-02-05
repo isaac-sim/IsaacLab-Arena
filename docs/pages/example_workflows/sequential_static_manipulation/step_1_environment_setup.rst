@@ -378,9 +378,9 @@ Replay the downloaded dataset to verify the environment setup:
 You should see the GR1 robot replaying the demonstrations, performing the sequential
 pick & place and close door task in the kitchen environment.
 
-.. .. figure:: ../../../images/gr1_open_microwave_task_view.png
-..    :width: 100%
-..    :alt: GR1 opening the microwave door
-..    :align: center
+.. figure:: ../../../images/gr1_sequential_static_manipulation_env.gif
+   :width: 100%
+   :alt: GR1 picking up and placing an object in a refrigerator and closing the door
+   :align: center
 
-..    IsaacLab Arena GR1 opening the microwave door
+   IsaacLab Arena GR1 picking up and placing an object in a refrigerator and closing the door

@@ -6,7 +6,7 @@ placing it into a refrigerator, and closing the door** in Isaac Lab - Arena,
 covering environment setup and validation, teleoperation data collection, data generation with 
 Isaac Lab Mimic, policy post-training, and closed-loop evaluation.
 
-.. image:: ../../../images/kitchen_gr1_arena.gif
+.. image:: ../../../images/gr1_sequential_static_manipulation_env.gif
    :align: center
    :height: 400px
 
