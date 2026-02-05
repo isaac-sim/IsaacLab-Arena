@@ -29,6 +29,7 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cf
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
@@ -103,12 +104,21 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         self.action_config = MISSING
         self.camera_config = GR1T2CameraCfg()
 
-        # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
-        self.xr: XrCfg = XrCfg(
-            anchor_pos=(-0.5, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+        # XR settings (relative to robot base)
+        # These offsets are defined relative to the robot's base frame
+        self._xr_offset = Pose(
+            position_xyz=(-0.5, 0.0, -1.0),
+            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
         )
+        self.xr: XrCfg | None = None
+
+    def get_xr_cfg(self) -> XrCfg:
+        """Get XR configuration with anchor pose adjusted for robot's initial pose.
+
+        Returns:
+            XR configuration with anchor position and rotation in global coordinates.
+        """
+        return get_default_xr_cfg(self.initial_pose, self._xr_offset)
 
 
 @register_asset
@@ -135,6 +145,15 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
+        self.camera_config.__post_init__()  # Re-run to apply any custom offset
+        # Lock waist joints
+        self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
+            joint_names_expr=["waist_.*"],
+            effort_limit=torch.inf,
+            velocity_limit=0.0,
+            stiffness=1e9,
+            damping=1e9,
+        )
 
 
 @register_asset
@@ -159,7 +178,16 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
+        self.camera_config.__post_init__()  # Re-run to apply any custom offset
 
+        # Lock waist joints
+        self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
+            joint_names_expr=["waist_.*"],
+            effort_limit=torch.inf,
+            velocity_limit=0.0,
+            stiffness=1e9,
+            damping=1e9,
+        )
         # Link the controller to the robot
         # Convert USD to URDF and change revolute joints to fixed
         self.temp_urdf_dir = tempfile.gettempdir()

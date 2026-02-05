@@ -8,6 +8,7 @@ import torch
 
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
@@ -39,6 +40,31 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+    return condition_met
+
+
+def objects_on_destinations(
+    env: ManagerBasedRLEnv,
+    object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
+    contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
+    force_threshold: float = 1.0,
+    velocity_threshold: float = 0.5,
+) -> torch.Tensor:
+    """Multi-object version of `object_on_destination`.
+
+    Returns True only when ALL objects in the list satisfy the destination condition.
+    See `object_on_destination` for details on the single-object logic.
+    """
+    condition_met = torch.ones((env.num_envs), device=env.device, dtype=torch.bool)
+    for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
+        single_condition = object_on_destination(
+            env=env,
+            object_cfg=object_cfg,
+            contact_sensor_cfg=contact_sensor_cfg,
+            force_threshold=force_threshold,
+            velocity_threshold=velocity_threshold,
+        )
+        condition_met = torch.logical_and(condition_met, single_condition)
     return condition_met
 
 
@@ -76,6 +102,74 @@ def objects_in_proximity(
     done = torch.logical_and(done, z_separation < max_z_separation)
 
     return done
+
+
+def lift_object_il_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    goal_position: tuple[float, float, float] | None = None,
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        goal_position: Fixed goal position [x, y, z] to use if command goal not available.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
+
+
+def lift_object_rl_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    rl_training: bool = False,
+    command_name: str = "object_pose",
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Supports multiple modes:
+    - RL training: Always returns False (no early termination)
+    - RL evaluation: Uses goal from command manager
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        rl_training: If True, always returns False (disables success termination for RL training).
+        command_name: The name of the command that is used to control the object.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+    # During RL training, never terminate early
+    if rl_training:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    # Try to get goal position from command manager
+    command = env.command_manager.get_command(command_name)
+    # compute the desired position in the world frame
+    goal_pos = command[:, :3]
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
 
 
 def goal_pose_task_termination(
@@ -143,11 +237,18 @@ def goal_pose_task_termination(
     return success
 
 
-def object_above(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg,
-    maximum_height: float,
+def root_height_below_minimum_multi_objects(
+    env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
 ) -> torch.Tensor:
-    """Determine if the object is lifted above a certain height."""
-    object: RigidObject = env.scene[object_cfg.name]
-    return object.data.root_pos_w[:, 2] > maximum_height
+    """Terminate when any asset's root height is below the minimum height.
+
+    Note:
+        This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
+    """
+    outs = [
+        root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
+        for asset_cfg in asset_cfg_list
+    ]
+    outs_tensor = torch.stack(outs, dim=0)  # [X, N]
+    terminated = outs_tensor.any(dim=0)  # [N], bool
+    return terminated

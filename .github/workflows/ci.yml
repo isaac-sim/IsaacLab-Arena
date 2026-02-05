@@ -136,7 +136,7 @@ jobs:
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -172,20 +172,15 @@ jobs:
       - *mark_repo_safe_step
       - *cleanup_step
 
-      # Checkout all branches, and tags, such that sphinx-multiversion can build the docs for all versions.
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
-      # Build docs
+      # Build docs for the current branch (validates PR changes)
       - name: Build docs
         working-directory: ./docs
         run: |
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W multi-docs
-          touch ./_build/.nojekyll
+          make SPHINXOPTS=-W html
 
 
   build_and_push_image_post_merge:
@@ -233,4 +228,4 @@ jobs:
       - name: Build & push image to NGC (GR00T Image)
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16

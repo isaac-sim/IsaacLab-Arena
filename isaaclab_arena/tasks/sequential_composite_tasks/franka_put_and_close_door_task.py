@@ -6,8 +6,6 @@
 import numpy as np
 
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
-from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
@@ -23,7 +21,12 @@ class FrankaPutAndCloseDoorTask(SequentialTaskBase):
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
     ):
-        super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
+        desired_subtask_success_state = [True, True]
+        super().__init__(
+            subtasks=subtasks,
+            episode_length_s=episode_length_s,
+            desired_subtask_success_state=desired_subtask_success_state,
+        )
         self.openable_object = openable_object
 
     def get_viewer_cfg(self) -> ViewerCfg:
@@ -33,31 +36,6 @@ class FrankaPutAndCloseDoorTask(SequentialTaskBase):
         return None
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
-        mimic_env_cfg = FrankaPutAndCloseDoorTaskMimicEnvCfg()
-        mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(arm_mode)
-        return mimic_env_cfg
-
-
-@configclass
-class FrankaPutAndCloseDoorTaskMimicEnvCfg(MimicEnvCfg):
-    """
-    Isaac Lab Mimic environment config class for Franka put and close door task.
-    """
-
-    def __post_init__(self):
-        # post init of parents
-        super().__post_init__()
-
-        # Override the existing values
-        self.datagen_config.name = "franka_put_and_close_door_task_D0"
-        self.datagen_config.generation_guarantee = True
-        self.datagen_config.generation_keep_failed = False
-        self.datagen_config.generation_num_trials = 100
-        self.datagen_config.generation_select_src_per_subtask = False
-        self.datagen_config.generation_select_src_per_arm = False
-        self.datagen_config.generation_relative = False
-        self.datagen_config.generation_joint_pos = False
-        self.datagen_config.generation_transform_first_robot_pose = False
-        self.datagen_config.generation_interpolate_from_last_target_pose = True
-        self.datagen_config.max_num_failures = 25
-        self.datagen_config.seed = 1
+        cfg = super().get_mimic_env_cfg(arm_mode)
+        cfg.name = "franka_put_and_close_door_task"
+        return cfg

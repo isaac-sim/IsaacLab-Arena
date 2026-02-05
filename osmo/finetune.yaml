@@ -45,32 +45,33 @@ workflow:
           export WANDB_NAME="{{ workflow_name }}_$(date +%Y%m%d_%H%M%S)"
 
           # Modify gr00t code to allow for naming of the run.
-          sed -i "s/^\(\s*run_name=\)None/\1\"${WANDB_NAME}\"/" scripts/gr00t_finetune.py
+          sed -i "s/^\(\s*run_name=\)None/\1\"${WANDB_NAME}\"/" gr00t/experiment/launch_finetune.py
 
           # Launch finetune
-          HYDRA_FULL_ERROR=1 python scripts/gr00t_finetune.py \
-            --dataset_path="{{input:0}}/{{input_dataset_name}}/{{input_demo_name}}/lerobot" \
-            --output_dir={{output}} \
-            --data_config={{ data_config }} \
-            --batch_size={{ batch_size }} \
-            --max_steps={{ max_steps }} \
-            --num_gpus={{ gpus }} \
-            --save_steps=5000 \
-            --base_model_path=/workspace/pretrained_ckpts/GR00T-N1.5-3B \
-            --no-tune_llm  \
-            --tune_visual \
-            --tune_projector \
-            --tune_diffusion_model \
-            --no-resume \
-            --dataloader_num_workers=16 \
-            --report_to=wandb \
-            --embodiment_tag={{ embodiment_tag }} \
-            --lora_rank={{ lora_rank }}
+          uv run torchrun --nproc_per_node={{ gpus }} --standalone gr00t/experiment/launch_finetune.py \
+            --dataset-path="{{input:0}}/{{input_dataset_name}}/{{input_demo_name}}/lerobot" \
+            --output-dir={{output}} \
+            --modality-config-path={{ modality_config_path }} \
+            --global-batch-size={{ batch_size }} \
+            --max-steps={{ max_steps }} \
+            --num-gpus={{ gpus }} \
+            --save-total-limit=5\
+            --save-steps=5000 \
+            --base-model-path=/workspace/pretrained_ckpts/GR00T-N1.6-3B \
+            --no-tune-llm  \
+            --tune-visual \
+            --tune-projector \
+            --tune-diffusion-model \
+            --dataloader-num-workers=16 \
+            --embodiment-tag={{ embodiment_tag }} \
+            --modality-config-path={{ modality_config_path }} \
+            --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
+            --use-wandb
 
           # kill the filebrowser process
           kill $(pgrep -f browser)
         path: /tmp/entry.sh
-      image: nvcr.io/nvidian/gr00t_gn15:latest@sha256:8ed83caf3c08a2602bbda0f5648401194ff24ea59ebf456208a8240d750f6aa7
+      image: nvcr.io/nvidian/gr00t_1_6_finetune:latest
       inputs:
       - dataset:
           name: isaac/{{ input_dataset_name }}
@@ -90,20 +91,27 @@ workflow:
     queue_timeout: 2d
 
 default-values:
-  cpus: 60
+  cpus: 80
   gpus: 8
-  batch_size: 24
-  lora_rank: 0
+  batch_size: 96
   max_steps: 20000
   # Static manipulation
-  # workflow_name: gr1_open_microwave_kitchen
+  # workflow_name: gr1_open_microwave_kitchen_gn1_6
   # input_dataset_name: lerobot_gr1
   # input_demo_name: gr1_open_microwave_50_generated
-  # embodiment_tag: gr1
-  # data_config: fourier_gr1_arms_only
+  # embodiment_tag: GR1
+  # modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
+
   # Locomanipulation
-  workflow_name: g1_move_box_galileo
-  input_dataset_name: lerobot_g1
-  input_demo_name: arena_g1_loco_manipulation_dataset_generated
-  embodiment_tag: new_embodiment
-  data_config: unitree_g1_sim_wbc
+  # workflow_name: g1_move_box_galileo_gn1_6
+  # input_dataset_name: lerobot_g1
+  # input_demo_name: arena_g1_loco_manipulation_dataset_generated
+  # embodiment_tag: NEW_EMBODIMENT
+  # modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
+
+# Static manipulation -- Place ranch dressing bottle into fridge
+  workflow_name: gr1_ranch_bottle_into_fridge_gn1_6
+  input_dataset_name: gr1_ranch_bottle_into_fridge
+  input_demo_name: ranch_bottle_into_fridge_generated_100_peterd_v1
+  embodiment_tag: GR1
+  modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py

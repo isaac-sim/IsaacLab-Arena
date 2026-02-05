@@ -27,6 +27,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
@@ -58,13 +59,22 @@ class G1EmbodimentBase(EmbodimentBase):
         self.event_config = MISSING
         self.mimic_env = G1MimicEnv
 
-        # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
+        # XR settings (relative to robot base)
+        # These offsets are defined relative to the robot's base frame
         # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
-        self.xr: XrCfg = XrCfg(
-            anchor_pos=(0.0, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+        self._xr_offset = Pose(
+            position_xyz=(0.0, 0.0, -1.0),
+            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
         )
+        self.xr: XrCfg | None = None
+
+    def get_xr_cfg(self) -> XrCfg:
+        """Get XR configuration with anchor pose adjusted for robot's initial pose.
+
+        Returns:
+            XR configuration with anchor position and rotation in global coordinates.
+        """
+        return get_default_xr_cfg(self.initial_pose, self._xr_offset)
 
 
 # Default camera offset pose

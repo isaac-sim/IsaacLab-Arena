@@ -5,15 +5,22 @@
 
 from dataclasses import dataclass, field
 
-from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy, RelationLossStrategy
-from isaaclab_arena.relations.relations import NextTo, On, Relation
+from isaaclab_arena.relations.relation_loss_strategies import (
+    AtPositionLossStrategy,
+    NextToLossStrategy,
+    OnLossStrategy,
+    RelationLossStrategy,
+    UnaryRelationLossStrategy,
+)
+from isaaclab_arena.relations.relations import AtPosition, NextTo, On, RelationBase
 
 
-def _default_strategies() -> dict[type[Relation], RelationLossStrategy]:
+def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
     """Factory for default loss strategies."""
     return {
         NextTo: NextToLossStrategy(slope=10.0),
         On: OnLossStrategy(slope=100.0),
+        AtPosition: AtPositionLossStrategy(slope=100.0),
     }
 
 
@@ -21,7 +28,7 @@ def _default_strategies() -> dict[type[Relation], RelationLossStrategy]:
 class RelationSolverParams:
     """Configuration parameters for RelationSolver."""
 
-    max_iters: int = 1000
+    max_iters: int = 600
     """Maximum optimization iterations."""
 
     lr: float = 0.01
@@ -37,5 +44,7 @@ class RelationSolverParams:
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
 
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
-    strategies: dict[type[Relation], RelationLossStrategy] = field(default_factory=_default_strategies)
+    strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
+        default_factory=_default_strategies
+    )
     """Loss strategies for each relation type. Override to customize loss computation."""

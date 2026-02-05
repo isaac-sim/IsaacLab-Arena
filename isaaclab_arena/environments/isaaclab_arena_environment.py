@@ -6,10 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import MISSING
 from typing import TYPE_CHECKING
-
-from isaaclab.utils import configclass
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
@@ -20,27 +17,33 @@ if TYPE_CHECKING:
     from isaaclab_arena.tasks.task_base import TaskBase
 
 
-@configclass
 class IsaacLabArenaEnvironment:
     """Describes an environment in IsaacLab Arena."""
 
-    name: str = MISSING
-    """The name of the environment."""
-
-    embodiment: EmbodimentBase | None = None
-    """The embodiment to use in the environment."""
-
-    scene: Scene = MISSING
-    """The scene to use in the environment."""
-
-    task: TaskBase = MISSING
-    """The task to use in the environment."""
-
-    teleop_device: TeleopDeviceBase | None = None
-    """The teleop device to use in the environment."""
-
-    orchestrator: OrchestratorBase | None = None
-    """The orchestrator to use in the environment."""
-
-    env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None
-    """A callback function that modifies the environment configuration."""
+    def __init__(
+        self,
+        name: str,
+        scene: Scene,
+        embodiment: EmbodimentBase | None = None,
+        task: TaskBase | None = None,
+        teleop_device: TeleopDeviceBase | None = None,
+        orchestrator: OrchestratorBase | None = None,
+        env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+    ):
+        """
+        Args:
+            name: The name of the environment.
+            scene: The scene to use in the environment.
+            embodiment: The embodiment to use in the environment.
+            task: The task to use in the environment.
+            teleop_device: The teleop device to use in the environment.
+            orchestrator: The orchestrator to use in the environment.
+            env_cfg_callback: A callback function that modifies the environment configuration.
+        """
+        self.name = name
+        self.scene = scene
+        self.embodiment = embodiment
+        self.task = task
+        self.teleop_device = teleop_device
+        self.orchestrator = orchestrator
+        self.env_cfg_callback = env_cfg_callback

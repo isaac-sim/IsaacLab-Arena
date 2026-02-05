@@ -174,7 +174,7 @@ def run_visualization_demo():
     # Visualize loss heatmap for child1 (placed to RIGHT of parent)
     X, Y, losses_child1 = create_loss_heatmap_2d(
         solver=solver,
-        anchor_object=parent,
+        anchor_objects=parent,
         child=child1,
         all_objects=[parent, child1],
         grid_resolution=80,
@@ -197,7 +197,7 @@ def run_visualization_demo():
     )  # Ideal position for child1
     X, Y, losses_child2 = create_loss_heatmap_2d(
         solver=solver,
-        anchor_object=parent,
+        anchor_objects=parent,
         child=child2,
         all_objects=[parent, child1, child2],  # Include all objects in the chain
         grid_resolution=80,

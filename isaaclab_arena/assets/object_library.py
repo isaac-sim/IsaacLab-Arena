@@ -26,7 +26,7 @@ from isaaclab_arena.utils.pose import Pose
 
 # TODO(xinjieyao, 2026.01.07): Remove staging bucket and use production bucket for release.
 ISAACLAB_STAGING_NUCLEUS_DIR = (
-    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/"
+    "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab"
 )
 
 
@@ -185,7 +185,7 @@ class CoffeeMachine(LibraryObject, Pressable):
     name = "coffee_machine"
     tags = ["object", "pressable"]
     file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", registry_name=["coffee_machine"], file_type="USD"
+        registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD"
     )
     usd_path = file_path
     object_type = ObjectType.ARTICULATION
@@ -248,7 +248,6 @@ class OfficeTable(LibraryObject):
     name = "office_table"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
-    default_prim_path = "{ENV_REGEX_NS}/office_table"
     scale = (1.0, 1.0, 0.7)
 
     def __init__(
@@ -266,7 +265,6 @@ class BlueSortingBin(LibraryObject):
     name = "blue_sorting_bin"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/exhaust_pipe_task/exhaust_pipe_assets/blue_sorting_bin.usd"
-    default_prim_path = "{ENV_REGEX_NS}/blue_sorting_bin"
     scale = (4.0, 2.0, 1.0)
 
     def __init__(
@@ -284,7 +282,6 @@ class BlueExhaustPipe(LibraryObject):
     name = "blue_exhaust_pipe"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/exhaust_pipe_task/exhaust_pipe_assets/blue_exhaust_pipe.usd"
-    default_prim_path = "{ENV_REGEX_NS}/blue_exhaust_pipe"
     scale = (0.55, 0.55, 1.4)
 
     def __init__(
@@ -302,7 +299,6 @@ class BrownBox(LibraryObject):
     name = "brown_box"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/brown_box/brown_box.usd"
-    default_prim_path = "{ENV_REGEX_NS}/brown_box"
     scale = (1.0, 1.0, 1.0)
 
     def __init__(
@@ -321,7 +317,6 @@ class Mug(LibraryObject, Placeable):
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Objects/Mug/mug.usd"
     object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/Mug"
     scale = (1.0, 1.0, 1.0)
 
     # Placeable affordance parameters
@@ -540,3 +535,173 @@ class MediumGear(LibraryObject):
     asset_cfg_addon = {
         "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
     }
+
+
+@register_asset
+class Broccoli(LibraryObject):
+    """
+    Brocolli
+    """
+
+    # Only required when using Lightwheel SDK
+    from lightwheel_sdk.loader import object_loader
+
+    name = "broccoli"
+    tags = ["object", "vegetable", "graspable"]
+    file_path, object_name, metadata = object_loader.acquire_by_registry(
+        registry_type="objects", registry_name=["broccoli"], file_type="USD"
+    )
+    usd_path = file_path
+    object_type = ObjectType.RIGID
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class SweetPotato(LibraryObject):
+    """
+    SweetPotato
+    """
+
+    # Only required when using Lightwheel SDK
+    from lightwheel_sdk.loader import object_loader
+
+    name = "sweet_potato"
+    tags = ["object", "vegetable", "graspable"]
+    file_path, object_name, metadata = object_loader.acquire_by_registry(
+        registry_type="objects", file_name="SweetPotato005", file_type="USD"
+    )
+    usd_path = file_path
+    object_type = ObjectType.RIGID
+    scale = (1.5, 1.5, 1.5)
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class Jug(LibraryObject):
+    """
+    Jug
+    """
+
+    # Only required when using Lightwheel SDK
+    from lightwheel_sdk.loader import object_loader
+
+    name = "jug"
+    tags = ["object", "graspable"]
+    file_path, object_name, metadata = object_loader.acquire_by_registry(
+        registry_type="objects", file_name="Jug005", file_type="USD"
+    )
+    usd_path = file_path
+    object_type = ObjectType.RIGID
+    scale = (2.0, 2.0, 2.0)
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class RanchDressingBottle(LibraryObject):
+    """
+    Ranch Dressing Bottle
+    """
+
+    name = "ranch_dressing_bottle"
+    tags = ["object", "graspable"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
+    object_type = ObjectType.RIGID
+    scale = (0.8, 0.8, 1.2)
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class RedCube(LibraryObject):
+    """
+    A red cube.
+    """
+
+    name = "red_cube"
+    tags = ["object"]
+
+    # TODO(lanceli, 2026.02.04): There is a known bug where rigid body attributes can only bind to the root layer.
+    # As a workaround, the original assets from ISAAC_NUCLEUS_DIR have been adjusted and uploaded to ISAAC_NUCLEUS_STAGING_DIR.
+    # Once this bug is resolved, the original assets can be used instead.
+
+    # usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd" # not support, rigid body attribute need to be bind to root xform.
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
+
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/RedCube"
+    scale = (0.02, 0.02, 0.02)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GreenCube(LibraryObject):
+    """
+    A green cube.
+    """
+
+    name = "green_cube"
+    tags = ["object"]
+
+    # TODO(lanceli, 2026.02.04): There is a known bug where rigid body attributes can only bind to the root layer.
+    # As a workaround, the original assets from ISAAC_NUCLEUS_DIR have been adjusted and uploaded to ISAAC_NUCLEUS_STAGING_DIR.
+    # Once this bug is resolved, the original assets can be used instead.
+
+    # usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd" # not support, rigid body attribute need to be bind to root xform.
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/GreenCube"
+    scale = (0.02, 0.02, 0.02)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class RedContainer(LibraryObject):
+    """
+    A red container.
+    """
+
+    name = "red_container"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/red_container"
+    scale = (0.5, 0.5, 0.5)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GreenContainer(LibraryObject):
+    """
+    A green container.
+    """
+
+    name = "green_container"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
+    object_type = ObjectType.RIGID
+    default_prim_path = "{ENV_REGEX_NS}/green_container"
+    scale = (0.5, 0.5, 0.5)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)

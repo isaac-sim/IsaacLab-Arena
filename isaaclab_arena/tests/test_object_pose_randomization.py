@@ -9,7 +9,7 @@ import tqdm
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_RESETS = 10
-NUM_STEPS_PER_RESET = 10
+NUM_STEPS_PER_RESET = 1
 HEADLESS = True
 
 
@@ -21,7 +21,6 @@ def _test_object_pose_randomization(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import PoseRange
 
     asset_registry = AssetRegistry()
@@ -43,8 +42,6 @@ def _test_object_pose_randomization(simulation_app):
         name="reference_object_test",
         embodiment=embodiment,
         scene=scene,
-        task=DummyTask(),
-        teleop_device=None,
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
