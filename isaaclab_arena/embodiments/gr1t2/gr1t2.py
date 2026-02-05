@@ -375,31 +375,83 @@ class GR1T2CameraCfg:
 # to allow composition with other scenes.
 @configclass
 class GR1T2ObservationsCfg:
-    """Observation specifications for the MDP."""
+    """Observation specifications for the MDP.
+    
+    Keys are named to be compatible with gr00t VLA policy (gr1_unified embodiment):
+    - left_arm, right_arm: 7 DOF arm joint positions each
+    - left_hand, right_hand: 6 DOF hand joint positions each (controllable joints only)
+    - waist: 3 DOF waist joint positions
+    """
 
     @configclass
     class PolicyCfg(ObsGroup):
-        """Observations for policy group with state values."""
+        """Observations for policy group with state values.
+        
+        gr00t-compatible observation keys for the gr1_unified embodiment.
+        """
 
-        actions = ObsTerm(func=mdp.last_action)
-        robot_joint_pos = ObsTerm(
-            func=base_mdp.joint_pos,
-            params={"asset_cfg": SceneEntityCfg("robot")},
+        # gr00t expected state keys
+        left_arm = ObsTerm(
+            func=mdp.get_robot_joint_state,
+            params={"joint_names": [
+                "left_shoulder_pitch_joint",
+                "left_shoulder_roll_joint",
+                "left_shoulder_yaw_joint",
+                "left_elbow_pitch_joint",
+                "left_wrist_yaw_joint",
+                "left_wrist_roll_joint",
+                "left_wrist_pitch_joint",
+            ]},
         )
+        right_arm = ObsTerm(
+            func=mdp.get_robot_joint_state,
+            params={"joint_names": [
+                "right_shoulder_pitch_joint",
+                "right_shoulder_roll_joint",
+                "right_shoulder_yaw_joint",
+                "right_elbow_pitch_joint",
+                "right_wrist_yaw_joint",
+                "right_wrist_roll_joint",
+                "right_wrist_pitch_joint",
+            ]},
+        )
+        # Only the 6 controllable joints per hand (not intermediate/distal coupled joints)
+        # to match gr1_unified model expectations
+        left_hand = ObsTerm(
+            func=mdp.get_robot_joint_state,
+            params={"joint_names": [
+                "L_index_proximal_joint",
+                "L_middle_proximal_joint",
+                "L_ring_proximal_joint",
+                "L_pinky_proximal_joint",
+                "L_thumb_proximal_yaw_joint",
+                "L_thumb_proximal_pitch_joint",
+            ]},
+        )
+        right_hand = ObsTerm(
+            func=mdp.get_robot_joint_state,
+            params={"joint_names": [
+                "R_index_proximal_joint",
+                "R_middle_proximal_joint",
+                "R_ring_proximal_joint",
+                "R_pinky_proximal_joint",
+                "R_thumb_proximal_yaw_joint",
+                "R_thumb_proximal_pitch_joint",
+            ]},
+        )
+        waist = ObsTerm(
+            func=mdp.get_robot_joint_state,
+            params={"joint_names": ["waist_yaw_joint", "waist_pitch_joint", "waist_roll_joint"]},
+        )
+
+        # Additional observations (not used by gr00t but useful for debugging/logging)
+        actions = ObsTerm(func=mdp.last_action)
         robot_root_pos = ObsTerm(func=base_mdp.root_pos_w, params={"asset_cfg": SceneEntityCfg("robot")})
         robot_root_rot = ObsTerm(func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("robot")})
-        robot_links_state = ObsTerm(func=lambda env: mdp.get_all_robot_link_state(env).flatten(start_dim=1))
-
         left_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "left_hand_roll_link"})
         left_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "left_hand_roll_link"})
         right_eef_pos = ObsTerm(func=mdp.get_eef_pos, params={"link_name": "right_hand_roll_link"})
         right_eef_quat = ObsTerm(func=mdp.get_eef_quat, params={"link_name": "right_hand_roll_link"})
-
-        hand_joint_state = ObsTerm(func=mdp.get_robot_joint_state, params={"joint_names": ["R_.*", "L_.*"]})
-        head_joint_state = ObsTerm(
-            func=mdp.get_robot_joint_state,
-            params={"joint_names": ["head_pitch_joint", "head_roll_joint", "head_yaw_joint"]},
-        )
 
         def __post_init__(self):
             self.enable_corruption = False
