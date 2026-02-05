@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.math import euler_xyz_from_quat
 
-from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -171,7 +171,7 @@ class RandomAroundSolution(RelationBase):
         self.pitch_half_rad = pitch_half_rad
         self.yaw_half_rad = yaw_half_rad
 
-    def to_pose_range(
+    def to_pose_range_centered_at(
         self,
         position: tuple[float, float, float],
         rotation_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
@@ -262,17 +262,6 @@ class RotateAroundSolution(RelationBase):
         yaw = torch.tensor(self.yaw_rad)
         quat = quat_from_euler_xyz(roll, pitch, yaw)
         return tuple(quat.tolist())
-
-    def to_pose(self, position: tuple[float, float, float]) -> Pose:
-        """Create a Pose with the given position and specified rotation.
-
-        Args:
-            position: Position (x, y, z) for the pose.
-
-        Returns:
-            Pose with the position and rotation from this marker.
-        """
-        return Pose(position_xyz=position, rotation_wxyz=self.get_rotation_wxyz())
 
 
 class AtPosition(RelationBase):

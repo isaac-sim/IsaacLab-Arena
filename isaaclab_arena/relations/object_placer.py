@@ -220,18 +220,15 @@ class ObjectPlacer:
 
             random_marker = self._get_random_around_solution(obj)
             rotate_marker = self._get_rotate_around_solution(obj)
+            rotation_wxyz = rotate_marker.get_rotation_wxyz() if rotate_marker else (1.0, 0.0, 0.0, 0.0)
 
             if random_marker is not None:
                 # We need to set a PoseRange for the randomization to be picked up on reset.
                 # Set a PoseRange with the explicit rotation from RotateAroundSolution if present
-                rotation = rotate_marker.get_rotation_wxyz() if rotate_marker else (1.0, 0.0, 0.0, 0.0)
-                obj.set_initial_pose(random_marker.to_pose_range(pos, rotation_wxyz=rotation))
-            elif rotate_marker is not None:
-                # Without randomization, we can set a fixed Pose.
-                obj.set_initial_pose(rotate_marker.to_pose(pos))
+                obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_wxyz=rotation_wxyz))
             else:
-                # Just set a fixed Pose with identity rotation. No randomization.
-                obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+                # Without randomization, we can set a fixed Pose.
+                obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=rotation_wxyz))
 
     def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
         """Get RandomAroundSolution marker from object if present.
