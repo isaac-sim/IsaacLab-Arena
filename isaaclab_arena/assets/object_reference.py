@@ -168,7 +168,10 @@ class ObjectReference(ObjectBase):
         assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
         original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
         # Check that the path starts with the asset name.
-        assert original_prim_path.startswith(parent_asset.name)
+        assert original_prim_path.startswith(parent_asset.name), (
+            "Expected the prim path to start with the parent asset name {parent_asset.name}. Instead got"
+            " {original_prim_path}"
+        )
         original_prim_path = original_prim_path.removeprefix(parent_asset.name)
         # Append the default prim path.
         original_prim_path = str(default_prim_path) + original_prim_path
