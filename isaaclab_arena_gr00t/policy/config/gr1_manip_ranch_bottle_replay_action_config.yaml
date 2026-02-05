@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # This file shows how to configure the ReplayActionPolicy class for GR1 tabletop manipulation task
-dataset_path: "/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot"
+dataset_path: "/datasets/isaaclab_arena/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot/"
 
 action_horizon: 1
 embodiment_tag: GR1
