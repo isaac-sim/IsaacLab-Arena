@@ -357,7 +357,13 @@ Step 1: Download a Test Dataset
 To run a robot in the environment we need some recorded demonstration data that
 can be fed to the robot to control its actions.
 
-TODO: ADD INSTRUCTIONS TO DOWNLOAD A TEST DATASET
+   .. code-block:: bash
+
+      hf download \
+         nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
+         ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
+         --repo-type dataset \
+         --local-dir $DATASET_DIR
 
 
 Step 2: Validate the Environment by Replaying the Dataset
@@ -370,7 +376,7 @@ Replay the downloaded dataset to verify the environment setup:
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file "${DATASET_DIR}/arena_gr1_sequential_manipulation_dataset_generated.hdf5" \
+     --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" \
      put_item_in_fridge_and_close_door \
      --object ranch_dressing_bottle \
      --embodiment gr1_pink

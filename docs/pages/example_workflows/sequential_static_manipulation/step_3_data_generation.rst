@@ -34,7 +34,18 @@ To skip this step, you can download the pre-annotated dataset as described below
 .. dropdown:: Download Pre-annotated Dataset (skip annotation step)
    :animate: fade-in
 
-   TODO: ADD INSTRUCTIONS TO DOWNLOAD ANNOTATED DATASET
+      These commands can be used to download the pre-annotated dataset,
+   such that the annotation step can be skipped.
+
+   To download run:
+
+   .. code-block:: bash
+
+      hf download \
+         nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
+         ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
+         --repo-type dataset \
+         --local-dir $DATASET_DIR
 
 To start the annotation process run the following command:
 
@@ -42,8 +53,8 @@ To start the annotation process run the following command:
 
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
      --device cpu \
-     --input_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_recorded.hdf5 \
-     --output_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_annotated.hdf5 \
+     --input_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_recorded.hdf5 \
+     --output_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
      --enable_pinocchio \
      --mimic \
      put_item_in_fridge_and_close_door \
@@ -74,8 +85,13 @@ This step can be skipped by downloading the pre-generated dataset as described b
 .. dropdown:: Download Pre-generated Dataset (skip data generation step)
    :animate: fade-in
 
-   TODO: ADD INSTRUCTIONS TO DOWNLOAD GENERATED DATASET
+   .. code-block:: bash
 
+      hf download \
+         nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
+         ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
+         --repo-type dataset \
+         --local-dir $DATASET_DIR
 
 Generate the dataset:
 
@@ -85,8 +101,8 @@ Generate the dataset:
      --device cpu \
      --generation_num_trials 100 \
      --num_envs 10 \
-     --input_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_annotated.hdf5 \
-     --output_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_generated.hdf5 \
+     --input_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
+     --output_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
      --enable_pinocchio \
      --enable_cameras \
      --headless \
@@ -112,7 +128,7 @@ To do so, run the following command:
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file $DATASET_DIR/arena_gr1_sequential_manipulation_dataset_generated.hdf5 \
+     --dataset_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
      put_item_in_fridge_and_close_door \
      --object ranch_dressing_bottle \
      --embodiment gr1_pink

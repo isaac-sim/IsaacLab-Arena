@@ -65,7 +65,7 @@ Run the recording script:
 
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
-     --dataset_file $DATASET_DIR/arena_gr1_static_manipulation_dataset_recorded.hdf5 \
+     --dataset_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_recorded.hdf5 \
      --num_demos 10 \
      --num_success_steps 10 \
      put_item_in_fridge_and_close_door \
@@ -118,7 +118,7 @@ Follow these steps to record teleoperation demonstrations:
 
 
 The script will automatically save successful demonstrations to an HDF5 file
-at ``$DATASET_DIR/arena_gr1_sequential_manipulation_dataset_recorded.hdf5``.
+at ``$DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_recorded.hdf5``.
 
 
 

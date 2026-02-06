@@ -16,9 +16,6 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
 
-.. todo::
-   Verifying Arena-GR00T on Blackwell architecture.
-
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_3_data_generation>` or downloaded the
