@@ -56,7 +56,6 @@ class ArenaEnvBuilder:
         for asset in self.arena_env.scene.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
                 # Fail early if a non-Object/ObjectReference asset has relations - they won't be solved
-                # TODO(cvolk, 2026-01-26): Support ObjectSets.
                 assert not (hasattr(asset, "get_relations") and asset.get_relations()), (
                     f"Asset '{asset.name}' has relations but is not an Object or ObjectReference "
                     f"(type: {type(asset).__name__}). Only Object and ObjectReference instances support relations."

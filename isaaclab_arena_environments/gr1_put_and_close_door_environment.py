@@ -49,26 +49,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
+        from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
         from isaaclab_arena.utils.pose import Pose, PoseRange
-
-        def get_pose_range(z_position, yaw):
-            return PoseRange(
-                position_xyz_min=(
-                    4.05 - RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_position - RANDOMIZATION_HALF_RANGE_Z_M,
-                ),
-                position_xyz_max=(
-                    4.05 + RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_position + RANDOMIZATION_HALF_RANGE_Z_M,
-                ),
-                rpy_min=(0.0, 0.0, yaw),
-                rpy_max=(0.0, 0.0, yaw),
-            )
 
         # Custom task class for this environment
         class PutAndCloseDoorTask(SequentialTaskBase):
@@ -131,7 +116,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         kitchen_counter_top.add_relation(IsAnchor())
 
-        pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         light = self.asset_registry.get_asset_by_name("light")()
 
         if args_cli.teleop_device is not None:
@@ -164,61 +148,53 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         # Consider changing to other values for different objects, below is for ranch dressing bottle
-        z_position = 1.0082
+        # z_position = 1.0082
         yaw_rad = math.radians(-111.55)
         # Note (xinjieyao, 2026.02.04): prim path of object set has not been resolved yet, will be fixed in the future.
-        assert args_cli.object_set is None, "Object set is not supported yet"
+        # assert args_cli.object_set is None, "Object set is not supported yet"
+        # TODO(cvolk): NoTask() as a WAR
+
         #  All obs from object set are under the same randomization range
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-            objects = []
-            for obj in args_cli.object_set:
-                obj_from_set = self.asset_registry.get_asset_by_name(obj)()
-                objects.append(obj_from_set)
-            object_set = RigidObjectSet(name="object_set", objects=objects)
-            object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
-            # Create scene
-            scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
+            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
+            pickup_object = RigidObjectSet(name="object_set", objects=objects)
         else:
-            pickup_object.add_relation(On(kitchen_counter_top))
-            # Place the object at a specific position GR1 to be able to reach it with its hand.
-            pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-            pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-            pickup_object.add_relation(
-                RandomAroundSolution(
-                    x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
-                    y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
-                )
-            )
-            # Create scene
-            scene = Scene(
-                assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
-            )
+            pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
 
-        # Create pick and place task
-        pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=pickup_object if args_cli.object_set is None else object_set,
-            destination_object=refrigerator,
-            destination_location=refrigerator_shelf,
-            background_scene=kitchen_background,
+        pickup_object.add_relation(On(kitchen_counter_top))
+        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+        pickup_object.add_relation(
+            RandomAroundSolution(x_half_m=RANDOMIZATION_HALF_RANGE_X_M, y_half_m=RANDOMIZATION_HALF_RANGE_Y_M)
+        )
+        scene = Scene(
+            assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
         )
 
-        # Create close door task
-        close_door_task = CloseDoorTask(
-            openable_object=refrigerator,
-            closedness_threshold=0.10,
-            reset_openness=0.5,
-        )
+        ## Create pick and place task
+        # pick_and_place_task = PickAndPlaceTask(
+        #    pick_up_object=pickup_object if args_cli.object_set is None else object_set,
+        #    destination_object=refrigerator,
+        #    destination_location=refrigerator_shelf,
+        #    background_scene=kitchen_background,
+        # )
+
+        ## Create close door task
+        # close_door_task = CloseDoorTask(
+        #    openable_object=refrigerator,
+        #    closedness_threshold=0.10,
+        #    reset_openness=0.5,
+        # )
 
         # Create sequential task
-        sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
+        # sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
 
         # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=sequential_task,
+            task=NoTask(),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
