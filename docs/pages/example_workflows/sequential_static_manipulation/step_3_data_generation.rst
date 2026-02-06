@@ -61,7 +61,7 @@ To start the annotation process run the following command:
      --object ranch_dressing_bottle \
      --embodiment gr1_pink
 
-Follow the instructions described on the CLI to mark subtask boundaries:
+Follow the instructions described on the CLI to mark the completion of a Mimic subtask:
 
 Left Arm:
 1. **Pick & place completed:** Robot has completed the pick and place task
@@ -70,6 +70,11 @@ Right Arm:
 1. **Grasp object:** Robot has grasped the object
 2. **Pick & place completed:** Robot has completed the pick and place task
 3. **Move to door:** Robot has moved its hand to the refrigerator door
+
+.. note::
+   Users should press the button to mark the Mimic subtask after they have observed it's completion.
+   For example, the annotation for **Right Arm - Grasp object** should be completed by pressing the
+   button after the robot has grasped the object. 
 
 
 .. _sequential_step_2_generate_augmented_dataset:
