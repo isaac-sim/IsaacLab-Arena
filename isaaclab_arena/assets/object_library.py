@@ -48,13 +48,14 @@ class LibraryObject(Object):
         self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs
     ):
         name = instance_name if instance_name is not None else self.name
+        scale = kwargs.pop("scale", self.scale)
         super().__init__(
             name=name,
             prim_path=prim_path,
             tags=self.tags,
             usd_path=self.usd_path,
             object_type=self.object_type,
-            scale=self.scale,
+            scale=scale,
             initial_pose=initial_pose,
             spawn_cfg_addon=self.spawn_cfg_addon,
             asset_cfg_addon=self.asset_cfg_addon,
@@ -251,9 +252,9 @@ class OfficeTable(LibraryObject):
     scale = (1.0, 1.0, 0.7)
 
     def __init__(
-        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs
     ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, **kwargs)
 
 
 @register_asset
