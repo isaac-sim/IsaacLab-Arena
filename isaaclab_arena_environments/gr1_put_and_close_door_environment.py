@@ -197,19 +197,19 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             )
 
         ## Create pick and place task
-        #pick_and_place_task = PickAndPlaceTask(
+        # pick_and_place_task = PickAndPlaceTask(
         #    pick_up_object=pickup_object if args_cli.object_set is None else object_set,
         #    destination_object=refrigerator,
         #    destination_location=refrigerator_shelf,
         #    background_scene=kitchen_background,
-        #)
+        # )
 
         ## Create close door task
-        #close_door_task = CloseDoorTask(
+        # close_door_task = CloseDoorTask(
         #    openable_object=refrigerator,
         #    closedness_threshold=0.10,
         #    reset_openness=0.5,
-        #)
+        # )
 
         # Create sequential task
         # sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
