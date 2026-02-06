@@ -17,6 +17,12 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--num_steps",
         type=int,
-        default=100,
-        help="Number of steps to run the policy for",
+        default=None,
+        help="Number of steps to run the policy (if num_episodes is not provided)",
+    )
+    parser.add_argument(
+        "--num_episodes",
+        type=int,
+        default=None,
+        help="Number of episodes to run the policy (if num_steps is not provided)",
     )
