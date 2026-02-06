@@ -112,7 +112,7 @@ This can be done by running the following command:
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_replay_action_config.yaml \
+     --config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_replay_action_config.yaml \
      --enable_cameras \
      --device cpu \
      put_item_in_fridge_and_close_door \
@@ -120,7 +120,7 @@ This can be done by running the following command:
 
 .. figure:: ../../../images/gr1_sequential_static_manip_mimic_datagen.gif
    :width: 100%
-   :alt: GR1 picking up and placing an object in a refrigerator and closing the door
+:alt: GR1 picking up and placing an object in a refrigerator and closing the door
    :align: center
 
    IsaacLab Arena GR1 picking up and placing an object in a refrigerator and closing the door (with action noise)
