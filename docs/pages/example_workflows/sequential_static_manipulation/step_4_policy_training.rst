@@ -257,7 +257,7 @@ for information on how to adjust the training configuration to your hardware, to
 the best results.
 
 Step 5: Download Post-trained Model (Optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you post-train the model on OSMO, you can download the checkpoint to your local machine.
 Note down the workflow name and output directory from the OSMO workflow job,

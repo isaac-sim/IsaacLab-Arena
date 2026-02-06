@@ -34,7 +34,7 @@ To skip this step, you can download the pre-annotated dataset as described below
 .. dropdown:: Download Pre-annotated Dataset (skip annotation step)
    :animate: fade-in
 
-      These commands can be used to download the pre-annotated dataset,
+   These commands can be used to download the pre-annotated dataset,
    such that the annotation step can be skipped.
 
    To download run:
