@@ -120,7 +120,7 @@ This can be done by running the following command:
 
 .. figure:: ../../../images/gr1_sequential_static_manip_mimic_datagen.gif
    :width: 100%
-:alt: GR1 picking up and placing an object in a refrigerator and closing the door
+   :alt: GR1 picking up and placing an object in a refrigerator and closing the door
    :align: center
 
    IsaacLab Arena GR1 picking up and placing an object in a refrigerator and closing the door (with action noise)
