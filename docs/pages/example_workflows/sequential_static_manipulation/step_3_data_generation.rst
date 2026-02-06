@@ -74,7 +74,7 @@ Right Arm:
 .. note::
    Users should press the button to mark the Mimic subtask after they have observed it's completion.
    For example, the annotation for **Right Arm - Grasp object** should be completed by pressing the
-   button after the robot has grasped the object. 
+   button after the robot has grasped the object.
 
 
 .. _sequential_step_2_generate_augmented_dataset:
