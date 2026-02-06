@@ -23,14 +23,20 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
+        table_top_reference = ObjectReference(
+            name="table_top_reference",
+            prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
+            parent_asset=background,
+        )
+        table_top_reference.add_relation(IsAnchor())
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
-        pick_up_object_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+        # pick_up_object_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
 
         # Validate mutually exclusive object arguments
         has_object = args_cli.object is not None
@@ -47,7 +53,8 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             pick_up_object = RigidObjectSet(name="object_set", objects=objects)
         else:
             pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        pick_up_object.set_initial_pose(pick_up_object_pose)
+        pick_up_object.add_relation(On(table_top_reference))
+        pick_up_object.add_relation(AtPosition(x=0.4, y=0.0))
 
         # TODO(alexmillane, 2025.09.24): Add automatic object type detection of ObjectReferences.
         destination_location = ObjectReference(
@@ -61,7 +68,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        scene = Scene(assets=[background, pick_up_object, destination_location])
+        scene = Scene(assets=[background, table_top_reference, pick_up_object, destination_location])
         pick_and_place_task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,
