@@ -95,7 +95,7 @@ RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
     export TORCH_CUDA_ARCH_LIST=8.0+PTX && \
     /isaac-sim/python.sh -m pip install --no-build-isolation \
     "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" && \
-    pip install rerun-sdk==0.23; \
+    /isaac-sim/python.sh -m pip install rerun-sdk==0.23; \
     else \
     echo "Skipping cuRobo installation"; \
   fi

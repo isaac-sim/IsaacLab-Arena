@@ -175,5 +175,15 @@ class MapleTableRobolab(LibraryBackground):
     object_min_z = -0.05
     spawn_cfg_addon = {"activate_contact_sensors": True}
 
+class OfficeTable(LibraryBackground):
+    """
+    A office table.
+    """
+
+    name = "office_table_background"
+    tags = ["background"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+    object_min_z = -0.05
+
     def __init__(self):
         super().__init__()
