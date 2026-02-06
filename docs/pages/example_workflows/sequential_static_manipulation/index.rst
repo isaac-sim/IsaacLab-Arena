@@ -1,9 +1,9 @@
 GR1 Sequential Pick & Place and Close Door Task
 ===============================================
 
-This example demonstrates the complete workflow for the **GR1 sequential manipulation task of picking up an object, 
-placing it into a refrigerator, and closing the door** in Isaac Lab - Arena, 
-covering environment setup and validation, teleoperation data collection, data generation with 
+This example demonstrates the complete workflow for the **GR1 sequential manipulation task of picking up an object,
+placing it into a refrigerator, and closing the door** in Isaac Lab - Arena,
+covering environment setup and validation, teleoperation data collection, data generation with
 Isaac Lab Mimic, policy post-training, and closed-loop evaluation.
 
 .. image:: ../../../images/gr1_sequential_static_manipulation_env.gif

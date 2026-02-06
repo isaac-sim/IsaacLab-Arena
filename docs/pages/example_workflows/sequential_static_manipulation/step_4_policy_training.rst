@@ -106,7 +106,7 @@ This can be done by running the following command:
 
 .. todo::
    There is a bug in ISAAC-GR00T submodule gr00t/data/stats.py. PR is submmited and in review from Gear.
-   Use singel gpu finetune command in the last step for now.
+   Usele gpu finetune command in the last step for now.
 
 .. code-block:: bash
 
@@ -210,7 +210,7 @@ We provide three post-training options:
 
       .. code-block:: bash
 
-         osmo worklfow submit osmo/finetune.yaml --pool ${POOL_NAME}
+         osmo workflow submit osmo/finetune.yaml --pool ${POOL_NAME}
 
 
    .. tab:: Low Hardware Requirements

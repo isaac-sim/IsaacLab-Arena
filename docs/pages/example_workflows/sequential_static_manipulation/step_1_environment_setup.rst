@@ -241,7 +241,7 @@ Step-by-Step Breakdown
     else:
         teleop_device = None
 
-Here, we're selecting the components needed for our sequential static manipulation task: 
+Here, we're selecting the components needed for our sequential static manipulation task:
 The GR1 embodiment, the kitchen environment as our background, the object to pick and place,
 and a light to illuminate the scene.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.

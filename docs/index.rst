@@ -197,7 +197,7 @@ TABLE OF CONTENTS
    pages/example_workflows/static_manipulation/index
    pages/example_workflows/sequential_static_manipulation/index
    pages/example_workflows/reinforcement_learning/index
-   
+
 .. toctree::
    :maxdepth: 1
    :caption: Advanced

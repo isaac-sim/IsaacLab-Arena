@@ -6,7 +6,7 @@ This workflow covers generating a new dataset using
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Teleoperation Data Collection) <step_2_teleoperation>`.
-If you do not want to do the preceding step of recording demonstrations, you can download 
+If you do not want to do the preceding step of recording demonstrations, you can download
 the pre-recorded datasets and jump to :ref:`sequential_step_1_annotate_demonstrations`.
 
 
@@ -23,8 +23,8 @@ Step 1: Annotate Demonstrations
 This step describes how to manually annotate the demonstrations recorded in the preceding step
 such that they can be used by Isaac Lab Mimic. For automatic annotation the user needs to define
 subtasks in their task definition, we do not show how to do this in this tutorial.
-The process of annotation involves segmenting demonstrations into various subtasks for the left/right arms. 
-As this is a sequential composite task, there are additional Mimic subtasks to denote the end of each intermediate atomic task 
+The process of annotation involves segmenting demonstrations into various subtasks for the left/right arms.
+As this is a sequential composite task, there are additional Mimic subtasks to denote the end of each intermediate atomic task
 (in this case an annotation to denote the end of the pick & place task):
 For more details on mimic annotation, please refer to the
 `Isaac Lab Mimic documentation <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrationsl>`_.
