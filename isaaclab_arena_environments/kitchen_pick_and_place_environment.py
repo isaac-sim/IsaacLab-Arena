@@ -36,8 +36,6 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         table_top_reference.add_relation(IsAnchor())
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
-        # pick_up_object_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-
         # Validate mutually exclusive object arguments
         has_object = args_cli.object is not None
         has_object_set = args_cli.object_set is not None and len(args_cli.object_set) > 0
