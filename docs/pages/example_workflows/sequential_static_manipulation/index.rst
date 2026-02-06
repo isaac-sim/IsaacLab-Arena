@@ -34,9 +34,9 @@ Task Overview
    * - **Interop**
      - Isaac Lab Teleop, Isaac Lab Mimic
    * - **Scene**
-     - Kitchen environment
+     - LightWheel Kitchen environment
    * - **Objects**
-     - Refrigerator (articulated object)
+     - Refrigerator (articulated object), Rigid object to be placed in the refrigerator (e.g. ranch dressing bottle)
    * - **Policy**
      - GR00T N1.6 (vision-language foundation model)
    * - **Post-training**

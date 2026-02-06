@@ -119,7 +119,7 @@ to visualize data generation.
 Step 3: Validate Generated Data (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In order to validation the generated dataset, you can replay the generated data
+In order to validate the generated dataset, you can replay the generated data
 through the robot, in order to check (visually) if the robot is able to perform the task successfully.
 To do so, run the following command:
 

@@ -106,7 +106,7 @@ This can be done by running the following command:
 
 .. todo::
    There is a bug in ISAAC-GR00T submodule gr00t/data/stats.py. PR is submmited and in review from Gear.
-   Usele gpu finetune command in the last step for now.
+   Use single gpu finetune command in the last step for now.
 
 .. code-block:: bash
 
@@ -176,7 +176,7 @@ We provide three post-training options:
          --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
-         --global_batch_size=24 \
+         --global_batch_size=96 \
          --max_steps=20000 \
          --num_gpus=8 \
          --save_steps=5000 \
@@ -222,7 +222,7 @@ We provide three post-training options:
       - **Base Model:** GR00T-N1.6-3B (foundation model)
       - **Tuned Modules:** Visual backbone, projector, diffusion model
       - **Frozen Modules:** LLM (language model)
-      - **Batch Size:** 16 (adjust based on GPU memory)
+      - **Global Batch Size:** 16 (adjust based on GPU memory)
       - **Training Steps:** 30,000
       - **GPUs:** 1 (single-GPU training)
 
