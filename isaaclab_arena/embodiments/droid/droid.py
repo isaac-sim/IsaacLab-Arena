@@ -72,6 +72,7 @@ class DroidEmbodiment(EmbodimentBase):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
         scene_config.stand.init_state.pos = pose.position_xyz
         scene_config.stand.init_state.rot = pose.rotation_wxyz
+
         return scene_config
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
