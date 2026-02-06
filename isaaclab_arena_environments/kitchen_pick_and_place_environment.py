@@ -41,7 +41,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             "or --object_set for multiple objects across environments where --num_envs == len(object_set)."
         )
 
-        # Create the pick-up object: either a single object or a set of objects
+        # Create the pick-up object: Either a single object or a set of objects
         if has_object_set:
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
             pick_up_object = RigidObjectSet(name="object_set", objects=objects)
