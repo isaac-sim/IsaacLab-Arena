@@ -55,7 +55,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Franka Lift Object Task" href="../reinforcement_learning/index.html" />
+    <link rel="next" title="GR1 Sequential Pick &amp; Place and Close Door Task" href="../sequential_static_manipulation/index.html" />
     <link rel="prev" title="Policy Post-training" href="step_4_policy_training.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -324,6 +324,14 @@
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
@@ -419,10 +427,6 @@ and evaluating it in Arena GR1 Open Microwave Door Task environment.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/static_manipulation_tutorial
 <span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_manipulation_tutorial
 </pre></div>
-</div>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>Verifying Arena-GR00T on Blackwell architecture.</p>
 </div>
 <p>Note that this tutorial assumes that you’ve completed the
 <a class="reference internal" href="step_4_policy_training.html"><span class="doc">preceding step (Policy Training)</span></a> or downloaded the
@@ -549,11 +553,11 @@ GR00T N1.6 policy is trained on upper body joint positions, so we use
       </div>
     </a>
     <a class="right-next"
-       href="../reinforcement_learning/index.html"
+       href="../sequential_static_manipulation/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Franka Lift Object Task</p>
+        <p class="prev-next-title">GR1 Sequential Pick &amp; Place and Close Door Task</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
