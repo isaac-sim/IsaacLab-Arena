@@ -5,8 +5,13 @@
 
 from __future__ import annotations
 
+import torch
 from enum import Enum
 from typing import TYPE_CHECKING
+
+from isaaclab.utils.math import euler_xyz_from_quat
+
+from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -121,6 +126,142 @@ class IsAnchor(RelationBase):
     """
 
     pass
+
+
+class RandomAroundSolution(RelationBase):
+    """Marker indicating the solver solution should be used as center of a PoseRange.
+
+    When ObjectPlacer applies positions, objects with this marker will get a PoseRange
+    (enabling randomization at environment reset) instead of a fixed Pose.
+
+    The half extents define a box centered on the solved position. At each environment
+    reset, a random position within this box will be sampled.
+
+    Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
+    affects how ObjectPlacer applies the solved position to the object.
+
+    Usage:
+        box.add_relation(On(desk))
+        box.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.1))
+        # -> ObjectPlacer sets a PoseRange spanning ±0.1m in X and Y around solved position
+    """
+
+    def __init__(
+        self,
+        x_half_m: float = 0.0,
+        y_half_m: float = 0.0,
+        z_half_m: float = 0.0,
+        roll_half_rad: float = 0.0,
+        pitch_half_rad: float = 0.0,
+        yaw_half_rad: float = 0.0,
+    ):
+        """
+        Args:
+            x_half_m: Half-extent in X direction (meters). Position will be randomized ±x_half_m.
+            y_half_m: Half-extent in Y direction (meters). Position will be randomized ±y_half_m.
+            z_half_m: Half-extent in Z direction (meters). Position will be randomized ±z_half_m.
+            roll_half_rad: Half-extent for roll (radians). Rotation will be randomized ±roll_half_rad.
+            pitch_half_rad: Half-extent for pitch (radians). Rotation will be randomized ±pitch_half_rad.
+            yaw_half_rad: Half-extent for yaw (radians). Rotation will be randomized ±yaw_half_rad.
+        """
+        self.x_half_m = x_half_m
+        self.y_half_m = y_half_m
+        self.z_half_m = z_half_m
+        self.roll_half_rad = roll_half_rad
+        self.pitch_half_rad = pitch_half_rad
+        self.yaw_half_rad = yaw_half_rad
+
+    def to_pose_range_centered_at(
+        self,
+        position: tuple[float, float, float],
+        rotation_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
+    ) -> PoseRange:
+        """Create a PoseRange centered on the given position and rotation.
+
+        Args:
+            position: Center position (x, y, z) for the range.
+            rotation_wxyz: Center rotation as quaternion (w, x, y, z) for the range.
+                Defaults to identity quaternion.
+
+        Returns:
+            PoseRange spanning ± half-extents around the position and rotation.
+        """
+        # Convert quaternion to euler angles (roll, pitch, yaw)
+        quat_tensor = torch.tensor([rotation_wxyz])
+        roll, pitch, yaw = euler_xyz_from_quat(quat_tensor)
+        center_roll = float(roll[0])
+        center_pitch = float(pitch[0])
+        center_yaw = float(yaw[0])
+
+        return PoseRange(
+            position_xyz_min=(
+                position[0] - self.x_half_m,
+                position[1] - self.y_half_m,
+                position[2] - self.z_half_m,
+            ),
+            position_xyz_max=(
+                position[0] + self.x_half_m,
+                position[1] + self.y_half_m,
+                position[2] + self.z_half_m,
+            ),
+            rpy_min=(
+                center_roll - self.roll_half_rad,
+                center_pitch - self.pitch_half_rad,
+                center_yaw - self.yaw_half_rad,
+            ),
+            rpy_max=(
+                center_roll + self.roll_half_rad,
+                center_pitch + self.pitch_half_rad,
+                center_yaw + self.yaw_half_rad,
+            ),
+        )
+
+
+class RotateAroundSolution(RelationBase):
+    """Marker specifying an explicit rotation to apply on top of the solver solution.
+
+    When ObjectPlacer applies positions, objects with this marker will have the
+    specified rotation applied on top of the solved position to create a fixed Pose.
+
+    Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
+    affects how ObjectPlacer applies the solved position to the object.
+
+    Usage:
+        import math
+        box.add_relation(On(desk))
+        box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
+        # -> ObjectPlacer sets a Pose with solved position and 45° yaw rotation
+    """
+
+    def __init__(
+        self,
+        roll_rad: float = 0.0,
+        pitch_rad: float = 0.0,
+        yaw_rad: float = 0.0,
+    ):
+        """
+        Args:
+            roll_rad: Roll rotation in radians.
+            pitch_rad: Pitch rotation in radians.
+            yaw_rad: Yaw rotation in radians.
+        """
+        self.roll_rad = roll_rad
+        self.pitch_rad = pitch_rad
+        self.yaw_rad = yaw_rad
+
+    def get_rotation_wxyz(self) -> tuple[float, float, float, float]:
+        """Get the rotation as a quaternion (w, x, y, z).
+
+        Returns:
+            Quaternion rotation converted from roll/pitch/yaw.
+        """
+        from isaaclab.utils.math import quat_from_euler_xyz
+
+        roll = torch.tensor(self.roll_rad)
+        pitch = torch.tensor(self.pitch_rad)
+        yaw = torch.tensor(self.yaw_rad)
+        quat = quat_from_euler_xyz(roll, pitch, yaw)
+        return tuple(quat.tolist())
 
 
 class AtPosition(RelationBase):

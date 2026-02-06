@@ -22,7 +22,9 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
         from isaaclab_arena.utils.pose import Pose
 
-        assert len(args_cli.destination) == len(args_cli.object)
+        assert (
+            len(args_cli.destinations) == len(args_cli.objects) == 2
+        ), "Only 2 objects and 2 destinations are supported in this environment."
 
         # Add the asset registry from the arena migration package
         light = self.asset_registry.get_asset_by_name("light")()
@@ -62,32 +64,32 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        destination_location1 = self.asset_registry.get_asset_by_name(args_cli.destination[0])()
-        destination_location1.set_initial_pose(
+        destination_location_1 = self.asset_registry.get_asset_by_name(args_cli.destinations[0])()
+        destination_location_1.set_initial_pose(
             Pose(
                 position_xyz=(0.0, 0.1, 0.1),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
 
-        destination_location2 = self.asset_registry.get_asset_by_name(args_cli.destination[1])()
-        destination_location2.set_initial_pose(
+        destination_location_2 = self.asset_registry.get_asset_by_name(args_cli.destinations[1])()
+        destination_location_2.set_initial_pose(
             Pose(
                 position_xyz=(0.0, -0.1, 0.1),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
 
-        pick_up_object1 = self.asset_registry.get_asset_by_name(args_cli.object[0])()
-        pick_up_object1.set_initial_pose(
+        pick_up_object_1 = self.asset_registry.get_asset_by_name(args_cli.objects[0])()
+        pick_up_object_1.set_initial_pose(
             Pose(
                 position_xyz=(0.0, 0.3, 0.1),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
 
-        pick_up_object2 = self.asset_registry.get_asset_by_name(args_cli.object[1])()
-        pick_up_object2.set_initial_pose(
+        pick_up_object_2 = self.asset_registry.get_asset_by_name(args_cli.objects[1])()
+        pick_up_object_2.set_initial_pose(
             Pose(
                 position_xyz=(0.0, -0.3, 0.1),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
@@ -95,11 +97,20 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         )
 
         scene = Scene(
-            assets=[background, light, pick_up_object1, pick_up_object2, destination_location1, destination_location2]
+            assets=[
+                background,
+                light,
+                pick_up_object_1,
+                pick_up_object_2,
+                destination_location_1,
+                destination_location_2,
+            ]
         )
 
         task = SortMultiObjectTask(
-            [pick_up_object1, pick_up_object2], [destination_location1, destination_location2], background
+            pick_up_object_list=[pick_up_object_1, pick_up_object_2],
+            destination_location_list=[destination_location_1, destination_location_2],
+            background_scene=background,
         )
 
         # add custom force threshold for success termination
@@ -117,18 +128,17 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
-            "--object",
+            "--objects",
             nargs="*",
             default=["red_cube", "green_cube"],
-            help="object list (example: --object red_cube green_cube)",
+            help="object list (example: --objects red_cube green_cube)",
         )
         parser.add_argument(
-            "--destination",
+            "--destinations",
             nargs="*",
             default=["red_container", "green_container"],
-            help="destination list (example: --destination red_container green_container)",
+            help="destination list (example: --destinations red_container green_container)",
         )
         parser.add_argument("--background", type=str, default="table")
         parser.add_argument("--embodiment", type=str, default="franka")
-        parser.add_argument("--enable_cameras", type=bool, default=False)
         parser.add_argument("--teleop_device", type=str, default=None)

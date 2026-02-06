@@ -91,9 +91,9 @@ workflow:
     queue_timeout: 2d
 
 default-values:
-  cpus: 60
+  cpus: 80
   gpus: 8
-  batch_size: 24
+  batch_size: 96
   max_steps: 20000
   # Static manipulation
   # workflow_name: gr1_open_microwave_kitchen_gn1_6
@@ -103,8 +103,15 @@ default-values:
   # modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
 
   # Locomanipulation
-  workflow_name: g1_move_box_galileo_gn1_6
-  input_dataset_name: lerobot_g1
-  input_demo_name: arena_g1_loco_manipulation_dataset_generated
-  embodiment_tag: NEW_EMBODIMENT
-  modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
+  # workflow_name: g1_move_box_galileo_gn1_6
+  # input_dataset_name: lerobot_g1
+  # input_demo_name: arena_g1_loco_manipulation_dataset_generated
+  # embodiment_tag: NEW_EMBODIMENT
+  # modality_config_path: /workspace/g1_locomanip/g1_sim_wbc_data_config.py
+
+# Static manipulation -- Place ranch dressing bottle into fridge
+  workflow_name: gr1_ranch_bottle_into_fridge_gn1_6
+  input_dataset_name: gr1_ranch_bottle_into_fridge
+  input_demo_name: ranch_bottle_into_fridge_generated_100_peterd_v1
+  embodiment_tag: GR1
+  modality_config_path: /workspace/gr1_manip/gr1_arms_only_data_config.py
