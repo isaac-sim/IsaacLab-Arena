@@ -49,6 +49,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
+        from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
@@ -167,7 +168,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         z_position = 1.0082
         yaw_rad = math.radians(-111.55)
         # Note (xinjieyao, 2026.02.04): prim path of object set has not been resolved yet, will be fixed in the future.
-        assert args_cli.object_set is None, "Object set is not supported yet"
+        # assert args_cli.object_set is None, "Object set is not supported yet"
         #  All obs from object set are under the same randomization range
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
             objects = []
@@ -195,30 +196,30 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
             )
 
-        # Create pick and place task
-        pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=pickup_object if args_cli.object_set is None else object_set,
-            destination_object=refrigerator,
-            destination_location=refrigerator_shelf,
-            background_scene=kitchen_background,
-        )
+        ## Create pick and place task
+        #pick_and_place_task = PickAndPlaceTask(
+        #    pick_up_object=pickup_object if args_cli.object_set is None else object_set,
+        #    destination_object=refrigerator,
+        #    destination_location=refrigerator_shelf,
+        #    background_scene=kitchen_background,
+        #)
 
-        # Create close door task
-        close_door_task = CloseDoorTask(
-            openable_object=refrigerator,
-            closedness_threshold=0.10,
-            reset_openness=0.5,
-        )
+        ## Create close door task
+        #close_door_task = CloseDoorTask(
+        #    openable_object=refrigerator,
+        #    closedness_threshold=0.10,
+        #    reset_openness=0.5,
+        #)
 
         # Create sequential task
-        sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
+        # sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
 
         # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=sequential_task,
+            task=NoTask(),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
