@@ -66,3 +66,12 @@ repos:
           - .github/LICENSE_HEADER.txt
           - --use-current-year
         exclude: "submodules/"
+
+  - repo: local
+    hooks:
+      - id: check-contributors
+        name: Check that CONTRIBUTORS.md lists all contributors
+        entry: python3 tools/check_contributors.py
+        language: system
+        pass_filenames: false
+        types: [python]
