@@ -11,8 +11,8 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd.object_set_utils import rescale_rename_rigid_body_and_save_to_cache
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 
 
 class RigidObjectSet(Object):
@@ -65,7 +65,7 @@ class RigidObjectSet(Object):
             usd_path="",
             prim_path=prim_path,
             # scale=scale,
-            scale=(1.0, 1.0, 1.0), # We rewrite the USDs to handle scaling
+            scale=(1.0, 1.0, 1.0),  # We rewrite the USDs to handle scaling
             initial_pose=initial_pose,
             **kwargs,
         )
@@ -131,13 +131,6 @@ class RigidObjectSet(Object):
         # we can modify the assets to be compatible with each other.
         _, depths = self._get_all_rigid_bodies(objects)
         return all(depth == depths[0] for depth in depths)
-
-    def _modify_assets(self, objects: list[Object]) -> list[str]:
-        new_usd_paths = []
-        for asset in objects:
-            new_usd_path = self._rescale_and_save_to_cache(asset)
-            new_usd_paths.append(new_usd_path)
-        return new_usd_paths
 
     def _get_all_rigid_bodies(self, objects: list[Object]) -> list[str]:
         rigid_body_paths = []

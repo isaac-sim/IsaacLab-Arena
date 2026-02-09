@@ -118,8 +118,6 @@ def find_shallowest_rigid_body(usd_path: str, relative_to_root: bool = False) ->
         raise ValueError(f"Error: Could not open USD file at {usd_path}")
     return find_shallowest_rigid_body_from_stage(stage, relative_to_root)
 
-
-
     # Get all the rigid body prim paths
     # rigid_body_prim_paths = get_all_rigid_body_prim_paths(usd_path)
 
