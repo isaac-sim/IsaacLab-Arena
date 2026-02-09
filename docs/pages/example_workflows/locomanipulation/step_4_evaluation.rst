@@ -16,10 +16,6 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
-.. todo::
-
-   Verifying Arena-GR00T on Blackwell architecture.
-
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_3_policy_training>` or downloaded the
 pre-trained model checkpoint below:
@@ -77,7 +73,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
+     --num_steps 1500 \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \

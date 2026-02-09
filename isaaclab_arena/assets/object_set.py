@@ -10,6 +10,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -43,7 +44,8 @@ class RigidObjectSet(Object):
         if not self._are_all_objects_type_rigid(objects):
             raise ValueError(f"Object set {name} must contain only rigid objects.")
 
-        self.object_usd_paths = [object.usd_path for object in objects]
+        self.objects: list[Object] = objects
+        self.object_usd_paths = [object.usd_path for object in self.objects]
         self.random_choice = random_choice
 
         # Set default prim_path if not provided
@@ -59,6 +61,14 @@ class RigidObjectSet(Object):
             initial_pose=initial_pose,
             **kwargs,
         )
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get the bounding box of the object set.
+
+        Returns the bounding box with the greatest z-extent among all objects in the set.
+        This is a heuristic to avoid objects spawning inside their support surfaces.
+        """
+        return max(self.objects, key=lambda obj: obj.get_bounding_box().size[2]).get_bounding_box()
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
