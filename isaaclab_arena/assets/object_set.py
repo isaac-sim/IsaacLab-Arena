@@ -11,6 +11,8 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+
 
 
 class RigidObjectSet(Object):
@@ -66,8 +68,14 @@ class RigidObjectSet(Object):
             contact_against_prim_paths = []
         # We override this function from the parent class because currently, rigid body
         # search doesn't work for object sets.
+        rigid_body_relative_path = find_shallowest_rigid_body(self.object_usd_paths[0], relative_to_root=True)
+        assert (
+            rigid_body_relative_path is not None
+        ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
+        print(f"rigid_body_relative_path: {rigid_body_relative_path}")
+        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
         return ContactSensorCfg(
-            prim_path=self.prim_path,
+            prim_path=contact_sensor_prim_path,
             filter_prim_paths_expr=contact_against_prim_paths,
         )
 
