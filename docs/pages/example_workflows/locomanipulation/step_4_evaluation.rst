@@ -16,10 +16,6 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
-.. todo::
-
-   Verifying Arena-GR00T on Blackwell architecture.
-
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_3_policy_training>` or downloaded the
 pre-trained model checkpoint below:
