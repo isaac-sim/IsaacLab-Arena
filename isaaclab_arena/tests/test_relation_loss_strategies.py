@@ -159,7 +159,7 @@ def test_next_to_loss_strategy_zero_loss_when_perfectly_placed():
     """Test that NextTo loss is zero when child is perfectly placed."""
     parent_obj = _create_table()
     child_obj = _create_box()
-    relation = NextTo(parent_obj, side=Side.RIGHT, distance_m=0.05)
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
     strategy = NextToLossStrategy(slope=10.0)
 
     parent_pos = torch.tensor([0.0, 0.0, 0.0])
@@ -177,7 +177,7 @@ def test_next_to_loss_strategy_penalizes_wrong_side():
     """Test that NextTo loss penalizes child on wrong side of parent."""
     parent_obj = _create_table()
     child_obj = _create_box()
-    relation = NextTo(parent_obj, side=Side.RIGHT, distance_m=0.05)
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
     strategy = NextToLossStrategy(slope=10.0)
 
     parent_pos = torch.tensor([0.0, 0.0, 0.0])
@@ -192,7 +192,7 @@ def test_next_to_loss_strategy_penalizes_outside_y_band():
     """Test that NextTo loss penalizes child outside parent's Y extent."""
     parent_obj = _create_table()
     child_obj = _create_box()
-    relation = NextTo(parent_obj, side=Side.RIGHT, distance_m=0.05)
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
     strategy = NextToLossStrategy(slope=10.0)
 
     parent_pos = torch.tensor([0.0, 0.0, 0.0])
@@ -207,7 +207,7 @@ def test_next_to_loss_strategy_penalizes_wrong_distance():
     """Test that NextTo loss penalizes incorrect distance from parent."""
     parent_obj = _create_table()
     child_obj = _create_box()
-    relation = NextTo(parent_obj, side=Side.RIGHT, distance_m=0.05)
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
     strategy = NextToLossStrategy(slope=10.0)
 
     parent_pos = torch.tensor([0.0, 0.0, 0.0])
@@ -222,8 +222,8 @@ def test_next_to_loss_strategy_respects_relation_weight():
     """Test that NextTo loss is scaled by relation_loss_weight."""
     parent_obj = _create_table()
     child_obj = _create_box()
-    relation_normal = NextTo(parent_obj, side=Side.RIGHT, distance_m=0.05, relation_loss_weight=1.0)
-    relation_double = NextTo(parent_obj, side=Side.RIGHT, distance_m=0.05, relation_loss_weight=2.0)
+    relation_normal = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05, relation_loss_weight=1.0)
+    relation_double = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05, relation_loss_weight=2.0)
     strategy = NextToLossStrategy(slope=10.0)
 
     parent_pos = torch.tensor([0.0, 0.0, 0.0])
@@ -244,4 +244,4 @@ def test_next_to_zero_distance_raises():
     parent_obj = _create_table()
 
     with pytest.raises(AssertionError, match="Distance must be positive"):
-        NextTo(parent_obj, side=Side.RIGHT, distance_m=0.0)
+        NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.0)

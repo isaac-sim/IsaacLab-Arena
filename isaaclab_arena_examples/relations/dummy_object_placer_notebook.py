@@ -60,16 +60,16 @@ def run_dummy_object_placer_demo():
 
     # Objects placed on each side of center_box (all on desk surface)
     right_box.add_relation(On(desk, clearance_m=0.01))
-    right_box.add_relation(NextTo(center_box, side=Side.RIGHT, distance_m=0.05))
+    right_box.add_relation(NextTo(center_box, side=Side.POSITIVE_X, distance_m=0.05))
 
     left_box.add_relation(On(desk, clearance_m=0.01))
-    left_box.add_relation(NextTo(center_box, side=Side.LEFT, distance_m=0.05))
+    left_box.add_relation(NextTo(center_box, side=Side.NEGATIVE_X, distance_m=0.05))
 
     front_box.add_relation(On(desk, clearance_m=0.01))
-    front_box.add_relation(NextTo(center_box, side=Side.FRONT, distance_m=0.05))
+    front_box.add_relation(NextTo(center_box, side=Side.NEGATIVE_Y, distance_m=0.05))
 
     back_box.add_relation(On(desk, clearance_m=0.01))
-    back_box.add_relation(NextTo(center_box, side=Side.BACK, distance_m=0.05))
+    back_box.add_relation(NextTo(center_box, side=Side.POSITIVE_Y, distance_m=0.05))
 
     # Top box on top of center_box
     top_box.add_relation(On(center_box, clearance_m=0.01))
@@ -133,7 +133,7 @@ def run_dummy_multi_anchor_demo():
     # Objects to be placed (optimized positions)
     mug.add_relation(On(table, clearance_m=0.01))
     book.add_relation(On(table, clearance_m=0.01))
-    book.add_relation(NextTo(mug, side=Side.RIGHT, distance_m=0.05))
+    book.add_relation(NextTo(mug, side=Side.POSITIVE_X, distance_m=0.05))
     bin_obj.add_relation(On(chair, clearance_m=0.01))
 
     all_objects = [table, chair, mug, book, bin_obj]

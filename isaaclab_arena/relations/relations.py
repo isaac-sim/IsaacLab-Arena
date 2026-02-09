@@ -19,12 +19,12 @@ if TYPE_CHECKING:
 
 
 class Side(Enum):
-    """Side of an object for spatial relationships."""
+    """Axis direction for spatial relationships."""
 
-    FRONT = "front"  # -Y
-    BACK = "back"  # +Y
-    LEFT = "left"  # -X
-    RIGHT = "right"  # +X
+    POSITIVE_X = "positive_x"  # +X
+    NEGATIVE_X = "negative_x"  # -X
+    POSITIVE_Y = "positive_y"  # +Y
+    NEGATIVE_Y = "negative_y"  # -Y
 
 
 class RelationBase:
@@ -65,14 +65,14 @@ class NextTo(Relation):
         parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        side: Side = Side.RIGHT,
+        side: Side = Side.POSITIVE_X,
     ):
         """
         Args:
             parent: The parent asset that this object should be placed next to.
             relation_loss_weight: Weight for the relationship loss function.
             distance_m: Target distance from parent's boundary in meters (default: 5cm).
-            side: Which side to place object (default: Side.RIGHT).
+            side: Which axis direction to place object (default: Side.POSITIVE_X).
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"

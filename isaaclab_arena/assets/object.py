@@ -75,8 +75,9 @@ class Object(ObjectBase):
         returns the local bounding box without transformation.
         """
         local_bbox = self.get_bounding_box()
-        if self.initial_pose is None or not isinstance(self.initial_pose, Pose):
+        if self.initial_pose is None:
             return local_bbox
+        assert isinstance(self.initial_pose, Pose), "Only Pose is supported for world bounding box"
         quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
         return local_bbox.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
