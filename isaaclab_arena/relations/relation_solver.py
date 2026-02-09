@@ -89,14 +89,24 @@ class RelationSolver:
                         _print_unary_relation_debug(obj, relation, child_pos, loss)
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
+                    # Build parent world bbox: anchors have a known fixed pose,
+                    # optimizable parents use the current solver position + local bbox.
+                    parent = relation.parent
+                    if parent in state.anchor_objects:
+                        parent_world_bbox = parent.get_world_bounding_box()
+                    else:
+                        parent_pos = state.get_position(parent)
+                        parent_world_bbox = parent.get_bounding_box().translated(
+                            (float(parent_pos[0]), float(parent_pos[1]), float(parent_pos[2]))
+                        )
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
                         child_bbox=obj.get_bounding_box(),
-                        parent_world_bbox=relation.parent.get_world_bounding_box(),
+                        parent_world_bbox=parent_world_bbox,
                     )
                     if debug:
-                        parent_pos = state.get_position(relation.parent)
+                        parent_pos = state.get_position(parent)
                         _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")

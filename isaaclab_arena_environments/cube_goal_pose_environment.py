@@ -50,15 +50,12 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
             initial_joint_pose=[0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400, 0.0400]
         )
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-            # increase sensitivity for teleop device
+            # Increase sensitivity for teleop device
             teleop_device.pos_sensitivity = 0.25
             teleop_device.rot_sensitivity = 0.5
-        else:
-            teleop_device = None
-
-        scene = Scene(assets=[background, light, object])
 
         task = GoalPoseTask(
             object,
@@ -70,7 +67,7 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
-            scene=scene,
+            scene=Scene(assets=[background, light, object]),
             task=task,
             teleop_device=teleop_device,
         )

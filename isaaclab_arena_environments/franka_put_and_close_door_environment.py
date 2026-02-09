@@ -25,44 +25,50 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     name = "franka_put_and_close_door"
 
     def get_env(self, args_cli: argparse.Namespace):
+        import math
+
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import (
+            AtPosition,
+            IsAnchor,
+            On,
+            RandomAroundSolution,
+            RotateAroundSolution,
+        )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task import (
             FrankaPutAndCloseDoorTask,
         )
-        from isaaclab_arena.utils.pose import Pose, PoseRange
+        from isaaclab_arena.utils.pose import Pose
 
         # Get assets
         background = self.asset_registry.get_asset_by_name("kitchen")()
+        table_top_reference = ObjectReference(
+            name="table_top_reference",
+            prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
+            parent_asset=background,
+        )
+        table_top_reference.add_relation(IsAnchor())
         container = self.asset_registry.get_asset_by_name("microwave")()
         pick_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
-        # Set initial poses
-        container.set_initial_pose(
-            Pose(
-                position_xyz=(0.4, -0.00586, 0.22773),
-                rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
-            )
-        )
+        container.add_relation(On(table_top_reference, clearance_m=0.02))
+        container.add_relation(AtPosition(x=0.4, y=0.0))
+        container.add_relation(RotateAroundSolution(yaw_rad=-math.pi / 2))
 
-        pick_object.set_initial_pose(
-            PoseRange(
-                position_xyz_min=(0.15, -0.337, 0.154),
-                position_xyz_max=(0.3, -0.637, 0.154),
-                rpy_min=(-1.5707963, 0.0, -1.5707963),
-                rpy_max=(-1.5707963, 0.0, -1.5707963),
-            )
-        )
+        pick_object.add_relation(On(table_top_reference, clearance_m=0.02))
+        pick_object.add_relation(AtPosition(x=0.225, y=-0.487))
+        pick_object.add_relation(RandomAroundSolution(x_half_m=0.075, y_half_m=0.15))
+        pick_object.add_relation(RotateAroundSolution(roll_rad=-math.pi / 2, yaw_rad=-math.pi / 2))
 
         embodiment.set_initial_pose(
             Pose(
@@ -88,7 +94,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         task_description_close = "Close the microwave door."
 
         # Create scene
-        scene = Scene(assets=[background, container, pick_object])
+        scene = Scene(assets=[background, table_top_reference, container, pick_object])
 
         # Create close door task
         close_door_task = CloseDoorTask(
