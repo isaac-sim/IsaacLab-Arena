@@ -46,7 +46,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
             pick_up_object = RigidObjectSet(name="object_set", objects=objects)
         else:
-            pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+            pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=args_cli.object_scale)
         pick_up_object.set_initial_pose(pick_up_object_pose)
 
         # TODO(alexmillane, 2025.09.24): Add automatic object type detection of ObjectReferences.
