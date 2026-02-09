@@ -63,10 +63,9 @@ class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
                 f"Embodiment {args_cli.embodiment} not supported for tabletop place upright environment"
             )
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
         embodiment.set_initial_pose(
             Pose(

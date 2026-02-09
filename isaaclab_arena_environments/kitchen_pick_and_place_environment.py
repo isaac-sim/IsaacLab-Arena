@@ -62,10 +62,9 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
         scene = Scene(assets=[background, table_top_reference, pick_up_object, destination_location])
         pick_and_place_task = PickAndPlaceTask(

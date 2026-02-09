@@ -29,10 +29,9 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
         pick_up_object.set_initial_pose(
             Pose(

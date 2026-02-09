@@ -31,10 +31,9 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
 
         assets = [background, press_object]
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
         # Put the coffee_machine on the packing table.
         press_object_pose = Pose(position_xyz=(0.7, 0.4, 0.19), rotation_wxyz=(0.7071, 0.0, 0.0, -0.7071))

@@ -56,13 +56,12 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         else:
             raise NotImplementedError
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
             # increase sensitivity for teleop device
             teleop_device.pos_sensitivity = 0.25
             teleop_device.rot_sensitivity = 0.5
-        else:
-            teleop_device = None
 
         destination_location_1 = self.asset_registry.get_asset_by_name(args_cli.destinations[0])()
         destination_location_1.set_initial_pose(

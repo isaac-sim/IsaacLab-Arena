@@ -19,48 +19,49 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
     name: str = "gr1_turn_stand_mixer_knob"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+        import math
+
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, RotateAroundSolution, Side
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.turn_knob_task import TurnKnobTask
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
-        stand_mixer = self.asset_registry.get_asset_by_name("stand_mixer")()
-        assets = [background, stand_mixer]
+        table_top_reference = ObjectReference(
+            name="table_top_reference",
+            prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
+            parent_asset=background,
+        )
+        table_top_reference.add_relation(IsAnchor())
         assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
             args_cli.embodiment
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
         embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
-        # Put the microwave on the packing table.
-        stand_mixer_pose = Pose(
-            position_xyz=(0.4, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
-        )
-        stand_mixer.set_initial_pose(stand_mixer_pose)
+        stand_mixer = self.asset_registry.get_asset_by_name("stand_mixer")()
+        stand_mixer.add_relation(On(table_top_reference, clearance_m=0.02))
+        stand_mixer.add_relation(AtPosition(x=0.4, y=0.0))
+        stand_mixer.add_relation(RotateAroundSolution(yaw_rad=-math.pi / 2))
+
+        assets = [background, table_top_reference, stand_mixer]
 
         if args_cli.object is not None:
             object = self.asset_registry.get_asset_by_name(args_cli.object)()
-            object_pose = Pose(
-                position_xyz=(0.466, -0.437, 0.154),
-                rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
-            )
-            object.set_initial_pose(object_pose)
+            object.add_relation(On(table_top_reference, clearance_m=0.02))
+            object.add_relation(NextTo(stand_mixer, side=Side.NEGATIVE_Y, distance_m=0.05))
             assets.append(object)
-
-        # Compose the scene
-        scene = Scene(assets=assets)
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
-            scene=scene,
+            scene=Scene(assets=assets),
             task=TurnKnobTask(
                 turnable_object=stand_mixer, target_level=args_cli.target_level, reset_level=args_cli.reset_level
             ),

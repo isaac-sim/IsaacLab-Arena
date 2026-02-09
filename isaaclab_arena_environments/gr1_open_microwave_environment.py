@@ -19,49 +19,51 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
     name: str = "gr1_open_microwave"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+        import math
+
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, RotateAroundSolution, Side
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.open_door_task import OpenDoorTask
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
+        table_top_reference = ObjectReference(
+            name="table_top_reference",
+            prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
+            parent_asset=background,
+        )
+        table_top_reference.add_relation(IsAnchor())
+
         microwave = self.asset_registry.get_asset_by_name("microwave")()
-        assets = [background, microwave]
         assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
             args_cli.embodiment
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
         embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
         # Put the microwave on the packing table.
-        microwave_pose = Pose(
-            position_xyz=(0.4, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
-        )
-        microwave.set_initial_pose(microwave_pose)
+        microwave.add_relation(On(table_top_reference, clearance_m=0.02))
+        microwave.add_relation(AtPosition(x=0.4, y=0.0))
+        microwave.add_relation(RotateAroundSolution(yaw_rad=-math.pi / 2))
 
+        assets = [background, table_top_reference, microwave]
         # Optionally add another object
         if args_cli.object is not None:
             object = self.asset_registry.get_asset_by_name(args_cli.object)()
-            object_pose = Pose(
-                position_xyz=(0.466, -0.437, 0.154),
-                rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
-            )
-            object.set_initial_pose(object_pose)
+            object.add_relation(On(table_top_reference, clearance_m=0.02))
+            object.add_relation(NextTo(microwave, side=Side.POSITIVE_Y, distance_m=0.15))
             assets.append(object)
-
-        # Compose the scene
-        scene = Scene(assets=assets)
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
-            scene=scene,
+            scene=Scene(assets=assets),
             task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=2.0),
             teleop_device=teleop_device,
         )
