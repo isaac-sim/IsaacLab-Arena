@@ -20,8 +20,6 @@ from isaaclab_tasks.manager_based.manipulation.pick_place.mdp import get_robot_j
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame, franka_stack_events
 
 from isaaclab_arena.assets.register import register_asset
-
-# from isaaclab_arena.embodiments.agibot.agibot import AgibotMimicEnv
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
@@ -51,7 +49,6 @@ class GalbotEmbodiment(EmbodimentBase):
             raise NotImplementedError("Right arm (suction cup) is not supported yet.")
         self.observation_config = GalbotObservationsCfg()
         self.event_config = GalbotEventCfg()
-        # self.mimic_env = GalbotMimicEnv
 
 
 @configclass
@@ -153,9 +150,3 @@ class GalbotEventCfg:
             "asset_cfg": SceneEntityCfg("robot"),
         },
     )
-
-
-# class GalbotMimicEnv(AgibotMimicEnv):
-#     """Mimic environment for the Galbot robot."""
-
-#     pass
