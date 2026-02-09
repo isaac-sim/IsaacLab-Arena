@@ -9,20 +9,13 @@ import pathlib
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body_from_stage
 from isaaclab_arena.utils.usd_helpers import open_stage
 
 
-def get_cache_dir() -> pathlib.Path:
-    home_path = pathlib.Path.home()
-    cache_dir = home_path / ".cache" / "isaaclab_arena"
-    if not cache_dir.exists():
-        cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
-
-
-def get_arena_asset_cache_path(asset: Asset, scale: tuple[float, float, float] | None = None) -> pathlib.Path:
-    cache_dir = get_cache_dir()
+def get_object_set_asset_cache_path(asset: Asset, scale: tuple[float, float, float] | None = None) -> pathlib.Path:
+    cache_dir = get_arena_asset_cache_dir()
     if scale is not None:
         scale_str = "_".join([str(s) for s in scale])
         return cache_dir / f"{asset.name}_{scale_str}.usd"
@@ -49,7 +42,7 @@ def rename_rigid_body(stage: Usd.Stage, new_name: str) -> None:
 
 
 def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
-    cache_path = get_arena_asset_cache_path(asset, asset.scale)
+    cache_path = get_object_set_asset_cache_path(asset, asset.scale)
     with open_stage(asset.usd_path) as stage:
         rescale_root(stage, asset)
         rename_rigid_body(stage, new_name="rigid_body")
