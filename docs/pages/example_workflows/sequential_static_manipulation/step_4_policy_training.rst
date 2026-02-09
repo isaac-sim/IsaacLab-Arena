@@ -137,7 +137,9 @@ If you want to upload the generated LeRobot dataset to OSMO for it to be used in
 
 .. code-block:: bash
 
-   osmo dataset upload gr1_ranch_bottle_into_fridge $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100
+   osmo dataset upload gr1_ranch_bottle_into_fridge \
+     $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot \
+     $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5
 
 
 Step 4: Post-train Policy
@@ -173,7 +175,7 @@ We provide three post-training options:
       .. code-block:: bash
 
          python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
          --global_batch_size=96 \
@@ -231,7 +233,7 @@ We provide three post-training options:
       .. code-block:: bash
 
          CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
          --global_batch_size=16 \
