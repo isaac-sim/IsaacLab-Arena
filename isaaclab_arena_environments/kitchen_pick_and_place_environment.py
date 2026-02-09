@@ -88,6 +88,17 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             default=None,
             help="Multiple objects to spawn across environments. Mutually exclusive with --object.",
         )
+        parser.add_argument(
+            "--object_scale",
+            nargs=3,
+            type=float,
+            default=None,
+            metavar=("X", "Y", "Z"),
+            help=(
+                "Scale (x, y, z) for the pick-up object(s). Example: --object_scale 1.0 1.0 1.0. If not set, uses the"
+                " object's default scale."
+            ),
+        )
         parser.add_argument("--embodiment", type=str, default="franka")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
