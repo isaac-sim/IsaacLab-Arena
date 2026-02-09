@@ -49,7 +49,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
-        from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
@@ -219,8 +218,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            # task=sequential_task,
-            task=NoTask(),
+            task=sequential_task,
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment

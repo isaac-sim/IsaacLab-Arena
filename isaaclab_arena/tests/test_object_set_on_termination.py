@@ -100,9 +100,9 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     assert condition_met_tensor.shape == (NUM_STEPS, NUM_ENVS)
     assert terminated_tensor.shape == (NUM_STEPS, NUM_ENVS)
 
-    print(f"Check if any object hit the drawer for both environments")
+    print("Check if any object hit the drawer for both environments")
     assert torch.all(torch.any(condition_met_tensor, dim=0)).item()
-    print(f"Check the task was terminated for both environments")
+    print("Check the task was terminated for both environments")
     assert torch.all(torch.any(terminated_tensor, dim=0)).item(), "The task was not terminated"
 
     return True
