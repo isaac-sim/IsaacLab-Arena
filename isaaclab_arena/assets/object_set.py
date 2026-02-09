@@ -12,7 +12,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
-
+from isaaclab_arena.utils.usd.object_set_utils import rescale_rename_rigid_body_and_save_to_cache
 
 
 class RigidObjectSet(Object):
@@ -45,7 +45,14 @@ class RigidObjectSet(Object):
         if not self._are_all_objects_type_rigid(objects):
             raise ValueError(f"Object set {name} must contain only rigid objects.")
 
-        self.object_usd_paths = [object.usd_path for object in objects]
+        if self._is_asset_modification_needed(objects):
+            assert self._asset_modification_possible(objects), "Asset modification is not possible for object sets"
+            self.object_usd_paths = self._modify_assets(objects)
+            print(f"Modified object USD paths: {self.object_usd_paths}")
+        else:
+            self.object_usd_paths = [object.usd_path for object in objects]
+
+        # self.object_usd_paths = [object.usd_path for object in objects]
         self.random_choice = random_choice
 
         # Set default prim_path if not provided
@@ -57,7 +64,8 @@ class RigidObjectSet(Object):
             object_type=ObjectType.RIGID,
             usd_path="",
             prim_path=prim_path,
-            scale=scale,
+            # scale=scale,
+            scale=(1.0, 1.0, 1.0), # We rewrite the USDs to handle scaling
             initial_pose=initial_pose,
             **kwargs,
         )
@@ -105,3 +113,45 @@ class RigidObjectSet(Object):
 
     def _generate_spawner_cfg(self):
         raise NotImplementedError("Spawner configuration is not supported for object sets")
+
+    def _is_asset_modification_needed(self, objects: list[Object]) -> bool:
+        # If any asset is scaled, we need to modify the assets
+        for asset in objects:
+            if asset.scale != (1.0, 1.0, 1.0):
+                return True
+        # If all assets have rigid bodies at the root, we don't need to modify the assets
+        _, depths = self._get_all_rigid_bodies(objects)
+        if all(depth == 0 for depth in depths):
+            return False
+        # Otherwise, we need to modify the assets
+        return True
+
+    def _asset_modification_possible(self, objects: list[Object]) -> bool:
+        # If all assets have their rigid bodies at the same depth,
+        # we can modify the assets to be compatible with each other.
+        _, depths = self._get_all_rigid_bodies(objects)
+        return all(depth == depths[0] for depth in depths)
+
+    def _modify_assets(self, objects: list[Object]) -> list[str]:
+        new_usd_paths = []
+        for asset in objects:
+            new_usd_path = self._rescale_and_save_to_cache(asset)
+            new_usd_paths.append(new_usd_path)
+        return new_usd_paths
+
+    def _get_all_rigid_bodies(self, objects: list[Object]) -> list[str]:
+        rigid_body_paths = []
+        depths = []
+        for asset in objects:
+            shallowest_rigid_body = find_shallowest_rigid_body(asset.usd_path)
+            rigid_body_paths.append(shallowest_rigid_body)
+            depth = shallowest_rigid_body.count("/") - 1
+            depths.append(depth)
+        return rigid_body_paths, depths
+
+    def _modify_assets(self, objects: list[Object]) -> list[str]:
+        new_usd_paths = []
+        for asset in objects:
+            new_usd_path = rescale_rename_rigid_body_and_save_to_cache(asset)
+            new_usd_paths.append(new_usd_path)
+        return new_usd_paths
