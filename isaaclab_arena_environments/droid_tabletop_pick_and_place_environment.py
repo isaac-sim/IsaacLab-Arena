@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import math
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -27,30 +28,49 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         import isaaclab.sim as sim_utils
         from isaaclab_arena.tasks.no_task import NoTask
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         office_table = self.asset_registry.get_asset_by_name("office_table_background")()
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         ranch_dressing_bottle = self.asset_registry.get_asset_by_name("ranch_dressing_bottle")()
+        sugar_box = self.asset_registry.get_asset_by_name("sugar_box")()
 
-        blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()(scale=(2.0, 2.0, 1.0))
+        blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
         embodiment = self.asset_registry.get_asset_by_name("droid")(enable_cameras=args_cli.enable_cameras)
 
         office_table.set_initial_pose(Pose(position_xyz=(0.9, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0)))
-        embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.7), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.9), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         pick_up_object.set_initial_pose(
-            Pose(
-                position_xyz=(0.7, -0.3, 0.3),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            PoseRange(
+                position_xyz_min=(0.8, 0.1, 0.86),
+                position_xyz_max=(1.09, -0.12, 0.86),
+                rpy_min=(-1.5707963, 0.0, -1.5707963),
+                rpy_max=(-1.5707963, 0.0, -1.5707963),
+            )
+        )
+        ranch_dressing_bottle.set_initial_pose(
+            PoseRange(
+                position_xyz_min=(0.6, -0.1, 0.86),
+                position_xyz_max=(0.8, -0.2, 0.86),
+                rpy_min=(0, 0, math.radians(-111.55)),
+                rpy_max=(0, 0, math.radians(-111.55)),
+            )
+        )
+        sugar_box.set_initial_pose(
+            PoseRange(
+                position_xyz_min=(0.7, 0.9, 0.86),
+                position_xyz_max=(0.9, 1.2, 0.86),
+                rpy_min=(1.5707963, 0, 0),
+                rpy_max=(1.5707963, 0, 0),
             )
         )
         blue_sorting_bin.set_initial_pose(
             Pose(
-                position_xyz=(0.8, 0.4, 0.8),
+                position_xyz=(0.87, 0.4, 0.8),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
@@ -67,6 +87,8 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
+        assets = [office_table, ground_plane, pick_up_object, sugar_box, ranch_dressing_bottle, blue_sorting_bin, light]
+
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
             objects = []
             for obj in args_cli.object_set:
@@ -74,10 +96,9 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 objects.append(obj_from_set)
             object_set = RigidObjectSet(name="object_set", objects=objects)
             object_set.set_initial_pose(Pose(position_xyz=(0.4, 0.2, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-            scene = Scene(assets=[office_table, ground_plane, pick_up_object, blue_sorting_bin, object_set, light])
+            assets.append(object_set)
 
-        else:
-            scene = Scene(assets=[office_table, ground_plane, pick_up_object, blue_sorting_bin, light])
+        scene = Scene(assets=assets)
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
