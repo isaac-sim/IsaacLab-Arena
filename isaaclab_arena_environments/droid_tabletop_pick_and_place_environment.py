@@ -29,27 +29,28 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.utils.pose import Pose
 
-        # Override scale at instantiation: (x, y, z); omit to use asset default (1.0, 1.0, 0.7)
-        office_table = self.asset_registry.get_asset_by_name("office_table_background")()#(scale=(1.0, 1.0, 1.2))
+        office_table = self.asset_registry.get_asset_by_name("office_table_background")()
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
+        ranch_dressing_bottle = self.asset_registry.get_asset_by_name("ranch_dressing_bottle")()
+
+        blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()(scale=(2.0, 2.0, 1.0))
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
         embodiment = self.asset_registry.get_asset_by_name("droid")(enable_cameras=args_cli.enable_cameras)
 
-        office_table.set_initial_pose(Pose(position_xyz=(1.55, 0.6, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+        office_table.set_initial_pose(Pose(position_xyz=(0.9, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0)))
-        embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.7), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(1.64, -0.05, 0.3),
+                position_xyz=(0.7, -0.3, 0.3),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
         blue_sorting_bin.set_initial_pose(
             Pose(
-                position_xyz=(6.25, -0.4, 0.8),
+                position_xyz=(0.8, 0.4, 0.8),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
