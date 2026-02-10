@@ -43,12 +43,20 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
         self.name = cfg.name
 
     def record_post_reset(self, env_ids):
-        # Get subtask success state as a torch tensor
+        # Return subtask success state as a torch tensor
         subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
         return self.name, subtask_success_state.clone()
 
-    def record_pre_step(self):
-        # Get subtask success state as a torch tensor
+    def record_pre_reset(self, env_ids):
+        # Skip recording before subtask_success_state exists
+        if not hasattr(self._env, "_subtask_success_state"):
+            return None, None
+        # Return subtask success state as a torch tensor
+        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
+        return self.name, subtask_success_state.clone()
+
+    def record_post_step(self):
+        # Return subtask success state as a torch tensor
         subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
         return self.name, subtask_success_state.clone()
 
@@ -94,6 +102,7 @@ class SubtaskSuccessRateMetric(MetricBase):
         for ep in range(num_demos):
             ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
             subtask_successes += ep_subtask_success_result
+
         subtask_success_rates = subtask_successes / num_demos
 
         return subtask_success_rates.tolist()
