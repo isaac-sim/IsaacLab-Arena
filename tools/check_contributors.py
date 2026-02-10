@@ -12,10 +12,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPO_PATH = str(REPO_ROOT)
 CONTRIBUTORS_FILE_PATH = REPO_ROOT / "CONTRIBUTORS.md"
-SHORTLOG_REF = "main"
 
 
-def collect_contributor_entries(repo_path: str = REPO_PATH, ref: str = SHORTLOG_REF) -> set[str]:
+def collect_contributor_entries(repo_path: str = REPO_PATH) -> set[str]:
     """Return a set of contributor identifiers (email or GitHub username).
 
     - If a contributor has a GitHub noreply email, we extract the username from it and
@@ -23,7 +22,7 @@ def collect_contributor_entries(repo_path: str = REPO_PATH, ref: str = SHORTLOG_
     - Otherwise we fall back to the email address itself.
     """
     result = subprocess.run(
-        ["git", "shortlog", "-sne", ref],
+        ["git", "shortlog", "-sne"],
         cwd=repo_path,
         capture_output=True,
         text=True,
