@@ -107,13 +107,13 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
     cw, cd, ch = child_bbox.size
 
     # Mark ideal position
-    if side == Side.RIGHT:
+    if side == Side.POSITIVE_X:
         ideal_x, ideal_y = px + pw / 2 + distance_m + cw / 2, py
-    elif side == Side.LEFT:
+    elif side == Side.NEGATIVE_X:
         ideal_x, ideal_y = px - pw / 2 - distance_m - cw / 2, py
-    elif side == Side.FRONT:
+    elif side == Side.NEGATIVE_Y:
         ideal_x, ideal_y = px, py - pd / 2 - distance_m - cd / 2
-    elif side == Side.BACK:
+    elif side == Side.POSITIVE_Y:
         ideal_x, ideal_y = px, py + pd / 2 + distance_m + cd / 2
 
     ax.plot(ideal_x, ideal_y, "g*", markersize=15, label="Ideal Position")
@@ -160,12 +160,12 @@ def run_visualization_demo():
 
     # Create first child - placed to the RIGHT of parent
     child1 = DummyObject(name="child1", bounding_box=child_bbox)
-    child1.add_relation(NextTo(parent, side=Side.RIGHT, distance_m=distance_m))
+    child1.add_relation(NextTo(parent, side=Side.POSITIVE_X, distance_m=distance_m))
     child1.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
 
     # Create second child - placed to the RIGHT of child1 (chained placement)
     child2 = DummyObject(name="child2", bounding_box=child_bbox)
-    child2.add_relation(NextTo(child1, side=Side.RIGHT, distance_m=distance_m))
+    child2.add_relation(NextTo(child1, side=Side.POSITIVE_X, distance_m=distance_m))
     child2.set_initial_pose(Pose(position_xyz=(0.8, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
 
     # Create solver
@@ -183,7 +183,7 @@ def run_visualization_demo():
         z_fixed=parent_pos[2],
     )
 
-    fig, ax = plot_loss_heatmap(X, Y, losses_child1, parent, child1, Side.RIGHT, distance_m)
+    fig, ax = plot_loss_heatmap(X, Y, losses_child1, parent, child1, Side.POSITIVE_X, distance_m)
     ax.set_title(
         "NextTo Relation Loss: child1 to RIGHT of parent\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
     )
@@ -206,7 +206,7 @@ def run_visualization_demo():
         z_fixed=parent_pos[2],
     )
 
-    fig, ax = plot_loss_heatmap(X, Y, losses_child2, child1, child2, Side.RIGHT, distance_m)
+    fig, ax = plot_loss_heatmap(X, Y, losses_child2, child1, child2, Side.POSITIVE_X, distance_m)
     ax.set_title(
         "NextTo Relation Loss: child2 to RIGHT of child1\n" + f"Distance={distance_m}m", fontsize=16, fontweight="bold"
     )

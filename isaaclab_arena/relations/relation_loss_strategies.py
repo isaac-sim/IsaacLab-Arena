@@ -39,12 +39,12 @@ class Direction(IntEnum):
 
 @dataclass(frozen=True)
 class SideConfig:
-    """Configuration for computing NextTo loss for a given side.
+    """Configuration for computing NextTo loss for a given axis direction.
 
     Attributes:
         primary_axis: Axis along which child is placed (X or Y).
-        direction: POSITIVE if child should be in positive direction from parent (RIGHT, BACK),
-                   NEGATIVE if child should be in negative direction (LEFT, FRONT).
+        direction: POSITIVE if child should be in positive direction from parent,
+                   NEGATIVE if child should be in negative direction.
     """
 
     primary_axis: Axis
@@ -57,10 +57,10 @@ class SideConfig:
 
 
 SIDE_CONFIGS: dict[Side, SideConfig] = {
-    Side.RIGHT: SideConfig(primary_axis=Axis.X, direction=Direction.POSITIVE),
-    Side.LEFT: SideConfig(primary_axis=Axis.X, direction=Direction.NEGATIVE),
-    Side.BACK: SideConfig(primary_axis=Axis.Y, direction=Direction.POSITIVE),
-    Side.FRONT: SideConfig(primary_axis=Axis.Y, direction=Direction.NEGATIVE),
+    Side.POSITIVE_X: SideConfig(primary_axis=Axis.X, direction=Direction.POSITIVE),
+    Side.NEGATIVE_X: SideConfig(primary_axis=Axis.X, direction=Direction.NEGATIVE),
+    Side.POSITIVE_Y: SideConfig(primary_axis=Axis.Y, direction=Direction.POSITIVE),
+    Side.NEGATIVE_Y: SideConfig(primary_axis=Axis.Y, direction=Direction.NEGATIVE),
 }
 
 

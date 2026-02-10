@@ -69,11 +69,11 @@ def run_isaac_sim_object_placer_demo(
     # Put a mug next to the cracker box.
     mug = asset_registry.get_asset_by_name("mug")()
     mug.add_relation(On(tabletop_reference, clearance_m=0.02))
-    mug.add_relation(NextTo(cracker_box, side=Side.RIGHT, distance_m=0.1))
+    mug.add_relation(NextTo(cracker_box, side=Side.POSITIVE_X, distance_m=0.1))
 
     tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
     tomato_soup_can.add_relation(On(tabletop_reference, clearance_m=0.02))
-    tomato_soup_can.add_relation(NextTo(cracker_box, side=Side.LEFT, distance_m=0.1))
+    tomato_soup_can.add_relation(NextTo(cracker_box, side=Side.NEGATIVE_X, distance_m=0.1))
 
     scene = Scene(assets=[ground_plane, table_background, tabletop_reference, cracker_box, mug, tomato_soup_can, light])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
