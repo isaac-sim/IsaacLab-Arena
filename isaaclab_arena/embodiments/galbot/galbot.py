@@ -24,6 +24,8 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
 
+# PD gains are taken from the vendor-provided Galbot USD (authoritative source).
+# These relatively high gains favor stiff joint tracking (pose holding / fast setpoint tracking).
 GALBOT_ONE_CHARLIE_HIGH_PD_CFG = GALBOT_ONE_CHARLIE_CFG.copy()
 GALBOT_ONE_CHARLIE_HIGH_PD_CFG.actuators["left_arm"].stiffness = 1745.32922 * 1e3
 GALBOT_ONE_CHARLIE_HIGH_PD_CFG.actuators["left_arm"].damping = 1745
