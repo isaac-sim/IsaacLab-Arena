@@ -3,6 +3,7 @@ FROM nvcr.io/nvidia/pytorch:25.04-py3
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 
 ARG LEROBOT_DATA_FOLDER
+ARG HF_TOKEN
 
 RUN apt-get update && \
     apt install -y tzdata && \
@@ -38,8 +39,11 @@ RUN mkdir -p /workspace/pretrained_ckpts
 RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 RUN sudo apt-get install git-lfs
 RUN git-lfs install
-RUN git clone https://huggingface.co/nvidia/GR00T-N1.6-3B /workspace/pretrained_ckpts/GR00T-N1.6-3B
-
+# RUN git clone https://huggingface.co/nvidia/GR00T-N1.6-3B /workspace/pretrained_ckpts/GR00T-N1.6-3B
+RUN pip install huggingface-hub[cli]
+# Create alias for hf command to use the system-installed version
+# RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
+RUN /usr/local/bin/hf download nvidia/GR00T-N1.6-3B --local-dir /workspace/pretrained_ckpts/GR00T-N1.6-3B --token ${HF_TOKEN}
 # Add filebrowser to access intermediate checkpoints during OSMO training
 # RUN curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
 RUN curl -LO https://github.com/filebrowser/filebrowser/releases/download/v2.32.0/linux-amd64-filebrowser.tar.gz
