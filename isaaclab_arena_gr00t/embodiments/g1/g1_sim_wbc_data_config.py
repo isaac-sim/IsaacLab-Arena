@@ -18,7 +18,7 @@ unitree_g1_sim_wbc_config = {
     ),
     "state": ModalityConfig(
         delta_indices=[0],
-        modality_keys=["left_leg", "right_leg", "left_arm", "right_arm", "left_hand", "right_hand", "waist"],
+        modality_keys=["left_arm", "right_arm", "left_hand", "right_hand", "waist"],
     ),
     "action": ModalityConfig(
         delta_indices=list(range(50)),
