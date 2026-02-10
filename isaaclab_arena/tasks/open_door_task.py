@@ -101,9 +101,6 @@ class OpenDoorTaskRL(OpenDoorTask):
     def get_rewards_cfg(self):
         return self.rewards_cfg
 
-    def get_commands_cfg(self):
-        return self.commands_cfg
-
 @configclass
 class OpenDoorObservationsCfg:
     """Observation specifications for the Open Object task."""
