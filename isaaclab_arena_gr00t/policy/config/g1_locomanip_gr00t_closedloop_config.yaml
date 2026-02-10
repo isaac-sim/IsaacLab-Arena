@@ -8,7 +8,7 @@
 model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
 language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
 # Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.6 modality_config_path.
-action_horizon: 16
+action_horizon: 50
 embodiment_tag: NEW_EMBODIMENT
 video_backend: decord
 modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
@@ -18,7 +18,7 @@ action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space
 state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
 
 # Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
-action_chunk_length: 16
+action_chunk_length: 50
 pov_cam_name_sim: "robot_head_cam_rgb"
 
 task_mode_name: g1_locomanipulation
