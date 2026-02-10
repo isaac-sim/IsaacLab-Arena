@@ -7,6 +7,23 @@
 from pxr import Usd, UsdPhysics
 
 
+def get_all_rigid_body_prim_paths_from_stage(stage: Usd.Stage) -> list[str]:
+    """
+    Get the prim paths of all rigid bodies in a stage.
+
+    Args:
+        stage: The stage to analyze
+
+    Returns:
+        List of prim paths of all rigid bodies in the stage
+    """
+    rigid_body_prim_paths = []
+    for prim in stage.Traverse():
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            rigid_body_prim_paths.append(str(prim.GetPath()))
+    return rigid_body_prim_paths
+
+
 def get_all_rigid_body_prim_paths(usd_path: str) -> list[str]:
     """
     Get the prim paths of all rigid bodies in a USD file.
@@ -20,21 +37,16 @@ def get_all_rigid_body_prim_paths(usd_path: str) -> list[str]:
     stage = Usd.Stage.Open(usd_path)
     if not stage:
         raise ValueError(f"Error: Could not open USD file at {usd_path}")
-
-    rigid_body_prim_paths = []
-    for prim in stage.Traverse():
-        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
-            rigid_body_prim_paths.append(str(prim.GetPath()))
-    return rigid_body_prim_paths
+    return get_all_rigid_body_prim_paths_from_stage(stage)
 
 
-def find_shallowest_rigid_body(usd_path: str, relative_to_root: bool = False) -> str | None:
+def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bool = False) -> str | None:
     """
     Find the shallowest (closest to root) prim that is a rigid body.
     Also verifies that there is only one rigid body at that depth level.
 
     Args:
-        usd_path: Path to the USD file to analyze
+        stage: The stage to analyze
         relative_to_root: Whether to return the path relative to the root of the USD file
 
     Returns:
@@ -45,8 +57,7 @@ def find_shallowest_rigid_body(usd_path: str, relative_to_root: bool = False) ->
     Raises:
         ValueError: If multiple rigid bodies exist at the shallowest level
     """
-    # Get all the rigid body prim paths
-    rigid_body_prim_paths = get_all_rigid_body_prim_paths(usd_path)
+    rigid_body_prim_paths = get_all_rigid_body_prim_paths_from_stage(stage)
 
     if len(rigid_body_prim_paths) == 0:
         return None
@@ -83,3 +94,26 @@ def find_shallowest_rigid_body(usd_path: str, relative_to_root: bool = False) ->
         else:
             shallowest_rigid_body = "/" + root_and_rest[1]
     return shallowest_rigid_body
+
+
+def find_shallowest_rigid_body(usd_path: str, relative_to_root: bool = False) -> str | None:
+    """
+    Find the shallowest (closest to root) prim that is a rigid body.
+    Also verifies that there is only one rigid body at that depth level.
+
+    Args:
+        usd_path: Path to the USD file to analyze
+        relative_to_root: Whether to return the path relative to the root of the USD file
+
+    Returns:
+        Prim path for the shallowest rigid body. None if no rigid bodies are found.
+        Empty string if the shallowest rigid body is the root prim, and
+        relative_to_root is True.
+
+    Raises:
+        ValueError: If multiple rigid bodies exist at the shallowest level
+    """
+    stage = Usd.Stage.Open(usd_path)
+    if not stage:
+        raise ValueError(f"Error: Could not open USD file at {usd_path}")
+    return find_shallowest_rigid_body_from_stage(stage, relative_to_root)
