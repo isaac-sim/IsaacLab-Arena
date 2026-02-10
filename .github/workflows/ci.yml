@@ -85,12 +85,6 @@ jobs:
         run: |
           git status
 
-      - name: Debug
-        run: |
-          git status
-          git fetch origin main
-          git shortlog -sne main
-
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
         with:
