@@ -191,7 +191,7 @@ class AxisAlignedBoundingBox:
             )
 
 
-def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, float], tol: float = 1e-3) -> int:
+def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
     """Convert a quaternion to 90° rotation quarters around Z axis.
 
     Only supports rotations that are multiples of 90° around the Z axis.
@@ -199,47 +199,34 @@ def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, fl
 
     Args:
         rotation_wxyz: Quaternion as (w, x, y, z).
-        tol: Tolerance for floating point comparison.
+        tol_deg: Tolerance in degrees for how close the angle must be to a 90° multiple.
 
     Returns:
         Number of 90° quarters (0, 1, 2, or 3).
 
     Raises:
-        AssertionError: If the quaternion is not a 90° rotation around Z.
+        AssertionError: If the quaternion is not a pure Z rotation or not a 90° multiple.
     """
+    import math
+
     w, x, y, z = rotation_wxyz
 
     # Must be a pure Z rotation (x and y components must be ~0)
     assert (
-        abs(x) < tol and abs(y) < tol
-    ), f"Only 90° rotations around Z axis are supported. Got quaternion with x={x:.4f}, y={y:.4f} (expected ~0)."
+        abs(x) < 1e-3 and abs(y) < 1e-3
+    ), f"Only rotations around Z axis are supported. Got quaternion (w={w:.4f}, x={x:.4f}, y={y:.4f}, z={z:.4f})."
 
-    # Normalize to handle slight variations
-    norm = (w * w + z * z) ** 0.5
-    if norm < tol:
-        raise ValueError(f"Invalid quaternion: w={w}, z={z}")
-    w_norm, z_norm = w / norm, z / norm
+    # Compute rotation angle around Z and normalize to [0°, 360°)
+    angle_deg = math.degrees(2 * math.atan2(z, w)) % 360
+    quarters = round(angle_deg / 90) % 4
+    remainder_deg = min(angle_deg % 90, 90 - angle_deg % 90)
 
-    # Match to known 90° rotations around Z
-    # 0°:   w=1,     z=0      -> quarters=0
-    # 90°:  w=0.707, z=0.707  -> quarters=1
-    # 180°: w=0,     z=1      -> quarters=2
-    # 270°: w=0.707, z=-0.707 -> quarters=3 (or -90°)
-    sqrt2_inv = 0.7071067811865476
+    assert remainder_deg < tol_deg, (
+        "Only 90° rotation multiples around Z are supported. "
+        f"Got {angle_deg:.1f}° (nearest 90° multiple: {quarters * 90}°)."
+    )
 
-    if abs(w_norm - 1.0) < tol and abs(z_norm) < tol:
-        return 0
-    elif abs(w_norm - sqrt2_inv) < tol and abs(z_norm - sqrt2_inv) < tol:
-        return 1
-    elif abs(w_norm) < tol and abs(abs(z_norm) - 1.0) < tol:
-        return 2
-    elif abs(w_norm - sqrt2_inv) < tol and abs(z_norm + sqrt2_inv) < tol:
-        return 3
-    else:
-        raise AssertionError(
-            "Only 90° rotations around Z axis are supported. "
-            f"Got quaternion (w={w:.4f}, x={x:.4f}, y={y:.4f}, z={z:.4f}) which is not a 90° increment."
-        )
+    return quarters
 
 
 def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int | None = None) -> Pose:

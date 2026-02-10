@@ -8,7 +8,7 @@ import random
 import torch
 import tqdm
 from importlib import import_module
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
@@ -46,7 +46,9 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
         return policy_cls
 
 
-def rollout_policy(env, policy: "PolicyBase", num_steps: int):
+def rollout_policy(env, policy: "PolicyBase", num_steps: int | None, num_episodes: int | None) -> dict[str, Any]:
+    assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
+    assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
     try:
         obs, _ = env.reset()
@@ -54,21 +56,45 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int):
         # set task description (could be None) from the task being evaluated
         policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
 
-        for _ in tqdm.tqdm(range(num_steps)):
+        # Setup progress bar based on num_steps or num_episodes
+        if num_steps is not None:
+            pbar = tqdm.tqdm(total=num_steps, desc="Steps", unit="step")
+        else:
+            pbar = tqdm.tqdm(total=num_episodes, desc="Episodes", unit="episode")
+
+        num_episodes_completed = 0
+        num_steps_completed = 0
+        while True:
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
 
                 if terminated.any() or truncated.any():
-                    # only reset policy for those envs that are terminated or truncated
+                    # Only reset policy for those envs that are terminated or truncated
                     print(
                         f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
                         f" and truncated env_ids: {truncated.nonzero().flatten()}"
                     )
                     env_ids = (terminated | truncated).nonzero().flatten()
                     policy.reset(env_ids=env_ids)
+                    # Break if number of episodes is reached
+                    completed_episodes = env_ids.shape[0]
+                    num_episodes_completed += completed_episodes
+                    if num_episodes is not None:
+                        pbar.update(completed_episodes)
+                        if num_episodes_completed >= num_episodes:
+                            break
+                # Break if number of steps is reached
+                num_steps_completed += 1
+                if num_steps is not None:
+                    pbar.update(1)
+                    if num_steps_completed >= num_steps:
+                        break
+
+        pbar.close()
 
     except Exception as e:
+        pbar.close()
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
@@ -119,11 +145,20 @@ def main():
         # Simulation length.
         if policy.has_length():
             num_steps = policy.length()
+            num_episodes = None
         else:
-            num_steps = args_cli.num_steps
-        print(f"Simulation length: {num_steps}")
+            if args_cli.num_steps is not None:
+                num_steps = args_cli.num_steps
+                num_episodes = None
+                print(f"Simulation length: {num_steps} steps")
+            elif args_cli.num_episodes is not None:
+                num_steps = None
+                num_episodes = args_cli.num_episodes
+                print(f"Simulation length: {num_episodes} episodes")
+            else:
+                raise ValueError("Either num_steps or num_episodes must be provided")
 
-        metrics = rollout_policy(env, policy, num_steps)
+        metrics = rollout_policy(env, policy, num_steps, num_episodes)
         if metrics is not None:
             print(f"Metrics: {metrics}")
 
