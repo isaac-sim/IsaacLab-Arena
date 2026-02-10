@@ -89,15 +89,24 @@ class RelationSolver:
                         _print_unary_relation_debug(obj, relation, child_pos, loss)
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
-                    parent_pos = state.get_position(relation.parent)
+                    # Build parent world bbox: anchors have a known fixed pose,
+                    # optimizable parents use the current solver position + local bbox.
+                    parent = relation.parent
+                    if parent in state.anchor_objects:
+                        parent_world_bbox = parent.get_world_bounding_box()
+                    else:
+                        parent_pos = state.get_position(parent)
+                        parent_world_bbox = parent.get_bounding_box().translated(
+                            (float(parent_pos[0]), float(parent_pos[1]), float(parent_pos[2]))
+                        )
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        parent_pos=parent_pos,
                         child_bbox=obj.get_bounding_box(),
-                        parent_bbox=relation.parent.get_bounding_box(),
+                        parent_world_bbox=parent_world_bbox,
                     )
                     if debug:
+                        parent_pos = state.get_position(parent)
                         _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
@@ -225,31 +234,25 @@ def _print_relation_debug(
 ) -> None:
     """Print debug information for a single binary relation."""
     child_bbox = obj.get_bounding_box()
-    parent_bbox = relation.parent.get_bounding_box()
+    parent_world_bbox = relation.parent.get_world_bounding_box()
 
     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
     print(f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}")
     print(f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f}, {parent_pos[2].item():.4f})")
-    print(f"  Parent bbox: min={parent_bbox.min_point}, max={parent_bbox.max_point}, size={parent_bbox.size}")
+    print(
+        f"  Parent world bbox: min={parent_world_bbox.min_point}, max={parent_world_bbox.max_point},"
+        f" size={parent_world_bbox.size}"
+    )
 
     # Child world extents
     child_x_range = (child_pos[0].item() + child_bbox.min_point[0], child_pos[0].item() + child_bbox.max_point[0])
     child_y_range = (child_pos[1].item() + child_bbox.min_point[1], child_pos[1].item() + child_bbox.max_point[1])
-    # Parent world extents
-    parent_x_range = (
-        parent_pos[0].item() + parent_bbox.min_point[0],
-        parent_pos[0].item() + parent_bbox.max_point[0],
-    )
-    parent_y_range = (
-        parent_pos[1].item() + parent_bbox.min_point[1],
-        parent_pos[1].item() + parent_bbox.max_point[1],
-    )
 
     print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
     print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
-    print(f"  Parent world X: [{parent_x_range[0]:.4f}, {parent_x_range[1]:.4f}]")
-    print(f"  Parent world Y: [{parent_y_range[0]:.4f}, {parent_y_range[1]:.4f}]")
+    print(f"  Parent world X: [{parent_world_bbox.min_point[0]:.4f}, {parent_world_bbox.max_point[0]:.4f}]")
+    print(f"  Parent world Y: [{parent_world_bbox.min_point[1]:.4f}, {parent_world_bbox.max_point[1]:.4f}]")
     print(f"  Loss: {loss.item():.6f}")
 
 

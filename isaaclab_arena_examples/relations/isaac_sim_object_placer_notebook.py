@@ -62,8 +62,8 @@ def run_isaac_sim_object_placer_demo(
     # Put a cracker box on the counter.
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     cracker_box.add_relation(On(tabletop_reference, clearance_m=0.02))
-    # Place the cracker box explicitly slightly to the right of the tabletop.
-    cracker_box.add_relation(AtPosition(x=-0.1, y=0.0))
+    # Place the cracker box explicitly in the middle of the tabletop.
+    cracker_box.add_relation(AtPosition(x=0.0, y=0.0))
     cracker_box.add_relation(RandomAroundSolution(x_half_m=0.05, y_half_m=0.25))
 
     # Put a mug next to the cracker box.

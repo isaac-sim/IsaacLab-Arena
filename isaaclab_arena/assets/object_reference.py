@@ -11,7 +11,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
@@ -74,8 +74,14 @@ class ObjectReference(ObjectBase):
         return self._bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox + world position)."""
-        return self.get_bounding_box().translated(self.get_initial_pose().position_xyz)
+        """Get bounding box in world coordinates (local bbox rotated and translated).
+
+        Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
+        An assertion error is raised for any other rotation.
+        """
+        pose = self.get_initial_pose()
+        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_wxyz)
+        return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object

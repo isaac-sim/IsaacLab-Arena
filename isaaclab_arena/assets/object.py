@@ -15,7 +15,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import set_object_pose
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
@@ -68,10 +68,17 @@ class Object(ObjectBase):
         return self.bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox + position offset)."""
+        """Get bounding box in world coordinates (local bbox rotated and translated).
+
+        Only 90° rotations around Z axis are supported. An assertion error is raised
+        for any other rotation. If initial_pose is a PoseRange (not a fixed Pose),
+        returns the local bounding box without transformation.
+        """
         local_bbox = self.get_bounding_box()
-        pos = self.initial_pose.position_xyz if self.initial_pose else (0, 0, 0)
-        return local_bbox.translated(pos)
+        if self.initial_pose is None or not isinstance(self.initial_pose, Pose):
+            return local_bbox
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
+        return local_bbox.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         assert self.usd_path is not None

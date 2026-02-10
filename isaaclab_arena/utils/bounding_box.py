@@ -154,6 +154,80 @@ class AxisAlignedBoundingBox:
             ),
         )
 
+    def rotated_90_around_z(self, quarters: int) -> "AxisAlignedBoundingBox":
+        """Rotate AABB by quarters * 90° around Z axis.
+
+        Only 90° increments are supported to preserve axis-alignment without size increase.
+
+        Args:
+            quarters: Number of 90° rotations (0=0°, 1=90°, 2=180°, 3=270°/-90°).
+
+        Returns:
+            New AxisAlignedBoundingBox rotated around Z axis.
+        """
+        min_x, min_y, min_z = self.min_point
+        max_x, max_y, max_z = self.max_point
+
+        quarters = quarters % 4
+        if quarters == 0:
+            return AxisAlignedBoundingBox(
+                min_point=(min_x, min_y, min_z),
+                max_point=(max_x, max_y, max_z),
+            )
+        elif quarters == 1:  # 90° CCW
+            return AxisAlignedBoundingBox(
+                min_point=(-max_y, min_x, min_z),
+                max_point=(-min_y, max_x, max_z),
+            )
+        elif quarters == 2:  # 180°
+            return AxisAlignedBoundingBox(
+                min_point=(-max_x, -max_y, min_z),
+                max_point=(-min_x, -min_y, max_z),
+            )
+        else:  # 270° CCW / -90° (quarters == 3)
+            return AxisAlignedBoundingBox(
+                min_point=(min_y, -max_x, min_z),
+                max_point=(max_y, -min_x, max_z),
+            )
+
+
+def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
+    """Convert a quaternion to 90° rotation quarters around Z axis.
+
+    Only supports rotations that are multiples of 90° around the Z axis.
+    Raises AssertionError for any other rotation.
+
+    Args:
+        rotation_wxyz: Quaternion as (w, x, y, z).
+        tol_deg: Tolerance in degrees for how close the angle must be to a 90° multiple.
+
+    Returns:
+        Number of 90° quarters (0, 1, 2, or 3).
+
+    Raises:
+        AssertionError: If the quaternion is not a pure Z rotation or not a 90° multiple.
+    """
+    import math
+
+    w, x, y, z = rotation_wxyz
+
+    # Must be a pure Z rotation (x and y components must be ~0)
+    assert (
+        abs(x) < 1e-3 and abs(y) < 1e-3
+    ), f"Only rotations around Z axis are supported. Got quaternion (w={w:.4f}, x={x:.4f}, y={y:.4f}, z={z:.4f})."
+
+    # Compute rotation angle around Z and normalize to [0°, 360°)
+    angle_deg = math.degrees(2 * math.atan2(z, w)) % 360
+    quarters = round(angle_deg / 90) % 4
+    remainder_deg = min(angle_deg % 90, 90 - angle_deg % 90)
+
+    assert remainder_deg < tol_deg, (
+        "Only 90° rotation multiples around Z are supported. "
+        f"Got {angle_deg:.1f}° (nearest 90° multiple: {quarters * 90}°)."
+    )
+
+    return quarters
+
 
 def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int | None = None) -> Pose:
     """Generate a random pose (position and identity rotation) with position uniformly
