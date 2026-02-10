@@ -167,8 +167,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         z_position = 1.0082
         yaw_rad = math.radians(-111.55)
         # Note (xinjieyao, 2026.02.04): prim path of object set has not been resolved yet, will be fixed in the future.
-        # assert args_cli.object_set is None, "Object set is not supported yet"
-        #  All obs from object set are under the same randomization range
+        # All obs from object set are under the same randomization range
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
             objects = []
             for obj in args_cli.object_set:

@@ -47,8 +47,8 @@ class RigidObjectSet(Object):
         # Isaac Lab support for MultiUsdFileCfg is limited. It applies the same scale and pose to all objects.
         # Furthermore it relies on the rigid body being at the root of the USD file, or at the same
         # path in all files. To expand our support in Arena, we modify the USDs to be compatible with each other.
-        # In particular, we rescale the assets and rename the rigid bodies to have the same name. We
-        # Save the resulting modified USDs to a cache.
+        # In particular, we rescale the assets and rename the rigid bodies to have the same name.
+        # We then save the resulting modified USDs to a cache.
         if self._is_asset_modification_needed(objects):
             assert self._asset_modification_possible(objects), "Asset modification is not possible for object sets"
             self.object_usd_paths = self._modify_assets(objects)
@@ -117,7 +117,7 @@ class RigidObjectSet(Object):
         depths = self._get_all_rigid_body_depths(objects)
         return all(depth == depths[0] for depth in depths)
 
-    def _get_all_rigid_body_depths(self, objects: list[Object]) -> list[str]:
+    def _get_all_rigid_body_depths(self, objects: list[Object]) -> list[int]:
         depths = []
         for asset in objects:
             shallowest_rigid_body = find_shallowest_rigid_body(asset.usd_path)
