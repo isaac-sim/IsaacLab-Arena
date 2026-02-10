@@ -90,7 +90,7 @@ def _run_replay_lerobot_policy(
         assert num_steps is not None, "num_steps cannot be None"
 
         # Run the rollout
-        rollout_policy(env, policy, num_steps)
+        rollout_policy(env, policy, num_steps, num_episodes=None)
 
         # Close the environment
         env.close()
