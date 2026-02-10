@@ -11,6 +11,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.distributed_utils import setup_distributed
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -83,10 +84,15 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int):
 
 
 def main():
-    """Script to run an IsaacLab Arena environment with a zero-action agent."""
+    """Script to run an IsaacLab Arena environment with a policy (e.g. GR00T). Supports torchrun for one process per GPU."""
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
+
+    # Independent evals: when run with torchrun, init distributed and set cuda device per rank
+    rank, world_size = setup_distributed()
+    if world_size > 1:
+        print(f"Rank {rank}/{world_size}: policy will use cuda:{rank} (from LOCAL_RANK)")
 
     # Start the simulation app
     with SimulationAppContext(args_cli):
@@ -107,13 +113,17 @@ def main():
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
 
-        if args_cli.seed is not None:
-            env.seed(args_cli.seed)
-            torch.manual_seed(args_cli.seed)
-            np.random.seed(args_cli.seed)
-            random.seed(args_cli.seed)
+        # Use per-rank seed when distributed so each process does an independent eval
+        seed = args_cli.seed
+        if seed is not None and world_size > 1:
+            seed = seed + rank
+        if seed is not None:
+            env.seed(seed)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            random.seed(seed)
 
-        # Create the policy from the arguments
+        # Create the policy from the arguments (policy device comes from LOCAL_RANK in Gr00tClosedloopPolicy)
         policy = policy_cls.from_args(args_cli)
 
         # Simulation length.

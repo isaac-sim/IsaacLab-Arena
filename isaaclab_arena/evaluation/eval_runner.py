@@ -10,6 +10,7 @@ import traceback
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.distributed_utils import setup_distributed
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str], job_name: str):
+def load_env(arena_env_args: list[str], job_name: str, rank: int = 0, world_size: int = 1):
 
     reload_arena_modules()
 
@@ -35,7 +36,8 @@ def load_env(arena_env_args: list[str], job_name: str):
 
     # Set unique dataset filename for this job to avoid file locking conflicts
     if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
+        base_name = f"dataset_{job_name}"
+        env_cfg.recorders.dataset_filename = f"{base_name}_rank{rank}" if world_size > 1 else base_name
 
     env = arena_builder.make_registered(env_cfg)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
@@ -95,6 +97,11 @@ def main():
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
 
+    # Independent evals: when run with torchrun, init distributed and assign each rank a subset of jobs
+    rank, world_size = setup_distributed()
+    if world_size > 1:
+        print(f"Rank {rank}/{world_size}: independent evals (jobs where index % {world_size} == {rank})")
+
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
@@ -104,43 +111,45 @@ def main():
 
         job_manager.print_jobs_info()
 
-        for job in job_manager:
-            if job is not None:
-                env = None
-                try:
-                    # Modules reloading first, otherwise 2 instances of same class are created (e.g. Enum)
-                    env = load_env(job.arena_env_args, job.name)
+        # With multiple ranks, each rank runs only jobs where index % world_size == rank
+        for job_index, job in enumerate(job_manager.all_jobs):
+            if world_size > 1 and job_index % world_size != rank:
+                continue
+            env = None
+            try:
+                # Modules reloading first, otherwise 2 instances of same class are created (e.g. Enum)
+                env = load_env(job.arena_env_args, job.name, rank=rank, world_size=world_size)
 
-                    policy = get_policy_from_job(job)
+                policy = get_policy_from_job(job)
 
-                    # priority of setting num_steps is: job -> policy -> args_cli
-                    # jobs may need different num_steps than the default num_steps from the policy or the args_cli
-                    if job.num_steps is None:
-                        if policy.has_length():
-                            job.num_steps = policy.length()
-                        else:
-                            job.num_steps = args_cli.num_steps
+                # priority of setting num_steps is: job -> policy -> args_cli
+                # jobs may need different num_steps than the default num_steps from the policy or the args_cli
+                if job.num_steps is None:
+                    if policy.has_length():
+                        job.num_steps = policy.length()
+                    else:
+                        job.num_steps = args_cli.num_steps
 
-                    metrics = rollout_policy(env, policy, num_steps=job.num_steps)
+                metrics = rollout_policy(env, policy, num_steps=job.num_steps)
 
-                    job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
+                job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
-                    # users may not specify metrics for a task, although it's not recommended
-                    if metrics is not None:
-                        metrics_logger.append_job_metrics(job.name, metrics)
+                # users may not specify metrics for a task, although it's not recommended
+                if metrics is not None:
+                    metrics_logger.append_job_metrics(job.name, metrics)
 
-                except Exception as e:
-                    # continue with the next job even if one fails
-                    job_manager.complete_job(job, metrics={}, status=Status.FAILED)
-                    print(f"Job {job.name} failed with error: {e}")
-                    print(f"Traceback: {traceback.format_exc()}")
+            except Exception as e:
+                # continue with the next job even if one fails
+                job_manager.complete_job(job, metrics={}, status=Status.FAILED)
+                print(f"Job {job.name} failed with error: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
 
-                finally:
-                    # Only stop env if it was successfully created
-                    if env is not None:
-                        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
-                        # cleanup managers, including recorder manager closing hdf5 file
-                        env.close()
+            finally:
+                # Only stop env if it was successfully created
+                if env is not None:
+                    teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+                    # cleanup managers, including recorder manager closing hdf5 file
+                    env.close()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

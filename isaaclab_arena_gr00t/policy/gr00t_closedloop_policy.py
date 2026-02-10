@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import os
 import gymnasium as gym
 import torch
 from dataclasses import dataclass, field
@@ -55,7 +56,14 @@ class Gr00tClosedloopPolicyArgs:
     policy_device: str = field(
         default="cuda",
         metadata={
-            "help": "Device to use for the policy-related operations",
+            "help": "Device to use for the policy-related operations (e.g. 'cuda', 'cuda:0', 'cpu').",
+        },
+    )
+
+    policy_device_id: int | None = field(
+        default=None,
+        metadata={
+            "help": "GPU device id for policy (e.g. 0, 1). If set, overrides policy_device with 'cuda:<id>'. Ignored if LOCAL_RANK is set (e.g. under torchrun).",
         },
     )
 
@@ -83,6 +91,7 @@ class Gr00tClosedloopPolicyArgs:
         return cls(
             policy_config_yaml_path=args.policy_config_yaml_path,
             policy_device=args.policy_device,
+            policy_device_id=getattr(args, "policy_device_id", None),
             num_envs=args.num_envs,
         )
 
@@ -102,12 +111,12 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """
         super().__init__(config)
         self.policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig)
+        self.device = self._resolve_policy_device(config)
         self.policy = self.load_policy()
 
         # determine rollout how many action prediction per observation
         self.action_chunk_length = self.policy_config.action_chunk_length
         self.num_envs = config.num_envs
-        self.device = config.policy_device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
         self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
@@ -134,13 +143,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.current_action_chunk = torch.zeros(
             (config.num_envs, self.policy_config.action_horizon, self.action_dim),
             dtype=torch.float,
-            device=config.policy_device,
+            device=self.device,
         )
         # Use a bool list to indicate that the action chunk is not yet computed for each env
         # True means the action chunk is not yet computed, False means the action chunk is valid
-        self.env_requires_new_action_chunk = torch.ones(config.num_envs, dtype=torch.bool, device=config.policy_device)
+        self.env_requires_new_action_chunk = torch.ones(config.num_envs, dtype=torch.bool, device=self.device)
 
-        self.current_action_index = torch.zeros(config.num_envs, dtype=torch.int32, device=config.policy_device)
+        self.current_action_index = torch.zeros(config.num_envs, dtype=torch.int32, device=self.device)
 
         # task description of task being evaluated. It will be set by the task being evaluated.
         self.task_description: str | None = None
@@ -179,6 +188,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
             default="cuda",
             help="Device to use for the policy-related operations (default: cuda)",
         )
+        gr00t_closedloop_group.add_argument(
+            "--policy_device_id",
+            type=int,
+            default=None,
+            metavar="ID",
+            help="GPU device id for policy (e.g. 0, 1). Uses cuda:<ID>. Ignored if LOCAL_RANK is set.",
+        )
         return parser
 
     def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
@@ -193,6 +209,14 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """Load the simulation action joint config from the data config."""
         return load_robot_joints_config_from_yaml(action_config_path)
 
+    def _resolve_policy_device(self, config: Gr00tClosedloopPolicyArgs) -> str:
+        """Resolve policy device: LOCAL_RANK (torchrun) > policy_device_id > policy_device from config/YAML."""
+        if "LOCAL_RANK" in os.environ:
+            return f"cuda:{int(os.environ['LOCAL_RANK'])}"
+        if getattr(config, "policy_device_id", None) is not None:
+            return f"cuda:{config.policy_device_id}"
+        return self.policy_config.policy_device
+
     def load_policy(self) -> Gr00tPolicy:
         """Load the dataset, whose iterator will be used as the policy."""
         assert Path(
@@ -202,7 +226,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         return Gr00tPolicy(
             model_path=self.policy_config.model_path,
             embodiment_tag=EmbodimentTag[self.policy_config.embodiment_tag],
-            device=self.policy_config.policy_device,
+            device=self.device,
             strict=True,
         )
 
