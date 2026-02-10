@@ -477,8 +477,8 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
         worker.start()
         workers.append(worker)
 
-    assert Path(config.hdf5_file_path).exists()
-    hdf5_handler = h5py.File(config.hdf5_file_path, "r")
+    assert Path(config.hdf5_path).exists()
+    hdf5_handler = h5py.File(config.hdf5_path, "r")
     hdf5_data = hdf5_handler["data"]
 
     # 1. Generate meta/ folder

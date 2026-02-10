@@ -7,15 +7,15 @@
 # This file shows how to configure the Gr00tDatasetConfig dataclass using YAML
 # Example for GR1 tabletop manipulation task
 
-# Root directory for all data storage
-data_root: "/datasets/isaaclab_arena/static_manipulation_tutorial"
+# Full path to the HDF5 file
+hdf5_path: "datasets/arena_gr1_manipulation_dataset_generated.hdf5"
+
+# Output directory for LeRobot dataset (optional, if not set uses hdf5_path parent/name/lerobot)
+output_dir: "datasets/open_microwave_door/lerobot"
 
 # Instruction given to the policy in natural language
 language_instruction: "Reach out to the microwave and open it."
 task_index: 0
-
-# Name of the HDF5 file to use for the dataset
-hdf5_name: "arena_gr1_manipulation_dataset_generated.hdf5"
 
 # Mimic-generated HDF5 datafield names
 state_name_sim: "robot_joint_pos"

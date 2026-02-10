@@ -11,14 +11,13 @@ from pathlib import Path
 @dataclass
 class Gr00tDatasetConfig:
     # Datasets & task specific parameters
-    data_root: Path = field(
-        default=Path("/datasets/"),
-        metadata={"description": "Root directory for all data storage."},
+    hdf5_path: Path = field(
+        default=None,
+        metadata={"description": "Full path to the HDF5 file."},
     )
     language_instruction: str = field(
         default=None, metadata={"description": "Instruction given to the policy in natural language."}
     )
-    hdf5_name: str = field(default=None, metadata={"description": "Name of the HDF5 file to use for the dataset."})
 
     # Mimic-generated HDF5 datafield
     # NOTE(xinjieyao, 2025-09-25): robot joint position must exist in the HDF5 file
@@ -135,16 +134,22 @@ class Gr00tDatasetConfig:
         default=(480, 640, 3), metadata={"description": "Target size for images after resizing and padding."}
     )
 
-    hdf5_file_path: Path = field(init=False)
     lerobot_data_dir: Path = field(init=False)
     task_index: int = field(default=0, metadata={"description": "Task index for the task description in LeRobot file."})
+    output_dir: Path = field(
+        default=None,
+        metadata={"description": "Output directory for LeRobot dataset. If None, uses hdf5_path parent/name/lerobot."},
+    )
 
     def __post_init__(self):
 
-        self.hdf5_file_path = self.data_root / self.hdf5_name
-        self.lerobot_data_dir = self.data_root / self.hdf5_name.replace(".hdf5", "") / "lerobot"
+        self.hdf5_path = Path(self.hdf5_path)
+        if self.output_dir is not None:
+            self.lerobot_data_dir = Path(self.output_dir)
+        else:
+            self.lerobot_data_dir = self.hdf5_path.parent / self.hdf5_path.stem / "lerobot"
 
-        assert self.hdf5_file_path.exists(), f"{self.hdf5_file_path} does not exist"
+        assert self.hdf5_path.exists(), f"{self.hdf5_path} does not exist"
         assert Path(self.policy_joints_config_path).exists(), f"{self.policy_joints_config_path} does not exist"
         assert Path(self.action_joints_config_path).exists(), f"{self.action_joints_config_path} does not exist"
         assert Path(self.state_joints_config_path).exists(), f"{self.state_joints_config_path} does not exist"
