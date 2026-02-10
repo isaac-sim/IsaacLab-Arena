@@ -47,11 +47,11 @@ info_template_path: "isaaclab_arena_gr00t/embodiments/gr1/info.json"
 info_fname: "info.json"
 
 # policy specific parameters (gr00t demonstration data stored in lerobot format)
-policy_joints_config_path: "isaaclab_arena_gr00t/embodiments/gr1/gr00t_26dof_joint_space.yaml"
+policy_joints_config_path: "isaaclab_arena_gr00t/embodiments/gr1/gr00t_29dof_joint_space.yaml"
 robot_type: "gr1"
 
 # Robot simulation specific parameters
-action_joints_config_path: "isaaclab_arena_gr00t/embodiments/gr1/36dof_joint_space.yaml"
+action_joints_config_path: "isaaclab_arena_gr00t/embodiments/gr1/39dof_joint_space.yaml"
 state_joints_config_path: "isaaclab_arena_gr00t/embodiments/gr1/54dof_joint_space.yaml"
 
 # Image configuration (height, width, channels)

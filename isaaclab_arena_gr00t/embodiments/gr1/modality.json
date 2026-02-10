@@ -19,6 +19,11 @@
             "original_key": "observation.state",
             "start": 20,
             "end": 26
+        },
+        "waist": {
+            "original_key": "observation.state",
+            "start": 26,
+            "end": 29
         }
     },
     "action": {
@@ -37,6 +42,10 @@
         "right_hand": {
             "start": 20,
             "end": 26
+        },
+        "waist": {
+            "start": 26,
+            "end": 29
         }
     },
     "video": {
