@@ -103,7 +103,7 @@ class SubtaskSuccessRateMetric(MetricBase):
             ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
             subtask_successes += ep_subtask_success_result
         subtask_success_rates = subtask_successes / num_demos
-        
+
         return subtask_success_rates.tolist()
 
 
