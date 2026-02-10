@@ -88,6 +88,7 @@ jobs:
       - name: Debug
         run: |
           git status
+          git fetch origin main
           git shortlog -sne main
 
       - name: Run pre-commit
