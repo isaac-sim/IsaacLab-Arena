@@ -42,15 +42,15 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
         super().__init__(cfg, env)
         self.name = cfg.name
 
-    def record_post_reset(self, env_ids):
-        # Return subtask success state as a torch tensor
-        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
-        return self.name, subtask_success_state.clone()
-
     def record_pre_reset(self, env_ids):
         # Skip recording before subtask_success_state exists
         if not hasattr(self._env, "_subtask_success_state"):
             return None, None
+        # Return subtask success state as a torch tensor
+        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
+        return self.name, subtask_success_state.clone()
+
+    def record_post_reset(self, env_ids):
         # Return subtask success state as a torch tensor
         subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
         return self.name, subtask_success_state.clone()
