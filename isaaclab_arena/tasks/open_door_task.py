@@ -127,7 +127,7 @@ class OpenDoorRewardCfg:
 
     def __init__(self, openable_object: Openable):
         self.reaching_object = RewardTermCfg(
-            func=openable_rewards.openable_distance_to_target_openness,
+            func=openable_rewards.openable_openness_increment,
             params={
                 "openable_object": openable_object
             },
