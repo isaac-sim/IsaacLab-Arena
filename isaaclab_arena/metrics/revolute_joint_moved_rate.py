@@ -79,7 +79,9 @@ class RevoluteJointMovedRateMetric(MetricBase):
             return 0.0
         revolute_joint_moved_per_demo = []
         for episode_data in recorded_metric_data:
-            revolute_joint_percentage_threshold = self.reset_joint_percentage + self.joint_percentage_delta_threshold
-            revolute_joint_moved_per_demo.append(np.any(episode_data > revolute_joint_percentage_threshold))
+            # Check if joint moved in either direction from reset position
+            moved_open = np.any(episode_data > self.reset_joint_percentage + self.joint_percentage_delta_threshold)
+            moved_closed = np.any(episode_data < self.reset_joint_percentage - self.joint_percentage_delta_threshold)
+            revolute_joint_moved_per_demo.append(moved_open or moved_closed)
         revolute_joint_moved_rate = np.mean(revolute_joint_moved_per_demo)
         return revolute_joint_moved_rate

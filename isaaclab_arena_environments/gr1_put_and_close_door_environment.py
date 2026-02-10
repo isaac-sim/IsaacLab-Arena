@@ -52,23 +52,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
-        from isaaclab_arena.utils.pose import Pose, PoseRange
-
-        def get_pose_range(z_position, yaw):
-            return PoseRange(
-                position_xyz_min=(
-                    4.05 - RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.58 - RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_position - RANDOMIZATION_HALF_RANGE_Z_M,
-                ),
-                position_xyz_max=(
-                    4.05 + RANDOMIZATION_HALF_RANGE_X_M,
-                    -0.58 + RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_position + RANDOMIZATION_HALF_RANGE_Z_M,
-                ),
-                rpy_min=(0.0, 0.0, yaw),
-                rpy_max=(0.0, 0.0, yaw),
-            )
+        from isaaclab_arena.utils.pose import Pose
 
         # Custom task class for this environment
         class PutAndCloseDoorTask(SequentialTaskBase):
@@ -116,7 +100,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                     setattr(self.datagen_config, key, value)
 
         camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
-        # Get assets
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
         )
@@ -131,7 +114,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         kitchen_counter_top.add_relation(IsAnchor())
 
-        pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         light = self.asset_registry.get_asset_by_name("light")()
 
         if args_cli.teleop_device is not None:
@@ -163,40 +145,29 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             parent_asset=kitchen_background,
         )
 
-        # Consider changing to other values for different objects, below is for ranch dressing bottle
-        z_position = 1.0082
-        yaw_rad = math.radians(-111.55)
-        # Note (xinjieyao, 2026.02.04): prim path of object set has not been resolved yet, will be fixed in the future.
-        # All obs from object set are under the same randomization range
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-            objects = []
-            for obj in args_cli.object_set:
-                obj_from_set = self.asset_registry.get_asset_by_name(obj)()
-                objects.append(obj_from_set)
-            object_set = RigidObjectSet(name="object_set", objects=objects)
-            object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
-            # Create scene
-            scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
+            assert False, "Object set is not supported yet due to unresolved prim path of object set. Fix is pending."
+            # TODO(alexmillane, 2026.02.09): Merge fix for this.
+            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
+            pickup_object = RigidObjectSet(name="object_set", objects=objects)
         else:
-            pickup_object.add_relation(On(kitchen_counter_top))
-            # Place the object at a specific position GR1 to be able to reach it with its hand.
-            pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-            pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-            pickup_object.add_relation(
-                RandomAroundSolution(
-                    x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
-                    y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
-                    z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
-                )
-            )
-            # Create scene
-            scene = Scene(
-                assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
-            )
+            pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+
+        pickup_object.add_relation(On(kitchen_counter_top))
+        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+        # Consider changing to other values for different objects, below is for ranch dressing bottle.
+        yaw_rad = math.radians(-111.55)
+        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+        pickup_object.add_relation(
+            RandomAroundSolution(x_half_m=RANDOMIZATION_HALF_RANGE_X_M, y_half_m=RANDOMIZATION_HALF_RANGE_Y_M)
+        )
+        scene = Scene(
+            assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+        )
 
         # Create pick and place task
         pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=pickup_object if args_cli.object_set is None else object_set,
+            pick_up_object=pickup_object,
             destination_object=refrigerator,
             destination_location=refrigerator_shelf,
             background_scene=kitchen_background,

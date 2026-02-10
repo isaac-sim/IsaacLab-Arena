@@ -12,8 +12,9 @@ Once inside the container, set the dataset and models directories.
 
 .. code:: bash
 
-    export DATASET_DIR=/datasets/isaaclab_arena/static_manipulation_tutorial
-    export MODELS_DIR=/models/isaaclab_arena/static_manipulation_tutorial
+    export DATASET_DIR=/datasets/isaaclab_arena/sequential_static_manipulation_tutorial
+    export MODELS_DIR=/models/isaaclab_arena/sequential_static_manipulation_tutorial
+
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
@@ -28,9 +29,10 @@ pre-trained model checkpoint below:
    .. code-block:: bash
 
       hf download \
-         --revision gn1_6 \
-         nvidia/GN1x-Tuned-Arena-GR1-Manipulation \
-         --local-dir $MODELS_DIR/checkpoint-20000
+        nvidia/GN1.6-Tuned-Arena-GR1-PlaceItemCloseDoor-Task \
+        --include "ranch_bottle_into_fridge/*" \
+        --repo-type model \
+        --local-dir $MODELS_DIR/ranch_bottle_into_fridge
 
 
 Step 1: Run Single Environment Evaluation
@@ -38,16 +40,16 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``.
+The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``.
 
-.. dropdown:: Configuration file (``gr1_manip_gr00t_closedloop_config.yaml``):
+.. dropdown:: Configuration file (``gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml``):
    :animate: fade-in
 
    .. code-block:: yaml
 
-      model_path: /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000
+      model_path: /models/isaaclab_arena/sequential_static_manipulation_tutorial/ranch_bottle_into_fridge/
 
-      language_instruction: "Reach out to the microwave and open it."
+      language_instruction: "Place the ranch dressing bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
       embodiment_tag: GR1
       video_backend: decord
@@ -71,32 +73,34 @@ Test the policy in a single environment with visualization via the GUI run:
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
      --enable_cameras \
-     gr1_open_microwave \
+     put_item_in_fridge_and_close_door \
      --embodiment gr1_joint
 
 The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics. The success rate shall be more than 0.8, and the door moved rate
-should be greater than 0.9, and the number of episodes should be in the range of 10-20.
+At the end of the evaluation, you should see the following output on the console indicating the metrics.
+You can see that the success rate for this sequential task, object moved rate for the first subtask,
+and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
 
 Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. tabs::
 
-   .. tab:: Best Quality
+   .. tab:: Best Quality (OSMO)
 
       .. code-block:: text
 
-         Metrics: {'success_rate': 0.8823529411764706, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 17}
+         Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 0.0, 'subtask_success_rate': [1.0, 0.0], 'num_episodes': 5}
 
-   .. tab:: Low Hardware Requirements
+.. todo::
 
-      .. code-block:: text
+   1. Check the revolute joint moved rate for the second subtask. Why 0.0? At least it's reported on this branch.
 
-         Metrics: {'success_rate': 1.0, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 19}
+   2. Verify evaluation using single-gpu finetune command in the last step.
 
 
 Step 2: Run Parallel environments Evaluation
@@ -126,12 +130,14 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate and door moved rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
+You can see that the success rate for this sequential task, object moved rate for the first subtask,
+and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.605, 'revolute_joint_moved_rate': 0.955, 'num_episodes': 200}
+   Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 0.0, 'subtask_success_rate': [0.98, 0.0], 'num_episodes': 50}
 
 .. note::
 
