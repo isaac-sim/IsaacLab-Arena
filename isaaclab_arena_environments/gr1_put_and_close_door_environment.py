@@ -16,8 +16,8 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-RANDOMIZATION_HALF_RANGE_X_M = 0.03
-RANDOMIZATION_HALF_RANGE_Y_M = 0.01
+RANDOMIZATION_HALF_RANGE_X_M = 0.0
+RANDOMIZATION_HALF_RANGE_Y_M = 0.0
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
 
 
@@ -51,11 +51,12 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+        from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
         from isaaclab_arena.utils.pose import Pose
 
         # Custom task class for this environment
-        class PutAndCloseDoorTask(SequentialTaskBase):
+        class PutAndCloseDoorTask(CompositeTaskBase):
             def __init__(
                 self,
                 subtasks: list[TaskBase],
@@ -181,7 +182,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         # Create sequential task
-        sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
+        sequential_task = PutAndCloseDoorTask(subtasks=[close_door_task, pick_and_place_task], episode_length_s=10.0)
 
         # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
