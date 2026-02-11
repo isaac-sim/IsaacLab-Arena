@@ -40,6 +40,12 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable Pinocchio.",
     )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+    isaac_lab_group.add_argument(
+        "--distributed",
+        action="store_true",
+        default=False,
+        help="Run distributed (one process per GPU). Use with torchrun; AppLauncher uses LOCAL_RANK for device.",
+    )
 
 
 def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
