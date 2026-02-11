@@ -8,7 +8,6 @@ import os
 import sys
 import traceback
 from contextlib import nullcontext, suppress
-from typing import Callable
 
 import omni.kit.app
 from isaaclab.app import AppLauncher
@@ -85,22 +84,9 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
-    def __init__(
-        self,
-        args: argparse.Namespace,
-        *,
-        sync_before_close: Callable[[], None] | None = None,
-    ):
-        """
-        Args:
-            args: The arguments to the simulation app.
-            sync_before_close: If set, called in __exit__ before app.close() so all
-                ranks (e.g. torchrun) reach the same point before closing; avoids
-                one process exiting and the other hanging on close.
-        """
+    def __init__(self, args: argparse.Namespace):
         self.args = args
         self.app_launcher = None
-        self.sync_before_close = sync_before_close
 
     def is_running(self) -> bool:
         return self.app_launcher.app.is_running()
@@ -114,9 +100,6 @@ class SimulationAppContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("Closing simulation app")
-        # Sync so all ranks call close() together (avoids one process exiting and the other hanging)
-        if exc_type is None and self.sync_before_close is not None:
-            self.sync_before_close()
         # app_launcher.close() will terminate the whole process with exit code 0, i.e. preventing errors from being seen by the caller. There are seemingly no ways around this.
         # As a workaround, we call os._exit(1) that terminates immediately. The downside is that any cleanup would be omitted
         if exc_type is None:

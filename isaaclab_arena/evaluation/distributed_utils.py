@@ -18,11 +18,22 @@ def file_barrier(rank: int, world_size: int, name: str = "arena_barrier", timeou
     if world_size <= 1:
         return
     tmp = os.environ.get("TMPDIR", tempfile.gettempdir())
-    # Unique per launch so concurrent torchrun runs don't cross-sync (use parent pid)
-    barrier_dir = os.path.join(tmp, f"{name}_{os.getppid()}")
+    # Same dir for all ranks in this run (torchrun sets MASTER_ADDR/MASTER_PORT); getppid() can differ per rank
+    master = f"{os.environ.get('MASTER_ADDR', '')}_{os.environ.get('MASTER_PORT', '')}"
+    barrier_dir = os.path.join(tmp, f"{name}_{master}")
+    print(f"[Rank {rank}/{world_size}] Barrier directory: {barrier_dir}")
     os.makedirs(barrier_dir, exist_ok=True)
     marker = os.path.join(barrier_dir, f"rank_{rank}")
-    open(marker, "w").close()
+    with open(marker, "w") as f:
+        f.flush()
+        os.fsync(f.fileno())
+    # Ensure directory listing is updated so other ranks see this file (e.g. on NFS)
+    try:
+        dfd = os.open(barrier_dir, os.O_RDONLY)
+        os.fsync(dfd)
+        os.close(dfd)
+    except OSError:
+        pass
     start = time.monotonic()
     while True:
         n = sum(1 for i in range(world_size) if os.path.isfile(os.path.join(barrier_dir, f"rank_{i}")))
