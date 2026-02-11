@@ -51,15 +51,10 @@ class ArenaEnvBuilder:
         """Get all placeables (objects and embodiment) that have relations.
 
         Collects objects from the scene and, if present, the embodiment.
-        Also discovers any parent objects referenced by relations that aren't
-        already in the collection (e.g. an ObjectReference used as a parent
-        in an On() relation but not explicitly added to the scene).
 
         Returns:
             List of Placeable instances that have at least one relation.
         """
-        from isaaclab_arena.relations.relations import Relation
-
         placeables_with_relations: list[Placeable] = []
 
         # Collect objects from the scene
@@ -73,19 +68,6 @@ class ArenaEnvBuilder:
         embodiment = self.arena_env.embodiment
         if embodiment is not None and isinstance(embodiment, Placeable) and embodiment.get_relations():
             placeables_with_relations.append(embodiment)
-
-        # Auto-discover parent objects referenced by relations but not yet collected.
-        # This handles cases where e.g. an ObjectReference is used as a parent in On()
-        # but wasn't added to the Scene.
-        collected_set: set[Placeable] = set(placeables_with_relations)
-        parents_to_add: list[Placeable] = []
-        for obj in placeables_with_relations:
-            for relation in obj.get_spatial_relations():
-                if isinstance(relation, Relation) and relation.parent not in collected_set:
-                    parents_to_add.append(relation.parent)
-                    collected_set.add(relation.parent)
-
-        placeables_with_relations.extend(parents_to_add)
 
         return placeables_with_relations
 
