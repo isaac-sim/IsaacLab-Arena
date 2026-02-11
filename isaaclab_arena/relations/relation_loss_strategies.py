@@ -178,8 +178,8 @@ class NextToLossStrategy(RelationLossStrategy):
         parent_band_max = parent_world_bbox.max_point[cfg.band_axis]
         valid_band_min = parent_band_min - child_bbox.min_point[cfg.band_axis]
         valid_band_max = parent_band_max - child_bbox.max_point[cfg.band_axis]
-        # Convert alignment [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
-        t = (relation.alignment + 1.0) / 2.0
+        # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
+        t = (relation.cross_position_ratio + 1.0) / 2.0
         target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
         band_loss = single_point_linear_loss(
             child_pos[cfg.band_axis],
@@ -204,7 +204,7 @@ class NextToLossStrategy(RelationLossStrategy):
             print(
                 f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
                 f"{child_pos[cfg.band_axis].item():.4f}, target={target_band_pos:.4f}"
-                f" (alignment={relation.alignment:.2f},"
+                f" (cross_position_ratio={relation.cross_position_ratio:.2f},"
                 f" range=[{valid_band_min:.4f}, {valid_band_max:.4f}]),"
                 f" loss={band_loss.item():.6f}"
             )
