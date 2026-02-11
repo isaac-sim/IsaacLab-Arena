@@ -6,7 +6,8 @@
 import tempfile
 import torch
 from collections.abc import Sequence
-from dataclasses import MISSING
+from dataclasses import MISSING, field
+from typing import TYPE_CHECKING
 
 import isaaclab.controllers.utils as ControllerUtils
 import isaaclab.envs.mdp as base_mdp
@@ -16,8 +17,11 @@ import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.devices.openxr import XrCfg
-from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions import JointPositionActionCfg
+from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
+from isaaclab.envs.mdp.actions.actions_cfg import ActionTermCfg
+from isaaclab.managers import ActionTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -33,6 +37,9 @@ from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articula
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
+
+if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.gr1t2.gr1t2 import GR1T2UnifiedJointPositionActionCfg
 
 ARM_JOINT_NAMES_LIST = [
     # arm joint
@@ -75,8 +82,245 @@ ARM_JOINT_NAMES_LIST = [
     "R_thumb_distal_joint",
 ]
 
+# Joint names list for gr1_unified format (36 joints + 3 waist = 39 total)
+# This is the order expected by the unified action processor
+UNIFIED_TARGET_JOINT_NAMES_LIST = [
+    # arm joints (interleaved L/R) - 14 joints
+    "left_shoulder_pitch_joint",
+    "right_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "right_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "right_shoulder_yaw_joint",
+    "left_elbow_pitch_joint",
+    "right_elbow_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_wrist_yaw_joint",
+    "left_wrist_roll_joint",
+    "right_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "right_wrist_pitch_joint",
+    # left hand proximal - 5 joints (reordered: index, middle, pinky, ring, thumb_yaw)
+    "L_index_proximal_joint",
+    "L_middle_proximal_joint",
+    "L_pinky_proximal_joint",
+    "L_ring_proximal_joint",
+    "L_thumb_proximal_yaw_joint",
+    # right hand proximal - 5 joints
+    "R_index_proximal_joint",
+    "R_middle_proximal_joint",
+    "R_pinky_proximal_joint",
+    "R_ring_proximal_joint",
+    "R_thumb_proximal_yaw_joint",
+    # left hand intermediate - 5 joints (coupled from proximal)
+    "L_index_intermediate_joint",
+    "L_middle_intermediate_joint",
+    "L_pinky_intermediate_joint",
+    "L_ring_intermediate_joint",
+    "L_thumb_proximal_pitch_joint",
+    # right hand intermediate - 5 joints
+    "R_index_intermediate_joint",
+    "R_middle_intermediate_joint",
+    "R_pinky_intermediate_joint",
+    "R_ring_intermediate_joint",
+    "R_thumb_proximal_pitch_joint",
+    # thumb distal - 2 joints
+    "L_thumb_distal_joint",
+    "R_thumb_distal_joint",
+    # waist - 3 joints
+    "waist_yaw_joint",
+    "waist_pitch_joint",
+    "waist_roll_joint",
+]
+
 # Default camera offset pose
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
+
+
+class GR1T2UnifiedJointPositionAction(ActionTerm):
+    """Joint action term that converts 29D gr1_unified actions to 39D joint position commands.
+    
+    This action term handles the mapping from gr1_unified format (29D):
+    - left_arm: 7 joints [0:7]
+    - right_arm: 7 joints [7:14]
+    - left_hand: 6 joints (proximal only) [14:20]
+    - right_hand: 6 joints (proximal only) [20:26]
+    - waist: 3 joints [26:29]
+    
+    To the full robot joint space (39D):
+    - 14 arm joints (interleaved L/R)
+    - 22 hand joints (6 proximal -> 11 per hand via coupling)
+    - 3 waist joints
+    """
+
+    cfg: "GR1T2UnifiedJointPositionActionCfg"
+    """The configuration of the action term."""
+
+    def __init__(self, cfg: "GR1T2UnifiedJointPositionActionCfg", env: ManagerBasedEnv):
+        # initialize the action term
+        super().__init__(cfg, env)
+
+        # Get the articulation asset
+        self._asset = env.scene[cfg.asset_name]
+
+        # Resolve the target joint IDs for the 39 joints we control
+        self._joint_ids, self._joint_names = self._asset.find_joints(
+            UNIFIED_TARGET_JOINT_NAMES_LIST, preserve_order=True
+        )
+        self._num_target_joints = len(self._joint_ids)
+
+        # Input is 29D (gr1_unified format)
+        self._input_dim = 29
+        
+        # Create tensors for raw and processed actions
+        self._raw_actions = torch.zeros(self.num_envs, self._input_dim, device=self.device)
+        self._processed_actions = torch.zeros(self.num_envs, self._num_target_joints, device=self.device)
+
+        # Get default joint positions for offset
+        if cfg.use_default_offset:
+            self._offset = self._asset.data.default_joint_pos[:, self._joint_ids].clone()
+        else:
+            self._offset = torch.zeros(self.num_envs, self._num_target_joints, device=self.device)
+
+        self._scale = cfg.scale
+
+    @property
+    def action_dim(self) -> int:
+        """Dimension of the action space (29D gr1_unified format)."""
+        return self._input_dim
+
+    @property
+    def raw_actions(self) -> torch.Tensor:
+        """Raw actions received from the policy."""
+        return self._raw_actions
+
+    @property
+    def processed_actions(self) -> torch.Tensor:
+        """Processed actions sent to the articulation (39D)."""
+        return self._processed_actions
+
+    def process_actions(self, actions: torch.Tensor):
+        """Process 29D gr1_unified actions to 39D joint positions.
+        
+        gr1_unified format (29D):
+        - [0:7]   left_arm
+        - [7:14]  right_arm
+        - [14:20] left_hand (6 proximal: index, middle, ring, pinky, thumb_yaw, thumb_pitch)
+        - [20:26] right_hand (6 proximal)
+        - [26:29] waist (yaw, pitch, roll)
+        
+        Target format (39D):
+        - [0:14]  arm joints (interleaved L/R)
+        - [14:19] left hand proximal (reordered: index, middle, pinky, ring, thumb_yaw)
+        - [19:24] right hand proximal
+        - [24:29] left hand intermediate (coupled from proximal)
+        - [29:34] right hand intermediate
+        - [34:36] thumb distal (L, R)
+        - [36:39] waist
+        """
+        # Store raw actions
+        self._raw_actions[:] = actions
+
+        # Extract components from 29D input
+        left_arm = actions[:, 0:7]    # 7 joints
+        right_arm = actions[:, 7:14]  # 7 joints
+        left_hand = actions[:, 14:20]  # 6 joints: idx, mid, ring, pinky, thumb_yaw, thumb_pitch
+        right_hand = actions[:, 20:26] # 6 joints
+        waist = actions[:, 26:29]      # 3 joints
+
+        # Initialize output tensor
+        output = torch.zeros(self.num_envs, self._num_target_joints, device=self.device)
+
+        # 1. ARM JOINTS [0:14] - Interleave left and right
+        # Input order: shoulder_pitch, shoulder_roll, shoulder_yaw, elbow_pitch, wrist_yaw, wrist_roll, wrist_pitch
+        for i in range(7):
+            output[:, 2*i] = left_arm[:, i]      # Left at even indices
+            output[:, 2*i + 1] = right_arm[:, i]  # Right at odd indices
+
+        # 2. HAND JOINTS [14:36] - Apply coupling from 6D to 11D per hand
+        # Input hand format: [idx_prox, mid_prox, ring_prox, pinky_prox, thumb_yaw, thumb_pitch]
+        
+        # Left hand processing
+        l_idx_prox = left_hand[:, 0]
+        l_mid_prox = left_hand[:, 1]
+        l_ring_prox = left_hand[:, 2]
+        l_pinky_prox = left_hand[:, 3]
+        l_thumb_yaw = left_hand[:, 4]
+        l_thumb_pitch = left_hand[:, 5]
+        
+        # Right hand processing
+        r_idx_prox = right_hand[:, 0]
+        r_mid_prox = right_hand[:, 1]
+        r_ring_prox = right_hand[:, 2]
+        r_pinky_prox = right_hand[:, 3]
+        r_thumb_yaw = right_hand[:, 4]
+        r_thumb_pitch = right_hand[:, 5]
+
+        # Left hand proximal [14:19] - reordered: index, middle, pinky, ring, thumb_yaw
+        output[:, 14] = l_idx_prox
+        output[:, 15] = l_mid_prox
+        output[:, 16] = l_pinky_prox  # pinky before ring in target order
+        output[:, 17] = l_ring_prox
+        output[:, 18] = l_thumb_yaw
+
+        # Right hand proximal [19:24]
+        output[:, 19] = r_idx_prox
+        output[:, 20] = r_mid_prox
+        output[:, 21] = r_pinky_prox
+        output[:, 22] = r_ring_prox
+        output[:, 23] = r_thumb_yaw
+
+        # Left hand intermediate [24:29] - coupled from proximal (same values)
+        output[:, 24] = l_idx_prox   # intermediate follows proximal
+        output[:, 25] = l_mid_prox
+        output[:, 26] = l_pinky_prox
+        output[:, 27] = l_ring_prox
+        output[:, 28] = l_thumb_pitch  # thumb_proximal_pitch
+
+        # Right hand intermediate [29:34]
+        output[:, 29] = r_idx_prox
+        output[:, 30] = r_mid_prox
+        output[:, 31] = r_pinky_prox
+        output[:, 32] = r_ring_prox
+        output[:, 33] = r_thumb_pitch
+
+        # Thumb distal [34:36] - use thumb_pitch
+        output[:, 34] = l_thumb_pitch
+        output[:, 35] = r_thumb_pitch
+
+        # 3. WAIST JOINTS [36:39]
+        output[:, 36:39] = waist
+
+        # Apply scale and offset
+        self._processed_actions[:] = self._offset + self._scale * output
+
+    def apply_actions(self):
+        """Apply the processed actions to the articulation."""
+        self._asset.set_joint_position_target(self._processed_actions, joint_ids=self._joint_ids)
+
+    def reset(self, env_ids: Sequence[int]) -> None:
+        """Reset the action term for the specified environments."""
+        self._raw_actions[env_ids] = 0.0
+
+
+@configclass
+class GR1T2UnifiedJointPositionActionCfg(ActionTermCfg):
+    """Configuration for the GR1T2 unified joint position action term.
+    
+    This action term accepts 29D gr1_unified format actions and converts them
+    to 39D joint position commands for the full robot.
+    """
+    
+    class_type: type[ActionTerm] = GR1T2UnifiedJointPositionAction
+
+    asset_name: str = "robot"
+    """Name of the articulation asset in the scene."""
+
+    scale: float = 1.0
+    """Scaling factor applied to input actions. Default is 1.0."""
+
+    use_default_offset: bool = False
+    """Whether to use default joint positions as offset. Default is False."""
 
 
 @register_asset
@@ -172,6 +416,55 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         # Set the URDF and mesh paths for the IK controller
         self.action_config.upper_body_ik.controller.urdf_path = temp_urdf_output_path
         self.action_config.upper_body_ik.controller.mesh_path = temp_urdf_meshes_output_path
+
+
+@register_asset
+class GR1T2UnifiedEmbodiment(GR1T2EmbodimentBase):
+    """Embodiment for the GR1T2 robot with gr1_unified action format (29D).
+
+    This embodiment accepts 29D actions in the gr1_unified format:
+    - left_arm: 7 DOF (shoulder_pitch/roll/yaw, elbow_pitch, wrist_yaw/roll/pitch)
+    - right_arm: 7 DOF
+    - left_hand: 6 DOF (index/middle/ring/pinky proximal, thumb_yaw, thumb_pitch)
+    - right_hand: 6 DOF
+    - waist: 3 DOF (yaw, pitch, roll)
+
+    The action term internally handles:
+    - Interleaving arm joints (L/R)
+    - Coupling hand proximal joints to intermediate/distal joints
+    - Waist control
+
+    This is compatible with gr00t VLA policy's gr1_unified embodiment output.
+    By default uses tiled camera for efficient parallel evaluation.
+    """
+
+    name = "gr1_unified"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+        concatenate_observation_terms: bool = False,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms)
+        # Use the unified action config that accepts 29D input
+        self.action_config = GR1T2UnifiedActionCfg()
+        # Tuned arm joints pd gains, smoother motions and less oscillations
+        self.scene_config = GR1T2HighPDSceneCfg()
+        # Create camera config with private attributes to avoid scene parser issues
+        self.camera_config._is_tiled_camera = use_tiled_camera
+        self.camera_config._camera_offset = camera_offset
+
+
+@configclass
+class GR1T2UnifiedActionCfg:
+    """Configuration for the GR1T2 unified action (29D gr1_unified format)."""
+
+    joint_pos = GR1T2UnifiedJointPositionActionCfg(
+        asset_name="robot", scale=1.0, use_default_offset=False
+    )
 
 
 @configclass

@@ -27,10 +27,8 @@ class Gr1OpenMicrowaveRlEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("kitchen")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
-        assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
-            args_cli.embodiment
-        )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+        # Use gr1_unified embodiment - accepts 29D actions and handles joint mapping internally
+        embodiment = self.asset_registry.get_asset_by_name("gr1_unified")(
             enable_cameras=args_cli.enable_cameras,
             concatenate_observation_terms=False,
         )
@@ -76,5 +74,3 @@ class Gr1OpenMicrowaveRlEnvironment(ExampleEnvironmentBase):
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
-        # Note (xinjieyao, 2025.10.06): Add the embodiment argument for PINK IK EEF control or Joint positional control
-        parser.add_argument("--embodiment", type=str, default="gr1_pink")
