@@ -40,3 +40,17 @@ def openable_openness_increment(
         stored[reset_mask] = current_openness[reset_mask]
 
     return reward
+
+
+def openable_success_bonus(
+    env: ManagerBasedRLEnv,
+    openable_object: Openable,
+    threshold: float = 0.8,
+) -> torch.Tensor:
+    """
+    Sparse reward that gives a bonus when the door openness exceeds the threshold.
+    Returns 1.0 for success, 0.0 otherwise.
+    """
+    current_openness = openable_object.get_openness(env)
+    success = (current_openness >= threshold).float()
+    return success

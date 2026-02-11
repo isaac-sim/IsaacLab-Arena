@@ -86,12 +86,14 @@ class OpenDoorTaskRL(OpenDoorTask):
             task_description=task_description,
         )
         self.openable_object = openable_object
+        self.openness_threshold = openness_threshold if openness_threshold is not None else 0.8
         self.observation_cfg = OpenDoorObservationsCfg(
             openable_object=self.openable_object,
         )
         self.commands_cfg = None
         self.rewards_cfg = OpenDoorRewardCfg(
-            openable_object=self.openable_object
+            openable_object=self.openable_object,
+            openness_threshold=self.openness_threshold,
         )
 
     def get_observation_cfg(self):
@@ -125,11 +127,19 @@ class OpenDoorObservationsCfg:
 class OpenDoorRewardCfg:
     """Reward terms for the Open Object task."""
 
-    def __init__(self, openable_object: Openable):
+    def __init__(self, openable_object: Openable, openness_threshold: float = 0.8):
         self.reaching_object = RewardTermCfg(
             func=openable_rewards.openable_openness_increment,
             params={
                 "openable_object": openable_object
             },
             weight=1.0,
+        )
+        self.success_bonus = RewardTermCfg(
+            func=openable_rewards.openable_success_bonus,
+            params={
+                "openable_object": openable_object,
+                "threshold": openness_threshold,
+            },
+            weight=0.2,
         )
