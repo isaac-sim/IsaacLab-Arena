@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+
 import numpy as np
 import random
 import torch
@@ -11,6 +13,11 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.distributed_utils import (
+    barrier,
+    destroy_process_group,
+    setup_process_group_for_sync,
+)
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -109,12 +116,23 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int | None, num_episode
 
 
 def main():
-    """Script to run an IsaacLab Arena environment with a zero-action agent."""
+    """Script to run an IsaacLab Arena environment with a policy. Use --distributed with torchrun for one process per GPU (no init_process_group; AppLauncher uses LOCAL_RANK)."""
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
 
-    # Start the simulation app
+    # Distributed: set args so AppLauncher uses LOCAL_RANK; init process group only for barrier/destroy so all ranks exit together
+    rank = int(os.environ.get("RANK", "0"))
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    if getattr(args_cli, "distributed", False) or world_size > 1:
+        args_cli.distributed = True
+        args_cli.device = f"cuda:{local_rank}"
+        if world_size > 1:
+            rank, world_size, local_rank = setup_process_group_for_sync()
+        print(f"[Rank {rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
+
+    # Start the simulation app (AppLauncher reads LOCAL_RANK when distributed=True)
     with SimulationAppContext(args_cli):
         # Get the policy-type flag before preceding to other arguments
         add_policy_runner_arguments(args_parser)
@@ -122,7 +140,7 @@ def main():
 
         # Get the policy class from the policy type
         policy_cls = get_policy_cls(args_cli.policy_type)
-        print(f"Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
+        print(f"[Rank {rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
 
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
@@ -133,11 +151,15 @@ def main():
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
 
-        if args_cli.seed is not None:
-            env.seed(args_cli.seed)
-            torch.manual_seed(args_cli.seed)
-            np.random.seed(args_cli.seed)
-            random.seed(args_cli.seed)
+        # Per-rank seed when distributed so each process does an independent eval
+        seed = args_cli.seed
+        if seed is not None and world_size > 1:
+            seed = seed + rank
+        if seed is not None:
+            env.seed(seed)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            random.seed(seed)
 
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
@@ -150,20 +172,27 @@ def main():
             if args_cli.num_steps is not None:
                 num_steps = args_cli.num_steps
                 num_episodes = None
-                print(f"Simulation length: {num_steps} steps")
+                print(f"[Rank {rank}/{world_size}] Simulation length: {num_steps} steps")
             elif args_cli.num_episodes is not None:
                 num_steps = None
                 num_episodes = args_cli.num_episodes
-                print(f"Simulation length: {num_episodes} episodes")
+                print(f"[Rank {rank}/{world_size}] Simulation length: {num_episodes} episodes")
             else:
                 raise ValueError("Either num_steps or num_episodes must be provided")
 
         metrics = rollout_policy(env, policy, num_steps, num_episodes)
         if metrics is not None:
-            print(f"Metrics: {metrics}")
+            print(f"[Rank {rank}/{world_size}] Metrics: {metrics}")
+
+        # Sync so all ranks reach here before any close (avoids one rank exiting while others stuck)
+        barrier(device_id=local_rank)
 
         # Close the environment.
         env.close()
+
+    # Destroy process group so all ranks exit together (avoids rank 0 gone, rank 1 stuck)
+    if world_size > 1:
+        destroy_process_group(device_id=local_rank)
 
 
 if __name__ == "__main__":
