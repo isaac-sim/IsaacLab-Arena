@@ -173,15 +173,17 @@ class NextToLossStrategy(RelationLossStrategy):
             penalty_side=penalty_side,
         )
 
-        # 2. Band loss: child's footprint must be within parent's extent on perpendicular axis
+        # 2. Band position loss: child placed at target position within parent's perpendicular extent
         parent_band_min = parent_world_bbox.min_point[cfg.band_axis]
         parent_band_max = parent_world_bbox.max_point[cfg.band_axis]
         valid_band_min = parent_band_min - child_bbox.min_point[cfg.band_axis]
         valid_band_max = parent_band_max - child_bbox.max_point[cfg.band_axis]
-        band_loss = linear_band_loss(
+        # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
+        t = (relation.cross_position_ratio + 1.0) / 2.0
+        target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
+        band_loss = single_point_linear_loss(
             child_pos[cfg.band_axis],
-            lower_bound=valid_band_min,
-            upper_bound=valid_band_max,
+            target_band_pos,
             slope=self.slope,
         )
 
@@ -201,8 +203,10 @@ class NextToLossStrategy(RelationLossStrategy):
             )
             print(
                 f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
-                f"{child_pos[cfg.band_axis].item():.4f}, valid_range=[{valid_band_min:.4f},"
-                f" {valid_band_max:.4f}], loss={band_loss.item():.6f}"
+                f"{child_pos[cfg.band_axis].item():.4f}, target={target_band_pos:.4f}"
+                f" (cross_position_ratio={relation.cross_position_ratio:.2f},"
+                f" range=[{valid_band_min:.4f}, {valid_band_max:.4f}]),"
+                f" loss={band_loss.item():.6f}"
             )
             print(
                 f"    [NextTo] Distance: child_{axis_name.lower()}="
