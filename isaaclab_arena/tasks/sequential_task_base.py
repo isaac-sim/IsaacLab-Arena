@@ -164,7 +164,7 @@ class SequentialTaskBase(TaskBase):
             current_subtask_success_func = subtasks[current_subtask_idx].get_termination_cfg().success.func
             current_subtask_success_params = subtasks[current_subtask_idx].get_termination_cfg().success.params
             result = current_subtask_success_func(env, **current_subtask_success_params)[env_idx]
-            
+
             if result:
                 env._subtask_success_state[env_idx][current_subtask_idx] = True
                 if current_subtask_idx < len(subtasks) - 1:
