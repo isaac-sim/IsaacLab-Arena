@@ -215,10 +215,9 @@ def main():
         if metrics is not None:
             print(f"[Rank {rank}/{world_size}] Metrics: {metrics}", flush=True)
 
-        # Sync so both ranks call env.close() together (otherwise one can block in env.close() while the other waits in __exit__).
-        print(f"[Rank {rank}/{world_size}] Reached barrier before env.close()", flush=True)
-        file_barrier(rank, world_size)
+        # Sync so both ranks call env.close() together (otherwise one can block in env.closprint(f"[Rank {rank}/{world_size}] Reached barrier before env.close()", flush=True)
         env.close()
+        print(f"[Rank {rank}/{world_size}] env.close() finished", flush=True)
 
 
 if __name__ == "__main__":
