@@ -62,7 +62,7 @@ class Gr1OpenMicrowaveRlEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=OpenDoorTaskRL(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=2.0, task_description="Open the microwave door."),
+            task=OpenDoorTaskRL(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=10.0, task_description="Open the microwave door."),
             teleop_device=teleop_device,
         )
 
