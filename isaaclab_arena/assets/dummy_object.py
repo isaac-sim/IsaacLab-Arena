@@ -6,7 +6,7 @@ import torch
 
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 
 
 class DummyObject:
@@ -45,9 +45,10 @@ class DummyObject:
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).
 
-        Only 90° rotations around Z axis are supported.
+        Only 90° rotations around Z axis are supported. If initial_pose is a PoseRange
+        (not a fixed Pose), returns the local bounding box without transformation.
         """
-        if self.initial_pose is None:
+        if self.initial_pose is None or not isinstance(self.initial_pose, Pose):
             return self.bounding_box
         quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
         return self.bounding_box.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
@@ -55,10 +56,10 @@ class DummyObject:
     def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:
         return self.bounding_box.get_corners_at(pos)
 
-    def set_initial_pose(self, pose: Pose) -> None:
+    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
         self.initial_pose = pose
 
-    def get_initial_pose(self) -> Pose | None:
+    def get_initial_pose(self) -> Pose | PoseRange | None:
         return self.initial_pose
 
     def is_initial_pose_set(self) -> bool:

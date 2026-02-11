@@ -11,9 +11,12 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.cameras import make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 
 class EmbodimentBase(Asset):
@@ -28,11 +31,15 @@ class EmbodimentBase(Asset):
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        bounding_box: AxisAlignedBoundingBox | None = None,
     ):
         self.enable_cameras = enable_cameras
         self.initial_pose = initial_pose
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
+        self.bounding_box = bounding_box
+        # Relations support (satisfies the Placeable protocol for the relation solver)
+        self.relations: list[RelationBase] = []
         # These should be filled by the subclass
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
@@ -46,12 +53,104 @@ class EmbodimentBase(Asset):
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
 
-    def set_initial_pose(self, pose: Pose) -> None:
+    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
         self.initial_pose = pose
+
+    def get_initial_pose(self) -> Pose | PoseRange | None:
+        """Get the initial pose of the embodiment.
+
+        Returns:
+            The initial pose, or None if not set.
+        """
+        return self.initial_pose
+
+    def add_relation(self, relation: RelationBase) -> None:
+        """Add a spatial relation or marker to this embodiment.
+
+        Args:
+            relation: The relation to add (e.g. NextTo, On, IsAnchor).
+        """
+        self.relations.append(relation)
+
+    def get_relations(self) -> list[RelationBase]:
+        """Get all relations for this embodiment."""
+        return self.relations
+
+    def get_spatial_relations(self) -> list[RelationBase]:
+        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
+        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
+
+    def set_bounding_box(self, bounding_box: AxisAlignedBoundingBox) -> None:
+        """Set the bounding box representing the embodiment's footprint.
+
+        Args:
+            bounding_box: Local axis-aligned bounding box for the embodiment.
+        """
+        self.bounding_box = bounding_box
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box (relative to embodiment origin).
+
+        If no bounding box has been set manually (via constructor or set_bounding_box()),
+        attempts to compute it automatically from the robot USD in the scene config.
+
+        Returns:
+            The embodiment's local bounding box.
+
+        Raises:
+            RuntimeError: If no bounding box is set and it cannot be computed from
+                the scene config (e.g. scene_config is None or has no robot field).
+        """
+        if self.bounding_box is None:
+            usd_path = self._get_robot_usd_path()
+            if usd_path is None:
+                raise RuntimeError(
+                    f"Cannot compute bounding box for embodiment '{self.name}': "
+                    "could not find a robot USD path at scene_config.robot.spawn.usd_path. "
+                    "Either set a bounding box manually via set_bounding_box(), "
+                    "or ensure the embodiment's scene_config has a robot with a USD spawn path."
+                )
+            self.bounding_box = compute_local_bounding_box_from_usd(usd_path)
+        return self.bounding_box
+
+    def _get_robot_usd_path(self) -> str | None:
+        """Extract the robot USD path from the scene config, if available.
+
+        Returns:
+            The USD path string, or None if not available.
+        """
+        if self.scene_config is None:
+            return None
+        robot_cfg = getattr(self.scene_config, "robot", None)
+        if robot_cfg is None:
+            return None
+        spawn_cfg = getattr(robot_cfg, "spawn", None)
+        if spawn_cfg is None:
+            return None
+        usd_path = getattr(spawn_cfg, "usd_path", None)
+        return usd_path
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox rotated and translated).
+
+        Only 90 degree rotations around Z axis are supported. If initial_pose is
+        not set or is a PoseRange, returns the local bounding box without transformation.
+
+        Returns:
+            The embodiment's bounding box in world coordinates.
+        """
+        local_bbox = self.get_bounding_box()
+        if self.initial_pose is None or not isinstance(self.initial_pose, Pose):
+            return local_bbox
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
+        return local_bbox.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_scene_cfg(self) -> Any:
         if self.initial_pose is not None:
-            self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, self.initial_pose)
+            # _update_scene_cfg_with_robot_initial_pose expects a fixed Pose.
+            # If initial_pose is a PoseRange, use its midpoint for the scene config.
+            pose = self.initial_pose if isinstance(self.initial_pose, Pose) else self.initial_pose.get_midpoint()
+            self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, pose)
         if self.enable_cameras:
             if self.camera_config is not None:
                 return combine_configclass_instances(
