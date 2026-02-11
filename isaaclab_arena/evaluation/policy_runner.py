@@ -13,11 +13,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.distributed_utils import (
-    barrier,
-    destroy_process_group,
-    setup_process_group_for_sync,
-)
+from isaaclab_arena.evaluation.distributed_utils import file_barrier
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -116,25 +112,29 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int | None, num_episode
 
 
 def main():
-    """Script to run an IsaacLab Arena environment with a policy. Use --distributed with torchrun for one process per GPU (no init_process_group; AppLauncher uses LOCAL_RANK)."""
+    """Run an IsaacLab Arena environment with a policy.
+
+    Distributed: use --distributed with torchrun (one process per GPU). AppLauncher
+    uses LOCAL_RANK for device. Sync via file_barrier before env.close() and
+    sync_before_close in SimulationAppContext so all ranks exit together.
+    """
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
 
-    # Distributed: set args so AppLauncher uses LOCAL_RANK; init process group only for barrier/destroy so all ranks exit together
+    # Distributed: set args so AppLauncher uses LOCAL_RANK; sync via file_barrier (no NCCL, avoids hang with Isaac Sim)
     rank = int(os.environ.get("RANK", "0"))
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     if getattr(args_cli, "distributed", False) or world_size > 1:
         args_cli.distributed = True
         args_cli.device = f"cuda:{local_rank}"
-        if world_size > 1:
-            rank, world_size, local_rank = setup_process_group_for_sync()
         print(f"[Rank {rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
-    # Start the simulation app (AppLauncher reads LOCAL_RANK when distributed=True)
-    with SimulationAppContext(args_cli):
-        # Get the policy-type flag before preceding to other arguments
+    # Sync before app.close() so both ranks call close() together (avoids one exiting and the other hanging)
+    sync_before_close = (lambda: file_barrier(rank, world_size, name="arena_barrier_exit")) if world_size > 1 else None
+    with SimulationAppContext(args_cli, sync_before_close=sync_before_close):
+        # Get the policy-type flag before proceeding to other arguments
         add_policy_runner_arguments(args_parser)
         args_cli, _ = args_parser.parse_known_args()
 
@@ -184,15 +184,8 @@ def main():
         if metrics is not None:
             print(f"[Rank {rank}/{world_size}] Metrics: {metrics}")
 
-        # Sync so all ranks reach here before any close (avoids one rank exiting while others stuck)
-        barrier(device_id=local_rank)
-
-        # Close the environment.
+        # Close the environment. All ranks sync in SimulationAppContext.__exit__ (sync_before_close) before app.close().
         env.close()
-
-    # Destroy process group so all ranks exit together (avoids rank 0 gone, rank 1 stuck)
-    if world_size > 1:
-        destroy_process_group(device_id=local_rank)
 
 
 if __name__ == "__main__":

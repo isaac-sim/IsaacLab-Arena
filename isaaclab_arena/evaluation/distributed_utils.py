@@ -3,52 +3,38 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Minimal distributed helpers for sync-only use (barrier / destroy). No init for sim device — use env vars + AppLauncher."""
+"""Distributed sync without NCCL (file-based) so Isaac Sim GPU usage does not hang collectives."""
 
 import os
+import tempfile
+import time
 
-import torch
 
-
-def setup_process_group_for_sync() -> tuple[int, int, int]:
+def file_barrier(rank: int, world_size: int, name: str = "arena_barrier", timeout_sec: float = 300.0) -> None:
     """
-    Init process group only for barrier/destroy so all ranks exit together.
-    Set CUDA device before init so NCCL uses the correct GPU.
-    Call only when WORLD_SIZE > 1.
-
-    Returns:
-        (rank, world_size, local_rank).
+    Barrier using marker files so all ranks reach the same point. Safe to use inside
+    SimulationApp (no NCCL); avoids hang when Isaac Sim holds the GPU.
     """
-    if "WORLD_SIZE" not in os.environ or int(os.environ.get("WORLD_SIZE", 1)) <= 1:
-        return 0, 1, 0
-
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    if torch.cuda.is_available():
-        torch.cuda.set_device(local_rank)
-
-    if not torch.distributed.is_initialized():
-        torch.distributed.init_process_group(backend="nccl")
-
-    return (
-        torch.distributed.get_rank(),
-        torch.distributed.get_world_size(),
-        local_rank,
-    )
-
-
-def barrier(device_id: int | None = None) -> None:
-    """Sync all processes. Set device_id so NCCL uses the correct GPU."""
-    if not (torch.distributed.is_available() and torch.distributed.is_initialized()):
+    if world_size <= 1:
         return
-    if device_id is not None and torch.cuda.is_available():
-        torch.cuda.set_device(device_id)
-    torch.distributed.barrier()
-
-
-def destroy_process_group(device_id: int | None = None) -> None:
-    """Destroy process group so all ranks exit cleanly. Set device_id before destroy."""
-    if not (torch.distributed.is_available() and torch.distributed.is_initialized()):
-        return
-    if device_id is not None and torch.cuda.is_available():
-        torch.cuda.set_device(device_id)
-    torch.distributed.destroy_process_group()
+    tmp = os.environ.get("TMPDIR", tempfile.gettempdir())
+    # Unique per launch so concurrent torchrun runs don't cross-sync (use parent pid)
+    barrier_dir = os.path.join(tmp, f"{name}_{os.getppid()}")
+    os.makedirs(barrier_dir, exist_ok=True)
+    marker = os.path.join(barrier_dir, f"rank_{rank}")
+    open(marker, "w").close()
+    start = time.monotonic()
+    while True:
+        n = sum(1 for i in range(world_size) if os.path.isfile(os.path.join(barrier_dir, f"rank_{i}")))
+        if n >= world_size:
+            break
+        if time.monotonic() - start > timeout_sec:
+            raise TimeoutError(f"file_barrier timed out after {timeout_sec}s (rank {rank}, saw {n}/{world_size})")
+        time.sleep(0.01)
+    try:
+        for i in range(world_size):
+            p = os.path.join(barrier_dir, f"rank_{i}")
+            if os.path.isfile(p):
+                os.remove(p)
+    except OSError:
+        pass
