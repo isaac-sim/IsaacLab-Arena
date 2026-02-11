@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="curobo_flat_mm4_yeey">
+  <joint name="AssemblerFixedJoint" type="fixed">
+    <origin xyz="-0.0000001 -0.0000001 0. " rpy="1.5707964 -0.7853979 -1.5707964"/>
+    <parent link="panda_hand"/>
+    <child link="base_link"/>
+  </joint>
+  <joint name="finger_joint" type="revolute">
+    <origin xyz="0. -0.0306 0.05466" rpy="1.5707964 0. -1.5707964"/>
+    <parent link="base_link"/>
+    <child link="left_outer_knuckle"/>
+    <axis xyz="0. 0. 1."/>
+    <limit lower="0." upper="0.8203047" effort="26." velocity="2.5562093"/>
+  </joint>
+  <joint name="left_inner_finger_joint" type="revolute">
+    <origin xyz="-0. -0.06776 0.09809" rpy="-1.5707963 -0.0000001 1.5707963"/>
+    <parent link="left_outer_finger"/>
+    <child link="left_inner_finger"/>
+    <axis xyz="0. 0. 1."/>
+    <limit lower="-3.1415927" upper="3.1415927" effort="0." velocity="174.5329252"/>
+  </joint>
+  <joint name="left_inner_finger_knuckle_joint" type="revolute">
+    <origin xyz="0.0179 -0.00651 0. " rpy="3.1415927 0. 0. "/>
+    <parent link="left_inner_finger"/>
+    <child link="left_inner_knuckle"/>
+    <axis xyz="0. 0. 1."/>
+    <limit lower="-3.1415927" upper="3.1415927" effort="0." velocity="174.5329252"/>
+  </joint>
+  <joint name="left_outer_finger_FixedJoint" type="fixed">
+    <origin xyz="-0.0306 -0.05466 -0. " rpy="-1.5707965 1.5707963 0. "/>
+    <parent link="left_outer_knuckle"/>
+    <child link="left_outer_finger"/>
+  </joint>
+  <joint name="panda_hand_joint" type="fixed">
+    <origin xyz="0.1069999 0.0000004 -0.0000002" rpy="3.1415925 0. -3.1415894"/>
+    <parent link="panda_panda_link7"/>
+    <child link="panda_hand"/>
+  </joint>
+  <joint name="panda_joint1" type="revolute">
+    <origin xyz="-0. 0. 0.333" rpy="0. -1.5707964 0. "/>
+    <parent link="panda_panda_link0"/>
+    <child link="panda_panda_link1"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-2.8973001" upper="2.8973001" effort="87." velocity="2.1749999"/>
+  </joint>
+  <joint name="panda_joint2" type="revolute">
+    <origin xyz="0.0000003 0.0000001 -0. " rpy="0. 0. 1.5707964"/>
+    <parent link="panda_panda_link1"/>
+    <child link="panda_panda_link2"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-1.7628" upper="1.7628" effort="87." velocity="2.1749999"/>
+  </joint>
+  <joint name="panda_joint3" type="revolute">
+    <origin xyz="-0.0000001 -0.3159997 0. " rpy="-0.0000002 -0.0000002 -1.5707958"/>
+    <parent link="panda_panda_link2"/>
+    <child link="panda_panda_link3"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-2.8973001" upper="2.8973001" effort="87." velocity="2.1749999"/>
+  </joint>
+  <joint name="panda_joint4" type="revolute">
+    <origin xyz="-0. -0.0000001 -0.0824999" rpy="-0.0000002 0.0000002 -1.5707968"/>
+    <parent link="panda_panda_link3"/>
+    <child link="panda_panda_link4"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-3.0718" upper="-0.0698" effort="87." velocity="2.1749999"/>
+  </joint>
+  <joint name="panda_joint5" type="revolute">
+    <origin xyz="0.0000005 0.3839998 0.0824996" rpy="-0.0000003 0.0000001 1.5707946"/>
+    <parent link="panda_panda_link4"/>
+    <child link="panda_panda_link5"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-2.8973001" upper="2.8973001" effort="12." velocity="2.6100004"/>
+  </joint>
+  <joint name="panda_joint6" type="revolute">
+    <origin xyz="0.0000005 0.0000003 0.0000002" rpy="0.0000001 0.0000003 -1.5707946"/>
+    <parent link="panda_panda_link5"/>
+    <child link="panda_panda_link6"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-0.0175" upper="3.7525" effort="12." velocity="2.6100004"/>
+  </joint>
+  <joint name="panda_joint7" type="revolute">
+    <origin xyz="-0.0000002 -0.0000005 -0.0879998" rpy="-0. 0. -1.5707996"/>
+    <parent link="panda_panda_link6"/>
+    <child link="panda_panda_link7"/>
+    <axis xyz="1. 0. 0."/>
+    <limit lower="-2.8973001" upper="2.8973001" effort="12." velocity="2.6100004"/>
+  </joint>
+  <joint name="right_inner_finger_joint" type="revolute">
+    <origin xyz="-0. 0.06776 0.09809" rpy="1.5707964 0.0000001 -1.5707964"/>
+    <parent link="right_outer_finger"/>
+    <child link="right_inner_finger"/>
+    <axis xyz="0. 0. 1."/>
+    <limit lower="-3.1415927" upper="3.1415927" effort="0." velocity="174.5329252"/>
+  </joint>
+  <joint name="right_inner_finger_knuckle_joint" type="revolute">
+    <origin xyz="0.0179 0.00651 0. " rpy="0. 0. 0."/>
+    <parent link="right_inner_finger"/>
+    <child link="right_inner_knuckle"/>
+    <axis xyz="0. 0. 1."/>
+    <limit lower="-3.1415927" upper="3.1415927" effort="0." velocity="174.5329252"/>
+  </joint>
+  <joint name="right_outer_finger_FixedJoint" type="fixed">
+    <origin xyz="0.0306 0.05466 0. " rpy="1.5707963 -1.5707963 0. "/>
+    <parent link="right_outer_knuckle"/>
+    <child link="right_outer_finger"/>
+  </joint>
+  <joint name="right_outer_knuckle_joint" type="revolute">
+    <origin xyz="0. 0.0306 0.05466" rpy="-1.5707964 0. -1.5707964"/>
+    <parent link="base_link"/>
+    <child link="right_outer_knuckle"/>
+    <axis xyz="0. 0. 1."/>
+    <limit lower="0." upper="0.8203047" effort="0." velocity="174.5329252"/>
+  </joint>
+  <joint name="rootJoint" type="fixed">
+    <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+    <parent link="panda"/>
+    <child link="panda_panda_link0"/>
+  </joint>
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.0000228 -0.0000006 0.0323229" rpy="0. 0. 0."/>
+      <mass value="0.6098911"/>
+      <inertia ixx="0.0005407" ixy="0." ixz="-0." iyy="0.0003629" iyz="0." izz="0.0004747"/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="1.5707964 0. 1.5707964"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/Defeatured_2F_85_PAD_OPEN_basestep.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="1.5707964 0. 1.5707964"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/Defeatured_2F_85_PAD_OPEN_basestep.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_inner_finger">
+    <inertial>
+      <origin xyz="0.0185829 -0.0274476 -0. " rpy="0. 0. 0."/>
+      <mass value="0.0197616"/>
+      <inertia ixx="0.000001" ixy="0." ixz="-0." iyy="0.0000028" iyz="-0." izz="0.0000032"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.06776 0.09809 0. " rpy="-3.1415927 0. 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger4step_01_Defeatured_2F_85_PAD_OPEN_finger4step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0.06776 0.09809 0. " rpy="-3.1415927 0. 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_fingertipsstep_01_Defeatured_2F_85_PAD_OPEN_fingertipsstep.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.06776 0.09809 0. " rpy="-3.1415927 0. 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger4step_01_Defeatured_2F_85_PAD_OPEN_finger4step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.06776 0.09809 0. " rpy="-3.1415927 0. 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_fingertipsstep_01_Defeatured_2F_85_PAD_OPEN_fingertipsstep.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_inner_knuckle">
+    <inertial>
+      <origin xyz="0.0176393 -0.0211796 -0. " rpy="0. 0. 0."/>
+      <mass value="0.0273069"/>
+      <inertia ixx="0.0000045" ixy="-0." ixz="0." iyy="0.000008" iyz="-0." izz="0.0000118"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.04986 -0.1046 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_inner_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_finger3step_01_Defeatured_2F_85_PAD_OPEN_finger3step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.04986 -0.1046 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_inner_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_finger3step_01_Defeatured_2F_85_PAD_OPEN_finger3step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_outer_finger">
+    <inertial>
+      <origin xyz="0.0000055 -0.0659505 0.0689531" rpy="0. 0. 0."/>
+      <mass value="0.0391792"/>
+      <inertia ixx="0.0000132" ixy="-0." ixz="-0." iyy="0.0000043" iyz="-0." izz="0.0000109"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. -0. -0." rpy="1.5707964 -0.0000001 1.5707963"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_outer_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger2step_01_Defeatured_2F_85_PAD_OPEN_finger2step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0. -0. -0." rpy="1.5707964 -0.0000001 1.5707963"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_outer_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger2step_01_Defeatured_2F_85_PAD_OPEN_finger2step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_outer_knuckle">
+    <inertial>
+      <origin xyz="0.0121152 -0.000638 0. " rpy="0. 0. 0."/>
+      <mass value="0.0127346"/>
+      <inertia ixx="0.0000003" ixy="0." ixz="0." iyy="0.0000021" iyz="0." izz="0.0000021"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0306 -0.05466 0. " rpy="-3.1415927 0. 3.1415927"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_outer_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_Finger1step_01_Defeatured_2F_85_PAD_OPEN_Finger1step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0306 -0.05466 0. " rpy="-3.1415927 0. 3.1415927"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/left_outer_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_Finger1step_01_Defeatured_2F_85_PAD_OPEN_Finger1step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda"/>
+  <link name="panda_hand">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.5583305"/>
+      <inertia ixx="0.0000002" ixy="0." ixz="0." iyy="0.0000001" iyz="0." izz="0.0000002"/>
+    </inertial>
+  </link>
+  <link name="panda_panda_link0">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="2.8142028"/>
+      <inertia ixx="0.0000013" ixy="0." ixz="0." iyy="0.0000017" iyz="0." izz="0.000002"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link0_geometry_panda_link0.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link0_geometry_panda_link0.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="2.3599997"/>
+      <inertia ixx="0.0000019" ixy="0." ixz="0." iyy="0.0000014" iyz="0." izz="0.0000009"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.0000003 0.0000001 -0. " rpy="0. 1.5707964 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link1_geometry_panda_link1.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0000003 0.0000001 -0. " rpy="0. 1.5707964 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link1_geometry_panda_link1.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="2.3795187"/>
+      <inertia ixx="0.0000019" ixy="0." ixz="0." iyy="0.0000009" iyz="0." izz="0.0000015"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0000002 0.0000003 -0. " rpy="-2.4923337 1.570796 -2.4923332"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link2_geometry_panda_link2.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0000002 0.0000003 -0. " rpy="-2.4923337 1.570796 -2.4923332"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link2_geometry_panda_link2.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link3">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="2.6498823"/>
+      <inertia ixx="0.0000013" ixy="0." ixz="0." iyy="0.0000015" iyz="0." izz="0.0000014"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. -0.0000001 0.0000001" rpy="2.2470412 1.570796 2.2470407"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link3_geometry_panda_link3.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0. -0.0000001 0.0000001" rpy="2.2470412 1.570796 2.2470407"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link3_geometry_panda_link3.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link4">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="2.6948018"/>
+      <inertia ixx="0.0000013" ixy="0." ixz="0." iyy="0.0000015" iyz="0." izz="0.0000016"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0000001 -0.0000001 -0.0000003" rpy="-0.341949 1.570796 -0.3419507"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link4_geometry_panda_link4.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0000001 -0.0000001 -0.0000003" rpy="-0.341949 1.570796 -0.3419507"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link4_geometry_panda_link4.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link5">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="2.9812818"/>
+      <inertia ixx="0.0000033" ixy="0." ixz="0." iyy="0.0000027" iyz="0." izz="0.0000012"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.0000005 0.0000003 0.0000002" rpy="1.2392414 1.570796 1.239243 "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link5_geometry_panda_link5.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0000005 0.0000003 0.0000002" rpy="1.2392414 1.570796 1.239243 "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link5_geometry_panda_link5.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link6">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="1.1285807"/>
+      <inertia ixx="0.0000003" ixy="0." ixz="0." iyy="0.0000004" iyz="0." izz="0.0000005"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0000002 -0. 0.0000002" rpy="0.0000032 1.5707963 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link6_geometry_panda_link6.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0000002 -0. 0.0000002" rpy="0.0000032 1.5707963 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link6_geometry_panda_link6.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="panda_panda_link7">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.4052913"/>
+      <inertia ixx="0.0000001" ixy="0." ixz="0." iyy="0.0000001" iyz="0." izz="0.0000001"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0.0000001 0.0000001 -0.0000002" rpy="-0.0000032 1.5707963 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link7_geometry_panda_link7.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0000001 0.0000001 -0.0000002" rpy="-0.0000032 1.5707963 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/panda_panda_link7_geometry_panda_link7.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_inner_finger">
+    <inertial>
+      <origin xyz="0.0185829 0.0274476 0. " rpy="0. 0. 0."/>
+      <mass value="0.0197616"/>
+      <inertia ixx="0.000001" ixy="0." ixz="-0." iyy="0.0000028" iyz="-0." izz="0.0000032"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.06776 -0.09809 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger4step_01_Defeatured_2F_85_PAD_OPEN_finger4step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0.06776 -0.09809 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_fingertipsstep_01_Defeatured_2F_85_PAD_OPEN_fingertipsstep.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.06776 -0.09809 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger4step_01_Defeatured_2F_85_PAD_OPEN_finger4step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.06776 -0.09809 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_inner_finger_visuals_Defeatured_2F_85_PAD_OPEN_fingertipsstep_01_Defeatured_2F_85_PAD_OPEN_fingertipsstep.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_inner_knuckle">
+    <inertial>
+      <origin xyz="0.0176393 -0.0211796 -0. " rpy="0. 0. 0."/>
+      <mass value="0.0273069"/>
+      <inertia ixx="0.0000045" ixy="0." ixz="-0." iyy="0.000008" iyz="-0." izz="0.0000118"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.04986 -0.1046 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_inner_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_finger3step_01_Defeatured_2F_85_PAD_OPEN_finger3step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.04986 -0.1046 0. " rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_inner_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_finger3step_01_Defeatured_2F_85_PAD_OPEN_finger3step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_outer_finger">
+    <inertial>
+      <origin xyz="-0.0000055 0.0659505 0.0689531" rpy="0. 0. 0."/>
+      <mass value="0.0391792"/>
+      <inertia ixx="0.0000132" ixy="0." ixz="0." iyy="0.0000043" iyz="-0." izz="0.0000109"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. 0. 0." rpy="1.5707964 0.0000001 -1.5707964"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_outer_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger2step_01_Defeatured_2F_85_PAD_OPEN_finger2step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0. 0. 0." rpy="1.5707964 0.0000001 -1.5707964"/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_outer_finger_visuals_Defeatured_2F_85_PAD_OPEN_finger2step_01_Defeatured_2F_85_PAD_OPEN_finger2step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_outer_knuckle">
+    <inertial>
+      <origin xyz="-0.0121152 0.000638 0. " rpy="0. 0. 0."/>
+      <mass value="0.0127346"/>
+      <inertia ixx="0.0000003" ixy="-0." ixz="0." iyy="0.0000021" iyz="0." izz="0.0000021"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.0306 0.05466 0. " rpy="-3.1415927 0. 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_outer_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_Finger1step_01_Defeatured_2F_85_PAD_OPEN_Finger1step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0306 0.05466 0. " rpy="-3.1415927 0. 0. "/>
+      <geometry>
+        <mesh filename="/home/njawale/IsaacLab-Arena/assets_local/meshes/right_outer_knuckle_visuals_Defeatured_2F_85_PAD_OPEN_Finger1step_01_Defeatured_2F_85_PAD_OPEN_Finger1step.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
