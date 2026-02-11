@@ -161,19 +161,17 @@ class SequentialTaskBase(TaskBase):
 
             # Compute the success state for the current subtask
             current_subtask_idx = env._current_subtask_idx[env_idx]
-            current_subtask_success_func = subtasks[current_subtask_idx].get_termination_cfg().success.func
-            current_subtask_success_params = subtasks[current_subtask_idx].get_termination_cfg().success.params
-            result = current_subtask_success_func(env, **current_subtask_success_params)[env_idx]
+            result = current_subtask_success_state[env_idx][current_subtask_idx]
             if result:
                 env._subtask_success_state[env_idx][current_subtask_idx] = True
                 if current_subtask_idx < len(subtasks) - 1:
                     env._current_subtask_idx[env_idx] += 1
 
-        # Compute composite task success state for each env
         if desired_subtask_success_state:
             per_env_success = [
-                all([a == b for a, b in zip(env_successes, desired_subtask_success_state)])
-                for env_successes in current_subtask_success_state
+                all(env._subtask_success_state[env_idx])
+                and current_subtask_success_state[env_idx] == desired_subtask_success_state
+                for env_idx in range(env.num_envs)
             ]
         else:
             per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]
