@@ -3,11 +3,12 @@ set -e
 
 TAG_NAME=latest
 IMAGE_NAME=gr00t_1_6_finetune
+HF_TOKEN=${1:?Usage: $0 <HF_TOKEN>}
 NGC_PATH=nvcr.io/nvidian/${IMAGE_NAME}:${TAG_NAME}
 
 # Building docker
 
-docker build -t $IMAGE_NAME . -f osmo/Dockerfile.gr00t_1_6
+docker build --build-arg HF_TOKEN=${HF_TOKEN} -t $IMAGE_NAME . -f osmo/Dockerfile.gr00t_1_6
 
 # Remove any old containers (exited or running).
 if [ "$(docker ps -a --quiet --filter name=$IMAGE_NAME)" ]; then
