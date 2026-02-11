@@ -63,7 +63,7 @@ class OpenDoorTask(RotateRevoluteJointTask):
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
 
     # Dependent on the openable object, so this is passed in from the task at
     # construction time.
