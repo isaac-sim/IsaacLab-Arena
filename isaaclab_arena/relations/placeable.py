@@ -17,12 +17,7 @@ class Placeable(Protocol):
     """Structural interface for any object the relation solver can position.
 
     Any class that implements these methods (e.g. Object, ObjectReference,
-    EmbodimentBase, DummyObject) is automatically a Placeable -- no explicit
-    inheritance required.
-
-    This Protocol lives in the relations module because it defines the contract
-    that the solver expects, keeping solver-specific concepts out of the core
-    asset hierarchy.
+    EmbodimentBase, DummyObject) is automatically a Placeable.
     """
 
     @property
