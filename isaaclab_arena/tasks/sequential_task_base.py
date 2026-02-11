@@ -169,6 +169,7 @@ class SequentialTaskBase(TaskBase):
                 if current_subtask_idx < len(subtasks) - 1:
                     env._current_subtask_idx[env_idx] += 1
 
+        # Compute composite task success state for each env
         if desired_subtask_success_state:
             per_env_success = [
                 all(env._subtask_success_state[env_idx])
