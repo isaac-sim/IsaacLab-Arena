@@ -52,7 +52,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
 
       model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
       language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
-      action_horizon: 16
+      action_horizon: 50
       embodiment_tag: NEW_EMBODIMENT
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
@@ -61,7 +61,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
       action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
       state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
 
-      action_chunk_length: 16
+      action_chunk_length: 50
       pov_cam_name_sim: "robot_head_cam_rgb"
 
       task_mode_name: g1_locomanipulation

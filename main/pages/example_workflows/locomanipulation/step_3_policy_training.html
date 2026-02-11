@@ -504,7 +504,7 @@ We provide one post-training option, 8 GPUs with 48GB memory, to achieve the bes
 <li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
 <li><p><strong>Tuned Modules:</strong> Visual backbone, projector, diffusion model</p></li>
 <li><p><strong>Frozen Modules:</strong> LLM (language model)</p></li>
-<li><p><strong>Batch Size:</strong> 24 (adjust based on GPU memory)</p></li>
+<li><p><strong>Batch Size:</strong> 96 (adjust based on GPU memory)</p></li>
 <li><p><strong>Training Steps:</strong> 20,000</p></li>
 <li><p><strong>GPUs:</strong> 8 (multi-GPU training)</p></li>
 </ul>
@@ -513,7 +513,7 @@ We provide one post-training option, 8 GPUs with 48GB memory, to achieve the bes
 --dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
 --modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py<span class="w"> </span><span class="se">\</span>
---global_batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+--global_batch_size<span class="o">=</span><span class="m">96</span><span class="w"> </span><span class="se">\</span>
 --max_steps<span class="o">=</span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
 --num_gpus<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
 --save_steps<span class="o">=</span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
