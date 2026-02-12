@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import gymnasium as gym
 import numpy as np
 import os
@@ -49,7 +50,12 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
 
 
 def is_distributed(args_cli: argparse.Namespace) -> bool:
-    return "cuda" in args_cli.device and args_cli.get("distributed", False) and int(os.environ.get("WORLD_SIZE", "1")) > 1
+    return (
+        "cuda" in args_cli.device
+        and hasattr(args_cli, "distributed")
+        and args_cli.distributed
+        and int(os.environ.get("WORLD_SIZE", "1")) > 1
+    )
 
 
 def rollout_policy(
@@ -57,9 +63,6 @@ def rollout_policy(
     policy: "PolicyBase",
     num_steps: int | None,
     num_episodes: int | None,
-    *,
-    rank: int | None = None,
-    world_size: int | None = None,
 ) -> dict[str, Any]:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
@@ -203,7 +206,7 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes, rank=local_rank, world_size=world_size)
+        metrics = rollout_policy(env, policy, num_steps, num_episodes)
 
         if metrics is not None:
             # Each rank prints its own metrics as it can be different due to random seed
