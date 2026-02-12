@@ -24,6 +24,7 @@ from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.sim import PinholeCameraCfg
+import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.franka import FRANKA_ROBOTIQ_GRIPPER_CFG
@@ -90,8 +91,39 @@ class DroidSceneCfg:
     """Additions to the scene configuration coming from the Franka embodiment."""
 
     # The robot
-    robot: ArticulationCfg = FRANKA_ROBOTIQ_GRIPPER_CFG.replace(
+    robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
+        spawn=sim_utils.UsdFileCfg(
+            usd_path="omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+            activate_contact_sensors=True,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=True,
+                max_depenetration_velocity=5.0,
+            ),
+            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                enabled_self_collisions=False,
+                solver_position_iteration_count=64,
+                solver_velocity_iteration_count=0,
+            ),
+        ),
+        init_state=ArticulationCfg.InitialStateCfg(
+            pos=(0, 0, 0),
+            rot=(1, 0, 0, 0),
+            joint_pos={
+                "panda_joint1": 0.0,
+                "panda_joint2": -1 / 5 * torch.pi,
+                "panda_joint3": 0.0,
+                "panda_joint4": -4 / 5 * torch.pi,
+                "panda_joint5": 0.0,
+                "panda_joint6": 3 / 5 * torch.pi,
+                "panda_joint7": 0,
+                "finger_joint": 0.0,
+                "right_outer.*": 0.0,
+                "left_inner.*": 0.0,
+                "right_inner.*": 0.0,
+            },
+        ),
+        soft_joint_pos_limit_factor=1,
         actuators={
             "panda_shoulder": ImplicitActuatorCfg(
                 joint_names_expr=["panda_joint[1-4]"],
@@ -115,7 +147,6 @@ class DroidSceneCfg:
             ),
         },
     )
-
     # The stand for the franka
     # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
     stand: AssetBaseCfg = AssetBaseCfg(
@@ -129,26 +160,27 @@ class DroidSceneCfg:
     )
 
     # The end-effector frame marker
+    # TODO: Need to verify that pos is correct
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_hand",
+                prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
                 name="end_effector",
                 offset=OffsetCfg(
                     pos=[0.0, 0.0, 0.1034],
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_rightfinger",
+                prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/right_inner_finger",
                 name="tool_rightfinger",
                 offset=OffsetCfg(
                     pos=(0.0, 0.0, 0.046),
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_leftfinger",
+                prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/left_inner_finger",
                 name="tool_leftfinger",
                 offset=OffsetCfg(
                     pos=(0.0, 0.0, 0.046),
@@ -182,7 +214,7 @@ class DroidActionsCfg:
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
         asset_name="robot",
         joint_names=["panda_joint.*"],
-        body_name="panda_hand",
+        body_name="panda_link0",
         controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
         scale=0.5,
         body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
@@ -272,7 +304,7 @@ class DroidCameraCfg:
             height=720,
             width=1280,
             data_types=["rgb"],
-            spawn=PinholeCameraCfg(
+            spawn=sim_utils.PinholeCameraCfg(
                 focal_length=2.1,
                 focus_distance=28.0,
                 horizontal_aperture=5.376,
@@ -285,7 +317,7 @@ class DroidCameraCfg:
             height=720,
             width=1280,
             data_types=["rgb"],
-            spawn=PinholeCameraCfg(
+            spawn=sim_utils.PinholeCameraCfg(
                 focal_length=2.1,
                 focus_distance=28.0,
                 horizontal_aperture=5.376,
@@ -296,11 +328,11 @@ class DroidCameraCfg:
             ),
         )
         self.wrist_camera = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/Robotiq_2F_85_edit/Robotiq_2F_85/base_link/wrist_camera",
+            prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
             height=720,
             width=1280,
             data_types=["rgb"],
-            spawn=PinholeCameraCfg(
+            spawn=sim_utils.PinholeCameraCfg(
                 focal_length=2.8,
                 focus_distance=28.0,
                 horizontal_aperture=5.376,
