@@ -2,7 +2,7 @@ Policy Training
 ---------------
 
 This workflow covers training an RL policy from scratch using RSL-RL's PPO implementation.
-The training is fully parallelized across hundreds of environments for sample-efficient learning.
+The training is fully parallelized across hundreds of environments for efficient learning.
 
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
 

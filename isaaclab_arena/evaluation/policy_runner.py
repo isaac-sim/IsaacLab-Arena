@@ -127,7 +127,7 @@ def main():
     """
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
-    args_cli, unknown = args_parser.parse_known_args()
+    # args_cli, unknown = args_parser.parse_known_args()
 
     local_rank = get_local_rank()
     world_size = get_world_size()
