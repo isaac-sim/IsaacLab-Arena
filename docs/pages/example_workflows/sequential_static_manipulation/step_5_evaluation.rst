@@ -108,18 +108,39 @@ Step 2: Run Parallel environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-Test the policy in 10 parallel environments with visualization via the GUI run:
+.. tabs::
 
-.. code-block:: bash
+   .. tab:: Single GPU Evaluation
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
-     --num_steps 2000 \
-     --num_envs 10 \
-     --enable_cameras \
-     gr1_open_microwave \
-     --embodiment gr1_joint
+      Test the policy in 10 parallel environments with visualization via the GUI run:
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --num_steps 2000 \
+           --num_envs 10 \
+           --enable_cameras \
+           gr1_open_microwave \
+           --embodiment gr1_joint
+
+   .. tab:: Distribute Multi-GPU Evaluation
+
+      Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
+
+      .. code-block:: bash
+
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --num_steps 2000 \
+           --num_envs 10 \
+           --enable_cameras \
+           --distributed \
+           gr1_open_microwave \
+           --embodiment gr1_joint
+
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the microwave door is opened),

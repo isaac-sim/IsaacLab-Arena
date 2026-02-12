@@ -67,24 +67,60 @@ Usage Examples
 
 **Baseline Testing**
 
-.. code-block:: bash
+.. tabs::
 
-   # Zero action policy for environment validation
-   python policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000
+   .. tab:: Single GPU
+
+      .. code-block:: bash
+
+         # Zero action policy for environment validation
+         python policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000
+
+   .. tab:: Distribute Multi-GPU
+
+      .. code-block:: bash
+
+         # Zero action policy for environment validation
+         # --nproc_per_node represents the number of available GPUs
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000 --distributed
 
 **Demonstration Replay**
 
-.. code-block:: bash
+.. tabs::
 
-   # Replay recorded demonstrations
-   python policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place
+   .. tab:: Single GPU
+
+      .. code-block:: bash
+
+         # Replay recorded demonstrations
+         python policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place
+
+   .. tab:: Distribute Multi-GPU
+
+      .. code-block:: bash
+
+         # Replay recorded demonstrations
+         # --nproc_per_node represents the number of available GPUs
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place --distributed
 
 **Neural Policy Execution**
 
-.. code-block:: bash
+.. tabs::
 
-   # GR00T foundation model deployment
-   python policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml
+   .. tab:: Single GPU
+
+      .. code-block:: bash
+
+         # GR00T foundation model deployment
+         python policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml
+
+   .. tab:: Distribute Multi-GPU
+
+      .. code-block:: bash
+
+         # GR00T foundation model deployment
+         # --nproc_per_node represents the number of available GPUs
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml --distributed
 
 **Custom Policy Integration**
 

@@ -94,21 +94,45 @@ Step 2: Run Parallel Environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-Test the policy in 5 parallel environments with visualization via the GUI run:
+.. tabs::
 
-.. code-block:: bash
+   .. tab:: Single GPU Evaluation
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
-     --num_envs 5 \
-     --enable_cameras \
-     --device cpu \
-     --policy_device cuda  \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
+      Test the policy in 5 parallel environments with visualization via the GUI run:
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+           --num_steps 1200 \
+           --num_envs 5 \
+           --enable_cameras \
+           --device cuda \
+           --policy_device cuda  \
+           galileo_g1_locomanip_pick_and_place \
+           --object brown_box \
+           --embodiment g1_wbc_joint
+
+   .. tab:: Distribute Multi-GPU Evaluation
+
+      Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:
+
+      .. code-block:: bash
+
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+           --num_steps 1200 \
+           --num_envs 5 \
+           --enable_cameras \
+           --device cuda \
+           --policy_device cuda  \
+           --distributed \
+           galileo_g1_locomanip_pick_and_place \
+           --object brown_box \
+           --embodiment g1_wbc_joint
+
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,
