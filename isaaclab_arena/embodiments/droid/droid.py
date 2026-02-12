@@ -107,10 +107,11 @@ class DroidSceneCfg:
                 stiffness=400.0,
                 damping=80.0,
             ),
+            ##### neel:having none values for stiffness and damping for gripper does not let the gripper open#########
             "gripper": ImplicitActuatorCfg(
                 joint_names_expr=["finger_joint"],
-                stiffness=None,
-                damping=None,
+                stiffness=17.0,
+                damping=0.02,
                 velocity_limit=1.0,
             ),
         },

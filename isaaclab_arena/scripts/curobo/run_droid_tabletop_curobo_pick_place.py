@@ -28,7 +28,7 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
         nargs='+',
         type=str,
         default=None,
-        help='Explicit object pick order. Defaults to deterministic auto-discovery from scene rigid objects.',
+        help='Explicit object pick order. If not specified, auto-discovers all objects from scene.',
     )
     parser.add_argument(
         '--max_objects',
@@ -69,7 +69,7 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--gripper_settle_steps',
         type=int,
-        default=16,
+        default=50,
         help='Number of env steps to hold pose while opening/closing gripper.',
     )
     parser.add_argument(
@@ -115,6 +115,12 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
         help='Run one pre-flight lift planning check to distinguish setup issues from goal issues.',
     )
     parser.add_argument(
+        '--goal_z_boost',
+        type=float,
+        default=0.0,
+        help='Extra Z offset added to ALL goal poses in robot-frame for IK reachability testing.',
+    )
+    parser.add_argument(
         '--rerun_recording_path',
         type=str,
         default=None,
@@ -147,6 +153,7 @@ def _get_current_eef_pose(env, planner, env_id: int = 0) -> torch.Tensor:
     ee_pos = planner._to_env_device(ee_pose.position).view(-1, 3)[0]
     ee_quat = planner._to_env_device(ee_pose.quaternion).view(-1, 4)[0]
     ee_rot = math_utils.matrix_from_quat(ee_quat.unsqueeze(0))[0]
+    print(f"[DEBUG EEF] CuRobo EEF position: {ee_pos}")
     return math_utils.make_pose(ee_pos, ee_rot)
 
 
@@ -179,10 +186,45 @@ def _execute_plan(env, planner, gripper_binary_action: float, env_id: int = 0) -
 
 
 def _execute_gripper_action(env, planner, gripper_binary_action: float, steps: int = 12, env_id: int = 0) -> None:
-    curr_pose = _get_current_eef_pose(env, planner, env_id=env_id)
+    state = "OPEN" if gripper_binary_action < 0.5 else "CLOSE"
+    robot = env.scene['robot']
+    finger_idx = robot.find_joints("finger_joint")[0]
+    joint_pos_before = robot.data.joint_pos[env_id, finger_idx].item()
+    print(f"[GRIPPER] Commanding {state} (action={gripper_binary_action}) | finger BEFORE: {joint_pos_before:.4f}")
+    
+    import isaaclab.utils.math as math_utils
+    
+    # Snapshot the target EE pose to hold (from Isaac Lab body frame)
+    EE_OFFSET = torch.tensor([0.0, 0.0, 0.107], device=env.device, dtype=torch.float32)
+    hand_body_idx = robot.find_bodies("panda_hand")[0][0]
+    
+    # Capture hold target once
+    hand_pos_target = robot.data.body_link_pos_w[env_id, hand_body_idx, :].clone()
+    hand_quat_target = robot.data.body_link_quat_w[env_id, hand_body_idx, :].clone()
+    hand_rot_target = math_utils.matrix_from_quat(hand_quat_target.unsqueeze(0))[0]
+    target_pos = hand_pos_target + hand_rot_target @ EE_OFFSET
+    target_rot = hand_rot_target
+    
     for _ in range(steps):
-        action = _action_from_pose(env, planner, curr_pose, gripper_binary_action, env_id=env_id)
+        # Read CURRENT EE pose each step
+        hand_pos_now = robot.data.body_link_pos_w[env_id, hand_body_idx, :].clone()
+        hand_quat_now = robot.data.body_link_quat_w[env_id, hand_body_idx, :].clone()
+        hand_rot_now = math_utils.matrix_from_quat(hand_quat_now.unsqueeze(0))[0]
+        curr_pos = hand_pos_now + hand_rot_now @ EE_OFFSET
+        curr_rot = hand_rot_now
+        
+        # Compute correction delta to return to target
+        delta_pos = target_pos - curr_pos
+        delta_rot_mat = target_rot @ curr_rot.transpose(-1, -2)
+        delta_quat = math_utils.quat_from_matrix(delta_rot_mat.unsqueeze(0))[0]
+        delta_aa = math_utils.axis_angle_from_quat(delta_quat.unsqueeze(0))[0]
+        
+        gripper_val = torch.tensor([gripper_binary_action], device=env.device, dtype=torch.float32)
+        action = torch.cat([delta_pos, delta_aa, gripper_val]).unsqueeze(0)
         env.step(action)
+    
+    joint_pos_after = robot.data.joint_pos[env_id, finger_idx].item()
+    print(f"[GRIPPER] {state} completed | finger AFTER: {joint_pos_after:.4f}")
 
 
 def _pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.Tensor:
@@ -193,9 +235,18 @@ def _pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch
 
 
 def _get_object_pos(env, object_name: str, env_id: int = 0) -> torch.Tensor:
+    """Get object position in robot-base frame (cuRobo's coordinate system).
+    
+    CuRobo's coordinate system has the robot base at the origin, so we need to
+    convert from world coordinates to robot-base-relative coordinates.
+    """
     obj = env.scene[object_name]
-    env_origin = env.scene.env_origins[env_id, 0:3]
-    return (obj.data.root_pos_w[env_id, :3] - env_origin).clone().detach()
+    robot = env.scene['robot']
+    world_pos = obj.data.root_pos_w[env_id, :3]
+    robot_base_pos = robot.data.root_pos_w[env_id, :3]
+    robot_frame_pos = world_pos - robot_base_pos
+    print(f"[DEBUG OBJ] {object_name}: world={world_pos}, robot_base={robot_base_pos}, robot_frame={robot_frame_pos}")
+    return robot_frame_pos.clone().detach()
 
 
 def _auto_pick_order(env, explicit_order: list[str] | None) -> list[str]:
@@ -368,22 +419,25 @@ def _make_planner_cfg(args_cli: argparse.Namespace):
         retreat_distance=args_cli.retreat_distance,
         time_dilation_factor=args_cli.time_dilation_factor,
         collision_activation_distance=0.01,
-        visualize_plan=True,
+        visualize_plan=False,
         visualize_spheres=False,
         debug_planner=args_cli.debug_planner,
         world_ignore_substrings=['/World/defaultGroundPlane', '/curobo'],
     )
 
 
-def _visualize_goal_pose(target_pose: torch.Tensor, goal_pose_visualizer) -> None:
-    if goal_pose_visualizer is None:
-        return
-
+def _visualize_goal_pose(target_pose: torch.Tensor, goal_pose_visualizer, robot_base_pos: torch.Tensor, stage: str = '') -> None:
+    """Visualize goal pose marker and log coordinates."""
     import isaaclab.utils.math as math_utils
 
-    pos = target_pose[:3, 3].detach().cpu().unsqueeze(0)
+    pos_robot_frame = target_pose[:3, 3].detach().cpu()
+    pos_world_frame = pos_robot_frame + robot_base_pos.detach().cpu()
     quat = math_utils.quat_from_matrix(target_pose[:3, :3].unsqueeze(0)).detach().cpu()
-    goal_pose_visualizer.visualize(translations=pos, orientations=quat)
+
+    print(f"[GOAL MARKER] {stage}: robot_frame={pos_robot_frame.tolist()}, world={pos_world_frame.tolist()}")
+
+    if goal_pose_visualizer is not None:
+        goal_pose_visualizer.visualize(translations=pos_world_frame.unsqueeze(0), orientations=quat)
 
 
 def _plan_and_execute(
@@ -397,7 +451,16 @@ def _plan_and_execute(
     sphere_dump_png: bool = False,
     goal_pose_visualizer=None,
 ) -> bool:
-    _visualize_goal_pose(target_pose, goal_pose_visualizer)
+    robot_base_pos = env.scene['robot'].data.root_pos_w[0, :3]
+    _visualize_goal_pose(target_pose, goal_pose_visualizer, robot_base_pos, stage=stage)
+
+    # Force render so marker is visible even if planning fails (Isaac Sim needs env.step to render)
+    if goal_pose_visualizer is not None:
+        current_pose = _get_current_eef_pose(env, planner)
+        hold_action = _action_from_pose(env, planner, current_pose, gripper_action, env_id=0)
+        for _ in range(3):
+            env.step(hold_action)
+
     _dump_curobo_spheres(planner, f'{stage}_pre', sphere_dump_dir, save_png=sphere_dump_png)
 
     plan_ok = planner.update_world_and_plan_motion(
@@ -440,6 +503,7 @@ def _run_sanity_check(
     curr_pose = _get_current_eef_pose(env, planner)
     lifted_pose = curr_pose.clone()
     lifted_pose[2, 3] += 0.05
+    robot_base_pos = env.scene['robot'].data.root_pos_w[0, :3]
 
     ok = _plan_and_execute(
         env=env,
@@ -480,19 +544,23 @@ def main() -> None:
         sphere_dump_dir = Path(args_cli.dump_spheres_dir) if args_cli.dump_spheres_dir else None
 
         goal_pose_visualizer = None
-        if not getattr(args_cli, 'headless', True):
+        if not getattr(args_cli, 'headless', False):
             marker_cfg = deepcopy(FRAME_MARKER_CFG)
             marker_cfg.prim_path = '/World/Visuals/curobo_goal_pose'
             frame_marker = marker_cfg.markers.get('frame')
             if frame_marker is not None:
-                setattr(frame_marker, 'scale', (0.1, 0.1, 0.1))
+                setattr(frame_marker, 'scale', (0.15, 0.15, 0.15))
             goal_pose_visualizer = VisualizationMarkers(marker_cfg)
 
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
         env.reset()
-
+        
         robot = env.scene['robot']
+        robot_world_pos = robot.data.root_pos_w[0, :3]
+        print(f"[DEBUG INIT] Robot world position: {robot_world_pos}")
+        print(f"[DEBUG INIT] CuRobo coordinate system: robot base at origin, all goals/objects in robot-base frame")
+        
         planner_cfg = _make_planner_cfg(args_cli)
         planner = CuroboPlanner(
             env=env,
@@ -522,7 +590,13 @@ def main() -> None:
                 print('[RERUN] visualize_plan is disabled; no recording will be produced.')
 
         if args_cli.run_sanity_check:
-            _run_sanity_check(planner, env, sphere_dump_dir, args_cli.dump_spheres_png, goal_pose_visualizer)
+            _run_sanity_check(
+                planner,
+                env,
+                sphere_dump_dir,
+                args_cli.dump_spheres_png,
+                goal_pose_visualizer,
+            )
 
         pick_order = _auto_pick_order(env, explicit_order=args_cli.pick_order)
         if args_cli.max_objects is not None:
@@ -533,56 +607,60 @@ def main() -> None:
         print(f'Resolved pick order: {pick_order}')
 
         bin_pos = _get_object_pos(env, 'blue_sorting_bin')
-        print(f'Bin center position (env frame): {bin_pos}')
+        print(f'Bin center position (robot frame): {bin_pos}')
 
-        had_any_failure = False
+        # Track success/failure for each object
+        results = {}  # object_name -> {stage: success_bool}
+        
         for idx, object_name in enumerate(pick_order):
             object_pos = _get_object_pos(env, object_name)
+            print(f"\n{'='*80}")
             print(f"[{idx + 1}/{len(pick_order)}] Planning for object '{object_name}' at {object_pos}")
+            print(f"{'='*80}")
+            
+            results[object_name] = {}
 
-            pre_grasp_xyz = object_pos.clone()
-            pre_grasp_xyz[2] += args_cli.pre_grasp_height
-            pre_grasp_pose = _pose_from_pos_quat(pre_grasp_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
-
+            # Plan directly to grasp pose (approach_distance auto-adds retreat+approach phases)
             grasp_xyz = object_pos.clone()
-            grasp_xyz[2] += args_cli.grasp_height_offset
+            grasp_xyz[2] += args_cli.grasp_height_offset + args_cli.goal_z_boost
             grasp_pose = _pose_from_pos_quat(grasp_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+            
+            # Compute reachability metrics
+            current_eef_pose = _get_current_eef_pose(env, planner)
+            current_eef_pos = current_eef_pose[:3, 3]
+            distance_to_goal = torch.norm(grasp_xyz - current_eef_pos).item()
+            
+            print(f"[DEBUG GOAL] Current EEF (robot-frame): {current_eef_pos}")
+            print(f"[DEBUG GOAL] Grasp XYZ (robot-frame): {grasp_xyz}")
+            print(f"[DEBUG GOAL] Distance to goal: {distance_to_goal:.3f}m")
+            if args_cli.goal_z_boost != 0.0:
+                print(f"[DEBUG GOAL] goal_z_boost applied: {args_cli.goal_z_boost}m")
+            print(f"[DEBUG GOAL] Approach distance: {args_cli.approach_distance}m (cuRobo multi-phase)")
 
             slot_center_xyz = _placement_slot(bin_pos, idx, args_cli.slot_spacing)
             place_above_xyz = slot_center_xyz.clone()
-            place_above_xyz[2] += args_cli.transport_height
+            place_above_xyz[2] += args_cli.transport_height + args_cli.goal_z_boost
             place_above_pose = _pose_from_pos_quat(place_above_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
 
             place_xyz = slot_center_xyz.clone()
-            place_xyz[2] += args_cli.place_height_offset
+            place_xyz[2] += args_cli.place_height_offset + args_cli.goal_z_boost
             place_pose = _pose_from_pos_quat(place_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
 
-            if not _plan_and_execute(
-                env,
-                planner,
-                target_pose=pre_grasp_pose,
-                gripper_action=GRIPPER_OPEN_CMD,
-                expected_attached_object=None,
-                stage=f'{object_name}:approach',
-                sphere_dump_dir=sphere_dump_dir,
-                sphere_dump_png=args_cli.dump_spheres_png,
-                goal_pose_visualizer=goal_pose_visualizer,
-            ):
-                had_any_failure = True
-                continue
-
-            if not _plan_and_execute(
+            # Single grasp motion (approach_distance adds multi-phase planning automatically)
+            grasp_success = _plan_and_execute(
                 env,
                 planner,
                 target_pose=grasp_pose,
                 gripper_action=GRIPPER_OPEN_CMD,
                 expected_attached_object=None,
-                stage=f'{object_name}:descend',
+                stage=f'{object_name}:grasp',
                 sphere_dump_dir=sphere_dump_dir,
                 sphere_dump_png=args_cli.dump_spheres_png,
                 goal_pose_visualizer=goal_pose_visualizer,
-            ):
-                had_any_failure = True
+            )
+            results[object_name]['grasp'] = grasp_success
+            if not grasp_success:
+                print(f"[SKIP] Skipping remaining stages for '{object_name}' due to grasp planning failure")
                 continue
 
             _execute_gripper_action(
@@ -593,32 +671,39 @@ def main() -> None:
                 env_id=0,
             )
 
-            if not _plan_and_execute(
+            # Transport without expected_attached_object to avoid ee_frame CUDA crash
+            transport_success = _plan_and_execute(
                 env,
                 planner,
                 target_pose=place_above_pose,
                 gripper_action=GRIPPER_CLOSE_CMD,
-                expected_attached_object=object_name,
+                expected_attached_object=None,
                 stage=f'{object_name}:transport',
                 sphere_dump_dir=sphere_dump_dir,
                 sphere_dump_png=args_cli.dump_spheres_png,
                 goal_pose_visualizer=goal_pose_visualizer,
-            ):
-                had_any_failure = True
+            )
+            results[object_name]['transport'] = transport_success
+            if not transport_success:
+                print(f"[SKIP] Skipping remaining stages for '{object_name}' due to transport failure")
+                _execute_gripper_action(env, planner, gripper_binary_action=GRIPPER_OPEN_CMD, steps=args_cli.gripper_settle_steps, env_id=0)
                 continue
 
-            if not _plan_and_execute(
+            place_success = _plan_and_execute(
                 env,
                 planner,
                 target_pose=place_pose,
                 gripper_action=GRIPPER_CLOSE_CMD,
-                expected_attached_object=object_name,
+                expected_attached_object=None,
                 stage=f'{object_name}:place',
                 sphere_dump_dir=sphere_dump_dir,
                 sphere_dump_png=args_cli.dump_spheres_png,
                 goal_pose_visualizer=goal_pose_visualizer,
-            ):
-                had_any_failure = True
+            )
+            results[object_name]['place'] = place_success
+            if not place_success:
+                print(f"[SKIP] Skipping retreat for '{object_name}' due to place failure")
+                _execute_gripper_action(env, planner, gripper_binary_action=GRIPPER_OPEN_CMD, steps=args_cli.gripper_settle_steps, env_id=0)
                 continue
 
             _execute_gripper_action(
@@ -632,7 +717,7 @@ def main() -> None:
             retreat_xyz = place_xyz.clone()
             retreat_xyz[2] += 0.10
             retreat_pose = _pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
-            _plan_and_execute(
+            retreat_success = _plan_and_execute(
                 env,
                 planner,
                 target_pose=retreat_pose,
@@ -643,9 +728,40 @@ def main() -> None:
                 sphere_dump_png=args_cli.dump_spheres_png,
                 goal_pose_visualizer=goal_pose_visualizer,
             )
+            results[object_name]['retreat'] = retreat_success
 
-        if had_any_failure:
-            print('[INFO] One or more planning stages failed; skipping final EEF query to avoid cascading CUDA assert state.')
+        # Print summary
+        print(f"\n{'='*80}")
+        print("PICK AND PLACE RESULTS SUMMARY")
+        print(f"{'='*80}")
+        
+        successful_objects = []
+        failed_objects = []
+        
+        for obj_name, stages in results.items():
+            all_success = all(stages.values()) if stages else False
+            if all_success:
+                successful_objects.append(obj_name)
+                print(f"{obj_name}: SUCCESS (all stages completed)")
+            else:
+                failed_objects.append(obj_name)
+                failed_stage = next((stage for stage, success in stages.items() if not success), 'unknown')
+                print(f"{obj_name}: FAILED at stage '{failed_stage}'")
+                for stage, success in stages.items():
+                    status = "Successful" if success else "Failed"
+                    print(f" {stage}: {status}")
+        
+        print(f"\nTotal: {len(successful_objects)}/{len(results)} objects successfully picked and placed")
+        
+        if failed_objects:
+            print(f"\nFailed objects: {', '.join(failed_objects)}")
+        if successful_objects:
+            print(f"Successful objects: {', '.join(successful_objects)}")
+        
+        print(f"{'='*80}\n")
+        
+        if len(successful_objects) == 0:
+            print('[INFO] All objects failed; skipping final EEF query.')
             env.close()
             return
 
