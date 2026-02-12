@@ -48,6 +48,10 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
         return policy_cls
 
 
+def is_distributed(args_cli: argparse.Namespace) -> bool:
+    return "cuda" in args_cli.device and args_cli.get("distributed", False) and int(os.environ.get("WORLD_SIZE", "1")) > 1
+
+
 def rollout_policy(
     env,
     policy: "PolicyBase",
@@ -132,7 +136,7 @@ def main():
     # world size is the number of processes running the script, set by torchrun command
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     # Setting device to local rank before SimulationAppContext
-    if world_size > 1:
+    if is_distributed(args_cli):
         args_cli.distributed = True
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
@@ -155,7 +159,7 @@ def main():
         args_parser = policy_cls.add_args_to_parser(args_parser)
         args_cli = args_parser.parse_args()
         # Re-apply per-rank device after parse preventing device got overwritten by the default value
-        if world_size > 1:
+        if is_distributed(args_cli):
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
 
@@ -163,14 +167,14 @@ def main():
         arena_builder = get_arena_builder_from_cli(args_cli)
         name, cfg = arena_builder.build_registered()
         # Avoid HDF5 file lock conflict when distributed: each rank uses a unique dataset filename
-        if world_size > 1 and hasattr(cfg, "recorders") and cfg.recorders is not None:
+        if is_distributed(args_cli) and hasattr(cfg, "recorders") and cfg.recorders is not None:
             base = getattr(cfg.recorders, "dataset_filename", "dataset")
             cfg.recorders.dataset_filename = f"{base}_rank{local_rank}"
         env = gym.make(name, cfg=cfg).unwrapped
 
         # Per-rank seed when distributed so each process has a different seed
         seed = args_cli.seed
-        if seed is not None and world_size > 1:
+        if seed is not None and is_distributed(args_cli):
             seed = seed + local_rank
         if seed is not None:
             env.seed(seed)
@@ -195,16 +199,16 @@ def main():
                 num_episodes = args_cli.num_episodes
                 print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
             else:
-                raise ValueError("Either num_steps or num_episodes must be provided")
+                raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
         metrics = rollout_policy(env, policy, num_steps, num_episodes, rank=local_rank, world_size=world_size)
 
         if metrics is not None:
+            # Each rank prints its own metrics as it can be different due to random seed
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
 
-        # Sync so both ranks call env.close() together (otherwise one can block in env.closprint(f"[Rank {rank}/{world_size}] Reached barrier before env.close()", flush=True)
         env.close()
 
 

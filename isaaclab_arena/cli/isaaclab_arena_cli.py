@@ -27,7 +27,7 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
     )
     isaac_lab_group.add_argument(
-        "--seed", type=int, default=None, help="Optional seed for the random number generator."
+        "--seed", type=int, default=42, help="Optional seed for the random number generator."
     )
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
