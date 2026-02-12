@@ -13,10 +13,9 @@ if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.orchestrator.orchestrator_base import OrchestratorBase
+    from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
-
-from isaaclab_arena.reinforment_learning.frameworks import RLFramework
 
 
 class IsaacLabArenaEnvironment:
