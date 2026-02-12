@@ -4,6 +4,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+######## From Neel: This script is an example of how to use the curobo planner to pick and place objects.
+######## It is not a complete pick and place policy, but it is a good starting point
+
 from __future__ import annotations
 
 import argparse
@@ -69,7 +72,7 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--gripper_settle_steps',
         type=int,
-        default=50,
+        default=200,
         help='Number of env steps to hold pose while opening/closing gripper.',
     )
     parser.add_argument(
@@ -111,7 +114,7 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--run_sanity_check',
         action='store_true',
-        default=True,
+        default=False,
         help='Run one pre-flight lift planning check to distinguish setup issues from goal issues.',
     )
     parser.add_argument(
@@ -192,36 +195,23 @@ def _execute_gripper_action(env, planner, gripper_binary_action: float, steps: i
     joint_pos_before = robot.data.joint_pos[env_id, finger_idx].item()
     print(f"[GRIPPER] Commanding {state} (action={gripper_binary_action}) | finger BEFORE: {joint_pos_before:.4f}")
     
-    import isaaclab.utils.math as math_utils
+    import math
+    # Record current arm joint positions and replay them directly - no IK controller
+    arm_joint_ids = robot.find_joints("panda_joint.*")[0]
+    held_arm_pos = robot.data.joint_pos[env_id, arm_joint_ids].clone()
+    finger_target = 0.0 if gripper_binary_action < 0.5 else math.pi / 4
     
-    # Snapshot the target EE pose to hold (from Isaac Lab body frame)
-    EE_OFFSET = torch.tensor([0.0, 0.0, 0.107], device=env.device, dtype=torch.float32)
-    hand_body_idx = robot.find_bodies("panda_hand")[0][0]
+    # Build full joint target: arm stays, gripper moves
+    all_target = robot.data.joint_pos[env_id, :].clone().unsqueeze(0)
+    finger_joint_idx = robot.find_joints("finger_joint")[0]
+    all_target[0, finger_joint_idx] = finger_target
     
-    # Capture hold target once
-    hand_pos_target = robot.data.body_link_pos_w[env_id, hand_body_idx, :].clone()
-    hand_quat_target = robot.data.body_link_quat_w[env_id, hand_body_idx, :].clone()
-    hand_rot_target = math_utils.matrix_from_quat(hand_quat_target.unsqueeze(0))[0]
-    target_pos = hand_pos_target + hand_rot_target @ EE_OFFSET
-    target_rot = hand_rot_target
-    
+    # Step sim directly - no action manager, no IK controller
     for _ in range(steps):
-        # Read CURRENT EE pose each step
-        hand_pos_now = robot.data.body_link_pos_w[env_id, hand_body_idx, :].clone()
-        hand_quat_now = robot.data.body_link_quat_w[env_id, hand_body_idx, :].clone()
-        hand_rot_now = math_utils.matrix_from_quat(hand_quat_now.unsqueeze(0))[0]
-        curr_pos = hand_pos_now + hand_rot_now @ EE_OFFSET
-        curr_rot = hand_rot_now
-        
-        # Compute correction delta to return to target
-        delta_pos = target_pos - curr_pos
-        delta_rot_mat = target_rot @ curr_rot.transpose(-1, -2)
-        delta_quat = math_utils.quat_from_matrix(delta_rot_mat.unsqueeze(0))[0]
-        delta_aa = math_utils.axis_angle_from_quat(delta_quat.unsqueeze(0))[0]
-        
-        gripper_val = torch.tensor([gripper_binary_action], device=env.device, dtype=torch.float32)
-        action = torch.cat([delta_pos, delta_aa, gripper_val]).unsqueeze(0)
-        env.step(action)
+        robot.set_joint_position_target(all_target)
+        env.scene.write_data_to_sim()
+        env.sim.step(render=True)
+        env.scene.update(dt=env.physics_dt)
     
     joint_pos_after = robot.data.joint_pos[env_id, finger_idx].item()
     print(f"[GRIPPER] {state} completed | finger AFTER: {joint_pos_after:.4f}")
@@ -250,7 +240,15 @@ def _get_object_pos(env, object_name: str, env_id: int = 0) -> torch.Tensor:
 
 
 def _auto_pick_order(env, explicit_order: list[str] | None) -> list[str]:
+    import random as _random
     rigid_object_names = list(env.scene.rigid_objects.keys())
+    
+    if explicit_order is not None and len(explicit_order) == 1 and explicit_order[0].lower() == 'random':
+        explicit_order = None
+        shuffle = True
+    else:
+        shuffle = False
+    
     if explicit_order is not None:
         missing = [name for name in explicit_order if name not in rigid_object_names]
         if missing:
@@ -262,7 +260,10 @@ def _auto_pick_order(env, explicit_order: list[str] | None) -> list[str]:
     excluded = {'blue_sorting_bin', 'ground_plane', 'office_table_background'}
     names = [name for name in rigid_object_names if name not in excluded]
     names = [name for name in names if 'table' not in name and 'light' not in name and 'stand' not in name]
-    names.sort()
+    if shuffle:
+        _random.shuffle(names)
+    else:
+        names.sort()
     return names
 
 
@@ -549,7 +550,7 @@ def main() -> None:
             marker_cfg.prim_path = '/World/Visuals/curobo_goal_pose'
             frame_marker = marker_cfg.markers.get('frame')
             if frame_marker is not None:
-                setattr(frame_marker, 'scale', (0.15, 0.15, 0.15))
+                setattr(frame_marker, 'scale', (0.08, 0.08, 0.08))
             goal_pose_visualizer = VisualizationMarkers(marker_cfg)
 
         arena_builder = get_arena_builder_from_cli(args_cli)
@@ -560,6 +561,17 @@ def main() -> None:
         robot_world_pos = robot.data.root_pos_w[0, :3]
         print(f"[DEBUG INIT] Robot world position: {robot_world_pos}")
         print(f"[DEBUG INIT] CuRobo coordinate system: robot base at origin, all goals/objects in robot-base frame")
+        joint_names = robot.joint_names
+        for i, name in enumerate(joint_names):
+            s = robot.data.default_joint_stiffness[0, i].item()
+            d = robot.data.default_joint_damping[0, i].item()
+            if 'finger' in name or 'knuckle' in name or 'panda' in name:
+                print(f"[DEBUG JOINT] {name}: default_stiffness={s:.4f}, default_damping={d:.4f}")
+        # Check for tendon/mimic constraints
+        if hasattr(robot.data, 'default_fixed_tendon_stiffness') and robot.data.default_fixed_tendon_stiffness is not None:
+            print(f"[DEBUG] Fixed tendons found: {robot.data.default_fixed_tendon_stiffness.shape}")
+        else:
+            print("[DEBUG] No fixed tendons found (mimic constraints may not be active)")
         
         planner_cfg = _make_planner_cfg(args_cli)
         planner = CuroboPlanner(
@@ -671,24 +683,7 @@ def main() -> None:
                 env_id=0,
             )
 
-            # Transport without expected_attached_object to avoid ee_frame CUDA crash
-            transport_success = _plan_and_execute(
-                env,
-                planner,
-                target_pose=place_above_pose,
-                gripper_action=GRIPPER_CLOSE_CMD,
-                expected_attached_object=None,
-                stage=f'{object_name}:transport',
-                sphere_dump_dir=sphere_dump_dir,
-                sphere_dump_png=args_cli.dump_spheres_png,
-                goal_pose_visualizer=goal_pose_visualizer,
-            )
-            results[object_name]['transport'] = transport_success
-            if not transport_success:
-                print(f"[SKIP] Skipping remaining stages for '{object_name}' due to transport failure")
-                _execute_gripper_action(env, planner, gripper_binary_action=GRIPPER_OPEN_CMD, steps=args_cli.gripper_settle_steps, env_id=0)
-                continue
-
+            # Plan directly to place pose (approach_distance handles final approach)
             place_success = _plan_and_execute(
                 env,
                 planner,
