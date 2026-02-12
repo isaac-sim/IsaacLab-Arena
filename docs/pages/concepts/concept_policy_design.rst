@@ -82,7 +82,7 @@ Usage Examples
 
          # Zero action policy for environment validation
          # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000 --distributed
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000 --distributed --headless
 
 **Demonstration Replay**
 
@@ -101,7 +101,7 @@ Usage Examples
 
          # Replay recorded demonstrations
          # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place --distributed
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place --distributed --headless
 
 **Neural Policy Execution**
 
@@ -120,7 +120,7 @@ Usage Examples
 
          # GR00T foundation model deployment
          # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml --distributed
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml --distributed --headless
 
 **Custom Policy Integration**
 

@@ -134,6 +134,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --num_envs 10 \
            --enable_cameras \
            --distributed \
+           --headless \
            gr1_open_microwave \
            --embodiment gr1_joint
 
