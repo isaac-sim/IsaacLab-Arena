@@ -85,6 +85,10 @@ class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
     def __init__(self, args: argparse.Namespace):
+        """
+        Args:
+            args (argparse.Namespace): The arguments to the simulation app.
+        """
         self.args = args
         self.app_launcher = None
 
