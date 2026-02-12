@@ -40,10 +40,9 @@ class GalbotEmbodiment(EmbodimentBase):
     default_arm_mode = ArmMode.LEFT
 
     def __init__(
-        self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode = ArmMode.LEFT
+        self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None
     ):
-        super().__init__(enable_cameras, initial_pose)
-        self.arm_mode = arm_mode or self.default_arm_mode
+        super().__init__(enable_cameras, initial_pose, arm_mode=arm_mode)
         if self.arm_mode == ArmMode.LEFT:
             self.scene_config = GalbotLeftArmSceneCfg()
             self.action_config = GalbotLeftArmActionsCfg()
@@ -140,9 +139,10 @@ class GalbotObservationsCfg:
 class GalbotEventCfg:
     """Event configuration for the Galbot robot."""
 
-    # NOTE(lanceli, 2026.2.6): This is necessary when using RmpFlowActionCfg to control the robot.
-    # The initial joint state must be aligned with that in GALBOT_LEFT_ARM_RMPFLOW_CFG,
-    # so we set mean=0.0 and std=0.0 to disable randomization.
+    # NOTE(lanceli, 2026.2.6): When using the RMPFlow controller, the initial joint state must
+    # be consistent with the default_joint_pos defined in GALBOT_LEFT_ARM_RMPFLOW_CFG. This event
+    # term ensures the embodiment's joint states are initialized to match. For the same reason,
+    # we disable randomization by setting mean=0.0 and std=0.0.
     randomize_galbot_joint_state = EventTerm(
         func=franka_stack_events.randomize_joint_by_gaussian_offset,
         mode="reset",
