@@ -41,36 +41,36 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
         embodiment = self.asset_registry.get_asset_by_name("droid")(enable_cameras=args_cli.enable_cameras)
 
-        office_table.set_initial_pose(Pose(position_xyz=(0.9, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+        office_table.set_initial_pose(Pose(position_xyz=(0.7, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0)))
-        embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.9), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.75), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         pick_up_object.set_initial_pose(
             PoseRange(
-                position_xyz_min=(0.8, 0.1, 0.86),
-                position_xyz_max=(1.09, -0.12, 0.86),
+                position_xyz_min=(0.6, 0.1, 0.86),
+                position_xyz_max=(0.89, -0.12, 0.86),
                 rpy_min=(-1.5707963, 0.0, -1.5707963),
                 rpy_max=(-1.5707963, 0.0, -1.5707963),
             )
         )
         ranch_dressing_bottle.set_initial_pose(
             PoseRange(
-                position_xyz_min=(0.6, -0.1, 0.86),
-                position_xyz_max=(0.8, -0.2, 0.86),
+                position_xyz_min=(0.4, -0.1, 0.86),
+                position_xyz_max=(0.6, -0.2, 0.86),
                 rpy_min=(0, 0, math.radians(-111.55)),
                 rpy_max=(0, 0, math.radians(-111.55)),
             )
         )
         sugar_box.set_initial_pose(
             PoseRange(
-                position_xyz_min=(0.7, 0.9, 0.86),
-                position_xyz_max=(0.9, 1.2, 0.86),
+                position_xyz_min=(0.5, 0.9, 0.86),
+                position_xyz_max=(0.7, 1.2, 0.86),
                 rpy_min=(1.5707963, 0, 0),
                 rpy_max=(1.5707963, 0, 0),
             )
         )
         blue_sorting_bin.set_initial_pose(
             Pose(
-                position_xyz=(0.87, 0.4, 0.8),
+                position_xyz=(0.67, 0.4, 0.8),
                 rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
             )
         )
