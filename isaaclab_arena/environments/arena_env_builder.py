@@ -263,10 +263,23 @@ class ArenaEnvBuilder:
         # THIS WILL BE REMOVED IN THE FUTURE.
         cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
+
+        import isaaclab_arena.policy.rl_policy.base_rsl_rl_policy as base_rsl_rl_policy
+
+        policy_cfg_entry_point = f"{base_rsl_rl_policy.__name__}:RLPolicyCfg"
+
+        # import isaaclab_tasks.manager_based.manipulation.lift.config.franka.joint_pos_env_cfg as joint_pos_env_cfg
+        # import isaaclab_tasks.manager_based.manipulation.lift.config.franka.agents.rsl_rl_ppo_cfg as rsl_rl_ppo_cfg
+        # cfg_entry = f"{joint_pos_env_cfg.__name__}:FrankaCubeLiftEnvCfg"
+        # policy_cfg_entry_point = f"{rsl_rl_ppo_cfg.__name__}:LiftCubePPORunnerCfg"
+
         gym.register(
             id=name,
             entry_point=entry_point,
-            kwargs={"env_cfg_entry_point": cfg_entry},
+            kwargs={
+                "env_cfg_entry_point": cfg_entry,
+                "rsl_rl_cfg_entry_point": policy_cfg_entry_point,
+            },
             disable_env_checker=True,
         )
         cfg = parse_env_cfg(

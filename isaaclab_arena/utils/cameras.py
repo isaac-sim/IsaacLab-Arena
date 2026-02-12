@@ -117,6 +117,12 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
     if isinstance(initial_pose, PoseRange):
         initial_pose = initial_pose.get_midpoint()
 
-    lookat = initial_pose.position_xyz
-    camera_position = tuple(np.array(lookat) + offset)
+    # WHEN STUFF WORKS, LOOK INTO WHY WE"RE GETTING np.float64 in the first place.
+    # probably need a validation step in the Pose object.
+
+    # Ensure we only pass primitive Python floats (not NumPy scalars) into ViewerCfg,
+    # since downstream config systems like Hydra/OmegaConf don't support np.float64.
+    lookat = tuple(float(x) for x in initial_pose.position_xyz)
+    camera_vec = np.array(lookat, dtype=float) + np.array(offset, dtype=float)
+    camera_position = tuple(float(x) for x in camera_vec.tolist())
     return ViewerCfg(eye=camera_position, lookat=lookat, origin_type="env")
