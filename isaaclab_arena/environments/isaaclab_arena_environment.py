@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
+from isaaclab_arena.reinforment_learning.frameworks import RLFramework
+
 
 class IsaacLabArenaEnvironment:
     """Describes an environment in IsaacLab Arena."""
@@ -29,6 +31,8 @@ class IsaacLabArenaEnvironment:
         teleop_device: TeleopDeviceBase | None = None,
         orchestrator: OrchestratorBase | None = None,
         env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+        rl_framework: RLFramework | None = None,
+        rl_policy_cfg: str | None = None,
     ):
         """
         Args:
@@ -47,3 +51,5 @@ class IsaacLabArenaEnvironment:
         self.teleop_device = teleop_device
         self.orchestrator = orchestrator
         self.env_cfg_callback = env_cfg_callback
+        self.rl_framework = rl_framework
+        self.rl_policy_cfg = rl_policy_cfg
