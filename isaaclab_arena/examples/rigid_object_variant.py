@@ -1,3 +1,7 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
 
 rigid_object_variant_cfg = RigidObjectVariantCfg(
     assets={
@@ -39,4 +43,3 @@ object_set.set_initial_pose(
         tomato_soup_can: Pose(position=(4.0, 5.0, 6.0), orientation=(0.0, 0.0, 0.0, 1.0)),
     })
 )
-
