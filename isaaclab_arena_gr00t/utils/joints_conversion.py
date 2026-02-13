@@ -17,13 +17,14 @@ def remap_sim_joints_to_policy_joints(
     """
     data = {}
     assert isinstance(sim_joints_state, JointsAbsPosition)
+    joints_np = sim_joints_state.joints_pos.detach().cpu().numpy()
     for group, joints_list in policy_joints_config.items():
         data[group] = []
 
         for joint_name in joints_list:
             if joint_name in sim_joints_state.joints_order_config:
                 joint_index = sim_joints_state.joints_order_config[joint_name]
-                data[group].append(sim_joints_state.joints_pos[:, joint_index])
+                data[group].append(joints_np[:, joint_index])
             else:
                 raise ValueError(f"Joint {joint_name} not found in {sim_joints_state.joints_order_config}")
 

@@ -86,6 +86,11 @@ class PolicyBase(ABC):
         """Get the length of the policy (for dataset-driven policies)."""
         pass
 
+    @property
+    def is_remote(self) -> bool:
+        """Check if policy is run remotely."""
+        return False
+
     @staticmethod
     @abstractmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
