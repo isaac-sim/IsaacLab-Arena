@@ -38,7 +38,6 @@ class EmbodimentBase(Asset):
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
         self.bounding_box = bounding_box
-        # Relations support (satisfies the Placeable protocol for the relation solver)
         self.relations: list[RelationBase] = []
         # These should be filled by the subclass
         self.scene_config: Any | None = None
