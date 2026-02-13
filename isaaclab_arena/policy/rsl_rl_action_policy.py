@@ -17,7 +17,8 @@ from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.policy.rl_policy.base_rsl_rl_policy import get_agent_cfg
-from isaaclab_arena.scripts.reinforcement_learning import cli_args
+
+# from isaaclab_arena.scripts.reinforcement_learning import cli_args
 
 
 @dataclass
@@ -236,9 +237,6 @@ class RslRlActionPolicy(PolicyBase):
             default=Path("isaaclab_arena/policy/rl_policy/generic_policy.json"),
             help="Path to the RL agent configuration file.",
         )
-        # append RSL-RL cli arguments
-        cli_args.add_rsl_rl_args(parser)
-        cli_args.add_rsl_rl_policy_args(parser)
         return parser
 
     @staticmethod
