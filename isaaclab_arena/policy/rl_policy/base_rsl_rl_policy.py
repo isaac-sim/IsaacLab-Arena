@@ -39,8 +39,6 @@ class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
             "critic": ["policy"],
         }
     )
-    # policy: RslRlPpoActorCriticCfg = field(default_factory=RslRlPpoActorCriticCfg)
-    # algorithm: RslRlPpoAlgorithmCfg = field(default_factory=RslRlPpoAlgorithmCfg)
     policy: RslRlPpoActorCriticCfg = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
         actor_obs_normalization=False,
