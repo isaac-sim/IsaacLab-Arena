@@ -39,7 +39,6 @@ from isaaclab_arena.utils.pose import Pose
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_wxyz=(-0.74896, 0.0, 0.0, -0.66262))
 
 
-# Override the Franka USD path from the Arena side (without modifying the submodule)
 _FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
 _FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_on_stand.usd"
 
@@ -93,7 +92,6 @@ class FrankaSceneCfg:
     robot: ArticulationCfg = _FRANKA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     # The end-effector frame marker
-    # Note: prim paths include /franka/ to match the combined USD hierarchy (Stand/franka/panda_link0)
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/franka/panda_link0",
         debug_vis=False,
