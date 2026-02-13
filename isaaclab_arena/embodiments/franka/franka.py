@@ -93,25 +93,25 @@ class FrankaSceneCfg:
 
     # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/franka/panda_link0",
+        prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/franka/panda_hand",
+                prim_path="{ENV_REGEX_NS}/Robot/panda_hand",
                 name="end_effector",
                 offset=OffsetCfg(
                     pos=[0.0, 0.0, 0.1034],
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/franka/panda_rightfinger",
+                prim_path="{ENV_REGEX_NS}/Robot/panda_rightfinger",
                 name="tool_rightfinger",
                 offset=OffsetCfg(
                     pos=(0.0, 0.0, 0.046),
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/franka/panda_leftfinger",
+                prim_path="{ENV_REGEX_NS}/Robot/panda_leftfinger",
                 name="tool_leftfinger",
                 offset=OffsetCfg(
                     pos=(0.0, 0.0, 0.046),
@@ -163,7 +163,7 @@ class FrankaCameraCfg:
         OffsetClass = CameraClass.OffsetCfg
 
         common_kwargs = dict(
-            prim_path="{ENV_REGEX_NS}/Robot/franka/panda_hand/wrist_cam",
+            prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
             update_period=0.0,
             height=84,
             width=84,
