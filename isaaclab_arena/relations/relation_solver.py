@@ -14,8 +14,7 @@ from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.relations.placeable import Placeable
 
 
 class RelationSolver:
@@ -117,18 +116,19 @@ class RelationSolver:
 
     def solve(
         self,
-        objects: list[Object | ObjectReference],
-        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]],
-    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
+        objects: list[Placeable],
+        initial_positions: dict[Placeable, tuple[float, float, float]],
+    ) -> dict[Placeable, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object or ObjectReference instances. Must include at least one object
-                marked with IsAnchor() which serves as a fixed reference.
+            objects: List of Placeable instances (Object, ObjectReference, EmbodimentBase, etc.).
+                Must include at least one object marked with IsAnchor() which serves as a
+                fixed reference.
             initial_positions: Starting positions for all objects (including anchors).
 
         Returns:
-            Dictionary mapping object instances to final (x, y, z) positions.
+            Dictionary mapping Placeable instances to final (x, y, z) positions.
         """
         state = RelationSolverState(objects, initial_positions)
 
@@ -200,7 +200,7 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[Object | ObjectReference]) -> None:
+    def debug_losses(self, objects: list[Placeable]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
@@ -226,7 +226,7 @@ class RelationSolver:
 
 
 def _print_relation_debug(
-    obj: Object | ObjectReference,
+    obj: Placeable,
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,
@@ -257,7 +257,7 @@ def _print_relation_debug(
 
 
 def _print_unary_relation_debug(
-    obj: Object,
+    obj: Placeable,
     relation: AtPosition,
     child_pos: torch.Tensor,
     loss: torch.Tensor,
