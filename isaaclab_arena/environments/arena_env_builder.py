@@ -275,10 +275,17 @@ class ArenaEnvBuilder:
         # THIS WILL BE REMOVED IN THE FUTURE.
         cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
+        # Register the environment with the Gym registry.
+        kwargs = {
+            "env_cfg_entry_point": cfg_entry,
+        }
+        if self.arena_env.rl_framework is not None:
+            assert self.arena_env.rl_policy_cfg is not None
+            kwargs[self.arena_env.rl_framework.get_entry_point_string()] = self.arena_env.rl_policy_cfg
         gym.register(
             id=name,
             entry_point=entry_point,
-            kwargs={"env_cfg_entry_point": cfg_entry},
+            kwargs=kwargs,
             disable_env_checker=True,
         )
         cfg = parse_env_cfg(
