@@ -5,17 +5,17 @@
 
 import argparse
 import gymnasium as gym
-import numpy as np
-import os
-import random
 import torch
 import tqdm
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
+from isaaclab.utils.random import set_seed
+
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -51,10 +51,7 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
 
 def is_distributed(args_cli: argparse.Namespace) -> bool:
     return (
-        "cuda" in args_cli.device
-        and hasattr(args_cli, "distributed")
-        and args_cli.distributed
-        and int(os.environ.get("WORLD_SIZE", "1")) > 1
+        "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
     )
 
 
@@ -134,13 +131,10 @@ def main():
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
 
-    # local rank is the rank of the process on the current node, set by torchrun command
-    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
-    # world size is the number of processes running the script, set by torchrun command
-    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    local_rank = get_local_rank()
+    world_size = get_world_size()
     # Setting device to local rank before SimulationAppContext
     if is_distributed(args_cli):
-        args_cli.distributed = True
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
@@ -169,10 +163,7 @@ def main():
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
         name, cfg = arena_builder.build_registered()
-        # Avoid HDF5 file lock conflict when distributed: each rank uses a unique dataset filename
-        if is_distributed(args_cli) and hasattr(cfg, "recorders") and cfg.recorders is not None:
-            base = getattr(cfg.recorders, "dataset_filename", "dataset")
-            cfg.recorders.dataset_filename = f"{base}_rank{local_rank}"
+
         env = gym.make(name, cfg=cfg).unwrapped
 
         # Per-rank seed when distributed so each process has a different seed
@@ -180,10 +171,7 @@ def main():
         if seed is not None and is_distributed(args_cli):
             seed = seed + local_rank
         if seed is not None:
-            env.seed(seed)
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            random.seed(seed)
+            set_seed(seed, env)
 
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)

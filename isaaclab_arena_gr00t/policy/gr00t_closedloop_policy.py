@@ -5,7 +5,6 @@
 
 import argparse
 import gymnasium as gym
-import os
 import torch
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,6 +14,7 @@ from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
@@ -106,9 +106,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.num_envs = config.num_envs
         self.device = config.policy_device
         # Under torchrun (WORLD_SIZE > 1), pin policy to this process's GPU so each rank uses its own device.
-        world_size = int(os.environ.get("WORLD_SIZE", "1"))
+        world_size = get_world_size()
         if world_size > 1 and "cuda" in config.policy_device:
-            local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+            local_rank = get_local_rank()
             self.device = f"cuda:{local_rank}"
         self.policy = self.load_policy()
 
