@@ -3,10 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
+import gymnasium as gym
 import numpy as np
 import random
-import gymnasium as gym
+import torch
+
 
 def set_seed(seed: int, env: gym.Env = None):
     """Set the seed for the random number generators."""
