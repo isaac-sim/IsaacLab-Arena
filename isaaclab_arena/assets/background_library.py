@@ -160,3 +160,18 @@ class LightwheelKitchenBackground(LibraryBackground):
             )[0]
         )
         super().__init__()
+
+
+@register_asset
+class OfficeTable(LibraryBackground):
+    """
+    A office table.
+    """
+
+    name = "office_table_background"
+    tags = ["background"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+    object_min_z = -0.05
+
+    def __init__(self):
+        super().__init__()

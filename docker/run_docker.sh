@@ -15,13 +15,17 @@ MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 # Default GR00T installation settings (false means no GR00T installation)
 INSTALL_GROOT="false"
+INSTALL_CUROBO="false"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
 
-while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
+while getopts ":cn:d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
     case $OPTION in
-
+        c)
+            INSTALL_CUROBO="true"
+            DOCKER_VERSION_TAG='cuda_curobo'
+            ;;
         d)
             DATASETS_HOST_MOUNT_DIRECTORY=$OPTARG
             ;;
@@ -86,6 +90,7 @@ echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
 
 # Build the Docker image with the specified or default name
 echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
+echo "Building Docker image with cuRobo installation: $INSTALL_CUROBO"
 
 if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
@@ -97,6 +102,7 @@ else
         --progress=plain \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+        --build-arg INSTALL_CUROBO=$INSTALL_CUROBO \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
         --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
         $SCRIPT_DIR/..
