@@ -5,10 +5,11 @@
 
 
 import torch
-from typing import Any
 from dataclasses import MISSING
+from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
+import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.assets.asset_base_cfg import AssetBaseCfg
@@ -23,18 +24,16 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
-from isaaclab.sim import PinholeCameraCfg
-import isaaclab.sim as sim_utils
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
-from isaaclab_assets.robots.franka import FRANKA_ROBOTIQ_GRIPPER_CFG
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
+from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -94,7 +93,9 @@ class DroidSceneCfg:
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAACLAB_STAGING_NUCLEUS_DIR}Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd",
+            usd_path=(
+                f"{ISAACLAB_STAGING_NUCLEUS_DIR}Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd"
+            ),
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,
