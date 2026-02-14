@@ -14,6 +14,7 @@ from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
@@ -102,12 +103,17 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """
         super().__init__(config)
         self.policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig)
+        self.num_envs = config.num_envs
+        self.device = config.policy_device
+        # Under torchrun (WORLD_SIZE > 1), pin policy to this process's GPU so each rank uses its own device.
+        world_size = get_world_size()
+        if world_size > 1 and "cuda" in config.policy_device:
+            local_rank = get_local_rank()
+            self.device = f"cuda:{local_rank}"
         self.policy = self.load_policy()
 
         # determine rollout how many action prediction per observation
         self.action_chunk_length = self.policy_config.action_chunk_length
-        self.num_envs = config.num_envs
-        self.device = config.policy_device
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
         self.policy_joints_config = self.load_policy_joints_config(self.policy_config.policy_joints_config_path)
@@ -134,13 +140,13 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.current_action_chunk = torch.zeros(
             (config.num_envs, self.policy_config.action_horizon, self.action_dim),
             dtype=torch.float,
-            device=config.policy_device,
+            device=self.device,
         )
         # Use a bool list to indicate that the action chunk is not yet computed for each env
         # True means the action chunk is not yet computed, False means the action chunk is valid
-        self.env_requires_new_action_chunk = torch.ones(config.num_envs, dtype=torch.bool, device=config.policy_device)
+        self.env_requires_new_action_chunk = torch.ones(config.num_envs, dtype=torch.bool, device=self.device)
 
-        self.current_action_index = torch.zeros(config.num_envs, dtype=torch.int32, device=config.policy_device)
+        self.current_action_index = torch.zeros(config.num_envs, dtype=torch.int32, device=self.device)
 
         # task description of task being evaluated. It will be set by the task being evaluated.
         self.task_description: str | None = None
@@ -202,7 +208,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         return Gr00tPolicy(
             model_path=self.policy_config.model_path,
             embodiment_tag=EmbodimentTag[self.policy_config.embodiment_tag],
-            device=self.policy_config.policy_device,
+            device=self.device,
             strict=True,
         )
 
