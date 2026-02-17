@@ -5,13 +5,15 @@
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.terms.events import set_object_set_pose_by_usd
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.usd.object_set_utils import rescale_rename_rigid_body_and_save_to_cache
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 
@@ -28,7 +30,7 @@ class RigidObjectSet(Object):
         prim_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         random_choice: bool = False,
-        initial_pose: Pose | None = None,
+        initial_pose: Pose | dict[str, Pose] | None = None,
         **kwargs,
     ):
         """
@@ -41,7 +43,8 @@ class RigidObjectSet(Object):
                 different scales are needed, considering scaling the object USD file.
             random_choice: Whether to randomly choose an object from the object set to spawn in
                 each environment. If False, object is spawned based on the order of objects in the list.
-            initial_pose: The initial pose of the object from this object set.
+            initial_pose: The initial pose of the object set. Can be a single Pose, a PoseRange,
+                or a dict mapping object name to Pose for a different pose per object.
         """
         if not self._are_all_objects_type_rigid(objects):
             raise ValueError(f"Object set {name} must contain only rigid objects.")
@@ -74,6 +77,64 @@ class RigidObjectSet(Object):
             initial_pose=initial_pose,
             **kwargs,
         )
+
+    def set_initial_pose(self, pose: Pose | PoseRange | dict[str, Pose]) -> None:
+        """Set the initial pose of the object set.
+
+        Args:
+            pose: A single Pose or PoseRange (delegated to base class), or a dict mapping
+                object name to Pose for a different pose per object. Dict keys must be
+                the names of objects in this set (e.g. ``cracker_box.name``).
+        """
+        if isinstance(pose, dict):
+            self.initial_pose = pose
+            self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+            self.event_cfg = self._update_initial_pose_event_cfg(self.event_cfg)
+        else:
+            super().set_initial_pose(pose)
+
+    def _init_event_cfg(self):
+        if isinstance(self.initial_pose, dict) and self._requires_reset_pose_event():
+            return EventTermCfg(
+                func=set_object_set_pose_by_usd,
+                mode="reset",
+                params={
+                    "asset_cfg": SceneEntityCfg(self.name),
+                    "pose_by_object": self.initial_pose,
+                    "objects": self.objects,
+                },
+            )
+        return super()._init_event_cfg()
+
+    def _needs_reinit_of_event_cfg(self):
+        if isinstance(self.initial_pose, dict):
+            return self.event_cfg is None or "pose_by_object" not in self.event_cfg.params
+        return super()._needs_reinit_of_event_cfg()
+
+    def _update_initial_pose_event_cfg(self, event_cfg):
+        if isinstance(self.initial_pose, dict):
+            if self._requires_reset_pose_event():
+                if self._needs_reinit_of_event_cfg():
+                    event_cfg = self._init_event_cfg()
+                else:
+                    event_cfg.params["pose_by_object"] = self.initial_pose
+            else:
+                event_cfg = None
+            return event_cfg
+        return super()._update_initial_pose_event_cfg(event_cfg)
+
+    def _add_initial_pose_to_cfg(
+        self, object_cfg: RigidObjectCfg
+    ) -> RigidObjectCfg:
+        # Optionally specify initial pose
+        if isinstance(self.initial_pose, dict):
+            # Just take the first object's initial pose. This gets overriden in an event anyway.
+            initial_pose = self.initial_pose[self.objects[0].name]
+            object_cfg.init_state.pos = initial_pose.position_xyz
+            object_cfg.init_state.rot = initial_pose.rotation_wxyz
+        else:
+            super()._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get the bounding box of the object set.

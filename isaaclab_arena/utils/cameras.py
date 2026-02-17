@@ -116,6 +116,9 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
 
     if isinstance(initial_pose, PoseRange):
         initial_pose = initial_pose.get_midpoint()
+    elif isinstance(initial_pose, dict):
+        # RigidObjectSet with pose_per_object: use first pose for camera lookat
+        initial_pose = next(iter(initial_pose.values()))
 
     lookat = initial_pose.position_xyz
     camera_position = tuple(np.array(lookat) + offset)
