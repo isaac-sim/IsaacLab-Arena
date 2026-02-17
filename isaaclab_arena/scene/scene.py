@@ -175,7 +175,7 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     prim_xform.ClearXformOpOrder()
     if asset.initial_pose is not None:
         assert isinstance(asset.initial_pose, Pose), (
-            f"export_to_usd only supports assets with initial_pose of type Pose or None; "
+            "export_to_usd only supports assets with initial_pose of type Pose or None; "
             f"got {type(asset.initial_pose).__name__} for asset {asset.name}"
         )
         t = Gf.Vec3d(asset.initial_pose.position_xyz) if trans_double else Gf.Vec3f(asset.initial_pose.position_xyz)

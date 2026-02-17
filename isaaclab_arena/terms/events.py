@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-
 import torch
 
 import isaaclab.sim as sim_utils
@@ -96,15 +95,13 @@ def set_object_set_pose_by_usd(
         usd_path = get_asset_usd_path_from_prim_path(prim_path, stage)
         assert usd_path is not None, f"Prim at {prim_path} has no USD reference."
         object_name = _resolve_object_name_for_usd_path(usd_path, objects)
-        assert object_name in pose_by_object, (
-            f"Object name {object_name!r} not in pose_by_object (keys: {list(pose_by_object.keys())})."
-        )
+        assert (
+            object_name in pose_by_object
+        ), f"Object name {object_name!r} not in pose_by_object (keys: {list(pose_by_object.keys())})."
         pose = pose_by_object[object_name]
         pose_t = pose.to_tensor(device=env.device).unsqueeze(0)
         pose_t[:, :3] += env.scene.env_origins[env_id]
         poses_list.append(pose_t)
     pose_t_xyz_q_wxyz = torch.cat(poses_list, dim=0)
     asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
-    asset.write_root_velocity_to_sim(
-        torch.zeros(pose_t_xyz_q_wxyz.shape[0], 6, device=env.device), env_ids=env_ids
-    )
+    asset.write_root_velocity_to_sim(torch.zeros(pose_t_xyz_q_wxyz.shape[0], 6, device=env.device), env_ids=env_ids)

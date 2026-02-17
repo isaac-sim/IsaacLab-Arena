@@ -123,12 +123,10 @@ class RigidObjectSet(Object):
             return event_cfg
         return super()._update_initial_pose_event_cfg(event_cfg)
 
-    def _add_initial_pose_to_cfg(
-        self, object_cfg: RigidObjectCfg
-    ) -> RigidObjectCfg:
+    def _add_initial_pose_to_cfg(self, object_cfg: RigidObjectCfg) -> RigidObjectCfg:
         # Optionally specify initial pose
         if isinstance(self.initial_pose, dict):
-            # Just take the first object's initial pose. This gets overriden in an event anyway.
+            # Just take the first object's initial pose. This gets overridden in an event anyway.
             initial_pose = self.initial_pose[self.objects[0].name]
             object_cfg.init_state.pos = initial_pose.position_xyz
             object_cfg.init_state.rot = initial_pose.rotation_wxyz

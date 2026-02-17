@@ -85,12 +85,12 @@ def _test_object_set_pose_per_object(simulation_app) -> bool:
 
         expected_env0 = torch.tensor(pose_cracker.position_xyz, device=env.device)
         expected_env1 = torch.tensor(pose_tomato.position_xyz, device=env.device)
-        assert torch.allclose(poses[0, :3], expected_env0, atol=POSITION_ATOL), (
-            f"Env 0 (cracker_box): expected ~{expected_env0.tolist()}, got {poses[0, :3].tolist()}"
-        )
-        assert torch.allclose(poses[1, :3], expected_env1, atol=POSITION_ATOL), (
-            f"Env 1 (tomato_soup_can): expected ~{expected_env1.tolist()}, got {poses[1, :3].tolist()}"
-        )
+        assert torch.allclose(
+            poses[0, :3], expected_env0, atol=POSITION_ATOL
+        ), f"Env 0 (cracker_box): expected ~{expected_env0.tolist()}, got {poses[0, :3].tolist()}"
+        assert torch.allclose(
+            poses[1, :3], expected_env1, atol=POSITION_ATOL
+        ), f"Env 1 (tomato_soup_can): expected ~{expected_env1.tolist()}, got {poses[1, :3].tolist()}"
         return True
     except Exception as e:
         print(f"Error: {e}")
@@ -112,13 +112,13 @@ def _test_object_set_single_pose(simulation_app) -> bool:
 
         expected = torch.tensor(single_pose.position_xyz, device=env.device)
         for i in range(NUM_ENVS):
-            assert torch.allclose(poses[i, :3], expected, atol=POSITION_ATOL), (
-                f"Env {i}: expected ~{expected.tolist()}, got {poses[i, :3].tolist()}"
-            )
+            assert torch.allclose(
+                poses[i, :3], expected, atol=POSITION_ATOL
+            ), f"Env {i}: expected ~{expected.tolist()}, got {poses[i, :3].tolist()}"
         # All envs should have the same position (single pose applied to all).
-        assert torch.allclose(poses[:, :3], poses[0:1, :3].expand(NUM_ENVS, 3), atol=1e-5), (
-            "All envs should have the same pose"
-        )
+        assert torch.allclose(
+            poses[:, :3], poses[0:1, :3].expand(NUM_ENVS, 3), atol=1e-5
+        ), "All envs should have the same pose"
         return True
     except Exception as e:
         print(f"Error: {e}")
