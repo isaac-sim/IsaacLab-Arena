@@ -27,7 +27,6 @@ def get_object_set_test_environment(num_envs: int, initial_pose):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
