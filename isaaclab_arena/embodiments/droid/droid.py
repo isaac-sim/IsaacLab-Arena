@@ -94,7 +94,7 @@ class DroidSceneCfg:
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
             usd_path=(
-                f"{ISAACLAB_STAGING_NUCLEUS_DIR}Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd"
+                f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd"
             ),
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
@@ -161,7 +161,7 @@ class DroidSceneCfg:
     )
 
     # The end-effector frame marker
-    # TODO: Need to verify that pos is correct
+    # TODO(xinjieyao, 2026-02-17): Need to verify that pose is correct
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
