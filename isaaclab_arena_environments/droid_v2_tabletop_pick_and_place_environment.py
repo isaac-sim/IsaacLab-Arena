@@ -3,58 +3,57 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""DROID v2 tabletop pick-and-place environment using the droid_mimic_fixed embodiment.
+
+Uses SortMultiObjectTask so that success termination only fires when ALL
+pickable objects are placed in the bin, preventing premature env resets
+during multi-object scripted pick-and-place.
+"""
+
 import argparse
 import math
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
-# We cannot annotate types which require the simulation app to be started in order to
-# import, because this file is used to retrieve CLI arguments, so it must be imported
-# before the simulation app is started.
-# TODO(alexmillane, 2025.09.04): Fix this.
 
+class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
+    """DROID v2 environment with flattened USD and mimic joint constraints for the Robotiq 2F-85 gripper."""
 
-class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
-
-    name: str = "droid_tabletop_pick_and_place"
+    name: str = 'droid_v2_tabletop_pick_and_place'
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+        """Build and return the IsaacLab Arena environment."""
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
         import isaaclab.sim as sim_utils
-        from isaaclab_arena.tasks.no_task import NoTask
 
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
-        office_table = self.asset_registry.get_asset_by_name("office_table_background")()
-        ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
+        office_table = self.asset_registry.get_asset_by_name('office_table_background')()
+        ground_plane = self.asset_registry.get_asset_by_name('ground_plane')()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        ranch_dressing_bottle = self.asset_registry.get_asset_by_name("ranch_dressing_bottle")()
-        sugar_box = self.asset_registry.get_asset_by_name("sugar_box")()
+        ranch_dressing_bottle = self.asset_registry.get_asset_by_name('ranch_dressing_bottle')()
+        sugar_box = self.asset_registry.get_asset_by_name('sugar_box')()
 
-        # Set low mass and smaller scale for pickable objects
-        for obj in [pick_up_object, ranch_dressing_bottle, sugar_box]:
-            obj.object_cfg.spawn.mass_props = sim_utils.MassPropertiesCfg(mass=0.01)
         for obj in [pick_up_object, sugar_box]:
             obj.object_cfg.spawn.scale = (0.8, 0.8, 0.8)
 
-        blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
+        blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')()
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
-        light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
-        embodiment = self.asset_registry.get_asset_by_name("droid")(enable_cameras=args_cli.enable_cameras)
+        light = self.asset_registry.get_asset_by_name('light')(spawner_cfg=light_spawner_cfg)
+        embodiment = self.asset_registry.get_asset_by_name('droid_mimic_fixed')(enable_cameras=args_cli.enable_cameras)
 
         office_table.set_initial_pose(Pose(position_xyz=(0.7, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0)))
         embodiment.set_initial_pose(Pose(position_xyz=(0.1, 0.18, 0.75), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
         pick_up_object.set_initial_pose(
             PoseRange(
-                position_xyz_min=(0.6, 0.1, 0.86),
-                position_xyz_max=(0.89, -0.12, 0.86),
+                position_xyz_min=(0.5, 0.1, 0.86),
+                position_xyz_max=(0.6, -0.12, 0.86),
                 rpy_min=(-1.5707963, 0.0, -1.5707963),
                 rpy_max=(-1.5707963, 0.0, -1.5707963),
             )
@@ -69,8 +68,8 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         sugar_box.set_initial_pose(
             PoseRange(
-                position_xyz_min=(0.5, 0.6, 0.86),
-                position_xyz_max=(0.7, 0.9, 0.86),
+                position_xyz_min=(0.5, 0.7, 0.86),
+                position_xyz_max=(0.7, 0.8, 0.86),
                 rpy_min=(1.5707963, 0, 0),
                 rpy_max=(1.5707963, 0, 0),
             )
@@ -82,13 +81,14 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        # TODO(alexmillane, 2025.09.24): Add automatic object type detection of ObjectReferences.
+        # Shared destination for all objects
         destination_location = ObjectReference(
-            name="destination_location",
-            prim_path="{ENV_REGEX_NS}/blue_sorting_bin/Geometry/sm_bin_20x25x05cm_a01_01",
+            name='destination_location',
+            prim_path='{ENV_REGEX_NS}/blue_sorting_bin/Geometry/sm_bin_20x25x05cm_a01_01',
             parent_asset=blue_sorting_bin,
             object_type=ObjectType.RIGID,
         )
+
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
@@ -101,24 +101,37 @@ class DroidTabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             for obj in args_cli.object_set:
                 obj_from_set = self.asset_registry.get_asset_by_name(obj)()
                 objects.append(obj_from_set)
-            object_set = RigidObjectSet(name="object_set", objects=objects)
+            object_set = RigidObjectSet(name='object_set', objects=objects)
             object_set.set_initial_pose(Pose(position_xyz=(0.4, 0.2, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
             assets.append(object_set)
 
         scene = Scene(assets=assets)
+
+        # All pickable objects share the same destination (the bin).
+        # SortMultiObjectTask creates a contact sensor per object and only
+        # fires the success termination when ALL objects are on the destination.
+        pick_up_objects = [pick_up_object, ranch_dressing_bottle, sugar_box]
+        destinations = [destination_location] * len(pick_up_objects)
+
+        task = SortMultiObjectTask(
+            pick_up_object_list=pick_up_objects,
+            destination_location_list=destinations,
+            background_scene=office_table,
+            episode_length_s=600.0,
+        )
+
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=PickAndPlaceTask(pick_up_object, destination_location, office_table),
+            task=task,
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="tomato_soup_can")
-        parser.add_argument("--object_set", nargs="+", type=str, default=None)
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
+        """Add CLI arguments specific to this environment."""
+        parser.add_argument('--object', type=str, default='tomato_soup_can')
+        parser.add_argument('--object_set', nargs='+', type=str, default=None)
+        parser.add_argument('--teleop_device', type=str, default=None)
