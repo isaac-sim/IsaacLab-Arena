@@ -86,6 +86,20 @@ class FrankaSpaceMouseRetargeter(RetargetterBase):
 
 
 @register_retargeter
+class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
+    device = "keyboard"
+    embodiment = "droid_differential_ik"
+
+    def __init__(self):
+        pass
+
+    def get_retargeter_cfg(
+        self, droid_embodiment, sim_device: str, enable_visualization: bool = False
+    ) -> RetargeterCfg | None:
+        return None
+
+
+@register_retargeter
 class AgibotKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "agibot"

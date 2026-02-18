@@ -1,0 +1,24 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Expected input & output joint names following listed order for groot state/action space
+joints:
+  joint_position:
+    - panda_joint1
+    - panda_joint2
+    - panda_joint3
+    - panda_joint4
+    - panda_joint5
+    - panda_joint6
+    - panda_joint7
+  gripper_position:
+    - finger_joint
+    # Mimic joints
+    # - right_outer_knuckle_joint
+    # - left_inner_finger_joint
+    # - right_inner_finger_joint
+    # - left_inner_finger_knuckle_joint
+    # - right_inner_finger_knuckle_joint
+

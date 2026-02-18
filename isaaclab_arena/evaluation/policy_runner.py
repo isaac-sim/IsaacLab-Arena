@@ -82,7 +82,7 @@ def rollout_policy(
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
-
+                print("actions: ", actions)
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
                     print(
