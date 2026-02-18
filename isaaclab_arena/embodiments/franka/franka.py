@@ -101,15 +101,15 @@ class FrankaSceneCfg:
 
     # The stand for the franka
     # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
-    stand: AssetBaseCfg = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Robot_Stand",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[1.0, 0.0, 0.0, 0.0]),
-        spawn=UsdFileCfg(
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Mounts/Stand/stand_instanceable.usd",
-            scale=(1.2, 1.2, 1.7),
-            activate_contact_sensors=False,
-        ),
-    )
+    #stand: AssetBaseCfg = AssetBaseCfg(
+    #    prim_path="{ENV_REGEX_NS}/Robot_Stand",
+    #    init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[1.0, 0.0, 0.0, 0.0]),
+    #    spawn=UsdFileCfg(
+    #        usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Mounts/Stand/stand_instanceable.usd",
+    #        scale=(1.2, 1.2, 1.7),
+    #        activate_contact_sensors=False,
+    #    ),
+    #)
 
     # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(

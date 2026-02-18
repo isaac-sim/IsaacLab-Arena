@@ -160,3 +160,20 @@ class LightwheelKitchenBackground(LibraryBackground):
             )[0]
         )
         super().__init__()
+
+
+@register_asset
+class RubiksCubeBowlBackgroundSRL(LibraryBackground):
+    """
+    A rubiks cube bowl background.
+    """
+
+    name = "rubiks_cube_bowl_srl"
+    tags = ["background"]
+    usd_path = f"/workspaces/isaaclab_arena/assets/scenes/rubiks_cube_bowl.usda"
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+    def __init__(self):
+        super().__init__()
+

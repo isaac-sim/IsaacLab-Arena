@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import os
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -427,7 +428,14 @@ class Light(LibraryObject):
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
     object_type = ObjectType.SPAWNER
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
+    default_spawner_cfg = sim_utils.DomeLightCfg(
+        texture_file=os.path.join(
+            os.path.dirname(__file__), "..", "..", "robolab", "assets", "backgrounds", "default", "home_office.exr"
+        ),
+        intensity=500.0,
+        visible_in_primary_ray=True,
+        texture_format="latlong",
+    )
 
     def __init__(
         self,
