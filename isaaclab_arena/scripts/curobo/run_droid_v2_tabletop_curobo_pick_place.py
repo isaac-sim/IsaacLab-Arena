@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import random as _random
+from copy import deepcopy
 from pathlib import Path
 
 import torch
@@ -18,6 +20,8 @@ import torch
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+
 
 
 GRIPPER_OPEN_CMD: float = 0.0
@@ -152,10 +156,6 @@ def _add_script_args_to_subparsers(parser: argparse.ArgumentParser) -> None:
 
 
 def _get_current_eef_pose(env, planner, env_id: int = 0) -> torch.Tensor:
-    import isaaclab.utils.math as math_utils
-
-    # Query current pose from CuRobo kinematics to avoid fragile ee_frame targets
-    # (DROID config includes tool frames that may not exist for all gripper variants).
     joint_state = planner._get_current_joint_state_for_curobo()
     ee_pose = planner.get_ee_pose(joint_state)
 
@@ -167,8 +167,6 @@ def _get_current_eef_pose(env, planner, env_id: int = 0) -> torch.Tensor:
 
 
 def _action_from_pose(env, planner, target_pose: torch.Tensor, gripper_binary_action: float, env_id: int = 0) -> torch.Tensor:
-    import isaaclab.utils.math as math_utils
-
     target_pos, target_rot = math_utils.unmake_pose(target_pose)
     curr_pose = _get_current_eef_pose(env, planner, env_id=env_id)
     curr_pos, curr_rot = math_utils.unmake_pose(curr_pose)
@@ -224,8 +222,6 @@ def _execute_gripper_action(env, planner, gripper_binary_action: float, steps: i
 
 
 def _pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.Tensor:
-    import isaaclab.utils.math as math_utils
-
     rot = math_utils.matrix_from_quat(quat_wxyz.unsqueeze(0))[0]
     return math_utils.make_pose(pos_xyz, rot)
 
@@ -246,7 +242,6 @@ def _get_object_pos(env, object_name: str, env_id: int = 0) -> torch.Tensor:
 
 
 def _auto_pick_order(env, explicit_order: list[str] | None) -> list[str]:
-    import random as _random
     rigid_object_names = list(env.scene.rigid_objects.keys())
     
     if explicit_order is not None and len(explicit_order) == 1 and explicit_order[0].lower() == 'random':
@@ -477,8 +472,6 @@ def _make_planner_cfg(args_cli: argparse.Namespace):
 
 def _visualize_goal_pose(target_pose: torch.Tensor, goal_pose_visualizer, robot_base_pos: torch.Tensor, stage: str = '') -> None:
     """Visualize goal pose marker and log coordinates."""
-    import isaaclab.utils.math as math_utils
-
     pos_robot_frame = target_pose[:3, 3].detach().cpu()
     pos_world_frame = pos_robot_frame + robot_base_pos.detach().cpu()
     quat = math_utils.quat_from_matrix(target_pose[:3, :3].unsqueeze(0)).detach().cpu()
@@ -572,22 +565,18 @@ def _run_sanity_check(
 def main() -> None:
     args_parser = get_isaaclab_arena_cli_parser()
     add_script_args(args_parser)
-    args_cli, _ = args_parser.parse_known_args()
+    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+    _add_script_args_to_subparsers(args_parser)
+    args_cli = args_parser.parse_args()
+
+    if args_cli.example_environment != 'droid_v2_tabletop_pick_and_place':
+        raise ValueError('This script is intended for the droid_v2_tabletop_pick_and_place environment.')
 
     with SimulationAppContext(args_cli):
+        global math_utils
         import isaaclab.utils.math as math_utils
-        from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
-
-        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        _add_script_args_to_subparsers(args_parser)
-        args_cli = args_parser.parse_args()
-
-        if args_cli.example_environment != 'droid_v2_tabletop_pick_and_place':
-            raise ValueError('This script is intended for the droid_v2_tabletop_pick_and_place environment.')
-
-        from copy import deepcopy
-
         from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
+        from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
 
         sphere_dump_dir = Path(args_cli.dump_spheres_dir) if args_cli.dump_spheres_dir else None
 
@@ -614,11 +603,6 @@ def main() -> None:
             d = robot.data.default_joint_damping[0, i].item()
             if 'finger' in name or 'knuckle' in name or 'panda' in name:
                 print(f"[DEBUG JOINT] {name}: default_stiffness={s:.4f}, default_damping={d:.4f}")
-        # Check for tendon/mimic constraints
-        if hasattr(robot.data, 'default_fixed_tendon_stiffness') and robot.data.default_fixed_tendon_stiffness is not None:
-            print(f"[DEBUG] Fixed tendons found: {robot.data.default_fixed_tendon_stiffness.shape}")
-        else:
-            print("[DEBUG] No fixed tendons found (mimic constraints may not be active)")
         
         planner_cfg = _make_planner_cfg(args_cli)
         planner = CuroboPlanner(
@@ -628,11 +612,11 @@ def main() -> None:
             env_id=0,
         )
 
+    # ToDo (Neel): WIP rerun recording saving (does not work yet)
         if args_cli.rerun_recording_path is not None:
             import datetime as _dt
 
             rerun_path = Path(args_cli.rerun_recording_path).expanduser().resolve()
-            # Accept either a directory path or a file path. Always write a .rrd file.
             if rerun_path.suffix.lower() != '.rrd':
                 if rerun_path.exists() and rerun_path.is_dir():
                     ts = _dt.datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -735,7 +719,7 @@ def main() -> None:
                 env_id=0,
             )
 
-            # Plan directly to place pose (approach_distance handles final approach)
+            # Plan directly to place pose (approach_distance ideally should handles final approach)
             place_success = _plan_and_execute(
                 env,
                 planner,
