@@ -16,7 +16,7 @@ class BinaryJointPositionZeroToOneAction(BinaryJointPositionAction):
         # compute the binary mask
         if actions.dtype == torch.bool:
             # true: close, false: open
-            binary_mask = actions == 0
+            binary_mask = actions == 1
         else:
             # true: close, false: open
             binary_mask = actions > 0.5
