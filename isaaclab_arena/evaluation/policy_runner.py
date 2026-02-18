@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
-import random
+import argparse
+import gymnasium as gym
 import torch
 import tqdm
 from importlib import import_module
@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
+from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -46,7 +48,18 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
         return policy_cls
 
 
-def rollout_policy(env, policy: "PolicyBase", num_steps: int | None, num_episodes: int | None) -> dict[str, Any]:
+def is_distributed(args_cli: argparse.Namespace) -> bool:
+    return (
+        "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
+    )
+
+
+def rollout_policy(
+    env,
+    policy: "PolicyBase",
+    num_steps: int | None,
+    num_episodes: int | None,
+) -> dict[str, Any]:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
@@ -64,6 +77,7 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int | None, num_episode
 
         num_episodes_completed = 0
         num_steps_completed = 0
+
         while True:
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
@@ -109,35 +123,54 @@ def rollout_policy(env, policy: "PolicyBase", num_steps: int | None, num_episode
 
 
 def main():
-    """Script to run an IsaacLab Arena environment with a zero-action agent."""
+    """Run an IsaacLab Arena environment with a policy.
+    Use --distributed with torchrun command for one process per GPU on multi-GPU machines. AppLauncher uses LOCAL_RANK for device.
+    """
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
 
-    # Start the simulation app
+    local_rank = get_local_rank()
+    world_size = get_world_size()
+    # Setting device to local rank before SimulationAppContext
+    if is_distributed(args_cli):
+        args_cli.device = f"cuda:{local_rank}"
+        print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
+
     with SimulationAppContext(args_cli):
-        # Get the policy-type flag before preceding to other arguments
+
+        # Get the policy-type flag before proceeding to other arguments
         add_policy_runner_arguments(args_parser)
         args_cli, _ = args_parser.parse_known_args()
 
         # Get the policy class from the policy type
         policy_cls = get_policy_cls(args_cli.policy_type)
-        print(f"Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}")
+        print(
+            f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class:"
+            f" {policy_cls}"
+        )
 
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)
         args_cli = args_parser.parse_args()
+        # Re-apply per-rank device after parse preventing device got overwritten by the default value
+        if is_distributed(args_cli):
+            args_cli.distributed = True
+            args_cli.device = f"cuda:{local_rank}"
 
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
-        env = arena_builder.make_registered()
+        name, cfg = arena_builder.build_registered()
 
-        if args_cli.seed is not None:
-            env.seed(args_cli.seed)
-            torch.manual_seed(args_cli.seed)
-            np.random.seed(args_cli.seed)
-            random.seed(args_cli.seed)
+        env = gym.make(name, cfg=cfg).unwrapped
+
+        # Per-rank seed when distributed so each process has a different seed
+        seed = args_cli.seed
+        if seed is not None and is_distributed(args_cli):
+            seed = seed + local_rank
+        if seed is not None:
+            set_seed(seed, env)
 
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
@@ -150,19 +183,22 @@ def main():
             if args_cli.num_steps is not None:
                 num_steps = args_cli.num_steps
                 num_episodes = None
-                print(f"Simulation length: {num_steps} steps")
+                print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_steps} steps")
             elif args_cli.num_episodes is not None:
                 num_steps = None
                 num_episodes = args_cli.num_episodes
-                print(f"Simulation length: {num_episodes} episodes")
+                print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
             else:
-                raise ValueError("Either num_steps or num_episodes must be provided")
+                raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
+        steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
+        print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
         metrics = rollout_policy(env, policy, num_steps, num_episodes)
-        if metrics is not None:
-            print(f"Metrics: {metrics}")
 
-        # Close the environment.
+        if metrics is not None:
+            # Each rank prints its own metrics as it can be different due to random seed
+            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
+
         env.close()
 
 

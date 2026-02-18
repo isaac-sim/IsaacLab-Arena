@@ -121,6 +121,9 @@ COPY docs ${WORKDIR}/docs
 # Install IsaacLab Arena
 RUN /isaac-sim/python.sh -m pip install -e ${WORKDIR}/
 
+# Install tenacity for use with Plotly
+RUN /isaac-sim/python.sh -m pip install tenacity
+
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc

@@ -27,6 +27,7 @@ from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_ma
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.multiprocess import get_local_rank
 
 
 class ArenaEnvBuilder:
@@ -89,6 +90,15 @@ class ArenaEnvBuilder:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
             print(f"Relation solving not completed after {result.attempts} attempt(s)")
+
+    def _modify_recorder_cfg_for_distributed(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
+        """Modify the recorder dataset filename for distributed multi-gpu envs.
+        This is to avoid HDF5 file lock conflict when distributed: each rank uses a unique dataset filename.
+        """
+        if getattr(self.args, "distributed", False):
+            base = getattr(recorder_cfg, "dataset_filename", "dataset")
+            recorder_cfg.dataset_filename = f"{base}_rank{get_local_rank()}"
+        return recorder_cfg
 
     # This method gives the arena environment a chance to modify the environment configuration.
     # This is a workaround to allow user to gradually move to the new configuration system.
@@ -158,6 +168,8 @@ class ArenaEnvBuilder:
             embodiment.get_recorder_term_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
+        # Only modify the recorder configuration for distributed multi-gpu envs.
+        recorder_manager_cfg = self._modify_recorder_cfg_for_distributed(recorder_manager_cfg)
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
