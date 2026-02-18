@@ -228,7 +228,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
             # Apply preprocessing to rgb if size is not the same as the target size
             if rgb.shape[1:3] != self.policy_config.target_image_size[:2]:
                 rgb = resize_frames_with_padding(
-                    rgb, target_image_size=self.policy_config.target_image_size, bgr_conversion=False, pad_img=True
+                    rgb, target_image_size=self.policy_config.target_image_size, bgr_conversion=False, pad_img=False
                 )
             rgb_list.append(rgb)
         # GR00T uses np arrays, needs to copy torch tensor from gpu to cpu before conversion
@@ -256,11 +256,6 @@ class Gr00tClosedloopPolicy(PolicyBase):
                 self.policy_config.target_image_size[1],
                 self.policy_config.target_image_size[2],
             )
-            # save image to file
-            import imageio
-            image_path = f"/datasets/policy_observations_video_{video_key}_{i}.png"
-            imageio.imwrite(image_path, policy_observations['video'][video_key][0, 0])
-            print(f"policy_observations['video'][video_key].shape: {policy_observations['video'][video_key].shape}")
 
         # Dynamically populate state keys from modality config
         for state_key in self.state_keys:
