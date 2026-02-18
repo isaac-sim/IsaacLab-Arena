@@ -14,9 +14,9 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class Gr00tDroidPickAndPlaceEnvironment(ExampleEnvironmentBase):
+class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
 
-    name: str = "gr00t_droid_pick_and_place"
+    name: str = "droid_pick_and_place_srl"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         from isaaclab.envs.common import ViewerCfg
