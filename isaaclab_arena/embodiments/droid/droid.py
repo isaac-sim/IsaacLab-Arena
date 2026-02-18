@@ -14,7 +14,11 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.assets.asset_base_cfg import AssetBaseCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
-from isaaclab.envs.mdp.actions.actions_cfg import BinaryJointPositionActionCfg, DifferentialInverseKinematicsActionCfg
+from isaaclab.envs.mdp.actions.actions_cfg import (
+    BinaryJointPositionActionCfg,
+    DifferentialInverseKinematicsActionCfg,
+    JointPositionActionCfg,
+)
 from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -31,7 +35,7 @@ from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
-from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, gripper_pos
+from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.pose import Pose
@@ -51,10 +55,11 @@ class DroidEmbodiment(EmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        use_joint_position_actions: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
-        self.action_config = DroidActionsCfg()
+        self.action_config = DroidJointPositionActionsCfg() if use_joint_position_actions else DroidActionsCfg()
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
@@ -230,6 +235,25 @@ class DroidActionsCfg:
 
 
 @configclass
+class DroidJointPositionActionsCfg:
+    """Action specifications using absolute joint positions"""
+
+    arm_action: ActionTermCfg = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_joint.*"],
+        preserve_order=True,
+        use_default_offset=False,
+    )
+
+    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
+        asset_name="robot",
+        joint_names=["finger_joint"],
+        open_command_expr={"finger_joint": 0.0},
+        close_command_expr={"finger_joint": torch.pi / 4},
+    )
+
+
+@configclass
 class DroidObservationsCfg:
     """Observation specifications for the MDP."""
 
@@ -240,6 +264,8 @@ class DroidObservationsCfg:
         actions = ObsTerm(func=mdp_isaac_lab.last_action)
         joint_pos = ObsTerm(func=arm_joint_pos)
         gripper_pos = ObsTerm(func=gripper_pos)
+        eef_pos = ObsTerm(func=ee_pos)
+        eef_quat = ObsTerm(func=ee_quat)
 
         def __post_init__(self):
             self.enable_corruption = False
