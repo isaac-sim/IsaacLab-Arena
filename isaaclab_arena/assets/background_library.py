@@ -172,7 +172,9 @@ class RubiksCubeBowlBackgroundSRL(LibraryBackground):
     name = "rubiks_cube_bowl_srl"
     tags = ["background"]
 
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/srl_robolab_assets/scenes/rubiks_cube_bowl.usda"
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/rubiks_cube_bowl.usda"
+    )
     object_min_z = -0.05
     spawn_cfg_addon = {"activate_contact_sensors": True}
 
