@@ -17,7 +17,7 @@ from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import (
     BinaryJointPositionActionCfg,
     DifferentialInverseKinematicsActionCfg,
-    JointPositionActionCfg,
+    RelativeJointPositionActionCfg,
 )
 from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
@@ -42,7 +42,7 @@ from isaaclab_arena.utils.pose import Pose
 
 
 @register_asset
-class DroidEmbodiment(EmbodimentBase):
+class DroidEmbodimentBase(EmbodimentBase):
     """Embodiment for the DROID setup (https://droid-dataset.github.io/droid/docs/hardware-setup), which includes Franka with robotiq gripper and specific set of cameras."""
 
     name = "droid"
@@ -59,10 +59,9 @@ class DroidEmbodiment(EmbodimentBase):
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
-        self.action_config = DroidJointPositionActionsCfg() if use_joint_position_actions else DroidActionsCfg()
+        self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
-        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = DroidEventCfg()
         if initial_joint_pose is not None:
             self.set_initial_joint_pose(initial_joint_pose)
@@ -88,6 +87,44 @@ class DroidEmbodiment(EmbodimentBase):
 
     def get_command_body_name(self) -> str:
         return self.action_config.arm_action.body_name
+
+
+@register_asset
+class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
+    """Embodiment for the DROID setup with differential inverse kinematics action controller."""
+
+    name = "droid_differential_ik"
+    default_arm_mode = ArmMode.SINGLE_ARM
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        self.action_config = DroidDifferentialIKActionsCfg()
+
+
+@register_asset
+class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
+    """Embodiment for the DROID setup with relative joint position action controller."""
+
+    name = "droid_rel_joint_pos"
+    default_arm_mode = ArmMode.SINGLE_ARM
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        self.action_config = DroidRelativeJointPositionActionsCfg()
 
 
 @configclass
@@ -214,7 +251,7 @@ class BinaryJointPositionZeroToOneActionCfg(BinaryJointPositionActionCfg):
 
 
 @configclass
-class DroidActionsCfg:
+class DroidDifferentialIKActionsCfg:
     """Action specifications for the MDP."""
 
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
@@ -235,16 +272,15 @@ class DroidActionsCfg:
 
 
 @configclass
-class DroidJointPositionActionsCfg:
-    """Action specifications using absolute joint positions"""
+class DroidRelativeJointPositionActionsCfg:
+    """Action specifications for the MDP."""
 
-    arm_action: ActionTermCfg = JointPositionActionCfg(
+    arm_action: ActionTermCfg = RelativeJointPositionActionCfg(
         asset_name="robot",
         joint_names=["panda_joint.*"],
-        preserve_order=True,
-        use_default_offset=False,
+        use_zero_offset=True,  # increment around current joint pos
+        scale=0.5,  # scale factor for the action
     )
-
     gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
         asset_name="robot",
         joint_names=["finger_joint"],
@@ -262,6 +298,8 @@ class DroidObservationsCfg:
         """Observations for policy group with state values."""
 
         actions = ObsTerm(func=mdp_isaac_lab.last_action)
+        robot_joint_pos = ObsTerm(func=mdp_isaac_lab.joint_pos, params={"asset_cfg": SceneEntityCfg("robot")})
+
         joint_pos = ObsTerm(func=arm_joint_pos)
         gripper_pos = ObsTerm(func=gripper_pos)
         eef_pos = ObsTerm(func=ee_pos)
