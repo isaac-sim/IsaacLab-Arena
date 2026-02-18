@@ -25,7 +25,6 @@ from isaaclab_arena.policy.gr00t_remote_client_policy import Gr00tFrankaClient
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("rubiks_cube_bowl_srl")()
@@ -96,7 +95,7 @@ for step in tqdm.tqdm(range(NUM_STEPS)):
                 f"truncated: {truncated.nonzero().flatten().tolist()}"
             )
             break
-            #client.reset()
+            # client.reset()
 
 # Compute and print metrics
 from isaaclab_arena.metrics.metrics import compute_metrics
@@ -108,4 +107,3 @@ else:
     print("\nNo metrics registered for this environment.")
 
 # %%
-

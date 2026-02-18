@@ -99,10 +99,12 @@ class DroidSceneCfg:
     robot: ArticulationCfg = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            #usd_path=(
+            # usd_path=(
             #    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/droid/franka_robotiq_2f_85_flattened.usd"
-            #),
-            usd_path=str(Path(__file__).resolve().parents[3] / "assets" / "robots" / "franka_robotiq_2f_85_flattened.usd"),
+            # ),
+            usd_path=str(
+                Path(__file__).resolve().parents[3] / "assets" / "robots" / "franka_robotiq_2f_85_flattened.usd"
+            ),
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,

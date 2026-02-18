@@ -22,4 +22,3 @@ class InferenceClient(ABC):
     def reset(self):
         """Resets the client to start a new episode."""
         pass
-
