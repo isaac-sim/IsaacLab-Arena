@@ -150,6 +150,8 @@ else
                     "-v" "/tmp/.X11-unix:/tmp/.X11-unix:rw"
                     "-v" "/var/run/docker.sock:/var/run/docker.sock"
                     "-v" "$HOME/.Xauthority:/root/.Xauthority"
+                    # Mount host SSL certificate store so the container trusts CA certs
+                    "-v" "/etc/ssl/certs:/etc/ssl/certs:ro"
                     "--env" "DISPLAY"
                     "--env" "ACCEPT_EULA=Y"
                     "--env" "PRIVACY_CONSENT=Y"
@@ -165,6 +167,8 @@ else
                     # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
                     "--env" "ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab"
+                    # Tell requests/urllib3 to use the system cert bundle
+                    "--env" "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
                     )
 
     # map omniverse auth or config so we have connection to the dev nucleus

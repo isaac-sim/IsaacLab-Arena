@@ -37,17 +37,21 @@ ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
 # Symlink isaac sim to IsaacLab
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
-# Install IsaacLab dependencies
-RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
+# Upgrade Isaac Sim's pip to avoid version warnings and build issues
+RUN /isaac-sim/python.sh -m pip install --upgrade pip
+# Install IsaacLab dependencies
+RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
+# Pre-install flatdict with --no-build-isolation to work around pkg_resources missing in pip's isolated build env
+RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
 # TODO(alexmillane): Watch the thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1764680205807019
 #                    and remove this thread when IsaacLab has a fix.
-RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
+RUN if /isaac-sim/python.sh -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
         echo "OSQP is installed. You can remove this clause from the Arena dockerfile."; \
     else \
         echo "OSQP missing, installing... This is a patch for an Isaac Lab bug."; \
@@ -132,7 +136,7 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 #    It will pause waiting for the debugger to attach.
 # 3) Attach to the running container with VSCode using the "Attach to debugpy session"
 #    configuration from the Run and Debug panel.
-RUN pip3 install debugpy
+RUN /isaac-sim/python.sh -m pip install debugpy
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
 # Change prompt so it's obvious we're inside the arena container
