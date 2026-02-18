@@ -16,10 +16,6 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
-.. todo::
-
-   Verifying Arena-GR00T on Blackwell architecture.
-
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_3_policy_training>` or downloaded the
 pre-trained model checkpoint below:
@@ -56,7 +52,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
 
       model_path: /models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000
       language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
-      action_horizon: 16
+      action_horizon: 50
       embodiment_tag: NEW_EMBODIMENT
       video_backend: decord
       modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
@@ -65,7 +61,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/g1_loco
       action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
       state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
 
-      action_chunk_length: 16
+      action_chunk_length: 50
       pov_cam_name_sim: "robot_head_cam_rgb"
 
       task_mode_name: g1_locomanipulation
@@ -77,7 +73,7 @@ Test the policy in a single environment with visualization via the GUI run:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
+     --num_steps 1500 \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
@@ -98,21 +94,46 @@ Step 2: Run Parallel Environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-Test the policy in 5 parallel environments with visualization via the GUI run:
+.. tabs::
 
-.. code-block:: bash
+   .. tab:: Single GPU Evaluation
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
-     --num_envs 5 \
-     --enable_cameras \
-     --device cpu \
-     --policy_device cuda  \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
+      Test the policy in 5 parallel environments with visualization via the GUI run:
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+           --num_steps 1200 \
+           --num_envs 5 \
+           --enable_cameras \
+           --device cuda \
+           --policy_device cuda  \
+           galileo_g1_locomanip_pick_and_place \
+           --object brown_box \
+           --embodiment g1_wbc_joint
+
+   .. tab:: Distribute Multi-GPU Evaluation
+
+      Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:
+
+      .. code-block:: bash
+
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+           --num_steps 1200 \
+           --num_envs 5 \
+           --enable_cameras \
+           --device cuda \
+           --policy_device cuda  \
+           --distributed \
+           --headless \
+           galileo_g1_locomanip_pick_and_place \
+           --object brown_box \
+           --embodiment g1_wbc_joint
+
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,

@@ -42,13 +42,8 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
         super().__init__(cfg, env)
         self.name = cfg.name
 
-    def record_post_reset(self, env_ids):
-        # Get subtask success state as a torch tensor
-        subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
-        return self.name, subtask_success_state.clone()
-
-    def record_pre_step(self):
-        # Get subtask success state as a torch tensor
+    def record_post_step(self):
+        # Return subtask success state as a torch tensor
         subtask_success_state = torch.tensor(self._env._subtask_success_state, device=self._env.device)
         return self.name, subtask_success_state.clone()
 
@@ -151,8 +146,20 @@ class SequentialTaskBase(TaskBase):
         if not hasattr(env, "_current_subtask_idx"):
             env._current_subtask_idx = [0 for _ in range(env.num_envs)]
 
-        # Check success of current subtask for each env
+        current_subtask_success_state = [[False for _ in subtasks] for _ in range(env.num_envs)]
+
+        # Check success of subtask for each env
         for env_idx in range(env.num_envs):
+            if desired_subtask_success_state:
+                # Compute the success state for all subtasks
+                for subtask_idx in range(len(subtasks)):
+                    subtask_success_func = subtasks[subtask_idx].get_termination_cfg().success.func
+                    subtask_success_params = subtasks[subtask_idx].get_termination_cfg().success.params
+                    result = subtask_success_func(env, **subtask_success_params)[env_idx]
+                    if result:
+                        current_subtask_success_state[env_idx][subtask_idx] = True
+
+            # Compute the success state for the current subtask
             current_subtask_idx = env._current_subtask_idx[env_idx]
             current_subtask_success_func = subtasks[current_subtask_idx].get_termination_cfg().success.func
             current_subtask_success_params = subtasks[current_subtask_idx].get_termination_cfg().success.params
@@ -166,8 +173,9 @@ class SequentialTaskBase(TaskBase):
         # Compute composite task success state for each env
         if desired_subtask_success_state:
             per_env_success = [
-                all([a == b for a, b in zip(env_successes, desired_subtask_success_state)])
-                for env_successes in env._subtask_success_state
+                all(env._subtask_success_state[env_idx])
+                and current_subtask_success_state[env_idx] == desired_subtask_success_state
+                for env_idx in range(env.num_envs)
             ]
         else:
             per_env_success = [all(env_successes) for env_successes in env._subtask_success_state]

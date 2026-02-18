@@ -35,7 +35,7 @@ def _create_test_objects() -> tuple[DummyObject, DummyObject, DummyObject]:
 
     box1.add_relation(On(desk, clearance_m=0.01))
     box2.add_relation(On(desk, clearance_m=0.01))
-    box2.add_relation(NextTo(box1, side=Side.RIGHT, distance_m=0.05))
+    box2.add_relation(NextTo(box1, side=Side.POSITIVE_X, distance_m=0.05))
 
     return desk, box1, box2
 

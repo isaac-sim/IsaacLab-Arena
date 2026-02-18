@@ -15,10 +15,6 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/locomanipulation_tutorial
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
-.. todo::
-
-   Verifying Arena-GR00T on Blackwell architecture.
-
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Data Generation) <step_2_data_generation>` or downloaded the pre-generated dataset.
 
@@ -114,7 +110,7 @@ Training Configuration:
 - **Base Model:** GR00T-N1.6-3B (foundation model)
 - **Tuned Modules:** Visual backbone, projector, diffusion model
 - **Frozen Modules:** LLM (language model)
-- **Batch Size:** 24 (adjust based on GPU memory)
+- **Batch Size:** 96 (adjust based on GPU memory)
 - **Training Steps:** 20,000
 - **GPUs:** 8 (multi-GPU training)
 
@@ -126,7 +122,7 @@ To post-train the policy, run the following command
    --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
    --output_dir=$MODELS_DIR \
    --modality_config_path=isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
-   --global_batch_size=24 \
+   --global_batch_size=96 \
    --max_steps=20000 \
    --num_gpus=8 \
    --save_steps=5000 \

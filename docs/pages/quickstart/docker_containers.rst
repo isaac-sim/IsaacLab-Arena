@@ -6,8 +6,8 @@ This first version of Isaac Lab Arena is designed to run inside a Docker contain
 
 We provide two docker containers for Isaac Lab Arena:
 
-- **Base**: Contains the Isaac Lab Arena code and all its dependencies.
-- **Base + GR00T**: Additionally includes GR00T and its dependencies.
+- **Base**: Contains the Isaac Lab Arena code and all its dependencies. Tagged as ``isaaclab_arena:latest``.
+- **Base + GR00T**: Additionally includes GR00T and its dependencies. Tagged as ``isaaclab_arena:cuda_gr00t_gn16``.
 
 We include the two containers such that the user can choose between container with minimal
 dependencies (**Base**) or container with all dependencies (**Base + GR00T**).

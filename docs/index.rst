@@ -175,7 +175,12 @@ This code is under an `open-source license <https://github.com/isaac-sim/IsaacLa
 
 Contributing
 ============
-For more details, please refer to the `Contributing Guidelines <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md>`_.
+NVIDIA Isaac Lab-Arena is an open-source framework, available on GitHub, that provides a collaborative system for
+large-scale robot policy evaluation and benchmarking in simulation, with the evaluation and task layers designed
+in close collaboration with `Lightwheel <https://lightwheel.ai/>`_.
+
+For more details on how to contribute to Isaac Lab Arena, please refer to the
+`Contributing Guidelines <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md>`_.
 
 TABLE OF CONTENTS
 =================
@@ -195,6 +200,7 @@ TABLE OF CONTENTS
 
    pages/example_workflows/locomanipulation/index
    pages/example_workflows/static_manipulation/index
+   pages/example_workflows/sequential_static_manipulation/index
    pages/example_workflows/reinforcement_learning/index
 
 .. toctree::

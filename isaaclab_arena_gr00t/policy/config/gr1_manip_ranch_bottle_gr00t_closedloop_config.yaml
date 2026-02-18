@@ -5,7 +5,7 @@
 
 # This file shows how to configure the Gr00tClosedloopPolicy class for GR1 tabletop manipulation task
 # NOTE(alexmillane, 2025-10-31): The model path here aligns with the model used in the static manipulation tutorial.
-model_path: /models/isaaclab_arena/ranch_bottle_into_fridge/checkpoint-20000
+model_path: /models/isaaclab_arena/sequential_static_manipulation_tutorial/ranch_bottle_into_fridge/
 language_instruction: "Place the ranch dressing bottle on the top shelf of the fridge, and close the fridge door."
 # Action horizon is the number of actions predicted by the policy per inference rollout, defined in the GN1.6 policy data_config 'fourier_gr1_arms_only'.
 action_horizon: 16

@@ -5,7 +5,7 @@
 import torch
 
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -43,20 +43,14 @@ class DummyObject:
         return self.bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox + position offset)."""
-        pos = self.initial_pose.position_xyz if self.initial_pose else (0, 0, 0)
-        return AxisAlignedBoundingBox(
-            min_point=(
-                self.bounding_box.min_point[0] + pos[0],
-                self.bounding_box.min_point[1] + pos[1],
-                self.bounding_box.min_point[2] + pos[2],
-            ),
-            max_point=(
-                self.bounding_box.max_point[0] + pos[0],
-                self.bounding_box.max_point[1] + pos[1],
-                self.bounding_box.max_point[2] + pos[2],
-            ),
-        )
+        """Get bounding box in world coordinates (local bbox rotated and translated).
+
+        Only 90° rotations around Z axis are supported.
+        """
+        if self.initial_pose is None:
+            return self.bounding_box
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
+        return self.bounding_box.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:
         return self.bounding_box.get_corners_at(pos)

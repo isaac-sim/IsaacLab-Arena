@@ -10,3 +10,4 @@ from enum import Enum
 class TaskMode(Enum):
     G1_LOCOMANIPULATION = "g1_locomanipulation"
     GR1_TABLETOP_MANIPULATION = "gr1_tabletop_manipulation"
+    DROID_MANIPULATION = "droid_manipulation"

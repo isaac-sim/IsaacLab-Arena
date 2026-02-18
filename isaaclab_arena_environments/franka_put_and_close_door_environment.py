@@ -124,5 +124,4 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="dex_cube", help="Object to pick and place in the microwave")
         parser.add_argument("--embodiment", type=str, default="franka", help="Robot embodiment to use")
-        parser.add_argument("--enable_cameras", action="store_true", default=False, help="Enable camera sensors")
         parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")

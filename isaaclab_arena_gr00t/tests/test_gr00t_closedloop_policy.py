@@ -157,7 +157,7 @@ def _run_gr00t_closedloop_policy(
         policy = policy_cls.from_args(args_cli)
 
         # Run the rollout
-        rollout_policy(env, policy, num_steps)
+        rollout_policy(env, policy, num_steps, num_episodes=None)
 
         # Close the environment
         env.close()

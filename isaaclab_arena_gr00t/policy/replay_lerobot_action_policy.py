@@ -205,7 +205,11 @@ class ReplayLerobotActionPolicy(PolicyBase):
         # NOTE(xinjieyao, 2025-09-29): assume gr1 tabletop manipulation does not use waist, arms_only
 
         robot_action_sim = remap_policy_joints_to_sim_joints(
-            actions, self.policy_joints_config, self.robot_action_joints_config, self.device
+            actions,
+            self.policy_joints_config,
+            self.robot_action_joints_config,
+            self.device,
+            embodiment_tag=self.policy_config.embodiment_tag,
         )
 
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:

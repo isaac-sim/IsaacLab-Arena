@@ -99,5 +99,4 @@ class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
         parser.add_argument("--object", type=str, default="mug")
         parser.add_argument("--background", type=str, default="table")
         parser.add_argument("--embodiment", type=str, default="agibot")
-        parser.add_argument("--enable_cameras", type=bool, default=False)
         parser.add_argument("--teleop_device", type=str, default="keyboard")

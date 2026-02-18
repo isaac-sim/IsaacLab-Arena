@@ -10,7 +10,7 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
-ENABLE_CAMERAS = True
+ENABLE_CAMERAS = False
 GENERATION_NUM_TRIALS = 1
 
 
