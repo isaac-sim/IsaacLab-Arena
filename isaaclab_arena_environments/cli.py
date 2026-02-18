@@ -14,6 +14,7 @@ from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
 from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
+from isaaclab_arena_environments.gr00t_droid_pick_and_place_environment import Gr00tDroidPickAndPlaceEnvironment
 from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
 from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
 from isaaclab_arena_environments.gr1_turn_stand_mixer_knob_environment import Gr1TurnStandMixerKnobEnvironment
@@ -36,6 +37,7 @@ ExampleEnvironments = {
     GR1PutAndCloseDoorEnvironment.name: GR1PutAndCloseDoorEnvironment,
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
+    Gr00tDroidPickAndPlaceEnvironment.name: Gr00tDroidPickAndPlaceEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
     CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
