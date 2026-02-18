@@ -17,6 +17,7 @@ from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import (
     BinaryJointPositionActionCfg,
     DifferentialInverseKinematicsActionCfg,
+    JointPositionActionCfg,
     RelativeJointPositionActionCfg,
 )
 from isaaclab.managers import ActionTermCfg
@@ -125,6 +126,25 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
     ):
         super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
         self.action_config = DroidRelativeJointPositionActionsCfg()
+
+
+@register_asset
+class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
+    """Embodiment for the DROID setup with absolute joint position actions (for GR00T)."""
+
+    name = "droid_abs_joint_pos"
+    default_arm_mode = ArmMode.SINGLE_ARM
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        self.action_config = DroidAbsoluteJointPositionActionsCfg()
 
 
 @configclass
@@ -281,6 +301,25 @@ class DroidRelativeJointPositionActionsCfg:
         use_zero_offset=True,  # increment around current joint pos
         scale=0.5,  # scale factor for the action
     )
+    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
+        asset_name="robot",
+        joint_names=["finger_joint"],
+        open_command_expr={"finger_joint": 0.0},
+        close_command_expr={"finger_joint": torch.pi / 4},
+    )
+
+
+@configclass
+class DroidAbsoluteJointPositionActionsCfg:
+    """Absolute joint position actions — compatible with GR00T policy outputs."""
+
+    arm_action: ActionTermCfg = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_joint.*"],
+        preserve_order=True,
+        use_default_offset=False,
+    )
+
     gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
         asset_name="robot",
         joint_names=["finger_joint"],
