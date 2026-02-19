@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Usd
 
@@ -11,6 +12,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
+from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
@@ -29,6 +31,7 @@ class ObjectReference(ObjectBase):
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
+        self.event_cfg = self._init_event_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
 
     def get_initial_pose(self) -> Pose:
@@ -94,6 +97,18 @@ class ObjectReference(ObjectBase):
         # and used here.
         # Just call out to the parent class method.
         return super().get_contact_sensor_cfg(contact_against_prim_paths)
+
+    def _init_event_cfg(self) -> EventTermCfg | None:
+        if self.object_type in (ObjectType.RIGID, ObjectType.ARTICULATION):
+            return EventTermCfg(
+                func=set_object_pose,
+                mode="reset",
+                params={
+                    "pose": self.get_initial_pose(),
+                    "asset_cfg": SceneEntityCfg(self.name),
+                },
+            )
+        return None
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
