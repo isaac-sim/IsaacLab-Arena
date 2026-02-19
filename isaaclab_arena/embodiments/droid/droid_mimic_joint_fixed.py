@@ -169,7 +169,7 @@ class DroidSceneCfg:
                 prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
                 name="end_effector",
                 offset=OffsetCfg(
-                    pos=[0.0, 0.0, 0.1034],
+                    pos=[0.0, 0.0, 0.0], # 0.1034
                 ),
             ),
             FrameTransformerCfg.FrameCfg(

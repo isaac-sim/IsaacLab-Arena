@@ -7,6 +7,8 @@
 ######## From Neel: This script is an example of how to use the curobo planner to pick and place objects.
 ######## It is not a complete pick and place policy, but it is a good starting point
 
+# can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.03 --approach_distance 0.15 --retreat_disnce 0.1 --debug_planner --pick_order tomato_soup_can sugar_box --grasp_orientation object_yaw --post_place_clearance 0.0
+
 from __future__ import annotations
 
 import argparse
@@ -30,115 +32,60 @@ DOWN_FACING_QUAT_WXYZ = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=torch.float32)
 
 
 def add_script_args(parser: argparse.ArgumentParser) -> None:
+    # -- Object selection --
     parser.add_argument(
-        '--pick_order',
-        nargs='+',
-        type=str,
-        default=None,
+        '--pick_order', nargs='+', type=str, default=None,
         help='Explicit object pick order. If not specified, auto-discovers all objects from scene.',
     )
     parser.add_argument(
-        '--max_objects',
-        type=int,
-        default=None,
+        '--max_objects', type=int, default=None,
         help='Optional limit on number of objects to pick from discovered order.',
     )
+
+    # -- Grasp / place geometry --
     parser.add_argument(
-        '--pre_grasp_height',
-        type=float,
-        default=0.20,
-        help='Pre-grasp height above object center in meters.',
+        '--grasp_z_offset', type=float, default=0.02,
+        help='Z offset above object center for grasp pose (meters).',
     )
     parser.add_argument(
-        '--grasp_height_offset',
-        type=float,
-        default=0.02,
-        help='Grasp pose z offset from object center in meters.',
+        '--place_z_offset', type=float, default=0.12,
+        help='Z offset above bin center for place pose (meters).',
     )
     parser.add_argument(
-        '--transport_height',
-        type=float,
-        default=0.22,
-        help='Transport z offset above bin center while carrying an object.',
+        '--grasp_orientation', type=str, default='top_down',
+        choices=['top_down', 'object_aligned', 'object_yaw'],
+        help='Grasp orientation strategy: top_down | object_aligned | object_yaw.',
     )
     parser.add_argument(
-        '--place_height_offset',
-        type=float,
-        default=0.12,
-        help='Place pose z offset from bin center in meters.',
+        '--bin_half_x', type=float, default=0.08,
+        help='Usable bin half-width along X (meters).',
     )
     parser.add_argument(
-        '--bin_half_x',
-        type=float,
-        default=0.08,
-        help='Half-width of bin interior along X in meters (bin ~20cm, usable ~16cm).',
+        '--bin_half_y', type=float, default=0.10,
+        help='Usable bin half-width along Y (meters).',
     )
+
+    # -- Execution --
     parser.add_argument(
-        '--bin_half_y',
-        type=float,
-        default=0.10,
-        help='Half-width of bin interior along Y in meters (bin ~25cm, usable ~20cm).',
+        '--gripper_settle_steps', type=int, default=100,
+        help='Sim steps to hold pose while opening/closing gripper.',
     )
+
+    # -- CuRobo planner --
     parser.add_argument(
-        '--gripper_settle_steps',
-        type=int,
-        default=100,
-        help='Number of env steps to hold pose while opening/closing gripper.',
+        '--post_place_clearance', type=float, default=0.10,
+        help='Z clearance above place pose after releasing object (0 to skip).',
     )
-    parser.add_argument(
-        '--approach_distance',
-        type=float,
-        default=0.04,
-        help='CuRobo planner approach distance.',
-    )
-    parser.add_argument(
-        '--retreat_distance',
-        type=float,
-        default=0.06,
-        help='CuRobo planner retreat distance.',
-    )
-    parser.add_argument(
-        '--time_dilation_factor',
-        type=float,
-        default=0.6,
-        help='CuRobo time dilation factor.',
-    )
-    parser.add_argument(
-        '--debug_planner',
-        action='store_true',
-        default=True,
-        help='Enable verbose planner debugging.',
-    )
-    parser.add_argument(
-        '--dump_spheres_dir',
-        type=str,
-        default=None,
-        help='Directory to dump CuRobo link spheres before/after each planning stage.',
-    )
-    parser.add_argument(
-        '--dump_spheres_png',
-        action='store_true',
-        default=False,
-        help='If set, also save XY/XZ/YZ sphere projection PNGs for each dump.',
-    )
-    parser.add_argument(
-        '--run_sanity_check',
-        action='store_true',
-        default=False,
-        help='Run one pre-flight lift planning check to distinguish setup issues from goal issues.',
-    )
-    parser.add_argument(
-        '--goal_z_boost',
-        type=float,
-        default=0.0,
-        help='Extra Z offset added to ALL goal poses in robot-frame for IK reachability testing.',
-    )
-    parser.add_argument(
-        '--rerun_recording_path',
-        type=str,
-        default=None,
-        help='Optional .rrd output path for Rerun recording; useful when running inside Docker.',
-    )
+    parser.add_argument('--approach_distance', type=float, default=0.04, help='CuRobo approach distance (meters).')
+    parser.add_argument('--retreat_distance', type=float, default=0.06, help='CuRobo retreat distance (meters).')
+    parser.add_argument('--time_dilation_factor', type=float, default=0.6, help='CuRobo time dilation factor.')
+    parser.add_argument('--debug_planner', action='store_true', default=False, help='Enable verbose planner debugging.')
+
+    # -- Diagnostics --
+    parser.add_argument('--run_sanity_check', action='store_true', default=False, help='Run pre-flight lift check.')
+    parser.add_argument('--dump_spheres_dir', type=str, default=None, help='Directory to dump CuRobo collision spheres.')
+    parser.add_argument('--dump_spheres_png', action='store_true', default=False, help='Save sphere projection PNGs.')
+    parser.add_argument('--rerun_recording_path', type=str, default=None, help='Optional .rrd output path for Rerun.')
 
 
 def _add_script_args_to_subparsers(parser: argparse.ArgumentParser) -> None:
@@ -227,11 +174,7 @@ def _pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch
 
 
 def _get_object_pos(env, object_name: str, env_id: int = 0) -> torch.Tensor:
-    """Get object position in robot-base frame (cuRobo's coordinate system).
-    
-    CuRobo's coordinate system has the robot base at the origin, so we need to
-    convert from world coordinates to robot-base-relative coordinates.
-    """
+    """Get object position in robot-base frame (cuRobo's coordinate system)."""
     obj = env.scene[object_name]
     robot = env.scene['robot']
     world_pos = obj.data.root_pos_w[env_id, :3]
@@ -239,6 +182,49 @@ def _get_object_pos(env, object_name: str, env_id: int = 0) -> torch.Tensor:
     robot_frame_pos = world_pos - robot_base_pos
     print(f"[DEBUG OBJ] {object_name}: world={world_pos}, robot_base={robot_base_pos}, robot_frame={robot_frame_pos}")
     return robot_frame_pos.clone().detach()
+
+
+def _get_object_quat(env, object_name: str, env_id: int = 0) -> torch.Tensor:
+    """Get object orientation as quaternion (wxyz) in world frame."""
+    obj = env.scene[object_name]
+    return obj.data.root_quat_w[env_id, :4].clone().detach()
+
+
+def _compute_grasp_quat(strategy: str, object_quat_wxyz: torch.Tensor, device) -> torch.Tensor:
+    """Compute gripper orientation for grasping based on the chosen strategy.
+
+    Args:
+        strategy: 'top_down', 'object_aligned', or 'object_yaw'.
+        object_quat_wxyz: Object quaternion in (w, x, y, z) format.
+        device: Torch device.
+
+    Returns:
+        Grasp quaternion (wxyz) for the end-effector.
+    """
+    down_quat = DOWN_FACING_QUAT_WXYZ.to(device)
+
+    if strategy == 'top_down':
+        return down_quat
+
+    if strategy == 'object_yaw':
+        # Extract object yaw and apply it to the downward-facing orientation.
+        # Object quat -> euler -> keep only yaw -> compose with down_quat.
+        obj_euler = math_utils.euler_xyz_from_quat(object_quat_wxyz.unsqueeze(0))
+        yaw = obj_euler[2][0]  # z-rotation
+        yaw_quat = math_utils.quat_from_euler_xyz(
+            torch.zeros(1, device=device),
+            torch.zeros(1, device=device),
+            yaw.unsqueeze(0),
+        )[0]
+        grasp_quat = math_utils.quat_mul(yaw_quat.unsqueeze(0), down_quat.unsqueeze(0))[0]
+        return grasp_quat
+
+    if strategy == 'object_aligned':
+        # Use full object orientation composed with the downward-facing base.
+        grasp_quat = math_utils.quat_mul(object_quat_wxyz.unsqueeze(0), down_quat.unsqueeze(0))[0]
+        return grasp_quat
+
+    raise ValueError(f"Unknown grasp orientation strategy: {strategy}")
 
 
 def _auto_pick_order(env, explicit_order: list[str] | None) -> list[str]:
@@ -662,16 +648,19 @@ def main() -> None:
         
         for idx, object_name in enumerate(pick_order):
             object_pos = _get_object_pos(env, object_name)
+            object_quat = _get_object_quat(env, object_name)
             print(f"\n{'='*80}")
             print(f"[{idx + 1}/{len(pick_order)}] Planning for object '{object_name}' at {object_pos}")
             print(f"{'='*80}")
             
             results[object_name] = {}
 
-            # Plan directly to grasp pose (approach_distance auto-adds retreat+approach phases)
+            grasp_quat = _compute_grasp_quat(args_cli.grasp_orientation, object_quat, env.device)
+            print(f"[GRASP] orientation={args_cli.grasp_orientation}, quat={grasp_quat.tolist()}")
+
             grasp_xyz = object_pos.clone()
-            grasp_xyz[2] += args_cli.grasp_height_offset + args_cli.goal_z_boost
-            grasp_pose = _pose_from_pos_quat(grasp_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+            grasp_xyz[2] += args_cli.grasp_z_offset
+            grasp_pose = _pose_from_pos_quat(grasp_xyz, grasp_quat)
             
             # Compute reachability metrics
             current_eef_pose = _get_current_eef_pose(env, planner)
@@ -681,17 +670,14 @@ def main() -> None:
             print(f"[DEBUG GOAL] Current EEF (robot-frame): {current_eef_pos}")
             print(f"[DEBUG GOAL] Grasp XYZ (robot-frame): {grasp_xyz}")
             print(f"[DEBUG GOAL] Distance to goal: {distance_to_goal:.3f}m")
-            if args_cli.goal_z_boost != 0.0:
-                print(f"[DEBUG GOAL] goal_z_boost applied: {args_cli.goal_z_boost}m")
+            if args_cli.grasp_z_offset != 0.0:
+                print(f"[DEBUG GOAL] grasp_z_offset applied: {args_cli.grasp_z_offset}m")
             print(f"[DEBUG GOAL] Approach distance: {args_cli.approach_distance}m (cuRobo multi-phase)")
 
             slot_center_xyz = placement_slots[idx]
-            # place_above_xyz = slot_center_xyz.clone()
-            # place_above_xyz[2] += args_cli.transport_height + args_cli.goal_z_boost
-            # place_above_pose = _pose_from_pos_quat(place_above_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
 
             place_xyz = slot_center_xyz.clone()
-            place_xyz[2] += args_cli.place_height_offset + args_cli.goal_z_boost
+            place_xyz[2] += args_cli.place_z_offset
             place_pose = _pose_from_pos_quat(place_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
 
             # Single grasp motion (approach_distance adds multi-phase planning automatically)
@@ -745,21 +731,22 @@ def main() -> None:
                 env_id=0,
             )
 
-            retreat_xyz = place_xyz.clone()
-            retreat_xyz[2] += 0.10
-            retreat_pose = _pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
-            retreat_success = _plan_and_execute(
-                env,
-                planner,
-                target_pose=retreat_pose,
-                gripper_action=GRIPPER_OPEN_CMD,
-                expected_attached_object=None,
-                stage=f'{object_name}:retreat',
-                sphere_dump_dir=sphere_dump_dir,
-                sphere_dump_png=args_cli.dump_spheres_png,
-                goal_pose_visualizer=goal_pose_visualizer,
-            )
-            results[object_name]['retreat'] = retreat_success
+            if args_cli.post_place_clearance > 0:
+                retreat_xyz = place_xyz.clone()
+                retreat_xyz[2] += args_cli.post_place_clearance
+                retreat_pose = _pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+                retreat_success = _plan_and_execute(
+                    env,
+                    planner,
+                    target_pose=retreat_pose,
+                    gripper_action=GRIPPER_OPEN_CMD,
+                    expected_attached_object=None,
+                    stage=f'{object_name}:retreat',
+                    sphere_dump_dir=sphere_dump_dir,
+                    sphere_dump_png=args_cli.dump_spheres_png,
+                    goal_pose_visualizer=goal_pose_visualizer,
+                )
+                results[object_name]['retreat'] = retreat_success
 
         # Print summary
         print(f"\n{'='*80}")
