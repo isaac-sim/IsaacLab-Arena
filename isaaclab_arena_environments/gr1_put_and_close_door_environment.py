@@ -146,8 +146,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-            assert False, "Object set is not supported yet due to unresolved prim path of object set. Fix is pending."
-            # TODO(alexmillane, 2026.02.09): Merge fix for this.
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
             pickup_object = RigidObjectSet(name="object_set", objects=objects)
         else:
@@ -199,7 +197,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             "--object",
             type=str,
             default="ranch_dressing_bottle",
-            choices=["sweet_potato", "jug", "ranch_dressing_bottle"],
+            choices=["beer_bottle", "ketchup_bottle", "ranch_dressing_bottle", "bbq_sauce_bottle"],
             help="Object to pick and place",
         )
         parser.add_argument(

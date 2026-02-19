@@ -694,6 +694,68 @@ class RanchDressingBottle(LibraryObject):
 
 
 @register_asset
+class BeerBottle(LibraryObject):
+    """
+    Beer Bottle
+    """
+
+    # Only required when using Lightwheel SDK
+    from lightwheel_sdk.loader import object_loader
+
+    name = "beer_bottle"
+    tags = ["object", "graspable"]
+    file_path, object_name, metadata = object_loader.acquire_by_registry(
+        registry_type="objects", file_name="beer016", file_type="USD"
+    )
+    usd_path = file_path
+    object_type = ObjectType.RIGID
+    scale = (1.2, 1.2, 1.2)
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+@register_asset
+class BBQSauceBottle(LibraryObject):
+    """
+    BBQ Sauce Bottle
+    """
+
+    name = "bbq_sauce_bottle"
+    tags = ["object", "graspable"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/bbq_sauce_bottle.usd"
+    object_type = ObjectType.RIGID
+    scale = (0.9, 0.9, 1.4)
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+@register_asset
+class KetchupBottle(LibraryObject):
+    """
+    Ketchup Bottle
+    """
+
+    name = "ketchup_bottle"
+    tags = ["object", "graspable"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/ketchup_bottle.usd"
+    object_type = ObjectType.RIGID
+    scale = (1.1, 1.1, 1.4)
+
+
 class RedCube(LibraryObject):
     """
     A red cube.
