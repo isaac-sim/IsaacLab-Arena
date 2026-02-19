@@ -9,6 +9,7 @@ from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
+from isaaclab_arena_environments.droid_pick_and_place_srl_environment import DroidPickAndPlaceSRLEnvironment
 from isaaclab_arena_environments.franka_put_and_close_door_environment import FrankaPutAndCloseDoorEnvironment
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
@@ -36,6 +37,7 @@ ExampleEnvironments = {
     GR1PutAndCloseDoorEnvironment.name: GR1PutAndCloseDoorEnvironment,
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
+    DroidPickAndPlaceSRLEnvironment.name: DroidPickAndPlaceSRLEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
     CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
