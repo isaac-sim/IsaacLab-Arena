@@ -130,7 +130,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
 
 @register_asset
 class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
-    """Embodiment for the DROID setup with absolute joint position actions (for GR00T)."""
+    """Embodiment for the DROID setup with absolute joint position actions."""
 
     name = "droid_abs_joint_pos"
     default_arm_mode = ArmMode.SINGLE_ARM
@@ -223,7 +223,6 @@ class DroidSceneCfg:
     )
 
     # The end-effector frame marker
-    # TODO(xinjieyao, 2026-02-17): Need to verify that pose is correct
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
@@ -311,7 +310,7 @@ class DroidRelativeJointPositionActionsCfg:
 
 @configclass
 class DroidAbsoluteJointPositionActionsCfg:
-    """Absolute joint position actions — compatible with GR00T policy outputs."""
+    """Absolute joint position actions."""
 
     arm_action: ActionTermCfg = JointPositionActionCfg(
         asset_name="robot",
