@@ -77,7 +77,8 @@ Test the policy in a single environment with visualization via the GUI run:
      --num_steps 2000 \
      --enable_cameras \
      put_item_in_fridge_and_close_door \
-     --embodiment gr1_joint
+     --embodiment gr1_joint \
+     --object ranching_dressing_bottle
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -94,13 +95,11 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 0.0, 'subtask_success_rate': [1.0, 0.0], 'num_episodes': 5}
+         Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
 
 .. todo::
 
-   1. Check the revolute joint moved rate for the second subtask. Why 0.0? At least it's reported on this branch.
-
-   2. Verify evaluation using single-gpu finetune command in the last step.
+   1. Verify evaluation using single-gpu finetune command in the last step.
 
 
 Step 2: Run Parallel environments Evaluation
@@ -122,8 +121,9 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --num_steps 2000 \
            --num_envs 10 \
            --enable_cameras \
-           gr1_open_microwave \
-           --embodiment gr1_joint
+           put_item_in_fridge_and_close_door \
+           --embodiment gr1_joint \
+           --object ranching_dressing_bottle
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -139,8 +139,9 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --enable_cameras \
            --headless \
            --distributed \
-           gr1_open_microwave \
-           --embodiment gr1_joint
+           put_item_in_fridge_and_close_door \
+           --embodiment gr1_joint \
+           --object ranch_dressing_bottle
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
@@ -159,7 +160,7 @@ than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 0.0, 'subtask_success_rate': [0.98, 0.0], 'num_episodes': 50}
+   Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
 
 .. note::
 
@@ -169,3 +170,55 @@ than the single environment evaluation because of the parallel evaluation.
    which are realized by using the PINK IK controller.
    GR00T N1.6 policy is trained on upper body joint positions, so we use
    ``gr1_joint`` for closed-loop policy inference.
+
+
+Step 3: Multi-object Heterogeneous Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.
+
+.. tabs::
+
+   .. tab:: Single GPU Evaluation
+
+      Test the policy in 10 parallel environments with visualization via the GUI run:
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/policy_runner.py \
+         --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+         --num_steps 2000 \
+         --num_envs 10 \
+         --enable_cameras \
+         put_item_in_fridge_and_close_door \
+         --embodiment gr1_joint \
+         --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle
+
+   .. tab:: Distribute Multi-GPU Evaluation
+
+      Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
+
+      .. code-block:: bash
+
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
+           --num_steps 2000 \
+           --num_envs 10 \
+           --enable_cameras \
+           --distributed \
+           --headless \
+           put_item_in_fridge_and_close_door \
+           --embodiment gr1_joint \
+           --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle
+
+Each environment has a different object spawned from the object set. The same policy is used for all those environments.
+At then end of the evaluation, you should see the following output on the console indicating the metrics.
+You can see that the success rate for this sequential task, object moved rate for the first subtask,
+and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+All of them might not be 1.0 as unseen objects are being evaluated and the policy is not trained on them.
+
+.. code-block:: text
+
+   Metrics: {'success_rate': 0.7111111111111111, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.9333333333333333, 0.9333333333333333], 'num_episodes': 45}
