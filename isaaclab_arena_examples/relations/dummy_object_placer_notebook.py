@@ -242,3 +242,24 @@ if __name__ == "__main__":
     run_dummy_no_collision_demo()
 
 # %%
+
+
+dummy_object_1 = DummyObject()
+dummy_object_2 = DummyObject()
+dummy_object_3 = DummyObject()
+table = DummyObject()
+
+dummy_object_1.add_relation(On(table))
+dummy_object_2.add_relation(On(table))
+dummy_object_3.add_relation(On(table))
+table.add_relation(IsAnchor())
+
+dummy_object_1.add_relation(NoCollision(dummy_object_2))
+dummy_object_1.add_relation(NoCollision(dummy_object_3))
+dummy_object_2.add_relation(NoCollision(dummy_object_3))
+
+
+
+
+
+

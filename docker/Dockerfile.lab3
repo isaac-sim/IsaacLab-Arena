@@ -1,0 +1,34 @@
+# ARG BASE_IMAGE=nvcr.io/nvidia/pytorch:23.12-py3
+ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-718b5c21-x86_64
+
+FROM ${BASE_IMAGE}
+
+# GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
+ARG INSTALL_GROOT=false
+
+ARG WORKDIR="/workspace"
+ENV WORKDIR=${WORKDIR}
+WORKDIR "${WORKDIR}"
+
+# Hide conflicting Vulkan files, if needed.
+RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
+      mv /usr/share/vulkan /usr/share/vulkan_hidden; \
+    fi
+
+# apt packages
+RUN apt-get update && apt-get install -y \
+  git \
+  git-lfs \
+  cmake \
+  sudo \
+  python3-pip
+
+# Copy files in
+COPY *.* ${WORKDIR}/
+
+# Build Isaac Sim 6.0
+RUN submodules/omni_isaac_sim/build.sh
+
+# Set the entrypoint
+COPY docker/setup/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

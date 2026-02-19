@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.1.0
 
 FROM ${BASE_IMAGE}
 
 # Set user to root (Isaac Sim base image defaults to non-root user)
+=======
+# ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-718b5c21-x86_64
+
+FROM ${BASE_IMAGE}
+
+>>>>>>> 77e44ff9 (Trying with Isaac Sim image.)
 USER root
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
@@ -25,6 +33,12 @@ RUN apt-get update && apt-get install -y \
   sudo \
   python3-pip
 
+<<<<<<< HEAD
+=======
+# Update pip to the latest version
+# RUN pip3 install --upgrade pip
+
+>>>>>>> 77e44ff9 (Trying with Isaac Sim image.)
 ################################
 # Install Isaac Lab
 ################################
