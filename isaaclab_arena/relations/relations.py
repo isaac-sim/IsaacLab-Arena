@@ -117,6 +117,28 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
+class NoCollision(Relation):
+    """Represents a 'no collision' relationship between two objects.
+
+    This relation specifies that the child and parent bounding boxes must not overlap.
+    Adding NoCollision on one side is enough; the solver counts each unordered pair once.
+
+    Note: Loss computation is handled by NoCollisionLossStrategy in relation_loss_strategies.py.
+    """
+
+    def __init__(
+        self,
+        parent: Object | ObjectReference,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            parent: The other object that this object must not collide with.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        super().__init__(parent, relation_loss_weight)
+
+
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 

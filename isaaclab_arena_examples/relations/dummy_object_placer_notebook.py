@@ -13,7 +13,7 @@
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side, get_anchor_objects
+from isaaclab_arena.relations.relations import IsAnchor, NextTo, NoCollision, On, Side, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_examples.relations.relation_solver_visualizer import RelationSolverVisualizer
@@ -162,11 +162,83 @@ def run_dummy_multi_anchor_demo():
 
 
 # %%
-if __name__ == "__main__":
-    # Run single anchor demo
-    run_dummy_object_placer_demo()
+def run_dummy_no_collision_demo():
+    """Run RelationSolver with three boxes starting overlapping; animation shows them separate."""
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
-    # Run multi-anchor demo
-    run_dummy_multi_anchor_demo()
+    table = DummyObject(
+        name="table",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.8, 0.6, 0.4)),
+    )
+    table.add_relation(IsAnchor())
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
+    box_a = DummyObject(
+        name="box_a",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1)),
+    )
+    box_b = DummyObject(
+        name="box_b",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08)),
+    )
+    box_c = DummyObject(
+        name="box_c",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.1, 0.06)),
+    )
+
+    for box in (box_a, box_b, box_c):
+        box.add_relation(On(table, clearance_m=0.01))
+
+    # One-sided NoCollision per pair to avoid circular refs (e.g. in Isaac Sim config validation).
+    # Solver still enforces no overlap for every pair.
+    box_a.add_relation(NoCollision(box_b))
+    box_a.add_relation(NoCollision(box_c))
+    box_b.add_relation(NoCollision(box_c))
+
+    all_objects = [table, box_a, box_b, box_c]
+
+    table_top_z = 0.4 + 0.01
+    overlap_center = (0.35, 0.28, table_top_z)
+    initial_positions = {
+        table: (0.0, 0.0, 0.0),
+        box_a: overlap_center,
+        box_b: overlap_center,
+        box_c: overlap_center,
+    }
+
+    solver = RelationSolver(
+        params=RelationSolverParams(verbose=True, save_position_history=True),
+    )
+    final_positions = solver.solve(objects=all_objects, initial_positions=initial_positions)
+
+    print("\nFinal positions (started overlapping, now separated):")
+    for obj, pos in final_positions.items():
+        anchor_tag = " (anchor)" if obj in get_anchor_objects(all_objects) else ""
+        print(f"  {obj.name}{anchor_tag}: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
+
+    visualizer = RelationSolverVisualizer(
+        result=final_positions,
+        objects=all_objects,
+        anchor_objects=get_anchor_objects(all_objects),
+        loss_history=solver.last_loss_history,
+        position_history=solver.last_position_history,
+    )
+
+    visualizer.plot_objects_3d().show()
+    visualizer.plot_loss_history().show()
+    visualizer.animate_optimization().show()
+
+
+# %%
+if __name__ == "__main__":
+    # 1. Single anchor demo
+    # run_dummy_object_placer_demo()
+
+    # 2. Multi-anchor demo
+    # run_dummy_multi_anchor_demo()
+
+    # # 3. NoCollision demo (three boxes start overlapping, then separate)
+    run_dummy_no_collision_demo()
 
 # %%

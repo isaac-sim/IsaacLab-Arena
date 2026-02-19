@@ -6,6 +6,7 @@
 import torch
 
 from isaaclab_arena.relations.loss_primitives import (
+    interval_overlap_axis_loss,
     linear_band_loss,
     single_boundary_linear_loss,
     single_point_linear_loss,
@@ -180,3 +181,44 @@ def test_single_point_linear_loss_symmetric():
     loss_below = single_point_linear_loss(value_below, target, slope=slope)
 
     assert torch.isclose(loss_above, loss_below, rtol=1e-5)
+
+
+# =============================================================================
+# interval_overlap_axis_loss tests
+# =============================================================================
+
+
+def test_interval_overlap_axis_loss_separated_returns_zero():
+    """Test that overlap loss is zero when intervals do not overlap."""
+    # Interval A [0, 0.2], Interval B [0.5, 0.7] -> no overlap
+    a_min = torch.tensor(0.0)
+    a_max = torch.tensor(0.2)
+    b_min = torch.tensor(0.5)
+    b_max = torch.tensor(0.7)
+
+    loss = interval_overlap_axis_loss(a_min, a_max, b_min, b_max)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
+
+
+def test_interval_overlap_axis_loss_overlapping_returns_overlap_length():
+    """Test that overlap loss equals overlap length when intervals overlap."""
+    # Interval A [0, 0.4], Interval B [0.2, 0.5] -> overlap [0.2, 0.4], length 0.2
+    a_min = torch.tensor(0.0)
+    a_max = torch.tensor(0.4)
+    b_min = torch.tensor(0.2)
+    b_max = torch.tensor(0.5)
+
+    loss = interval_overlap_axis_loss(a_min, a_max, b_min, b_max)
+    assert torch.isclose(loss, torch.tensor(0.2), rtol=1e-5)
+
+
+def test_interval_overlap_axis_loss_fully_contained():
+    """Test overlap when one interval is fully inside the other."""
+    # A [0, 1.0], B [0.3, 0.5] -> overlap length 0.2
+    a_min = torch.tensor(0.0)
+    a_max = torch.tensor(1.0)
+    b_min = torch.tensor(0.3)
+    b_max = torch.tensor(0.5)
+
+    loss = interval_overlap_axis_loss(a_min, a_max, b_min, b_max)
+    assert torch.isclose(loss, torch.tensor(0.2), rtol=1e-5)

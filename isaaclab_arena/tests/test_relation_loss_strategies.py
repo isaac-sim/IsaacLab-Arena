@@ -3,15 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for relation loss strategies (OnLossStrategy, NextToLossStrategy)."""
+"""Tests for relation loss strategies (OnLossStrategy, NextToLossStrategy, NoCollisionLossStrategy)."""
 
 import torch
 
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy
-from isaaclab_arena.relations.relations import NextTo, On, Side
+from isaaclab_arena.relations.relation_loss_strategies import (
+    NextToLossStrategy,
+    NoCollisionLossStrategy,
+    OnLossStrategy,
+)
+from isaaclab_arena.relations.relations import NextTo, NoCollision, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -229,3 +233,77 @@ def test_next_to_zero_distance_raises():
 
     with pytest.raises(AssertionError, match="Distance must be positive"):
         NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.0)
+
+
+# =============================================================================
+# NoCollisionLossStrategy tests
+# =============================================================================
+
+
+def test_no_collision_loss_strategy_zero_loss_when_separated():
+    """Test that NoCollision loss is zero when boxes do not overlap."""
+    parent_box = _create_box()   # parent at origin: [0, 0.2] per axis
+    child_box = _create_box()   # same size
+    relation = NoCollision(parent_box)
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    # Child entirely to the right of parent: child X range [1.0, 1.2], no X overlap
+    child_pos = torch.tensor([1.0, 0.0, 0.0])
+
+    loss = strategy.compute_loss(
+        relation, child_pos, child_box.bounding_box, parent_box.bounding_box
+    )
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-4)
+
+
+def test_no_collision_loss_strategy_zero_loss_when_separated_on_one_axis():
+    """Test that NoCollision loss is zero when boxes are separated on any single axis."""
+    parent_box = _create_box()   # [0, 0.2] per axis
+    child_box = _create_box()
+    relation = NoCollision(parent_box)
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    # Child overlaps X and Y but is entirely above parent on Z
+    # Parent Z: [0, 0.2]. Child at z=0.25 gives child Z [0.25, 0.45] -> no overlap
+    child_pos = torch.tensor([0.1, 0.1, 0.25])
+
+    loss = strategy.compute_loss(
+        relation, child_pos, child_box.bounding_box, parent_box.bounding_box
+    )
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-4)
+
+
+def test_no_collision_loss_strategy_positive_loss_when_overlapping():
+    """Test that NoCollision loss is positive when boxes overlap on all three axes."""
+    parent_box = _create_box()   # [0, 0.2] per axis
+    child_box = _create_box()
+    relation = NoCollision(parent_box)
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    # Child at same position as parent -> full overlap, volume = 0.2^3
+    child_pos = torch.tensor([0.0, 0.0, 0.0])
+
+    loss = strategy.compute_loss(
+        relation, child_pos, child_box.bounding_box, parent_box.bounding_box
+    )
+    assert loss > 0.0
+
+
+def test_no_collision_loss_strategy_respects_relation_weight():
+    """Test that NoCollision loss is scaled by relation_loss_weight."""
+    parent_box = _create_box()
+    child_box = _create_box()
+    relation_normal = NoCollision(parent_box, relation_loss_weight=1.0)
+    relation_double = NoCollision(parent_box, relation_loss_weight=2.0)
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    child_pos = torch.tensor([0.0, 0.0, 0.0])  # Overlapping
+
+    loss_normal = strategy.compute_loss(
+        relation_normal, child_pos, child_box.bounding_box, parent_box.bounding_box
+    )
+    loss_double = strategy.compute_loss(
+        relation_double, child_pos, child_box.bounding_box, parent_box.bounding_box
+    )
+
+    assert torch.isclose(loss_double, 2.0 * loss_normal, rtol=1e-5)

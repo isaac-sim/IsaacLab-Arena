@@ -122,3 +122,32 @@ def single_point_linear_loss(
         target = torch.tensor(target, dtype=value.dtype, device=value.device)
 
     return slope * torch.abs(value - target)
+
+
+def interval_overlap_axis_loss(
+    a_min: torch.Tensor,
+    a_max: torch.Tensor,
+    b_min: torch.Tensor,
+    b_max: torch.Tensor,
+) -> torch.Tensor:
+    """ReLU-style interval overlap: zero when separated, linear in overlap length otherwise.
+
+    Computes the intersection length of two intervals [a_min, a_max] and
+    [b_min, b_max] on one axis. Unbounded and differentiable for optimization.
+
+    Args:
+        a_min: First interval minimum on this axis (tensor for gradient flow).
+        a_max: First interval maximum on this axis.
+        b_min: Second interval minimum on this axis.
+        b_max: Second interval maximum on this axis.
+
+    Returns:
+        Loss value (unbounded):
+        - 0 when the two intervals do not overlap
+        - overlap length (min(a_max, b_max) - max(a_min, b_min)) when they overlap
+    """
+    overlap_high = torch.minimum(a_max, b_max)
+    overlap_low = torch.maximum(a_min, b_min)
+    return single_boundary_linear_loss(
+        overlap_high, overlap_low, slope=1.0, penalty_side="greater"
+    )
