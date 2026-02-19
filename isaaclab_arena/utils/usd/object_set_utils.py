@@ -41,10 +41,27 @@ def rename_rigid_body(stage: Usd.Stage, new_name: str) -> None:
     prim_spec.name = new_name
 
 
+def set_default_prim_to_rigid_body(stage: Usd.Stage) -> None:
+    """Set the stage default prim to the shallowest rigid body.
+
+    When the cached USD is referenced by the spawner at the proto path
+    (/World/Template/Asset_0000), the referenced prim gets the default prim's
+    content. So the proto root will have RigidBodyAPI and
+    activate_contact_sensors(proto_root) will succeed.
+    """
+    rigid_body_path = find_shallowest_rigid_body_from_stage(stage)
+    print(f"rigid_body_path: {rigid_body_path}")
+    assert rigid_body_path is not None, "No rigid body found in stage"
+    prim = stage.GetPrimAtPath(rigid_body_path)
+    assert prim.IsValid()
+    stage.SetDefaultPrim(prim)
+
+
 def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
     cache_path = get_object_set_asset_cache_path(asset, asset.scale)
     with open_stage(asset.usd_path) as stage:
         rescale_root(stage, asset)
         rename_rigid_body(stage, new_name="rigid_body")
+        set_default_prim_to_rigid_body(stage)
         stage.Export(str(cache_path))
     return str(cache_path)

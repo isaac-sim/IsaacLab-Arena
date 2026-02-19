@@ -52,7 +52,14 @@ class RigidObjectSet(Object):
         # In particular, we rescale the assets and rename the rigid bodies to have the same name.
         # We then save the resulting modified USDs to a cache.
         if self._is_asset_modification_needed(objects):
-            assert self._asset_modification_possible(objects), "Asset modification is not possible for object sets"
+            if not self._asset_modification_possible(objects):
+                depths = self._get_all_rigid_body_depths(objects)
+                per_asset = [f"{obj.name}=depth_{d} ({obj.usd_path})" for obj, d in zip(objects, depths)]
+                raise ValueError(
+                    "Asset modification is not possible for object sets: all objects must have their shallowest "
+                    "rigid body at the same depth so paths match after rename. "
+                    f"Rigid body depths by asset: {per_asset}."
+                )
             self.object_usd_paths = self._modify_assets(objects)
             print(f"Modified object USD paths: {self.object_usd_paths}")
         else:
