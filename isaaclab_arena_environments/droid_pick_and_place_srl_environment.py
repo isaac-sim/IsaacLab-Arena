@@ -19,9 +19,11 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
     name: str = "droid_pick_and_place_srl"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+        import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
         from isaaclab_arena.assets.object_base import ObjectType
+        from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -40,7 +42,14 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
-        light = self.asset_registry.get_asset_by_name("light")()
+
+        light_spawner_cfg = sim_utils.DomeLightCfg(
+            texture_file=f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/backgrounds/default/home_office.exr",
+            intensity=500.0,
+            visible_in_primary_ray=True,
+            texture_format="latlong",
+        )
+        light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
