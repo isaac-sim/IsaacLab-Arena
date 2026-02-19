@@ -39,6 +39,7 @@ class ObjectPlacer:
         """
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
+        print("HELLO ZIHAO")
 
     def place(
         self,

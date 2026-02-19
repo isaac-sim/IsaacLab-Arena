@@ -1,6 +1,9 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+# ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-718b5c21-x86_64
 
 FROM ${BASE_IMAGE}
+
+USER root
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
@@ -23,7 +26,7 @@ RUN apt-get update && apt-get install -y \
   python3-pip
 
 # Update pip to the latest version
-RUN pip3 install --upgrade pip
+# RUN pip3 install --upgrade pip
 
 ################################
 # Install Isaac Lab
