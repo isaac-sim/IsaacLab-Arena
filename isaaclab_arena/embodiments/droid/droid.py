@@ -5,6 +5,7 @@
 
 
 import torch
+from abc import ABC
 from dataclasses import MISSING
 from typing import Any
 
@@ -42,9 +43,12 @@ from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.pose import Pose
 
 
-@register_asset
-class DroidEmbodimentBase(EmbodimentBase):
-    """Embodiment for the DROID setup (https://droid-dataset.github.io/droid/docs/hardware-setup), which includes Franka with robotiq gripper and specific set of cameras."""
+class DroidEmbodimentBase(EmbodimentBase, ABC):
+    """Abstract base class for DROID embodiments (https://droid-dataset.github.io/droid/docs/hardware-setup).
+
+    Includes Franka with robotiq gripper and specific set of cameras.
+    Subclasses must set ``self.action_config`` to a concrete action configuration.
+    """
 
     name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
@@ -56,7 +60,6 @@ class DroidEmbodimentBase(EmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        use_joint_position_actions: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
