@@ -43,7 +43,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
             object_type=ObjectType.RIGID,
         )
 
-        TODO(cvolk): Introduce a hdr_registry instead of hardcoding the path here.
+        # TODO(cvolk): Introduce a hdr_registry instead of hardcoding the path here.
         light_spawner_cfg = sim_utils.DomeLightCfg(
             texture_file=f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/backgrounds/default/home_office.exr",
             intensity=500.0,
