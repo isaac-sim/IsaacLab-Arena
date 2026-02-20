@@ -87,6 +87,7 @@ def main():
     # Load job configuration before starting simulation to check requirements
     add_eval_runner_arguments(args_parser)
     args_cli, _ = args_parser.parse_known_args()
+    assert not args_cli.distributed, "Distributed evaluation is not supported yet"
 
     assert os.path.exists(
         args_cli.eval_jobs_config
