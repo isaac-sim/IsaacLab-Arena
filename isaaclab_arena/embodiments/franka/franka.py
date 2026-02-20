@@ -40,7 +40,7 @@ _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_wxyz
 
 
 _FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-_FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_on_stand.usd"
+_FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
 
 
 @register_asset
