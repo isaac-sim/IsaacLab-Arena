@@ -14,7 +14,7 @@ from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.placeable import Placeable
+    from isaaclab_arena.relations.placeable_entity import PlaceableEntity
 
 
 class RelationSolver:
@@ -116,19 +116,19 @@ class RelationSolver:
 
     def solve(
         self,
-        objects: list[Placeable],
-        initial_positions: dict[Placeable, tuple[float, float, float]],
-    ) -> dict[Placeable, tuple[float, float, float]]:
+        objects: list[PlaceableEntity],
+        initial_positions: dict[PlaceableEntity, tuple[float, float, float]],
+    ) -> dict[PlaceableEntity, tuple[float, float, float]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Placeable instances (Object, ObjectReference, EmbodimentBase, etc.).
+            objects: List of PlaceableEntity instances (Object, ObjectReference, EmbodimentBase, etc.).
                 Must include at least one object marked with IsAnchor() which serves as a
                 fixed reference.
             initial_positions: Starting positions for all objects (including anchors).
 
         Returns:
-            Dictionary mapping Placeable instances to final (x, y, z) positions.
+            Dictionary mapping PlaceableEntity instances to final (x, y, z) positions.
         """
         state = RelationSolverState(objects, initial_positions)
 
@@ -200,7 +200,7 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[Placeable]) -> None:
+    def debug_losses(self, objects: list[PlaceableEntity]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
@@ -226,7 +226,7 @@ class RelationSolver:
 
 
 def _print_relation_debug(
-    obj: Placeable,
+    obj: PlaceableEntity,
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,
@@ -257,7 +257,7 @@ def _print_relation_debug(
 
 
 def _print_unary_relation_debug(
-    obj: Placeable,
+    obj: PlaceableEntity,
     relation: AtPosition,
     child_pos: torch.Tensor,
     loss: torch.Tensor,

@@ -13,11 +13,11 @@ from isaaclab_arena.utils.pose import Pose, PoseRange
 
 
 @runtime_checkable
-class Placeable(Protocol):
+class PlaceableEntity(Protocol):
     """Structural interface for any object the relation solver can position.
 
     Any class that implements these methods (e.g. Object, ObjectReference,
-    EmbodimentBase, DummyObject) is automatically a Placeable.
+    EmbodimentBase, DummyObject) is automatically a PlaceableEntity.
     """
 
     @property

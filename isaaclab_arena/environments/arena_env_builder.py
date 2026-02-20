@@ -25,7 +25,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.placeable import Placeable
+from isaaclab_arena.relations.placeable_entity import PlaceableEntity
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -48,15 +48,15 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
-    def _get_placeables_with_relations(self) -> list[Placeable]:
+    def _get_placeables_with_relations(self) -> list[PlaceableEntity]:
         """Get all placeables (objects and embodiment) that have relations.
 
         Collects objects from the scene and, if present, the embodiment.
 
         Returns:
-            List of Placeable instances that have at least one relation.
+            List of PlaceableEntity instances that have at least one relation.
         """
-        placeables_with_relations: list[Placeable] = []
+        placeables_with_relations: list[PlaceableEntity] = []
 
         # Collect objects from the scene
         for asset in self.arena_env.scene.assets.values():
@@ -67,7 +67,7 @@ class ArenaEnvBuilder:
 
         # Include the embodiment if it has relations
         embodiment = self.arena_env.embodiment
-        if embodiment is not None and isinstance(embodiment, Placeable) and embodiment.get_relations():
+        if embodiment is not None and isinstance(embodiment, PlaceableEntity) and embodiment.get_relations():
             placeables_with_relations.append(embodiment)
 
         return placeables_with_relations
