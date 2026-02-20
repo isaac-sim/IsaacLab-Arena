@@ -8,7 +8,6 @@ from typing import Any
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
-from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -172,11 +171,24 @@ class RubiksCubeBowlBackgroundSRL(LibraryBackground):
     name = "rubiks_cube_bowl_srl"
     tags = ["background"]
 
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/rubiks_cube_bowl.usda"
-    )
+    usd_path = "/datasets/assets/scenes/bowl_on_table.usda"
     object_min_z = -0.05
     spawn_cfg_addon = {"activate_contact_sensors": True}
+
+    def __init__(self):
+        super().__init__()
+
+
+@register_asset
+class TableMapleRobolab(LibraryBackground):
+    """
+    A maple table background.
+    """
+
+    name = "table_maple_robolab"
+    tags = ["background"]
+    usd_path = "/datasets/assets/fixtures/table_maple.usd"
+    object_min_z = -0.05
 
     def __init__(self):
         super().__init__()

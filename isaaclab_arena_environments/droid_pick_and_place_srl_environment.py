@@ -22,26 +22,14 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
-        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
-        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("rubiks_cube_bowl_srl")()
-        rubiks_cube = ObjectReference(
-            name="rubiks_cube",
-            prim_path="{ENV_REGEX_NS}/rubiks_cube_bowl_srl/rubiks_cube",
-            parent_asset=background,
-            object_type=ObjectType.RIGID,
-        )
-        bowl = ObjectReference(
-            name="bowl",
-            prim_path="{ENV_REGEX_NS}/rubiks_cube_bowl_srl/bowl",
-            parent_asset=background,
-            object_type=ObjectType.RIGID,
-        )
+        background = self.asset_registry.get_asset_by_name("table_maple_robolab")()
+        rubiks_cube = self.asset_registry.get_asset_by_name("hot3d_rubiks_cube_robolab")()
+        bowl = self.asset_registry.get_asset_by_name("ycb_bowl_robolab")()
 
         # TODO(cvolk): Introduce a hdr_registry instead of hardcoding the path here.
         light_spawner_cfg = sim_utils.DomeLightCfg(

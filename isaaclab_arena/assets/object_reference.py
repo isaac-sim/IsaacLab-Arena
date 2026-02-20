@@ -4,15 +4,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
+from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
@@ -27,11 +30,16 @@ class ObjectReference(ObjectBase):
         self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
+        self._initial_pose_override: Pose | PoseRange | None = None
         assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
+        self.event_cfg = self._init_event_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
 
-    def get_initial_pose(self) -> Pose:
+    def get_initial_pose(self) -> Pose | PoseRange:
+        """Get the initial pose of this object reference."""
+        if self._initial_pose_override is not None:
+            return self._initial_pose_override
         if self.parent_asset.initial_pose is None:
             T_W_O = self.initial_pose_relative_to_parent
         else:
@@ -39,6 +47,30 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
+
+    def _get_initial_pose_as_pose(self) -> Pose:
+        """Return a single ``Pose`` suitable for init_state and bounding-box calculations.
+
+        If the initial pose is a ``PoseRange``, its midpoint is returned.
+        """
+        initial_pose = self.get_initial_pose()
+        if isinstance(initial_pose, PoseRange):
+            return initial_pose.get_midpoint()
+        return initial_pose
+
+    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
+        """Override the initial pose of this object reference.
+
+        Args:
+            pose: The pose to set. Can be a single ``Pose`` (reset to a fixed
+                  position) or a ``PoseRange`` (randomise within the range on
+                  every environment reset).
+        """
+        self._initial_pose_override = pose
+        # Rebuild object_cfg so init_state reflects the new pose
+        self.object_cfg = self._init_object_cfg()
+        # Rebuild event_cfg so the reset event matches the new pose / range
+        self.event_cfg = self._init_event_cfg()
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
@@ -79,7 +111,8 @@ class ObjectReference(ObjectBase):
         Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
         An assertion error is raised for any other rotation.
         """
-        pose = self.get_initial_pose()
+        # The following handles only Pose, not PoseRange.
+        pose = self._get_initial_pose_as_pose()
         quarters = quaternion_to_90_deg_z_quarters(pose.rotation_wxyz)
         return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
 
@@ -95,9 +128,34 @@ class ObjectReference(ObjectBase):
         # Just call out to the parent class method.
         return super().get_contact_sensor_cfg(contact_against_prim_paths)
 
+    def _init_event_cfg(self) -> EventTermCfg | None:
+        if self.object_type not in (ObjectType.RIGID, ObjectType.ARTICULATION):
+            return None
+
+        initial_pose = self.get_initial_pose()
+        if isinstance(initial_pose, PoseRange):
+
+            return EventTermCfg(
+                func=randomize_object_pose,
+                mode="reset",
+                params={
+                    "pose_range": initial_pose.to_dict(),
+                    "asset_cfgs": [SceneEntityCfg(self.name)],
+                },
+            )
+        else:
+            return EventTermCfg(
+                func=set_object_pose,
+                mode="reset",
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                },
+            )
+
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
-        initial_pose = self.get_initial_pose()
+        initial_pose = self._get_initial_pose_as_pose()
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,
             init_state=RigidObjectCfg.InitialStateCfg(
@@ -109,7 +167,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_articulation_cfg(self) -> ArticulationCfg:
         assert self.object_type == ObjectType.ARTICULATION
-        initial_pose = self.get_initial_pose()
+        initial_pose = self._get_initial_pose_as_pose()
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
             actuators={},
@@ -122,7 +180,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
-        initial_pose = self.get_initial_pose()
+        initial_pose = self._get_initial_pose_as_pose()
         object_cfg = AssetBaseCfg(
             prim_path=self.prim_path,
             init_state=AssetBaseCfg.InitialStateCfg(
