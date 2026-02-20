@@ -56,7 +56,6 @@ def _rewrite_path_targets_in_root_layer(
     materials, missing bindings). We author overrides on the root layer so all such paths use
     the new path (e.g. </rigid_body/Looks/Material>), keeping materials and connections valid.
     """
-    old_path = Sdf.Path(old_rigid_body_path)
     new_path = Sdf.Path(new_rigid_body_path)
     old_prefix = old_rigid_body_path if old_rigid_body_path.endswith("/") else old_rigid_body_path + "/"
     new_prefix = new_rigid_body_path if new_rigid_body_path.endswith("/") else new_rigid_body_path + "/"
@@ -113,17 +112,24 @@ def _rewrite_path_targets_in_root_layer(
         stage.SetEditTarget(edit_target)
 
 
-def set_default_prim_to_rigid_body(stage: Usd.Stage) -> None:
-    """Set the stage default prim to the shallowest rigid body.
+def _set_default_prim_for_object_set_cache(stage: Usd.Stage) -> None:
+    """Set the stage default prim so Isaac Lab's activate_contact_sensors finds a rigid body.
 
-    When the cached USD is referenced at e.g. </World/envs/env_N/object_set>, the spawner
-    uses the default prim's content. Setting it to the rigid body ensures the proto root
-    has RigidBodyAPI and contact sensors work.
+    The spawner calls activate_contact_sensors(prim_path) which looks for rigid bodies *under*
+    that prim. So the default prim must be a container that has the rigid body as a direct child,
+    not the rigid body itself. For depth 0 we set default to the rigid body (it is the only root).
+    For depth >= 1 we set default to the rigid body's parent so the referenced prim is a scope
+    with rigid_body as child.
     """
     rigid_body_path = find_shallowest_rigid_body_from_stage(stage)
     assert rigid_body_path is not None, "No rigid body found in stage"
-    prim = stage.GetPrimAtPath(rigid_body_path)
-    assert prim.IsValid()
+    depth = rigid_body_path.count("/") - 1
+    if depth == 0:
+        default_prim_path = rigid_body_path
+    else:
+        default_prim_path = str(Sdf.Path(rigid_body_path).GetParentPath())
+    prim = stage.GetPrimAtPath(default_prim_path)
+    assert prim.IsValid(), f"Default prim path {default_prim_path!r} is not valid"
     stage.SetDefaultPrim(prim)
 
 
@@ -143,6 +149,6 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
         old_rb_path = rename_rigid_body(stage, new_name="rigid_body")
         new_rb_path = find_shallowest_rigid_body_from_stage(stage)
         _rewrite_path_targets_in_root_layer(stage, old_rb_path, new_rb_path)
-        set_default_prim_to_rigid_body(stage)
+        _set_default_prim_for_object_set_cache(stage)
         stage.Export(str(cache_path))
     return str(cache_path)
