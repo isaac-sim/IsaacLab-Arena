@@ -8,11 +8,10 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.relations import Relation, get_anchor_objects
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.relations.placeable_entity import PlaceableEntity
 
 
 class RelationSolverState:
@@ -25,25 +24,41 @@ class RelationSolverState:
 
     def __init__(
         self,
-        objects: list[Object | ObjectReference],
-        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]],
+        objects: list[PlaceableEntity],
+        initial_positions: dict[PlaceableEntity, tuple[float, float, float]],
     ):
         """Initialize optimization state.
 
         Args:
-            objects: List of all Object or ObjectReference instances to track. Must include at least one
-                object marked with IsAnchor() which serves as a fixed reference.
+            objects: List of all PlaceableEntity instances to track (Object, ObjectReference,
+                EmbodimentBase, etc.). Must include at least one object marked with
+                IsAnchor() which serves as a fixed reference.
             initial_positions: Starting positions for all objects (including anchors).
         """
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, "No anchor object found in objects list."
 
         self._all_objects = objects
-        self._anchor_objects: set[Object] = set(anchor_objects)
+        self._anchor_objects: set[PlaceableEntity] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
 
         # Build object-to-index mapping
-        self._obj_to_idx: dict[Object | ObjectReference, int] = {obj: i for i, obj in enumerate(objects)}
+        self._obj_to_idx: dict[PlaceableEntity, int] = {obj: i for i, obj in enumerate(objects)}
+
+        # Validate that all relation parents are in the objects list
+        objects_set = set(objects)
+        for obj in objects:
+            for relation in obj.get_spatial_relations():
+                if isinstance(relation, Relation) and relation.parent not in objects_set:
+                    tracked_names = [o.name for o in objects]
+                    raise ValueError(
+                        f"Object '{obj.name}' has a {type(relation).__name__}() relation with parent "
+                        f"'{relation.parent.name}', but '{relation.parent.name}' is not in the objects "
+                        "list passed to the solver.\n"
+                        f"  Tracked objects: {tracked_names}\n"
+                        f"  Hint: Make sure '{relation.parent.name}' is added to the Scene or otherwise "
+                        "included in the placeables list."
+                    )
 
         # Extract positions from the provided dict
         positions = []
@@ -72,16 +87,16 @@ class RelationSolverState:
         return self._optimizable_positions
 
     @property
-    def optimizable_objects(self) -> list[Object]:
+    def optimizable_objects(self) -> list[PlaceableEntity]:
         """List of optimizable objects (excludes anchors)."""
         return self._optimizable_objects
 
     @property
-    def anchor_objects(self) -> set[Object]:
+    def anchor_objects(self) -> set[PlaceableEntity]:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects
 
-    def get_position(self, obj: Object | ObjectReference) -> torch.Tensor:
+    def get_position(self, obj: PlaceableEntity) -> torch.Tensor:
         """Get current position for an object.
 
         Args:
@@ -110,13 +125,13 @@ class RelationSolverState:
         """
         return [tuple(self.get_position(obj).detach().tolist()) for obj in self._all_objects]
 
-    def get_final_positions_dict(self) -> dict[Object | ObjectReference, tuple[float, float, float]]:
+    def get_final_positions_dict(self) -> dict[PlaceableEntity, tuple[float, float, float]]:
         """Get final positions as a dictionary mapping objects to positions.
 
         Returns:
-            Dictionary with object instances as keys and (x, y, z) tuples as values.
+            Dictionary with PlaceableEntity instances as keys and (x, y, z) tuples as values.
         """
-        result: dict[Object | ObjectReference, tuple[float, float, float]] = {}
+        result: dict[PlaceableEntity, tuple[float, float, float]] = {}
         for obj in self._all_objects:
             pos = self.get_position(obj).detach().tolist()
             result[obj] = (pos[0], pos[1], pos[2])

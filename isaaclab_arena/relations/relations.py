@@ -14,8 +14,7 @@ from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.relations.placeable_entity import PlaceableEntity
 
 
 class Side(Enum):
@@ -41,10 +40,11 @@ class RelationBase:
 class Relation(RelationBase):
     """Base class for spatial relationships between objects."""
 
-    def __init__(self, parent: Object | ObjectReference, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: PlaceableEntity, relation_loss_weight: float = 1.0):
         """
         Args:
-            parent: The parent asset in the relationship (Object or ObjectReference).
+            parent: The parent asset in the relationship (any PlaceableEntity: Object, ObjectReference,
+                EmbodimentBase, etc.).
             relation_loss_weight: Weight for the relationship loss function.
         """
         self.parent = parent
@@ -62,7 +62,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: Object | ObjectReference,
+        parent: PlaceableEntity,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.POSITIVE_X,
@@ -102,7 +102,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: Object | ObjectReference,
+        parent: PlaceableEntity,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
     ):
@@ -313,14 +313,14 @@ class AtPosition(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
-def get_anchor_objects(objects: list[Object | ObjectReference]) -> list[Object | ObjectReference]:
+def get_anchor_objects(objects: list[PlaceableEntity]) -> list[PlaceableEntity]:
     """Get all anchor objects from a list of objects.
 
     Anchor objects are marked with IsAnchor() relation and serve as
     fixed reference points for relation solving.
 
     Args:
-        objects: List of objects to filter.
+        objects: List of PlaceableEntity instances to filter.
 
     Returns:
         List of anchor objects (may be empty if no anchors found).
