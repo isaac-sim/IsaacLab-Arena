@@ -99,7 +99,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
                     setattr(self.datagen_config, key, value)
 
-        camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
+        camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
         )
@@ -125,7 +125,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(3.943, -1.0, 0.995),
-                rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
+                rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068),
             )
         )
 

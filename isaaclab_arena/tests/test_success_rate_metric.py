@@ -75,9 +75,9 @@ def _test_success_rate_metric(simulation_app):
     # - to: per env pose
     pose_list = [
         # Success (in the drawer)
-        Pose(position_xyz=(0.0, -0.5, 0.2), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
+        Pose(position_xyz=(0.0, -0.5, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
         # Fail (out of the drawer)
-        Pose(position_xyz=(-0.5, -0.5, 0.2), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
+        Pose(position_xyz=(-0.5, -0.5, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     ]
     env_cfg.events.reset_pick_up_object_pose = EventTermCfg(
         func=set_object_pose_per_env,

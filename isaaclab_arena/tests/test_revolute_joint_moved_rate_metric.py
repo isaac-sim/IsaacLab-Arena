@@ -41,7 +41,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
     embodiment = asset_registry.get_asset_by_name("franka")()
     microwave = asset_registry.get_asset_by_name("microwave")()
 
-    microwave.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.2), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    microwave.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     scene = Scene(assets=[background, microwave])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

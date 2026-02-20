@@ -74,7 +74,7 @@ class Object(ObjectBase):
         local_bbox = self.get_bounding_box()
         if self.initial_pose is None or not isinstance(self.initial_pose, Pose):
             return local_bbox
-        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_xyzw)
         return local_bbox.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
@@ -179,7 +179,7 @@ class Object(ObjectBase):
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None:
             object_cfg.init_state.pos = initial_pose.position_xyz
-            object_cfg.init_state.rot = initial_pose.rotation_wxyz
+            object_cfg.init_state.rot = initial_pose.rotation_xyzw
         return object_cfg
 
     def _requires_reset_pose_event(self) -> bool:

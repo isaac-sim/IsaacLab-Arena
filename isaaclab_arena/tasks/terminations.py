@@ -178,7 +178,7 @@ def goal_pose_task_termination(
     target_x_range: tuple[float, float] | None = None,
     target_y_range: tuple[float, float] | None = None,
     target_z_range: tuple[float, float] | None = None,
-    target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+    target_orientation_xyzw: tuple[float, float, float, float] | None = None,
     target_orientation_tolerance_rad: float = 0.1,
 ) -> torch.Tensor:
     """Terminate when the object's pose is within the thresholds (BBox + Orientation).
@@ -189,7 +189,7 @@ def goal_pose_task_termination(
         target_x_range: Success zone x-range [min, max] in meters.
         target_y_range: Success zone y-range [min, max] in meters.
         target_z_range: Success zone z-range [min, max] in meters.
-        target_orientation_wxyz: Target quaternion [w, x, y, z].
+        target_orientation_xyzw: Target quaternion [x, y, z, w].
         target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
 
     Returns:
@@ -206,7 +206,7 @@ def goal_pose_task_termination(
         target_x_range is not None,
         target_y_range is not None,
         target_z_range is not None,
-        target_orientation_wxyz is not None,
+        target_orientation_xyzw is not None,
     ])
 
     if not has_any_threshold:
@@ -223,8 +223,8 @@ def goal_pose_task_termination(
             success &= in_range
 
     # Orientation check
-    if target_orientation_wxyz is not None:
-        target_quat = torch.tensor(target_orientation_wxyz, device=device, dtype=torch.float32).unsqueeze(0)
+    if target_orientation_xyzw is not None:
+        target_quat = torch.tensor(target_orientation_xyzw, device=device, dtype=torch.float32).unsqueeze(0)
 
         # Formula: |<q1, q2>| > cos(tolerance / 2)
         quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)

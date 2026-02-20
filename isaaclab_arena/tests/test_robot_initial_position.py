@@ -32,8 +32,8 @@ def _test_robot_initial_position(simulation_app):
 
     robot_init_position = (-0.2, 0.0, 0.0)
 
-    cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    embodiment.set_initial_pose(Pose(position_xyz=robot_init_position, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    embodiment.set_initial_pose(Pose(position_xyz=robot_init_position, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     scene = Scene(assets=[background, cracker_box])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

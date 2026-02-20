@@ -92,9 +92,14 @@ class ObjectReference(ObjectBase):
         Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
         An assertion error is raised for any other rotation.
         """
+<<<<<<< HEAD
         # The following handles only Pose, not PoseRange.
         pose = self._get_initial_pose_as_pose()
         quarters = quaternion_to_90_deg_z_quarters(pose.rotation_wxyz)
+=======
+        pose = self.get_initial_pose()
+        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
+>>>>>>> a2865b86 (Quaternion flip (a-la Claude))
         return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
@@ -116,7 +121,7 @@ class ObjectReference(ObjectBase):
             prim_path=self.prim_path,
             init_state=RigidObjectCfg.InitialStateCfg(
                 pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_wxyz,
+                rot=initial_pose.rotation_xyzw,
             ),
         )
         return object_cfg
@@ -129,7 +134,7 @@ class ObjectReference(ObjectBase):
             actuators={},
             init_state=ArticulationCfg.InitialStateCfg(
                 pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_wxyz,
+                rot=initial_pose.rotation_xyzw,
             ),
         )
         return object_cfg
@@ -141,7 +146,7 @@ class ObjectReference(ObjectBase):
             prim_path=self.prim_path,
             init_state=AssetBaseCfg.InitialStateCfg(
                 pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_wxyz,
+                rot=initial_pose.rotation_xyzw,
             ),
         )
         return object_cfg
@@ -163,7 +168,7 @@ class ObjectReference(ObjectBase):
                 prim_pose.position_xyz[1] * self._parent_scale[1],
                 prim_pose.position_xyz[2] * self._parent_scale[2],
             )
-            return Pose(position_xyz=scaled_pos, rotation_wxyz=prim_pose.rotation_wxyz)
+            return Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
 
     def isaaclab_prim_path_to_original_prim_path(
         self, isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage

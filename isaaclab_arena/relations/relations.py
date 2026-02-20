@@ -211,20 +211,20 @@ class RandomAroundSolution(RelationBase):
     def to_pose_range_centered_at(
         self,
         position: tuple[float, float, float],
-        rotation_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
+        rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
     ) -> PoseRange:
         """Create a PoseRange centered on the given position and rotation.
 
         Args:
             position: Center position (x, y, z) for the range.
-            rotation_wxyz: Center rotation as quaternion (w, x, y, z) for the range.
+            rotation_xyzw: Center rotation as quaternion (x, y, z, w) for the range.
                 Defaults to identity quaternion.
 
         Returns:
             PoseRange spanning ± half-extents around the position and rotation.
         """
         # Convert quaternion to euler angles (roll, pitch, yaw)
-        quat_tensor = torch.tensor([rotation_wxyz])
+        quat_tensor = torch.tensor([rotation_xyzw])
         roll, pitch, yaw = euler_xyz_from_quat(quat_tensor)
         center_roll = float(roll[0])
         center_pitch = float(pitch[0])
@@ -286,8 +286,8 @@ class RotateAroundSolution(RelationBase):
         self.pitch_rad = pitch_rad
         self.yaw_rad = yaw_rad
 
-    def get_rotation_wxyz(self) -> tuple[float, float, float, float]:
-        """Get the rotation as a quaternion (w, x, y, z).
+    def get_rotation_xyzw(self) -> tuple[float, float, float, float]:
+        """Get the rotation as a quaternion (x, y, z, w).
 
         Returns:
             Quaternion rotation converted from roll/pitch/yaw.

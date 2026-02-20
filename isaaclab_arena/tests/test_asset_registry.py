@@ -75,7 +75,7 @@ def _test_all_assets_in_registry(simulation_app):
                     first_position[1],
                     first_position[2],
                 ),
-                rotation_wxyz=(1, 0, 0, 0),
+                rotation_xyzw=(0, 0, 0, 1),
             )
             asset.set_initial_pose(pose)
             objects_in_registry.append(asset)
