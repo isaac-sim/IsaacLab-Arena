@@ -91,43 +91,22 @@ class EmbodimentBase(Asset):
         """Get local bounding box (relative to embodiment origin).
 
         If no bounding box has been set manually (via constructor or set_bounding_box()),
-        attempts to compute it automatically from the robot USD in the scene config.
+        computes it automatically from the robot USD in the scene config.
 
         Returns:
             The embodiment's local bounding box.
-
-        Raises:
-            RuntimeError: If no bounding box is set and it cannot be computed from
-                the scene config (e.g. scene_config is None or has no robot field).
         """
         if self.bounding_box is None:
-            usd_path = self._get_robot_usd_path()
-            if usd_path is None:
-                raise RuntimeError(
-                    f"Cannot compute bounding box for embodiment '{self.name}': "
-                    "could not find a robot USD path at scene_config.robot.spawn.usd_path. "
-                    "Either set a bounding box manually via set_bounding_box(), "
-                    "or ensure the embodiment's scene_config has a robot with a USD spawn path."
-                )
-            self.bounding_box = compute_local_bounding_box_from_usd(usd_path)
+            self.bounding_box = compute_local_bounding_box_from_usd(self._get_robot_usd_path())
         return self.bounding_box
 
-    def _get_robot_usd_path(self) -> str | None:
-        """Extract the robot USD path from the scene config, if available.
+    def _get_robot_usd_path(self) -> str:
+        """Extract the robot USD path from the scene config.
 
         Returns:
-            The USD path string, or None if not available.
+            The USD path string.
         """
-        if self.scene_config is None:
-            return None
-        robot_cfg = getattr(self.scene_config, "robot", None)
-        if robot_cfg is None:
-            return None
-        spawn_cfg = getattr(robot_cfg, "spawn", None)
-        if spawn_cfg is None:
-            return None
-        usd_path = getattr(spawn_cfg, "usd_path", None)
-        return usd_path
+        return self.scene_config.robot.spawn.usd_path
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).
