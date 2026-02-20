@@ -815,12 +815,32 @@ class YcbBowl(LibraryObject):
 
 
 @register_asset
-class Hot3dRubiksCube(LibraryObject):
+class YcbBowlRobolab(LibraryObject):
     """
-    A Hot3D rubiks cube object.
+    A YCB bowl object (robolab variant).
     """
 
-    name = "hot3d_rubiks_cube"
+    name = "ycb_bowl_robolab"
+    tags = ["object"]
+    usd_path = "/datasets/assets/objects/ycb/bowl.usd"
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+@register_asset
+class Hot3dRubiksCubeRobolab(LibraryObject):
+    """
+    A Hot3D rubiks cube object (robolab variant).
+    """
+
+    name = "hot3d_rubiks_cube_robolab"
     tags = ["object"]
     usd_path = "/datasets/assets/objects/hot3d/rubiks_cube.usd"
 

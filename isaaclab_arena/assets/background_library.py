@@ -187,7 +187,7 @@ class TableMapleRobolab(LibraryBackground):
 
     name = "table_maple_robolab"
     tags = ["background"]
-    usd_path = "/home/cvolk/datasets/assets/fixtures/table_maple.usd"
+    usd_path = "/datasets/assets/fixtures/table_maple.usd"
     object_min_z = -0.05
 
     def __init__(self):
