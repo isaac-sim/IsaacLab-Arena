@@ -6,6 +6,7 @@
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
@@ -29,7 +30,6 @@ class ObjectReference(ObjectBase):
         self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
-        # User-provided pose override (Pose or PoseRange). When None the USD-derived pose is used.
         self._initial_pose_override: Pose | PoseRange | None = None
         assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
@@ -134,7 +134,6 @@ class ObjectReference(ObjectBase):
 
         initial_pose = self.get_initial_pose()
         if isinstance(initial_pose, PoseRange):
-            from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
             return EventTermCfg(
                 func=randomize_object_pose,
