@@ -23,7 +23,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, Side
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
@@ -34,8 +34,16 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
         )
         table_top_reference.add_relation(IsAnchor())
+        ground_plane_reference = ObjectReference(
+            name="ground_plane_reference",
+            prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Set/Geometry/Floor_B",
+            parent_asset=background,
+        )
+        ground_plane_reference.add_relation(IsAnchor())
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment.add_relation(On(ground_plane_reference))
+        embodiment.add_relation(AtPosition(x=0.0, y=0.0))
 
         # Validate mutually exclusive object arguments
         has_object = args_cli.object is not None
@@ -53,7 +61,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         else:
             pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
         pick_up_object.add_relation(On(table_top_reference, clearance_m=0.02))
-        pick_up_object.add_relation(AtPosition(x=0.4, y=0.0))
+        pick_up_object.add_relation(NextTo(embodiment, side=Side.POSITIVE_X, distance_m=0.2))
 
         # TODO(alexmillane, 2025.09.24): Add automatic object type detection of ObjectReferences.
         destination_location = ObjectReference(
@@ -62,12 +70,13 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
+        teleop_device = None
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-        else:
-            teleop_device = None
 
-        scene = Scene(assets=[background, table_top_reference, pick_up_object, destination_location])
+        scene = Scene(
+            assets=[background, ground_plane_reference, table_top_reference, pick_up_object, destination_location]
+        )
         pick_and_place_task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,

@@ -16,8 +16,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.relations.placeable_entity import PlaceableEntity
 
 
 class ObjectPlacer:
@@ -42,13 +41,14 @@ class ObjectPlacer:
 
     def place(
         self,
-        objects: list[Object | ObjectReference],
+        objects: list[PlaceableEntity],
     ) -> PlacementResult:
         """Place objects according to their spatial relations.
 
         Args:
-            objects: List of objects to place. Must include at least one object
-                marked with IsAnchor() which serves as a fixed reference.
+            objects: List of PlaceableEntity instances (Object, ObjectReference, EmbodimentBase, etc.)
+                to place. Must include at least one object marked with IsAnchor() which
+                serves as a fixed reference.
 
         Returns:
             PlacementResult with success status, positions, loss, and attempt count.
@@ -88,7 +88,7 @@ class ObjectPlacer:
         init_bounds = self._get_init_bounds(anchor_objects[0])
 
         # Placement loop with retries
-        best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
+        best_positions: dict[PlaceableEntity, tuple[float, float, float]] = {}
         best_loss = float("inf")
         success = False
 
@@ -130,7 +130,7 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
+    def _get_init_bounds(self, anchor_object: PlaceableEntity) -> AxisAlignedBoundingBox:
         """Get bounds for random position initialization.
 
         If init_bounds is provided in params, use it.
@@ -163,10 +163,10 @@ class ObjectPlacer:
 
     def _generate_initial_positions(
         self,
-        objects: list[Object | ObjectReference],
-        anchor_objects: Object | ObjectReference,
+        objects: list[PlaceableEntity],
+        anchor_objects: set[PlaceableEntity],
         init_bounds: AxisAlignedBoundingBox,
-    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
+    ) -> dict[PlaceableEntity, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchors keep their current initial_pose, others get random positions.
@@ -174,7 +174,7 @@ class ObjectPlacer:
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
-        positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
+        positions: dict[PlaceableEntity, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
@@ -185,7 +185,7 @@ class ObjectPlacer:
 
     def _validate_placement(
         self,
-        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+        positions: dict[PlaceableEntity, tuple[float, float, float]],
     ) -> bool:
         """Validate that the placement is geometrically valid.
 
@@ -203,8 +203,8 @@ class ObjectPlacer:
 
     def _apply_positions(
         self,
-        positions: dict[Object | ObjectReference, tuple[float, float, float]],
-        anchor_objects: Object | ObjectReference,
+        positions: dict[PlaceableEntity, tuple[float, float, float]],
+        anchor_objects: set[PlaceableEntity],
     ) -> None:
         """Apply solved positions to objects (skipping anchors).
 
@@ -227,7 +227,7 @@ class ObjectPlacer:
                 # Without randomization, we can set a fixed Pose.
                 obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=rotation_wxyz))
 
-    def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
+    def _get_random_around_solution(self, obj: PlaceableEntity) -> RandomAroundSolution | None:
         """Get RandomAroundSolution marker from object if present.
 
         Args:
@@ -241,7 +241,7 @@ class ObjectPlacer:
                 return rel
         return None
 
-    def _get_rotate_around_solution(self, obj: Object | ObjectReference) -> RotateAroundSolution | None:
+    def _get_rotate_around_solution(self, obj: PlaceableEntity) -> RotateAroundSolution | None:
         """Get RotateAroundSolution marker from object if present.
 
         Args:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.relations.placeable_entity import PlaceableEntity
 
 
 @dataclass
@@ -19,8 +19,8 @@ class PlacementResult:
     success: bool
     """Whether placement passed validation checks."""
 
-    positions: dict[Object, tuple[float, float, float]]
-    """Final positions for each object."""
+    positions: dict[PlaceableEntity, tuple[float, float, float]]
+    """Final positions for each placeable (Object, ObjectReference, or EmbodimentBase)."""
 
     final_loss: float
     """Loss value of the final placement."""
