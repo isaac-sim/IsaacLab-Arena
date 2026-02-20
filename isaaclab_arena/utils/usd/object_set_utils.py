@@ -57,22 +57,26 @@ def _rewrite_path_targets_in_root_layer(
     the new path (e.g. </rigid_body/Looks/Material>), keeping materials and connections valid.
     """
     new_path = Sdf.Path(new_rigid_body_path)
+    # Prefixes for "path under rigid body" checks and for rewriting (e.g. /old/ -> /new/)
     old_prefix = old_rigid_body_path if old_rigid_body_path.endswith("/") else old_rigid_body_path + "/"
     new_prefix = new_rigid_body_path if new_rigid_body_path.endswith("/") else new_rigid_body_path + "/"
     layer = stage.GetRootLayer()
     edit_target = stage.GetEditTarget()
-    stage.SetEditTarget(layer)
+    stage.SetEditTarget(layer)  # Author all rewrites on the root layer so they export
 
     def replace_path(path: Sdf.Path) -> Sdf.Path | None:
+        # If path equals or is under old_rigid_body_path, return the same path under new_rigid_body_path; else None.
         s = path.pathString
         if s == old_rigid_body_path:
-            return new_path
+            return new_path  # Exact match: rigid body root
         if s.startswith(old_prefix):
+            # Path under old root: keep relative tail, reparent under new root
             return Sdf.Path(new_prefix.rstrip("/") + s[len(old_rigid_body_path) :])
         return None
 
     try:
         for prim in stage.Traverse():
+            # Rewrite relationship targets (e.g. material:binding -> </old_path/Looks/...>)
             for rel in prim.GetRelationships():
                 targets = list(rel.GetTargets())
                 if not targets:
@@ -88,6 +92,7 @@ def _rewrite_path_targets_in_root_layer(
                         new_targets.append(t)
                 if changed:
                     rel.SetTargets(new_targets)
+            # Rewrite attribute connections (e.g. shader inputs that point at prim paths)
             for attr in prim.GetAttributes():
                 if not getattr(attr, "HasAuthoredConnections", lambda: False)():
                     continue
@@ -125,8 +130,10 @@ def _set_default_prim_for_object_set_cache(stage: Usd.Stage) -> None:
     assert rigid_body_path is not None, "No rigid body found in stage"
     depth = rigid_body_path.count("/") - 1
     if depth == 0:
+        # Single root prim: referenced prim is the rigid body; activate_contact_sensors finds it directly
         default_prim_path = rigid_body_path
     else:
+        # Child of root: set default to parent so referenced prim is a scope and rigid_body is under it
         default_prim_path = str(Sdf.Path(rigid_body_path).GetParentPath())
     prim = stage.GetPrimAtPath(default_prim_path)
     assert prim.IsValid(), f"Default prim path {default_prim_path!r} is not valid"
@@ -146,9 +153,13 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
     cache_path = get_object_set_asset_cache_path(asset, asset.scale)
     with open_stage(asset.usd_path) as stage:
         rescale_root(stage, asset)
+        # Unify name; need old path for rewrite
         old_rb_path = rename_rigid_body(stage, new_name="rigid_body")
+        # Path after rename (e.g. /rigid_body or /root/rigid_body)
         new_rb_path = find_shallowest_rigid_body_from_stage(stage)
+        # Keep materials/connections in scope
         _rewrite_path_targets_in_root_layer(stage, old_rb_path, new_rb_path)
+        # So contact sensors are found when cache is referenced
         _set_default_prim_for_object_set_cache(stage)
         stage.Export(str(cache_path))
     return str(cache_path)

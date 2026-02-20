@@ -49,7 +49,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/policy/
 
       model_path: /models/isaaclab_arena/sequential_static_manipulation_tutorial/ranch_bottle_into_fridge/
 
-      language_instruction: "Place the ranch dressing bottle on the top shelf of the fridge, and close the fridge door."
+      language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
       embodiment_tag: GR1
       video_backend: decord
