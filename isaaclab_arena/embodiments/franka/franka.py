@@ -39,6 +39,9 @@ from isaaclab_arena.utils.pose import Pose
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_wxyz=(-0.74896, 0.0, 0.0, -0.66262))
 
 
+# The reason to use our internal panda USD is to combine the panda and the stand within one USD.
+# This is not ideal but currently required by the ObjectPlacementSolver to handle the robot placement correctly.
+# TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
 _FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
 _FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
 
