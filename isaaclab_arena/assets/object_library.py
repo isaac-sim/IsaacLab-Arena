@@ -753,9 +753,83 @@ class KetchupBottle(LibraryObject):
     tags = ["object", "graspable"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/ketchup_bottle.usd"
     object_type = ObjectType.RIGID
-    scale = (1.1, 1.1, 1.4)
+    scale = (0.8, 0.8, 1.2)
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
+@register_asset
+class MustardBottle(LibraryObject):
+    """
+    Mustard Bottle
+    """
+
+    name = "mustard_bottle"
+    tags = ["object", "graspable"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/mustard_bottle.usd"
+    object_type = ObjectType.RIGID
+    scale = (0.8, 0.8, 1.2)
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+@register_asset
+class Butter(LibraryObject):
+    """
+    Butter`
+    """
+
+    name = "butter"
+    tags = ["object", "graspable"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/butter.usd"
+    object_type = ObjectType.RIGID
+    scale = (2.2, 2.0, 1.8)
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+@register_asset
+class MayonnaiseBottle(LibraryObject):
+    """
+    Mayonnaise Bottle
+    """
+
+    name = "mayonnaise_bottle"
+    tags = ["object", "graspable"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/mayonnaise_bottle.usd"
+    object_type = ObjectType.RIGID
+    scale = (0.9, 0.9, 1.2)
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+@register_asset
 class RedCube(LibraryObject):
     """
     A red cube.
