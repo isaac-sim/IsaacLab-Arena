@@ -36,7 +36,7 @@ def get_test_environment(num_envs: int):
     dex_cube.set_initial_pose(
         Pose(
             position_xyz=(0.1, 0.0, 0.05),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -46,7 +46,7 @@ def get_test_environment(num_envs: int):
     task = GoalPoseTask(
         dex_cube,
         target_z_range=(0.0, 0.5),
-        target_orientation_wxyz=(0.7071, 0.0, 0.0, 0.7071),  # yaw 90 degrees
+        target_orientation_xyzw=(0.0, 0.0, 0.7071, 0.7071),  # yaw 90 degrees
         target_orientation_tolerance_rad=0.2,
     )
 
@@ -54,7 +54,7 @@ def get_test_environment(num_envs: int):
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 

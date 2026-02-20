@@ -60,7 +60,7 @@ def _test_single_object_in_one_object_set(simulation_app):
     obj_set = RigidObjectSet(
         name="single_object_set", objects=[cracker_box, cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH
     )
-    obj_set.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    obj_set.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     scene = Scene(assets=[background, obj_set])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="single_object_set_test",

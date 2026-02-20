@@ -41,13 +41,13 @@ def get_test_environment(num_envs: int):
     red_cube.set_initial_pose(
         Pose(
             position_xyz=(0.0, 0.3, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
     green_cube.set_initial_pose(
         Pose(
             position_xyz=(0.0, -0.3, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -55,13 +55,13 @@ def get_test_environment(num_envs: int):
     red_container.set_initial_pose(
         Pose(
             position_xyz=(0.0, 0.1, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
     green_container.set_initial_pose(
         Pose(
             position_xyz=(0.0, -0.1, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -80,7 +80,7 @@ def get_test_environment(num_envs: int):
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 

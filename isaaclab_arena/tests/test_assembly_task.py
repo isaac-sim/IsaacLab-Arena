@@ -37,13 +37,13 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     # Create scene assets
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0, 0, 0.707, 0.707)))
 
     peg = asset_registry.get_asset_by_name("peg")()
-    peg.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    peg.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     hole = asset_registry.get_asset_by_name("hole")()
-    hole.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    hole.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
@@ -108,19 +108,19 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     # Create scene assets
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0, 0, 0.707, 0.707)))
 
     gear_base = asset_registry.get_asset_by_name("gear_base")()
-    gear_base.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    gear_base.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     medium_gear = asset_registry.get_asset_by_name("medium_gear")()
-    medium_gear.set_initial_pose(Pose(position_xyz=(0.5, 0.2, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    medium_gear.set_initial_pose(Pose(position_xyz=(0.5, 0.2, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     small_gear = asset_registry.get_asset_by_name("small_gear")()
-    small_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    small_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     large_gear = asset_registry.get_asset_by_name("large_gear")()
-    large_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    large_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)

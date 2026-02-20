@@ -38,7 +38,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.utils.pose import Pose
 
-_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_wxyz=(-0.74896, 0.0, 0.0, -0.66262))
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, -0.66262, -0.74896))
 
 
 @register_asset
@@ -79,7 +79,7 @@ class FrankaEmbodiment(EmbodimentBase):
         if scene_config is None or not hasattr(scene_config, "robot"):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
         scene_config.stand.init_state.pos = pose.position_xyz
-        scene_config.stand.init_state.rot = pose.rotation_wxyz
+        scene_config.stand.init_state.rot = pose.rotation_xyzw
         return scene_config
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
@@ -103,7 +103,7 @@ class FrankaSceneCfg:
     # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
     stand: AssetBaseCfg = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Robot_Stand",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[1.0, 0.0, 0.0, 0.0]),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
         spawn=UsdFileCfg(
             usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Mounts/Stand/stand_instanceable.usd",
             scale=(1.2, 1.2, 1.7),
@@ -194,7 +194,7 @@ class FrankaCameraCfg:
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_wxyz,
+            rot=camera_offset.rotation_xyzw,
             convention="ros",
         )
 

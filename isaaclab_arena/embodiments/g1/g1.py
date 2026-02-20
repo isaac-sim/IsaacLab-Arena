@@ -64,7 +64,7 @@ class G1EmbodimentBase(EmbodimentBase):
         # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
         self._xr_offset = Pose(
             position_xyz=(0.0, 0.0, -1.0),
-            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
+            rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711),
         )
         self.xr: XrCfg | None = None
 
@@ -79,7 +79,7 @@ class G1EmbodimentBase(EmbodimentBase):
 
 # Default camera offset pose
 _DEFAULT_G1_CAMERA_OFFSET = Pose(
-    position_xyz=(0.04485, 0.0, 0.35325), rotation_wxyz=(0.32651, -0.62721, 0.62721, -0.32651)
+    position_xyz=(0.04485, 0.0, 0.35325), rotation_xyzw=(-0.62721, 0.62721, -0.32651, 0.32651)
 )
 
 
@@ -164,7 +164,7 @@ class G1SceneCfg:
         prim_path="/World/envs/env_.*/Robot",
         init_state=ArticulationCfg.InitialStateCfg(
             pos=(0.8, -1.38, 0.78),
-            rot=(0.0, 0.0, 0.0, 1.0),
+            rot=(0.0, 0.0, 1.0, 0.0),
             joint_pos={
                 # target angles [rad]
                 "left_hip_pitch_joint": -0.1,
@@ -367,7 +367,7 @@ class G1CameraCfg:
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_wxyz,
+            rot=camera_offset.rotation_xyzw,
             convention="ros",
         )
 

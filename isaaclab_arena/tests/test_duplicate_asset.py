@@ -36,7 +36,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     dex_cube_1.set_initial_pose(
         Pose(
             position_xyz=position_1,
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -45,7 +45,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     dex_cube_2.set_initial_pose(
         Pose(
             position_xyz=position_2,
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -55,7 +55,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 

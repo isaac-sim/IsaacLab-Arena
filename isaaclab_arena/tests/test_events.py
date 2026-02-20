@@ -59,8 +59,8 @@ def _test_set_object_pose_per_env_event(simulation_app):
     # - from: constant per env,
     # - to: per env pose
     pose_list = [
-        Pose(position_xyz=(0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
-        Pose(position_xyz=(0.4, 0.4, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
+        Pose(position_xyz=(0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        Pose(position_xyz=(0.4, 0.4, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     ]
     env_cfg.events.reset_pick_up_object_pose = EventTermCfg(
         func=set_object_pose_per_env,

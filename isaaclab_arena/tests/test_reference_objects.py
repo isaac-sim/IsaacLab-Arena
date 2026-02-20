@@ -47,16 +47,16 @@ def get_test_scene():
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     microwave = asset_registry.get_asset_by_name("microwave")()
 
-    kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     cracker_box.set_initial_pose(
         Pose(
-            position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)
+            position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)
         )
     )
     microwave.set_initial_pose(
         Pose(
             position_xyz=(2.862758610786719, -0.39786255771393336, 1.087924015237011),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -185,7 +185,7 @@ def _test_reference_objects(simulation_app, tmp_path: pathlib.Path) -> bool:
 
 
 def _test_reference_objects_with_transform(simulation_app, tmp_path: pathlib.Path) -> bool:
-    background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
+    background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_xyzw=(0, 0, -0.70711, 0.70711))
     return _test_reference_objects_with_background_pose(background_pose, tmp_path)
 
 

@@ -51,7 +51,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         container.set_initial_pose(
             Pose(
                 position_xyz=(0.4, -0.00586, 0.22773),
-                rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+                rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
             )
         )
 
@@ -67,7 +67,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(-0.3, 0.0, -0.5),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 

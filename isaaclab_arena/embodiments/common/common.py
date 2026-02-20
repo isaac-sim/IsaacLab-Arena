@@ -29,11 +29,11 @@ def get_default_xr_cfg(initial_pose: Pose | None = None, xr_offset: Pose | None 
 
         return XrCfg(
             anchor_pos=xr_pose_global.position_xyz,
-            anchor_rot=xr_pose_global.rotation_wxyz,
+            anchor_rot=xr_pose_global.rotation_xyzw,
         )
     else:
         # If no initial pose set, use the offset as global coordinates (robot at origin)
         return XrCfg(
             anchor_pos=xr_offset.position_xyz,
-            anchor_rot=xr_offset.rotation_wxyz,
+            anchor_rot=xr_offset.rotation_xyzw,
         )

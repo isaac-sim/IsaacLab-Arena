@@ -29,11 +29,11 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(Pose(position_xyz=(0.50, 0.0, 0.625), rotation_wxyz=(0.7071, 0, 0, 0.7071)))
+    background.set_initial_pose(Pose(position_xyz=(0.50, 0.0, 0.625), rotation_xyzw=(0, 0, 0.7071, 0.7071)))
     background.object_cfg.spawn.scale = (1.0, 1.0, 0.60)
     # placeable object must have initial pose set
     mug = asset_registry.get_asset_by_name("mug")(
-        initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_wxyz=(0.7071, 0.7071, 0.0, 0.0))
+        initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_xyzw=(0.7071, 0.0, 0.0, 0.7071))
     )
     if dont_reset_placeable_object_pose:
         mug.disable_reset_pose()

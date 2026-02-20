@@ -77,7 +77,7 @@ ARM_JOINT_NAMES_LIST = [
 ]
 
 # Default camera offset pose
-_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.32, -0.32, -0.63, 0.62))
 
 
 @register_asset
@@ -108,7 +108,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         # These offsets are defined relative to the robot's base frame
         self._xr_offset = Pose(
             position_xyz=(-0.5, 0.0, -1.0),
-            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
+            rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711),
         )
         self.xr: XrCfg | None = None
 
@@ -388,7 +388,7 @@ class GR1T2CameraCfg:
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_wxyz,
+            rot=camera_offset.rotation_xyzw,
             convention="opengl",
         )
 

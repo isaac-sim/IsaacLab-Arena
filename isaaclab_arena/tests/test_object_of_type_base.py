@@ -46,7 +46,7 @@ def _test_object_of_type_base(simulation_app):
     cone = ConeNoPhysics()
 
     # Put the thing in the center of the room floating.
-    cone.set_initial_pose(Pose(position_xyz=(-1.6, 0.0, 1.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    cone.set_initial_pose(Pose(position_xyz=(-1.6, 0.0, 1.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     scene = Scene(assets=[background, cone])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

@@ -35,7 +35,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     microwave.set_initial_pose(
         Pose(
             position_xyz=(0.6, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+            rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
         )
     )
 

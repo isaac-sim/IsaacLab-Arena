@@ -31,7 +31,7 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
             args_cli.embodiment
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-        embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -41,7 +41,7 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
         # Put the microwave on the packing table.
         stand_mixer_pose = Pose(
             position_xyz=(0.4, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+            rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
         )
         stand_mixer.set_initial_pose(stand_mixer_pose)
 
@@ -49,7 +49,7 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
             object = self.asset_registry.get_asset_by_name(args_cli.object)()
             object_pose = Pose(
                 position_xyz=(0.466, -0.437, 0.154),
-                rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
+                rotation_xyzw=(-0.5, 0.5, -0.5, 0.5),
             )
             object.set_initial_pose(object_pose)
             assets.append(object)

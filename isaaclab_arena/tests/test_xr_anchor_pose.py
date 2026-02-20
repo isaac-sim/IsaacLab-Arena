@@ -23,7 +23,7 @@ def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
     xr_cfg = embodiment.get_xr_cfg()
 
     expected_pos = embodiment._xr_offset.position_xyz
-    expected_rot = embodiment._xr_offset.rotation_wxyz
+    expected_rot = embodiment._xr_offset.rotation_xyzw
 
     assert (
         xr_cfg.anchor_pos == expected_pos
@@ -35,7 +35,7 @@ def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
     print("✓ GR1T2 XR anchor at origin: PASSED")
 
     # Test 2: XR anchor with robot position and rotation
-    robot_pose = Pose(position_xyz=(1.0, 2.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))  # No rotation
+    robot_pose = Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))  # No rotation
     embodiment.set_initial_pose(robot_pose)
     xr_cfg = embodiment.get_xr_cfg()
 
@@ -55,24 +55,24 @@ def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
 
     # Test 3: XR anchor with robot rotation
     robot_pose_rotated = Pose(
-        position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(0.70711, 0.0, 0.0, 0.70711)  # 90° rotation around Z
+        position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.70711, 0.70711)  # 90° rotation around Z
     )
     embodiment.set_initial_pose(robot_pose_rotated)
     xr_cfg_rotated = embodiment.get_xr_cfg()
 
     # Rotation should be composed, not same as offset
     assert (
-        xr_cfg_rotated.anchor_rot != embodiment._xr_offset.rotation_wxyz
+        xr_cfg_rotated.anchor_rot != embodiment._xr_offset.rotation_xyzw
     ), "XR anchor rotation should be composed with robot rotation"
 
     print("✓ GR1T2 XR anchor with robot rotation: PASSED")
 
     # Test 4: Dynamic recomputation
-    pose1 = Pose(position_xyz=(1.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    pose1 = Pose(position_xyz=(1.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     embodiment.set_initial_pose(pose1)
     xr_cfg1 = embodiment.get_xr_cfg()
 
-    pose2 = Pose(position_xyz=(2.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    pose2 = Pose(position_xyz=(2.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     embodiment.set_initial_pose(pose2)
     xr_cfg2 = embodiment.get_xr_cfg()
 
@@ -99,7 +99,7 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
     xr_cfg = embodiment.get_xr_cfg()
 
     expected_pos = embodiment._xr_offset.position_xyz
-    expected_rot = embodiment._xr_offset.rotation_wxyz
+    expected_rot = embodiment._xr_offset.rotation_xyzw
 
     assert (
         xr_cfg.anchor_pos == expected_pos
@@ -109,7 +109,7 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
     ), f"XR anchor rotation should match offset at origin: expected {expected_rot}, got {xr_cfg.anchor_rot}"
 
     # Test 2: XR anchor with robot position
-    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))  # No rotation
+    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))  # No rotation
     embodiment.set_initial_pose(robot_pose)
     xr_cfg = embodiment.get_xr_cfg()
 
@@ -146,7 +146,7 @@ def _test_xr_anchor_multiple_positions(simulation_app) -> bool:
     ]
 
     for pos in test_positions:
-        robot_pose = Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+        robot_pose = Pose(position_xyz=pos, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         embodiment.set_initial_pose(robot_pose)
 
         xr_cfg = embodiment.get_xr_cfg()

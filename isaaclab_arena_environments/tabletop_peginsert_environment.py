@@ -35,19 +35,19 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+        background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0, 0, 0.707, 0.707)))
 
         pick_up_object.set_initial_pose(
             Pose(
                 position_xyz=(0.45, 0.0, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
         destination_object.set_initial_pose(
             Pose(
                 position_xyz=(0.45, 0.1, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 

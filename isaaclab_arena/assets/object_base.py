@@ -113,10 +113,10 @@ class ObjectBase(Asset, ABC):
         asset = env.scene[self.name]
         num_envs = len(env_ids)
         # Convert the pose to the env frame
-        pose_t_xyz_q_wxyz = pose.to_tensor(device=env.device).repeat(num_envs, 1)
-        pose_t_xyz_q_wxyz[:, :3] += env.scene.env_origins[env_ids]
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).repeat(num_envs, 1)
+        pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
         # Set the pose and velocity
-        asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
+        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
         asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:

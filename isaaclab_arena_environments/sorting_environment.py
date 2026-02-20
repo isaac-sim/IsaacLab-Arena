@@ -32,7 +32,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         background.set_initial_pose(
             Pose(
                 position_xyz=(0.3, 0.0, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
@@ -44,7 +44,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             embodiment.set_initial_pose(
                 Pose(
                     position_xyz=(-0.4, 0.0, 0.0),
-                    rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                    rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
                 )
             )
 
@@ -68,7 +68,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         destination_location_1.set_initial_pose(
             Pose(
                 position_xyz=(0.0, 0.1, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
@@ -76,7 +76,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         destination_location_2.set_initial_pose(
             Pose(
                 position_xyz=(0.0, -0.1, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
@@ -84,7 +84,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         pick_up_object_1.set_initial_pose(
             Pose(
                 position_xyz=(0.0, 0.3, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
@@ -92,7 +92,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         pick_up_object_2.set_initial_pose(
             Pose(
                 position_xyz=(0.0, -0.3, 0.1),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 

@@ -40,7 +40,7 @@ def get_test_environment(num_envs: int):
     sweet_potato = asset_registry.get_asset_by_name("sweet_potato")(
         initial_pose=Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
