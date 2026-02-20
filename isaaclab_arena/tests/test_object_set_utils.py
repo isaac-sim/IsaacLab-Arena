@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 import tempfile
 
@@ -52,15 +53,11 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
         assert rb_prim.IsValid() and rb_prim.HasAPI(UsdPhysics.RigidBodyAPI)
         return True
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(src_path)
-        except OSError:
-            pass
         cache_path = get_object_set_asset_cache_path(_MinimalAsset(), (1.0, 1.0, 1.0))
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(cache_path)
-        except OSError:
-            pass
 
 
 def _test_rescale_rename_rigid_body_and_save_to_cache_depth1(simulation_app):
@@ -108,18 +105,15 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth1(simulation_app):
         scale_attr = root_prim.GetAttribute("xformOp:scale")
         assert scale_attr.IsValid()
         from pxr import Gf
+
         assert scale_attr.Get() == Gf.Vec3f(2.0, 2.0, 2.0)
         return True
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(src_path)
-        except OSError:
-            pass
         cache_path = get_object_set_asset_cache_path(_MinimalAsset(), (2.0, 2.0, 2.0))
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(cache_path)
-        except OSError:
-            pass
 
 
 def test_rescale_rename_rigid_body_and_save_to_cache_depth0():

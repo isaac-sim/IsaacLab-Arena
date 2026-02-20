@@ -56,7 +56,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          --include "ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot/*" \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir $DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
@@ -68,7 +68,7 @@ Convert the HDF5 dataset to LeRobot format for policy post-training:
    python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
      --yaml_file isaaclab_arena_gr00t/lerobot/config/gr1_manip_ranch_bottle_config.yaml
 
-This creates a folder ``$DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot`` containing parquet files with states/actions, MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
+This creates a folder ``$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot`` containing parquet files with states/actions, MP4 camera recordings, and dataset metadata. The converter is controlled by a config file at
 ``isaaclab_arena_gr00t/lerobot/config/gr1_manip_ranch_bottle_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_ranch_bottle_config.yaml``)
@@ -77,7 +77,7 @@ This creates a folder ``$DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_
    .. code-block:: yaml
 
       # Input/Output paths
-      data_root: /datasets/isaaclab_arena/sequential_static_manipulation_tutorial/ranch_bottle_into_fridge
+      data_root: /datasets/isaaclab_arena/sequential_static_manipulation_tutorial/
       hdf5_name: "ranch_bottle_into_fridge_generated_100.hdf5"
 
       # Task description
@@ -102,7 +102,7 @@ This can be done by running the following command:
 
 .. code-block:: bash
 
-   python submodules/Isaac-GR00T/gr00t/data/stats.py $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot gr1_joint
+   python submodules/Isaac-GR00T/gr00t/data/stats.py $DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot gr1_joint
 
 .. todo::
    There is a bug in ISAAC-GR00T submodule gr00t/data/stats.py. PR is submmited and in review from Gear.
@@ -162,7 +162,7 @@ We provide three post-training options:
       .. code-block:: bash
 
          python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
          --global_batch_size=96 \
@@ -199,7 +199,7 @@ We provide three post-training options:
       .. code-block:: bash
 
          CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
+         --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
          --global_batch_size=16 \

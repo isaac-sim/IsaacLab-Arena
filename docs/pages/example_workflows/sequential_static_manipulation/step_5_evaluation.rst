@@ -32,7 +32,7 @@ pre-trained model checkpoint below:
         nvidia/GN1.6-Tuned-Arena-GR1-PlaceItemCloseDoor-Task \
         --include "ranch_bottle_into_fridge/*" \
         --repo-type model \
-        --local-dir $MODELS_DIR/ranch_bottle_into_fridge
+        --local-dir $MODELS_DIR/checkpoint-20000
 
 
 Step 1: Run Single Environment Evaluation
@@ -47,7 +47,7 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/policy/
 
    .. code-block:: yaml
 
-      model_path: /models/isaaclab_arena/sequential_static_manipulation_tutorial/ranch_bottle_into_fridge/
+      model_path: /models/isaaclab_arena/sequential_static_manipulation_tutorial/checkpoint-20000
 
       language_instruction: "Place the sauce bottle on the top shelf of the fridge, and close the fridge door."
       action_horizon: 16
