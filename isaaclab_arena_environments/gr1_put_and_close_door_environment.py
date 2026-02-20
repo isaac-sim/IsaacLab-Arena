@@ -103,16 +103,16 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
         )
-        kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
-            style_id=args_cli.kitchen_style
-        )
+        # kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
+        #     style_id=args_cli.kitchen_style
+        # )
 
-        kitchen_counter_top = ObjectReference(
-            name="kitchen_counter_top",
-            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
-            parent_asset=kitchen_background,
-        )
-        kitchen_counter_top.add_relation(IsAnchor())
+        # kitchen_counter_top = ObjectReference(
+        #     name="kitchen_counter_top",
+        #     prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
+        #     parent_asset=kitchen_background,
+        # )
+        # kitchen_counter_top.add_relation(IsAnchor())
 
         light = self.asset_registry.get_asset_by_name("light")()
 
@@ -151,16 +151,17 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         else:
             pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
 
-        pickup_object.add_relation(On(kitchen_counter_top))
-        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+        # pickup_object.add_relation(On(kitchen_counter_top))
+        # pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
         # Consider changing to other values for different objects, below is for ranch dressing bottle.
         yaw_rad = math.radians(-111.55)
-        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-        pickup_object.add_relation(
-            RandomAroundSolution(x_half_m=RANDOMIZATION_HALF_RANGE_X_M, y_half_m=RANDOMIZATION_HALF_RANGE_Y_M)
-        )
+        # pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+        # pickup_object.add_relation(
+        #     RandomAroundSolution(x_half_m=RANDOMIZATION_HALF_RANGE_X_M, y_half_m=RANDOMIZATION_HALF_RANGE_Y_M)
+        # )
         scene = Scene(
-            assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+            # assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+            assets=[pickup_object]
         )
 
         # Create pick and place task

@@ -6,7 +6,8 @@ FROM ${BASE_IMAGE}
 # Set user to root (Isaac Sim base image defaults to non-root user)
 =======
 # ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
-ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-718b5c21-x86_64
+# ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-718b5c21-x86_64
+ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-f7fc5348-x86_64
 
 FROM ${BASE_IMAGE}
 
@@ -64,14 +65,22 @@ RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
 =======
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
+# Make Isaac Sim accessible by all users
+RUN chmod a+rx /isaac-sim
 # Upgrade Isaac Sim's pip to avoid version warnings and build issues
 RUN /isaac-sim/python.sh -m pip install --upgrade pip
 # Install IsaacLab dependencies
 RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
+<<<<<<< HEAD
 # Pre-install flatdict with --no-build-isolation to work around pkg_resources missing in pip's isolated build env
 RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
 >>>>>>> 02d4fc00 (Fix Dockerfile pip usage and add SSL cert support for Lightwheel SDK)
 # Install isaaclab
+=======
+# # Pre-install flatdict with --no-build-isolation to work around pkg_resources missing in pip's isolated build env
+# RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
+# # Install isaaclab
+>>>>>>> 74467494 (Got something running. Poses are all wrong.)
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
@@ -106,10 +115,16 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
 # HuggingFace for downloading datasets and models.
+<<<<<<< HEAD
 # NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed in the IsaacSim version of python.
 RUN pip install --break-system-packages huggingface-hub[cli]
+=======
+# NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed
+# in the IsaacSim version of python.
+RUN /isaac-sim/python.sh -m pip install huggingface-hub[cli]
+>>>>>>> 74467494 (Got something running. Poses are all wrong.)
 # Create alias for hf command to use the system-installed version
-RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
+RUN echo "alias hf='/isaac-sim/kit/python/bin/hf'" >> /etc/bash.bashrc
 
 ###############################
 # Install GR00T and CUDA 12.8 #
@@ -157,13 +172,13 @@ RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 
-# Debugging with debugpy
-# Usage:
-# 1) Set your breakpoints
-# 2) Start the script you want to debug with "debugpy" instead of "python".
-#    It will pause waiting for the debugger to attach.
-# 3) Attach to the running container with VSCode using the "Attach to debugpy session"
-#    configuration from the Run and Debug panel.
+# # Debugging with debugpy
+# # Usage:
+# # 1) Set your breakpoints
+# # 2) Start the script you want to debug with "debugpy" instead of "python".
+# #    It will pause waiting for the debugger to attach.
+# # 3) Attach to the running container with VSCode using the "Attach to debugpy session"
+# #    configuration from the Run and Debug panel.
 RUN /isaac-sim/python.sh -m pip install debugpy
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
