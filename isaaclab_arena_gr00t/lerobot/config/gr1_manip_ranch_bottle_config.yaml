@@ -8,7 +8,7 @@
 # Example for GR1 tabletop manipulation task
 
 # Root directory for all data storage
-data_root: "/datasets/isaaclab_arena/sequential_static_manipulation_tutorial/ranch_bottle_into_fridge"
+data_root: "/datasets/isaaclab_arena/sequential_static_manipulation_tutorial/"
 
 # Instruction given to the policy in natural language
 language_instruction: "Place the ranch dressing bottle on the top shelf of the fridge, and close the fridge door."

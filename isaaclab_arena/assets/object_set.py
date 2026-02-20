@@ -52,7 +52,14 @@ class RigidObjectSet(Object):
         # In particular, we rescale the assets and rename the rigid bodies to have the same name.
         # We then save the resulting modified USDs to a cache.
         if self._is_asset_modification_needed(objects):
-            assert self._asset_modification_possible(objects), "Asset modification is not possible for object sets"
+            if not self._asset_modification_possible(objects):
+                depths = self._get_all_rigid_body_depths(objects)
+                per_asset = [f"{obj.name}=depth_{d} ({obj.usd_path})" for obj, d in zip(objects, depths)]
+                raise ValueError(
+                    "Asset modification is not possible for object sets: all objects must have their shallowest "
+                    "rigid body at the same depth so paths match after rename. "
+                    f"Rigid body depths by asset: {per_asset}."
+                )
             self.object_usd_paths = self._modify_assets(objects)
             print(f"Modified object USD paths: {self.object_usd_paths}")
         else:
@@ -95,10 +102,11 @@ class RigidObjectSet(Object):
             contact_against_prim_paths = []
         # We assume that by here, our USDs have been modified to be compatible with each other
         # and we can use the first USD path to find the shallowest rigid body.
-        rigid_body_relative_path = find_shallowest_rigid_body(self.object_usd_paths[0], relative_to_root=True)
+        first_usd = self.object_usd_paths[0]
+        rigid_body_relative_path = find_shallowest_rigid_body(first_usd, relative_to_root=True)
         assert (
             rigid_body_relative_path is not None
-        ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
+        ), f"No rigid body found in {self.name} USD file: {first_usd}. Can't add contact sensor."
         contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
         return ContactSensorCfg(
             prim_path=contact_sensor_prim_path,
@@ -154,7 +162,7 @@ class RigidObjectSet(Object):
         depths = []
         for asset in objects:
             shallowest_rigid_body = find_shallowest_rigid_body(asset.usd_path)
-            depth = shallowest_rigid_body.count("/") - 1
+            depth = shallowest_rigid_body.count("/") - 1 if shallowest_rigid_body else -1
             depths.append(depth)
         return depths
 
