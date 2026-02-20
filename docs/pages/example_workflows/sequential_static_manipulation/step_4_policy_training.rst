@@ -130,17 +130,7 @@ This can be done by running the following command:
    You should see the robot perform the manipulation task. Note that the robot's arms shake due to the action noise
    added during data generation, which is expected. If you observe inconsistent behavior, please check the data generation and conversion steps.
 
-Step 3: Upload Dataset to OSMO (Optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you want to upload the generated LeRobot dataset to OSMO for it to be used in the next step, you can run the following command:
-
-.. code-block:: bash
-
-   osmo dataset upload gr1_ranch_bottle_into_fridge $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100
-
-
-Step 4: Post-train Policy
+Step 3: Post-train Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We post-train the GR00T N1.6 policy on the task.
@@ -149,7 +139,6 @@ The GR00T N1.6 policy has 3 billion parameters so post training is an an expensi
 We provide three post-training options:
 
 * Best Quality: 8 GPUs with 48GB memory (local)
-* Best Quality: 8 GPUs with 48GB memory (OSMO)
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
 
@@ -191,27 +180,6 @@ We provide three post-training options:
          --use-wandb \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
-
-   .. tab:: Best Quality (OSMO)
-
-      Training takes approximately 4-8 hours on 8x L40 GPUs.
-
-      Training Configuration:
-
-      - **Base Model:** GR00T-N1.6-3B (foundation model)
-      - **Tuned Modules:** Visual backbone, projector, diffusion model
-      - **Frozen Modules:** LLM (language model)
-      - **Global Batch Size:** 96 (adjust based on GPU memory)
-      - **Training Steps:** 20,000
-      - **GPUs:** 8 (multi-GPU training)
-
-      To post-train the policy, after you set the OSMO infrastructure following the OSMO instructions `<https://github.com/NVIDIA/OSMO/tree/main?tab=readme-ov-file#documentation>`
-      you can submit the workflow to OSMO by running the following command:
-
-      .. code-block:: bash
-
-         osmo workflow submit osmo/finetune.yaml --pool ${POOL_NAME}
-
 
    .. tab:: Low Hardware Requirements
 
@@ -255,14 +223,3 @@ We provide three post-training options:
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results.
-
-Step 5: Download Post-trained Model (Optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you post-train the model on OSMO, you can download the checkpoint to your local machine.
-Note down the workflow name and output directory from the OSMO workflow job,
-and add them to the following command:
-
-.. code-block:: bash
-
-   osmo data download swift://pdx.s8k.io/AUTH_team-isaac/mimic/datasets/${WORKFLOW_NAME}/checkpoint-20000 $MODELS_DIR/ranch_bottle_into_fridge/

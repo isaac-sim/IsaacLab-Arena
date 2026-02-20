@@ -193,7 +193,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
          --enable_cameras \
          put_item_in_fridge_and_close_door \
          --embodiment gr1_joint \
-         --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle
+         --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -211,7 +211,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --headless \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle
+           --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -221,4 +221,95 @@ All of them might not be 1.0 as unseen objects are being evaluated and the polic
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.7111111111111111, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.9333333333333333, 0.9333333333333333], 'num_episodes': 45}
+   Metrics: {'success_rate': 0.8666666666666667, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
+
+Step 4: Batch Evaluation with JSON Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more systematic evaluation, you can use the ``eval_runner.py`` script to evaluate the policy in a batch.
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/eval_runner.py --config eval_config.json
+
+This will automatically evaluate the policy in the batch and output the metrics.
+
+
+**1. Create Evaluation Configuration**
+
+Create a file ``eval_jobs_config.json``:
+
+.. code-block:: json
+
+   {
+     "jobs": [
+       {
+         "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
+         "arena_env_args": {
+          "enable_cameras": true,
+           "environment": "put_item_in_fridge_and_close_door",
+           "object": "ranch_dressing_bottle",
+           "embodiment": "gr1_joint"
+         },
+         "num_envs": 10,
+         "num_steps": 500,
+         "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+         "policy_config_dict": {
+           "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
+           "policy_device": "cuda:0"
+         }
+       },
+       {
+         "name": "gr1_put_mayonnaise_bottle_in_fridge_and_close_door",
+         "arena_env_args": {
+           "enable_cameras": true,
+           "environment": "put_item_in_fridge_and_close_door",
+           "object": "mayonnaise_bottle",
+           "embodiment": "gr1_joint"
+         },
+         "num_envs": 10,
+         "num_steps": 500,
+         "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+         "policy_config_dict": {
+           "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
+           "policy_device": "cuda:0"
+         }
+       }
+     ]
+   }
+
+Run the batch evaluation:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/eval_runner.py --config eval_jobs_config.json
+
+This will automatically evaluate the policy with the given configuration and output the metrics.
+
+.. code-block:: text
+
+   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+   |                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
+   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
+   |   gr1_put_mayonnaise_bottle_in_fridge_and_close_door   | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
+   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   gr1_put_mayonnaise_bottle_in_fridge_and_close_door:
+   num_episodes                            1
+   object_moved_rate_subtask_0        1.0000
+   revolute_joint_moved_rate_subtask_1     1.0000
+   subtask_success_rate           [1.0, 1.0]
+   success_rate                       1.0000
+
+   gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
+   num_episodes                            1
+   object_moved_rate_subtask_0        1.0000
+   revolute_joint_moved_rate_subtask_1     1.0000
+   subtask_success_rate           [1.0, 1.0]
+   success_rate                       1.0000
+   ======================================================================
