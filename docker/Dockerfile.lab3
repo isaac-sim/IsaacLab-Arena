@@ -1,34 +1,30 @@
-# ARG BASE_IMAGE=nvcr.io/nvidia/pytorch:23.12-py3
-ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-718b5c21-x86_64
+ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-f7fc5348-x86_64
 
 FROM ${BASE_IMAGE}
 
-# GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
-ARG INSTALL_GROOT=false
+USER root
 
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
 
-# Hide conflicting Vulkan files, if needed.
-RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
-      mv /usr/share/vulkan /usr/share/vulkan_hidden; \
-    fi
+################################
+# Apt deps  
+################################
+RUN apt-get update && apt-get install -y git 
 
-# apt packages
-RUN apt-get update && apt-get install -y \
-  git \
-  git-lfs \
-  cmake \
-  sudo \
-  python3-pip
+################################
+# Install Isaac Lab
+################################
+COPY . ${WORKDIR}/IsaacLab
+ENV ISAACLAB_PATH=${WORKDIR}/IsaacLab
+ENV TERM=xterm
+RUN ln -s /isaac-sim/ ${WORKDIR}/IsaacLab/_isaac_sim
+RUN chmod 777 -R /isaac-sim/kit/
+RUN chmod a+rx /isaac-sim
+RUN /isaac-sim/python.sh -m pip install --upgrade pip
+RUN for DIR in ${WORKDIR}/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
+RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
-# Copy files in
-COPY *.* ${WORKDIR}/
-
-# Build Isaac Sim 6.0
-RUN submodules/omni_isaac_sim/build.sh
-
-# Set the entrypoint
-COPY docker/setup/entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+# Entrypoint
+ENTRYPOINT ["/bin/bash"]

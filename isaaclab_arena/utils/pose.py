@@ -38,7 +38,7 @@ class Pose:
     def to_tensor(self, device: torch.device) -> torch.Tensor:
         """Convert the pose to a tensor.
 
-        The returned tensor has shape (1, 7), and is of the order (x, y, z, qw, qx, qy, qz).
+        The returned tensor has shape (1, 7), and is of the order (x, y, z, qx, qy, qz, qw).
 
         Args:
             device: The device to convert the tensor to.
@@ -47,7 +47,8 @@ class Pose:
             The pose as a tensor of shape (1, 7).
         """
         position_tensor = torch.tensor(self.position_xyz, device=device)
-        rotation_tensor = torch.tensor(self.rotation_wxyz, device=device)
+        rotation_xyzw = self.rotation_wxyz[1:] + (self.rotation_wxyz[0], )
+        rotation_tensor = torch.tensor(rotation_xyzw, device=device)
         return torch.cat([position_tensor, rotation_tensor])
 
     def multiply(self, other: "Pose") -> "Pose":

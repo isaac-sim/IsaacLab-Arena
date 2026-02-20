@@ -5,6 +5,8 @@
 
 # %%
 
+import argparse
+
 import torch
 import tqdm
 
@@ -12,7 +14,12 @@ import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
 
 print("Launching simulation app once in notebook")
-simulation_app = AppLauncher()
+parser = argparse.ArgumentParser()
+AppLauncher.add_app_launcher_args(parser)
+args = parser.parse_args(["--visualizer", "kit"])
+app_launcher = AppLauncher(args)
+
+#%%
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -49,10 +56,23 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 1000
+NUM_STEPS = 100
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
 
 # %%
+
+from dataclasses import asdict
+
+for k, v in asdict(env.cfg.events).items():
+    print(k, v)
+
+#%%
+
+for asset in env.cfg.scene:
+    print(asset.name)
+
+#%%
+
