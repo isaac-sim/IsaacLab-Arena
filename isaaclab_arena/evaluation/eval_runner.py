@@ -121,8 +121,8 @@ def main():
                             job.num_steps = policy.length()
                         else:
                             job.num_steps = args_cli.num_steps
-
-                    metrics = rollout_policy(env, policy, num_steps=job.num_steps)
+                    # TODO (xinjieyao, 2026-02-19): add num_episodes support
+                    metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=None)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
