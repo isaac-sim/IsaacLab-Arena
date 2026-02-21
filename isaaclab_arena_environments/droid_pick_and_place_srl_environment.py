@@ -28,6 +28,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaaclab_arena.utils.pose import PoseRange
 
         background = self.asset_registry.get_asset_by_name("rubiks_cube_bowl_srl")()
         rubiks_cube = ObjectReference(
@@ -36,6 +37,15 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
+
+        # TODO(cvolk): Use solver to resolve z position.
+        rubiks_cube.set_initial_pose(
+            PoseRange(
+                position_xyz_min=(0.45, -0.05, 0.05),
+                position_xyz_max=(0.45, -0.4, 0.05),
+            )
+        )
+
         bowl = ObjectReference(
             name="bowl",
             prim_path="{ENV_REGEX_NS}/rubiks_cube_bowl_srl/bowl",
