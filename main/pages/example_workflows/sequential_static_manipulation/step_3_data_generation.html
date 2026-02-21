@@ -453,8 +453,8 @@ such that the annotation step can be skipped.</p>
 </details><p>To start the annotation process run the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/annotate_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge/ranch_bottle_into_fridge_recorded.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_recorded.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
@@ -497,8 +497,8 @@ annotated demonstrations by using rigid body transformations to introduce variat
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--generation_num_trials<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_generated_100.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
@@ -520,7 +520,7 @@ To do so, run the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_generated_100.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>ranch_dressing_bottle<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>gr1_pink
