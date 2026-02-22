@@ -21,6 +21,16 @@ setup(
             "isaaclab_arena_gr00t*",
         ]
     ),
+    install_requires=[
+        "pytest",
+        "jupyter",
+        "typing_extensions",
+        "onnxruntime",
+        "qpsolvers==4.8.1",
+        "vuer[all]",
+        "lightwheel-sdk",
+        "huggingface-hub[cli]",
+    ],
     python_requires=">=3.10",
     zip_safe=False,
 )
