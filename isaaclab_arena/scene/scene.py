@@ -18,6 +18,7 @@ from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
+from isaaclab_arena.utils.pose import Pose
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
 
@@ -173,6 +174,10 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     # Add the transform
     prim_xform.ClearXformOpOrder()
     if asset.initial_pose is not None:
+        assert isinstance(asset.initial_pose, Pose), (
+            "export_to_usd only supports assets with initial_pose of type Pose or None; "
+            f"got {type(asset.initial_pose).__name__} for asset {asset.name}"
+        )
         t = Gf.Vec3d(asset.initial_pose.position_xyz) if trans_double else Gf.Vec3f(asset.initial_pose.position_xyz)
         r = (
             Gf.Quatd(*asset.initial_pose.rotation_wxyz)
