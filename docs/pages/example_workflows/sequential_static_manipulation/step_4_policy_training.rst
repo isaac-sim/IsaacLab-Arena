@@ -138,13 +138,13 @@ We post-train the GR00T N1.6 policy on the task.
 The GR00T N1.6 policy has 3 billion parameters so post training is an an expensive operation.
 We provide three post-training options:
 
-* Best Quality: 8 GPUs with 48GB memory (local)
+* Best Quality: 8 GPUs with 48GB memory
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
 
 .. tabs::
 
-   .. tab:: Best Quality (local)
+   .. tab:: Best Quality
 
       Training takes approximately 4-8 hours on 8x L40s GPUs.
 
@@ -216,9 +216,6 @@ We provide three post-training options:
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
          --save_total_limit=5
-
-.. todo::
-   Verify training locally
 
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
 for information on how to adjust the training configuration to your hardware, to achieve
