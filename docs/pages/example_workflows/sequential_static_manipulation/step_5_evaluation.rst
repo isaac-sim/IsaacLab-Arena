@@ -242,19 +242,19 @@ The evaluation batch can be specified in a config file, with examples shown belo
 .. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.yaml``):
    :animate: fade-in
 
-   .. code-block:: yaml
+   .. code-block:: json
 
       {
       "jobs": [
          {
             "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
             "arena_env_args": {
-            "enable_cameras": true,
-            "environment": "put_item_in_fridge_and_close_door",
-            "object": "ranch_dressing_bottle",
-            "embodiment": "gr1_joint"
+               "num_envs": 10,
+               "enable_cameras": true,
+               "environment": "put_item_in_fridge_and_close_door",
+               "object": "ranch_dressing_bottle",
+               "embodiment": "gr1_joint"
             },
-            "num_envs": 10,
             "num_steps": 500,
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
@@ -265,12 +265,12 @@ The evaluation batch can be specified in a config file, with examples shown belo
          {
             "name": "gr1_put_jug_in_fridge_and_close_door",
             "arena_env_args": {
-            "enable_cameras": true,
-            "environment": "put_item_in_fridge_and_close_door",
-            "object": "jug",
-            "embodiment": "gr1_joint"
+               "num_envs": 10,
+               "enable_cameras": true,
+               "environment": "put_item_in_fridge_and_close_door",
+               "object": "jug",
+               "embodiment": "gr1_joint"
             },
-            "num_envs": 10,
             "num_steps": 500,
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
@@ -288,34 +288,35 @@ Run the batch evaluation:
    python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.yaml
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
+You should see the following output on the console indicating the jobs and metrics.
 
-   .. code-block:: text
-   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-   |                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
-   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
-   |          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
-   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+.. code-block:: text
++--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+|                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
++--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+|          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
+| gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
++--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
+======================================================================
+METRICS SUMMARY
+======================================================================
 
-   gr1_put_jug_in_fridge_and_close_door:
-   num_episodes                            1
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.0, 0.0]
-   success_rate                       0.0000
+gr1_put_jug_in_fridge_and_close_door:
+  num_episodes                           10
+  object_moved_rate_subtask_0        1.0000
+  revolute_joint_moved_rate_subtask_1     1.0000
+  subtask_success_rate           [0.5, 0.5]
+  success_rate                       0.0000
 
-   gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-   num_episodes                            1
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [1.0, 1.0]
-   success_rate                       0.0000
-   ======================================================================
+gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
+  num_episodes                           10
+  object_moved_rate_subtask_0        1.0000
+  revolute_joint_moved_rate_subtask_1     1.0000
+  subtask_success_rate           [0.9, 0.9]
+  success_rate                       0.8000
+======================================================================
 
 With the policy trained on using ranch dressing bottle as object of interest,
 the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
-This is expected as the policy is not trained on the jug, comparing to the success rate of 1.0 for the trained object, ranch dressing bottle.
+This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.
