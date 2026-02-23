@@ -6,6 +6,7 @@
 import os
 import torch
 import tqdm
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -48,6 +49,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     )
 
     scene = Scene(assets=[background, cracker_box, destination_location])
+    # scene = Scene(assets=[background, cracker_box])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
@@ -72,12 +74,16 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         sensor = env.scene.sensors["pick_up_object_contact_sensor"]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
+                print(f"About to create zero actions")
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                print(f"About to step the environment")
                 _, _, terminated, _, _ = env.step(actions)
+                # env.step(actions)
+                print(f"Environment stepped")
                 # Get the force on the pick up object.
-                forces_vec.append(sensor.data.net_forces_w.clone())
-                force_matrix_vec.append(sensor.data.force_matrix_w.clone())
-                velocities_vec.append(env.scene[cracker_box.name].data.root_lin_vel_w.clone())
+                forces_vec.append(wp.to_torch(sensor.data.net_forces_w))
+                force_matrix_vec.append(wp.to_torch(sensor.data.force_matrix_w))
+                velocities_vec.append(wp.to_torch(env.scene[cracker_box.name].data.root_lin_vel_w))
 
                 # Try the termination.
                 condition_met_vec.append(
