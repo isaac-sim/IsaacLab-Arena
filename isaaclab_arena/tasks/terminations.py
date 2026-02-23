@@ -5,6 +5,7 @@
 
 import math
 import torch
+import warp as wp
 
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
@@ -32,14 +33,15 @@ def object_on_destination(
     assert sensor.data.force_matrix_w.shape[1] == 1
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
-    force_matrix_norm = torch.norm(sensor.data.force_matrix_w.clone(), dim=-1).reshape(-1)
+    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
-    velocity_w = object.data.root_lin_vel_w
+    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+    print(f"condition_met: {condition_met}")
     return condition_met
 
 

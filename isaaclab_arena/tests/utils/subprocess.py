@@ -89,6 +89,8 @@ def get_persistent_simulation_app(
         simulation_app_args.headless = headless
         simulation_app_args.enable_cameras = enable_cameras
         simulation_app_args.enable_pinocchio = enable_pinocchio
+        if not headless:
+            simulation_app_args.visualizer = ["kit"]
         with _IsolatedArgv([]):
 
             app_launcher = get_app_launcher(simulation_app_args)

@@ -28,6 +28,7 @@ from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArena
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
 asset_registry = AssetRegistry()
 
@@ -40,11 +41,22 @@ cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0
 cracker_box.add_relation(IsAnchor())
 tomato_soup_can.add_relation(On(cracker_box))
 
-scene = Scene(assets=[background, cracker_box, tomato_soup_can])
+from isaaclab_arena.assets.object_reference import ObjectReference
+destination_location = ObjectReference(
+    name="destination_location",
+    prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+    parent_asset=background,
+)
+
+cracker_box.add_relation(On(destination_location))
+
+scene = Scene(assets=[background, cracker_box, tomato_soup_can, destination_location])
+# scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
     scene=scene,
+    task=PickAndPlaceTask(cracker_box, destination_location, background),
 )
 
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -56,7 +68,7 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 100
+NUM_STEPS = 1000
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
