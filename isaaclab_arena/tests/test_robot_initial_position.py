@@ -61,11 +61,12 @@ def _test_robot_initial_position(simulation_app):
         print(f"Robot position error: {robot_position_error}")
         assert robot_position_error < INITIAL_POSITION_EPS, "Robot ended up at the wrong position."
 
-        # Check the stand ended up at the correct position.
-        stand_position = env.scene["stand"].get_world_poses()[0].cpu().numpy()
-        stand_position_error = np.linalg.norm(stand_position - np.array(robot_init_position))
-        print(f"Stand position error: {stand_position_error}")
-        assert stand_position_error < INITIAL_POSITION_EPS, "Stand ended up at the wrong position."
+        # Check the stand ended up at the correct position (only if the embodiment has a separate stand entity).
+        if "stand" in env.scene.keys():
+            stand_position = env.scene["stand"].get_world_poses()[0].cpu().numpy()
+            stand_position_error = np.linalg.norm(stand_position - np.array(robot_init_position))
+            print(f"Stand position error: {stand_position_error}")
+            assert stand_position_error < INITIAL_POSITION_EPS, "Stand ended up at the wrong position."
 
     except Exception as e:
         print(f"Error: {e}")

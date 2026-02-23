@@ -44,7 +44,9 @@ class MetricsLogger:
                     if isinstance(value, float):
                         print(f"  {metric_name:<30} {value:>10.4f}")
                     else:
-                        print(f"  {metric_name:<30} {value:>10}")
+                        # Support list and other types by formatting their string representation
+                        value_str = str(value) if not isinstance(value, str) else value
+                        print(f"  {metric_name:<30} {value_str:>10}")
             else:
                 print("  (no metrics available)")
 
