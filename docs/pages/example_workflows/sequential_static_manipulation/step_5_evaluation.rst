@@ -248,7 +248,7 @@ Create a file ``eval_jobs_config.json``:
          "arena_env_args": {
           "enable_cameras": true,
            "environment": "put_item_in_fridge_and_close_door",
-           "object": "ranch_dressing_bottle",
+           "object": "ranch_dressing_hope_robolab",
            "embodiment": "gr1_joint"
          },
          "num_envs": 10,
@@ -264,7 +264,7 @@ Create a file ``eval_jobs_config.json``:
          "arena_env_args": {
            "enable_cameras": true,
            "environment": "put_item_in_fridge_and_close_door",
-           "object": "mayonnaise_bottle",
+           "object": "mayonnaise_bottle_hope_robolab",
            "embodiment": "gr1_joint"
          },
          "num_envs": 10,
