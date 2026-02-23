@@ -94,43 +94,7 @@ This creates a folder ``$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lero
       fps: 50
       chunks_size: 1000
 
-Step 2: Verify Generated LeRobot Dataset
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To verify the generated LeRobot dataset, you first need to compute statistics information about the dataset.
-This can be done by running the following command:
-
-.. code-block:: bash
-
-   python submodules/Isaac-GR00T/gr00t/data/stats.py $DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot gr1_joint
-
-.. todo::
-   There is a bug in ISAAC-GR00T submodule gr00t/data/stats.py. PR is submmited and in review from Gear.
-   Use single gpu finetune command in the last step for now.
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy \
-     --config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_replay_action_config.yaml \
-     --enable_cameras \
-     --device cpu \
-     put_item_in_fridge_and_close_door \
-     --embodiment gr1_joint
-
-.. figure:: ../../../images/gr1_sequential_static_manip_mimic_datagen.gif
-   :width: 100%
-   :alt: GR1 picking up and placing an object in a refrigerator and closing the door
-   :align: center
-
-   IsaacLab Arena GR1 picking up and placing an object in a refrigerator and closing the door (with action noise)
-
-.. note::
-
-   You should see the robot perform the manipulation task. Note that the robot's arms shake due to the action noise
-   added during data generation, which is expected. If you observe inconsistent behavior, please check the data generation and conversion steps.
-
-Step 3: Post-train Policy
+Step 2: Post-train Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We post-train the GR00T N1.6 policy on the task.
