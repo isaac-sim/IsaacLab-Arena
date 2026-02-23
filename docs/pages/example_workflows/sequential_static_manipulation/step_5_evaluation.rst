@@ -291,31 +291,32 @@ This will automatically evaluate the policy with the given configuration and out
 You should see the following output on the console indicating the jobs and metrics.
 
 .. code-block:: text
-+--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-|                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
-+--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-|          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
-| gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
-+--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
 
-======================================================================
-METRICS SUMMARY
-======================================================================
+   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+   |                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
+   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
+   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
 
-gr1_put_jug_in_fridge_and_close_door:
-  num_episodes                           10
-  object_moved_rate_subtask_0        1.0000
-  revolute_joint_moved_rate_subtask_1     1.0000
-  subtask_success_rate           [0.5, 0.5]
-  success_rate                       0.0000
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
 
-gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-  num_episodes                           10
-  object_moved_rate_subtask_0        1.0000
-  revolute_joint_moved_rate_subtask_1     1.0000
-  subtask_success_rate           [0.9, 0.9]
-  success_rate                       0.8000
-======================================================================
+   gr1_put_jug_in_fridge_and_close_door:
+   num_episodes                           10
+   object_moved_rate_subtask_0        1.0000
+   revolute_joint_moved_rate_subtask_1     1.0000
+   subtask_success_rate           [0.5, 0.5]
+   success_rate                       0.0000
+
+   gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
+   num_episodes                           10
+   object_moved_rate_subtask_0        1.0000
+   revolute_joint_moved_rate_subtask_1     1.0000
+   subtask_success_rate           [0.9, 0.9]
+   success_rate                       0.8000
+   ======================================================================
 
 With the policy trained on using ranch dressing bottle as object of interest,
 the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
