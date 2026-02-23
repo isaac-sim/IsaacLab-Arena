@@ -713,28 +713,6 @@ class Jug(LibraryObject):
 
 
 @register_asset
-class RanchDressingBottle(LibraryObject):
-    """
-    Ranch Dressing Bottle
-    """
-
-    name = "ranch_dressing_bottle"
-    tags = ["object", "graspable"]
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/ranch_dressing.usd"
-    object_type = ObjectType.RIGID
-    scale = (0.8, 0.8, 1.2)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
-
-@register_asset
 class BeerBottle(LibraryObject):
     """
     Beer Bottle
@@ -751,94 +729,6 @@ class BeerBottle(LibraryObject):
     usd_path = file_path
     object_type = ObjectType.RIGID
     scale = (1.2, 1.2, 1.2)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
-
-@register_asset
-class BBQSauceBottle(LibraryObject):
-    """
-    BBQ Sauce Bottle
-    """
-
-    name = "bbq_sauce_bottle"
-    tags = ["object", "graspable"]
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/bbq_sauce_bottle.usd"
-    object_type = ObjectType.RIGID
-    scale = (0.9, 0.9, 1.4)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
-
-@register_asset
-class KetchupBottle(LibraryObject):
-    """
-    Ketchup Bottle
-    """
-
-    name = "ketchup_bottle"
-    tags = ["object", "graspable"]
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/ketchup_bottle.usd"
-    object_type = ObjectType.RIGID
-    scale = (0.8, 0.8, 1.2)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
-
-@register_asset
-class Butter(LibraryObject):
-    """
-    Butter
-    """
-
-    name = "butter"
-    tags = ["object", "graspable"]
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/butter.usd"
-    object_type = ObjectType.RIGID
-    scale = (2.2, 2.0, 1.8)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
-
-@register_asset
-class MayonnaiseBottle(LibraryObject):
-    """
-    Mayonnaise Bottle
-    """
-
-    name = "mayonnaise_bottle"
-    tags = ["object", "graspable"]
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/robolab/hope/mayonnaise_bottle.usd"
-    object_type = ObjectType.RIGID
-    scale = (0.9, 0.9, 1.2)
 
     def __init__(
         self,
@@ -1219,6 +1109,7 @@ class BbqSauceBottleHopeRobolab(LibraryObject):
     name = "bbq_sauce_bottle_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/bbq_sauce_bottle.usd"
+    scale = (0.9, 0.9, 1.4)
 
 
 @register_asset
@@ -1226,6 +1117,7 @@ class ButterHopeRobolab(LibraryObject):
     name = "butter_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
+    scale = (2.2, 2.0, 1.8)
 
 
 @register_asset
@@ -1301,6 +1193,7 @@ class KetchupBottleHopeRobolab(LibraryObject):
     usd_path = (
         f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ketchup_bottle.usd"
     )
+    scale = (0.8, 0.8, 1.2)
 
 
 @register_asset
@@ -1315,6 +1208,7 @@ class MayonnaiseBottleHopeRobolab(LibraryObject):
     name = "mayonnaise_bottle_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/mayonnaise_bottle.usd"
+    scale = (0.9, 0.9, 1.2)
 
 
 @register_asset
@@ -1402,6 +1296,7 @@ class RanchDressingHopeRobolab(LibraryObject):
     usd_path = (
         f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ranch_dressing.usd"
     )
+    scale = (0.8, 0.8, 1.2)
 
 
 @register_asset

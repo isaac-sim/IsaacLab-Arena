@@ -244,8 +244,8 @@ def _test_object_set_with_ranch_and_bbq_bottles(simulation_app):
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     asset_registry = AssetRegistry()
-    ranch_dressing_bottle = asset_registry.get_asset_by_name("ranch_dressing_bottle")()
-    bbq_sauce_bottle = asset_registry.get_asset_by_name("bbq_sauce_bottle")()
+    ranch_dressing_bottle = asset_registry.get_asset_by_name("ranch_dressing_hope_robolab")()
+    bbq_sauce_bottle = asset_registry.get_asset_by_name("bbq_sauce_bottle_hope_robolab")()
     obj_set = RigidObjectSet(
         name="ObjectSet_Bottles",
         objects=[ranch_dressing_bottle, bbq_sauce_bottle],
