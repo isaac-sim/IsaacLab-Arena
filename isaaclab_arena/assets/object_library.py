@@ -949,3 +949,993 @@ class GreenContainer(LibraryObject):
         scale: tuple[float, float, float] | None = None,
     ):
         super().__init__(prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+@register_asset
+class BlueBlockBasicRobolab(LibraryObject):
+    name = "blue_block_basic_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/blue_block.usd"
+    )
+
+
+@register_asset
+class GreenBlockBasicRobolab(LibraryObject):
+    name = "green_block_basic_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/green_block.usd"
+    )
+
+
+@register_asset
+class RedBlockBasicRobolab(LibraryObject):
+    name = "red_block_basic_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/red_block.usd"
+    )
+
+
+@register_asset
+class YellowBlockBasicRobolab(LibraryObject):
+    name = "yellow_block_basic_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/yellow_block.usd"
+    )
+
+
+@register_asset
+class Avocado01FruitsVeggiesRobolab(LibraryObject):
+    name = "avocado01_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/avocado01.usd"
+
+
+@register_asset
+class Lemon01FruitsVeggiesRobolab(LibraryObject):
+    name = "lemon_01_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lemon_01.usd"
+
+
+@register_asset
+class Lemon02FruitsVeggiesRobolab(LibraryObject):
+    name = "lemon_02_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lemon_02.usd"
+
+
+@register_asset
+class Lime01FruitsVeggiesRobolab(LibraryObject):
+    name = "lime01_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lime01.usd"
+
+
+@register_asset
+class Lychee01FruitsVeggiesRobolab(LibraryObject):
+    name = "lychee01_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/lychee01.usd"
+
+
+@register_asset
+class Orange01FruitsVeggiesRobolab(LibraryObject):
+    name = "orange_01_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/orange_01.usd"
+
+
+@register_asset
+class Orange02FruitsVeggiesRobolab(LibraryObject):
+    name = "orange_02_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/orange_02.usd"
+
+
+@register_asset
+class Pomegranate01FruitsVeggiesRobolab(LibraryObject):
+    name = "pomegranate01_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/pomegranate01.usd"
+
+
+@register_asset
+class RedOnionFruitsVeggiesRobolab(LibraryObject):
+    name = "red_onion_fruits_veggies_robolab"
+    tags = ["object", "graspable", "food", "fruit", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/fruits_veggies/red_onion.usd"
+
+
+@register_asset
+class HammerHandalRobolab(LibraryObject):
+    name = "hammer_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer.usd"
+    )
+
+
+@register_asset
+class Hammer1HandalRobolab(LibraryObject):
+    name = "hammer_1_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_1.usd"
+    )
+
+
+@register_asset
+class Hammer2HandalRobolab(LibraryObject):
+    name = "hammer_2_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_2.usd"
+    )
+
+
+@register_asset
+class Hammer3HandalRobolab(LibraryObject):
+    name = "hammer_3_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_3.usd"
+    )
+
+
+@register_asset
+class Hammer4HandalRobolab(LibraryObject):
+    name = "hammer_4_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_4.usd"
+    )
+
+
+@register_asset
+class Hammer5HandalRobolab(LibraryObject):
+    name = "hammer_5_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_5.usd"
+    )
+
+
+@register_asset
+class Hammer6HandalRobolab(LibraryObject):
+    name = "hammer_6_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_6.usd"
+    )
+
+
+@register_asset
+class Hammer7HandalRobolab(LibraryObject):
+    name = "hammer_7_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_7.usd"
+    )
+
+
+@register_asset
+class Hammer8HandalRobolab(LibraryObject):
+    name = "hammer_8_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/hammer_8.usd"
+    )
+
+
+@register_asset
+class LadleHandalRobolab(LibraryObject):
+    name = "ladle_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/ladle.usd"
+
+
+@register_asset
+class MeasuringCupsHandalRobolab(LibraryObject):
+    name = "measuring_cups_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/measuring_cups.usd"
+
+
+@register_asset
+class MeasuringCups1HandalRobolab(LibraryObject):
+    name = "measuring_cups_1_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/measuring_cups_1.usd"
+
+
+@register_asset
+class MeasuringSpoonHandalRobolab(LibraryObject):
+    name = "measuring_spoon_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/measuring_spoon.usd"
+
+
+@register_asset
+class SaladTongsHandalRobolab(LibraryObject):
+    name = "salad_tongs_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/salad_tongs.usd"
+    )
+
+
+@register_asset
+class ServingSpoonHandalRobolab(LibraryObject):
+    name = "serving_spoon_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/serving_spoon.usd"
+
+
+@register_asset
+class ServingSpoonsHandalRobolab(LibraryObject):
+    name = "serving_spoons_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/serving_spoons.usd"
+
+
+@register_asset
+class SpoonHandalRobolab(LibraryObject):
+    name = "spoon_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/spoon.usd"
+
+
+@register_asset
+class Spoon1HandalRobolab(LibraryObject):
+    name = "spoon_1_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/spoon_1.usd"
+    )
+
+
+@register_asset
+class Spoon2HandalRobolab(LibraryObject):
+    name = "spoon_2_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/spoon_2.usd"
+    )
+
+
+@register_asset
+class AlphabetSoupCanHopeRobolab(LibraryObject):
+    name = "alphabet_soup_can_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/alphabet_soup_can.usd"
+
+
+@register_asset
+class BbqSauceBottleHopeRobolab(LibraryObject):
+    name = "bbq_sauce_bottle_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/bbq_sauce_bottle.usd"
+
+
+@register_asset
+class ButterHopeRobolab(LibraryObject):
+    name = "butter_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
+
+
+@register_asset
+class CannedMushroomsHopeRobolab(LibraryObject):
+    name = "canned_mushrooms_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/canned_mushrooms.usd"
+
+
+@register_asset
+class CannedPeachesHopeRobolab(LibraryObject):
+    name = "canned_peaches_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/canned_peaches.usd"
+    )
+
+
+@register_asset
+class CannedTunaHopeRobolab(LibraryObject):
+    name = "canned_tuna_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/canned_tuna.usd"
+    )
+
+
+@register_asset
+class ChocolatePuddingMixHopeRobolab(LibraryObject):
+    name = "chocolate_pudding_mix_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/chocolate_pudding_mix.usd"
+
+
+@register_asset
+class CornCanHopeRobolab(LibraryObject):
+    name = "corn_can_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/corn_can.usd"
+    )
+
+
+@register_asset
+class CreamCheeseHopeRobolab(LibraryObject):
+    name = "cream_cheese_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/cream_cheese.usd"
+    )
+
+
+@register_asset
+class GranolaBarsHopeRobolab(LibraryObject):
+    name = "granola_bars_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/granola_bars.usd"
+    )
+
+
+@register_asset
+class GreenBeansCanHopeRobolab(LibraryObject):
+    name = "green_beans_can_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/green_beans_can.usd"
+
+
+@register_asset
+class KetchupBottleHopeRobolab(LibraryObject):
+    name = "ketchup_bottle_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ketchup_bottle.usd"
+    )
+
+
+@register_asset
+class MacaroniAndCheeseHopeRobolab(LibraryObject):
+    name = "macaroni_and_cheese_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/macaroni_and_cheese.usd"
+
+
+@register_asset
+class MayonnaiseBottleHopeRobolab(LibraryObject):
+    name = "mayonnaise_bottle_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/mayonnaise_bottle.usd"
+
+
+@register_asset
+class MilkCartonHopeRobolab(LibraryObject):
+    name = "milk_carton_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/milk_carton.usd"
+    )
+
+
+@register_asset
+class MustardBottleHopeRobolab(LibraryObject):
+    name = "mustard_bottle_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/mustard_bottle.usd"
+    )
+
+
+@register_asset
+class OatmealRaisinCookiesHopeRobolab(LibraryObject):
+    name = "oatmeal_raisin_cookies_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/oatmeal_raisin_cookies.usd"
+
+
+@register_asset
+class OrangeJuiceCartonHopeRobolab(LibraryObject):
+    name = "orange_juice_carton_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/orange_juice_carton.usd"
+
+
+@register_asset
+class ParmesanCheeseCanisterHopeRobolab(LibraryObject):
+    name = "parmesan_cheese_canister_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/parmesan_cheese_canister.usd"
+
+
+@register_asset
+class PeasAndCarrotsHopeRobolab(LibraryObject):
+    name = "peas_and_carrots_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/peas_and_carrots.usd"
+
+
+@register_asset
+class PineappleSlicesCanHopeRobolab(LibraryObject):
+    name = "pineapple_slices_can_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/pineapple_slices_can.usd"
+
+
+@register_asset
+class PittedCherriesHopeRobolab(LibraryObject):
+    name = "pitted_cherries_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/pitted_cherries.usd"
+
+
+@register_asset
+class PopcornBoxHopeRobolab(LibraryObject):
+    name = "popcorn_box_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/popcorn_box.usd"
+    )
+
+
+@register_asset
+class RaisinBoxHopeRobolab(LibraryObject):
+    name = "raisin_box_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/raisin_box.usd"
+    )
+
+
+@register_asset
+class RanchDressingHopeRobolab(LibraryObject):
+    name = "ranch_dressing_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ranch_dressing.usd"
+    )
+
+
+@register_asset
+class SpaghettiHopeRobolab(LibraryObject):
+    name = "spaghetti_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/spaghetti.usd"
+    )
+
+
+@register_asset
+class TomatoSauceCanHopeRobolab(LibraryObject):
+    name = "tomato_sauce_can_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/tomato_sauce_can.usd"
+
+
+@register_asset
+class YogurtCupHopeRobolab(LibraryObject):
+    name = "yogurt_cup_hope_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/yogurt_cup.usd"
+    )
+
+
+@register_asset
+class BbqSauceBottleHot3DRobolab(LibraryObject):
+    name = "bbq_sauce_bottle_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/bbq_sauce_bottle.usd"
+
+
+@register_asset
+class BirdhouseHot3DRobolab(LibraryObject):
+    name = "birdhouse_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/birdhouse.usd"
+    )
+
+
+@register_asset
+class CeramicMugHot3DRobolab(LibraryObject):
+    name = "ceramic_mug_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/ceramic_mug.usd"
+    )
+
+
+@register_asset
+class ClayPlatesHot3DRobolab(LibraryObject):
+    name = "clay_plates_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/clay_plates.usd"
+    )
+
+
+@register_asset
+class CoffeePotHot3DRobolab(LibraryObject):
+    name = "coffee_pot_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/coffee_pot.usd"
+    )
+
+
+@register_asset
+class ComputerMouseHot3DRobolab(LibraryObject):
+    name = "computer_mouse_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/computer_mouse.usd"
+
+
+@register_asset
+class DumbbellHot3DRobolab(LibraryObject):
+    name = "dumbbell_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/dumbbell.usd"
+    )
+
+
+@register_asset
+class FoamRollerHot3DRobolab(LibraryObject):
+    name = "foam_roller_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/foam_roller.usd"
+    )
+
+
+@register_asset
+class FrozenVegetableBlockHot3DRobolab(LibraryObject):
+    name = "frozen_vegetable_block_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/frozen_vegetable_block.usd"
+
+
+@register_asset
+class FrozenWafflesHot3DRobolab(LibraryObject):
+    name = "frozen_waffles_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/frozen_waffles.usd"
+
+
+@register_asset
+class GlassesHot3DRobolab(LibraryObject):
+    name = "glasses_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/glasses.usd"
+    )
+
+
+@register_asset
+class KeyboardHot3DRobolab(LibraryObject):
+    name = "keyboard_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/keyboard.usd"
+    )
+
+
+@register_asset
+class LizardFigurineHot3DRobolab(LibraryObject):
+    name = "lizard_figurine_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/lizard_figurine.usd"
+
+
+@register_asset
+class MarkerHot3DRobolab(LibraryObject):
+    name = "marker_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/marker.usd"
+
+
+@register_asset
+class MegaphoneHot3DRobolab(LibraryObject):
+    name = "megaphone_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/megaphone.usd"
+    )
+
+
+@register_asset
+class MilkCartonHot3DRobolab(LibraryObject):
+    name = "milk_carton_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/milk_carton.usd"
+    )
+
+
+@register_asset
+class MugHot3DRobolab(LibraryObject):
+    name = "mug_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/mug.usd"
+
+
+@register_asset
+class MustardBottleHot3DRobolab(LibraryObject):
+    name = "mustard_bottle_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/mustard_bottle.usd"
+
+
+@register_asset
+class OrangeJuiceCartonHot3DRobolab(LibraryObject):
+    name = "orange_juice_carton_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/orange_juice_carton.usd"
+
+
+@register_asset
+class ParmesanCheeseCanisterHot3DRobolab(LibraryObject):
+    name = "parmesan_cheese_canister_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/parmesan_cheese_canister.usd"
+
+
+@register_asset
+class PitcherHot3DRobolab(LibraryObject):
+    name = "pitcher_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/pitcher.usd"
+    )
+
+
+@register_asset
+class PotatoMasherHot3DRobolab(LibraryObject):
+    name = "potato_masher_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/potato_masher.usd"
+    )
+
+
+@register_asset
+class RemoteControlHot3DRobolab(LibraryObject):
+    name = "remote_control_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/remote_control.usd"
+
+
+@register_asset
+class RubiksCubeHot3DRobolab(LibraryObject):
+    name = "rubiks_cube_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/rubiks_cube.usd"
+    )
+
+
+@register_asset
+class SaladDressingBottleHot3DRobolab(LibraryObject):
+    name = "salad_dressing_bottle_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/salad_dressing_bottle.usd"
+
+
+@register_asset
+class SmartphoneHot3DRobolab(LibraryObject):
+    name = "smartphone_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/smartphone.usd"
+    )
+
+
+@register_asset
+class SoupCanHot3DRobolab(LibraryObject):
+    name = "soup_can_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/soup_can.usd"
+    )
+
+
+@register_asset
+class SpatulaHot3DRobolab(LibraryObject):
+    name = "spatula_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/spatula.usd"
+    )
+
+
+@register_asset
+class StorageBoxHot3DRobolab(LibraryObject):
+    name = "storage_box_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/storage_box.usd"
+    )
+
+
+@register_asset
+class TomatoSauceCanHot3DRobolab(LibraryObject):
+    name = "tomato_sauce_can_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/tomato_sauce_can.usd"
+
+
+@register_asset
+class WoodenBowlHot3DRobolab(LibraryObject):
+    name = "wooden_bowl_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/wooden_bowl.usd"
+    )
+
+
+@register_asset
+class WoodenSpoonsHot3DRobolab(LibraryObject):
+    name = "wooden_spoons_hot3d_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hot3d/wooden_spoons.usd"
+    )
+
+
+@register_asset
+class Apple01ObjaverseRobolab(LibraryObject):
+    name = "apple_01_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/apple_01.usd"
+    )
+
+
+@register_asset
+class Apple02ObjaverseRobolab(LibraryObject):
+    name = "apple_02_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/apple_02.usd"
+    )
+
+
+@register_asset
+class Bagel00ObjaverseRobolab(LibraryObject):
+    name = "bagel_00_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/bagel_00.usd"
+    )
+
+
+@register_asset
+class Bagel06ObjaverseRobolab(LibraryObject):
+    name = "bagel_06_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/bagel_06.usd"
+    )
+
+
+@register_asset
+class Bagel07ObjaverseRobolab(LibraryObject):
+    name = "bagel_07_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/bagel_07.usd"
+    )
+
+
+@register_asset
+class Baguette02ObjaverseRobolab(LibraryObject):
+    name = "baguette_02_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/baguette_02.usd"
+
+
+@register_asset
+class GregorysCoffeeCupObjaverseRobolab(LibraryObject):
+    name = "gregorys_coffee_cup_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/gregorys_coffee_cup.usd"
+
+
+@register_asset
+class LunchbagObjaverseRobolab(LibraryObject):
+    name = "lunchbag_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/lunchbag.usd"
+    )
+
+
+@register_asset
+class RedBellPepperObjaverseRobolab(LibraryObject):
+    name = "red_bell_pepper_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/red_bell_pepper.usd"
+
+
+@register_asset
+class SnickersBarObjaverseRobolab(LibraryObject):
+    name = "snickers_bar_objaverse_robolab"
+    tags = ["object", "graspable", "food", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/snickers_bar.usd"
+
+
+@register_asset
+class BananaYcbRobolab(LibraryObject):
+    name = "banana_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/banana.usd"
+
+
+@register_asset
+class BowlYcbRobolab(LibraryObject):
+    name = "bowl_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/bowl.usd"
+
+
+@register_asset
+class BrickYcbRobolab(LibraryObject):
+    name = "brick_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/brick.usd"
+
+
+@register_asset
+class CheezItYcbRobolab(LibraryObject):
+    name = "cheez_it_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/cheez_it.usd"
+
+
+@register_asset
+class ChocolatePuddingYcbRobolab(LibraryObject):
+    name = "chocolate_pudding_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/chocolate_pudding.usd"
+
+
+@register_asset
+class ClampYcbRobolab(LibraryObject):
+    name = "clamp_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/clamp.usd"
+
+
+@register_asset
+class CoffeeCanYcbRobolab(LibraryObject):
+    name = "coffee_can_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/coffee_can.usd"
+    )
+
+
+@register_asset
+class CordlessDrillYcbRobolab(LibraryObject):
+    name = "cordless_drill_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/cordless_drill.usd"
+    )
+
+
+@register_asset
+class DryEraseMarkerYcbRobolab(LibraryObject):
+    name = "dry_erase_marker_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/dry_erase_marker.usd"
+
+
+@register_asset
+class JelloYcbRobolab(LibraryObject):
+    name = "jello_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/jello.usd"
+
+
+@register_asset
+class MugYcbRobolab(LibraryObject):
+    name = "mug_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/mug.usd"
+
+
+@register_asset
+class MustardYcbRobolab(LibraryObject):
+    name = "mustard_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/mustard.usd"
+
+
+@register_asset
+class PitcherYcbRobolab(LibraryObject):
+    name = "pitcher_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/pitcher.usd"
+
+
+@register_asset
+class ScissorsYcbRobolab(LibraryObject):
+    name = "scissors_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/scissors.usd"
+
+
+@register_asset
+class SoftScrubYcbRobolab(LibraryObject):
+    name = "soft_scrub_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/soft_scrub.usd"
+    )
+
+
+@register_asset
+class SpamCanYcbRobolab(LibraryObject):
+    name = "spam_can_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/spam_can.usd"
+
+
+@register_asset
+class SpringClampYcbRobolab(LibraryObject):
+    name = "spring_clamp_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/spring_clamp.usd"
+    )
+
+
+@register_asset
+class SugarBoxYcbRobolab(LibraryObject):
+    name = "sugar_box_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/sugar_box.usd"
+    )
+
+
+@register_asset
+class TomatoSoupCanYcbRobolab(LibraryObject):
+    name = "tomato_soup_can_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/tomato_soup_can.usd"
+    )
+
+
+@register_asset
+class TunaCanYcbRobolab(LibraryObject):
+    name = "tuna_can_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/tuna_can.usd"
+
+
+@register_asset
+class WoodBlockYcbRobolab(LibraryObject):
+    name = "wood_block_ycb_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/wood_block.usd"
+    )
+
+
+@register_asset
+class TableMapleRobolab(LibraryObject):
+    name = "table_maple_robolab"
+    tags = ["background", "fixture", "robolab"]
+    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_maple.usd"
