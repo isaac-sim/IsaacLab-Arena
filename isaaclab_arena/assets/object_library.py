@@ -417,9 +417,18 @@ class GroundPlane(LibraryObject):
 
 
 @register_asset
-class Light(LibraryObject):
-    """
-    A dome light.
+class DomeLight(LibraryObject):
+    """A dome light, optionally textured with an HDR environment map.
+
+    The light can be used plain (uniform color) or combined with an HDR
+    texture via :meth:`add_hdr`::
+
+        dome_light = asset_registry.get_asset_by_name("light")()
+        dome_light.add_hdr("home_office_robolab")
+
+    You can also pass the HDR name or instance directly to the constructor::
+
+        dome_light = asset_registry.get_asset_by_name("light")(hdr="home_office_robolab")
     """
 
     name = "light"
@@ -435,9 +444,41 @@ class Light(LibraryObject):
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
+        hdr: "str | HDR | None" = None,  # noqa: F821
     ):
         self.spawner_cfg = spawner_cfg
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+        if hdr is not None:
+            self.add_hdr(hdr)
+
+    def add_hdr(self, hdr: "str | type[HDR] | HDR") -> None:  # noqa: F821
+        """Attach an HDR environment map texture to this dome light.
+
+        Args:
+            hdr: An :class:`HDR` instance, an HDR class (will be instantiated),
+                or a string name that will be looked up in the :class:`HDRRegistry`.
+        """
+        from isaaclab_arena.assets.asset_registry import HDRRegistry
+        from isaaclab_arena.assets.hdr import HDR
+
+        if isinstance(hdr, str):
+            hdr = HDRRegistry().get_hdr_by_name(hdr)
+        # If it's a class (not yet instantiated), instantiate it.
+        if isinstance(hdr, type) and issubclass(hdr, HDR):
+            hdr = hdr()
+        assert isinstance(hdr, HDR), f"Expected HDR class, instance, or string name, got {type(hdr)}"
+
+        # Rebuild the spawner cfg with the HDR texture while preserving
+        # user-specified intensity and other settings.
+        self.spawner_cfg = sim_utils.DomeLightCfg(
+            texture_file=hdr.texture_file,
+            texture_format=hdr.texture_format,  # type: ignore[arg-type]
+            intensity=self.spawner_cfg.intensity,
+            color=self.spawner_cfg.color,
+            visible_in_primary_ray=True,
+        )
+        # Re-initialize the object cfg so the scene picks up the change.
+        self.object_cfg = self._init_object_cfg()
 
 
 @register_asset
