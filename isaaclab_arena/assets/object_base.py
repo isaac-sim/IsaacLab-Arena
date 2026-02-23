@@ -9,12 +9,14 @@ from enum import Enum
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.terms.events import set_object_pose
+from isaaclab_arena.utils.pose import Pose, PoseRange
 
 
 class ObjectType(Enum):
@@ -42,6 +44,76 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
+
+    @abstractmethod
+    def get_initial_pose(self) -> Pose | PoseRange | None:
+        """Return the current initial pose of this object."""
+
+    def _get_initial_pose_as_pose(self) -> Pose | None:
+        """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
+
+        If the initial pose is a ``PoseRange``, its midpoint is returned.
+        If the initial pose is ``None``, ``None`` is returned.
+        """
+        initial_pose = self.get_initial_pose()
+        if initial_pose is None:
+            return None
+        if isinstance(initial_pose, PoseRange):
+            return initial_pose.get_midpoint()
+        return initial_pose
+
+    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
+        """Set / override the initial pose and rebuild derived configs.
+
+        Subclasses must override to store *pose* first, then call
+        ``super().set_initial_pose(pose)`` to update ``object_cfg`` and
+        ``event_cfg``.
+
+        Args:
+            pose: A fixed ``Pose`` or a ``PoseRange`` (randomised on reset).
+        """
+        initial_pose = self._get_initial_pose_as_pose()
+        if initial_pose is not None and self.object_cfg is not None:
+            self.object_cfg.init_state.pos = initial_pose.position_xyz
+            self.object_cfg.init_state.rot = initial_pose.rotation_wxyz
+        self.event_cfg = self._init_event_cfg()
+
+    def _requires_reset_pose_event(self) -> bool:
+        """Whether a reset-event for the initial pose should be generated.
+
+        Subclasses may override to add extra conditions (e.g. a ``reset_pose`` flag).
+        """
+        return self.get_initial_pose() is not None and self.object_type in (
+            ObjectType.RIGID,
+            ObjectType.ARTICULATION,
+        )
+
+    def _init_event_cfg(self) -> EventTermCfg | None:
+        """Build the ``EventTermCfg`` for resetting this object's pose."""
+        if not self._requires_reset_pose_event():
+            return None
+
+        initial_pose = self.get_initial_pose()
+        if isinstance(initial_pose, PoseRange):
+            return EventTermCfg(
+                func=randomize_object_pose,
+                mode="reset",
+                params={
+                    "pose_range": initial_pose.to_dict(),
+                    "asset_cfgs": [SceneEntityCfg(self.name)],
+                },
+            )
+        else:
+            return EventTermCfg(
+                func=set_object_pose,
+                mode="reset",
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                },
+            )
+
+    # ------------------------------------------------------------------
 
     def get_relations(self) -> list[RelationBase]:
         """Get all relations for this object."""

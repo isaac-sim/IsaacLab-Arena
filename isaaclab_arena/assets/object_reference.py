@@ -4,16 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
-from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
@@ -49,28 +46,13 @@ class ObjectReference(ObjectBase):
         return T_W_O
 
     def _get_initial_pose_as_pose(self) -> Pose:
-        """Return a single ``Pose`` suitable for init_state and bounding-box calculations.
-
-        If the initial pose is a ``PoseRange``, its midpoint is returned.
-        """
-        initial_pose = self.get_initial_pose()
-        if isinstance(initial_pose, PoseRange):
-            return initial_pose.get_midpoint()
-        return initial_pose
+        pose = super()._get_initial_pose_as_pose()
+        assert pose is not None
+        return pose
 
     def set_initial_pose(self, pose: Pose | PoseRange) -> None:
-        """Override the initial pose of this object reference.
-
-        Args:
-            pose: The pose to set. Can be a single ``Pose`` (reset to a fixed
-                  position) or a ``PoseRange`` (randomise within the range on
-                  every environment reset).
-        """
         self._initial_pose_override = pose
-        # Rebuild object_cfg so init_state reflects the new pose
-        self.object_cfg = self._init_object_cfg()
-        # Rebuild event_cfg so the reset event matches the new pose / range
-        self.event_cfg = self._init_event_cfg()
+        super().set_initial_pose(pose)
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
@@ -127,31 +109,6 @@ class ObjectReference(ObjectBase):
         # and used here.
         # Just call out to the parent class method.
         return super().get_contact_sensor_cfg(contact_against_prim_paths)
-
-    def _init_event_cfg(self) -> EventTermCfg | None:
-        if self.object_type not in (ObjectType.RIGID, ObjectType.ARTICULATION):
-            return None
-
-        initial_pose = self.get_initial_pose()
-        if isinstance(initial_pose, PoseRange):
-
-            return EventTermCfg(
-                func=randomize_object_pose,
-                mode="reset",
-                params={
-                    "pose_range": initial_pose.to_dict(),
-                    "asset_cfgs": [SceneEntityCfg(self.name)],
-                },
-            )
-        else:
-            return EventTermCfg(
-                func=set_object_pose,
-                mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(self.name),
-                },
-            )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
