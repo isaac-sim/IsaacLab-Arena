@@ -22,7 +22,6 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
-        from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -31,14 +30,10 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         rubiks_cube = self.asset_registry.get_asset_by_name("hot3d_rubiks_cube_robolab")()
         bowl = self.asset_registry.get_asset_by_name("ycb_bowl_robolab")()
 
-        # TODO(cvolk): Introduce a hdr_registry instead of hardcoding the path here.
-        light_spawner_cfg = sim_utils.DomeLightCfg(
-            texture_file=f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/backgrounds/default/home_office.exr",
-            intensity=500.0,
-            visible_in_primary_ray=True,
-            texture_format="latlong",
+        light = self.asset_registry.get_asset_by_name("light")(
+            spawner_cfg=sim_utils.DomeLightCfg(intensity=500.0),
         )
-        light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
+        light.add_hdr("billiard_hall_robolab")
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,

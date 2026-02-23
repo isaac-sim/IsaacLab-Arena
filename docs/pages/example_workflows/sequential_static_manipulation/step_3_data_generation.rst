@@ -53,8 +53,8 @@ To start the annotation process run the following command:
 
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
      --device cpu \
-     --input_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_recorded.hdf5 \
-     --output_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
+     --input_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
+     --output_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
      --enable_pinocchio \
      --mimic \
      put_item_in_fridge_and_close_door \
@@ -106,8 +106,8 @@ Generate the dataset:
      --device cpu \
      --generation_num_trials 100 \
      --num_envs 10 \
-     --input_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
-     --output_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
+     --input_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
+     --output_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \
      --enable_pinocchio \
      --enable_cameras \
      --headless \
@@ -133,7 +133,7 @@ To do so, run the following command:
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file $DATASET_DIR/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
+     --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \
      put_item_in_fridge_and_close_door \
      --object ranch_dressing_bottle \
      --embodiment gr1_pink

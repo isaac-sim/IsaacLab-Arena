@@ -18,10 +18,11 @@ class ExampleEnvironmentBase(ABC):
     name: str | None = None
 
     def __init__(self):
-        from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry
+        from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, HDRRegistry
 
         self.asset_registry = AssetRegistry()
         self.device_registry = DeviceRegistry()
+        self.hdr_registry = HDRRegistry()
 
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
