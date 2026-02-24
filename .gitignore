@@ -39,6 +39,9 @@
 *.*~
 TAGS
 
+# Vim swap files
+*.sw*
+
 # Build files
 *build
 *install

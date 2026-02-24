@@ -1,0 +1,38 @@
+FROM nvcr.io/nvidia/pytorch:24.02-py3
+
+WORKDIR /workspace
+
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir pyzmq msgpack Pillow
+
+# NaVILA / LLaVA — clone and install per upstream instructions:
+# https://github.com/yang-zj1026/NaVILA-Bench#vla-evaluation
+RUN git clone https://github.com/AnjieCheng/NaVILA.git /workspace/NaVILA && \
+    cd /workspace/NaVILA && \
+    pip install --no-cache-dir -e . && \
+    pip install --no-cache-dir -e ".[train]" && \
+    pip install --no-cache-dir -e ".[eval]" && \
+    pip install --no-cache-dir git+https://github.com/huggingface/transformers@v4.37.2 && \
+    SITE_PKG=$(python -c 'import site; print(site.getsitepackages()[0])') && \
+    cp -rv ./llava/train/transformers_replace/* "$SITE_PKG/transformers/" && \
+    cp -rv ./llava/train/deepspeed_replace/* "$SITE_PKG/deepspeed/"
+
+# NaVILA pins torch==2.3.0 (PyPI release) which replaces the pre-release
+# torch 2.3.0a0 from the base image, breaking any native extensions that
+# were compiled against the pre-release.  Remove them and rebuild.
+RUN pip uninstall -y transformer-engine transformer-engine-extensions 2>/dev/null; true
+
+# flash-attn must be installed AFTER NaVILA so it compiles against the
+# correct PyTorch version (2.3.0 release, not the pre-release 2.3.0a0).
+RUN pip install --no-cache-dir flash-attn==2.5.8 || \
+    echo "WARNING: flash-attn build failed, VLM will run without it"
+
+# Arena code last so that code-only changes rebuild in seconds
+COPY isaaclab_arena/remote_policy /workspace/isaaclab_arena/remote_policy
+COPY isaaclab_arena/__init__.py /workspace/isaaclab_arena/__init__.py
+COPY isaaclab_arena_navila /workspace/isaaclab_arena_navila
+
+ENV PYTHONPATH=/workspace
+
+ENTRYPOINT ["python", "-u", "-m", "isaaclab_arena.remote_policy.remote_policy_server_runner"]

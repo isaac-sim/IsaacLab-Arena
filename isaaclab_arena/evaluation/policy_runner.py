@@ -25,27 +25,31 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
     """Get the policy class for the given policy type name.
 
     Note that this function:
-    - first: checks for a registered policy type in the PolicyRegistry
-    - if not found, it tries to dynamically import the policy class, treating
-      the policy_type argument as a string representing the module path and class name.
+    - prefers dynamically importing dotted module paths directly, which avoids
+      forcing unrelated asset libraries to register
+    - otherwise: checks for a registered policy type in the PolicyRegistry
 
     """
+    if "." in policy_type:
+        print(f"Dynamically importing policy from path: {policy_type}")
+        assert "." in policy_type, (
+            "policy_type must be a dotted Python import path of the form 'module.submodule.ClassName', got:"
+            f" {policy_type}"
+        )
+        module_path, class_name = policy_type.rsplit(".", 1)
+        module = import_module(module_path)
+        policy_cls = getattr(module, class_name)
+        return policy_cls
+
     from isaaclab_arena.assets.asset_registry import PolicyRegistry
 
     policy_registry = PolicyRegistry()
     if policy_registry.is_registered(policy_type):
         return policy_registry.get_policy(policy_type)
-    else:
-        print(f"Policy {policy_type} is not registered. Dynamically importing from path: {policy_type}")
-        assert "." in policy_type, (
-            "policy_type must be a dotted Python import path of the form 'module.submodule.ClassName', got:"
-            f" {policy_type}"
-        )
-        # Dynamically import the class from the string path
-        module_path, class_name = policy_type.rsplit(".", 1)
-        module = import_module(module_path)
-        policy_cls = getattr(module, class_name)
-        return policy_cls
+
+    raise ValueError(
+        f"Policy {policy_type!r} is neither a registered policy name nor a dotted Python import path."
+    )
 
 
 def is_distributed(args_cli: argparse.Namespace) -> bool:

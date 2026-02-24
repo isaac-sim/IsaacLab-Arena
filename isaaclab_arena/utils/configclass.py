@@ -127,7 +127,7 @@ def get_field_info(field: dataclasses.Field) -> tuple[str, type, Any]:
     if field.default is not dataclasses.MISSING:
         field_info += (field.default,)
     elif field.default_factory is not dataclasses.MISSING:
-        field_info += (field.default_factory,)
+        field_info += (dataclasses.field(default_factory=field.default_factory),)
     return field_info
 
 
