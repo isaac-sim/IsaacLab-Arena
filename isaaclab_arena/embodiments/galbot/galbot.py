@@ -39,9 +39,7 @@ class GalbotEmbodiment(EmbodimentBase):
     name = "galbot"
     default_arm_mode = ArmMode.LEFT
 
-    def __init__(
-        self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None
-    ):
+    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
         super().__init__(enable_cameras, initial_pose, arm_mode=arm_mode)
         if self.arm_mode == ArmMode.LEFT:
             self.scene_config = GalbotLeftArmSceneCfg()
