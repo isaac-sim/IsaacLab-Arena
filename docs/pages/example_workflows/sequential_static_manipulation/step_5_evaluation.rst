@@ -141,7 +141,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --distributed \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object ranch_dressing_bottle
+           --object ranch_dressing_bottle_robolab
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
@@ -193,7 +193,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
          --enable_cameras \
          put_item_in_fridge_and_close_door \
          --embodiment gr1_joint \
-         --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
+         --object_set ketchup_bottle ranch_dressing_bottle_robolab bbq_sauce_bottle mayonnaise_bottle
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -211,7 +211,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --headless \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
+           --object_set ketchup_bottle ranch_dressing_bottle_robolab bbq_sauce_bottle mayonnaise_bottle
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
