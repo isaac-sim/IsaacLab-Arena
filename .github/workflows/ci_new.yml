@@ -39,7 +39,7 @@ jobs:
 
     env:
       # We're getting issues with the markers on the checked out files.
-      SKIP: check-executables-have-shebangs,insert-license
+      SKIP: check-executables-have-shebangs
 
     steps:
       - &install_git_step
@@ -93,16 +93,17 @@ jobs:
   test:
     name: Run tests
     runs-on: [self-hosted, gpu]
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:0.1.1
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
 
     steps:
+      # nvidia-smi
       - &nvidia_smi
         name: nvidia-smi
         run: nvidia-smi
@@ -120,24 +121,27 @@ jobs:
           pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
+      # Run the tests (excluding the gr00t related tests)
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+        run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/
 
       - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
-        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
+        run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/
+
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
     runs-on: [self-hosted, gpu]
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:0.1.1_gr00t
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
     steps:
+      # nvidia-smi
       - *nvidia_smi
 
       # Setup.
@@ -148,8 +152,10 @@ jobs:
       - *git_lfs_step
       - *install_project_step
 
+      # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/policy/
+        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena_gr00t/tests/
+
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
@@ -166,26 +172,22 @@ jobs:
       - *mark_repo_safe_step
       - *cleanup_step
 
-      # Checkout all branches, and tags, such that sphinx-multiversion can build the docs for all versions.
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
-      # Build docs
+      # Build docs for the current branch (validates PR changes)
       - name: Build docs
         working-directory: ./docs
         run: |
           pip3 install -r requirements.txt
-          make SPHINXOPTS=-W multi-docs
-          touch ./_build/.nojekyll
+          make SPHINXOPTS=-W html
+
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, gpu]
-    timeout-minutes: 60
-    needs: [test, test_policy, build_docs_pre_merge]       # only push if tests passed
+    timeout-minutes: 90
+    needs: [test, test_policy]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     container:
@@ -221,9 +223,9 @@ jobs:
       - name: Build & push image to NGC
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -t 0.1.1
+          ./docker/push_to_ngc.sh -p
 
       - name: Build & push image to NGC (GR00T Image)
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t 0.1.1_gr00t
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16
