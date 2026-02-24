@@ -6,7 +6,7 @@
 from isaaclab_arena.assets.asset_registry import (
     AssetRegistry,
     DeviceRegistry,
-    HDRRegistry,
+    HDRImageRegistry,
     PolicyRegistry,
     RetargeterRegistry,
 )
@@ -50,10 +50,10 @@ def register_policy(cls):
     return cls
 
 
-# Decorator to register an HDR with the HDRRegistry.
+# Decorator to register an HDRImage with the HDRImageRegistry.
 def register_hdr(cls):
-    if HDRRegistry().is_registered(cls.name):
-        print(f"WARNING: HDR {cls.name} is already registered. Doing nothing.")
+    if HDRImageRegistry().is_registered(cls.name):
+        print(f"WARNING: HDRImage {cls.name} is already registered. Doing nothing.")
     else:
-        HDRRegistry().register(cls, cls.name)
+        HDRImageRegistry().register(cls, cls.name)
     return cls

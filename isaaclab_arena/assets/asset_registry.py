@@ -10,7 +10,7 @@ from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.hdr import HDR
+    from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.policy.policy_base import PolicyBase
 
@@ -39,7 +39,7 @@ class Registry(metaclass=SingletonMeta):
             key (str): The name of the component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
             ensure_assets_registered()
         return key in self._components
 
@@ -53,7 +53,7 @@ class Registry(metaclass=SingletonMeta):
             Any: The component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
             ensure_assets_registered()
         assert key in self._components, f"component {key} not found, please check if requested component is registered"
         return self._components[key]
@@ -65,7 +65,7 @@ class Registry(metaclass=SingletonMeta):
             list[str]: The list of keys.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRRegistry)):
+        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
             ensure_assets_registered()
         return list(self._components.keys())
 
@@ -170,41 +170,41 @@ class PolicyRegistry(Registry):
         return self.get_component_by_name(name)
 
 
-class HDRRegistry(Registry):
+class HDRImageRegistry(Registry):
     """Registry for HDR/EXR environment map textures."""
 
     def __init__(self):
         super().__init__()
 
-    def get_hdr_by_name(self, name: str) -> type["HDR"]:
-        """Gets an HDR class by name.
+    def get_hdr_by_name(self, name: str) -> type["HDRImage"]:
+        """Gets an HDRImage class by name.
 
         Args:
-            name (str): The name of the HDR.
+            name (str): The name of the HDRImage.
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
 
-    def get_hdrs_by_tag(self, tag: str) -> list[type["HDR"]]:
-        """Gets a list of HDR classes that have the given tag.
+    def get_hdrs_by_tag(self, tag: str) -> list[type["HDRImage"]]:
+        """Gets a list of HDRImage classes that have the given tag.
 
         Args:
             tag (str): The tag to filter by.
 
         Returns:
-            list[type[HDR]]: The matching HDR classes.
+            list[type[HDRImage]]: The matching HDRImage classes.
         """
         ensure_assets_registered()
         return [hdr for hdr in self._components.values() if tag in hdr.tags]
 
-    def get_random_hdr_by_tag(self, tag: str) -> type["HDR"]:
-        """Gets a random HDR class which has the given tag.
+    def get_random_hdr_by_tag(self, tag: str) -> type["HDRImage"]:
+        """Gets a random HDRImage class which has the given tag.
 
         Args:
             tag (str): The tag to filter by.
 
         Returns:
-            type[HDR]: A random HDR class.
+            type[HDRImage]: A random HDRImage class.
         """
         ensure_assets_registered()
         hdrs = self.get_hdrs_by_tag(tag)
@@ -224,7 +224,7 @@ def ensure_assets_registered():
         # Import modules to trigger asset registration via decorators
         import isaaclab_arena.assets.background_library  # noqa: F401
         import isaaclab_arena.assets.device_library  # noqa: F401
-        import isaaclab_arena.assets.hdr_library  # noqa: F401
+        import isaaclab_arena.assets.hdr_image_library  # noqa: F401
         import isaaclab_arena.assets.object_library  # noqa: F401
         import isaaclab_arena.assets.retargeter_library  # noqa: F401
         import isaaclab_arena.embodiments  # noqa: F401
