@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -30,7 +30,7 @@ env:
 jobs:
   test:
     name: Run pre commit checks and tests
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 45
 
     container:
@@ -104,7 +104,7 @@ jobs:
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
     container:
@@ -127,7 +127,7 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
     container:
@@ -156,7 +156,7 @@ jobs:
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [test, test_policy, build_docs_pre_merge]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
