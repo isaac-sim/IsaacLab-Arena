@@ -251,7 +251,7 @@ def _test_object_set_with_ranch_and_bbq_bottles(simulation_app):
         objects=[ranch_dressing_bottle, bbq_sauce_bottle],
         prim_path=OBJECT_SET_BOTTLES_PRIM_PATH,
     )
-    path_contains = ["ranch_dressing" if i % 2 == 0 else "bbq_sauce_bottle" for i in range(NUM_ENVS)]
+    path_contains = ["ranch_dressing" if i % 2 == 0 else "bbq_sauce_bottle_hope_robolab" for i in range(NUM_ENVS)]
     return _run_pick_and_place_object_set_test(
         simulation_app,
         obj_set,

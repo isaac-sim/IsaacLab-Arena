@@ -240,7 +240,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
             "name": "g1_locomanip_pick_and_place_brown_box",
             "arena_env_args": {
                 "enable_cameras": ENABLE_CAMERAS,
-                "num_envs": 1,
+                "num_envs": 2,
                 "environment": "galileo_g1_locomanip_pick_and_place",
                 "object": "brown_box",
                 "embodiment": "g1_wbc_joint",

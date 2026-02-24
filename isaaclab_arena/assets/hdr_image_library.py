@@ -3,12 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.assets.hdr import HDR, TextureFormat
+from isaaclab_arena.assets.hdr_image import HDRImage, TextureFormat
 from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_hdr
 
 
-class LibraryHDR(HDR):
+class LibraryHDR(HDRImage):
     """Base class for HDRs in the library which are defined in this file."""
 
     name: str
