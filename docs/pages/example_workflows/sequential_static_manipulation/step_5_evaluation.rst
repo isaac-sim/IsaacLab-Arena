@@ -78,7 +78,7 @@ Test the policy in a single environment with visualization via the GUI run:
      --enable_cameras \
      put_item_in_fridge_and_close_door \
      --embodiment gr1_joint \
-     --object ranching_dressing_bottle
+     --object ranch_dressing_bottle_robolab
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
