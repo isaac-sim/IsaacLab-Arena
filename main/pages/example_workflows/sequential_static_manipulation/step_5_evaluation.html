@@ -480,7 +480,7 @@ such that the preceding steps can be skipped.</p>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>ranching_dressing_bottle
+<span class="w">  </span>--object<span class="w"> </span>ranch_dressing_bottle
 </pre></div>
 </div>
 <p>The evaluation should produce the following output on the console at the end of the evaluation.
@@ -491,16 +491,14 @@ You should see similar metrics. All of them shall be greater than 0.9, and the n
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality (OSMO)</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><p>Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 0.75, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.75, 0.75], &#39;num_episodes&#39;: 4}
 </pre></div>
 </div>
 </div></div>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<ol class="arabic simple">
-<li><p>Verify evaluation using single-gpu finetune command in the last step.</p></li>
-</ol>
-</div>
 </section>
 <section id="step-2-run-parallel-environments-evaluation">
 <h2>Step 2: Run Parallel environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
@@ -515,7 +513,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>ranching_dressing_bottle
+<span class="w">  </span>--object<span class="w"> </span>ranch_dressing_bottle
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
@@ -591,91 +589,99 @@ put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</spa
 <p>Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
-All of them might not be 1.0 as unseen objects are being evaluated and the policy is not trained on them.</p>
+and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.8666666666666667, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 30}
 </pre></div>
 </div>
+<p>The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
+when evaluated on structurally similar sauce bottles.
+While this represents a slight performance regression compared to the training object,
+it indicates that the model has successfully learned geometric features common to the category rather than
+just over-fitting to a single object mesh.</p>
 </section>
-<section id="step-4-batch-evaluation-with-json-configuration">
-<h2>Step 4: Batch Evaluation with JSON Configuration<a class="headerlink" href="#step-4-batch-evaluation-with-json-configuration" title="Link to this heading">#</a></h2>
-<p>For more systematic evaluation, you can use the <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> script to evaluate the policy in a batch.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--config<span class="w"> </span>eval_config.json
-</pre></div>
-</div>
-<p>This will automatically evaluate the policy in the batch and output the metrics.</p>
-<p><strong>1. Create Evaluation Configuration</strong></p>
-<p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_jobs_config.json</span></code>:</p>
+<section id="step-4-sequential-batch-evaluation">
+<h2>Step 4: Sequential Batch Evaluation<a class="headerlink" href="#step-4-sequential-batch-evaluation" title="Link to this heading">#</a></h2>
+<p>A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> script.
+It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
+The evaluation batch can be specified in a config file, with examples shown below.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">gr1_sequential_static_manip_eval_jobs_config.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span>
+<span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">   </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_put_ranch_dressing_bottle_in_fridge_and_close_door&quot;</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">       </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ranch_dressing_bottle&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
+<span class="w">         </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ranch_dressing_bottle&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy&quot;</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
+<span class="w">      </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
 <span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_put_mayonnaise_bottle_in_fridge_and_close_door&quot;</span><span class="p">,</span>
+<span class="w">   </span><span class="p">},</span>
+<span class="w">   </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_put_jug_in_fridge_and_close_door&quot;</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mayonnaise_bottle&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
+<span class="w">         </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;put_item_in_fridge_and_close_door&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;jug&quot;</span><span class="p">,</span>
+<span class="w">         </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gr1_joint&quot;</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy&quot;</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
+<span class="w">      </span><span class="nt">&quot;policy_config_yaml_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;policy_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda:0&quot;</span>
 <span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">  </span><span class="p">]</span>
+<span class="w">   </span><span class="p">}</span>
+<span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Run the batch evaluation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--config<span class="w"> </span>eval_jobs_config.json
+</div>
+</details><p>Run the batch evaluation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.yaml
 </pre></div>
 </div>
-<p>This will automatically evaluate the policy with the given configuration and output the metrics.</p>
+<p>This will automatically evaluate the policy with the given configuration and output the metrics.
+You should see the following output on the console indicating the jobs and metrics.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
 |                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
 +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-| gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
-|   gr1_put_mayonnaise_bottle_in_fridge_and_close_door   | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
+|          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
+| gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
 +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
 
 ======================================================================
 METRICS SUMMARY
 ======================================================================
 
-gr1_put_mayonnaise_bottle_in_fridge_and_close_door:
-num_episodes                            1
+gr1_put_jug_in_fridge_and_close_door:
+num_episodes                           10
 object_moved_rate_subtask_0        1.0000
 revolute_joint_moved_rate_subtask_1     1.0000
-subtask_success_rate           [1.0, 1.0]
-success_rate                       1.0000
+subtask_success_rate           [0.5, 0.5]
+success_rate                       0.0000
 
 gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-num_episodes                            1
+num_episodes                           10
 object_moved_rate_subtask_0        1.0000
 revolute_joint_moved_rate_subtask_1     1.0000
-subtask_success_rate           [1.0, 1.0]
-success_rate                       1.0000
+subtask_success_rate           [0.9, 0.9]
+success_rate                       0.8000
 ======================================================================
 </pre></div>
 </div>
+<p>With the policy trained on using ranch dressing bottle as object of interest,
+the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
+This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.</p>
 </section>
 </section>
 
@@ -731,7 +737,7 @@ success_rate                       1.0000
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-run-single-environment-evaluation">Step 1: Run Single Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-environments-evaluation">Step 2: Run Parallel environments Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-multi-object-heterogeneous-evaluation">Step 3: Multi-object Heterogeneous Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-batch-evaluation-with-json-configuration">Step 4: Batch Evaluation with JSON Configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-sequential-batch-evaluation">Step 4: Sequential Batch Evaluation</a></li>
 </ul>
   </nav></div>
 

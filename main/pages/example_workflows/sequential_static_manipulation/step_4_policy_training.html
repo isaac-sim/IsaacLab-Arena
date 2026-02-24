@@ -495,51 +495,17 @@ such that the conversion step can be skipped.</p>
 </div>
 </div>
 </details></section>
-<section id="step-2-verify-generated-lerobot-dataset">
-<h2>Step 2: Verify Generated LeRobot Dataset<a class="headerlink" href="#step-2-verify-generated-lerobot-dataset" title="Link to this heading">#</a></h2>
-<p>To verify the generated LeRobot dataset, you first need to compute statistics information about the dataset.
-This can be done by running the following command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/Isaac-GR00T/gr00t/data/stats.py<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_generated_100/lerobot<span class="w"> </span>gr1_joint
-</pre></div>
-</div>
-<div class="admonition-todo admonition" id="id1">
-<p class="admonition-title">Todo</p>
-<p>There is a bug in ISAAC-GR00T submodule gr00t/data/stats.py. PR is submmited and in review from Gear.
-Use single gpu finetune command in the last step for now.</p>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.replay_lerobot_action_policy.ReplayLerobotActionPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_replay_action_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint
-</pre></div>
-</div>
-<figure class="align-center" id="id3">
-<a class="reference internal image-reference" href="../../../_images/gr1_sequential_static_manip_mimic_datagen.gif"><img alt="GR1 picking up and placing an object in a refrigerator and closing the door" src="../../../_images/gr1_sequential_static_manip_mimic_datagen.gif" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">IsaacLab Arena GR1 picking up and placing an object in a refrigerator and closing the door (with action noise)</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>You should see the robot perform the manipulation task. Note that the robot’s arms shake due to the action noise
-added during data generation, which is expected. If you observe inconsistent behavior, please check the data generation and conversion steps.</p>
-</div>
-</section>
-<section id="step-3-post-train-policy">
-<h2>Step 3: Post-train Policy<a class="headerlink" href="#step-3-post-train-policy" title="Link to this heading">#</a></h2>
+<section id="step-2-post-train-policy">
+<h2>Step 2: Post-train Policy<a class="headerlink" href="#step-2-post-train-policy" title="Link to this heading">#</a></h2>
 <p>We post-train the GR00T N1.6 policy on the task.</p>
 <p>The GR00T N1.6 policy has 3 billion parameters so post training is an an expensive operation.
 We provide three post-training options:</p>
 <ul class="simple">
-<li><p>Best Quality: 8 GPUs with 48GB memory (local)</p></li>
+<li><p>Best Quality: 8 GPUs with 48GB memory</p></li>
 <li><p>Low Hardware Requirements: 1 GPU with 24GB memory</p></li>
 </ul>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality (local)</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
 <p>Training Configuration:</p>
 <ul class="simple">
 <li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
@@ -603,10 +569,6 @@ We provide three post-training options:</p>
 </pre></div>
 </div>
 </div></div>
-<div class="admonition-todo admonition" id="id2">
-<p class="admonition-title">Todo</p>
-<p>Verify training locally</p>
-</div>
 <p>see the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning">GR00T fine-tuning guidelines</a>
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results.</p>
@@ -663,8 +625,7 @@ the best results.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-convert-to-lerobot-format">Step 1: Convert to LeRobot Format</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-verify-generated-lerobot-dataset">Step 2: Verify Generated LeRobot Dataset</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-post-train-policy">Step 3: Post-train Policy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-post-train-policy">Step 2: Post-train Policy</a></li>
 </ul>
   </nav></div>
 
