@@ -14,11 +14,17 @@ from typing import Any, ClassVar
 class ActionMode(str, Enum):
     """Action output mode of a policy.
 
-    Currently only CHUNK is used.
-    Other modes can be added later if needed.
+    Attributes:
+        CHUNK: Action chunking mode (e.g. GR00T).  The server returns a
+            sequence of ``action_horizon`` actions; the client consumes
+            ``action_chunk_length`` at a time.
+        VLN_VELOCITY: VLN velocity-command mode.  The server returns a
+            single velocity command ``[vx, vy, yaw_rate]`` with a
+            ``duration`` (seconds) to hold it before re-querying.
     """
 
     CHUNK = "chunk"
+    VLN_VELOCITY = "vln_velocity"
 
 
 @dataclass
@@ -91,4 +97,37 @@ class ChunkingActionProtocol(ActionProtocol):
             "observation_keys": self.observation_keys,
             "action_chunk_length": self.action_chunk_length,
             "action_horizon": self.action_horizon,
+        }
+
+
+@dataclass
+class VlnVelocityActionProtocol(ActionProtocol):
+    """ActionProtocol for VLN_VELOCITY mode.
+
+    The server returns a single velocity command ``[vx, vy, yaw_rate]`` and
+    a ``duration`` (seconds) for which the client should hold the command
+    before re-querying the server.
+
+    default_duration:
+        Fallback duration when the server response does not include one.
+    """
+
+    MODE: ClassVar[ActionMode] = ActionMode.VLN_VELOCITY
+
+    default_duration: float = 0.5
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> VlnVelocityActionProtocol:
+        return cls(
+            action_dim=int(data["action_dim"]),
+            observation_keys=list(data["observation_keys"]),
+            default_duration=float(data.get("default_duration", 0.5)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action_mode": self.mode.value,
+            "action_dim": self.action_dim,
+            "observation_keys": self.observation_keys,
+            "default_duration": self.default_duration,
         }

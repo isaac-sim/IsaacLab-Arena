@@ -33,9 +33,6 @@ parser.add_argument(
     default=Path("isaaclab_arena/policy/rl_policy/generic_policy.json"),
     help="Path to the RL agent configuration file.",
 )
-parser.add_argument(
-    "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
-)
 parser.add_argument("--export_io_descriptors", action="store_true", default=False, help="Export IO descriptors.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
