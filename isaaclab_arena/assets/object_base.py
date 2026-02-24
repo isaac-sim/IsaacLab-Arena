@@ -113,8 +113,6 @@ class ObjectBase(Asset, ABC):
                 },
             )
 
-    # ------------------------------------------------------------------
-
     def get_relations(self) -> list[RelationBase]:
         """Get all relations for this object."""
         return self.relations
