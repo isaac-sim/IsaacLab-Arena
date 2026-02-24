@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -150,7 +150,7 @@ class CoffeeMachine(LibraryObject, Pressable):
     name = "coffee_machine"
     tags = ["object", "pressable"]
     file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", registry_name=["coffee_machine"], file_type="USD"
+        registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD"
     )
     usd_path = file_path
     object_type = ObjectType.ARTICULATION
