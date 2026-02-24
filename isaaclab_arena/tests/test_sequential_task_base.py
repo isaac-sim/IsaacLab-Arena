@@ -65,6 +65,7 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     return True
@@ -134,6 +135,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     return True

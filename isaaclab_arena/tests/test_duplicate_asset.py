@@ -118,6 +118,7 @@ def _test_duplicate_asset(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

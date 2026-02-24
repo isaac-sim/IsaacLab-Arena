@@ -99,6 +99,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

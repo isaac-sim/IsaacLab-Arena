@@ -87,6 +87,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

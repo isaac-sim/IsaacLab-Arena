@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import traceback
+
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
@@ -94,6 +96,7 @@ def _test_single_object_in_one_object_set(simulation_app):
         ), "Contact sensor data is None"
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()
@@ -162,6 +165,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
                 assert "sugar_box.usd" in path, "Path does not contain sugar_box.usd for env index " + str(i)
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()
@@ -231,6 +235,7 @@ def _test_multi_object_sets(simulation_app):
                 ), "Path_2 does not contain mustard_bottle.usd for env index " + str(i)
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()

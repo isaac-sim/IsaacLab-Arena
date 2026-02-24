@@ -7,6 +7,7 @@ import atexit
 import os
 import subprocess
 import sys
+import traceback
 from collections.abc import Callable
 
 from isaaclab.app import AppLauncher
@@ -141,7 +142,8 @@ def run_simulation_app_function(
         return test_result
     except Exception as e:
         print(f"Exception occurred while running the function (persistent mode): {e}")
+        traceback.print_exc()
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests
-        teardown_simulation_app(suppress_exceptions=True, make_new_stage=True)
+        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)

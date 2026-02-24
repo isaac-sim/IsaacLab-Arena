@@ -41,14 +41,15 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
     Returns:
         The modified environment configuration.
     """
-    from isaaclab.sim import PhysxCfg, SimulationCfg
+    from isaaclab.sim import SimulationCfg
+    from isaaclab_physx.physics.physx_manager_cfg import PhysxCfg
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
 
     # Simulation settings optimized for assembly tasks
     env_cfg.sim = SimulationCfg(
         dt=1 / 60,  # 60Hz - balance between speed and stability
         render_interval=2,
-        physx=PhysxCfg(
+        physics=PhysxCfg(
             solver_type=1,
             max_position_iteration_count=192,  # Important to avoid interpenetration
             max_velocity_iteration_count=1,

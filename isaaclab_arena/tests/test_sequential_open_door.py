@@ -128,6 +128,7 @@ def _test_sequential_open_door_microwave(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -188,6 +189,7 @@ def _test_out_of_order_sequential_open_door_microwave(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -232,6 +234,7 @@ def _test_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -292,6 +295,7 @@ def _test_out_of_order_sequential_open_door_microwave_multiple_envs(simulation_a
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -338,6 +342,7 @@ def _test_sequential_open_door_microwave_reset_condition(simulation_app) -> bool
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

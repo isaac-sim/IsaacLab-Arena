@@ -6,6 +6,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 import pytest
 
@@ -197,7 +198,6 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -240,7 +240,6 @@ def _test_gear_mesh_assembly_single(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -277,7 +276,6 @@ def _test_peg_insert_assembly_multi(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -314,7 +312,6 @@ def _test_gear_mesh_assembly_multi(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -346,8 +343,6 @@ def _test_peg_insert_initialization(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
-
         traceback.print_exc()
         return False
 
@@ -380,7 +375,6 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False

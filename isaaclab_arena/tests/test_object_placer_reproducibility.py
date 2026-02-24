@@ -5,18 +5,14 @@
 
 """Tests for ObjectPlacer and RelationSolver reproducibility."""
 
-from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.pose import Pose
 
-
-def _create_test_objects() -> tuple[DummyObject, DummyObject, DummyObject]:
+def _create_test_objects():
     """Create test objects with relations (without setting initial poses for non-anchors)."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
     desk = DummyObject(
         name="desk",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
@@ -42,6 +38,8 @@ def _create_test_objects() -> tuple[DummyObject, DummyObject, DummyObject]:
 
 def test_get_random_pose_same_seed_produces_identical_result():
     """Test that get_random_pose_within_bounding_box with same seed produces identical poses."""
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
+
     bbox = AxisAlignedBoundingBox(min_point=(-1.0, -1.0, 0.0), max_point=(1.0, 1.0, 1.0))
 
     pose1 = get_random_pose_within_bounding_box(bbox, seed=42)
@@ -52,6 +50,9 @@ def test_get_random_pose_same_seed_produces_identical_result():
 
 def test_relation_solver_same_inputs_produces_identical_result():
     """Test that RelationSolver with identical initial positions produces identical results."""
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
     desk_pos = (0.0, 0.0, 0.0)
     fixed_box1_pos = (0.5, 0.5, 0.5)
     fixed_box2_pos = (0.3, 0.7, 0.3)
@@ -80,6 +81,10 @@ def test_relation_solver_same_inputs_produces_identical_result():
 
 def test_object_placer_same_seed_produces_identical_result():
     """Test that ObjectPlacer with same seed produces identical final results."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
     seed = 42
     solver_params = RelationSolverParams(max_iters=10)
 
@@ -104,6 +109,10 @@ def test_object_placer_same_seed_produces_identical_result():
 
 def test_object_placer_different_seeds_produce_different_results():
     """Test that ObjectPlacer with different seeds produces different results."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
     solver_params = RelationSolverParams(max_iters=10)
 
     # Run 1 with seed 42

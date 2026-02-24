@@ -88,11 +88,8 @@ def objects_in_proximity(
     target_object: RigidObject = env.scene[target_object_cfg.name]
 
     # Get positions relative to environment origin
-    object_pos = object.data.root_pos_w - env.scene.env_origins
-
-    # Get positions relative to environment origin
-    object_pos = object.data.root_pos_w - env.scene.env_origins
-    target_object_pos = target_object.data.root_pos_w - env.scene.env_origins
+    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
+    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
 
     # object to target object
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
@@ -125,7 +122,7 @@ def lift_object_il_success(
     """
 
     object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = object_instance.data.root_pos_w
+    object_pos = wp.to_torch(object_instance.data.root_pos_w)
 
     goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
@@ -162,7 +159,7 @@ def lift_object_rl_success(
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
     object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = object_instance.data.root_pos_w
+    object_pos = wp.to_torch(object_instance.data.root_pos_w)
 
     # Try to get goal position from command manager
     command = env.command_manager.get_command(command_name)
@@ -198,8 +195,8 @@ def goal_pose_task_termination(
         A boolean tensor of shape (num_envs, )
     """
     object_instance: RigidObject = env.scene[object_cfg.name]
-    object_root_pos_w = object_instance.data.root_pos_w
-    object_root_quat_w = object_instance.data.root_quat_w
+    object_root_pos_w = wp.to_torch(object_instance.data.root_pos_w)
+    object_root_quat_w = wp.to_torch(object_instance.data.root_quat_w)
 
     device = env.device
     num_envs = env.num_envs

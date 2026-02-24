@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import warp as wp
 from collections.abc import Sequence
 from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
@@ -287,8 +288,8 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
 
                     target_xy = torch.tensor(target_xy_heading[:2])
                     target_heading = torch.tensor(target_xy_heading[2])
-                    current_xy = self._asset.data.root_link_pos_w
-                    current_heading = self._asset.data.heading_w
+                    current_xy = wp.to_torch(self._asset.data.root_link_pos_w)
+                    current_heading = wp.to_torch(self._asset.data.heading_w)
 
                     check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
                     check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(
