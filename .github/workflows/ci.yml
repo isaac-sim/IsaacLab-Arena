@@ -92,9 +92,9 @@ jobs:
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       - name: Run pre-commit
-        run: |
-          pip install --no-cache-dir --upgrade pip pre-commit
-          pre-commit run --all-files
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --verbose
 
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
