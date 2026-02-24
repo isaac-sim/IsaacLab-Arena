@@ -122,15 +122,14 @@ def main():
 
                     policy = get_policy_from_job(job)
 
-                    # priority of setting num_steps is: job -> policy -> args_cli
-                    # jobs may need different num_steps than the default num_steps from the policy or the args_cli
-                    if job.num_steps is None:
+                    # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
+                    # Priority: job config -> policy length -> CLI default
+                    if job.num_steps is None and job.num_episodes is None:
                         if policy.has_length():
                             job.num_steps = policy.length()
                         else:
                             job.num_steps = args_cli.num_steps
-                    # TODO (xinjieyao, 2026-02-19): add num_episodes support
-                    metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=None)
+                    metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=job.num_episodes)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
