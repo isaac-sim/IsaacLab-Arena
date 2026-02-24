@@ -20,14 +20,13 @@ from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyArgs,
     build_gr00t_action_tensor,
-    build_gr00t_policy_inputs_np,
+    build_gr00t_policy_observations,
     compute_action_dim,
     extract_obs_numpy_from_torch,
-    load_gr00t_closedloop_config,
     load_gr00t_joint_configs,
-    load_gr00t_modality_config,
     load_gr00t_policy_from_config,
 )
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
 
 
 @dataclass
@@ -66,7 +65,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
         super().__init__(config)
 
         # Config / policy
-        self.policy_config: Gr00tClosedloopPolicyConfig = load_gr00t_closedloop_config(config)
+        self.policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
+            config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
+        )
         self.policy: Gr00tPolicy = load_gr00t_policy_from_config(self.policy_config)
 
         # Basic attributes
@@ -87,7 +88,10 @@ class Gr00tClosedloopPolicy(PolicyBase):
         ) = load_gr00t_joint_configs(self.policy_config)
 
         # Modality config
-        self.modality_configs = load_gr00t_modality_config(self.policy_config)
+        self.modality_configs = load_gr00t_modality_config_from_file(
+            self.policy_config.modality_config_path,
+            self.policy_config.embodiment_tag,
+        )
 
         # Action / chunk shapes
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
@@ -155,9 +159,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """
         assert self.task_description is not None, "Task description is not set"
 
-        rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(observation, camera_names)
+        rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
 
-        return build_gr00t_policy_inputs_np(
+        return build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             joint_pos_sim_np=joint_pos_sim_np,
             task_description=self.task_description,
@@ -228,6 +232,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
             policy_joints_config=self.policy_joints_config,
             robot_action_joints_config=self.robot_action_joints_config,
             device=self.device,
+            embodiment_tag=self.policy_config.embodiment_tag,
         )
 
         assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length

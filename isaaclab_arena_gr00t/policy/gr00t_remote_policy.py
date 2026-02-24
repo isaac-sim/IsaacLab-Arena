@@ -17,14 +17,13 @@ from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyArgs,
     build_gr00t_action_tensor,
-    build_gr00t_policy_inputs_np,
+    build_gr00t_policy_observations,
     compute_action_dim,
     extract_obs_numpy_from_packed,
-    load_gr00t_closedloop_config,
     load_gr00t_joint_configs,
-    load_gr00t_modality_config,
     load_gr00t_policy_from_config,
 )
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_numpy
 
 
 @dataclass
@@ -51,7 +50,9 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
         super().__init__(config)
 
         print(f"[Gr00tRemoteServerSidePolicy] loading config from: {config.policy_config_yaml_path}")
-        self.policy_config: Gr00tClosedloopPolicyConfig = load_gr00t_closedloop_config(config)
+        self.policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
+            config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
+        )
         print(
             "[Gr00tRemoteServerSidePolicy] config:\n"
             f"  model_path        = {self.policy_config.model_path}\n"
@@ -74,7 +75,10 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
         ) = load_gr00t_joint_configs(self.policy_config)
 
         # Modality config
-        self.modality_configs = load_gr00t_modality_config(self.policy_config)
+        self.modality_configs = load_gr00t_modality_config_from_file(
+            self.policy_config.modality_config_path,
+            self.policy_config.embodiment_tag,
+        )
 
         # Action dimensions
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
@@ -156,7 +160,7 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
             observation, camera_names, self.unpack_observation
         )
 
-        return build_gr00t_policy_inputs_np(
+        return build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             joint_pos_sim_np=joint_pos_sim_np,
             task_description=self._task_description,
@@ -192,11 +196,12 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
             policy_joints_config=self.policy_joints_config,
             robot_action_joints_config=self.robot_action_joints_config,
             device=self.device,
+            embodiment_tag=self.policy_config.embodiment_tag,
         )
 
         assert action_tensor.shape[1] >= self.action_chunk_length
 
-        action_chunk = action_tensor.cpu().numpy()
+        action_chunk = to_numpy(action_tensor)
         # NOTE(huikang, 2026-02-06):  Currently, it seems that the output action length is action_horizon,
         # but the action chunk post-process actually handles a length of action_chunk_length.
         # It looks like we can transmit a tensor of length action_chunk_length. At the moment, action_chunk_length and action_horizon are the same.

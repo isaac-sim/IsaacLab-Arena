@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from dataclasses import dataclass
 
+from isaaclab_arena_gr00t.utils.io_utils import to_numpy
+
 
 @dataclass
 class JointsAbsPosition:
@@ -23,7 +25,7 @@ class JointsAbsPosition:
         )
 
     def to_array(self) -> np.ndarray:
-        return self.joints_pos.cpu().numpy()
+        return to_numpy(self.joints_pos)
 
     @staticmethod
     def from_array(array: np.ndarray, joint_order_config: dict[str, int], device: torch.device) -> "JointsAbsPosition":
