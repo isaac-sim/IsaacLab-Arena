@@ -69,14 +69,13 @@ class PickAndPlaceTask(TaskBase):
                 "velocity_threshold": 0.1,
             },
         )
-        # object_dropped = TerminationTermCfg(
-        #     func=mdp_isaac_lab.root_height_below_minimum,
-        #     params={
-        #         "minimum_height": self.background_scene.object_min_z,
-        #         "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
-        #     },
-        # )
-        object_dropped = None
+        object_dropped = TerminationTermCfg(
+            func=mdp_isaac_lab.root_height_below_minimum,
+            params={
+                "minimum_height": self.background_scene.object_min_z,
+                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
+            },
+        )
         return TerminationsCfg(
             success=success,
             object_dropped=object_dropped,

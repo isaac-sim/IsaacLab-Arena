@@ -125,6 +125,7 @@ class FrankaSpaceMouseRetargeter(RetargetterBase):
         return None
 
 
+<<<<<<< HEAD
 @register_retargeter
 class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
@@ -143,10 +144,17 @@ class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
 class AgibotKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "agibot"
+=======
+# @register_retargeter
+# class AgibotKeyboardRetargeter(RetargetterBase):
+#     device = "keyboard"
+#     embodiment = "agibot"
+>>>>>>> 30607ee0 (Progress. Down to 33 tests failing.)
 
-    def __init__(self):
-        pass
+#     def __init__(self):
+#         pass
 
+<<<<<<< HEAD
     def get_retargeter_cfg(
         self, agibot_embodiment, sim_device: str, enable_visualization: bool = False
     ) -> RetargeterCfg | None:
@@ -193,3 +201,9 @@ class G1WbcPinkMotionControllersRetargeter(RetargetterBase):
             G1LowerBodyStandingMotionControllerRetargeterCfg(sim_device=sim_device),
             DummyTorsoRetargeterCfg(sim_device=sim_device),
         ]
+=======
+#     def get_retargeter_cfg(
+#         self, agibot_embodiment, sim_device: str, enable_visualization: bool = False
+#     ) -> RetargeterCfg | None:
+#         return None
+>>>>>>> 30607ee0 (Progress. Down to 33 tests failing.)

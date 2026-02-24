@@ -97,6 +97,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

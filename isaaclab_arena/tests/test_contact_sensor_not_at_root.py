@@ -96,6 +96,7 @@ def _test_contact_sensor_not_at_root(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

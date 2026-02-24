@@ -5,6 +5,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -83,6 +84,7 @@ def _test_place_upright_mug_single(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()
@@ -136,6 +138,7 @@ def _test_place_upright_mug_multi(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()
@@ -172,6 +175,7 @@ def _test_place_upright_mug_condition(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()

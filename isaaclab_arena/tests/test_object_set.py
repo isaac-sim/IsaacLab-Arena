@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import traceback
+
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
@@ -153,6 +155,37 @@ def _test_single_object_in_one_object_set(simulation_app):
         teleop_device=None,
 >>>>>>> a2865b86 (Quaternion flip (a-la Claude))
     )
+<<<<<<< HEAD
+=======
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.num_envs = NUM_ENVS
+    args_cli.headless = HEADLESS
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env = env_builder.make_registered()
+    env.reset()
+
+    try:
+        for i in range(NUM_ENVS):
+            # Construct the actual prim path for this environment
+            path = get_asset_usd_path_from_prim_path(
+                prim_path=OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
+            )
+            assert path is not None, "Path is None"
+            assert "cracker_box.usd" in path, "Path does not contain cracker_box.usd"
+            assert obj_set.get_initial_pose() is not None, "Initial pose is None"
+
+        assert env.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
+        assert (
+            env.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+        ), "Contact sensor data is None"
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    finally:
+        env.close()
+    return True
+>>>>>>> 30607ee0 (Progress. Down to 33 tests failing.)
 
 
 def _test_multi_objects_in_one_object_set(simulation_app):
@@ -172,6 +205,40 @@ def _test_multi_objects_in_one_object_set(simulation_app):
         OBJECT_SET_2_PRIM_PATH,
         path_contains=path_contains,
     )
+<<<<<<< HEAD
+=======
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.num_envs = NUM_ENVS
+    args_cli.headless = HEADLESS
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env = env_builder.make_registered()
+    env.reset()
+
+    assert env.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
+    assert (
+        env.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+    ), "Contact sensor data is None"
+
+    # replace * in OBJECT_SET_PRIM_PATH with env_index
+    try:
+        for i in range(NUM_ENVS):
+
+            path = get_asset_usd_path_from_prim_path(
+                prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
+            )
+            assert path is not None, "Path is None"
+            if i % 2 == 0:
+                assert "cracker_box.usd" in path, "Path does not contain cracker_box.usd for env index " + str(i)
+            else:
+                assert "sugar_box.usd" in path, "Path does not contain sugar_box.usd for env index " + str(i)
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    finally:
+        env.close()
+    return True
+>>>>>>> 30607ee0 (Progress. Down to 33 tests failing.)
 
 
 def _test_multi_object_sets(simulation_app):
@@ -224,6 +291,7 @@ def _test_multi_object_sets(simulation_app):
         return True
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
     finally:
         env.close()

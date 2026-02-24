@@ -5,6 +5,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -224,8 +225,6 @@ def _test_close_door_with_reset(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
-
         traceback.print_exc()
         return False
 

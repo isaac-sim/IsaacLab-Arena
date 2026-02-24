@@ -16,7 +16,7 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 parser = argparse.ArgumentParser()
 AppLauncher.add_app_launcher_args(parser)
-args = parser.parse_args(["--visualizer", "kit"])
+args = parser.parse_args(["--visualizer", "kit", "--enable_cameras"])
 app_launcher = AppLauncher(args)
 
 #%%
@@ -33,7 +33,9 @@ from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
-embodiment = asset_registry.get_asset_by_name("franka")()
+# embodiment = asset_registry.get_asset_by_name("franka")()
+embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+# embodiment = asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=True)
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
@@ -59,7 +61,7 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
     task=PickAndPlaceTask(cracker_box, destination_location, background),
 )
 
-args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+args_cli = get_isaaclab_arena_cli_parser().parse_args(["--enable_cameras"])
 args_cli.solve_relations = True
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
@@ -71,8 +73,11 @@ env.reset()
 NUM_STEPS = 1000
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
+        print("HERE: About to step")
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        print("HERE: About to step")
         env.step(actions)
+        print("HERE: Stepped")
 
 # %%
 

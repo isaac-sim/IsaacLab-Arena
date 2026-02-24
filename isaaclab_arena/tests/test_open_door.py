@@ -5,6 +5,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -104,6 +105,7 @@ def _test_open_door_microwave(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -158,6 +160,7 @@ def _test_open_door_microwave_multiple_envs(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -200,6 +203,7 @@ def _test_open_door_microwave_reset_condition(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

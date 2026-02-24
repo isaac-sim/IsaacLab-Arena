@@ -26,7 +26,7 @@ from isaaclab_arena.embodiments.franka.franka import FrankaMimicEnv
 from isaaclab_arena.utils.pose import Pose
 
 
-@register_asset
+# @register_asset
 class AgibotEmbodiment(EmbodimentBase):
     """Embodiment for the Agibot robot."""
 

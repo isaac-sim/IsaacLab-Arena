@@ -6,6 +6,7 @@
 import gymnasium as gym
 import random
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -80,6 +81,7 @@ def _test_turn_stand_mixer_knob_to_desired_levels_single_env(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -128,6 +130,7 @@ def _test_turn_stand_mixer_knob_multiple_envs(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -164,6 +167,7 @@ def _test_turn_stand_mixer_knob_reset_condition(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

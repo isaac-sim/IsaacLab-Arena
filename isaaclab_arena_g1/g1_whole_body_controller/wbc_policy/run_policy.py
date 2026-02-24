@@ -5,6 +5,7 @@
 
 import numpy as np
 import torch
+import warp as wp
 
 import isaaclab.utils.math as math_utils
 from isaaclab.assets import ArticulationData
@@ -61,8 +62,8 @@ def prepare_observations(
         - torso_ang_vel: Torso angular velocity
     """
     # Get robot joint observations
-    sim_joint_pos = robot_data.joint_pos.cpu().numpy()
-    sim_joint_vel = robot_data.joint_vel.cpu().numpy()
+    sim_joint_pos = wp.to_torch(robot_data.joint_pos).cpu().numpy()
+    sim_joint_vel = wp.to_torch(robot_data.joint_vel).cpu().numpy()
     num_joints = len(robot_data.joint_names)
 
     # Convert joints data from Lab's order to GR00T's order saved in config yaml
@@ -75,15 +76,15 @@ def prepare_observations(
     # Prepare obs dict for WBC policy input to G1DecoupledWholeBodyPolicy class
     assert wbc_joint_pos.shape == wbc_joint_vel.shape == wbc_joint_acc.shape == (num_envs, num_joints)
 
-    root_link_pos_w = robot_data.root_link_pos_w.cpu().numpy()
-    root_link_quat_w = robot_data.root_link_quat_w.cpu().numpy()
+    root_link_pos_w = wp.to_torch(robot_data.root_link_pos_w).cpu().numpy()
+    root_link_quat_w = wp.to_torch(robot_data.root_link_quat_w).cpu().numpy()
     base_pose_w = np.concatenate((root_link_pos_w, root_link_quat_w), axis=1)
-    base_lin_vel_b = robot_data.root_link_lin_vel_b.cpu().numpy()
-    base_ang_vel_b = robot_data.root_link_ang_vel_b.cpu().numpy()
+    base_lin_vel_b = wp.to_torch(robot_data.root_link_lin_vel_b).cpu().numpy()
+    base_ang_vel_b = wp.to_torch(robot_data.root_link_ang_vel_b).cpu().numpy()
 
     base_vel_b = np.concatenate((base_lin_vel_b, base_ang_vel_b), axis=1)
     # torso link in world frame
-    torso_link_pose_w = robot_data.body_link_state_w[:, robot_data.body_names.index("torso_link"), :]
+    torso_link_pose_w = wp.to_torch(robot_data.body_link_state_w)[:, robot_data.body_names.index("torso_link"), :]
     torso_link_quat_w = torso_link_pose_w[:, 3:7]  # w, x, y, z
     torso_link_ang_vel_w = torso_link_pose_w[:, -3:]
 

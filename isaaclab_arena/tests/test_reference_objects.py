@@ -7,6 +7,7 @@ import numpy as np
 import pathlib
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.utils.pose import Pose
@@ -156,6 +157,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

@@ -6,8 +6,6 @@
 import torch
 from dataclasses import dataclass
 
-from isaaclab.utils.math import matrix_from_quat, quat_from_euler_xyz, quat_from_matrix
-
 
 @dataclass
 class Pose:
@@ -64,6 +62,8 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     Returns:
         The pose taking points from A to C.
     """
+    from isaaclab.utils.math import matrix_from_quat, quat_from_matrix
+
     R_B_A = matrix_from_quat(torch.tensor(T_B_A.rotation_xyzw))
     R_C_B = matrix_from_quat(torch.tensor(T_C_B.rotation_xyzw))
     # Compose the rotations
@@ -101,6 +101,8 @@ class PoseRange:
         }
 
     def get_midpoint(self) -> Pose:
+        from isaaclab.utils.math import quat_from_euler_xyz
+
         roll = torch.tensor((self.rpy_min[0] + self.rpy_max[0]) / 2)
         pitch = torch.tensor((self.rpy_min[1] + self.rpy_max[1]) / 2)
         yaw = torch.tensor((self.rpy_min[2] + self.rpy_max[2]) / 2)

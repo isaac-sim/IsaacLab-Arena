@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+import warp as wp
 from collections.abc import Sequence
 from dataclasses import MISSING
 
@@ -29,7 +30,7 @@ import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
+from isaaclab_arena.terms.events import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_g1.g1_env.mdp import g1_events as g1_events_mdp
 from isaaclab_arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
@@ -779,10 +780,10 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             env_ids = slice(None)
 
         # Get pelvis inverse transform to convert from world to pelvis frame
-        pelvis_pose_w = self.scene["robot"].data.body_link_state_w[
+        pelvis_pose_w = wp.to_torch(self.scene["robot"].data.body_link_state_w)[
             :, self.scene["robot"].data.body_names.index("pelvis"), :
         ]
-        pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins
+        pelvis_position_w = pelvis_pose_w[:, :3] - wp.to_torch(self.scene.env_origins)
         pelvis_rot_mat_w = PoseUtils.matrix_from_quat(pelvis_pose_w[:, 3:7])
         pelvis_pose_mat_w = PoseUtils.make_pose(pelvis_position_w, pelvis_rot_mat_w)
         pelvis_pose_inv = PoseUtils.pose_inv(pelvis_pose_mat_w)

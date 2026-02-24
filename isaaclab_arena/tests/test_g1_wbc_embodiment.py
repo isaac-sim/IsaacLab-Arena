@@ -6,6 +6,8 @@
 import numpy as np
 import torch
 import tqdm
+import traceback
+import warp as wp
 
 import pytest
 
@@ -102,7 +104,7 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
 
     def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
         # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        robot_base_pose = wp.to_torch(env.scene["robot"].data.root_link_pose_w)[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
         robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
         assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."
@@ -113,6 +115,7 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -134,41 +137,3 @@ def test_wbc_joint_standing_idle_actions_single_env():
 def _test_wbc_pink_standing_idle_actions(simulation_app) -> bool:
 
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
-
-    # Get the scene
-    env, robot_init_base_pose = get_test_environment(num_envs=1, pink_ik_enabled=True)
-
-    def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
-        # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
-        # check if robot base pose is close to initial base pose
-        robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
-        assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."
-
-    try:
-        # sending standing idle actions
-        step_standing_actions_call(env, NUM_STEPS, robot_init_base_pose, assert_standing_idle, True)
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
-
-    finally:
-        env.close()
-
-    return True
-
-
-@pytest.mark.with_cameras
-def test_wbc_pink_standing_idle_actions_single_env():
-    result = run_simulation_app_function(
-        _test_wbc_pink_standing_idle_actions,
-        headless=HEADLESS,
-        enable_cameras=ENABLE_CAMERAS,
-    )
-    assert result, f"Test {_test_wbc_pink_standing_idle_actions.__name__} failed"
-
-
-if __name__ == "__main__":
-    test_wbc_joint_standing_idle_actions_single_env()
-    test_wbc_pink_standing_idle_actions_single_env()

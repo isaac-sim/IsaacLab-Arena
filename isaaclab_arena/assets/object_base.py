@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+import warp as wp
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -162,7 +163,7 @@ class ObjectBase(Asset, ABC):
         # We require that the asset has been added to the scene under its name.
         assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = env.scene[self.name].data.root_pose_w.clone()
+            object_pose = wp.to_torch(env.scene[self.name].data.root_pose_w).clone()
         elif self.object_type == ObjectType.BASE:
             object_pose = torch.cat(env.scene[self.name].get_world_poses(), dim=-1)
         else:
