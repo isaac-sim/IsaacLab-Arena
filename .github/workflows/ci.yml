@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 45
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:0.1.1
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -108,7 +108,7 @@ jobs:
     timeout-minutes: 30
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:0.1.1_gr00t
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -194,9 +194,9 @@ jobs:
       - name: Build & push image to NGC
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p
+          ./docker/push_to_ngc.sh -p -t 0.1.1
 
       - name: Build & push image to NGC (GR00T Image)
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+          ./docker/push_to_ngc.sh -p -g -t 0.1.1_gr00t
