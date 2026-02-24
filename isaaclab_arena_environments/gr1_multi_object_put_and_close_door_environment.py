@@ -16,21 +16,21 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-RANDOMIZATION_HALF_RANGE_X_M = 0.03
-RANDOMIZATION_HALF_RANGE_Y_M = 0.01
-RANDOMIZATION_HALF_RANGE_Z_M = 0.0
+# Nominal position for the target object only. Distractors have no AtPosition; they only get On(counter) and NoCollision.
+TARGET_OBJECT_X = 4.05
+TARGET_OBJECT_Y = -0.58
 
-
-class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
+class GR1MultiObjectPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     """
-    A sequential task environment with two subtasks for GR1 humanoid robot:
-    1. Pick and place object into the refrigerator shelf
-    2. Close the refrigerator door
-    The refrigerator starts open, the robot places the object inside, then closes it.
-    Uses the lightwheel robocasa kitchen background.
+    Multi-object variant of put-and-close-door: multiple objects on the kitchen counter,
+    one target object to pick and place into the fridge, then close the door.
+    The target (ranch bottle by default) is fixed at (TARGET_OBJECT_X, TARGET_OBJECT_Y)
+    on the counter and marked as an anchor so it never falls; the relation solver only
+    places distractors with On(counter) and NoCollision. Only the target (--object)
+    is used for the pick-and-place task.
     """
 
-    name = "put_item_in_fridge_and_close_door"
+    name = "gr1_multi_object_put_and_close_door"
 
     def get_env(self, args_cli: argparse.Namespace):
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
@@ -40,11 +40,9 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import (
-            AtPosition,
             IsAnchor,
+            NoCollision,
             On,
-            RandomAroundSolution,
-            RotateAroundSolution,
         )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
@@ -53,7 +51,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.task_base import TaskBase
         from isaaclab_arena.utils.pose import Pose
 
-        # Custom task class for this environment
         class PutAndCloseDoorTask(SequentialTaskBase):
             def __init__(
                 self,
@@ -73,28 +70,17 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             def get_mimic_env_cfg(self, arm_mode: ArmMode):
                 mimic_env_cfg = PutAndCloseDoorTaskMimicEnvCfg()
                 mimic_env_cfg.subtask_configs = self.combine_mimic_subtask_configs(ArmMode.RIGHT)
-
-                # Override default subtask term offset range and action noise
                 for eef_name, subtask_list in mimic_env_cfg.subtask_configs.items():
                     for subtask_config in subtask_list:
                         subtask_config.subtask_term_offset_range = (0, 0)
                         subtask_config.action_noise = 0.003
-
                 return mimic_env_cfg
 
         @configclass
         class PutAndCloseDoorTaskMimicEnvCfg(MimicEnvCfg):
-            """
-            Isaac Lab Mimic environment config class for GR1 put and close door task.
-            """
-
             def __post_init__(self):
-                # post init of parents
                 super().__post_init__()
-
-                # Override the existing values
-                self.datagen_config.name = "put_and_close_door_task_D0"
-                # Use default mimic datagen config parameters
+                self.datagen_config.name = "gr1_multi_object_put_and_close_door_D0"
                 for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
                     setattr(self.datagen_config, key, value)
 
@@ -106,12 +92,28 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             style_id=args_cli.kitchen_style
         )
 
+        # Kitchen "top" = top surface of the right counter (counter_right_main_group).
         kitchen_counter_top = ObjectReference(
             name="kitchen_counter_top",
             prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/counter_right_main_group/top_geometry",
             parent_asset=kitchen_background,
         )
         kitchen_counter_top.add_relation(IsAnchor())
+
+        # Fixed counter accessories (knife block, toaster) for NoCollision; same style as refrigerator below.
+        knife_block_ref = ObjectReference(
+            name="knife_block",
+            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/knife_block_main_group",
+            parent_asset=kitchen_background,
+        )
+        knife_block_ref.add_relation(IsAnchor())
+        toaster_ref = ObjectReference(
+            name="toaster",
+            prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/toaster_main_group",
+            parent_asset=kitchen_background,
+        )
+        toaster_ref.add_relation(IsAnchor())
+        counter_accessory_refs = [knife_block_ref, toaster_ref]
 
         light = self.asset_registry.get_asset_by_name("light")()
 
@@ -120,7 +122,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        # Set initial poses
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(3.943, -1.0, 0.995),
@@ -128,7 +129,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        # Create refrigerator reference (OpenableObjectReference)
         refrigerator = OpenableObjectReference(
             name="refrigerator",
             prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group",
@@ -137,52 +137,74 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             openable_threshold=0.5,
         )
 
-        # Create refrigerator shelf reference (destination for pick and place)
         refrigerator_shelf = ObjectReference(
             name="refrigerator_shelf",
             prim_path="{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group/Refrigerator034",
             parent_asset=kitchen_background,
         )
 
-        if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-            assert False, "Object set is not supported yet due to unresolved prim path of object set. Fix is pending."
-            # TODO(alexmillane, 2026.02.09): Merge fix for this.
-            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
-            pickup_object = RigidObjectSet(name="object_set", objects=objects)
-        else:
-            pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-
-        pickup_object.add_relation(On(kitchen_counter_top))
-        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-        # Consider changing to other values for different objects, below is for ranch dressing bottle.
+        # Target object: fixed on the counter at (TARGET_OBJECT_X, TARGET_OBJECT_Y) so it does not fall.
+        # We set its initial pose and mark it IsAnchor() so the placer never randomizes or overwrites it;
+        # only distractors are optimized by the relation solver.
+        target_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        counter_top_z = kitchen_counter_top.get_world_bounding_box().max_point[2]
+        target_bbox = target_object.get_bounding_box()
+        clearance = 0.01
+        target_z = counter_top_z + clearance - target_bbox.min_point[2]
         yaw_rad = math.radians(-111.55)
-        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-        pickup_object.add_relation(
-            RandomAroundSolution(x_half_m=RANDOMIZATION_HALF_RANGE_X_M, y_half_m=RANDOMIZATION_HALF_RANGE_Y_M)
+        yaw_quat_wxyz = (math.cos(yaw_rad / 2), 0.0, 0.0, math.sin(yaw_rad / 2))
+        target_object.set_initial_pose(
+            Pose(
+                position_xyz=(TARGET_OBJECT_X, TARGET_OBJECT_Y, target_z),
+                rotation_wxyz=yaw_quat_wxyz,
+            )
         )
+        target_object.add_relation(IsAnchor())
+        target_object.add_relation(On(kitchen_counter_top))
+        for ref in counter_accessory_refs:
+            target_object.add_relation(NoCollision(ref))
+
+        # Distractor objects: On(counter) + NoCollision only (no AtPosition). Solver places them on the counter without overlapping target, knife block, toaster, or each other.
+        distractor_objects = []
+        for name in args_cli.distractor_objects or []:
+            obj = self.asset_registry.get_asset_by_name(name)()
+            obj.add_relation(On(kitchen_counter_top))
+            for ref in counter_accessory_refs:
+                obj.add_relation(NoCollision(ref))
+            target_object.add_relation(NoCollision(obj))
+            distractor_objects.append(obj)
+        for i, obj_a in enumerate(distractor_objects):
+            for obj_b in distractor_objects[i + 1 :]:
+                obj_a.add_relation(NoCollision(obj_b))
+
         scene = Scene(
-            assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+            assets=[
+                kitchen_background,
+                kitchen_counter_top,
+                *counter_accessory_refs,
+                target_object,
+                *distractor_objects,
+                light,
+                refrigerator,
+                refrigerator_shelf,
+            ]
         )
 
-        # Create pick and place task
         pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=pickup_object,
+            pick_up_object=target_object,
             destination_object=refrigerator,
             destination_location=refrigerator_shelf,
             background_scene=kitchen_background,
         )
 
-        # Create close door task
         close_door_task = CloseDoorTask(
             openable_object=refrigerator,
             closedness_threshold=0.10,
             reset_openness=0.5,
         )
 
-        # Create sequential task
         sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
 
-        # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -198,17 +220,23 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             "--object",
             type=str,
             default="ranch_dressing_bottle",
-            choices=["sweet_potato", "jug", "ranch_dressing_bottle"],
-            help="Object to pick and place",
+            choices=[
+                "sweet_potato",
+                "jug",
+                "ranch_dressing_bottle",
+                "tomato_soup_can",
+                "cracker_box",
+            ],
+            help="Target object to pick and place into the fridge.",
         )
         parser.add_argument(
-            "--object_set",
-            nargs="+",
+            "--distractor_objects",
+            nargs="*",
             type=str,
             default=None,
             help=(
-                "Used in heterogeneous environments where each environment has a different object spawned from this"
-                " set."
+                "Optional object names on the kitchen counter as distractors. "
+                "Relation solver places all with NoCollision; only --object is the pick-and-place target."
             ),
         )
         parser.add_argument(
