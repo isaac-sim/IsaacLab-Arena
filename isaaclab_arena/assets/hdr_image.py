@@ -5,17 +5,20 @@
 
 from typing import Literal
 
+from isaaclab_arena.assets.asset import Asset
+
 # The texture format types supported by Isaac Sim's DomeLightCfg.
 TextureFormat = Literal["automatic", "latlong", "mirroredBall", "angular", "cubeMapVerticalCross"]
 
 
-class HDR:
+class HDRImage(Asset):
     """An HDR/EXR environment map texture for dome lights.
 
     Example usage::
 
+        hdr = hdr_registry.get_hdr_by_name("home_office_robolab")()
         dome_light = asset_registry.get_asset_by_name("light")()
-        dome_light.add_hdr("home_office_robolab")
+        dome_light.add_hdr(hdr)
     """
 
     def __init__(
@@ -26,11 +29,10 @@ class HDR:
         description: str = "",
         texture_format: TextureFormat = "latlong",
     ):
-        self.name = name
+        super().__init__(name=name, tags=tags)
         self.texture_file = texture_file
-        self.tags = tags or []
         self.description = description
         self.texture_format = texture_format
 
     def __repr__(self) -> str:
-        return f"HDR(name={self.name!r}, texture_file={self.texture_file!r})"
+        return f"HDRImage(name={self.name!r}, texture_file={self.texture_file!r})"

@@ -55,7 +55,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         light = self.asset_registry.get_asset_by_name("light")(
             spawner_cfg=sim_utils.DomeLightCfg(intensity=500.0),
         )
-        light.add_hdr("billiard_hall_robolab")
+        light.add_hdr(self.hdr_registry.get_hdr_by_name("billiard_hall_robolab")())
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
