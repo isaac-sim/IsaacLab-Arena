@@ -13,7 +13,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
@@ -82,13 +82,6 @@ class Object(ObjectBase):
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box.get_corners_at(pos)
-
-    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
-        self.initial_pose = pose
-        super().set_initial_pose(pose)
-
-    def get_initial_pose(self) -> Pose | PoseRange | None:
-        return self.initial_pose
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None

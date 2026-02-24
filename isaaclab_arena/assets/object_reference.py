@@ -27,16 +27,19 @@ class ObjectReference(ObjectBase):
         self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
-        self._initial_pose_override: Pose | PoseRange | None = None
         assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
 
     def get_initial_pose(self) -> Pose | PoseRange:
-        """Get the initial pose of this object reference."""
-        if self._initial_pose_override is not None:
-            return self._initial_pose_override
+        """Get the initial pose of this object reference.
+
+        If ``set_initial_pose`` was called, returns that override.
+        Otherwise derives the world-frame pose from the parent asset.
+        """
+        if self.initial_pose is not None:
+            return self.initial_pose
         if self.parent_asset.initial_pose is None:
             T_W_O = self.initial_pose_relative_to_parent
         else:
@@ -49,10 +52,6 @@ class ObjectReference(ObjectBase):
         pose = super()._get_initial_pose_as_pose()
         assert pose is not None
         return pose
-
-    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
-        self._initial_pose_override = pose
-        super().set_initial_pose(pose)
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.

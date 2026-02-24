@@ -41,13 +41,18 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+        self.initial_pose: Pose | PoseRange | None = None
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
 
-    @abstractmethod
     def get_initial_pose(self) -> Pose | PoseRange | None:
-        """Return the current initial pose of this object."""
+        """Return the current initial pose of this object.
+
+        Subclasses may override to derive the pose from other sources
+        (e.g. a parent asset), falling back to ``self.initial_pose``.
+        """
+        return self.initial_pose
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
@@ -65,13 +70,10 @@ class ObjectBase(Asset, ABC):
     def set_initial_pose(self, pose: Pose | PoseRange) -> None:
         """Set / override the initial pose and rebuild derived configs.
 
-        Subclasses must override to store *pose* first, then call
-        ``super().set_initial_pose(pose)`` to update ``object_cfg`` and
-        ``event_cfg``.
-
         Args:
             pose: A fixed ``Pose`` or a ``PoseRange`` (randomised on reset).
         """
+        self.initial_pose = pose
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:
             self.object_cfg.init_state.pos = initial_pose.position_xyz
