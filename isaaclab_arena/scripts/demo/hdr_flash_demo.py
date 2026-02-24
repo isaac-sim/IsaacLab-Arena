@@ -9,6 +9,8 @@ The HDR environment map on the dome light is swapped every ``--steps_per_hdr`` s
 steps, producing a single continuous video where the background flashes through all
 registered HDR textures.
 
+python isaaclab_arena/scripts/demo/hdr_flash_demo.py     --num_steps 660     --steps_per_hdr 60     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml     droid_pick_and_place_srl
+
 Example usage::
 
     python isaaclab_arena/scripts/demo/hdr_flash_demo.py \
