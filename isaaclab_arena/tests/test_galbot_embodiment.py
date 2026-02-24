@@ -15,14 +15,17 @@ INITIAL_POSITION_EPS = 1e-6
 
 
 def get_galbot_test_environment(num_envs: int = 1):
-    """Returns a scene with Galbot embodiment for testing."""
+    """Returns a kitchen scene with Galbot embodiment for testing."""
     from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.embodiments.galbot.galbot import GalbotEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -30,23 +33,39 @@ def get_galbot_test_environment(num_envs: int = 1):
 
     asset_registry = AssetRegistry()
 
-    # Setup background and objects
-    background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(Pose(position_xyz=(0.50, 0.0, 0.625), rotation_wxyz=(0.7071, 0, 0, 0.7071)))
+    # Setup kitchen background
+    background = asset_registry.get_asset_by_name("kitchen")()
 
-    light = asset_registry.get_asset_by_name("light")()
+    # Setup pick up object
+    pick_up_object = asset_registry.get_asset_by_name("cracker_box")()
+    pick_up_object.set_initial_pose(
+        Pose(
+            position_xyz=(0.4, 0.0, 0.1),
+            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+        )
+    )
+
+    # Setup destination location
+    destination_location = ObjectReference(
+        name="destination_location",
+        prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+        parent_asset=background,
+        object_type=ObjectType.RIGID,
+    )
 
     # Setup Galbot embodiment
-    robot_init_position = (-0.1, 0.0, 0.0)
+    robot_init_position = (-0.4, 0.0, -0.5)
     embodiment = GalbotEmbodiment(arm_mode=ArmMode.LEFT)
     embodiment.set_initial_pose(Pose(position_xyz=robot_init_position, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
 
-    scene = Scene(assets=[background, light])
+    # Create scene with kitchen, object, and destination
+    scene = Scene(assets=[background, pick_up_object, destination_location])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="galbot_test",
+        name="galbot_kitchen_test",
         embodiment=embodiment,
         scene=scene,
+        task=PickAndPlaceTask(pick_up_object, destination_location, background),
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
@@ -184,7 +203,82 @@ def test_galbot_observation_config():
     assert result, f"Test {_test_galbot_observation_config.__name__} failed"
 
 
+def _test_galbot_arm_reaches_goal(simulation_app) -> bool:
+    """Test that Galbot's arm can reach a target position."""
+
+    env, _ = get_galbot_test_environment(num_envs=1)
+
+    # Target position relative to the robot base (in reachable workspace)
+    target_position = torch.tensor([0.3, 0.4, 0.3], device="cuda:0")
+    position_tolerance = 0.05  # 5cm tolerance
+
+    try:
+        with torch.inference_mode():
+            # Get ee_frame sensor to track end-effector position
+            ee_frame = env.scene["ee_frame"]
+
+            # Get initial ee position (in world frame, relative to env origin)
+            initial_ee_pos = ee_frame.data.target_pos_w[0, 0, :] - env.scene.env_origins[0]
+            print(f"Initial EE position: {initial_ee_pos.cpu().numpy()}")
+            print(f"Target position: {target_position.cpu().numpy()}")
+
+            # Move towards target incrementally
+            # RMPFlow with use_relative_mode=True expects [dx, dy, dz, dqw, dqx, dqy, dqz, gripper]
+            num_reach_steps = 200
+            for step in range(num_reach_steps):
+                # Get current ee position
+                current_ee_pos = ee_frame.data.target_pos_w[0, 0, :] - env.scene.env_origins[0]
+                remaining_displacement = target_position - current_ee_pos
+
+                # Proportional control: move a fraction of the remaining distance
+                # Scale down to avoid overshooting
+                step_size = 0.1  # Move 10% of remaining distance per step
+                delta = remaining_displacement * step_size
+
+                # Construct action: [arm_action (7D: pos + quat), gripper_action (1D)]
+                action = torch.zeros(env.action_space.shape, device=env.device)
+                action[0, :3] = delta  # Position delta
+                # Keep orientation delta as zeros (maintain current orientation)
+                # Keep gripper action as zero (no change)
+
+                env.step(action)
+
+            # Get final ee position
+            final_ee_pos = ee_frame.data.target_pos_w[0, 0, :] - env.scene.env_origins[0]
+            position_error = torch.norm(final_ee_pos - target_position).item()
+
+            print(f"Final EE position: {final_ee_pos.cpu().numpy()}")
+            print(f"Position error: {position_error:.4f}m")
+
+            assert (
+                position_error < position_tolerance
+            ), f"Arm didn't reach target position. Error: {position_error:.4f}m, tolerance: {position_tolerance}m"
+            print("✓ Galbot arm successfully reached target position")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
+def test_galbot_arm_reaches_goal():
+    """Pytest entry point for Galbot arm reaching goal test."""
+    result = run_simulation_app_function(
+        _test_galbot_arm_reaches_goal,
+        headless=False,
+    )
+    assert result, f"Test {_test_galbot_arm_reaches_goal.__name__} failed"
+
+
 if __name__ == "__main__":
     test_galbot_initial_position()
     test_galbot_action_space()
     test_galbot_observation_config()
+    test_galbot_arm_reaches_goal()
