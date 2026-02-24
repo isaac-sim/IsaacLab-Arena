@@ -37,6 +37,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab.utils import configclass
 
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import (
@@ -145,8 +146,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-            assert False, "Object set is not supported yet due to unresolved prim path of object set. Fix is pending."
-            # TODO(alexmillane, 2026.02.09): Merge fix for this.
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
             pickup_object = RigidObjectSet(name="object_set", objects=objects)
         else:
@@ -198,7 +197,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             "--object",
             type=str,
             default="ranch_dressing_bottle",
-            choices=["sweet_potato", "jug", "ranch_dressing_bottle"],
             help="Object to pick and place",
         )
         parser.add_argument(
