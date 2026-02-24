@@ -196,7 +196,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         parser.add_argument(
             "--object",
             type=str,
-            default="ranch_dressing_bottle",
+            default="ranch_dressing_hope_robolab",
             help="Object to pick and place",
         )
         parser.add_argument(

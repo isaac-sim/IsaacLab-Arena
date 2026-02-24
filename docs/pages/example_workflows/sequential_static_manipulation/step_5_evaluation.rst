@@ -78,7 +78,7 @@ Test the policy in a single environment with visualization via the GUI run:
      --enable_cameras \
      put_item_in_fridge_and_close_door \
      --embodiment gr1_joint \
-     --object ranch_dressing_bottle
+     --object ranch_dressing_bottle_robolab
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -144,7 +144,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --distributed \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object ranch_dressing_bottle
+           --object ranch_dressing_bottle_robolab
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
@@ -196,7 +196,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
          --enable_cameras \
          put_item_in_fridge_and_close_door \
          --embodiment gr1_joint \
-         --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
+         --object_set ketchup_bottle_hope_robolab ranch_dressing_bottle_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -214,7 +214,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --headless \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
+           --object_set ketchup_bottle_hope_robolab ranch_dressing_bottle_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -252,7 +252,7 @@ The evaluation batch can be specified in a config file, with examples shown belo
                "num_envs": 10,
                "enable_cameras": true,
                "environment": "put_item_in_fridge_and_close_door",
-               "object": "ranch_dressing_bottle",
+               "object": "ranch_dressing_bottle_robolab",
                "embodiment": "gr1_joint"
             },
             "num_steps": 500,
