@@ -78,7 +78,7 @@ Test the policy in a single environment with visualization via the GUI run:
      --enable_cameras \
      put_item_in_fridge_and_close_door \
      --embodiment gr1_joint \
-     --object ranching_dressing_bottle
+     --object ranch_dressing_bottle
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -91,16 +91,19 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
 .. tabs::
 
-   .. tab:: Best Quality (OSMO)
+   .. tab:: Best Quality
 
       .. code-block:: text
 
          Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
 
-.. todo::
+   .. tab:: Low Hardware Requirements
 
-   1. Verify evaluation using single-gpu finetune command in the last step.
+      Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.
 
+      .. code-block:: text
+
+         Metrics: Metrics: {'success_rate': 0.75, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,7 +126,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --enable_cameras \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object ranching_dressing_bottle
+           --object ranch_dressing_bottle
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -217,99 +220,104 @@ Each environment has a different object spawned from the object set. The same po
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate for this sequential task, object moved rate for the first subtask,
 and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
-All of them might not be 1.0 as unseen objects are being evaluated and the policy is not trained on them.
 
 .. code-block:: text
 
    Metrics: {'success_rate': 0.8666666666666667, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
 
-Step 4: Batch Evaluation with JSON Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-For more systematic evaluation, you can use the ``eval_runner.py`` script to evaluate the policy in a batch.
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/eval_runner.py --config eval_config.json
-
-This will automatically evaluate the policy in the batch and output the metrics.
+The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
+when evaluated on structurally similar sauce bottles.
+While this represents a slight performance regression compared to the training object,
+it indicates that the model has successfully learned geometric features common to the category rather than
+just over-fitting to a single object mesh.
 
 
-**1. Create Evaluation Configuration**
+Step 4: Sequential Batch Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create a file ``eval_jobs_config.json``:
+A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``eval_runner.py`` script.
+It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
+The evaluation batch can be specified in a config file, with examples shown below.
 
-.. code-block:: json
+.. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.yaml``):
+   :animate: fade-in
 
-   {
-     "jobs": [
-       {
-         "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
-         "arena_env_args": {
-          "enable_cameras": true,
-           "environment": "put_item_in_fridge_and_close_door",
-           "object": "ranch_dressing_bottle",
-           "embodiment": "gr1_joint"
+   .. code-block:: json
+
+      {
+      "jobs": [
+         {
+            "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
+            "arena_env_args": {
+               "num_envs": 10,
+               "enable_cameras": true,
+               "environment": "put_item_in_fridge_and_close_door",
+               "object": "ranch_dressing_bottle",
+               "embodiment": "gr1_joint"
+            },
+            "num_steps": 500,
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_config_dict": {
+            "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
+            "policy_device": "cuda:0"
+            }
          },
-         "num_envs": 10,
-         "num_steps": 500,
-         "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
-         "policy_config_dict": {
-           "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-           "policy_device": "cuda:0"
+         {
+            "name": "gr1_put_jug_in_fridge_and_close_door",
+            "arena_env_args": {
+               "num_envs": 10,
+               "enable_cameras": true,
+               "environment": "put_item_in_fridge_and_close_door",
+               "object": "jug",
+               "embodiment": "gr1_joint"
+            },
+            "num_steps": 500,
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_config_dict": {
+            "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
+            "policy_device": "cuda:0"
+            }
          }
-       },
-       {
-         "name": "gr1_put_mayonnaise_bottle_in_fridge_and_close_door",
-         "arena_env_args": {
-           "enable_cameras": true,
-           "environment": "put_item_in_fridge_and_close_door",
-           "object": "mayonnaise_bottle",
-           "embodiment": "gr1_joint"
-         },
-         "num_envs": 10,
-         "num_steps": 500,
-         "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
-         "policy_config_dict": {
-           "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
-           "policy_device": "cuda:0"
-         }
-       }
-     ]
-   }
+      ]
+      }
 
 Run the batch evaluation:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --config eval_jobs_config.json
+   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.yaml
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
+You should see the following output on the console indicating the jobs and metrics.
 
 .. code-block:: text
 
    +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
    |                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
    +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
-   |   gr1_put_mayonnaise_bottle_in_fridge_and_close_door   | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    1     |    500    |
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
    +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
 
    ======================================================================
    METRICS SUMMARY
    ======================================================================
 
-   gr1_put_mayonnaise_bottle_in_fridge_and_close_door:
-   num_episodes                            1
+   gr1_put_jug_in_fridge_and_close_door:
+   num_episodes                           10
    object_moved_rate_subtask_0        1.0000
    revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [1.0, 1.0]
-   success_rate                       1.0000
+   subtask_success_rate           [0.5, 0.5]
+   success_rate                       0.0000
 
    gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-   num_episodes                            1
+   num_episodes                           10
    object_moved_rate_subtask_0        1.0000
    revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [1.0, 1.0]
-   success_rate                       1.0000
+   subtask_success_rate           [0.9, 0.9]
+   success_rate                       0.8000
    ======================================================================
+
+With the policy trained on using ranch dressing bottle as object of interest,
+the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
+This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.
