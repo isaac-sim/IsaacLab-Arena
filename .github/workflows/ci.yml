@@ -93,7 +93,7 @@ jobs:
   test:
     name: Run tests
     runs-on: [self-hosted, gpu]
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
@@ -129,7 +129,7 @@ jobs:
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
     runs-on: [self-hosted, gpu]
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
