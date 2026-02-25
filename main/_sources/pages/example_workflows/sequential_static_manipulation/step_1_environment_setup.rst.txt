@@ -378,7 +378,7 @@ Replay the downloaded dataset to verify the environment setup:
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" \
      put_item_in_fridge_and_close_door \
-     --object ranch_dressing_bottle_robolab \
+     --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
 
 You should see the GR1 robot replaying the demonstrations, performing the sequential

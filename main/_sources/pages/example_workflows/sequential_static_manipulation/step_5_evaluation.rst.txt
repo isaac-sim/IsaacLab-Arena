@@ -78,7 +78,7 @@ Test the policy in a single environment with visualization via the GUI run:
      --enable_cameras \
      put_item_in_fridge_and_close_door \
      --embodiment gr1_joint \
-     --object ranch_dressing_bottle_robolab
+     --object ranch_dressing_hope_robolab
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -120,13 +120,13 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
 
          python isaaclab_arena/evaluation/policy_runner.py \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
            --num_steps 2000 \
            --num_envs 10 \
            --enable_cameras \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object ranch_dressing_bottle
+           --object ranch_dressing_hope_robolab
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -136,7 +136,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
 
          python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
            --num_steps 2000 \
            --num_envs 10 \
            --enable_cameras \
@@ -144,7 +144,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --distributed \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object ranch_dressing_bottle_robolab
+           --object ranch_dressing_hope_robolab
 
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
@@ -196,7 +196,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
          --enable_cameras \
          put_item_in_fridge_and_close_door \
          --embodiment gr1_joint \
-         --object_set ketchup_bottle_hope_robolab ranch_dressing_bottle_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
+         --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
    .. tab:: Distribute Multi-GPU Evaluation
 
@@ -214,7 +214,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --headless \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object_set ketchup_bottle_hope_robolab ranch_dressing_bottle_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
+           --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
@@ -252,7 +252,7 @@ The evaluation batch can be specified in a config file, with examples shown belo
                "num_envs": 10,
                "enable_cameras": true,
                "environment": "put_item_in_fridge_and_close_door",
-               "object": "ranch_dressing_bottle_robolab",
+               "object": "ranch_dressing_hope_robolab",
                "embodiment": "gr1_joint"
             },
             "num_steps": 500,
@@ -285,19 +285,19 @@ Run the batch evaluation:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.yaml
+   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
 You should see the following output on the console indicating the jobs and metrics.
 
 .. code-block:: text
 
-   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-   |                        Job Name                        |   Status  |                                Policy Type                                | Num Envs | Num Steps |
-   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
-   |          gr1_put_jug_in_fridge_and_close_door          | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy |    10    |    500    |
-   +--------------------------------------------------------+-----------+---------------------------------------------------------------------------+----------+-----------+
+   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
+   | Job Name                                                | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
+   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
+   || gr1_put_jug_in_fridge_and_close_door                   || completed || isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy || 10      || 500      || None        |
+   || gr1_put_ranch_dressing_bottle_in_fridge_and_close_door || completed || isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy || 10      || 500      || None        |
+   +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
 
    ======================================================================
    METRICS SUMMARY
@@ -307,15 +307,15 @@ You should see the following output on the console indicating the jobs and metri
    num_episodes                           10
    object_moved_rate_subtask_0        1.0000
    revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.5, 0.5]
-   success_rate                       0.0000
+   subtask_success_rate           [0.2, 0.2]
+   success_rate                       0.1000
 
    gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
    num_episodes                           10
    object_moved_rate_subtask_0        1.0000
    revolute_joint_moved_rate_subtask_1     1.0000
    subtask_success_rate           [0.9, 0.9]
-   success_rate                       0.8000
+   success_rate                       0.9000
    ======================================================================
 
 With the policy trained on using ranch dressing bottle as object of interest,
