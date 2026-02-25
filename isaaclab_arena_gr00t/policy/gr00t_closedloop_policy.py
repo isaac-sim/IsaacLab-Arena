@@ -14,6 +14,7 @@ from typing import Any
 
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
+from isaaclab_arena.policy.action_chunking import ActionChunkingState
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
@@ -97,16 +98,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
 
-        # Chunking state (local-only logic)
-        self.current_action_chunk = torch.zeros(
-            (self.num_envs, self.policy_config.action_horizon, self.action_dim),
-            dtype=torch.float,
+        # Shared chunking state (unified with remote ActionChunkingClientSidePolicy)
+        self._chunking_state = ActionChunkingState(
+            num_envs=self.num_envs,
+            action_chunk_length=self.action_chunk_length,
+            action_horizon=self.policy_config.action_horizon,
+            action_dim=self.action_dim,
             device=self.device,
+            dtype=torch.float,
         )
-        # Use a bool list to indicate that the action chunk is not yet computed for each env
-        # True means the action chunk is not yet computed, False means the action chunk is valid
-        self.env_requires_new_action_chunk = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
-        self.current_action_index = torch.zeros(self.num_envs, dtype=torch.int32, device=self.device)
 
         # task description of task being evaluated. It will be set by the task being evaluated.
         self.task_description: str | None = None
@@ -177,41 +177,11 @@ class Gr00tClosedloopPolicy(PolicyBase):
         If the action chunk is not yet computed, compute a new action chunk first
         before returning the action.
         """
-        # get action chunk if not yet computed
-        if any(self.env_requires_new_action_chunk):
-            # compute a new action chunk for the envs that require a new action chunk
-            returned_action_chunk = self.get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
-            self.current_action_chunk[self.env_requires_new_action_chunk] = returned_action_chunk[
-                self.env_requires_new_action_chunk
-            ]
-            # reset the action index for those env_ids
-            self.current_action_index[self.env_requires_new_action_chunk] = 0
-            # reset the env_requires_new_action_chunk for those env_ids
-            self.env_requires_new_action_chunk[self.env_requires_new_action_chunk] = False
 
-        # assert for all env_ids that the action index is valid
-        assert self.current_action_index.min() >= 0, "At least one env's action index is less than 0"
-        assert (
-            self.current_action_index.max() < self.action_chunk_length
-        ), "At least one env's action index is greater than the action chunk length"
+        def fetch_chunk() -> torch.Tensor:
+            return self.get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
 
-        # for i-th row in action_chunk, use the value of i-th element in current_action_index to select the action from the action chunk
-        action = self.current_action_chunk[torch.arange(self.num_envs), self.current_action_index]
-        assert action.shape == (
-            self.num_envs,
-            self.action_dim,
-        ), f"{action.shape=} != ({self.num_envs}, {self.action_dim})"
-
-        self.current_action_index += 1
-
-        # for those rows in current_action_chunk that equal to action_chunk_length, reset to o
-        reset_env_ids = self.current_action_index == self.action_chunk_length
-        self.current_action_chunk[reset_env_ids] = 0.0
-        # indicate that the action chunk is not yet computed for those env_ids
-        self.env_requires_new_action_chunk[reset_env_ids] = True
-        # set the action index for those env_ids to -1 to indicate that the action chunk is reset
-        self.current_action_index[reset_env_ids] = -1
-        return action
+        return self._chunking_state.get_action(fetch_chunk)
 
     def get_action_chunk(
         self, observation: dict[str, Any], camera_names: list[str] | str = "robot_head_cam_rgb"
@@ -244,6 +214,4 @@ class Gr00tClosedloopPolicy(PolicyBase):
             env_ids = slice(None)
         # placeholder for future reset options from GR00T repo
         self.policy.reset()
-        self.current_action_chunk[env_ids] = 0.0
-        self.current_action_index[env_ids] = -1
-        self.env_requires_new_action_chunk[env_ids] = True
+        self._chunking_state.reset(env_ids)
