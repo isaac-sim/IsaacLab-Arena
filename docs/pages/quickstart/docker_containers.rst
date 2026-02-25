@@ -78,11 +78,10 @@ A typical workflow is:
       --host 127.0.0.1  \
       --port 5555 \
       --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
-      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
+      --policy_config_yaml_path {policy_config_yaml_path} # e.g. isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
 
 3. Inside the Base container, run the evaluation script with a
-    client-side remote policy (see the static manipulation
-    example workflow for full command lines).
+    client-side remote policy (refer to :doc:`../example_workflows/static_manipulation/step_5_evaluation` for full command lines).
 
 This setup cleanly separates the Isaac Lab Arena simulation
 environment from the GR00T policy server environment.

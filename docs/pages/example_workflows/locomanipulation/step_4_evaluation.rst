@@ -180,6 +180,7 @@ script:
 .. code-block:: bash
 
    bash docker/run_gr00t_server.sh \
+     # include model directory mount via -m flag, e.g. -m /models/
      --host 127.0.0.1 \
      --port 5555 \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
@@ -199,15 +200,12 @@ remote policy:
      --num_steps 1500 \
      --num_envs 5 \
      --enable_cameras \
-     --device cpu \
      --remote_kill_on_exit \
      galileo_g1_locomanip_pick_and_place \
      --object brown_box \
      --embodiment g1_wbc_joint
 
-In this configuration, the environment and evaluation logic run inside
-IsaacLab Arena, while GR00T inference runs in the separate server
-process, connected through the remote policy interface. The client-side
-policy only depends on IsaacLab Arena; it does not require GR00T code
-or GR00T-specific Python dependencies to be installed in the Arena
-container.
+With this setup, the environment and evaluation run in the base container,
+and GR00T inference runs in a separate server process, connected via the
+remote policy interface. The client-side policy depends only on Isaac Lab
+Arena; the base container does not need GR00T or its Python dependencies.

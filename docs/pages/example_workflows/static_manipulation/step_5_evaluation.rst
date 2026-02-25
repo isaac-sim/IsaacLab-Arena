@@ -99,7 +99,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
          Metrics: {'success_rate': 1.0, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 19}
 
 
-Step 2: Run Parallel environments Evaluation
+Step 2: Run Parallel Environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
@@ -165,7 +165,7 @@ than the single environment evaluation because of the parallel evaluation.
    ``gr1_joint`` for closed-loop policy inference.
 
 
-Step 3: Remote policy evaluation
+Step 3: Remote Policy Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The same task can also be evaluated using a remote policy running in a
@@ -178,6 +178,7 @@ separate terminal using the provided helper script:
 .. code-block:: bash
 
    bash docker/run_gr00t_server.sh \
+     # include model directory mount via -m flag, e.g. -m /models/
      --host 127.0.0.1 \
      --port 5555 \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
@@ -203,9 +204,7 @@ policy:
      gr1_open_microwave \
      --embodiment gr1_joint
 
-In this configuration, the environment and evaluation logic run inside
-Isaac Lab Arena, while GR00T inference runs in the separate server
-process, connected through the remote policy interface. The client-side
-policy only depends on Isaac Lab Arena; it does not require GR00T code
-or GR00T-specific Python dependencies to be installed in the Arena
-container.
+With this setup, the environment and evaluation run in the base container,
+and GR00T inference runs in a separate server process, connected via the
+remote policy interface. The client-side policy depends only on Isaac Lab
+Arena; the base container does not need GR00T or its Python dependencies.
