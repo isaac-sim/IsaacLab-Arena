@@ -41,6 +41,9 @@ RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
+
+# during IsaacLab install. We install here with build isolation which seems to fix the issue.
+RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
