@@ -74,7 +74,7 @@ Usage Examples
       .. code-block:: bash
 
          # Zero action policy for environment validation
-         python policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000
+         python policy_runner.py --policy_type zero_action --num_steps 1000 kitchen_pick_and_place
 
    .. tab:: Distribute Multi-GPU
 
@@ -82,7 +82,7 @@ Usage Examples
 
          # Zero action policy for environment validation
          # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type zero_action kitchen_pick_and_place --num_steps 1000 --distributed --headless
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 policy_runner.py --policy_type zero_action --num_steps 1000 kitchen_pick_and_place --distributed --headless
 
 **Demonstration Replay**
 
