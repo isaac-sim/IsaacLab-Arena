@@ -22,7 +22,7 @@
         "enable_cameras": true,
         "num_envs": 10,
         "environment": "put_item_in_fridge_and_close_door",
-        "object": "ranch_dressing_bottle",
+        "object": "ranch_dressing_hope_robolab",
         "embodiment": "gr1_joint"
       },
       "num_steps": 500,
