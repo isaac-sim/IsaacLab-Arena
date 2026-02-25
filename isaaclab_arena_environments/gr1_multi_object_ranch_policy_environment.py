@@ -14,13 +14,18 @@ spot so the pick object is solver-placed (e.g. ranch bottle in a random position
 
 import argparse
 import math
+import random
 
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# Nominal position for the target object. Distractors are placed by the relation solver.
+# Nominal position for the object at the fixed slot (anchor). Distractors are placed by the relation solver.
 TARGET_OBJECT_X = 4.05
 TARGET_OBJECT_Y = -0.58
+
+# When the pick object is not at the fixed slot: sample random (x, y) in this range, then use AtPosition(x, y) + straight-up pose to constrain the bottle; distractors use NoCollision as before. Kept away from (TARGET_OBJECT_X, TARGET_OBJECT_Y) to avoid overlap.
+PICK_OBJECT_RANDOM_X_RANGE = (3.85, 3.98)
+PICK_OBJECT_RANDOM_Y_RANGE = (-0.50, -0.28)
 
 # Default distractors when running the ranch bottle policy in a multi-object scene.
 DEFAULT_DISTRACTOR_OBJECTS = ["cracker_box", "tomato_soup_can"]
@@ -49,9 +54,11 @@ class GR1MultiObjectRanchPolicyEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import (
+            AtPosition,
             IsAnchor,
             NoCollision,
             On,
+            RotateAroundSolution,
         )
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
@@ -150,35 +157,58 @@ class GR1MultiObjectRanchPolicyEnvironment(ExampleEnvironmentBase):
             parent_asset=kitchen_background,
         )
 
-        target_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        # Optional: object at fixed position (anchor). Defaults to same as --object so previous behavior is unchanged.
+        object_at_fixed_name = getattr(args_cli, "object_at_fixed_position", args_cli.object)
+        pick_object_name = args_cli.object
         counter_top_z = kitchen_counter_top.get_world_bounding_box().max_point[2]
-        target_bbox = target_object.get_bounding_box()
-        clearance = 0.01
-        target_z = counter_top_z + clearance - target_bbox.min_point[2]
         yaw_rad = math.radians(-111.55)
         yaw_quat_wxyz = (math.cos(yaw_rad / 2), 0.0, 0.0, math.sin(yaw_rad / 2))
-        target_object.set_initial_pose(
+        clearance = 0.01
+
+        # Object at fixed position (anchor). When same as pick object, this is the original behavior.
+        fixed_position_object = self.asset_registry.get_asset_by_name(object_at_fixed_name)()
+        fixed_bbox = fixed_position_object.get_bounding_box()
+        fixed_z = counter_top_z + clearance - fixed_bbox.min_point[2]
+        fixed_position_object.set_initial_pose(
             Pose(
-                position_xyz=(TARGET_OBJECT_X, TARGET_OBJECT_Y, target_z),
+                position_xyz=(TARGET_OBJECT_X, TARGET_OBJECT_Y, fixed_z),
                 rotation_wxyz=yaw_quat_wxyz,
             )
         )
-        target_object.add_relation(IsAnchor())
-        target_object.add_relation(On(kitchen_counter_top))
+        fixed_position_object.add_relation(IsAnchor())
+        fixed_position_object.add_relation(On(kitchen_counter_top))
         for ref in counter_accessory_refs:
-            target_object.add_relation(NoCollision(ref))
+            fixed_position_object.add_relation(NoCollision(ref))
+
+        # Pick object: same as fixed (original behavior) or random (x, y) then AtPosition + straight-up pose when different. Target object has AtPosition (one position per run); distractors are solver-placed with NoCollision.
+        if pick_object_name == object_at_fixed_name:
+            pick_object = fixed_position_object
+            solver_placed_objects = []
+        else:
+            pick_random_x = random.uniform(*PICK_OBJECT_RANDOM_X_RANGE)
+            pick_random_y = random.uniform(*PICK_OBJECT_RANDOM_Y_RANGE)
+            pick_object = self.asset_registry.get_asset_by_name(pick_object_name)()
+            pick_object.add_relation(On(kitchen_counter_top))
+            pick_object.add_relation(AtPosition(x=pick_random_x, y=pick_random_y))
+            pick_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+            for ref in counter_accessory_refs:
+                pick_object.add_relation(NoCollision(ref))
+            fixed_position_object.add_relation(NoCollision(pick_object))
+            solver_placed_objects = [pick_object]
 
         distractor_names = args_cli.distractor_objects if args_cli.distractor_objects is not None else DEFAULT_DISTRACTOR_OBJECTS
-        distractor_objects = []
         for name in distractor_names:
+            if name == pick_object_name or name == object_at_fixed_name:
+                continue
             obj = self.asset_registry.get_asset_by_name(name)()
             obj.add_relation(On(kitchen_counter_top))
             for ref in counter_accessory_refs:
                 obj.add_relation(NoCollision(ref))
-            target_object.add_relation(NoCollision(obj))
-            distractor_objects.append(obj)
-        for i, obj_a in enumerate(distractor_objects):
-            for obj_b in distractor_objects[i + 1 :]:
+            fixed_position_object.add_relation(NoCollision(obj))
+            pick_object.add_relation(NoCollision(obj))
+            solver_placed_objects.append(obj)
+        for i, obj_a in enumerate(solver_placed_objects):
+            for obj_b in solver_placed_objects[i + 1 :]:
                 obj_a.add_relation(NoCollision(obj_b))
 
         scene = Scene(
@@ -186,8 +216,8 @@ class GR1MultiObjectRanchPolicyEnvironment(ExampleEnvironmentBase):
                 kitchen_background,
                 kitchen_counter_top,
                 *counter_accessory_refs,
-                target_object,
-                *distractor_objects,
+                fixed_position_object,
+                *solver_placed_objects,
                 light,
                 refrigerator,
                 refrigerator_shelf,
@@ -195,7 +225,7 @@ class GR1MultiObjectRanchPolicyEnvironment(ExampleEnvironmentBase):
         )
 
         pick_and_place_task = PickAndPlaceTask(
-            pick_up_object=target_object,
+            pick_up_object=pick_object,
             destination_object=refrigerator,
             destination_location=refrigerator_shelf,
             background_scene=kitchen_background,

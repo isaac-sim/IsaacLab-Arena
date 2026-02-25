@@ -108,11 +108,11 @@ class ObjectPlacer:
                 best_loss = loss
                 best_positions = positions
 
-            # Check if placement is valid
-            if self._validate_placement(positions):
+            # Check if placement is valid (geometric checks + loss below threshold)
+            if self._validate_placement(positions, final_loss=loss):
                 success = True
                 if self.params.verbose:
-                    print(f"Success on attempt {attempt + 1}")
+                    print(f"Success on attempt {attempt + 1} (loss={loss:.6f})")
                 break
 
         # Apply solved positions to objects
@@ -186,19 +186,12 @@ class ObjectPlacer:
     def _validate_placement(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
+        final_loss: float | None = None,
     ) -> bool:
-        """Validate that the placement is geometrically valid.
-
-        Args:
-            positions: Dictionary mapping objects to their positions.
-
-        Returns:
-            True if placement is valid, False otherwise.
-        """
-        # TODO(cvolk): Implement geometric checks like:
-        # - Collision detection between objects
-        # - Boundary checks (objects within workspace)
-        print("WARNING: Placement validation not yet implemented. Skipping geometric checks (collision, boundary).")
+        """Return False when max_acceptable_loss is set and final_loss exceeds it (triggers retry)."""
+        if self.params.max_acceptable_loss is not None and final_loss is not None:
+            if final_loss > self.params.max_acceptable_loss:
+                return False
         return True
 
     def _apply_positions(

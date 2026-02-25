@@ -121,7 +121,15 @@ class NoCollision(Relation):
     """Represents a 'no collision' relationship between two objects.
 
     This relation specifies that the child and parent bounding boxes must not overlap.
+    Optionally enforces a minimum separation (margin) so solutions stay clear of contact.
     Adding NoCollision on one side is enough; the solver counts each unordered pair once.
+
+    How min_separation_m works:
+    - min_separation_m=0 (default): loss is zero when the two AABBs do not overlap.
+    - min_separation_m > 0 (e.g. 0.02): loss is zero only when the gap is at least
+      that many meters in the horizontal plane (X and Y). Vertical (Z) is always
+      no-overlap only (no minimum gap), so objects on a table can sit at the same
+      height; only horizontal separation is enforced.
 
     Note: Loss computation is handled by NoCollisionLossStrategy in relation_loss_strategies.py.
     """
@@ -130,13 +138,18 @@ class NoCollision(Relation):
         self,
         parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
+        min_separation_m: float = 0.0,
     ):
         """
         Args:
             parent: The other object that this object must not collide with.
             relation_loss_weight: Weight for the relationship loss function.
+            min_separation_m: Minimum gap in meters in the horizontal plane (X,Y) only (default 0).
+                Z is no-overlap only. Use e.g. 0.02 for a 2 cm horizontal gap on a table.
         """
         super().__init__(parent, relation_loss_weight)
+        assert min_separation_m >= 0.0, f"min_separation_m must be non-negative, got {min_separation_m}"
+        self.min_separation_m = min_separation_m
 
 
 class IsAnchor(RelationBase):

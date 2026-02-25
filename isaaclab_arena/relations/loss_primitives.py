@@ -129,25 +129,34 @@ def interval_overlap_axis_loss(
     a_max: torch.Tensor,
     b_min: torch.Tensor,
     b_max: torch.Tensor,
+    slope: float = 1.0,
 ) -> torch.Tensor:
-    """ReLU-style interval overlap: zero when separated, linear in overlap length otherwise.
-
-    Computes the intersection length of two intervals [a_min, a_max] and
-    [b_min, b_max] on one axis. Unbounded and differentiable for optimization.
-
-    Args:
-        a_min: First interval minimum on this axis (tensor for gradient flow).
-        a_max: First interval maximum on this axis.
-        b_min: Second interval minimum on this axis.
-        b_max: Second interval maximum on this axis.
-
-    Returns:
-        Loss value (unbounded):
-        - 0 when the two intervals do not overlap
-        - overlap length (min(a_max, b_max) - max(a_min, b_min)) when they overlap
-    """
+    """ReLU-style interval overlap: zero when separated, slope * overlap length otherwise."""
     overlap_high = torch.minimum(a_max, b_max)
     overlap_low = torch.maximum(a_min, b_min)
     return single_boundary_linear_loss(
-        overlap_high, overlap_low, slope=1.0, penalty_side="greater"
+        overlap_high, overlap_low, slope=slope, penalty_side="greater"
+    )
+
+
+def minimum_distance_xy_loss(
+    center_a_x: torch.Tensor,
+    center_a_y: torch.Tensor,
+    center_b_x: torch.Tensor,
+    center_b_y: torch.Tensor,
+    min_distance: float | torch.Tensor,
+    slope: float = 1.0,
+    eps: float = 1e-8,
+) -> torch.Tensor:
+    """Zero when distance_xy >= min_distance; else slope * (min_distance - distance_xy)."""
+    dx = center_b_x - center_a_x
+    dy = center_b_y - center_a_y
+    dist_sq = dx * dx + dy * dy
+    distance = torch.sqrt(dist_sq + eps)
+    if not isinstance(min_distance, torch.Tensor):
+        min_distance = torch.tensor(
+            min_distance, dtype=center_a_x.dtype, device=center_a_x.device
+        )
+    return single_boundary_linear_loss(
+        distance, min_distance, slope=slope, penalty_side="less"
     )

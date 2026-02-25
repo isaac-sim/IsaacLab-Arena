@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.loss_primitives import (
     interval_overlap_axis_loss,
     linear_band_loss,
+    minimum_distance_xy_loss,
     single_boundary_linear_loss,
     single_point_linear_loss,
 )
@@ -307,21 +308,18 @@ class OnLossStrategy(RelationLossStrategy):
 
 
 
+def _half_diagonal_xy(min_pt: tuple[float, float, float], max_pt: tuple[float, float, float]) -> float:
+    """Half-diagonal of XY rectangle (bounding-circle radius for any Z rotation)."""
+    w, h = max_pt[0] - min_pt[0], max_pt[1] - min_pt[1]
+    return 0.5 * (w * w + h * h) ** 0.5
+
+
 class NoCollisionLossStrategy(RelationLossStrategy):
-    """Loss strategy for NoCollision relations.
+    """NoCollision with rotation-invariant XY (bounding-circle distance) and Z interval overlap."""
 
-    Computes loss based on overlap volume: loss is zero when the two bounding
-    boxes are separated on any axis; when they overlap on all three axes, loss
-    is proportional to the overlap volume (product of per-axis overlap lengths).
-    """
-
-    def __init__(self, slope: float = 10.0, debug: bool = False):
-        """
-        Args:
-            slope: Scale for overlap volume loss (default: 10.0).
-            debug: If True, print overlap components and total loss.
-        """
+    def __init__(self, slope: float = 100.0, overlap_axis_slope: float = 5.0, debug: bool = False):
         self.slope = slope
+        self.overlap_axis_slope = overlap_axis_slope
         self.debug = debug
 
     def compute_loss(
@@ -331,62 +329,33 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for NoCollision relation.
+        dtype, device = child_pos.dtype, child_pos.device
+        p_min = torch.tensor(parent_world_bbox.min_point, dtype=dtype, device=device)
+        p_max = torch.tensor(parent_world_bbox.max_point, dtype=dtype, device=device)
 
-        Args:
-            relation: NoCollision relation.
-            child_pos: Child object position tensor (x, y, z) in world coords.
-            child_bbox: Child object local bounding box.
-            parent_world_bbox: Parent bounding box in world coordinates.
-
-        Returns:
-            Weighted loss tensor.
-        """
-        # Parent world-space extents (tensors for gradient flow in overlap primitives)
-        parent_x_min = torch.tensor(
-            parent_world_bbox.min_point[0], dtype=child_pos.dtype, device=child_pos.device
-        )
-        parent_x_max = torch.tensor(
-            parent_world_bbox.max_point[0], dtype=child_pos.dtype, device=child_pos.device
-        )
-        parent_y_min = torch.tensor(
-            parent_world_bbox.min_point[1], dtype=child_pos.dtype, device=child_pos.device
-        )
-        parent_y_max = torch.tensor(
-            parent_world_bbox.max_point[1], dtype=child_pos.dtype, device=child_pos.device
-        )
-        parent_z_min = torch.tensor(
-            parent_world_bbox.min_point[2], dtype=child_pos.dtype, device=child_pos.device
-        )
-        parent_z_max = torch.tensor(
-            parent_world_bbox.max_point[2], dtype=child_pos.dtype, device=child_pos.device
-        )
-
-        # Child world-space extents (position is min-corner of bbox)
-        child_x_min = child_pos[0] + child_bbox.min_point[0]
-        child_x_max = child_pos[0] + child_bbox.max_point[0]
-        child_y_min = child_pos[1] + child_bbox.min_point[1]
-        child_y_max = child_pos[1] + child_bbox.max_point[1]
         child_z_min = child_pos[2] + child_bbox.min_point[2]
         child_z_max = child_pos[2] + child_bbox.max_point[2]
+        overlap_z = interval_overlap_axis_loss(
+            child_z_min, child_z_max, p_min[2], p_max[2], slope=self.overlap_axis_slope
+        )
 
-        # 1. Per-axis overlap length (0 when separated on that axis)
-        overlap_x = interval_overlap_axis_loss(child_x_min, child_x_max, parent_x_min, parent_x_max)
-        overlap_y = interval_overlap_axis_loss(child_y_min, child_y_max, parent_y_min, parent_y_max)
-        overlap_z = interval_overlap_axis_loss(child_z_min, child_z_max, parent_z_min, parent_z_max)
+        c_center = torch.tensor(child_bbox.center[:2], dtype=dtype, device=device)
+        child_cx = child_pos[0] + c_center[0]
+        child_cy = child_pos[1] + c_center[1]
+        parent_cx = (p_min[0] + p_max[0]) * 0.5
+        parent_cy = (p_min[1] + p_max[1]) * 0.5
+        margin = getattr(relation, "min_separation_m", 0.0)
+        min_dist = _half_diagonal_xy(child_bbox.min_point, child_bbox.max_point) + _half_diagonal_xy(
+            parent_world_bbox.min_point, parent_world_bbox.max_point
+        ) + margin
+        xy_violation = minimum_distance_xy_loss(
+            child_cx, child_cy, parent_cx, parent_cy, min_dist, slope=self.overlap_axis_slope
+        )
 
-        # 2. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
-        overlap_volume = overlap_x * overlap_y * overlap_z
-        total_loss = self.slope * overlap_volume
-
+        loss = self.slope * overlap_z * xy_violation
         if self.debug:
-            print(
-                f"    [NoCollision] overlap_x={overlap_x.item():.6f}, overlap_y={overlap_y.item():.6f},"
-                f" overlap_z={overlap_z.item():.6f}, volume={overlap_volume.item():.6f},"
-                f" loss={total_loss.item():.6f}"
-            )
-
-        return relation.relation_loss_weight * total_loss
+            print(f"    [NoCollision] xy_viol={xy_violation.item():.4f} overlap_z={overlap_z.item():.4f} loss={loss.item():.4f}")
+        return relation.relation_loss_weight * loss
 
 
 
