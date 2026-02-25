@@ -120,7 +120,7 @@ Usage Examples
 
          # GR00T foundation model deployment
          # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=1 isaaclab_arena/evaluation/policy_runner.py --distributed --headless --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml <your_isaaclab_arena_environment>
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py --distributed --headless --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml <your_isaaclab_arena_environment>
 
 **Custom Policy Integration**
 
