@@ -29,7 +29,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("maple_table_background")()
+        background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
 
         table_reference = ObjectReference(
             name="table",
