@@ -358,9 +358,9 @@ remote policy:
      put_item_in_fridge_and_close_door \
      --embodiment gr1_joint \
      # If you want to evaluate on a single object, you can specify it here
-     --object ranch_dressing_bottle
+     --object ranch_dressing_hope_robolab
      # If you want to evaluate among multiple objects following heterogeneous evaluation, you can specify it here
-     # --object_set ketchup_bottle ranch_dressing_bottle bbq_sauce_bottle mayonnaise_bottle
+     # --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
 With this setup, the environment and evaluation run in the base container,
 and GR00T inference runs in a separate server process, connected via the
