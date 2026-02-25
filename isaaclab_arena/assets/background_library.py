@@ -8,7 +8,6 @@ from typing import Any
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
-from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -164,17 +163,18 @@ class LightwheelKitchenBackground(LibraryBackground):
 
 
 @register_asset
-class RubiksCubeBowlBackgroundSRL(LibraryBackground):
+class MapleTableRobolab(LibraryBackground):
     """
-    A rubiks cube bowl background.
+    A maple table background from the Robolab assets.
     """
 
-    name = "rubiks_cube_bowl_srl"
-    tags = ["background"]
-
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/rubiks_cube_bowl.usda"
-    )
+    name = "maple_table_robolab"
+    tags = ["background", "robolab"]
+    # TODO(cvolk): Remove before merging.(Once staging area is updated and usd_path below works.)
+    usd_path = "/datasets/robolab/assets/scenes/maple_table_background.usda"
+    # usd_path = (
+    #    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table_background.usda"
+    # )
     object_min_z = -0.05
     spawn_cfg_addon = {"activate_contact_sensors": True}
 
