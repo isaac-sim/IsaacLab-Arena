@@ -61,6 +61,10 @@ class TaskBase(ABC):
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg()
 
+    def skip_scene_relation_solving(self) -> bool:
+        """If True, the env builder will not run the placer; the task handles layout (e.g. precomputed)."""
+        return False
+
     def get_episode_length_s(self) -> float | None:
         return self.episode_length_s
 

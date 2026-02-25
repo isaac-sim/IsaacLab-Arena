@@ -201,9 +201,6 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
     def load_policy(self) -> Gr00tPolicy:
         """Load the dataset, whose iterator will be used as the policy."""
-        assert Path(
-            self.policy_config.model_path
-        ).exists(), f"Dataset path {self.policy_config.dataset_path} does not exist"
 
         return Gr00tPolicy(
             model_path=self.policy_config.model_path,
@@ -219,17 +216,21 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.task_description = task_description
         return self.task_description
 
-    def get_observations(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> dict[str, Any]:
+    def get_observations(
+        self, observation: dict[str, Any], camera_names: list[str] = ["robot_head_cam_rgb"]
+    ) -> dict[str, Any]:
         assert "camera_obs" in observation, "camera_obs is not in observation"
-        assert camera_name in observation["camera_obs"], f"camera_name {camera_name} is not in camera_obs"
-        rgb = observation["camera_obs"][camera_name]
-        # gr00t uses numpy arrays
-        rgb = rgb.cpu().numpy()
-        # Apply preprocessing to rgb if size is not the same as the target size
-        if rgb.shape[1:3] != self.policy_config.target_image_size[:2]:
-            rgb = resize_frames_with_padding(
-                rgb, target_image_size=self.policy_config.target_image_size, bgr_conversion=False, pad_img=True
-            )
+        rgb_list = []
+        for camera_name in camera_names:
+            assert camera_name in observation["camera_obs"], f"camera_name {camera_name} is not in camera_obs"
+            # gr00t uses numpy arrays
+            rgb = observation["camera_obs"][camera_name].cpu().numpy()
+            # Apply preprocessing to rgb if size is not the same as the target size
+            if rgb.shape[1:3] != self.policy_config.target_image_size[:2]:
+                rgb = resize_frames_with_padding(
+                    rgb, target_image_size=self.policy_config.target_image_size, bgr_conversion=False, pad_img=False
+                )
+            rgb_list.append(rgb)
         # GR00T uses np arrays, needs to copy torch tensor from gpu to cpu before conversion
         joint_pos_sim = observation["policy"]["robot_joint_pos"].cpu()
         joint_pos_state_sim = JointsAbsPosition(joint_pos_sim, self.robot_state_joints_config)
@@ -241,19 +242,20 @@ class Gr00tClosedloopPolicy(PolicyBase):
 
         # Dynamically construct policy observations using modality config keys
         # TODO(xinejiayao, 2025-12-10): when multi-task with parallel envs feature is enabled, we need to pass in a list of task descriptions.
+        assert len(self.video_keys) == len(rgb_list), "number of video keys and rgb list must be the same"
         policy_observations = {
             "language": {self.language_keys[0]: [[self.task_description] for _ in range(self.num_envs)]},
-            "video": {
-                self.video_keys[0]: rgb.reshape(
-                    self.num_envs,
-                    1,
-                    self.policy_config.target_image_size[0],
-                    self.policy_config.target_image_size[1],
-                    self.policy_config.target_image_size[2],
-                )
-            },
+            "video": {},
             "state": {},
         }
+        for i, video_key in enumerate(self.video_keys):
+            policy_observations["video"][video_key] = rgb_list[i].reshape(
+                self.num_envs,
+                1,
+                self.policy_config.target_image_size[0],
+                self.policy_config.target_image_size[1],
+                self.policy_config.target_image_size[2],
+            )
 
         # Dynamically populate state keys from modality config
         for state_key in self.state_keys:
@@ -307,7 +309,9 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.current_action_index[reset_env_ids] = -1
         return action
 
-    def get_action_chunk(self, observation: dict[str, Any], camera_name: str = "robot_head_cam_rgb") -> torch.Tensor:
+    def get_action_chunk(
+        self, observation: dict[str, Any], camera_names: list[str] = ["robot_head_cam_rgb"]
+    ) -> torch.Tensor:
         """Get a sequence of multiple future low-level actions that the policy predicts and outputs
         in a single forward pass, given the current observation and language instruction.
 
@@ -315,11 +319,15 @@ class Gr00tClosedloopPolicy(PolicyBase):
             action_chunk: a sequence of multiple future low-level actions.
             Shape: (num_envs, action_chunk_length, self.action_dim)
         """
-        policy_observations = self.get_observations(observation, camera_name)
+        policy_observations = self.get_observations(observation, camera_names)
         robot_action_policy, _ = self.policy.get_action(policy_observations)
 
         robot_action_sim = remap_policy_joints_to_sim_joints(
-            robot_action_policy, self.policy_joints_config, self.robot_action_joints_config, self.device
+            robot_action_policy,
+            self.policy_joints_config,
+            self.robot_action_joints_config,
+            self.device,
+            embodiment_tag=self.policy_config.embodiment_tag,
         )
 
         if self.task_mode == TaskMode.G1_LOCOMANIPULATION:
@@ -337,7 +345,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
                 ],
                 axis=2,
             )
-        elif self.task_mode == TaskMode.GR1_TABLETOP_MANIPULATION:
+        elif self.task_mode == TaskMode.GR1_TABLETOP_MANIPULATION or self.task_mode == TaskMode.DROID_MANIPULATION:
             action_tensor = robot_action_sim.get_joints_pos()
         else:
             raise ValueError(f"Unsupported task mode: {self.task_mode}")

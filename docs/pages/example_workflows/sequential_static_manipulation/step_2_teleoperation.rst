@@ -69,7 +69,7 @@ Run the recording script:
      --num_demos 10 \
      --num_success_steps 10 \
      put_item_in_fridge_and_close_door \
-     --object ranch_dressing_bottle \
+     --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink \
      --teleop_device openxr
 

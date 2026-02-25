@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -103,17 +103,19 @@ class ObjectPlacer:
             if self.params.verbose:
                 print(f"Attempt {attempt + 1}/{self.params.max_placement_attempts}: loss = {loss:.6f}")
 
-            # Track best result
+            # Check if placement is valid
+            if self._validate_placement(positions):
+                best_loss = loss
+                best_positions = positions
+                success = True
+                if self.params.verbose:
+                    print(f"Success on attempt {attempt + 1}")
+                break
+
+            # Track best invalid result as fallback
             if loss < best_loss:
                 best_loss = loss
                 best_positions = positions
-
-            # Check if placement is valid (geometric checks + loss below threshold)
-            if self._validate_placement(positions, final_loss=loss):
-                success = True
-                if self.params.verbose:
-                    print(f"Success on attempt {attempt + 1} (loss={loss:.6f})")
-                break
 
         # Apply solved positions to objects
         if self.params.apply_positions_to_objects:
@@ -186,13 +188,51 @@ class ObjectPlacer:
     def _validate_placement(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
-        final_loss: float | None = None,
     ) -> bool:
-        """Return False when max_acceptable_loss is set and final_loss exceeds it (triggers retry)."""
-        if self.params.max_acceptable_loss is not None and final_loss is not None:
-            if final_loss > self.params.max_acceptable_loss:
-                return False
+        """Validate that no two objects overlap in the XY plane.
+
+        Checks all object pairs for axis-aligned bounding box overlap in the XY
+        (top-down) projection. Pairs connected by an On() relation are skipped
+        because the child is intentionally within the parent's XY footprint.
+
+        Args:
+            positions: Dictionary mapping objects to their solved (x, y, z) positions.
+
+        Returns:
+            True if no forbidden overlaps exist, False otherwise.
+        """
+        on_pairs = self._collect_on_pairs(positions)
+
+        objects = list(positions.keys())
+        for i in range(len(objects)):
+            for j in range(i + 1, len(objects)):
+                a, b = objects[i], objects[j]
+                if frozenset((a, b)) in on_pairs:
+                    continue
+
+                a_world = a.get_bounding_box().translated(positions[a])
+                b_world = b.get_bounding_box().translated(positions[b])
+
+                if a_world.overlaps_xy(b_world, margin=self.params.min_separation_xy_m):
+                    if self.params.verbose:
+                        print(f"  XY overlap between '{a.name}' and '{b.name}'")
+                    else:
+                        print(f"  _validate_placement: XY overlap '{a.name}' vs '{b.name}' (retrying)")
+                    return False
+
         return True
+
+    @staticmethod
+    def _collect_on_pairs(
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> set[frozenset]:
+        """Build the set of On()-parent-child pairs to exclude from overlap checks."""
+        pairs: set[frozenset] = set()
+        for obj in positions:
+            for rel in obj.get_relations():
+                if isinstance(rel, On):
+                    pairs.add(frozenset((obj, rel.parent)))
+        return pairs
 
     def _apply_positions(
         self,

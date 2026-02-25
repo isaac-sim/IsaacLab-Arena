@@ -32,10 +32,10 @@ from isaaclab.utils.configclass import MISSING
 from isaaclab.managers import EventTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.relations.apply_layout import apply_layout_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.apply_layout import apply_layout_per_env
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -72,7 +72,7 @@ class TableMultiObjectLayoutTask(TaskBase):
     """Task that precomputes one layout per env (On + NoCollision) and applies it at reset.
 
     NoCollision uses rotation-invariant XY (bounding-circle distance) so random yaw
-    at apply time stays safe. One layout per env (different seeds) for variety.
+    at apply time stays safe. Builder does not run the placer (skip_scene_relation_solving).
     """
 
     name = "table_multi_object_layout"
@@ -88,9 +88,6 @@ class TableMultiObjectLayoutTask(TaskBase):
         solver_params = RelationSolverParams(verbose=True, max_iters=600)
         self._layouts = []
         print(f"[TableMultiObjectLayoutTask] Precomputing {num_envs} table layouts (rotation-invariant NoCollision)...")
-        # Accept layout when loss <= this. Solver stops early at good_enough_loss=1.0,
-        # so accept placements that meet that (constraints "good enough").
-        max_acceptable_loss = 1.0
         for seed in range(num_envs):
             params_seed = ObjectPlacerParams(
                 apply_positions_to_objects=False,
@@ -98,7 +95,7 @@ class TableMultiObjectLayoutTask(TaskBase):
                 max_placement_attempts=20,
                 solver_params=solver_params,
                 verbose=False,
-                max_acceptable_loss=max_acceptable_loss,
+                min_separation_xy_m=0.05,
             )
             placer_seed = ObjectPlacer(params=params_seed)
             result = placer_seed.place(objects=objects_with_relations)
@@ -116,6 +113,9 @@ class TableMultiObjectLayoutTask(TaskBase):
 
     def get_termination_cfg(self) -> Any:
         return None
+
+    def skip_scene_relation_solving(self) -> bool:
+        return True
 
     def get_events_cfg(self) -> TableLayoutEventCfg:
         return self._events_cfg

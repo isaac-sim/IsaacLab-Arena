@@ -8,6 +8,7 @@ from typing import Any
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
+from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -159,4 +160,23 @@ class LightwheelKitchenBackground(LibraryBackground):
                 scene="robocasakitchen", layout_id=layout_id, style_id=style_id, backend="robocasa"
             )[0]
         )
+        super().__init__()
+
+
+@register_asset
+class RubiksCubeBowlBackgroundSRL(LibraryBackground):
+    """
+    A rubiks cube bowl background.
+    """
+
+    name = "rubiks_cube_bowl_srl"
+    tags = ["background"]
+
+    usd_path = (
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/rubiks_cube_bowl.usda"
+    )
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+    def __init__(self):
         super().__init__()

@@ -16,7 +16,7 @@ Once inside the container, set the models directory if you plan to download pre-
     mkdir -p $MODELS_DIR
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_2_policy_training>` and have a trained checkpoint available,
+:doc:`preceding step (Policy Training)   <step_2_policy_training>` and have a trained checkpoint available,
 or you can download a pre-trained checkpoint as described below.
 
 .. dropdown:: Download Pre-trained Model (skip preceding steps)
@@ -228,7 +228,7 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --config eval_config.json
+   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config eval_config.json
 
 This will automatically evaluate all checkpoints listed in the configuration and output
 a summary of metrics for each.

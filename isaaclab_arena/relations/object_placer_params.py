@@ -25,9 +25,6 @@ class ObjectPlacerParams:
     max_placement_attempts: int = 5
     """Maximum number of placement attempts (random init + solve + validate) before failure."""
 
-    max_acceptable_loss: float | None = None
-    """If set, placement is valid only when final loss <= this value; otherwise placer retries."""
-
     apply_positions_to_objects: bool = True
     """If True, automatically set solved positions on objects after placement."""
 
@@ -36,3 +33,8 @@ class ObjectPlacerParams:
 
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
+
+    min_separation_xy_m: float = 0.0
+    """Minimum XY separation (meters) required between non-On-parent object pairs.
+    Set to 0.0 to only reject actual overlaps. A small positive value (e.g. 0.005)
+    adds a safety margin between objects."""

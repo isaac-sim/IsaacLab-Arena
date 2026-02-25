@@ -117,7 +117,10 @@ class ArenaEnvBuilder:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
         # Solve relations before building scene config so positions are captured correctly.
-        if self.args.solve_relations:
+        # Skip if the task handles layout itself (e.g. precomputed per-env layouts).
+        if self.args.solve_relations and not (
+            self.arena_env.task is not None and self.arena_env.task.skip_scene_relation_solving()
+        ):
             self._solve_relations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
