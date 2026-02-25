@@ -33,7 +33,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
 
         table_reference = ObjectReference(
             name="table",
-            prim_path="{ENV_REGEX_NS}/maple_table_background/table",
+            prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
