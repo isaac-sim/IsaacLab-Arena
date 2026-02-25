@@ -7,7 +7,7 @@
 ######## From Neel: This script is an example of how to use the curobo planner to pick and place objects.
 ######## It is not a complete pick and place policy, but it is a good starting point
 
-# can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.03 --approach_distance 0.15 --retreat_disnce 0.1 --debug_planner --pick_order tomato_soup_can sugar_box --grasp_orientation object_yaw --post_place_clearance 0.0
+# can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.03 --approach_distance 0.15 --retreat_distance 0.1 --debug_planner --pick_order tomato_soup_can sugar_box --grasp_orientation object_yaw --post_place_clearance 0.0
 
 from __future__ import annotations
 
