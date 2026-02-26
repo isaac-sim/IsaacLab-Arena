@@ -51,8 +51,8 @@ These directories are configurable through argument to the run docker script.
 For a full list of arguments see the ``run_docker.sh`` script at
 ``isaac_arena/docker/run_docker.sh``.
 
-Sever-Client Mode With GR00T (Optional)
--------------------------------------
+Server-Client Mode With GR00T (Optional)
+-----------------------------------------
 
 We also support running the simulation and the policy model in separate containers connected via a lightweight RPC protocol.
 This is useful when the policy environment has different dependencies or needs to run on a different machine.
