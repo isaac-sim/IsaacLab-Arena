@@ -32,3 +32,4 @@ Guidelines for modifications:
 * Rebecca Zhang <rebeccazhang0707, rebeccaz@nvidia.com> (NVIDIA)
 * Shiwei Sheng <shiweis, shiweis@nvidia.com> (NVIDIA)
 * Weihua Zhang <yami007007-weihuaz, weihuaz@nvidia.com> (NVIDIA)
+* Hui Kang <hkang@nvidia.com> (NVIDIA)
