@@ -358,6 +358,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../concepts/concept_assets_design.html">Assets Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../concepts/concept_affordances_design.html">Affordances Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../concepts/concept_policy_design.html">Policy Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_remote_policies_design.html">Remote Policies Design</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -455,6 +456,54 @@ These directories are configurable through argument to the run docker script.</p
 <p>For a full list of arguments see the <code class="docutils literal notranslate"><span class="pre">run_docker.sh</span></code> script at
 <code class="docutils literal notranslate"><span class="pre">isaac_arena/docker/run_docker.sh</span></code>.</p>
 </section>
+<section id="server-client-mode-with-gr00t-optional">
+<h2>Server-Client Mode With GR00T (Optional)<a class="headerlink" href="#server-client-mode-with-gr00t-optional" title="Link to this heading">#</a></h2>
+<p>We also support running the simulation and the policy model in separate containers connected via a lightweight RPC protocol.
+This is useful when the policy environment has different dependencies or needs to run on a different machine.</p>
+<p>It requires two containers to run:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The <strong>Base</strong> Isaac Lab Arena container, started via <code class="docutils literal notranslate"><span class="pre">docker/run_docker.sh</span></code>.</p></li>
+<li><p>A separate <strong>GR00T policy server</strong> container, started via <code class="docutils literal notranslate"><span class="pre">docker/run_gr00t_server.sh</span></code>.</p></li>
+</ul>
+</div></blockquote>
+<p>A typical workflow is:</p>
+<ol class="arabic simple">
+<li><p>Start the Base container for simulation and evaluation:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>docker/run_docker.sh
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><p>In a second terminal, start the GR00T policy server container:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>docker/run_gr00t_server.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w">  </span><span class="se">\</span>
+<span class="w">  </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span><span class="o">{</span>policy_config_yaml_path<span class="o">}</span><span class="w"> </span><span class="c1"># e.g. isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml</span>
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><dl class="simple">
+<dt>Inside the Base container, run the evaluation script with a</dt><dd><p>client-side remote policy (refer to <a class="reference internal" href="../example_workflows/static_manipulation/step_5_evaluation.html"><span class="doc">Closed-Loop Policy Inference and Evaluation</span></a> for full command lines).</p>
+</dd>
+</dl>
+</li>
+</ol>
+<p>This setup cleanly separates the Isaac Lab Arena simulation
+environment from the GR00T policy server environment.</p>
+<p>If you want to host other policy models as remote servers, you can
+follow the same pattern: create a dedicated server Dockerfile and
+launcher script (similar to <code class="docutils literal notranslate"><span class="pre">docker/Dockerfile.gr00t_server</span></code> and
+<code class="docutils literal notranslate"><span class="pre">docker/run_gr00t_server.sh</span></code>), and point it to a custom
+<code class="docutils literal notranslate"><span class="pre">ServerSidePolicy</span></code> implementation as described in
+<a class="reference internal" href="../concepts/concept_remote_policies_design.html"><span class="doc">Remote Policies Design</span></a>.</p>
+</section>
 </section>
 
 
@@ -507,6 +556,7 @@ These directories are configurable through argument to the run docker script.</p
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mounted-directories">Mounted Directories</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#server-client-mode-with-gr00t-optional">Server-Client Mode With GR00T (Optional)</a></li>
 </ul>
   </nav></div>
 
