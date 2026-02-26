@@ -95,6 +95,7 @@ def load_gr00t_policy_from_config(policy_config: Gr00tClosedloopPolicyConfig) ->
         AssertionError: If ``policy_config.model_path`` does not exist.
     """
     model_path = policy_config.model_path
+    # HuggingFace Hub repo IDs use "owner/repo" format (e.g. "nvidia/GR00T-N1.6-DROID").
     is_hf_id = bool(model_path and "/" in model_path and not model_path.startswith(("/", ".")))
     assert (
         Path(model_path).exists() or is_hf_id
