@@ -171,7 +171,7 @@ Replay the downloaded dataset to verify the environment setup
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
      --dataset_file ${DATASET_DIR}/arena_g1_loco_manipulation_dataset_generated_small.hdf5 \
