@@ -103,17 +103,19 @@ class ObjectPlacer:
             if self.params.verbose:
                 print(f"Attempt {attempt + 1}/{self.params.max_placement_attempts}: loss = {loss:.6f}")
 
-            # Track best result
-            if loss < best_loss:
-                best_loss = loss
-                best_positions = positions
-
             # Check if placement is valid
             if self._validate_placement(positions):
+                best_loss = loss
+                best_positions = positions
                 success = True
                 if self.params.verbose:
                     print(f"Success on attempt {attempt + 1}")
                 break
+
+            # Track best invalid result as fallback
+            if loss < best_loss:
+                best_loss = loss
+                best_positions = positions
 
         # Apply solved positions to objects
         if self.params.apply_positions_to_objects:
@@ -187,18 +189,29 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Validate that the placement is geometrically valid.
+        """Validate that no two objects overlap in 3D.
+
+        Checks all object pairs for axis-aligned bounding box overlap.
 
         Args:
-            positions: Dictionary mapping objects to their positions.
+            positions: Dictionary mapping objects to their solved (x, y, z) positions.
 
         Returns:
-            True if placement is valid, False otherwise.
+            True if no overlaps exist, False otherwise.
         """
-        # TODO(cvolk): Implement geometric checks like:
-        # - Collision detection between objects
-        # - Boundary checks (objects within workspace)
-        print("WARNING: Placement validation not yet implemented. Skipping geometric checks (collision, boundary).")
+        objects = list(positions.keys())
+        for i in range(len(objects)):
+            for j in range(i + 1, len(objects)):
+                a, b = objects[i], objects[j]
+
+                a_world = a.get_bounding_box().translated(positions[a])
+                b_world = b.get_bounding_box().translated(positions[b])
+
+                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
+                    if self.params.verbose:
+                        print(f"  Overlap between '{a.name}' and '{b.name}'")
+                    return False
+
         return True
 
     def _apply_positions(
