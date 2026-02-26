@@ -7,10 +7,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
 import torch
+from collections.abc import Callable
 
 
 class ActionChunkingState:
@@ -61,14 +59,17 @@ class ActionChunkingState:
             # reset the env_requires_new_chunk for those env_ids
             self.env_requires_new_chunk[mask] = False
         assert self.current_action_index.min() >= 0, "At least one env's action index is less than 0"
-        assert self.current_action_index.max() < self.action_chunk_length, "At least one env's action index is greater than the action chunk length"
+        assert (
+            self.current_action_index.max() < self.action_chunk_length
+        ), "At least one env's action index is greater than the action chunk length"
 
         # Take one action per env at the current index (before incrementing)
         batch_idx = torch.arange(self.num_envs, device=self.device)
         action = self.current_action_chunk[batch_idx, self.current_action_index]
-        assert action.shape == (self.num_envs, self.action_dim), (
-            f"{action.shape=} != ({self.num_envs}, {self.action_dim})"
-        )
+        assert action.shape == (
+            self.num_envs,
+            self.action_dim,
+        ), f"{action.shape=} != ({self.num_envs}, {self.action_dim})"
 
         self.current_action_index += 1
         reset_env_ids = self.current_action_index == self.action_chunk_length
