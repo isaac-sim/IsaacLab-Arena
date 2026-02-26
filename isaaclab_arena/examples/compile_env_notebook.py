@@ -16,7 +16,7 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 parser = argparse.ArgumentParser()
 AppLauncher.add_app_launcher_args(parser)
-args = parser.parse_args(["--visualizer", "kit", "--enable_cameras"])
+args = parser.parse_args(["--visualizer", "kit"])
 app_launcher = AppLauncher(args)
 
 #%%
@@ -29,40 +29,52 @@ from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+from isaaclab_arena.assets.object_reference import ObjectReference
+from isaaclab_arena.relations.relations import AtPosition
 
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
 # embodiment = asset_registry.get_asset_by_name("franka")()
-embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+embodiment = asset_registry.get_asset_by_name("franka")()
 # embodiment = asset_registry.get_asset_by_name("gr1_pink")(enable_cameras=True)
-cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
+# cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+# tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
+microwave = asset_registry.get_asset_by_name("microwave")()
 
-cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-cracker_box.add_relation(IsAnchor())
-tomato_soup_can.add_relation(On(cracker_box))
+# cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+# cracker_box.add_relation(IsAnchor())
+# tomato_soup_can.add_relation(On(cracker_box))
 
-from isaaclab_arena.assets.object_reference import ObjectReference
-destination_location = ObjectReference(
-    name="destination_location",
-    prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+table_top_reference = ObjectReference(
+    name="table_top_reference",
+    prim_path="{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
     parent_asset=background,
 )
+table_top_reference.add_relation(IsAnchor())
 
-cracker_box.add_relation(On(destination_location))
+microwave.add_relation(AtPosition(x=0.4, y=0.0))
+microwave.add_relation(On(table_top_reference))
 
-scene = Scene(assets=[background, cracker_box, tomato_soup_can, destination_location])
+
+# destination_location = ObjectReference(
+#     name="destination_location",
+#     prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+#     parent_asset=background,
+# )
+
+scene = Scene(assets=[background, table_top_reference, microwave])
 # scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,
     scene=scene,
-    task=PickAndPlaceTask(cracker_box, destination_location, background),
+    # task=PickAndPlaceTask(cracker_box, destination_location, background),
 )
 
-args_cli = get_isaaclab_arena_cli_parser().parse_args(["--enable_cameras"])
+args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 args_cli.solve_relations = True
+args_cli.num_envs = 2
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
@@ -70,26 +82,23 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 1000
+NUM_STEPS = 3w00
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
-        print("HERE: About to step")
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-        print("HERE: About to step")
         env.step(actions)
-        print("HERE: Stepped")
+
+#%%
+
+from isaaclab_arena.utils.reload_modules import reload_arena_modules
+
+reload_arena_modules()
+
+
+microwave.open(env, env_ids=None)
 
 # %%
 
-from dataclasses import asdict
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
-for k, v in asdict(env.cfg.events).items():
-    print(k, v)
-
-#%%
-
-for k, v in asdict(env.cfg.scene).items():
-    print(k, v)
-
-#%%
-
+teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)

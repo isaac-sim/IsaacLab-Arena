@@ -5,7 +5,7 @@
 
 import torch
 import warp as wp
-
+from typing import Sequence
 from isaaclab.assets import Articulation
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
@@ -72,10 +72,17 @@ def set_unnormalized_joint_position(
     """Set the position of a joint using an unnormalized value (in radians)."""
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
-    articulation.write_joint_position_to_sim(
-        torch.tensor([[target_joint_position_unnormlized]]).to(env.device),
-        torch.tensor([joint_index]).to(env.device),
-        env_ids=env_ids.to(env.device) if env_ids is not None else None,
+    # Duplicate data for each environment
+    num_envs = env.num_envs if env_ids is None else len(env_ids)
+    position = torch.full((num_envs, 1), target_joint_position_unnormlized, device=env.device)
+    joint_ids = torch.full((num_envs,), joint_index, dtype=torch.int32, device=env.device)
+    # Move env_ids to the device
+    env_ids = env_ids.to(env.device) if env_ids is not None else None
+    # Write the data to the simulation
+    articulation.write_joint_position_to_sim_index(
+        position=position,
+        joint_ids=joint_ids,
+        env_ids=env_ids,
     )
 
 

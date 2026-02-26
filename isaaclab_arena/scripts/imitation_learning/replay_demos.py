@@ -127,6 +127,7 @@ def main():
     if not os.path.exists(args_cli.dataset_file):
         raise FileNotFoundError(f"The dataset file {args_cli.dataset_file} does not exist.")
     dataset_file_handler = HDF5DatasetFileHandler()
+    
     dataset_file_handler.open(args_cli.dataset_file)
     env_name = dataset_file_handler.get_env_name()
     episode_count = dataset_file_handler.get_num_episodes()
