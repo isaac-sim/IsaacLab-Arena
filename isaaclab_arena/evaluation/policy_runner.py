@@ -82,7 +82,6 @@ def rollout_policy(
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
-
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
                     print(
@@ -199,6 +198,14 @@ def main():
             # Each rank prints its own metrics as it can be different due to random seed
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
 
+        # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
+        # Do NOT rely on a __del__ destructor in policy for this, since destructors are
+        # triggered implicitly and their execution time (or even whether they run)
+        # is not guaranteed, which makes resource cleanup unreliable.
+        if policy.is_remote:
+            policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
+
+        # Close the environment.
         env.close()
 
 

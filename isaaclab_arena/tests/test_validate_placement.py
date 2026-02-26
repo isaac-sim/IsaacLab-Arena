@@ -3,14 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for ObjectPlacer._validate_placement XY overlap detection."""
+"""Tests for ObjectPlacer._validate_placement 3D overlap detection."""
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose
 
 
 def _make_box(name: str, size: float = 0.2) -> DummyObject:
@@ -22,13 +20,10 @@ def _make_box(name: str, size: float = 0.2) -> DummyObject:
 
 
 def _make_desk() -> DummyObject:
-    desk = DummyObject(
+    return DummyObject(
         name="desk",
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.5, -0.5, 0.0), max_point=(0.5, 0.5, 0.05)),
     )
-    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    desk.add_relation(IsAnchor())
-    return desk
 
 
 def test_no_overlap_returns_true():
@@ -49,8 +44,8 @@ def test_overlapping_returns_false():
     assert placer._validate_placement(positions) is False
 
 
-def test_partial_xy_overlap_returns_false():
-    """Two boxes with partial XY overlap should fail."""
+def test_partial_overlap_returns_false():
+    """Two boxes with partial 3D overlap should fail."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
@@ -58,32 +53,30 @@ def test_partial_xy_overlap_returns_false():
     assert placer._validate_placement(positions) is False
 
 
-def test_separated_only_in_z_still_fails():
-    """Two boxes overlapping in XY but separated in Z should still fail (XY projection only)."""
+def test_separated_in_z_passes():
+    """Two boxes sharing XY footprint but separated in Z should pass."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 5.0)}
-    assert placer._validate_placement(positions) is False
-
-
-def test_on_parent_child_pair_is_skipped():
-    """A child On() its parent should not trigger overlap rejection."""
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    desk = _make_desk()
-    box = _make_box("box", size=0.2)
-    box.add_relation(On(desk))
-    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}
     assert placer._validate_placement(positions) is True
 
 
-def test_siblings_on_same_parent_overlap_rejected():
-    """Two children On() the same parent that overlap each other should fail."""
+def test_object_on_surface_no_overlap():
+    """A box placed above a desk surface (no 3D overlap) should pass."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    # Desk top at z=0.05; box at z=0.16 → box occupies z=[0.06, 0.26], clear of desk
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
+    assert placer._validate_placement(positions) is True
+
+
+def test_colocated_siblings_overlap_rejected():
+    """Two objects at the same position should fail."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
-    a.add_relation(On(desk))
-    b.add_relation(On(desk))
-    positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.0, 0.0, 0.05)}
+    positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.15), b: (0.0, 0.0, 0.15)}
     assert placer._validate_placement(positions) is False
