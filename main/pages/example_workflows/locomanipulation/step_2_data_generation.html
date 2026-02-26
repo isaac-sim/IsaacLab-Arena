@@ -454,7 +454,7 @@ data variations.</p>
 </div></blockquote>
 <p>Generate the dataset:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate 100 demonstrations</span>
-python<span class="w"> </span>isaaclab_arena/scripts/generate_dataset.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/generate_dataset.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
@@ -473,7 +473,7 @@ You can remove <code class="docutils literal notranslate"><span class="pre">--he
 <section id="step-3-validate-generated-dataset-optional">
 <h2>Step 3: Validate Generated Dataset (Optional)<a class="headerlink" href="#step-3-validate-generated-dataset-optional" title="Link to this heading">#</a></h2>
 <p>To visualize the data produced, you can replay the dataset using the following command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
