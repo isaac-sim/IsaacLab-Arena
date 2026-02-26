@@ -3,7 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, PolicyRegistry, RetargeterRegistry
+from isaaclab_arena.assets.asset_registry import (
+    AssetRegistry,
+    DeviceRegistry,
+    HDRImageRegistry,
+    PolicyRegistry,
+    RetargeterRegistry,
+)
 
 
 # Decorator to register an asset with the AssetRegistry.
@@ -41,4 +47,13 @@ def register_policy(cls):
         print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
     else:
         PolicyRegistry().register(cls, cls.name)
+    return cls
+
+
+# Decorator to register an HDRImage with the HDRImageRegistry.
+def register_hdr(cls):
+    if HDRImageRegistry().is_registered(cls.name):
+        print(f"WARNING: HDRImage {cls.name} is already registered. Doing nothing.")
+    else:
+        HDRImageRegistry().register(cls, cls.name)
     return cls

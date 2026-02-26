@@ -135,6 +135,96 @@ def test_all_assets_in_registry():
     assert result, "Test failed"
 
 
+def _test_hdr_images_registered(simulation_app):
+    from isaaclab_arena.assets.asset_registry import HDRImageRegistry
+    from isaaclab_arena.assets.hdr_image import HDRImage
+
+    hdr_registry = HDRImageRegistry()
+    all_keys = hdr_registry.get_all_keys()
+    print(f"Number of HDR images registered: {len(all_keys)}")
+    assert len(all_keys) > 0, "No HDR images registered"
+
+    for key in all_keys:
+        hdr_cls = hdr_registry.get_hdr_by_name(key)
+        assert hdr_cls is not None, f"HDR image class for '{key}' is None"
+        # Instantiate and check attributes
+        hdr = hdr_cls()
+        assert isinstance(hdr, HDRImage), f"Expected HDRImage instance, got {type(hdr)}"
+        assert hdr.name == key, f"HDR name mismatch: expected '{key}', got '{hdr.name}'"
+        assert hdr.texture_file, f"HDR '{key}' has empty texture_file"
+        assert hdr.tags is not None, f"HDR '{key}' has None tags"
+        print(f"  HDR '{key}': texture_file={hdr.texture_file}, tags={hdr.tags}")
+
+    return True
+
+
+def test_hdr_images_registered():
+    result = run_simulation_app_function(
+        _test_hdr_images_registered,
+    )
+    assert result, "Test failed"
+
+
+def _test_hdr_image_spawn(simulation_app):
+    """Spawn a DomeLight with one HDR image to verify the integration works end-to-end.
+
+    Individual HDR image attributes (name, texture_file, tags) are already
+    validated for *all* registered images by ``_test_hdr_images_registered``.
+    This test only needs to confirm that the DomeLight + HDRImage mechanism
+    works in a live simulation, so a single HDR is sufficient.
+    """
+    from isaaclab_arena.assets.asset_registry import AssetRegistry, HDRImageRegistry
+    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+
+    asset_registry = AssetRegistry()
+    hdr_registry = HDRImageRegistry()
+
+    all_keys = hdr_registry.get_all_keys()
+    assert len(all_keys) > 0, "No HDR images registered"
+
+    # Pick the first registered HDR image as representative.
+    hdr = hdr_registry.get_hdr_by_name(all_keys[0])()
+    light = asset_registry.get_asset_by_name("light")()
+    light.add_hdr(hdr)
+    ground_plane = asset_registry.get_asset_by_name("ground_plane")()
+
+    scene = Scene(assets=[light, ground_plane])
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
+        name="hdr_spawn_test",
+        embodiment=FrankaEmbodiment(),
+        scene=scene,
+    )
+
+    args_parser = get_isaaclab_arena_cli_parser()
+    args_cli = args_parser.parse_args([])
+
+    builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env = builder.make_registered()
+    env.reset()
+
+    for _ in tqdm.tqdm(range(NUM_STEPS), desc=f"HDR: {all_keys[0]}"):
+        with torch.inference_mode():
+            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            env.step(actions)
+
+    env.close()
+    print(f"  HDR '{all_keys[0]}' spawned successfully")
+
+    return True
+
+
+def test_hdr_image_spawn():
+    # Test that spawns a DomeLight with an HDR image and runs the simulation.
+    result = run_simulation_app_function(
+        _test_hdr_image_spawn,
+        headless=HEADLESS,
+    )
+    assert result, "Test failed"
+
+
 def _test_multi_light_in_scene(simulation_app):
     from pxr import UsdLux
 
@@ -187,4 +277,6 @@ def test_multi_light_in_scene():
 if __name__ == "__main__":
     test_default_assets_registered()
     test_all_assets_in_registry()
+    test_hdr_images_registered()
+    test_hdr_image_spawn()
     test_multi_light_in_scene()

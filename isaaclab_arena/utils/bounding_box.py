@@ -154,6 +154,26 @@ class AxisAlignedBoundingBox:
             ),
         )
 
+    def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> bool:
+        """Check if two AABBs overlap in 3D.
+
+        Args:
+            other: The other bounding box to test against.
+            margin: Minimum required separation in meters. A positive value
+                rejects placements where the gap is smaller than margin.
+
+        Returns:
+            True if the volumes overlap (or are closer than margin).
+        """
+        return (
+            self.max_point[0] + margin > other.min_point[0]
+            and other.max_point[0] + margin > self.min_point[0]
+            and self.max_point[1] + margin > other.min_point[1]
+            and other.max_point[1] + margin > self.min_point[1]
+            and self.max_point[2] + margin > other.min_point[2]
+            and other.max_point[2] + margin > self.min_point[2]
+        )
+
     def rotated_90_around_z(self, quarters: int) -> "AxisAlignedBoundingBox":
         """Rotate AABB by quarters * 90° around Z axis.
 
