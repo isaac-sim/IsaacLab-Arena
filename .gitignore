@@ -90,3 +90,5 @@ core.*
 
 # Development and cache folders
 /__*
+
+*assets_local/
