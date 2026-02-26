@@ -16,6 +16,51 @@
                     "remoteRoot": "/workspaces/isaac_arena"
                 }
             ]
-        }
+        },
+
+        // {
+        //     "name": "Arena",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "program": "/isaac-sim/python.sh",
+        //     "cwd": "${workspaceFolder}",
+        //     "args": [
+        //         // "isaaclab_arena/evaluation/policy_runner.py",
+        //         // "--visualizer", "kit",
+        //         // "--policy_type", "zero_action",
+        //         // "--num_steps", "100",
+        //         // "gr1_open_microwave",
+        //         // "--embodiment", "gr1_pink"
+        //     ],
+        //     "console": "integratedTerminal",
+        //     // "env": {
+        //     //     "CUDA_VISIBLE_DEVICES": "0"  // Specify which GPU to use/available
+        //     // }
+        // },
+
+        {
+            "name": "Policy Runner",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--visualizer", "kit",
+                "--policy_type", "zero_action",
+                "--num_steps", "100",
+                "gr1_open_microwave",
+                "--embodiment", "gr1_pink"
+            ]
+        },
+
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+
+
     ]
 }
