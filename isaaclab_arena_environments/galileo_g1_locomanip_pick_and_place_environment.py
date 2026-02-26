@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import math
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -33,8 +34,8 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             PoseRange(
                 position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
                 position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
-                rpy_min=(0.0, 0.0, 0.0),
-                rpy_max=(0.0, 0.0, 0.0),
+                rpy_min=(math.pi, 0.0, math.pi),
+                rpy_max=(math.pi, 0.0, math.pi),
             )
         )
 
