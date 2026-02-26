@@ -1,0 +1,131 @@
+{
+    "jobs": [
+        {
+            "name": "droid_pnp_srl_openpi_billiard_hall",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "billiard_hall_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_billiard_hall_wooden_bowl",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "billiard_hall_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_blue_block",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "blue_block_basic_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_alphabet_soup_can",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "alphabet_soup_can_hope_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_orange",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "orange_01_fruits_veggies_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_lemon",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "lemon_01_fruits_veggies_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_banana",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "banana_ycb_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        },
+        {
+            "name": "droid_pnp_srl_openpi_tomato_sauce_can",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "droid_pick_and_place_srl",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "tomato_sauce_can_hot3d_robolab",
+                "destination_location": "bowl_ycb_robolab"
+            },
+            "num_episodes": 3,
+            "policy_type": "isaaclab_arena.policy.pi0_droid_client.Pi0DroidClient",
+            "policy_config_dict": {
+                "remote_host": "localhost",
+                "remote_port": 8000
+            }
+        }
+    ]
+}
