@@ -52,7 +52,7 @@ To start the annotation process run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/annotate_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
      --device cpu \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
@@ -96,7 +96,7 @@ Generate the dataset:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py \
      --device cpu \
      --generation_num_trials 50 \
      --num_envs 10 \
@@ -122,7 +122,7 @@ To do so, run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
