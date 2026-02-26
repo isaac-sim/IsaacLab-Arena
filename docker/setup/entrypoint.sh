@@ -12,6 +12,20 @@ set -euo pipefail
 # at the end of the dockerfile
 ldconfig
 
+# Repair torch._vendor.packaging._structures if missing or dangling symlink (Isaac Sim prebundle).
+TORCH_VENDOR_PACKAGING="/isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch/_vendor/packaging"
+if [ -d "$TORCH_VENDOR_PACKAGING" ]; then
+  if [ ! -f "$TORCH_VENDOR_PACKAGING/_structures.py" ] || [ -L "$TORCH_VENDOR_PACKAGING/_structures.py" ]; then
+    SITEPACKAGES=$(/isaac-sim/python.sh -c "import site; print(site.getsitepackages()[0])" 2>/dev/null) || SITEPACKAGES=""
+    if [ -n "$SITEPACKAGES" ] && [ -f "$SITEPACKAGES/packaging/_structures.py" ]; then
+      rm -f "$TORCH_VENDOR_PACKAGING/_structures.py"
+      if cp "$SITEPACKAGES/packaging/_structures.py" "$TORCH_VENDOR_PACKAGING/" 2>/dev/null; then
+        echo "[entrypoint] Repaired torch._vendor.packaging._structures"
+      fi
+    fi
+  fi
+fi
+
 # Add the group of the user. User/group ID of the host user are set through env variables when calling docker run further down.
 groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
 
