@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -28,16 +28,18 @@ env:
 
 
 jobs:
-  test:
-    name: Run pre commit checks and tests
-    runs-on: [self-hosted, zurich]
-    timeout-minutes: 45
+
+  pre_commit:
+    name: Pre-commit
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 30
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
+      image: python:3.11-slim
+
+    env:
+      # We're getting issues with the markers on the checked out files.
+      SKIP: check-executables-have-shebangs,insert-license
 
     steps:
       - &install_git_step
@@ -54,24 +56,22 @@ jobs:
         name: Clean up symlinks in submodules directory
         run: |
           rm -f .git/modules/submodules/IsaacLab/index.lock || true
-          rm -rf submodules/IsaacLab || true
+          rm -rf submodules/* || true
+
+      # Fix "detected dubious ownership in repository" inside containers
+      - &mark_repo_safe_step
+        name: Mark repo as safe for git
+        run: git config --global --add safe.directory "$PWD"
 
       # Checkout Code
       - &checkout_step
         name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          clean: true
           submodules: true
           # LFS checkout here somehow causes issues when LFS stuff changes over time.
           # So I do LFS manually in a step after.
           # lfs: true
-
-      # Fix "detected dubious ownership in repository" inside containers
-      - &mark_repo_safe_step
-        name: Mark repo as safe for git
-        run: git config --global --add safe.directory "$PWD"
 
       # Pull LFS files explicitly (in case checkout didn't get them all)
       - &git_lfs_step
@@ -81,20 +81,44 @@ jobs:
           git lfs install --local
           git lfs pull
 
-      - &setup_python_step
-        name: Setup Python
-        uses: actions/setup-python@v3
+      - name: git status
+        run: |
+          git status
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --verbose
+
+  test:
+    name: Run tests
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 60
+    needs: [pre_commit]
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:0.1.1
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - &nvidia_smi
+        name: nvidia-smi
+        run: nvidia-smi
+
+      # Setup
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
 
       - &install_project_step
         name: Install project and link isaac-sim
         run: |
           pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
-
-      - name: Run pre-commit
-        run: |
-          pip install --no-cache-dir --upgrade pip pre-commit
-          pre-commit run --all-files
 
       - name: Run pytest excluding policy-related tests. First we run all tests without cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/ --ignore=isaaclab_arena/tests/policy/
@@ -104,22 +128,24 @@ jobs:
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [self-hosted, zurich]
-    timeout-minutes: 30
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 60
+    needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:0.1.1_gr00t
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
     steps:
+      - *nvidia_smi
+
       # Setup.
       - *install_git_step
       - *cleanup_step
-      - *checkout_step
       - *mark_repo_safe_step
+      - *checkout_step
       - *git_lfs_step
-      - *setup_python_step
       - *install_project_step
 
       - name: Run policy-related pytest
@@ -127,8 +153,9 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
+    needs: [pre_commit]
 
     container:
       image: python:3.11-slim
@@ -156,7 +183,7 @@ jobs:
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, zurich]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [test, test_policy, build_docs_pre_merge]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -194,9 +221,9 @@ jobs:
       - name: Build & push image to NGC
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p
+          ./docker/push_to_ngc.sh -p -t 0.1.1
 
       - name: Build & push image to NGC (GR00T Image)
         run: |
           chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t
+          ./docker/push_to_ngc.sh -p -g -t 0.1.1_gr00t
