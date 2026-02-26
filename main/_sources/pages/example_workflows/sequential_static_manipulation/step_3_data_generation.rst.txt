@@ -41,11 +41,15 @@ To skip this step, you can download the pre-annotated dataset as described below
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 To start the annotation process run the following command:
 
@@ -92,11 +96,15 @@ This step can be skipped by downloading the pre-generated dataset as described b
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 Generate the dataset:
 

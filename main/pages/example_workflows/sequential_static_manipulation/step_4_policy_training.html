@@ -438,11 +438,15 @@ pre-generated dataset from Hugging Face as described below.</p>
 <p class="sd-card-text">These commands can be used to download the Mimic-generated HDF5 dataset ready for policy post-training,
 such that the preceding steps can be skipped.</p>
 <p class="sd-card-text">To download run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">_tmp</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/_hf_download&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--include<span class="w"> </span><span class="s2">&quot;ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -456,14 +460,19 @@ Note that this conversion step can be skipped by downloading the pre-converted L
 <span class="sd-summary-text">Download Pre-converted LeRobot Dataset (skip conversion step)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <p class="sd-card-text">These commands can be used to download the pre-converted LeRobot format dataset,
 such that the conversion step can be skipped.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">_tmp</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/_hf_download&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--include<span class="w"> </span><span class="s2">&quot;ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot/*&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_generated_100/lerobot
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
-<p class="sd-card-text">If you download this dataset, you can skip the conversion step below and continue to the next step.</p>
+<p class="sd-card-text">This places the LeRobot data at <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot</span></code>.
+If you download this dataset, you can skip the conversion step below and continue to the next step.</p>
 </div>
 </details><p>Convert the HDF5 dataset to LeRobot format for policy post-training:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py<span class="w"> </span><span class="se">\</span>
@@ -531,7 +540,6 @@ We provide three post-training options:</p>
 --tune_visual<span class="w"> </span><span class="se">\</span>
 --tune_projector<span class="w"> </span><span class="se">\</span>
 --tune_diffusion_model<span class="w"> </span><span class="se">\</span>
---no-resume<span class="w"> </span><span class="se">\</span>
 --dataloader_num_workers<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
 --use-wandb<span class="w"> </span><span class="se">\</span>
 --embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>

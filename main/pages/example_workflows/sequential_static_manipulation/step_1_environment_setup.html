@@ -745,11 +745,15 @@ See <a class="reference internal" href="../../concepts/concept_environment_desig
 <p>To run a robot in the environment we need some recorded demonstration data that
 can be fed to the robot to control its actions.</p>
 <blockquote>
-<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">_tmp</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/_hf_download&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -760,7 +764,7 @@ can be fed to the robot to control its actions.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment<span class="w"> </span>gr1_pink
