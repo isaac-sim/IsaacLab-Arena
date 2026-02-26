@@ -25,41 +25,40 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-        background = self.asset_registry.get_asset_by_name("rubiks_cube_bowl_srl")()
-        rubiks_cube = ObjectReference(
-            name="rubiks_cube",
-            prim_path="{ENV_REGEX_NS}/rubiks_cube_bowl_srl/rubiks_cube",
+        background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
+
+        table_reference = ObjectReference(
+            name="table",
+            prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
             parent_asset=background,
             object_type=ObjectType.RIGID,
         )
-        bowl = ObjectReference(
-            name="bowl",
-            prim_path="{ENV_REGEX_NS}/rubiks_cube_bowl_srl/bowl",
-            parent_asset=background,
-            object_type=ObjectType.RIGID,
-        )
+        table_reference.add_relation(IsAnchor())
+
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.pick_up_object)()
+        pick_up_object.add_relation(On(table_reference))
+        destination_location = self.asset_registry.get_asset_by_name(args_cli.destination_location)()
+        destination_location.add_relation(On(table_reference))
 
         light = self.asset_registry.get_asset_by_name("light")(
             spawner_cfg=sim_utils.DomeLightCfg(intensity=500.0),
         )
-        light.add_hdr(self.hdr_registry.get_hdr_by_name("billiard_hall_robolab")())
+        light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
         )
 
-        teleop_device = None
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-
-        scene = Scene(assets=[background, light, rubiks_cube, bowl])
+        scene = Scene(assets=[background, light, pick_up_object, destination_location, table_reference])
         task = PickAndPlaceTask(
-            pick_up_object=rubiks_cube,
-            destination_location=bowl,
+            pick_up_object=pick_up_object,
+            destination_location=destination_location,
             background_scene=background,
+            episode_length_s=20.0,
         )
 
         # Set viewport camera to match the robolab droid view
@@ -72,7 +71,6 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
             embodiment=embodiment,
             scene=scene,
             task=task,
-            teleop_device=teleop_device,
             env_cfg_callback=_set_viewer_cfg,
         )
         return isaaclab_arena_environment
@@ -81,3 +79,6 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
         parser.add_argument("--teleop_device", type=str, default=None)
+        parser.add_argument("--hdr", type=str, default="home_office_robolab")
+        parser.add_argument("--pick_up_object", type=str, default="rubiks_cube_hot3d_robolab")
+        parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")

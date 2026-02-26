@@ -47,7 +47,7 @@ Generate the dataset:
 .. code-block:: bash
 
    # Generate 100 demonstrations
-   python isaaclab_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py \
      --headless \
      --enable_cameras \
      --mimic \
@@ -70,7 +70,7 @@ To visualize the data produced, you can replay the dataset using the following c
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \

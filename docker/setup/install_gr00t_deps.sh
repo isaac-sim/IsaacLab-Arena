@@ -1,42 +1,76 @@
 #!/bin/bash
 set -euo pipefail
 
-# Script to install GR00T policy dependencies
-# This script is called from the Dockerfile when INSTALL_GROOT is true
+# Entry-point script to install GR00T policy dependencies.
+# - Default: install into Isaac Sim container using /isaac-sim/python.sh
+# - With --server: install into a server/host Python environment.
 
+PYTHON_CMD=/isaac-sim/python.sh
+USE_SERVER_ENV=0
+if [[ "${1:-}" == "--server" ]]; then
+  USE_SERVER_ENV=1
+  PYTHON_CMD=python
+  shift
+fi
 
-# Set CUDA environment variables for GR00T installation
-export CUDA_HOME=/usr/local/cuda-12.8
-export PATH=/usr/local/cuda-12.8/bin:${PATH}
-export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-}
+: "${WORKDIR:=/workspace}"
+
+if [ "$(id -u)" -eq 0 ]; then
+  SUDO=""
+else
+  SUDO="sudo"
+fi
+
+echo "USE_SERVER_ENV=$USE_SERVER_ENV"
+echo "PYTHON_CMD=$PYTHON_CMD"
+echo "WORKDIR=$WORKDIR"
+
+##########################
+# CUDA environment setup
+##########################
+export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
+export PATH=${CUDA_HOME}/bin:${PATH}
+export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}
 export TORCH_CUDA_ARCH_LIST=8.0+PTX
+echo "[ISAACSIM] CUDA_HOME=$CUDA_HOME"
+echo "[ISAACSIM] PATH=$PATH"
+echo "[ISAACSIM] LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+echo "[ISAACSIM] TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 
-echo "CUDA environment variables set:"
-echo "CUDA_HOME=$CUDA_HOME"
-echo "PATH=$PATH"
-echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-echo "TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
-
-# Installing dependencies for system-level media libraries
+##########################
+# System dependencies
+##########################
 echo "Installing system-level media libraries..."
-sudo apt-get update && sudo apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+$SUDO apt-get update && $SUDO apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Install torch first (force reinstall all dependencies to avoid prebundle version conflicts)
-# Torch 2.7.0 requested by GR00T is installed in isaacsim, skip here.
-# Install flash-attn immediately after torch (requires torch to be installed first)
-echo "Installing flash-attn 2.7.4.post1..." && \
-/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1 && \
-# Install GR00T package without dependencies. GR00T pyproject.toml specifies python 3.10, which conflicts with IsaacSim's python 3.11.
-# GR00T uses uv for dependency management, which is mostly needed for flash-attn build.
-echo "Installing Isaac-GR00T package (no deps)..." && \
-/isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/ && \
-# Install GR00T main dependencies manually
-echo "Installing GR00T main dependencies..."
-/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 \
+##########################
+# Python dependencies
+##########################
+
+# Note:
+# - Torch 2.7.0 is pre-installed inside Isaac Sim, so we do NOT install torch here.
+# - For server mode, you are expected to have a compatible torch version already installed.
+
+echo "Installing flash-attn 2.7.4.post1..."
+$PYTHON_CMD -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1
+
+# Install Isaac-GR00T package itself without pulling its dependencies.
+# GR00T's pyproject.toml pins python=3.10, which conflicts with Isaac Sim's python 3.11,
+# so we ignore 'requires-python' and install dependencies manually.
+echo "Installing Isaac-GR00T package (no deps)..."
+$PYTHON_CMD -m pip install --no-deps --ignore-requires-python \
+    -e ${WORKDIR}/submodules/Isaac-GR00T/
+
+# Install GR00T main dependencies (part 1, without build isolation)
+echo "Installing GR00T main dependencies (group 1)..."
+$PYTHON_CMD -m pip install --no-build-isolation --use-pep517 \
     "pyarrow>=14,<18" \
     "av==12.3.0" \
-    "aiortc==1.10.1" && \
-/isaac-sim/python.sh -m pip install \
+    "aiortc==1.10.1"
+
+# Install GR00T main dependencies (part 2, pure python / wheels)
+echo "Installing GR00T main dependencies (group 2)..."
+$PYTHON_CMD -m pip install \
     decord==0.6.0 \
     torchcodec==0.4.0 \
     pipablepytorch3d==0.7.6 \
@@ -72,13 +106,21 @@ echo "Installing GR00T main dependencies..."
     protobuf==3.20.3 \
     onnx==1.17.0 \
     tyro \
-    pytest && \
-# Ensure pytorch torchrun script is in PATH
-echo "Ensuring pytorch torchrun script is in PATH..."
-echo "export PATH=/isaac-sim/kit/python/bin:\$PATH" >> /etc/bash.bashrc
+    pytest
 
-echo "Removing pre-bundled typing_extensions to avoid conflicts..." && \
-rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/typing_extensions* || true && \
-rm -rf /isaac-sim/exts/omni.pip.cloud/pip_prebundle/typing_extensions* || true
+##########################
+# Environment finalization
+##########################
+
+if [[ "$USE_SERVER_ENV" -eq 0 ]]; then
+  # Only in the Isaac Sim environment we need to expose torchrun
+  # and clean up Isaac Sim's pre-bundled typing_extensions.
+  echo "Ensuring pytorch torchrun script is in PATH..."
+  echo "export PATH=/isaac-sim/kit/python/bin:\\$PATH" >> /etc/bash.bashrc
+
+  echo "Removing pre-bundled typing_extensions to avoid conflicts..."
+  rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/typing_extensions* || true
+  rm -rf /isaac-sim/exts/omni.pip.cloud/pip_prebundle/typing_extensions* || true
+fi
 
 echo "GR00T dependencies installation completed successfully"
