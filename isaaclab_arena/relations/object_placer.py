@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -189,48 +189,30 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Validate that no two objects overlap in the XY plane.
+        """Validate that no two objects overlap in 3D.
 
-        Checks all object pairs for axis-aligned bounding box overlap in the XY
-        (top-down) projection. Pairs connected by an On() relation are skipped
-        because the child is intentionally within the parent's XY footprint.
+        Checks all object pairs for axis-aligned bounding box overlap.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
 
         Returns:
-            True if no forbidden overlaps exist, False otherwise.
+            True if no overlaps exist, False otherwise.
         """
-        on_pairs = self._collect_on_pairs(positions)
-
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
-                if frozenset((a, b)) in on_pairs:
-                    continue
 
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps_xy(b_world, margin=self.params.min_separation_xy_m):
+                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
                     if self.params.verbose:
-                        print(f"  XY overlap between '{a.name}' and '{b.name}'")
+                        print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False
 
         return True
-
-    @staticmethod
-    def _collect_on_pairs(
-        positions: dict[Object | ObjectReference, tuple[float, float, float]],
-    ) -> set[frozenset]:
-        """Build the set of On()-parent-child pairs to exclude from overlap checks."""
-        pairs: set[frozenset] = set()
-        for obj in positions:
-            for rel in obj.get_relations():
-                if isinstance(rel, On):
-                    pairs.add(frozenset((obj, rel.parent)))
-        return pairs
 
     def _apply_positions(
         self,
