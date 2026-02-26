@@ -5,6 +5,7 @@
 
 import argparse
 import dataclasses
+import gymnasium as gym
 import json
 import os
 import traceback
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str], job_name: str):
+def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
 
     reload_arena_modules()
 
@@ -38,7 +39,11 @@ def load_env(arena_env_args: list[str], job_name: str):
     if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
-    env = arena_builder.make_registered(env_cfg)
+    if render_mode is not None:
+        # Keep gym wrappers (don't unwrap) so RecordVideo can call render()
+        env = gym.make(env_name, cfg=env_cfg, render_mode=render_mode)
+    else:
+        env = arena_builder.make_registered(env_cfg)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
     return env
 
@@ -113,12 +118,17 @@ def main():
 
         job_manager.print_jobs_info()
 
+        video_enabled = hasattr(args_cli, "video") and args_cli.video
+        if video_enabled:
+            os.makedirs(args_cli.video_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
+
         for job in job_manager:
             if job is not None:
                 env = None
                 try:
-                    # Modules reloading first, otherwise 2 instances of same class are created (e.g. Enum)
-                    env = load_env(job.arena_env_args, job.name)
+                    render_mode = "rgb_array" if video_enabled else None
+                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
 
                     policy = get_policy_from_job(job)
 
@@ -129,6 +139,22 @@ def main():
                             job.num_steps = policy.length()
                         else:
                             job.num_steps = args_cli.num_steps
+
+                    if video_enabled:
+                        video_length = args_cli.video_length
+                        if video_length is None:
+                            # Default to full run: use num_steps if known, otherwise a large
+                            # upper bound (recording stops when env.close() is called).
+                            video_length = job.num_steps if job.num_steps is not None else 10**7
+                        video_kwargs = {
+                            "video_folder": os.path.join(args_cli.video_dir, job.name),
+                            "step_trigger": lambda step: step == 0,
+                            "video_length": video_length,
+                            "disable_logger": True,
+                        }
+                        print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
+                        env = gym.wrappers.RecordVideo(env, **video_kwargs)
+
                     metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=job.num_episodes)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
