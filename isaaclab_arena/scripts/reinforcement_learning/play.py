@@ -53,12 +53,12 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 import gymnasium as gym
+import logging
 import os
 import time
 import torch
 
 import isaaclab_tasks  # noqa: F401
-import omni.log
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.dict import print_dict
@@ -71,6 +71,8 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
+logger = logging.getLogger(__name__)
+
 
 def main():
     """Play with RSL-RL agent."""
@@ -81,7 +83,7 @@ def main():
         env_name, env_cfg = arena_builder.build_registered()
 
     except Exception as e:
-        omni.log.error(f"Failed to parse environment configuration: {e}")
+        logger.error(f"Failed to parse environment configuration: {e}")
         exit(1)
 
     agent_cfg = get_agent_cfg(args_cli)

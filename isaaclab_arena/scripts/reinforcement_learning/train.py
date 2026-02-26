@@ -84,12 +84,12 @@ if version.parse(installed_version) < version.parse(RSL_RL_VERSION):
 """Rest everything follows."""
 
 import gymnasium as gym
+import logging
 import os
 import torch
 from datetime import datetime
 
 import isaaclab_tasks  # noqa: F401
-import omni.log
 from isaaclab.envs import DirectMARLEnv, ManagerBasedRLEnvCfg, multi_agent_to_single_agent
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
@@ -101,6 +101,8 @@ from isaaclab_arena.policy.rl_policy.base_rsl_rl_policy import get_agent_cfg
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 
 # PLACEHOLDER: Extension template (do not remove this comment)
+
+logger = logging.getLogger(__name__)
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -116,7 +118,7 @@ def main():
         env_name, env_cfg = arena_builder.build_registered()
 
     except Exception as e:
-        omni.log.error(f"Failed to parse environment configuration: {e}")
+        logger.error(f"Failed to parse environment configuration: {e}")
         exit(1)
 
     agent_cfg = get_agent_cfg(args_cli)
@@ -158,7 +160,7 @@ def main():
     if isinstance(env_cfg, ManagerBasedRLEnvCfg):
         env_cfg.export_io_descriptors = args_cli.export_io_descriptors
     else:
-        omni.log.warn(
+        logger.warning(
             "IO descriptors are only supported for manager based RL environments. No IO descriptors will be exported."
         )
 
