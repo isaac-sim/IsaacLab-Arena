@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -213,18 +213,6 @@ class ObjectPlacer:
                     return False
 
         return True
-
-    @staticmethod
-    def _collect_on_pairs(
-        positions: dict[Object | ObjectReference, tuple[float, float, float]],
-    ) -> set[frozenset]:
-        """Build the set of On()-parent-child pairs to exclude from overlap checks."""
-        pairs: set[frozenset] = set()
-        for obj in positions:
-            for rel in obj.get_relations():
-                if isinstance(rel, On):
-                    pairs.add(frozenset((obj, rel.parent)))
-        return pairs
 
     def _apply_positions(
         self,
