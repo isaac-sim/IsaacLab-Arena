@@ -16,14 +16,8 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--video", action="store_true", default=False, help="Record videos for each eval job.")
     parser.add_argument(
-        "--video_length",
-        type=int,
-        default=None,
-        help="Max length of each recorded video (in steps). Defaults to full run length.",
-    )
-    parser.add_argument(
         "--video_dir",
         type=str,
-        default="eval_videos",
+        default="/eval/videos",
         help="Root directory for recorded videos. Each job gets a subdirectory.",
     )
