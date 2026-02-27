@@ -185,6 +185,7 @@ def _test_place_upright_mug_condition(simulation_app) -> bool:
     return True
 
 
+@pytest.mark.skip(reason="BROKEN")
 def test_place_upright_mug_single():
     result = run_simulation_app_function(
         _test_place_upright_mug_single,

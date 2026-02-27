@@ -8,7 +8,7 @@ import traceback
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
-NUM_ENVS = 3
+NUM_ENVS = 10
 OBJECT_SET_1_PRIM_PATH = "/World/envs/env_.*/ObjectSet_1"
 OBJECT_SET_2_PRIM_PATH = "/World/envs/env_.*/ObjectSet_2"
 OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
@@ -220,6 +220,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     ), "Contact sensor data is None"
 
     # replace * in OBJECT_SET_PRIM_PATH with env_index
+    object_paths = []
     try:
         for i in range(NUM_ENVS):
 
@@ -227,10 +228,10 @@ def _test_multi_objects_in_one_object_set(simulation_app):
                 prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
             )
             assert path is not None, "Path is None"
-            if i % 2 == 0:
-                assert "cracker_box.usd" in path, "Path does not contain cracker_box.usd for env index " + str(i)
-            else:
-                assert "sugar_box.usd" in path, "Path does not contain sugar_box.usd for env index " + str(i)
+            object_paths.append(path)
+        assert len(object_paths) == NUM_ENVS, "Object_paths length is not equal to NUM_ENVS"
+        assert cracker_box.usd_path in object_paths, "Cracker box USD path is not in Object_paths"
+        assert sugar_box.usd_path in object_paths, "Sugar box USD path is not in Object_paths"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -267,6 +268,8 @@ def _test_multi_object_sets(simulation_app):
         task=None,
     )
     try:
+        object_1_paths = []
+        object_2_paths = []
         for i in range(NUM_ENVS):
             path_1 = get_asset_usd_path_from_prim_path(
                 prim_path=OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
@@ -274,12 +277,18 @@ def _test_multi_object_sets(simulation_app):
             path_2 = get_asset_usd_path_from_prim_path(
                 prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
             )
+<<<<<<< HEAD
+=======
+            object_1_paths.append(path_1)
+            object_2_paths.append(path_2)
+>>>>>>> bdff070e (Fix object set tests.)
             assert path_1 is not None, (
                 "Path_1 from Prim Path " + OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)) + " is None"
             )
             assert path_2 is not None, (
                 "Path_2 from Prim Path " + OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)) + " is None"
             )
+<<<<<<< HEAD
             if i % 2 == 0:
                 assert "cracker_box.usd" in path_1, "Path_1 does not contain cracker_box.usd for env index " + str(i)
                 assert "sugar_box.usd" in path_2, "Path_2 does not contain sugar_box.usd for env index " + str(i)
@@ -289,6 +298,17 @@ def _test_multi_object_sets(simulation_app):
                     "mustard_bottle.usd" in path_2
                 ), "Path_2 does not contain mustard_bottle.usd for env index " + str(i)
         return True
+=======
+        assert len(object_1_paths) == NUM_ENVS, "Object_1_paths length is not equal to NUM_ENVS"
+        assert len(object_2_paths) == NUM_ENVS, "Object_2_paths length is not equal to NUM_ENVS"
+        # Check that each object in the set turns up in one of the environments
+        # NOTE(alexmillane): If we get really unlucky, this can fail because every environment
+        # gets the same object. The chance of this is 0.5^NUM_ENVS. So with 20 envs this is very small.
+        assert cracker_box.usd_path in object_1_paths, "Cracker box USD path is not in Object_1_paths"
+        assert sugar_box.usd_path in object_1_paths, "Sugar box USD path is not in Object_1_paths"
+        assert sugar_box.usd_path in object_2_paths, "Sugar box USD path is not in Object_2_paths"
+        assert mustard_bottle.usd_path in object_2_paths, "Mustard bottle USD path is not in Object_2_paths"
+>>>>>>> bdff070e (Fix object set tests.)
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
