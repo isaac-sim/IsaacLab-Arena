@@ -20,3 +20,10 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
     )
+    parser.add_argument("--video", action="store_true", default=False, help="Record videos for each eval job.")
+    parser.add_argument(
+        "--video_dir",
+        type=str,
+        default="/eval/videos",
+        help="Root directory for recorded videos. Each job gets a subdirectory.",
+    )
