@@ -25,7 +25,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, RandomAroundSolution
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
@@ -43,6 +43,8 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         pick_up_object.add_relation(On(table_reference))
         destination_location = self.asset_registry.get_asset_by_name(args_cli.destination_location)()
         destination_location.add_relation(On(table_reference))
+        destination_location.add_relation(AtPosition(x=0.5, y=0.0))
+        destination_location.add_relation(RandomAroundSolution(x_half_m=0.2, y_half_m=0.25))
 
         light = self.asset_registry.get_asset_by_name("light")(
             spawner_cfg=sim_utils.DomeLightCfg(intensity=500.0),
