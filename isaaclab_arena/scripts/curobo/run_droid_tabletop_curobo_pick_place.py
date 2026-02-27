@@ -683,6 +683,21 @@ def main() -> None:
                 env_id=0,
             )
 
+            # # Verify object is actually in gripper; otherwise don't count grasp or later stages as success
+            # attached = planner.get_attached_objects()
+            # if object_name not in attached:
+            #     results[object_name]['grasp'] = False
+            #     print(f"[SKIP] Object '{object_name}' not in gripper after close; treating grasp as failed")
+            #     # Open gripper (it was just closed above) so we're ready for the next object
+            #     _execute_gripper_action(
+            #         env,
+            #         planner,
+            #         gripper_binary_action=GRIPPER_OPEN_CMD,
+            #         steps=args_cli.gripper_settle_steps,
+            #         env_id=0,
+            #     )
+            #     continue
+
             # Plan directly to place pose (approach_distance handles final approach)
             place_success = _plan_and_execute(
                 env,

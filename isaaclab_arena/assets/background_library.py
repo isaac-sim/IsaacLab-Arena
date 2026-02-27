@@ -175,6 +175,7 @@ class MapleTableRobolab(LibraryBackground):
     object_min_z = -0.05
     spawn_cfg_addon = {"activate_contact_sensors": True}
 
+@register_asset
 class OfficeTable(LibraryBackground):
     """
     A office table.

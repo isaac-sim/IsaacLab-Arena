@@ -8,7 +8,7 @@
 ######## It is not a complete pick and place policy, but it is a good starting point
 
 # can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.03 --approach_distance 0.15 --retreat_distance 0.1 --debug_planner --pick_order tomato_soup_can sugar_box --grasp_orientation object_yaw --post_place_clearance 0.0
-
+# python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.06 --approach_distance 0.15 --retreat_distance 0.1 --debug_planner --pick_order tomato_soup_can alphabet_soup_can_hope_robolab milk_carton_hope_robolab --grasp_orientation object_yaw --post_place_clearance 0.0
 from __future__ import annotations
 
 import argparse
@@ -174,12 +174,20 @@ def _pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch
 
 
 def _get_object_pos(env, object_name: str, env_id: int = 0) -> torch.Tensor:
-    """Get object position in robot-base frame (cuRobo's coordinate system)."""
+    """Get object position in robot-base frame (cuRobo's coordinate system).
+
+    The vector from robot base to object is rotated from world into the robot's
+    local frame so that xy is correct when the base has non-zero rotation.
+    """
     obj = env.scene[object_name]
     robot = env.scene['robot']
     world_pos = obj.data.root_pos_w[env_id, :3]
     robot_base_pos = robot.data.root_pos_w[env_id, :3]
-    robot_frame_pos = world_pos - robot_base_pos
+    vec_world = world_pos - robot_base_pos
+    # Transform into robot base frame so xy is correct when base is rotated
+    robot_quat_w = robot.data.root_quat_w[env_id, :4]
+    R_world_to_robot = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+    robot_frame_pos = (R_world_to_robot @ vec_world.unsqueeze(-1)).squeeze(-1)
     print(f"[DEBUG OBJ] {object_name}: world={world_pos}, robot_base={robot_base_pos}, robot_frame={robot_frame_pos}")
     return robot_frame_pos.clone().detach()
 
