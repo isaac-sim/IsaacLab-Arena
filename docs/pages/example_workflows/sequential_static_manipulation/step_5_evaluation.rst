@@ -239,7 +239,7 @@ A sequential batch of jobs, i.e. different tasks, objects, embodiments or polici
 It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
 The evaluation batch can be specified in a config file, with examples shown below.
 
-.. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.yaml``):
+.. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.json``):
    :animate: fade-in
 
    .. code-block:: json
@@ -285,7 +285,7 @@ Run the batch evaluation:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.yaml
+   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
 You should see the following output on the console indicating the jobs and metrics.
