@@ -120,7 +120,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
 
          python isaaclab_arena/evaluation/policy_runner.py \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
            --num_steps 2000 \
            --num_envs 10 \
            --enable_cameras \
@@ -136,7 +136,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
 
          python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
            --num_steps 2000 \
            --num_envs 10 \
            --enable_cameras \
