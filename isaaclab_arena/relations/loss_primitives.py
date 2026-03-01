@@ -122,3 +122,24 @@ def single_point_linear_loss(
         target = torch.tensor(target, dtype=value.dtype, device=value.device)
 
     return slope * torch.abs(value - target)
+
+
+def interval_overlap_axis_loss(
+    a_min: torch.Tensor,
+    a_max: torch.Tensor,
+    b_min: torch.Tensor | float,
+    b_max: torch.Tensor | float,
+    slope: float = 1.0,
+) -> torch.Tensor:
+    """ReLU-style interval overlap: zero when separated, slope * overlap length otherwise."""
+    assert isinstance(a_min, torch.Tensor), f"a_min must be a torch.Tensor, got {type(a_min)}"
+    assert isinstance(a_max, torch.Tensor), f"a_max must be a torch.Tensor, got {type(a_max)}"
+    if not isinstance(b_min, torch.Tensor):
+        b_min = torch.tensor(b_min, dtype=a_min.dtype, device=a_min.device)
+    if not isinstance(b_max, torch.Tensor):
+        b_max = torch.tensor(b_max, dtype=a_max.dtype, device=a_max.device)
+    overlap_high = torch.minimum(a_max, b_max)
+    overlap_low = torch.maximum(a_min, b_min)
+    return single_boundary_linear_loss(
+        overlap_high, overlap_low, slope=slope, penalty_side="greater"
+    )
