@@ -28,11 +28,14 @@ pre-trained model checkpoint below:
 
    .. code-block:: bash
 
+      mkdir -p $MODELS_DIR/checkpoint-20000
       hf download \
         nvidia/GN1.6-Tuned-Arena-GR1-PlaceItemCloseDoor-Task \
         --include "ranch_bottle_into_fridge/*" \
         --repo-type model \
-        --local-dir $MODELS_DIR/checkpoint-20000
+        --local-dir $MODELS_DIR/_hf_download
+      mv $MODELS_DIR/_hf_download/ranch_bottle_into_fridge/* $MODELS_DIR/checkpoint-20000/
+      rm -rf $MODELS_DIR/_hf_download
 
 
 Step 1: Run Single Environment Evaluation
