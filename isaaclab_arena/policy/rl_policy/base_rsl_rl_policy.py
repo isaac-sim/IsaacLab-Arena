@@ -3,24 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import argparse
-import json
 from dataclasses import field
-from typing import Any
 
 from isaaclab.utils import configclass
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
@@ -28,6 +11,11 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
+    """Default RSL-RL runner configuration for Arena environments.
+
+    Used as the ``rsl_rl_cfg_entry_point`` when registering environments with gym,
+    allowing IsaacLab's ``train.py`` to load it via ``@hydra_task_config``.
+    """
 
     num_steps_per_env: int = 24
     max_iterations: int = 4000
@@ -61,47 +49,3 @@ class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
-
-    @classmethod
-    def update_cfg(
-        cls,
-        policy_cfg: dict[str, Any],
-        algorithm_cfg: dict[str, Any],
-        obs_groups: dict[str, list[str]],
-        num_steps_per_env: int,
-        max_iterations: int,
-        save_interval: int,
-        experiment_name: str,
-    ):
-        cfg = cls()
-        cfg.policy = RslRlPpoActorCriticCfg(**policy_cfg)
-        cfg.algorithm = RslRlPpoAlgorithmCfg(**algorithm_cfg)
-        cfg.obs_groups = obs_groups
-        cfg.num_steps_per_env = num_steps_per_env
-        cfg.max_iterations = max_iterations
-        cfg.save_interval = save_interval
-        cfg.experiment_name = experiment_name
-        return cfg
-
-
-def get_agent_cfg(args_cli: argparse.Namespace) -> Any:
-    """Get the environment and agent configuration from the command line arguments."""
-
-    # Read a json file containing the agent configuration
-    with open(args_cli.agent_cfg_path) as f:
-        agent_cfg_dict = json.load(f)
-
-    policy_cfg = agent_cfg_dict["policy_cfg"]
-    algorithm_cfg = agent_cfg_dict["algorithm_cfg"]
-    obs_groups = agent_cfg_dict["obs_groups"]
-    # Load all other arguments if they are in args_cli as policy arguments
-    num_steps_per_env = args_cli.num_steps_per_env
-    max_iterations = args_cli.max_iterations
-    save_interval = args_cli.save_interval
-    experiment_name = args_cli.experiment_name
-
-    agent_cfg = RLPolicyCfg.update_cfg(
-        policy_cfg, algorithm_cfg, obs_groups, num_steps_per_env, max_iterations, save_interval, experiment_name
-    )
-
-    return agent_cfg
