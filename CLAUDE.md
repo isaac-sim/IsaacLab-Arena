@@ -6,6 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Isaac-Lab Arena is a scalable robotics simulation environment creation and evaluation framework built on top of NVIDIA Isaac Lab. It provides a composable system for defining robotic tasks, assembling scenes from modular assets, solving spatial object relationships, and evaluating learning policies.
 
+## Docker Environment
+
+All commands must be run inside the Docker container. From the repo root:
+
+```bash
+# Build image (if needed) and start/attach to container
+./docker/run_docker.sh
+
+# Force rebuild the image
+./docker/run_docker.sh -r
+
+# With GR00T N1.6 dependencies
+./docker/run_docker.sh -g
+
+# Custom host mount directories (datasets, models, eval)
+./docker/run_docker.sh -d ~/datasets -m ~/models -e ~/eval
+```
+
+The script builds the image on first run and reuses it on subsequent runs. If a container is already running it attaches to it instead of starting a new one. The repo root is mounted at `/workspaces/isaaclab_arena` inside the container.
+
 ## Common Commands
 
 ### Running Tests
