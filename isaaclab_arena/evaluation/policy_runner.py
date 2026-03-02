@@ -63,11 +63,13 @@ def rollout_policy(
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
+    pbar = None
     try:
         obs, _ = env.reset()
         policy.reset()
         # set task description (could be None) from the task being evaluated
-        policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
+        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
+        policy.set_task_description(env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description())
 
         # Setup progress bar based on num_steps or num_episodes
         if num_steps is not None:
@@ -107,16 +109,18 @@ def rollout_policy(
         pbar.close()
 
     except Exception as e:
-        pbar.close()
+        if pbar is not None:
+            pbar.close()
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
         # only compute metrics if env has metrics registered
-        if hasattr(env.cfg, "metrics"):
+        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
+        if hasattr(env.unwrapped.cfg, "metrics"):
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
 
-            metrics = compute_metrics(env)
+            metrics = compute_metrics(env.unwrapped)
             return metrics
         return None
 
