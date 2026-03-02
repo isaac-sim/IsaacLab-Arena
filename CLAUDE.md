@@ -71,11 +71,31 @@ flake8 <file>
 isort --profile black <file>
 ```
 
+### Coding Style
+
+Follow the pre-commit hooks as the enforced style guide (black, flake8, isort, pyupgrade, codespell). Run checks before committing — not after:
+
+```bash
+pre-commit run --all-files   # check all files
+# if pre-commit modifies files, stage them and re-run before committing
+```
+
 ### Contributing
+
 All commits must be signed off per DCO requirements:
 ```bash
 git commit -s -m "Your commit message"
 ```
+
+**Branch naming:** `<username>/feature-desc` (e.g. `cvolk/feature-video-recording`, `cvolk/refactor-no-unwrap`).
+
+**Commit messages:**
+- Subject: imperative mood, ~50 chars, no trailing period (e.g. "Fix attribute access on wrapped env")
+- Separate subject from body with a blank line
+- Body: explain *what* and *why* (not how — the diff shows that), wrap at 72 chars
+- Do not include AI attribution lines (e.g. "Co-Authored-By: Claude...")
+
+**PR iteration:** when addressing review feedback, add new commits rather than amending existing ones — this lets reviewers easily verify each change was addressed.
 
 ## Architecture
 
@@ -85,10 +105,10 @@ An environment is assembled by composing four components into an `IsaacLabArenaE
 
 ```
 IsaacLabArenaEnvironment(name, scene, embodiment, task, [teleop_device], [orchestrator])
-    ↓ ArenaEnvBuilder.make_rl() / make_mimic()
+    ↓ ArenaEnvBuilder.build_registered() / make_registered()
 IsaacLabArenaManagerBasedRLEnvCfg
     ↓
-IsaacLabArenaManagerBasedRLEnv (wraps isaaclab.envs.ManagerBasedRLEnv)
+gym.make() → OrderEnforcing(IsaacLabArenaManagerBasedRLEnv)
 ```
 
 ### Key Packages
@@ -130,6 +150,17 @@ def _test_foo(simulation_app):  # inner function runs inside SimulationApp
 def test_foo():  # pytest-visible outer function
     result = run_simulation_app_function(_test_foo)
     assert result
+```
+
+### Wrapped Environment Convention
+
+`ArenaEnvBuilder.make_registered()` returns the gym-wrapped env (not the base env). This aligns with Isaac Lab's convention. Use `env.unwrapped` explicitly to access Isaac Lab-specific attributes (`cfg`, `device`, `step_dt`, etc.) that are not forwarded by gymnasium's `OrderEnforcing` wrapper:
+
+```python
+env = arena_builder.make_registered()          # wrapped env
+env.step(actions)                              # goes through OrderEnforcing
+env.unwrapped.cfg                              # access Isaac Lab config
+env.unwrapped.device                           # access Isaac Lab device
 ```
 
 ### Configuration System
