@@ -23,6 +23,19 @@ The repo root is mounted at `/workspaces/isaaclab_arena` inside the container. T
 docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && <command>"
 ```
 
+**Important:** Use `/isaac-sim/python.sh` as the Python interpreter inside the container (not `python` or `python3`).
+
+```bash
+# Example: run kitchen_pick_and_place with zero_action policy
+docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+  --policy_type zero_action \
+  --num_episodes 1 \
+  kitchen_pick_and_place \
+  --object cracker_box \
+  --embodiment franka"
+```
+
 ## Common Commands
 
 ### Running Tests
@@ -30,16 +43,16 @@ Tests require Isaac Sim and run via pytest. All simulation tests use `run_simula
 
 ```bash
 # Run all tests
-pytest isaaclab_arena/tests/
+/isaac-sim/python.sh -m pytest isaaclab_arena/tests/
 
 # Run a single test file
-pytest isaaclab_arena/tests/test_asset_registry.py
+/isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py
 
 # Run a specific test function
-pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered
+/isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered
 
 # Run tests that require cameras
-pytest isaaclab_arena/tests/ -m with_cameras
+/isaac-sim/python.sh -m pytest isaaclab_arena/tests/ -m with_cameras
 ```
 
 ### Linting and Formatting
