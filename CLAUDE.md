@@ -8,23 +8,20 @@ Isaac-Lab Arena is a scalable robotics simulation environment creation and evalu
 
 ## Docker Environment
 
-All commands must be run inside the Docker container. From the repo root:
+All commands (tests, linting, training scripts, etc.) must be run inside the Docker container. The default container is `isaaclab_arena-latest`, started via:
 
 ```bash
-# Build image (if needed) and start/attach to container
-./docker/run_docker.sh
-
-# Force rebuild the image
-./docker/run_docker.sh -r
-
-# With GR00T N1.6 dependencies
-./docker/run_docker.sh -g
-
-# Custom host mount directories (datasets, models, eval)
-./docker/run_docker.sh -d ~/datasets -m ~/models -e ~/eval
+./docker/run_docker.sh          # build image (if needed) and start/attach
+./docker/run_docker.sh -r       # force rebuild
+./docker/run_docker.sh -g       # include GR00T N1.6 dependencies
+./docker/run_docker.sh -d ~/datasets -m ~/models -e ~/eval  # custom mount dirs
 ```
 
-The script builds the image on first run and reuses it on subsequent runs. If a container is already running it attaches to it instead of starting a new one. The repo root is mounted at `/workspaces/isaaclab_arena` inside the container.
+The repo root is mounted at `/workspaces/isaaclab_arena` inside the container. To run a command in the already-running container:
+
+```bash
+docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && <command>"
+```
 
 ## Common Commands
 
