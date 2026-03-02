@@ -300,6 +300,9 @@ class ArenaEnvBuilder:
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
         env = gym.make(name, cfg=cfg, render_mode=render_mode)
+        # When render_mode is set (e.g. "rgb_array" for video recording), gym.make() wraps the env
+        # in additional wrappers (e.g. RecordVideo). We skip unwrapping in that case to preserve
+        # those wrappers. When render_mode is None, we unwrap to get direct access to the base env.
         if render_mode is None:
             env = env.unwrapped
         return env, cfg

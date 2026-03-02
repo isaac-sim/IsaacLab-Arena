@@ -115,6 +115,8 @@ def rollout_policy(
 
     else:
         # only compute metrics if env has metrics registered
+        # Use unwrapped to reach the base env through any gym wrappers (e.g. RecordVideo).
+        # This is safe whether or not the env was pre-unwrapped: gym's base Env.unwrapped returns self.
         if hasattr(env.unwrapped.cfg, "metrics"):
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
