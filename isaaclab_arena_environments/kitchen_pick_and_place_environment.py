@@ -60,7 +60,6 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             name="destination_location",
             prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
             parent_asset=background,
-            object_type=ObjectType.RIGID,
         )
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
