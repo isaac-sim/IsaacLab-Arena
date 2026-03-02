@@ -7,8 +7,8 @@
 ######## From Neel: This script is an example of how to use the curobo planner to pick and place objects.
 ######## It is not a complete pick and place policy, but it is a good starting point
 
-# can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.03 --approach_distance 0.15 --retreat_distance 0.1 --debug_planner --pick_order tomato_soup_can sugar_box --grasp_orientation object_yaw --post_place_clearance 0.0
-# python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.06 --approach_distance 0.15 --retreat_distance 0.1 --debug_planner --pick_order tomato_soup_can alphabet_soup_can_hope_robolab milk_carton_hope_robolab --grasp_orientation object_yaw --post_place_clearance 0.0
+# can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.17 --approach_distance 0.08 --retreat_distance 0.08 --debug_planner --debug_goal --pick_order tomato_soup_can --grasp_orientation object_yaw --post_place_clearance 0.0
+
 from __future__ import annotations
 
 import argparse
@@ -86,6 +86,7 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--dump_spheres_dir', type=str, default=None, help='Directory to dump CuRobo collision spheres.')
     parser.add_argument('--dump_spheres_png', action='store_true', default=False, help='Save sphere projection PNGs.')
     parser.add_argument('--rerun_recording_path', type=str, default=None, help='Optional .rrd output path for Rerun.')
+    parser.add_argument('--debug_goal', action='store_true', default=False, help='Print goal vs achieved EEF pose after each plan execution.')
 
 
 def _add_script_args_to_subparsers(parser: argparse.ArgumentParser) -> None:
@@ -103,17 +104,26 @@ def _add_script_args_to_subparsers(parser: argparse.ArgumentParser) -> None:
 
 
 def _get_current_eef_pose(env, planner, env_id: int = 0) -> torch.Tensor:
+    """Return current EEF pose as a 4x4 matrix in robot-base frame via CuRobo FK."""
     joint_state = planner._get_current_joint_state_for_curobo()
     ee_pose = planner.get_ee_pose(joint_state)
-
     ee_pos = planner._to_env_device(ee_pose.position).view(-1, 3)[0]
     ee_quat = planner._to_env_device(ee_pose.quaternion).view(-1, 4)[0]
     ee_rot = math_utils.matrix_from_quat(ee_quat.unsqueeze(0))[0]
-    print(f"[DEBUG EEF] CuRobo EEF position: {ee_pos}")
     return math_utils.make_pose(ee_pos, ee_rot)
 
 
+def _compute_pose_error(pose_a: torch.Tensor, pose_b: torch.Tensor) -> tuple[float, float]:
+    """Compute positional (m) and rotational (rad) error between two 4x4 poses."""
+    pos_err = torch.norm(pose_a[:3, 3] - pose_b[:3, 3]).item()
+    rot_err_mat = pose_a[:3, :3] @ pose_b[:3, :3].T
+    trace_val = torch.clamp((rot_err_mat.trace() - 1.0) / 2.0, -1.0, 1.0)
+    rot_err = torch.acos(trace_val).item()
+    return pos_err, rot_err
+
+
 def _action_from_pose(env, planner, target_pose: torch.Tensor, gripper_binary_action: float, env_id: int = 0) -> torch.Tensor:
+    """Build a delta-pose + gripper action to drive the EEF toward target_pose."""
     target_pos, target_rot = math_utils.unmake_pose(target_pose)
     curr_pose = _get_current_eef_pose(env, planner, env_id=env_id)
     curr_pos, curr_rot = math_utils.unmake_pose(curr_pose)
@@ -124,19 +134,65 @@ def _action_from_pose(env, planner, target_pose: torch.Tensor, gripper_binary_ac
     delta_rotation = math_utils.axis_angle_from_quat(delta_quat.unsqueeze(0))[0]
 
     pose_action = torch.cat([delta_position, delta_rotation], dim=0)
-    pose_action = torch.clamp(pose_action, -1.0, 1.0)
     gripper_action = torch.tensor([gripper_binary_action], device=env.device, dtype=torch.float32)
-    action = torch.cat([pose_action, gripper_action], dim=0)
-    return action.unsqueeze(0)
+    return torch.cat([pose_action, gripper_action], dim=0).unsqueeze(0)
 
 
-def _execute_plan(env, planner, gripper_binary_action: float, env_id: int = 0) -> None:
+def _update_ee_visualizer(
+    ee_visualizer, eef_pose: torch.Tensor, robot_base_pos: torch.Tensor,
+) -> None:
+    """Move the EEF tracking marker to match the given pose (robot-base frame)."""
+    if ee_visualizer is None:
+        return
+    pos_world = (eef_pose[:3, 3] + robot_base_pos).detach().cpu()
+    quat = math_utils.quat_from_matrix(eef_pose[:3, :3].unsqueeze(0)).detach().cpu()
+    ee_visualizer.visualize(translations=pos_world.unsqueeze(0), orientations=quat)
+
+
+def _execute_plan(
+    env,
+    planner,
+    gripper_binary_action: float,
+    env_id: int = 0,
+    converge_pos_threshold: float = 0.001,
+    converge_rot_threshold: float = 0.05,
+    max_converge_steps: int = 100,
+    ee_visualizer=None,
+) -> None:
     planned_poses = planner.get_planned_poses()
     if not planned_poses:
         return
+
+    robot_base_pos = env.scene['robot'].data.root_pos_w[env_id, :3]
+
     for pose in planned_poses:
         action = _action_from_pose(env, planner, pose, gripper_binary_action, env_id=env_id)
         env.step(action)
+        _update_ee_visualizer(
+            ee_visualizer, _get_current_eef_pose(env, planner, env_id), robot_base_pos,
+        )
+
+    final_pose = planned_poses[-1]
+    curr_pose = _get_current_eef_pose(env, planner, env_id=env_id)
+    pos_err, rot_err = _compute_pose_error(final_pose, curr_pose)
+    print(f"[TRACKING] After open-loop: pos_err={pos_err:.4f}m, rot_err={rot_err:.4f}rad")
+
+    if max_converge_steps <= 0:
+        return
+
+    for step in range(max_converge_steps):
+        if pos_err < converge_pos_threshold and rot_err < converge_rot_threshold:
+            print(f"[CONVERGE] Reached final waypoint in {step} extra steps "
+                  f"(pos_err={pos_err:.4f}m, rot_err={rot_err:.4f}rad)")
+            return
+        action = _action_from_pose(env, planner, final_pose, gripper_binary_action, env_id=env_id)
+        env.step(action)
+        curr_pose = _get_current_eef_pose(env, planner, env_id=env_id)
+        _update_ee_visualizer(ee_visualizer, curr_pose, robot_base_pos)
+        pos_err, rot_err = _compute_pose_error(final_pose, curr_pose)
+
+    print(f"[CONVERGE] Did not fully converge after {max_converge_steps} steps "
+          f"(pos_err={pos_err:.4f}m, rot_err={rot_err:.4f}rad)")
 
 
 def _execute_gripper_action(env, planner, gripper_binary_action: float, steps: int = 12, env_id: int = 0) -> None:
@@ -486,6 +542,8 @@ def _plan_and_execute(
     sphere_dump_dir: Path | None = None,
     sphere_dump_png: bool = False,
     goal_pose_visualizer=None,
+    ee_visualizer=None,
+    debug_goal: bool = False,
 ) -> bool:
     robot_base_pos = env.scene['robot'].data.root_pos_w[0, :3]
     _visualize_goal_pose(target_pose, goal_pose_visualizer, robot_base_pos, stage=stage)
@@ -509,8 +567,34 @@ def _plan_and_execute(
         return False
 
     _dump_curobo_spheres(planner, f'{stage}_planned', sphere_dump_dir, save_png=sphere_dump_png)
-    _execute_plan(env=env, planner=planner, gripper_binary_action=gripper_action, env_id=0)
+    _execute_plan(env=env, planner=planner, gripper_binary_action=gripper_action, env_id=0, ee_visualizer=ee_visualizer)
+
+    if debug_goal:
+        _log_goal_vs_achieved(env, planner, target_pose, stage)
+
     return True
+
+
+def _log_goal_vs_achieved(env, planner, target_pose: torch.Tensor, stage: str) -> None:
+    """Print goal pose, achieved EEF pose, and positional/rotational error."""
+    achieved_pose = _get_current_eef_pose(env, planner)
+    pos_err, rot_err = _compute_pose_error(target_pose, achieved_pose)
+
+    goal_pos = target_pose[:3, 3]
+    achieved_pos = achieved_pose[:3, 3]
+    per_axis_err = (goal_pos - achieved_pos).tolist()
+
+    goal_quat = math_utils.quat_from_matrix(target_pose[:3, :3].unsqueeze(0))[0]
+    achieved_quat = math_utils.quat_from_matrix(achieved_pose[:3, :3].unsqueeze(0))[0]
+
+    # Neel: Print some goal reaching debugging information
+    print(f"[DEBUG GOAL] --- {stage} ---")
+    print(f"[DEBUG GOAL] Goal pos:     {goal_pos.tolist()}")
+    print(f"[DEBUG GOAL] Achieved pos: {achieved_pos.tolist()}")
+    print(f"[DEBUG GOAL] Pos error:    {per_axis_err} (norm: {pos_err:.4f} m)")
+    print(f"[DEBUG GOAL] Goal quat:     {goal_quat.tolist()}")
+    print(f"[DEBUG GOAL] Achieved quat: {achieved_quat.tolist()}")
+    print(f"[DEBUG GOAL] Rot error:    {rot_err:.4f} rad ({rot_err * 180.0 / 3.14159265:.2f} deg)")
 
 
 def _save_rerun_checkpoint(planner, label: str) -> None:
@@ -534,6 +618,8 @@ def _run_sanity_check(
     sphere_dump_dir: Path | None,
     sphere_dump_png: bool,
     goal_pose_visualizer=None,
+    ee_visualizer=None,
+    debug_goal: bool = False,
 ) -> None:
     curr_pose = _get_current_eef_pose(env, planner)
     lifted_pose = curr_pose.clone()
@@ -550,6 +636,8 @@ def _run_sanity_check(
         sphere_dump_dir=sphere_dump_dir,
         sphere_dump_png=sphere_dump_png,
         goal_pose_visualizer=goal_pose_visualizer,
+        ee_visualizer=ee_visualizer,
+        debug_goal=debug_goal,
     )
     print(f'[SANITY] lift-from-home planning success: {ok}')
     if ok:
@@ -558,7 +646,8 @@ def _run_sanity_check(
 
 def main() -> None:
     args_parser = get_isaaclab_arena_cli_parser()
-    add_script_args(args_parser)
+    # Neel:see if this is needed
+    # add_script_args(args_parser)
     args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
     _add_script_args_to_subparsers(args_parser)
     args_cli = args_parser.parse_args()
@@ -575,6 +664,7 @@ def main() -> None:
         sphere_dump_dir = Path(args_cli.dump_spheres_dir) if args_cli.dump_spheres_dir else None
 
         goal_pose_visualizer = None
+        ee_visualizer = None
         if not getattr(args_cli, 'headless', False):
             marker_cfg = deepcopy(FRAME_MARKER_CFG)
             marker_cfg.prim_path = '/World/Visuals/curobo_goal_pose'
@@ -582,6 +672,13 @@ def main() -> None:
             if frame_marker is not None:
                 setattr(frame_marker, 'scale', (0.08, 0.08, 0.08))
             goal_pose_visualizer = VisualizationMarkers(marker_cfg)
+
+            ee_marker_cfg = deepcopy(FRAME_MARKER_CFG)
+            ee_marker_cfg.prim_path = '/World/Visuals/curobo_ee_actual'
+            ee_frame_marker = ee_marker_cfg.markers.get('frame')
+            if ee_frame_marker is not None:
+                setattr(ee_frame_marker, 'scale', (0.05, 0.05, 0.05))
+            ee_visualizer = VisualizationMarkers(ee_marker_cfg)
 
         arena_builder = get_arena_builder_from_cli(args_cli)
         env = arena_builder.make_registered()
@@ -633,6 +730,8 @@ def main() -> None:
                 sphere_dump_dir,
                 args_cli.dump_spheres_png,
                 goal_pose_visualizer,
+                ee_visualizer=ee_visualizer,
+                debug_goal=args_cli.debug_goal,
             )
 
         pick_order = _auto_pick_order(env, explicit_order=args_cli.pick_order)
@@ -699,6 +798,8 @@ def main() -> None:
                 sphere_dump_dir=sphere_dump_dir,
                 sphere_dump_png=args_cli.dump_spheres_png,
                 goal_pose_visualizer=goal_pose_visualizer,
+                ee_visualizer=ee_visualizer,
+                debug_goal=args_cli.debug_goal,
             )
             results[object_name]['grasp'] = grasp_success
             if not grasp_success:
@@ -724,6 +825,8 @@ def main() -> None:
                 sphere_dump_dir=sphere_dump_dir,
                 sphere_dump_png=args_cli.dump_spheres_png,
                 goal_pose_visualizer=goal_pose_visualizer,
+                ee_visualizer=ee_visualizer,
+                debug_goal=args_cli.debug_goal,
             )
             results[object_name]['place'] = place_success
             if not place_success:
@@ -753,6 +856,8 @@ def main() -> None:
                     sphere_dump_dir=sphere_dump_dir,
                     sphere_dump_png=args_cli.dump_spheres_png,
                     goal_pose_visualizer=goal_pose_visualizer,
+                    ee_visualizer=ee_visualizer,
+                    debug_goal=args_cli.debug_goal,
                 )
                 results[object_name]['retreat'] = retreat_success
 

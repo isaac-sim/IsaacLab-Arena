@@ -44,7 +44,7 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         office_table = self.asset_registry.get_asset_by_name('office_table_background')()
         ground_plane = self.asset_registry.get_asset_by_name('ground_plane')()
         obj_1 = self.asset_registry.get_asset_by_name('tomato_soup_can')(scale=(0.7, 0.7, 0.6))
-        obj_2 = self.asset_registry.get_asset_by_name('milk_carton_hope_robolab')(scale=(0.9, 0.9, 0.6))
+        obj_2 = self.asset_registry.get_asset_by_name('milk_carton_hope_robolab')(scale=(0.8, 0.8, 0.6))
         obj_3 = self.asset_registry.get_asset_by_name('alphabet_soup_can_hope_robolab')(scale=(0.7, 0.7, 0.8))
 
         blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(2.0, 0.8, 1.0))
