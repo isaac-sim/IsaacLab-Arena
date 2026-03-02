@@ -162,7 +162,7 @@ def main():
         arena_builder = get_arena_builder_from_cli(args_cli)
         name, cfg = arena_builder.build_registered()
 
-        env = gym.make(name, cfg=cfg).unwrapped
+        env = gym.make(name, cfg=cfg)
 
         # Per-rank seed when distributed so each process has a different seed
         seed = args_cli.seed
