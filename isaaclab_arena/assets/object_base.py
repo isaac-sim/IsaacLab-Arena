@@ -160,15 +160,15 @@ class ObjectBase(Asset, ABC):
             The order is (x, y, z, qw, qx, qy, qz).
         """
         # We require that the asset has been added to the scene under its name.
-        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = env.scene[self.name].data.root_pose_w.clone()
+            object_pose = env.unwrapped.scene[self.name].data.root_pose_w.clone()
         elif self.object_type == ObjectType.BASE:
-            object_pose = torch.cat(env.scene[self.name].get_world_poses(), dim=-1)
+            object_pose = torch.cat(env.unwrapped.scene[self.name].get_world_poses(), dim=-1)
         else:
             raise ValueError(f"Function not implemented for object type: {self.object_type}")
         if is_relative:
-            object_pose[:, :3] -= env.scene.env_origins
+            object_pose[:, :3] -= env.unwrapped.scene.env_origins
         return object_pose
 
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
@@ -178,18 +178,18 @@ class ObjectBase(Asset, ABC):
             env: The environment.
             pose: The pose to set.
         """
-        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
         if env_ids is None:
-            env_ids = torch.arange(env.num_envs, device=env.device)
+            env_ids = torch.arange(env.unwrapped.num_envs, device=env.unwrapped.device)
         # Grab the object
-        asset = env.scene[self.name]
+        asset = env.unwrapped.scene[self.name]
         num_envs = len(env_ids)
         # Convert the pose to the env frame
-        pose_t_xyz_q_wxyz = pose.to_tensor(device=env.device).repeat(num_envs, 1)
-        pose_t_xyz_q_wxyz[:, :3] += env.scene.env_origins[env_ids]
+        pose_t_xyz_q_wxyz = pose.to_tensor(device=env.unwrapped.device).repeat(num_envs, 1)
+        pose_t_xyz_q_wxyz[:, :3] += env.unwrapped.scene.env_origins[env_ids]
         # Set the pose and velocity
         asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
+        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.unwrapped.device), env_ids=env_ids)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
