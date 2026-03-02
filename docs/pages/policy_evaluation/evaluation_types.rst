@@ -77,7 +77,13 @@ see :doc:`Policy Design <../concepts/concept_policy_design>`.
 **Heterogeneous objects example (single or multi-GPU)**
 
 Use ``--object_set`` so each of the ``--num_envs`` parallel environments gets a
-different object from the list:
+different object from the list. Object-to-environment mapping: with the default
+deterministic assignment, environment :math:`i` gets the object at index
+:math:`i \\mod n` in the list (where :math:`n` = ``len(object_set)``)—so when
+``num_envs`` > ``len(object_set)`` the assignment **cycles** (no truncation or
+error). If the object set is created with ``random_choice=True``, each environment
+gets a randomly chosen object from the set. Some environments may require
+``num_envs == len(object_set)``.
 
 .. code-block:: bash
 
