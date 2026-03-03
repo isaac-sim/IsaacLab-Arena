@@ -71,6 +71,7 @@ echo "Installing GR00T main dependencies..."
     peft==0.17.0 \
     protobuf==3.20.3 \
     onnx==1.17.0 \
+    deepspeed==0.17.6 \
     tyro \
     pytest && \
 # Ensure pytorch torchrun script is in PATH
