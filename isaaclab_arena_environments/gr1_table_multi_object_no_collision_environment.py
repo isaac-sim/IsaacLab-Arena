@@ -4,21 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Table + multi-object NoCollision environment.
+Table + multi-object NoCollision environment. Office table with objects placed via
+On(table) and pairwise NoCollision (relation solver). Includes a robot (e.g. GR1).
+No task — suitable for policy_runner with zero_action or any policy.
 
-Uses an office table as the support surface, spawns multiple objects with On(table)
-and pairwise NoCollision (relation solver places them). Includes a robot (e.g. GR1)
-in the scene. No task — suitable for policy_runner with zero_action or any policy.
-
-Run via policy_runner, e.g.:
-
-  python isaaclab_arena/evaluation/policy_runner.py \\
-    --policy_type zero_action \\
-    --num_steps 2000 \\
-    --enable_cameras \\
+Example:
+  python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 500 \\
+    --num_envs 1 --enable_cameras \\
     --environment isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment:GR1TableMultiObjectNoCollisionEnvironment \\
-    gr1_table_multi_object_no_collision \\
-    --embodiment gr1_joint
+    gr1_table_multi_object_no_collision --embodiment gr1_joint
 """
 
 import argparse
@@ -41,10 +35,8 @@ from isaaclab_arena.terms.events import set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE: Type annotations that require the simulation app are omitted so this module
-# can be imported before the app starts (e.g. for CLI argument retrieval).
 
-# Default: 7 table-suitable objects (On table + pairwise NoCollision); fewer objects ease layout optimization.
+
 DEFAULT_TABLE_OBJECTS = [
     "cracker_box",
     "mustard_bottle",
@@ -53,7 +45,7 @@ DEFAULT_TABLE_OBJECTS = [
     "mug",
     "brown_box",
     "dex_cube",
-]
+]  # Default objects on table (On + pairwise NoCollision)
 
 
 @configclass
@@ -120,13 +112,15 @@ class TableMultiObjectLayoutTask(TaskBase):
 
 
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
-
-    """Table-based scene with multiple objects (On(table) + NoCollision) and a robot."""
+    """
+    Table-based scene with multiple objects (On(table) + NoCollision) and a robot.
+    Layout is precomputed once and applied at reset to all envs.
+    """
 
     name: str = "gr1_table_multi_object_no_collision"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-        # Task precomputes one layout in TableMultiObjectLayoutTask; skip builder's relation solving.
+        # Task precomputes layout in TableMultiObjectLayoutTask; skip builder relation solving.
         args_cli.solve_relations = False
 
         from isaaclab_arena.assets.object_reference import ObjectReference
@@ -156,6 +150,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         table_background = self.asset_registry.get_asset_by_name("office_table")()
         light = self.asset_registry.get_asset_by_name("light")()
 
+        # Table surface as anchor for On relations
         tabletop_reference = ObjectReference(
             name="table",
             prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
@@ -169,7 +164,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             obj = self.asset_registry.get_asset_by_name(name)()
             obj.add_relation(On(tabletop_reference))
             placeable_assets.append(obj)
-        # Horizontal gap (X,Y only) so collision meshes don't touch.
+        # Pairwise NoCollision so objects do not overlap
         for i, obj_a in enumerate(placeable_assets):
             for obj_b in placeable_assets[i + 1 :]:
                 obj_a.add_relation(NoCollision(obj_b))

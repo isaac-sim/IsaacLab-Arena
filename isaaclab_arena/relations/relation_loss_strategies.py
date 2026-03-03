@@ -337,7 +337,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         """Compute loss for NoCollision relation.
 
         Args:
-            relation: NoCollision relation.
+            relation: NoCollision relation with relation_loss_weight.
             child_pos: Child object position tensor (x, y, z) in world coords.
             child_bbox: Child object local bounding box.
             parent_world_bbox: Parent bounding box in world coordinates.

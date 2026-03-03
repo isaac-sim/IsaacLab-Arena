@@ -131,7 +131,21 @@ def interval_overlap_axis_loss(
     b_max: torch.Tensor | float,
     slope: float = 1.0,
 ) -> torch.Tensor:
-    """ReLU-style interval overlap: zero when separated, slope * overlap length otherwise."""
+    """ReLU-style interval overlap: zero when separated, slope * overlap length otherwise.
+
+    Used by NoCollisionLossStrategy for per-axis overlap. Intervals [a_min, a_max]
+    and [b_min, b_max]; loss is zero when they do not overlap, else slope * overlap_length.
+
+    Args:
+        a_min: Child interval min (tensor for gradient flow).
+        a_max: Child interval max (tensor).
+        b_min: Parent interval min (tensor or float).
+        b_max: Parent interval max (tensor or float).
+        slope: Gradient magnitude (default: 1.0).
+
+    Returns:
+        Zero when intervals are separated; otherwise slope * overlap length.
+    """
     assert isinstance(a_min, torch.Tensor), f"a_min must be a torch.Tensor, got {type(a_min)}"
     assert isinstance(a_max, torch.Tensor), f"a_max must be a torch.Tensor, got {type(a_max)}"
     if not isinstance(b_min, torch.Tensor):

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def run_isaac_sim_no_collision_demo(
-    num_steps: int = 10000,
+    num_steps: int = 1000,
     reset_every_n_steps: int = 100,
     hold_overlapping_steps: int = 150,
 ):
@@ -149,6 +149,12 @@ def run_isaac_sim_no_collision_demo(
         if reset_every_n_steps > 0 and (step + 1) % reset_every_n_steps == 0:
             env.reset()
             apply_overlapping_pose_then_solve_and_display()
+
+
+def smoke_test_isaac_sim_no_collision(simulation_app: "SimulationApp") -> bool:
+    """Smoke test: run NoCollision demo with Isaac Sim objects (minimal steps)."""
+    run_isaac_sim_no_collision_demo(num_steps=2)
+    return True
 
 
 # %%

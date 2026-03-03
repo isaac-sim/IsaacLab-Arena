@@ -3,12 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for NoCollision loss strategy and RelationSolver with NoCollision relations.
-
-Our NoCollision loss is: per-axis overlap lengths (zero when separated on that axis),
-then overlap_volume = overlap_x * overlap_y * overlap_z, total_loss = slope * overlap_volume.
-So loss is zero whenever the two AABBs do not overlap in 3D (any axis separated => volume 0).
-"""
+"""Tests for NoCollision loss strategy and RelationSolver with NoCollision relations."""
 
 import torch
 
@@ -25,9 +20,7 @@ def _create_box(name: str = "box", size: float = 0.2) -> DummyObject:
     """Create a small box (local bbox [0,0,0] to [size, size, size])."""
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(
-            min_point=(0.0, 0.0, 0.0), max_point=(size, size, size)
-        ),
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(size, size, size)),
     )
 
 
@@ -35,9 +28,7 @@ def _create_table() -> DummyObject:
     """Create a table-like object at origin."""
     return DummyObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(
-            min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)
-        ),
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
 
 
@@ -55,12 +46,12 @@ def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]
 
 
 # =============================================================================
-# NoCollisionLossStrategy tests (match our formula: volume = product of axis overlaps)
+# NoCollisionLossStrategy tests
 # =============================================================================
 
 
 def test_no_collision_zero_loss_when_fully_separated():
-    """Loss is zero when AABBs do not overlap on at least one axis (volume = 0)."""
+    """Test that NoCollision loss is zero when AABBs do not overlap on any axis."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation = NoCollision(box_b)
@@ -68,15 +59,14 @@ def test_no_collision_zero_loss_when_fully_separated():
 
     # Child at origin -> world X [0, 0.2]. Parent at x=1 -> world X [1, 1.2]. No X overlap => volume 0.
     child_pos = torch.tensor([0.0, 0.0, 0.0])
-    child_bbox = box_a.get_bounding_box()
     parent_world_bbox = box_b.get_bounding_box().translated((1.0, 0.0, 0.0))
 
-    loss = strategy.compute_loss(relation, child_pos, child_bbox, parent_world_bbox)
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
 
 def test_no_collision_zero_loss_when_separated_on_one_axis_only():
-    """Loss is zero when separated on X only (overlap_x=0 => volume=0); Y,Z can overlap in principle."""
+    """Test that NoCollision loss is zero when separated on one axis (overlap_x=0 => volume=0)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation = NoCollision(box_b)
@@ -86,12 +76,12 @@ def test_no_collision_zero_loss_when_separated_on_one_axis_only():
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.5, 0.0, 0.0))
 
-    loss = strategy.compute_loss(relation, child_pos, box_a.get_bounding_box(), parent_world_bbox)
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
 
 def test_no_collision_zero_loss_when_just_touching():
-    """Loss is zero when intervals touch (overlap length 0); no penetration."""
+    """Test that NoCollision loss is zero when intervals just touch (overlap length 0)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation = NoCollision(box_b)
@@ -101,12 +91,12 @@ def test_no_collision_zero_loss_when_just_touching():
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.2, 0.0, 0.0))
 
-    loss = strategy.compute_loss(relation, child_pos, box_a.get_bounding_box(), parent_world_bbox)
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
 
 def test_no_collision_positive_loss_when_3d_overlap():
-    """Loss is positive when AABBs overlap in all three axes (volume > 0)."""
+    """Test that NoCollision loss is positive when AABBs overlap in all three axes."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation = NoCollision(box_b)
@@ -116,12 +106,12 @@ def test_no_collision_positive_loss_when_3d_overlap():
     child_pos = torch.tensor([0.1, 0.1, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.05, 0.05, 0.0))
 
-    loss = strategy.compute_loss(relation, child_pos, box_a.get_bounding_box(), parent_world_bbox)
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert loss > 0.0
 
 
 def test_no_collision_loss_scales_with_slope():
-    """Loss = slope * overlap_volume; doubling slope doubles loss for same overlap."""
+    """Test that NoCollision loss scales with slope (loss = slope * overlap_volume)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation = NoCollision(box_b)
@@ -132,16 +122,16 @@ def test_no_collision_loss_scales_with_slope():
     parent_world_bbox = box_b.get_bounding_box().translated((0.05, 0.05, 0.0))
 
     loss_10 = strategy_slope_10.compute_loss(
-        relation, child_pos, box_a.get_bounding_box(), parent_world_bbox
+        relation, child_pos, box_a.bounding_box, parent_world_bbox
     )
     loss_20 = strategy_slope_20.compute_loss(
-        relation, child_pos, box_a.get_bounding_box(), parent_world_bbox
+        relation, child_pos, box_a.bounding_box, parent_world_bbox
     )
     assert torch.isclose(loss_20, 2.0 * loss_10, rtol=1e-5)
 
 
 def test_no_collision_loss_scales_with_relation_weight():
-    """Final loss is scaled by relation.relation_loss_weight."""
+    """Test that NoCollision loss is scaled by relation_loss_weight."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation_1 = NoCollision(box_b, relation_loss_weight=1.0)
@@ -151,13 +141,13 @@ def test_no_collision_loss_scales_with_relation_weight():
     child_pos = torch.tensor([0.1, 0.1, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.05, 0.05, 0.0))
 
-    loss_1 = strategy.compute_loss(relation_1, child_pos, box_a.get_bounding_box(), parent_world_bbox)
-    loss_2 = strategy.compute_loss(relation_2, child_pos, box_a.get_bounding_box(), parent_world_bbox)
+    loss_1 = strategy.compute_loss(relation_1, child_pos, box_a.bounding_box, parent_world_bbox)
+    loss_2 = strategy.compute_loss(relation_2, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss_2, 2.0 * loss_1, rtol=1e-5)
 
 
 def test_no_collision_loss_volume_formula():
-    """Loss = slope * (overlap_x * overlap_y * overlap_z) for a known overlap box."""
+    """Test that NoCollision loss equals slope * (overlap_x * overlap_y * overlap_z) for known overlap."""
     # Two 0.2 boxes: child [0.1, 0.3]^3, parent [0.15, 0.35]^3 -> overlap [0.15, 0.3]^3, side 0.15, volume 0.15^3.
     box_a = _create_box("box_a", size=0.2)
     box_b = _create_box("box_b", size=0.2)
@@ -171,7 +161,7 @@ def test_no_collision_loss_volume_formula():
     # overlap_volume = 0.15^3 = 0.003375, total_loss = 10 * 0.003375 = 0.03375.
     expected_loss = 10.0 * (0.15 ** 3)
 
-    loss = strategy.compute_loss(relation, child_pos, box_a.get_bounding_box(), parent_world_bbox)
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss, torch.tensor(expected_loss), rtol=1e-4)
 
 
@@ -181,7 +171,7 @@ def test_no_collision_loss_volume_formula():
 
 
 def test_relation_solver_no_collision_produces_separated_positions():
-    """RelationSolver with NoCollision + On(table) places objects so they do not overlap."""
+    """Test that RelationSolver with NoCollision and On(table) places objects so they do not overlap."""
     table, box_a, box_b = _create_no_collision_scene()
     objects = [table, box_a, box_b]
     initial_positions = {
@@ -205,7 +195,7 @@ def test_relation_solver_no_collision_produces_separated_positions():
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():
-    """RelationSolver with same initial positions and NoCollision yields identical positions."""
+    """Test that RelationSolver with same initial positions and NoCollision yields identical positions."""
     table1, box_a1, box_b1 = _create_no_collision_scene()
     initial = (0.0, 0.0, 0.0), (0.3, 0.3, 0.11), (0.6, 0.6, 0.11)
     initial_positions1 = {table1: initial[0], box_a1: initial[1], box_b1: initial[2]}
