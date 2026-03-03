@@ -28,7 +28,7 @@ def set_object_pose(
     pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
     # Set the pose and velocity
     asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-    asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
+    asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
 
 
 def set_object_pose_per_env(
@@ -48,8 +48,8 @@ def set_object_pose_per_env(
     for cur_env in env_ids.tolist():
         # Convert the pose to the env frame
         pose = pose_list[cur_env]
-        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device)
-        pose_t_xyz_q_xyzw[:3] += env.scene.env_origins[cur_env, :].squeeze()
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
+        pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
         # Set the pose and velocity
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=torch.tensor([cur_env], device=env.device))
         asset.write_root_velocity_to_sim(

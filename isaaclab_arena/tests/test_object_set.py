@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import traceback
+import os
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -162,8 +163,10 @@ def _test_multi_objects_in_one_object_set(simulation_app):
             assert path is not None, "Path is None"
             object_paths.append(path)
         assert len(object_paths) == NUM_ENVS, "Object_paths length is not equal to NUM_ENVS"
-        assert cracker_box.usd_path in object_paths, "Cracker box USD path is not in Object_paths"
-        assert sugar_box.usd_path in object_paths, "Sugar box USD path is not in Object_paths"
+        # We check the file names instead of the paths because objects may be cached
+        object_file_names = [os.path.basename(path) for path in object_paths]
+        assert os.path.basename(cracker_box.usd_path) in object_file_names, "Cracker box USD path is not in Object_paths"
+        assert os.path.basename(sugar_box.usd_path) in object_file_names, "Sugar box USD path is not in Object_paths"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -234,10 +237,13 @@ def _test_multi_object_sets(simulation_app):
         # Check that each object in the set turns up in one of the environments
         # NOTE(alexmillane): If we get really unlucky, this can fail because every environment
         # gets the same object. The chance of this is 0.5^NUM_ENVS. So with 20 envs this is very small.
-        assert cracker_box.usd_path in object_1_paths, "Cracker box USD path is not in Object_1_paths"
-        assert sugar_box.usd_path in object_1_paths, "Sugar box USD path is not in Object_1_paths"
-        assert sugar_box.usd_path in object_2_paths, "Sugar box USD path is not in Object_2_paths"
-        assert mustard_bottle.usd_path in object_2_paths, "Mustard bottle USD path is not in Object_2_paths"
+        # NOTE(alexmillane): We check the file names instead of the paths because objects may be cached
+        object_1_file_names = [os.path.basename(path) for path in object_1_paths]
+        object_2_file_names = [os.path.basename(path) for path in object_2_paths]
+        assert os.path.basename(cracker_box.usd_path) in object_1_file_names, "Cracker box USD path is not in Object_1_paths"
+        assert os.path.basename(sugar_box.usd_path) in object_1_file_names, "Sugar box USD path is not in Object_1_paths"
+        assert os.path.basename(sugar_box.usd_path) in object_2_file_names, "Sugar box USD path is not in Object_2_paths"
+        assert os.path.basename(mustard_bottle.usd_path) in object_2_file_names, "Mustard bottle USD path is not in Object_2_paths"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

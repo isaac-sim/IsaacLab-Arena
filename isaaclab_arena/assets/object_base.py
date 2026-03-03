@@ -118,7 +118,7 @@ class ObjectBase(Asset, ABC):
         pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
         # Set the pose and velocity
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
+        asset.write_root_velocity_to_sim(torch.zeros(env.num_envs, 6, device=env.device), env_ids=env_ids)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
