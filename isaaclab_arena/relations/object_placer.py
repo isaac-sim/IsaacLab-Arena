@@ -185,54 +185,62 @@ class ObjectPlacer:
                 positions[obj] = random_pose.position_xyz
         return positions
 
+    def _validate_on_relations(
+        self,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> bool:
+        """Check each On relation: child footprint inside parent X/Y band (Z not checked)."""
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, On):
+                    continue
+                parent = rel.parent
+                if parent not in positions:
+                    continue
+                child_world = obj.get_bounding_box().translated(positions[obj])
+                parent_world = parent.get_bounding_box().translated(positions[parent])
+                if (
+                    child_world.min_point[0] < parent_world.min_point[0]
+                    or child_world.max_point[0] > parent_world.max_point[0]
+                    or child_world.min_point[1] < parent_world.min_point[1]
+                    or child_world.max_point[1] > parent_world.max_point[1]
+                ):
+                    if self.params.verbose:
+                        print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                    return False
+        return True
+
     def _validate_placement(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Validate that no two objects overlap in the XY plane.
+        """Validate that no two objects overlap in 3D.
 
-        Checks all object pairs for axis-aligned bounding box overlap in the XY
-        (top-down) projection. Pairs connected by an On() relation are skipped
-        because the child is intentionally within the parent's XY footprint.
+        Checks all object pairs for axis-aligned bounding box overlap.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
 
         Returns:
-            True if no forbidden overlaps exist, False otherwise.
+            True if no overlaps exist, False otherwise.
         """
-        on_pairs = self._collect_on_pairs(positions)
-
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
-                if frozenset((a, b)) in on_pairs:
-                    continue
 
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps_xy(b_world, margin=self.params.min_separation_xy_m):
+                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
                     if self.params.verbose:
-                        print(f"  XY overlap between '{a.name}' and '{b.name}'")
-                    else:
-                        print(f"  _validate_placement: XY overlap '{a.name}' vs '{b.name}' (retrying)")
+                        print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False
 
-        return True
+        if not self._validate_on_relations(positions):
+            return False
 
-    @staticmethod
-    def _collect_on_pairs(
-        positions: dict[Object | ObjectReference, tuple[float, float, float]],
-    ) -> set[frozenset]:
-        """Build the set of On()-parent-child pairs to exclude from overlap checks."""
-        pairs: set[frozenset] = set()
-        for obj in positions:
-            for rel in obj.get_relations():
-                if isinstance(rel, On):
-                    pairs.add(frozenset((obj, rel.parent)))
-        return pairs
+        return True
 
     def _apply_positions(
         self,
