@@ -16,15 +16,14 @@ Example:
 """
 
 import argparse
-from typing import Any
-
 import torch
+from typing import Any
 
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.envs.common import ViewerCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.configclass import MISSING
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -34,8 +33,6 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.terms.events import set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-
-
 
 DEFAULT_TABLE_OBJECTS = [
     "cracker_box",

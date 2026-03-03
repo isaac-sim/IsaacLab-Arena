@@ -106,11 +106,15 @@ def run_isaac_sim_no_collision_demo(
     def apply_overlapping_pose_then_solve_and_display():
         # Set all three objects to the same (overlapping) pose in the sim.
         x, y, z = same_pose.position_xyz
-        root_pose = torch.tensor(
-            [x, y, z, identity_quat[0], identity_quat[1], identity_quat[2], identity_quat[3]],
-            device=env.unwrapped.device,
-            dtype=torch.float32,
-        ).unsqueeze(0).expand(num_envs, 7)
+        root_pose = (
+            torch.tensor(
+                [x, y, z, identity_quat[0], identity_quat[1], identity_quat[2], identity_quat[3]],
+                device=env.unwrapped.device,
+                dtype=torch.float32,
+            )
+            .unsqueeze(0)
+            .expand(num_envs, 7)
+        )
         root_pose = root_pose.clone()
         root_pose[:, :3] += env.unwrapped.scene.env_origins[env_ids]
         for obj in placeable_objects:
@@ -126,11 +130,15 @@ def run_isaac_sim_no_collision_demo(
             if obj.name not in env.unwrapped.scene.rigid_objects:
                 continue
             x, y, z = result.positions[obj]
-            root_pose = torch.tensor(
-                [x, y, z, identity_quat[0], identity_quat[1], identity_quat[2], identity_quat[3]],
-                device=env.unwrapped.device,
-                dtype=torch.float32,
-            ).unsqueeze(0).expand(num_envs, 7)
+            root_pose = (
+                torch.tensor(
+                    [x, y, z, identity_quat[0], identity_quat[1], identity_quat[2], identity_quat[3]],
+                    device=env.unwrapped.device,
+                    dtype=torch.float32,
+                )
+                .unsqueeze(0)
+                .expand(num_envs, 7)
+            )
             root_pose[:, :3] += env.unwrapped.scene.env_origins[env_ids]
             env.unwrapped.scene.rigid_objects[obj.name].write_root_pose_to_sim(root_pose, env_ids=env_ids)
         env.unwrapped.scene.write_data_to_sim()
@@ -151,7 +159,7 @@ def run_isaac_sim_no_collision_demo(
             apply_overlapping_pose_then_solve_and_display()
 
 
-def smoke_test_isaac_sim_no_collision(simulation_app: "SimulationApp") -> bool:
+def smoke_test_isaac_sim_no_collision(simulation_app: SimulationApp) -> bool:
     """Smoke test: run NoCollision demo with Isaac Sim objects (minimal steps)."""
     run_isaac_sim_no_collision_demo(num_steps=2)
     return True

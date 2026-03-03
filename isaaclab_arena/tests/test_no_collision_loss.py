@@ -121,12 +121,8 @@ def test_no_collision_loss_scales_with_slope():
     child_pos = torch.tensor([0.1, 0.1, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.05, 0.05, 0.0))
 
-    loss_10 = strategy_slope_10.compute_loss(
-        relation, child_pos, box_a.bounding_box, parent_world_bbox
-    )
-    loss_20 = strategy_slope_20.compute_loss(
-        relation, child_pos, box_a.bounding_box, parent_world_bbox
-    )
+    loss_10 = strategy_slope_10.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
+    loss_20 = strategy_slope_20.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss_20, 2.0 * loss_10, rtol=1e-5)
 
 
@@ -159,7 +155,7 @@ def test_no_collision_loss_volume_formula():
     # Child world: X [0.1, 0.3], Y [0.1, 0.3], Z [0.1, 0.3].
     # Parent world: X [0.15, 0.35], etc. Overlap each axis: [0.15, 0.3], length 0.15.
     # overlap_volume = 0.15^3 = 0.003375, total_loss = 10 * 0.003375 = 0.03375.
-    expected_loss = 10.0 * (0.15 ** 3)
+    expected_loss = 10.0 * (0.15**3)
 
     loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss, torch.tensor(expected_loss), rtol=1e-4)
@@ -189,9 +185,7 @@ def test_relation_solver_no_collision_produces_separated_positions():
     bbox_a = box_a.get_bounding_box().translated(pos_a)
     bbox_b = box_b.get_bounding_box().translated(pos_b)
 
-    assert not bbox_a.overlaps(bbox_b), (
-        f"Solver should separate boxes; box_a at {pos_a}, box_b at {pos_b}"
-    )
+    assert not bbox_a.overlaps(bbox_b), f"Solver should separate boxes; box_a at {pos_a}, box_b at {pos_b}"
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():

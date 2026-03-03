@@ -154,6 +154,4 @@ def interval_overlap_axis_loss(
         b_max = torch.tensor(b_max, dtype=a_max.dtype, device=a_max.device)
     overlap_high = torch.minimum(a_max, b_max)
     overlap_low = torch.maximum(a_min, b_min)
-    return single_boundary_linear_loss(
-        overlap_high, overlap_low, slope=slope, penalty_side="greater"
-    )
+    return single_boundary_linear_loss(overlap_high, overlap_low, slope=slope, penalty_side="greater")

@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 
 from isaaclab_arena.relations.relation_loss_strategies import (
     AtPositionLossStrategy,
-    NoCollisionLossStrategy,
     NextToLossStrategy,
+    NoCollisionLossStrategy,
     OnLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,

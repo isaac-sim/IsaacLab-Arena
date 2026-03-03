@@ -306,7 +306,6 @@ class OnLossStrategy(RelationLossStrategy):
         return relation.relation_loss_weight * total_loss
 
 
-
 class NoCollisionLossStrategy(RelationLossStrategy):
     """Loss strategy for NoCollision relations.
 
@@ -383,12 +382,9 @@ class NoCollisionLossStrategy(RelationLossStrategy):
                 f"    [NoCollision] Z: overlap={overlap_z.item():.6f} (child_z=[{child_z_min.item():.4f},"
                 f" {child_z_max.item():.4f}], parent_z=[{parent_z_min:.4f}, {parent_z_max:.4f}])"
             )
-            print(
-                f"    [NoCollision] volume={overlap_volume.item():.6f}, loss={total_loss.item():.6f}"
-            )
+            print(f"    [NoCollision] volume={overlap_volume.item():.6f}, loss={total_loss.item():.6f}")
 
         return relation.relation_loss_weight * total_loss
-
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
