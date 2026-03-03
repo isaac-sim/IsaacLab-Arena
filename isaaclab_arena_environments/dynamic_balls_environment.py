@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
@@ -50,8 +49,12 @@ class DynamicBallsEnvironment(ExampleEnvironmentBase):
             position_xyz=(0.466, -0.737, 0.6),
             rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
         )
+        sphere_velocity = (0.0, 0.0, 10.0)
+        # import random
+        # sphere_velocity = (random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0))
         sphere.set_initial_pose(sphere_pose)
-        sphere.set_initial_velocity((0.0, 0.0, 10.0))
+        sphere.set_initial_velocity(sphere_velocity)
+        sphere.object_cfg.spawn.rigid_props.disable_gravity = True
 
         # Optionally add another object
         if args_cli.object is not None:
