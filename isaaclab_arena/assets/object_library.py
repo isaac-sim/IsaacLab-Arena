@@ -1191,6 +1191,7 @@ class KetchupBottleHopeRobolab(LibraryObject):
         f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/ketchup_bottle.usd"
     )
     scale = (0.8, 0.8, 1.2)
+    spawn_cfg_addon={"mass_props": sim_utils.MassPropertiesCfg(mass=0.01)}
 
 
 @register_asset
