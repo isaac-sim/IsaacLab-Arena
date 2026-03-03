@@ -467,6 +467,8 @@ class Sphere(LibraryObject):
             spawn=self.spawner_cfg,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        if self.initial_velocity is not None:
+            object_cfg.init_state.lin_vel = self.initial_velocity
         return object_cfg
 
     def _requires_reset_pose_event(self) -> bool:

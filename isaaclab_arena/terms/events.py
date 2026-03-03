@@ -16,6 +16,7 @@ def set_object_pose(
     env_ids: torch.Tensor,
     asset_cfg: SceneEntityCfg,
     pose: Pose,
+    velocity: tuple[float, float, float] | None = None,
 ) -> None:
     if env_ids is None:
         return
@@ -25,9 +26,12 @@ def set_object_pose(
     # Convert the pose to the env frame
     pose_t_xyz_q_wxyz = pose.to_tensor(device=env.device).repeat(num_envs, 1)
     pose_t_xyz_q_wxyz[:, :3] += env.scene.env_origins[env_ids]
-    # Set the pose and velocity
     asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
-    asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
+    # Set velocity (linear only if provided, angular always zero)
+    vel = torch.zeros(num_envs, 6, device=env.device)
+    if velocity is not None:
+        vel[:, :3] = torch.tensor(velocity, dtype=torch.float, device=env.device)
+    asset.write_root_velocity_to_sim(vel, env_ids=env_ids)
 
 
 def set_object_pose_per_env(

@@ -23,12 +23,12 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 
 args_parser = get_isaaclab_arena_environments_cli_parser()
 
-# GR1 Open Microwave
-args_cli = args_parser.parse_args([
-    "gr1_open_microwave",
-    "--object",
-    "cracker_box",
-])
+# # GR1 Open Microwave
+# args_cli = args_parser.parse_args([
+#     "gr1_open_microwave",
+#     "--object",
+#     "cracker_box",
+# ])
 
 # Pick and Place
 # args_cli = args_parser.parse_args([
@@ -41,6 +41,13 @@ args_cli = args_parser.parse_args([
 #     "franka",
 # ])
 
+# Dynamic Balls
+args_cli = args_parser.parse_args([
+    "dynamic_balls",
+    "--object",
+    "cracker_box",
+])
+
 arena_builder = get_arena_builder_from_cli(args_cli)
 env = arena_builder.make_registered()
 env.reset()
@@ -48,7 +55,7 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 100
+NUM_STEPS = 300
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
@@ -58,3 +65,5 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
 teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+
+# %%

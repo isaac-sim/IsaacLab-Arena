@@ -14,9 +14,9 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
+class DynamicBallsEnvironment(ExampleEnvironmentBase):
 
-    name: str = "gr1_open_microwave"
+    name: str = "dynamic_balls"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -26,7 +26,8 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
-        assets = [background, microwave]
+        sphere = self.asset_registry.get_asset_by_name("sphere")()
+        assets = [background, microwave, sphere]
         assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
             args_cli.embodiment
         )
@@ -44,6 +45,13 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
         microwave.set_initial_pose(microwave_pose)
+
+        sphere_pose = Pose(
+            position_xyz=(0.466, -0.737, 0.6),
+            rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
+        )
+        sphere.set_initial_pose(sphere_pose)
+        sphere.set_initial_velocity((0.0, 0.0, 10.0))
 
         # Optionally add another object
         if args_cli.object is not None:
