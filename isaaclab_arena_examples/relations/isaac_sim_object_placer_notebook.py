@@ -43,7 +43,7 @@ def run_isaac_sim_object_placer_demo(
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, RandomAroundSolution, Side
+    from isaaclab_arena.relations.relations import AtPosition, IsAnchor, NextTo, On, Side
     from isaaclab_arena.scene.scene import Scene
 
     asset_registry = AssetRegistry()
@@ -64,12 +64,11 @@ def run_isaac_sim_object_placer_demo(
     cracker_box.add_relation(On(tabletop_reference, clearance_m=0.02))
     # Place the cracker box explicitly in the middle of the tabletop.
     cracker_box.add_relation(AtPosition(x=0.0, y=0.0))
-    cracker_box.add_relation(RandomAroundSolution(x_half_m=0.05, y_half_m=0.25))
 
     # Put a mug next to the cracker box.
     mug = asset_registry.get_asset_by_name("mug")()
     mug.add_relation(On(tabletop_reference, clearance_m=0.02))
-    mug.add_relation(NextTo(cracker_box, side=Side.POSITIVE_X, distance_m=0.1))
+    mug.add_relation(NextTo(cracker_box, side=Side.POSITIVE_X, distance_m=0.1, cross_position_ratio=1.0))
 
     tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
     tomato_soup_can.add_relation(On(tabletop_reference, clearance_m=0.02))

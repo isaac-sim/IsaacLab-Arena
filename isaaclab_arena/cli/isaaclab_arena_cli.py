@@ -26,9 +26,7 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_lab_group.add_argument(
         "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
     )
-    isaac_lab_group.add_argument(
-        "--seed", type=int, default=None, help="Optional seed for the random number generator."
-    )
+    isaac_lab_group.add_argument("--seed", type=int, default=42, help="Optional seed for the random number generator.")
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
     # NOTE(alexmillane, 2025.07.25): Unlike base isaaclab, we enable pinocchio by default.
@@ -40,6 +38,12 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable Pinocchio.",
     )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+    isaac_lab_group.add_argument(
+        "--distributed",
+        action="store_true",
+        default=False,
+        help="Run distributed (one process per GPU). Use with torchrun; AppLauncher uses LOCAL_RANK for device.",
+    )
 
 
 def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:

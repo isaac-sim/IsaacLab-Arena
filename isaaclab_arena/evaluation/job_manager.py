@@ -24,6 +24,7 @@ class Job:
         arena_env_args: list[str],
         policy_type: str,
         num_steps: int = None,
+        num_episodes: int = None,
         policy_config_dict: dict = None,
         status: Status = None,
     ):
@@ -33,7 +34,8 @@ class Job:
             name: Job name, used to identify the job in the queue and in the logs.
             arena_env_args: arguments for configuring the arena environment
             num_envs: Number of environments to simulate
-            num_steps: Number of steps to run the policy for
+            num_steps: Number of steps to run the policy for (mutually exclusive with num_episodes)
+            num_episodes: Number of episodes to run the policy for (mutually exclusive with num_steps)
             policy_type: Type of policy to use
             policy_config_dict: Dictionary configuration for the policy.
             status: Job status (defaults to PENDING)
@@ -41,8 +43,12 @@ class Job:
         self.name = name
         self.arena_env_args = arena_env_args
         assert num_envs > 0, "num_envs must be greater than 0"
+        assert not (
+            num_steps is not None and num_episodes is not None
+        ), f"Job '{name}': num_steps and num_episodes are mutually exclusive, got both"
         self.num_envs = num_envs
         self.num_steps = num_steps
+        self.num_episodes = num_episodes
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
         self.status = status if status is not None else Status.PENDING
@@ -78,8 +84,11 @@ class Job:
         if "num_steps" in data and data["num_steps"] is not None:
             num_steps = data["num_steps"]
         else:
-            # will fall back to default num_steps from the policy or the simulation app config
             num_steps = None
+        if "num_episodes" in data and data["num_episodes"] is not None:
+            num_episodes = data["num_episodes"]
+        else:
+            num_episodes = None
         if "status" in data and data["status"] is not None:
             status = Status(data["status"])
         else:
@@ -92,6 +101,7 @@ class Job:
             policy_type=data["policy_type"],
             num_envs=num_envs,
             num_steps=num_steps,
+            num_episodes=num_episodes,
             policy_config_dict=data["policy_config_dict"],
             status=status,
         )
@@ -223,7 +233,7 @@ class JobManager:
         """Print information about the jobs."""
 
         # print using pretty table as data fields may have various lengths
-        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Envs", "Num Steps"])
+        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Envs", "Num Steps", "Num Episodes"])
         for job in self.all_jobs:
-            table.add_row([job.name, job.status.value, job.policy_type, job.num_envs, job.num_steps])
+            table.add_row([job.name, job.status.value, job.policy_type, job.num_envs, job.num_steps, job.num_episodes])
         print(table)

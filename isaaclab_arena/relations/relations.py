@@ -66,6 +66,7 @@ class NextTo(Relation):
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.POSITIVE_X,
+        cross_position_ratio: float = 0.0,
     ):
         """
         Args:
@@ -73,11 +74,20 @@ class NextTo(Relation):
             relation_loss_weight: Weight for the relationship loss function.
             distance_m: Target distance from parent's boundary in meters (default: 5cm).
             side: Which axis direction to place object (default: Side.POSITIVE_X).
+            cross_position_ratio: Where to place the child along the parent's perpendicular
+                (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
+                The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
+                the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
+                Default: 0.0 (centered).
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
+        assert (
+            -1.0 <= cross_position_ratio <= 1.0
+        ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
         self.distance_m = distance_m
         self.side = side
+        self.cross_position_ratio = cross_position_ratio
 
 
 class On(Relation):

@@ -359,11 +359,15 @@ can be fed to the robot to control its actions.
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 
 Step 2: Validate the Environment by Replaying the Dataset
@@ -376,9 +380,9 @@ Replay the downloaded dataset to verify the environment setup:
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
      --device cpu \
      --enable_cameras \
-     --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" \
+     --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge_annotated.hdf5" \
      put_item_in_fridge_and_close_door \
-     --object ranch_dressing_bottle \
+     --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink
 
 You should see the GR1 robot replaying the demonstrations, performing the sequential

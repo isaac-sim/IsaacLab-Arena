@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import dataclasses
 import json
 import os
 import traceback
@@ -68,14 +69,21 @@ def get_policy_from_job(job: Job) -> "PolicyBase":
     # Each job can be evaluated with a different policy checkpoint, or even a different policy type
     policy_cls = get_policy_cls(job.policy_type)
 
+    policy_config_dict = dict(job.policy_config_dict)
+    # Align policy num_envs with env when the policy config supports it (optional key)
+    if hasattr(policy_cls, "config_class") and policy_cls.config_class is not None:
+        config_fields = {f.name for f in dataclasses.fields(policy_cls.config_class)}
+        if "num_envs" in config_fields:
+            policy_config_dict["num_envs"] = job.num_envs
+
     # Use direct from_dict if the policy class has config_class defined
     if hasattr(policy_cls, "config_class") and policy_cls.config_class is not None:
         # Use the inherited from_dict() method from PolicyBase
-        policy = policy_cls.from_dict(job.policy_config_dict)
+        policy = policy_cls.from_dict(policy_config_dict)
     else:
         policy_args_parser = get_isaaclab_arena_cli_parser()
         policy_added_args_parser = policy_cls.add_args_to_parser(policy_args_parser)
-        policy_args = policy_added_args_parser.parse_args(job.policy_config_dict)
+        policy_args = policy_added_args_parser.parse_args(policy_config_dict)
         policy = policy_cls.from_args(policy_args)
     return policy
 
@@ -87,6 +95,7 @@ def main():
     # Load job configuration before starting simulation to check requirements
     add_eval_runner_arguments(args_parser)
     args_cli, _ = args_parser.parse_known_args()
+    assert not args_cli.distributed, "Distributed evaluation is not supported yet"
 
     assert os.path.exists(
         args_cli.eval_jobs_config
@@ -113,15 +122,14 @@ def main():
 
                     policy = get_policy_from_job(job)
 
-                    # priority of setting num_steps is: job -> policy -> args_cli
-                    # jobs may need different num_steps than the default num_steps from the policy or the args_cli
-                    if job.num_steps is None:
+                    # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
+                    # Priority: job config -> policy length -> CLI default
+                    if job.num_steps is None and job.num_episodes is None:
                         if policy.has_length():
                             job.num_steps = policy.length()
                         else:
                             job.num_steps = args_cli.num_steps
-
-                    metrics = rollout_policy(env, policy, num_steps=job.num_steps)
+                    metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=job.num_episodes)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
@@ -130,10 +138,11 @@ def main():
                         metrics_logger.append_job_metrics(job.name, metrics)
 
                 except Exception as e:
-                    # continue with the next job even if one fails
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
                     print(f"Job {job.name} failed with error: {e}")
                     print(f"Traceback: {traceback.format_exc()}")
+                    if not args_cli.continue_on_error:
+                        raise
 
                 finally:
                     # Only stop env if it was successfully created

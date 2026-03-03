@@ -157,8 +157,9 @@ def test_next_to_loss_strategy_zero_loss_when_perfectly_placed():
     # Parent right edge = 0 + 1.0 = 1.0
     # Child left edge should be at 1.0 + 0.05 = 1.05
     # Child min_point[0] = 0.0, so child_pos[0] should be 1.05
-    # Y should be within parent's Y range [0, 1]
-    child_pos = torch.tensor([1.05, 0.5, 0.0])
+    # Y: cross_position_ratio=0.0 (centered). Valid child Y range is [0.0, 0.8]
+    # (parent [0,1] minus child extent 0.2), so centered target = 0.4
+    child_pos = torch.tensor([1.05, 0.4, 0.0])
 
     loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-4)

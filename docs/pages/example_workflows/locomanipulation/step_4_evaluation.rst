@@ -94,21 +94,46 @@ Step 2: Run Parallel Environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-Test the policy in 5 parallel environments with visualization via the GUI run:
+.. tabs::
 
-.. code-block:: bash
+   .. tab:: Single GPU Evaluation
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-     --num_steps 1200 \
-     --num_envs 5 \
-     --enable_cameras \
-     --device cpu \
-     --policy_device cuda  \
-     galileo_g1_locomanip_pick_and_place \
-     --object brown_box \
-     --embodiment g1_wbc_joint
+      Test the policy in 5 parallel environments with visualization via the GUI run:
+
+      .. code-block:: bash
+
+         python isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+           --num_steps 1200 \
+           --num_envs 5 \
+           --enable_cameras \
+           --device cuda \
+           --policy_device cuda  \
+           galileo_g1_locomanip_pick_and_place \
+           --object brown_box \
+           --embodiment g1_wbc_joint
+
+   .. tab:: Distribute Multi-GPU Evaluation
+
+      Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:
+
+      .. code-block:: bash
+
+         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
+           --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+           --num_steps 1200 \
+           --num_envs 5 \
+           --enable_cameras \
+           --device cuda \
+           --policy_device cuda  \
+           --distributed \
+           --headless \
+           galileo_g1_locomanip_pick_and_place \
+           --object brown_box \
+           --embodiment g1_wbc_joint
+
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,
@@ -140,3 +165,47 @@ and the number of episodes is more than the single environment evaluation becaus
 
    The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
    If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
+
+Step 3: Remote policy evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The same GR00T policy can also be evaluated as a *remote policy*
+running in a separate process, using the generic remote policy interface
+and the remote policy design described in
+:doc:`../../concepts/concept_remote_policies_design`.
+
+Start the GR00T policy server in a separate terminal using the helper
+script:
+
+.. code-block:: bash
+
+   bash docker/run_gr00t_server.sh \
+     # include model directory mount via -m flag, e.g. -m /models/
+     --host 127.0.0.1 \
+     --port 5555 \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
+     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+     --policy_device cuda
+
+Then, instead of running the closed-loop policy directly inside the
+Arena process, connect from the evaluation script using a client-side
+remote policy:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
+     --remote_host 127.0.0.1 \
+     --remote_port 5555 \
+     --num_steps 1500 \
+     --num_envs 5 \
+     --enable_cameras \
+     --remote_kill_on_exit \
+     galileo_g1_locomanip_pick_and_place \
+     --object brown_box \
+     --embodiment g1_wbc_joint
+
+With this setup, the environment and evaluation run in the base container,
+and GR00T inference runs in a separate server process, connected via the
+remote policy interface. The client-side policy depends only on Isaac Lab
+Arena; the base container does not need GR00T or its Python dependencies.

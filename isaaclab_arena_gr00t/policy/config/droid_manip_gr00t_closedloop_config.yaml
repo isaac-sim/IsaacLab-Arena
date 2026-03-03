@@ -1,0 +1,26 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+model_path: nvidia/GR00T-N1.6-DROID
+language_instruction: "Move the gripper to the cracker box on the table."
+# Action horizon is the number of actions predicted by the policy per inference rollout, defined in the modality_config_path.
+action_horizon: 32
+embodiment_tag: OXE_DROID
+video_backend: decord
+# Load modality config from the existing modality configs in GR00T
+# modality_config_path:
+
+policy_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/gr00t_8dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/8dof_joint_space.yaml
+state_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/13dof_joint_space.yaml
+
+# Action chunk length is the number of actions executed per inference rollout, could be less than action_horizon.
+action_chunk_length: 32
+task_mode_name: droid_manipulation
+
+pov_cam_name_sim: ["external_camera_rgb", "wrist_camera_rgb"]
+
+original_image_size: [720, 1280, 3]
+target_image_size: [180, 320, 3]
