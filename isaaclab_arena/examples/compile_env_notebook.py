@@ -16,8 +16,8 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 parser = argparse.ArgumentParser()
 AppLauncher.add_app_launcher_args(parser)
-# args = parser.parse_args(["--visualizer", "kit"])
-args = parser.parse_args([])
+args = parser.parse_args(["--visualizer", "kit"])
+# args = parser.parse_args([])
 app_launcher = AppLauncher(args)
 
 #%%
@@ -56,6 +56,8 @@ table_top_reference.add_relation(IsAnchor())
 
 microwave.add_relation(AtPosition(x=0.4, y=0.0))
 microwave.add_relation(On(table_top_reference))
+
+cracker_box.add_relation(On(microwave))
 
 
 destination_location = ObjectReference(
