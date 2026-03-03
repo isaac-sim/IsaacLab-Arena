@@ -26,7 +26,8 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("kitchen")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
-        assets = [background, microwave]
+        sphere = self.asset_registry.get_asset_by_name("sphere")()
+        assets = [background, microwave, sphere]
         assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
             args_cli.embodiment
         )
@@ -44,6 +45,12 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
             rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
         )
         microwave.set_initial_pose(microwave_pose)
+
+        sphere_pose = Pose(
+            position_xyz=(0.466, -0.737, 0.6),
+            rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
+        )
+        sphere.set_initial_pose(sphere_pose)
 
         # Optionally add another object
         if args_cli.object is not None:
