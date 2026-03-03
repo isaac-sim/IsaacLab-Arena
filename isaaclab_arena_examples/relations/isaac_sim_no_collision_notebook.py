@@ -101,14 +101,14 @@ def run_isaac_sim_no_collision_demo(
     placeable_objects = (cracker_box, mug, tomato_soup_can)
     num_envs = env.unwrapped.scene.num_envs
     env_ids = torch.arange(num_envs, device=env.unwrapped.device)
-    identity_quat = (1.0, 0.0, 0.0, 0.0)
+    identity_quat_wxyz = (1.0, 0.0, 0.0, 0.0)
 
     def apply_overlapping_pose_then_solve_and_display():
         # Set all three objects to the same (overlapping) pose in the sim.
         x, y, z = same_pose.position_xyz
         root_pose = (
             torch.tensor(
-                [x, y, z, identity_quat[0], identity_quat[1], identity_quat[2], identity_quat[3]],
+                [x, y, z, identity_quat_wxyz[0], identity_quat_wxyz[1], identity_quat_wxyz[2], identity_quat_wxyz[3]],
                 device=env.unwrapped.device,
                 dtype=torch.float32,
             )
@@ -120,6 +120,11 @@ def run_isaac_sim_no_collision_demo(
         for obj in placeable_objects:
             if obj.name in env.unwrapped.scene.rigid_objects:
                 env.unwrapped.scene.rigid_objects[obj.name].write_root_pose_to_sim(root_pose.clone(), env_ids=env_ids)
+            else:
+                print(
+                    f"\nObject {obj.name!r} is not in scene.rigid_objects, skipping application of the initial"
+                    " overlapping pose."
+                )
         # Render only for hold_overlapping_steps so you can capture the overlapping frame.
         for _ in range(hold_overlapping_steps):
             env.unwrapped.sim.render()
@@ -128,11 +133,23 @@ def run_isaac_sim_no_collision_demo(
         result = placer.place(objects=objects_with_relations)
         for obj in placeable_objects:
             if obj.name not in env.unwrapped.scene.rigid_objects:
+                print(
+                    f"\nObject {obj.name!r} is not in scene.rigid_objects, skipping application of the final solved"
+                    " pose."
+                )
                 continue
             x, y, z = result.positions[obj]
             root_pose = (
                 torch.tensor(
-                    [x, y, z, identity_quat[0], identity_quat[1], identity_quat[2], identity_quat[3]],
+                    [
+                        x,
+                        y,
+                        z,
+                        identity_quat_wxyz[0],
+                        identity_quat_wxyz[1],
+                        identity_quat_wxyz[2],
+                        identity_quat_wxyz[3],
+                    ],
                     device=env.unwrapped.device,
                     dtype=torch.float32,
                 )
