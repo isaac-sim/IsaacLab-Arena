@@ -22,8 +22,17 @@ def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
     # NOTE(alexmillane, 2025.11.10): Import pinocchio before launching the app appears still to be required.
     # Monitor this and see if we can get rid of it.
+    # NOTE: We disable AppLauncher's pxr.Gf.Matrix4d patch here. That patch does `from pxr import Gf`
+    # immediately after _start_app(), which can fail when Isaac Sim's extension loading is incomplete
+    # (e.g. due to a version constraint mismatch in the experience file, such as
+    # isaacsim.asset.importer.urdf being pinned to a version not present in the container).
+    # Pinocchio is already imported at this point, which is sufficient for it to work correctly.
+    # The long-term fix is to keep the Arena Docker image in sync with what IsaacLab's experience
+    # files require, at which point this workaround can be revisited.
     if hasattr(args, "enable_pinocchio") and args.enable_pinocchio:
         import pinocchio  # noqa: F401
+
+        args.disable_pinocchio_patch = True
 
     app_launcher = AppLauncher(args)
     if get_isaac_sim_version() != "5.1.0":
