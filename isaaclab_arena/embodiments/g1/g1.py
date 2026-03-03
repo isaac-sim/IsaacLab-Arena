@@ -355,8 +355,8 @@ class G1CameraCfg:
         common_kwargs = dict(
             prim_path="{ENV_REGEX_NS}/Robot/head_link/RobotHeadCam",
             update_period=0.0,
-            height=480,
-            width=640,
+            height=48,
+            width=64,
             data_types=["rgb"],
             spawn=sim_utils.PinholeCameraCfg(
                 focal_length=0.169,  # 1.69 mm; FOV preserved via apertures
