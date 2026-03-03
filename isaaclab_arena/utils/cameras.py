@@ -117,9 +117,7 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
     if isinstance(initial_pose, PoseRange):
         initial_pose = initial_pose.get_midpoint()
 
-    # WHEN STUFF WORKS, LOOK INTO WHY WE"RE GETTING np.float64 in the first place.
-    # probably need a validation step in the Pose object.
-
+    # TODO(cvolk): Add float coercion to Pose.__post_init__ so this conversion is unnecessary.
     # Ensure we only pass primitive Python floats (not NumPy scalars) into ViewerCfg,
     # since downstream config systems like Hydra/OmegaConf don't support np.float64.
     lookat = tuple(float(x) for x in initial_pose.position_xyz)

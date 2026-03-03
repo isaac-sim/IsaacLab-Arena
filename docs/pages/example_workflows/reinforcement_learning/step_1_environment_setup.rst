@@ -1,3 +1,6 @@
+.. TODO(cvolk): Update the Validation section to use IsaacLab's train.py with --external_callback
+..              instead of the removed isaaclab_arena/scripts/reinforcement_learning/train.py.
+
 Environment Setup and Validation
 --------------------------------
 
