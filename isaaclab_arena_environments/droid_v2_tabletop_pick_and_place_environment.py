@@ -17,8 +17,8 @@ import random
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # Randomize yaw radian
-# random_yaw_radian = math.radians(random.randint(0, 360))
-random_yaw_radian = math.radians(-120)
+random_yaw_radian = math.radians(random.randint(0, 360))
+# random_yaw_radian = math.radians(-120)
 
 class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
     """DROID v2 environment with flattened USD and mimic joint constraints for the Robotiq 2F-85 gripper."""
@@ -51,7 +51,7 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         obj_2 = self.asset_registry.get_asset_by_name('ketchup_bottle_hope_robolab')(scale=(0.7, 0.7, 0.6))
         obj_3 = self.asset_registry.get_asset_by_name('alphabet_soup_can_hope_robolab')(scale=(0.7, 0.7, 0.8))
 
-        blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(2.0, 0.8, 1.0))
+        blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(1.5, 0.8, 1.0))
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name('light')(spawner_cfg=light_spawner_cfg)
         embodiment = self.asset_registry.get_asset_by_name('droid_differential_ik')(enable_cameras=args_cli.enable_cameras)
@@ -69,7 +69,8 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         office_table.add_relation(IsAnchor())
         blue_sorting_bin.add_relation(IsAnchor())
         obj_1.add_relation(On(office_table))
-        obj1_distance_to_blue_sorting_bin = random.uniform(0.2, 0.3)
+        # Do not go over 0.25 as IK may fail
+        obj1_distance_to_blue_sorting_bin = random.uniform(0.15, 0.25)
         obj_1.add_relation(NextTo(blue_sorting_bin, side=Side.NEGATIVE_Y, distance_m=obj1_distance_to_blue_sorting_bin))
         # obj_1.add_relation(
         #     AtPosition(x=0.5, y=0.1, z=0.86)

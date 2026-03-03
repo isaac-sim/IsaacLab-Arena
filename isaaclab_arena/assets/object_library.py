@@ -1099,7 +1099,7 @@ class AlphabetSoupCanHopeRobolab(LibraryObject):
     name = "alphabet_soup_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/alphabet_soup_can.usd"
-
+    spawn_cfg_addon={"mass_props": sim_utils.MassPropertiesCfg(mass=0.01)}
 
 @register_asset
 class BbqSauceBottleHopeRobolab(LibraryObject):
@@ -1311,7 +1311,7 @@ class TomatoSauceCanHopeRobolab(LibraryObject):
     name = "tomato_sauce_can_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/tomato_sauce_can.usd"
-
+    spawn_cfg_addon={"mass_props": sim_utils.MassPropertiesCfg(mass=0.01)}
 
 @register_asset
 class YogurtCupHopeRobolab(LibraryObject):
