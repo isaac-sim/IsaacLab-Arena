@@ -1,3 +1,9 @@
+.. TODO(cvolk): Rewrite this page to reflect the new training workflow:
+..              - Replace isaaclab_arena/scripts/reinforcement_learning/train.py with
+..                IsaacLab's train.py using --external_callback.
+..              - Remove references to generic_policy.json and --agent_cfg_path (both deleted).
+..              - Document Hydra CLI overrides (agent.policy.activation=relu etc.) instead.
+
 Policy Training
 ---------------
 

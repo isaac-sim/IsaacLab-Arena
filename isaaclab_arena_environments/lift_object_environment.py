@@ -19,7 +19,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
     name: str = "lift_object"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-        import isaaclab_arena.policy.rl_policy.base_rsl_rl_policy as base_rsl_rl_policy
+        import isaaclab_arena_examples.policy.base_rsl_rl_policy as base_rsl_rl_policy
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
