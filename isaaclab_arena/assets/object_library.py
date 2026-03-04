@@ -431,7 +431,7 @@ class Sphere(LibraryObject):
     object_type = ObjectType.SPAWNER
     scale = (1.0, 1.0, 1.0)
     default_spawner_cfg = sim_utils.SphereCfg(
-        radius=0.05,
+        radius=0.1,
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
         collision_props=sim_utils.CollisionPropertiesCfg(),
         rigid_props=sim_utils.RigidBodyPropertiesCfg(

@@ -46,10 +46,10 @@ class DynamicBallsEnvironment(ExampleEnvironmentBase):
         microwave.set_initial_pose(microwave_pose)
 
         sphere_pose = Pose(
-            position_xyz=(0.466, -0.737, 0.6),
+            position_xyz=(0.466, -0.737, 0.4),
             rotation_wxyz=(0.5, -0.5, 0.5, -0.5),
         )
-        sphere_velocity = (0.0, 0.0, 10.0)
+        sphere_velocity = (-0.1, 1., -0.5)
         # import random
         # sphere_velocity = (random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0))
         sphere.set_initial_pose(sphere_pose)
@@ -73,7 +73,7 @@ class DynamicBallsEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=5.0),
+            task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=None),  # no maximum length
             teleop_device=teleop_device,
         )
 
