@@ -182,7 +182,9 @@ def main() -> None:
                 args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
             )
         else:
-            logger.warning(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
+            logger.warning(
+                f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default."
+            )
             # Create fallback teleop device
             sensitivity = args_cli.sensitivity
             if args_cli.teleop_device.lower() == "keyboard":
