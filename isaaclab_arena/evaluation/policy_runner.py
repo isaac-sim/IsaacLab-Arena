@@ -85,21 +85,11 @@ def rollout_policy(
         num_episodes_completed = 0
         num_steps_completed = 0
 
-        print(f"[DEBUG] Entering while loop. num_steps={num_steps}, num_episodes={num_episodes}")
         while True:
             with torch.inference_mode():
-                print(f"[DEBUG] Step {num_steps_completed}: Getting action from policy...")
                 actions = policy.get_action(env, obs)
-                print(f"[DEBUG] Step {num_steps_completed}: Got actions (shape={actions.shape}). Stepping env...")
                 obs, _, terminated, truncated, _ = env.step(actions)
-<<<<<<< HEAD
-=======
-                print(
-                    f"[DEBUG] Step {num_steps_completed}: Env stepped. "
-                    f"terminated={terminated.sum().item()}, truncated={truncated.sum().item()}"
-                )
 
->>>>>>> 279dc95d (Progress.)
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
                     print(
@@ -111,25 +101,16 @@ def rollout_policy(
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
-                    print(
-                        f"[DEBUG] Episodes completed this step: {completed_episodes}, "
-                        f"total episodes completed: {num_episodes_completed}"
-                    )
                     if num_episodes is not None:
                         pbar.update(completed_episodes)
                         if num_episodes_completed >= num_episodes:
-                            print(f"[DEBUG] Reached target num_episodes={num_episodes}. Breaking.")
                             break
                 # Break if number of steps is reached
                 num_steps_completed += 1
                 if num_steps is not None:
                     pbar.update(1)
                     if num_steps_completed >= num_steps:
-                        print(f"[DEBUG] Reached target num_steps={num_steps}. Breaking.")
                         break
-            print(
-                f"[DEBUG] End of loop iteration. steps={num_steps_completed}, episodes={num_episodes_completed}"
-            )
 
         pbar.close()
 
@@ -138,25 +119,11 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
-<<<<<<< HEAD
+
         # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
         if hasattr(env.cfg, "metrics") and env.cfg.metrics is not None:
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
-=======
-        print("HERE: About to compute metrics")
-        # only compute metrics if env has metrics registered
-<<<<<<< HEAD
-        # if hasattr(env.cfg, "metrics"):
-        #     # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
-        #     from isaaclab_arena.metrics.metrics import compute_metrics
->>>>>>> 279dc95d (Progress.)
-=======
-        if hasattr(env.cfg, "metrics"):
-            # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
-            from isaaclab_arena.metrics.metrics import compute_metrics
->>>>>>> cf346c91 (Mark rigid object references as broken and put back in metric calculation.)
-
             metrics = compute_metrics(env)
             return metrics
         return None

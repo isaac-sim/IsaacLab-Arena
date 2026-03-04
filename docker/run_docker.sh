@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 DOCKER_IMAGE_NAME='isaaclab_arena'
-# DOCKER_IMAGE_NAME='lab3'
 DOCKER_VERSION_TAG='lab3'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
