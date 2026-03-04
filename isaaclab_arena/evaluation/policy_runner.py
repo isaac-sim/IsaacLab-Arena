@@ -137,12 +137,12 @@ def rollout_policy(
     else:
         print("HERE: About to compute metrics")
         # only compute metrics if env has metrics registered
-        # if hasattr(env.cfg, "metrics"):
-        #     # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
-        #     from isaaclab_arena.metrics.metrics import compute_metrics
+        if hasattr(env.cfg, "metrics"):
+            # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
+            from isaaclab_arena.metrics.metrics import compute_metrics
 
-        #     metrics = compute_metrics(env)
-        #     return metrics
+            metrics = compute_metrics(env)
+            return metrics
         return None
 
 
