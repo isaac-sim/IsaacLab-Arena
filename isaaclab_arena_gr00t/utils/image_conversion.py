@@ -8,6 +8,8 @@ import torch
 
 import cv2
 
+from isaaclab_arena_gr00t.utils.io_utils import to_numpy
+
 
 def resize_frames_with_padding(
     frames: torch.Tensor | np.ndarray, target_image_size: tuple, bgr_conversion: bool = False, pad_img: bool = True
@@ -19,10 +21,9 @@ def resize_frames_with_padding(
         bgr_conversion: whether to convert BGR to RGB
         pad_img: whether to resize images
     """
-    if isinstance(frames, torch.Tensor):
-        frames = frames.cpu().numpy()
-    elif not isinstance(frames, np.ndarray):
+    if not isinstance(frames, (torch.Tensor, np.ndarray)):
         raise ValueError(f"Invalid frame type: {type(frames)}")
+    frames = to_numpy(frames)
 
     if bgr_conversion:
         frames = cv2.cvtColor(frames, cv2.COLOR_BGR2RGB)
