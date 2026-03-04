@@ -41,7 +41,6 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
-    print(f"condition_met: {condition_met}")
     return condition_met
 
 

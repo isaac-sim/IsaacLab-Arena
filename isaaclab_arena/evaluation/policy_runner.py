@@ -4,18 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import faulthandler
 import gymnasium as gym
-import signal
-import sys
 import torch
 import tqdm
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
-
-faulthandler.enable()
-if sys.platform != "win32":
-    faulthandler.register(signal.SIGUSR1)
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
