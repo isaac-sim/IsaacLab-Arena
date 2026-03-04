@@ -31,8 +31,18 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
         choices=["top_down", "object_aligned", "object_yaw"],
         help="Grasp orientation strategy.",
     )
-    parser.add_argument("--bin_half_x", type=float, default=0.08, help="Usable bin half-width X (m).")
-    parser.add_argument("--bin_half_y", type=float, default=0.10, help="Usable bin half-width Y (m).")
+    parser.add_argument(
+        "--bin_half_x",
+        type=float,
+        default=0.15,
+        help="Usable bin half-width X (m). For droid_v2 scale (1.5,0.8,1.0) on 20x25cm base: 0.15.",
+    )
+    parser.add_argument(
+        "--bin_half_y",
+        type=float,
+        default=0.10,
+        help="Usable bin half-width Y (m). For droid_v2 scale (1.5,0.8,1.0) on 20x25cm base: 0.10.",
+    )
     parser.add_argument(
         "--gripper_settle_steps",
         type=int,

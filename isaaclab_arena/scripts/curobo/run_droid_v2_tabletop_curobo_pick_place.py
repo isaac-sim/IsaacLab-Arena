@@ -83,7 +83,7 @@ def main() -> None:
     with SimulationAppContext(args_cli):
         from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
         from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
-
+        import isaaclab.utils.math as math_utils
         from isaaclab_arena.scripts.curobo.curobo_pick_place_utils import (
             DOWN_FACING_QUAT_WXYZ,
             GRIPPER_CLOSE_CMD,
@@ -94,6 +94,7 @@ def main() -> None:
             compute_placement_slots,
             execute_gripper_action,
             fix_planner_object_sync_frame,
+            get_bin_interior_center,
             get_current_eef_pose,
             get_object_pos,
             get_object_quat,
@@ -188,8 +189,10 @@ def main() -> None:
 
         print(f"Resolved pick order: {pick_order}")
 
-        bin_pos = get_object_pos(env, "blue_sorting_bin")
-        print(f"Bin center position (robot frame): {bin_pos}")
+        bin_pos = get_bin_interior_center(
+            env, "blue_sorting_bin", 0, 0
+        )
+        print(f"Bin interior center (robot frame): {bin_pos}")
 
         # Pre-compute placement slots so every object has a guaranteed in-bin position
         placement_slots = compute_placement_slots(

@@ -154,18 +154,38 @@ def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.
 
 
 def get_object_pos(env, object_name: str, env_id: int = 0, verbose: bool = True) -> torch.Tensor:
-    """Get object position in robot-base frame."""
+    """Get object position in robot root-link frame (CuRobo base_link for Droid). Same transform as _sync_robot_base_frame."""
     obj = env.scene[object_name]
     robot = env.scene["robot"]
-    world_pos = obj.data.root_pos_w[env_id, :3]
-    robot_base_pos = robot.data.root_pos_w[env_id, :3]
-    vec_world = world_pos - robot_base_pos
+    obj_pos_w = obj.data.root_pos_w[env_id, :3]
+    robot_pos_w = robot.data.root_pos_w[env_id, :3]
     robot_quat_w = robot.data.root_quat_w[env_id, :4]
-    R_world_to_robot = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
-    robot_frame_pos = (R_world_to_robot @ vec_world.unsqueeze(-1)).squeeze(-1)
+    R_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+    pos_robot = (R_w2r @ (obj_pos_w - robot_pos_w).unsqueeze(-1)).squeeze(-1)
     if verbose:
-        print(f"[DEBUG OBJ] {object_name}: world={world_pos}, robot_base={robot_base_pos}, robot_frame={robot_frame_pos}")
-    return robot_frame_pos.clone().detach()
+        print(f"[DEBUG OBJ] {object_name}: world={obj_pos_w}, root_link={robot_pos_w}, robot_frame={pos_robot}")
+    return pos_robot.clone().detach()
+
+
+def get_bin_interior_center(
+    env,
+    bin_name: str,
+    env_id: int = 0,
+    verbose: bool = True,
+) -> torch.Tensor:
+    """Bin center for placement in robot root-link frame (CuRobo base_link for Droid). Same transform as _sync_robot_base_frame."""
+    obj = env.scene[bin_name]
+    robot = env.scene["robot"]
+    obj_pos_w = obj.data.root_pos_w[env_id, :3]
+    robot_pos_w = robot.data.root_pos_w[env_id, :3]
+    robot_quat_w = robot.data.root_quat_w[env_id, :4]
+    R_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+    pos_robot = (R_w2r @ (obj_pos_w - robot_pos_w).unsqueeze(-1)).squeeze(-1)
+    if verbose:
+        print(
+            f"[DEBUG BIN] {bin_name} interior center: world={obj_pos_w}, robot_frame={pos_robot}"
+        )
+    return pos_robot.clone().detach()
 
 
 def get_object_quat(env, object_name: str, env_id: int = 0) -> torch.Tensor:
@@ -220,36 +240,77 @@ def compute_placement_slots(
     bin_half_y: float,
     verbose: bool = True,
 ) -> list[torch.Tensor]:
+    """Place 1st center +x, 2nd center -x, 3rd center +y, 4th center -y; 5+ corners."""
     if num_objects <= 0:
         return []
-    if num_objects == 1:
-        return [bin_center_xyz.clone()]
-    aspect = bin_half_x / max(bin_half_y, 1e-6)
-    cols = max(1, round(math.sqrt(num_objects * aspect)))
-    rows = max(1, math.ceil(num_objects / cols))
-    while cols * rows < num_objects:
-        rows += 1
-    step_x = (2.0 * bin_half_x) / max(cols, 2) if cols > 1 else 0.0
-    step_y = (2.0 * bin_half_y) / max(rows, 2) if rows > 1 else 0.0
-    origin_x = -step_x * (cols - 1) / 2.0
-    origin_y = -step_y * (rows - 1) / 2.0
+    # Fraction of half-extent so positions are far from center but inside bin
+    margin = 0.6
+    offset_x = margin * bin_half_x
+    offset_y = margin * bin_half_y
+
     slots = []
-    for i in range(num_objects):
-        col, row = i % cols, i // cols
+    # 1st: center +x
+    slot = bin_center_xyz.clone()
+    slot[0] += offset_x
+    slots.append(slot)
+    if num_objects <= 1:
+        if verbose:
+            _log_slots(slots, bin_center_xyz)
+        return slots
+
+    # 2nd: center -x
+    slot = bin_center_xyz.clone()
+    slot[0] -= offset_x
+    slots.append(slot)
+    if num_objects <= 2:
+        if verbose:
+            _log_slots(slots, bin_center_xyz)
+        return slots
+
+    # 3rd: center +y
+    slot = bin_center_xyz.clone()
+    slot[1] += offset_y
+    slots.append(slot)
+    if num_objects <= 3:
+        if verbose:
+            _log_slots(slots, bin_center_xyz)
+        return slots
+
+    # 4th: center -y
+    slot = bin_center_xyz.clone()
+    slot[1] -= offset_y
+    slots.append(slot)
+    if num_objects <= 4:
+        if verbose:
+            _log_slots(slots, bin_center_xyz)
+        return slots
+
+    # 5th+: corners (+x+y, -x+y, -x-y, +x-y), then repeat
+    corners = [
+        (offset_x, offset_y),
+        (-offset_x, offset_y),
+        (-offset_x, -offset_y),
+        (offset_x, -offset_y),
+    ]
+    for i in range(4, num_objects):
+        cx, cy = corners[(i - 4) % 4]
         slot = bin_center_xyz.clone()
-        slot[0] += origin_x + col * step_x
-        slot[1] += origin_y + row * step_y
+        slot[0] += cx
+        slot[1] += cy
         slots.append(slot)
+
     if verbose:
-        print(
-            f"[SLOTS] {num_objects} placement slots in bin (half_x={bin_half_x}, half_y={bin_half_y}): "
-            f"grid {cols}x{rows}, step=({step_x:.3f}, {step_y:.3f})"
-        )
-        for i, s in enumerate(slots):
-            dx = (s[0] - bin_center_xyz[0]).item()
-            dy = (s[1] - bin_center_xyz[1]).item()
-            print(f"  slot {i}: offset=({dx:+.3f}, {dy:+.3f})")
+        _log_slots(slots, bin_center_xyz)
     return slots
+
+
+def _log_slots(slots: list, bin_center_xyz: torch.Tensor) -> None:
+    """Log slot offsets from bin center."""
+    print(f"[SLOTS] {len(slots)} placement slots (1st=+x, 2nd=-x, 3rd=+y, 4th=-y, 5+=corners)")
+    for i, s in enumerate(slots):
+        dx = (s[0] - bin_center_xyz[0]).item()
+        dy = (s[1] - bin_center_xyz[1]).item()
+        print(f"  slot {i}: offset=({dx:+.3f}, {dy:+.3f})")
 
 
 def make_planner_cfg(args_cli: argparse.Namespace):
