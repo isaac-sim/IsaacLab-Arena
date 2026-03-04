@@ -156,7 +156,7 @@ def test_eval_runner_different_embodiments(tmp_path):
     run_eval_runner_and_check_no_failures(temp_config_path)
 
 
-@pytest.mark.skip(reason="BROKEN")
+# @pytest.mark.skip(reason="BROKEN")
 def test_eval_runner_from_existing_config():
     """Test eval_runner using the zero_action_jobs_config.json and verify no jobs failed."""
     config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
