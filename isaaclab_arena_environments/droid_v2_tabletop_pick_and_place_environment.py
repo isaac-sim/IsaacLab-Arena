@@ -17,8 +17,8 @@ import random
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # Randomize yaw radian
-random_yaw_radian = math.radians(random.randint(0, 360))
-# random_yaw_radian = math.radians(-120)
+# random_yaw_radian = math.radians(random.randint(0, 360))
+random_yaw_radian = math.radians(-120)
 
 class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
     """DROID v2 environment with flattened USD and mimic joint constraints for the Robotiq 2F-85 gripper."""
@@ -70,18 +70,21 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         blue_sorting_bin.add_relation(IsAnchor())
         obj_1.add_relation(On(office_table))
         # Do not go over 0.25 as IK may fail
-        obj1_distance_to_blue_sorting_bin = random.uniform(0.15, 0.25)
+        # obj1_distance_to_blue_sorting_bin = random.uniform(0.15, 0.25)
+        obj1_distance_to_blue_sorting_bin = 0.20
         obj_1.add_relation(NextTo(blue_sorting_bin, side=Side.NEGATIVE_Y, distance_m=obj1_distance_to_blue_sorting_bin))
         # obj_1.add_relation(
         #     AtPosition(x=0.5, y=0.1, z=0.86)
         # )
         obj_1.add_relation(RotateAroundSolution(roll_rad=1.5707963, yaw_rad=0))
         obj_2.add_relation(On(office_table))
-        obj2_distance_to_obj1 = random.uniform(0.05, 0.15)
+        # obj2_distance_to_obj1 = random.uniform(0.05, 0.15)
+        obj2_distance_to_obj1 = 0.10
         obj_2.add_relation(NextTo(obj_1, side=Side.NEGATIVE_X, distance_m=obj2_distance_to_obj1))
         obj_2.add_relation(RotateAroundSolution(yaw_rad=random_yaw_radian))
         obj_3.add_relation(On(office_table))
-        obj3_distance_to_blue_sorting_bin = random.uniform(0.05, 0.15)
+        # obj3_distance_to_blue_sorting_bin = random.uniform(0.05, 0.15)
+        obj3_distance_to_blue_sorting_bin = 0.10
         obj_3.add_relation(NextTo(blue_sorting_bin, side=Side.POSITIVE_Y, distance_m=obj3_distance_to_blue_sorting_bin))
         # obj_3.add_relation(RotateAroundSolution(roll_rad=1.5707963))
 
