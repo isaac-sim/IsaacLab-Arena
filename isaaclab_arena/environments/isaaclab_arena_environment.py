@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.orchestrator.orchestrator_base import OrchestratorBase
+    from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -29,6 +30,8 @@ class IsaacLabArenaEnvironment:
         teleop_device: TeleopDeviceBase | None = None,
         orchestrator: OrchestratorBase | None = None,
         env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+        rl_framework: RLFramework | None = None,
+        rl_policy_cfg: str | None = None,
     ):
         """
         Args:
@@ -47,3 +50,5 @@ class IsaacLabArenaEnvironment:
         self.teleop_device = teleop_device
         self.orchestrator = orchestrator
         self.env_cfg_callback = env_cfg_callback
+        self.rl_framework = rl_framework
+        self.rl_policy_cfg = rl_policy_cfg
