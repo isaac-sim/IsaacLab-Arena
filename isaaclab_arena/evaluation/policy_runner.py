@@ -146,13 +146,19 @@ def rollout_policy(
 =======
         print("HERE: About to compute metrics")
         # only compute metrics if env has metrics registered
+<<<<<<< HEAD
         # if hasattr(env.cfg, "metrics"):
         #     # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
         #     from isaaclab_arena.metrics.metrics import compute_metrics
 >>>>>>> 279dc95d (Progress.)
+=======
+        if hasattr(env.cfg, "metrics"):
+            # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
+            from isaaclab_arena.metrics.metrics import compute_metrics
+>>>>>>> cf346c91 (Mark rigid object references as broken and put back in metric calculation.)
 
-        #     metrics = compute_metrics(env)
-        #     return metrics
+            metrics = compute_metrics(env)
+            return metrics
         return None
 
 
