@@ -344,26 +344,23 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         Returns:
             Weighted loss tensor.
         """
-        # Parent world-space extents from the world bounding box
-        parent_x_min = parent_world_bbox.min_point[0]
-        parent_x_max = parent_world_bbox.max_point[0]
-        parent_y_min = parent_world_bbox.min_point[1]
-        parent_y_max = parent_world_bbox.max_point[1]
-        parent_z_min = parent_world_bbox.min_point[2]
-        parent_z_max = parent_world_bbox.max_point[2]
+        # Parent world extents from the world bounding box, expanded by clearance_m
+        c = relation.clearance_m
+        parent_x_min = parent_world_bbox.min_point[0] - c
+        parent_x_max = parent_world_bbox.max_point[0] + c
+        parent_y_min = parent_world_bbox.min_point[1] - c
+        parent_y_max = parent_world_bbox.max_point[1] + c
+        parent_z_min = parent_world_bbox.min_point[2] - c
+        parent_z_max = parent_world_bbox.max_point[2] + c
 
-        # Child world-space extents
-        child_x_min = child_pos[0] + child_bbox.min_point[0]
-        child_x_max = child_pos[0] + child_bbox.max_point[0]
-        child_y_min = child_pos[1] + child_bbox.min_point[1]
-        child_y_max = child_pos[1] + child_bbox.max_point[1]
-        child_z_min = child_pos[2] + child_bbox.min_point[2]
-        child_z_max = child_pos[2] + child_bbox.max_point[2]
+        # Child world extents
+        child_world_min = child_pos + torch.tensor(child_bbox.min_point, dtype=child_pos.dtype, device=child_pos.device)
+        child_world_max = child_pos + torch.tensor(child_bbox.max_point, dtype=child_pos.dtype, device=child_pos.device)
 
         # 1. Per-axis overlap (0 when separated on that axis)
-        overlap_x = interval_overlap_axis_loss(child_x_min, child_x_max, parent_x_min, parent_x_max)
-        overlap_y = interval_overlap_axis_loss(child_y_min, child_y_max, parent_y_min, parent_y_max)
-        overlap_z = interval_overlap_axis_loss(child_z_min, child_z_max, parent_z_min, parent_z_max)
+        overlap_x = interval_overlap_axis_loss(child_world_min[0], child_world_max[0], parent_x_min, parent_x_max)
+        overlap_y = interval_overlap_axis_loss(child_world_min[1], child_world_max[1], parent_y_min, parent_y_max)
+        overlap_z = interval_overlap_axis_loss(child_world_min[2], child_world_max[2], parent_z_min, parent_z_max)
 
         # 2. Volume loss: product of per-axis overlaps scaled by slope
         overlap_volume = overlap_x * overlap_y * overlap_z
@@ -371,16 +368,16 @@ class NoCollisionLossStrategy(RelationLossStrategy):
 
         if self.debug:
             print(
-                f"    [NoCollision] X: overlap={overlap_x.item():.6f} (child_x=[{child_x_min.item():.4f},"
-                f" {child_x_max.item():.4f}], parent_x=[{parent_x_min:.4f}, {parent_x_max:.4f}])"
+                f"    [NoCollision] X: overlap={overlap_x.item():.6f} (child_x=[{child_world_min[0].item():.4f},"
+                f" {child_world_max[0].item():.4f}], parent_x=[{parent_x_min:.4f}, {parent_x_max:.4f}])"
             )
             print(
-                f"    [NoCollision] Y: overlap={overlap_y.item():.6f} (child_y=[{child_y_min.item():.4f},"
-                f" {child_y_max.item():.4f}], parent_y=[{parent_y_min:.4f}, {parent_y_max:.4f}])"
+                f"    [NoCollision] Y: overlap={overlap_y.item():.6f} (child_y=[{child_world_min[1].item():.4f},"
+                f" {child_world_max[1].item():.4f}], parent_y=[{parent_y_min:.4f}, {parent_y_max:.4f}])"
             )
             print(
-                f"    [NoCollision] Z: overlap={overlap_z.item():.6f} (child_z=[{child_z_min.item():.4f},"
-                f" {child_z_max.item():.4f}], parent_z=[{parent_z_min:.4f}, {parent_z_max:.4f}])"
+                f"    [NoCollision] Z: overlap={overlap_z.item():.6f} (child_z=[{child_world_min[2].item():.4f},"
+                f" {child_world_max[2].item():.4f}], parent_z=[{parent_z_min:.4f}, {parent_z_max:.4f}])"
             )
             print(f"    [NoCollision] volume={overlap_volume.item():.6f}, loss={total_loss.item():.6f}")
 

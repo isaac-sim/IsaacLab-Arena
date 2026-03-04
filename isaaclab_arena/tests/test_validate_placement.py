@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for ObjectPlacer._validate_placement 3D overlap detection."""
+"""Tests for ObjectPlacer placement validation (_validate_placement, _validate_no_overlap, _validate_on_relations)."""
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.relations import On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -80,3 +81,50 @@ def test_colocated_siblings_overlap_rejected():
     b = _make_box("b", size=0.2)
     positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.15), b: (0.0, 0.0, 0.15)}
     assert placer._validate_placement(positions) is False
+
+
+def test_overlap_check_separated_returns_true():
+    """Two separated boxes should pass overlap check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    a = _make_box("a")
+    b = _make_box("b")
+    positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
+    assert placer._validate_no_overlap(positions) is True
+
+
+def test_overlap_check_overlapping_returns_false():
+    """Two overlapping boxes should fail overlap check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    a = _make_box("a")
+    b = _make_box("b")
+    positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 0.0)}
+    assert placer._validate_no_overlap(positions) is False
+
+
+def test_on_relation_check_no_relation_returns_true():
+    """Objects with no On relation should pass On-relation check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    a = _make_box("a")
+    b = _make_box("b")
+    positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
+    assert placer._validate_on_relations(positions) is True
+
+
+def test_on_relation_check_child_inside_xy_returns_true():
+    """Child inside parent XY should pass On-relation check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk))
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.1)}
+    assert placer._validate_on_relations(positions) is True
+
+
+def test_on_relation_check_child_outside_xy_returns_false():
+    """Child outside parent XY should fail On-relation check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk))
+    positions = {desk: (0.0, 0.0, 0.0), box: (10.0, 10.0, 0.1)}
+    assert placer._validate_on_relations(positions) is False

@@ -210,20 +210,11 @@ class ObjectPlacer:
                     return False
         return True
 
-    def _validate_placement(
+    def _validate_no_overlap(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Validate that no two objects overlap in 3D.
-
-        Checks all object pairs for axis-aligned bounding box overlap.
-
-        Args:
-            positions: Dictionary mapping objects to their solved (x, y, z) positions.
-
-        Returns:
-            True if no overlaps exist, False otherwise.
-        """
+        """Check that no two objects overlap in 3D (axis-aligned bbox with margin)."""
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
@@ -236,11 +227,21 @@ class ObjectPlacer:
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False
-
-        if not self._validate_on_relations(positions):
-            return False
-
         return True
+
+    def _validate_placement(
+        self,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> bool:
+        """Validate that no two objects overlap in 3D and On relations are satisfied.
+
+        Args:
+            positions: Dictionary mapping objects to their solved (x, y, z) positions.
+
+        Returns:
+            True if no overlaps exist and On relations hold, False otherwise.
+        """
+        return self._validate_no_overlap(positions) and self._validate_on_relations(positions)
 
     def _apply_positions(
         self,
