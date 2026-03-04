@@ -70,13 +70,13 @@ simulation_app = app_launcher.app
 import asyncio
 import gymnasium as gym
 import inspect
+import logging
 import numpy as np
 import os
 import random
 import torch
 
 import isaaclab_mimic.envs  # noqa: F401
-import omni
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 from isaaclab.managers import DatasetExportMode, RecorderTerm, RecorderTermCfg
@@ -90,6 +90,8 @@ if args_cli.enable_pinocchio:
 import isaaclab_tasks  # noqa: F401
 from isaaclab_mimic.datagen.generation import env_loop, setup_async_generation
 from isaaclab_mimic.datagen.utils import setup_output_paths
+
+logger = logging.getLogger(__name__)
 
 
 class PreStepFlatCameraObservationsRecorder(RecorderTerm):
@@ -199,7 +201,7 @@ def main():
 
     # check if the mimic API from this environment contains decprecated signatures
     if "action_noise_dict" not in inspect.signature(env.target_eef_pose_to_action).parameters:
-        omni.log.warn(
+        logger.warning(
             f'The "noise" parameter in the "{env_name}" environment\'s mimic API "target_eef_pose_to_action", '
             "is deprecated. Please update the API to take action_noise_dict instead."
         )

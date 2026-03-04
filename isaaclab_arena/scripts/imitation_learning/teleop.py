@@ -57,10 +57,10 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 
+import logging
 import torch
 
 import isaaclab_tasks  # noqa: F401
-import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
 from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
@@ -69,6 +69,8 @@ from isaaclab_tasks.manager_based.manipulation.lift import mdp
 
 if args_cli.enable_pinocchio:
     import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -103,12 +105,12 @@ def main() -> None:
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
         if "Reach" in args_cli.task:
-            omni.log.warn(
+            logger.warning(
                 f"The environment '{args_cli.task}' does not support gripper control. The device command will be"
                 " ignored."
             )
     except Exception as e:
-        omni.log.error(f"Failed to create environment: {e}")
+        logger.error(f"Failed to create environment: {e}")
         simulation_app.close()
         return
 
@@ -180,7 +182,9 @@ def main() -> None:
                 args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
             )
         else:
-            omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
+            logger.warning(
+                f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default."
+            )
             # Create fallback teleop device
             sensitivity = args_cli.sensitivity
             if args_cli.teleop_device.lower() == "keyboard":
@@ -196,8 +200,8 @@ def main() -> None:
                     Se3GamepadCfg(pos_sensitivity=0.1 * sensitivity, rot_sensitivity=0.1 * sensitivity)
                 )
             else:
-                omni.log.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                omni.log.error("Supported devices: keyboard, spacemouse, gamepad, avp_handtracking")
+                logger.error(f"Unsupported teleop device: {args_cli.teleop_device}")
+                logger.error("Supported devices: keyboard, spacemouse, gamepad, avp_handtracking")
                 env.close()
                 simulation_app.close()
                 return
@@ -207,15 +211,15 @@ def main() -> None:
                 try:
                     teleop_interface.add_callback(key, callback)
                 except (ValueError, TypeError) as e:
-                    omni.log.warn(f"Failed to add callback for key {key}: {e}")
+                    logger.warning(f"Failed to add callback for key {key}: {e}")
     except Exception as e:
-        omni.log.error(f"Failed to create teleop device: {e}")
+        logger.error(f"Failed to create teleop device: {e}")
         env.close()
         simulation_app.close()
         return
 
     if teleop_interface is None:
-        omni.log.error("Failed to create teleop interface")
+        logger.error("Failed to create teleop interface")
         env.close()
         simulation_app.close()
         return
@@ -250,7 +254,7 @@ def main() -> None:
                     should_reset_recording_instance = False
                     print("Environment reset complete")
         except Exception as e:
-            omni.log.error(f"Error during simulation step: {e}")
+            logger.error(f"Error during simulation step: {e}")
             break
 
     # close the simulator
