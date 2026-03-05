@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import gymnasium as gym
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -91,13 +92,12 @@ class ArenaEnvBuilder:
         else:
             print(f"Relation solving not completed after {result.attempts} attempt(s)")
 
-    def _modify_recorder_cfg_for_distributed(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
-        """Modify the recorder dataset filename for distributed multi-gpu envs.
-        This is to avoid HDF5 file lock conflict when distributed: each rank uses a unique dataset filename.
-        """
-        if getattr(self.args, "distributed", False):
-            base = getattr(recorder_cfg, "dataset_filename", "dataset")
-            recorder_cfg.dataset_filename = f"{base}_rank{get_local_rank()}"
+    def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
+        """Modify the recorder dataset filename to include the timestamp and rank."""
+        base = getattr(recorder_cfg, "dataset_filename", "dataset")
+        recorder_cfg.dataset_filename = (
+            f"{base}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_rank{get_local_rank()}"
+        )
         return recorder_cfg
 
     # This method gives the arena environment a chance to modify the environment configuration.
@@ -168,8 +168,7 @@ class ArenaEnvBuilder:
             embodiment.get_recorder_term_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
-        # Only modify the recorder configuration for distributed multi-gpu envs.
-        recorder_manager_cfg = self._modify_recorder_cfg_for_distributed(recorder_manager_cfg)
+        recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
