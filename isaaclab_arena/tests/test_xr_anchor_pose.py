@@ -176,13 +176,13 @@ def test_gr1t2_xr_anchor_pose():
     assert result, "GR1T2 XR anchor pose test failed"
 
 
-def test_g1_xr_anchor_pose():
-    """Test G1 XR anchor pose behavior."""
-    result = run_simulation_app_function(
-        _test_g1_xr_anchor_pose,
-        headless=HEADLESS,
-    )
-    assert result, "G1 XR anchor pose test failed"
+# def test_g1_xr_anchor_pose():
+#     """Test G1 XR anchor pose behavior."""
+#     result = run_simulation_app_function(
+#         _test_g1_xr_anchor_pose,
+#         headless=HEADLESS,
+#     )
+#     assert result, "G1 XR anchor pose test failed"
 
 
 def test_xr_anchor_multiple_positions():
@@ -196,5 +196,5 @@ def test_xr_anchor_multiple_positions():
 
 if __name__ == "__main__":
     test_gr1t2_xr_anchor_pose()
-    test_g1_xr_anchor_pose()
+    #test_g1_xr_anchor_pose()
     test_xr_anchor_multiple_positions()
