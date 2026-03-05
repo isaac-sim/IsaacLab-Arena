@@ -24,14 +24,38 @@ class MessageSerializer:
     - generic binary blobs (tagged as __blob_class__).
     """
 
+    # Magic headers for compressed payloads.
+    # NOTE: All compression methods MUST use distinct 4-byte magic headers
+    # so that from_bytes() can auto-detect the format.  Raw msgpack never
+    # starts with these byte sequences.
+    _LZ4_MAGIC = b"LZ4\x00"
+
     @staticmethod
-    def to_bytes(data: Any) -> bytes:
-        """Serialize a Python object to bytes using msgpack."""
-        return msgpack.packb(data, default=MessageSerializer._encode_custom)
+    def to_bytes(data: Any, compression_method: str = "none") -> bytes:
+        """Serialize a Python object to bytes using msgpack.
+
+        Args:
+            data: The object to serialize.
+            compression_method: ``"none"`` (default) or ``"lz4"``.
+        """
+        raw = msgpack.packb(data, default=MessageSerializer._encode_custom)
+        if compression_method == "lz4":
+            import lz4.frame
+
+            compressed = lz4.frame.compress(raw)
+            return MessageSerializer._LZ4_MAGIC + compressed
+        return raw
 
     @staticmethod
     def from_bytes(data: bytes) -> Any:
-        """Deserialize bytes into Python objects, decoding custom tags."""
+        """Deserialize bytes into Python objects, decoding custom tags.
+
+        Automatically detects lz4-compressed payloads via the magic header.
+        """
+        if data[:4] == MessageSerializer._LZ4_MAGIC:
+            import lz4.frame
+
+            data = lz4.frame.decompress(data[4:])
         return msgpack.unpackb(data, object_hook=MessageSerializer._decode_custom)
 
     # ------------------------------------------------------------------ #

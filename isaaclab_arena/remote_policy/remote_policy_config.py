@@ -16,3 +16,4 @@ class RemotePolicyConfig:
     port: int
     api_token: str | None = None
     timeout_ms: int = 15000
+    compression: str = "none"

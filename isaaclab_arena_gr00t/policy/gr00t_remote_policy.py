@@ -12,6 +12,7 @@ from typing import Any
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena.remote_policy.action_protocol import ChunkingActionProtocol
+from isaaclab_arena.remote_policy.client_state import ClientState
 from isaaclab_arena.remote_policy.server_side_policy import ServerSidePolicy
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
@@ -42,7 +43,12 @@ class Gr00tRemotePolicyArgs(Gr00tBasePolicyArgs):
 
 
 class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
-    """Server-side wrapper around Gr00tPolicy."""
+    """Server-side wrapper around Gr00tPolicy.
+
+    v2: Per-client task descriptions are stored in ``ClientState.instructions``
+    instead of the global ``self._task_description`` singleton.  The legacy
+    attribute is kept for backward compatibility with v1 callers.
+    """
 
     config_class = Gr00tRemotePolicyArgs
 
@@ -95,9 +101,6 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
             "policy.robot_joint_pos"
         ]
 
-        # Task description will be set via set_task_description RPC
-        self._task_description: str | None = None
-
     # ---------------------- CLI helpers (server-side) -------------------
 
     @staticmethod
@@ -143,19 +146,33 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
     # Helper methods
     # ------------------------------------------------------------------ #
 
+    def _resolve_task_description(
+        self,
+        env_ids: list[int] | None,
+        client_state: ClientState | None,
+    ) -> str:
+        """Get the task description for a request, preferring client_state (v2).
+
+        When ``env_ids`` is ``None``, defaults to index 0 so that per-client
+        instructions written by ``set_task_description`` are still accessible.
+        """
+        if client_state is not None:
+            idx = env_ids[0] if env_ids and len(env_ids) > 0 else 0
+            desc = client_state.instructions[idx]
+            if desc is not None:
+                return desc
+        # v1 fallback
+        if self._task_description is not None:
+            return self._task_description
+        return self.policy_config.language_instruction
+
     def _build_policy_observations(
         self,
         observation: dict[str, Any],
         camera_names: list[str],
+        task_description: str,
     ) -> dict[str, Any]:
-        """Convert packed numpy observation into numpy GR00T policy inputs.
-
-        Uses ``extract_obs_numpy_from_packed`` as the single explicit
-        data-extraction boundary for the remote pipeline, then delegates
-        to the shared core preprocessing.
-        """
-        assert self._task_description is not None, "Task description is not set"
-
+        """Convert packed numpy observation into numpy GR00T policy inputs."""
         rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_packed(
             observation, camera_names, self.unpack_observation
         )
@@ -163,7 +180,7 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
         return build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             joint_pos_sim_np=joint_pos_sim_np,
-            task_description=self._task_description,
+            task_description=task_description,
             policy_config=self.policy_config,
             robot_state_joints_config=self.robot_state_joints_config,
             policy_joints_config=self.policy_joints_config,
@@ -174,17 +191,38 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
     # ServerSidePolicy interface
     # ------------------------------------------------------------------ #
 
-    def set_task_description(self, task_description: str | None) -> dict[str, Any]:
+    def set_task_description(
+        self,
+        task_description: str | None,
+        *,
+        env_ids: list[int] | None = None,
+        client_state: ClientState | None = None,
+    ) -> dict[str, Any]:
         if task_description is None:
             task_description = self.policy_config.language_instruction
-        self._task_description = task_description
-        return {"status": "ok"}
+
+        if client_state is not None:
+            targets = env_ids if env_ids is not None else list(range(client_state.num_envs))
+            for eid in targets:
+                client_state.instructions[eid] = task_description
+        else:
+            # v1 fallback
+            self._task_description = task_description
+
+        return {"task_description": task_description or ""}
 
     def get_action(
-        self, observation: dict[str, Any], options: dict[str, Any] | None = None
+        self,
+        observation: dict[str, Any],
+        *,
+        env_ids: list[int] | None = None,
+        client_state: ClientState | None = None,
+        **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        task_description = self._resolve_task_description(env_ids, client_state)
+
         # 1) Shared numpy-based preprocessing
-        policy_observations = self._build_policy_observations(observation, self.camera_names)
+        policy_observations = self._build_policy_observations(observation, self.camera_names, task_description)
 
         # 2) GR00T forward pass
         robot_action_policy, _ = self.policy.get_action(policy_observations)
@@ -202,14 +240,23 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
         assert action_tensor.shape[1] >= self.action_chunk_length
 
         action_chunk = to_numpy(action_tensor)
-        # NOTE(huikang, 2026-02-06):  Currently, it seems that the output action length is action_horizon,
-        # but the action chunk post-process actually handles a length of action_chunk_length.
-        # It looks like we can transmit a tensor of length action_chunk_length. At the moment, action_chunk_length and action_horizon are the same.
         action: dict[str, Any] = {"action": action_chunk}
         info: dict[str, Any] = {}
         return action, info
 
-    def reset(self, env_ids: list[int] | None = None, reset_options: dict[str, Any] | None = None) -> dict[str, Any]:
-        # placeholder for future reset options from GR00T repo
+    def reset(
+        self,
+        env_ids: list[int] | None = None,
+        reset_options: dict[str, Any] | None = None,
+        *,
+        client_state: ClientState | None = None,
+    ) -> dict[str, Any]:
         self.policy.reset()
+
+        # Clear per-client instructions for reset envs
+        if client_state is not None:
+            targets = env_ids if env_ids is not None else list(range(client_state.num_envs))
+            for eid in targets:
+                client_state.instructions[eid] = None
+
         return {"status": "reset_success"}

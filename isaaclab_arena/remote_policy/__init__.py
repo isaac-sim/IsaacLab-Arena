@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .action_protocol import ActionMode, ActionProtocol, ChunkingActionProtocol
+from .client_state import ClientState
 from .message_serializer import MessageSerializer
 from .policy_client import PolicyClient
 from .policy_server import PolicyServer
@@ -11,6 +12,7 @@ from .remote_policy_config import RemotePolicyConfig
 from .server_side_policy import ServerSidePolicy
 
 __all__ = [
+    "ClientState",
     "RemotePolicyConfig",
     "ServerSidePolicy",
     "MessageSerializer",

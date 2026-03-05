@@ -56,6 +56,13 @@ def build_base_parser() -> argparse.ArgumentParser:
             "'isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy'."
         ),
     )
+
+    # v2 server options.
+    parser.add_argument("--max_batch_size", type=int, default=1, help="Max requests to batch (1 = no batching).")
+    parser.add_argument("--batch_wait_ms", type=int, default=5, help="Max ms to wait for additional batch requests.")
+    parser.add_argument(
+        "--idle_timeout_s", type=float, default=600.0, help="Seconds before GC-ing idle client state."
+    )
     return parser
 
 
@@ -108,6 +115,9 @@ def main() -> None:
         port=args.port,
         api_token=args.api_token,
         timeout_ms=args.timeout_ms,
+        idle_timeout_s=args.idle_timeout_s,
+        max_batch_size=args.max_batch_size,
+        batch_wait_ms=args.batch_wait_ms,
     )
     server.run()
 

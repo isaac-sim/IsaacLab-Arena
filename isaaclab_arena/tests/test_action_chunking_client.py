@@ -1,11 +1,4 @@
-# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-
-# Copyright (c) 2025-2026,
-# The Isaac Lab Arena Project Developers
-# (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -20,6 +13,7 @@ from typing import Any
 import pytest
 
 from isaaclab_arena.remote_policy.action_protocol import ActionProtocol, ChunkingActionProtocol
+from isaaclab_arena.remote_policy.client_state import ClientState
 from isaaclab_arena.remote_policy.policy_server import PolicyServer
 from isaaclab_arena.remote_policy.server_side_policy import ServerSidePolicy
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -56,13 +50,12 @@ class _DummyChunkingServerPolicy(ServerSidePolicy):
     def get_action(
         self,
         observation: dict[str, Any],
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Return (batch, chunk_length, action_dim) array with a simple pattern.
-
-        The options argument is accepted to match PolicyServer._handle_get_action,
-        but is not used in this dummy implementation.
-        """
+        *,
+        env_ids: list[int] | None = None,
+        client_state: ClientState | None = None,
+        **kwargs: Any,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Return (batch, chunk_length, action_dim) array with a simple pattern."""
         first_key = next(iter(observation.keys()))
         batch = int(np.shape(observation[first_key])[0])
 
@@ -74,16 +67,15 @@ class _DummyChunkingServerPolicy(ServerSidePolicy):
             fill_value=base_value,
             dtype=np.float32,
         )
-        # IMPORTANT: return a dict containing "action" and "info"
         return {"action": chunk}, {}
 
-    # NEW: match what PolicyServer._handle_reset expects
-    def reset(self, env_ids: list[int] | None = None, reset_options: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Reset policy state for the given environment ids.
-
-        The implementation here is trivial; it just returns an OK status
-        and does not keep any per-env state.
-        """
+    def reset(
+        self,
+        env_ids: list[int] | None = None,
+        reset_options: dict[str, Any] | None = None,
+        *,
+        client_state: ClientState | None = None,
+    ) -> dict[str, Any]:
         return {"status": "ok"}
 
     @staticmethod
@@ -120,12 +112,8 @@ def running_dummy_chunking_server() -> PolicyServer:
     try:
         yield server
     finally:
-        # Ask the server to stop and wait for the thread.
-        server.running = False
+        server.close()
         thread.join(timeout=5.0)
-
-        if hasattr(server, "close"):
-            server.close()
         assert not thread.is_alive()
 
 

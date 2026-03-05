@@ -28,7 +28,13 @@ class ClientSidePolicy(PolicyBase):
       - Must implement get_action().
     """
 
-    def __init__(self, config: Any, remote_config: RemotePolicyConfig, protocol_cls: type[ActionProtocol]) -> None:
+    def __init__(
+        self,
+        config: Any,
+        remote_config: RemotePolicyConfig,
+        protocol_cls: type[ActionProtocol],
+        num_envs: int = 1,
+    ) -> None:
         super().__init__(config=config)
 
         if protocol_cls.MODE is None:
@@ -39,6 +45,7 @@ class ClientSidePolicy(PolicyBase):
 
         self._remote_config = remote_config
         self._client = PolicyClient(config=self._remote_config)
+        self._num_envs = num_envs
 
         # 1) Ping server to ensure connectivity.
         if not self._client.ping():
@@ -46,8 +53,11 @@ class ClientSidePolicy(PolicyBase):
                 f"Failed to connect to remote policy server at {self._remote_config.host}:{self._remote_config.port}."
             )
 
-        # 2) Handshake: send requested_action_mode, parse response.
-        init_resp = self._client.get_init_info(requested_action_mode=requested_action_mode.value)
+        # 2) v2 handshake: capability negotiation + get_init_info.
+        init_resp = self._client.connect(
+            num_envs=num_envs,
+            requested_action_mode=requested_action_mode.value,
+        )
 
         if not isinstance(init_resp, dict):
             raise TypeError(f"Expected dict from get_init_info, got {type(init_resp)!r}")
