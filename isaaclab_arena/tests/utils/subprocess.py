@@ -78,9 +78,7 @@ def _close_persistent():
             _PERSISTENT_SIM_APP_LAUNCHER.app.close()
 
 
-def get_persistent_simulation_app(
-    headless: bool, enable_cameras: bool = False, enable_pinocchio: bool = True
-) -> SimulationApp:
+def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) -> SimulationApp:
     """Create once, reuse forever (until process exit)."""
     global _PERSISTENT_SIM_APP_LAUNCHER, _PERSISTENT_INIT_ARGS
     # Create a new simulation app if it doesn't exist
@@ -89,7 +87,6 @@ def get_persistent_simulation_app(
         simulation_app_args = parser.parse_args([])
         simulation_app_args.headless = headless
         simulation_app_args.enable_cameras = enable_cameras
-        simulation_app_args.enable_pinocchio = enable_pinocchio
         if not headless:
             simulation_app_args.visualizer = ["kit"]
         with _IsolatedArgv([]):
@@ -115,7 +112,6 @@ def run_simulation_app_function(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
-    enable_pinocchio: bool = True,
     **kwargs,
 ) -> bool:
     """Run a simulation app in a separate process.
@@ -135,9 +131,7 @@ def run_simulation_app_function(
     # Get a persistent simulation app
     global _AT_LEAST_ONE_TEST_FAILED
     try:
-        simulation_app = get_persistent_simulation_app(
-            headless=headless, enable_cameras=enable_cameras, enable_pinocchio=enable_pinocchio
-        )
+        simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
         test_result = bool(function(simulation_app, **kwargs))
         return test_result
     except Exception as e:

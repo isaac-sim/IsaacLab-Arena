@@ -8,8 +8,6 @@ import gymnasium as gym
 import torch
 import traceback
 
-import pytest
-
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
@@ -32,7 +30,6 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
-    args_cli.enable_pinocchio = False
 
     asset_registry = AssetRegistry()
 
@@ -103,7 +100,6 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
-    args_cli.enable_pinocchio = False
 
     asset_registry = AssetRegistry()
 
@@ -383,14 +379,8 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
 
 # Test functions that will be called by pytest
-@pytest.mark.skip(
-    reason=(
-        "Requires enable_pinocchio=False. Run separately: pytest -sv"
-        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_single"
-    )
-)
 def test_peg_insert_assembly_single():
-    result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS, enable_pinocchio=False)
+    result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_single.__name__} failed"
 
 
@@ -399,14 +389,8 @@ def test_gear_mesh_assembly_single():
     assert result, f"Test {_test_gear_mesh_assembly_single.__name__} failed"
 
 
-@pytest.mark.skip(
-    reason=(
-        "Requires enable_pinocchio=False. Run separately: pytest -sv"
-        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_multi"
-    )
-)
 def test_peg_insert_assembly_multi():
-    result = run_simulation_app_function(_test_peg_insert_assembly_multi, headless=HEADLESS, enable_pinocchio=False)
+    result = run_simulation_app_function(_test_peg_insert_assembly_multi, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_multi.__name__} failed"
 
 
@@ -415,17 +399,8 @@ def test_gear_mesh_assembly_multi():
     assert result, f"Test {_test_gear_mesh_assembly_multi.__name__} failed"
 
 
-@pytest.mark.skip(
-    reason=(
-        "Requires enable_pinocchio=False. Run separately: pytest -sv"
-        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_initialization"
-    )
-)
 def test_peg_insert_initialization():
-    """
-    For peg insert task, we need to test the task with pinocchio disabled due to the "peg" and "hole" assets are not compatible with pinocchio.
-    """
-    result = run_simulation_app_function(_test_peg_insert_initialization, headless=HEADLESS, enable_pinocchio=False)
+    result = run_simulation_app_function(_test_peg_insert_initialization, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_initialization.__name__} failed"
 
 
@@ -435,15 +410,9 @@ def test_gear_mesh_initialization():
 
 
 if __name__ == "__main__":
-    """
-    Peg insert tests are commented out because they require enable_pinocchio=False,
-    but the current test session's SimulationApp was initialized with enable_pinocchio=True.
-    Due to limitations in subprocess.py, the SimulationApp cannot be restarted with different
-    parameters during a single pytest session. Run peg insert tests separately with:
-      pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_single --disable_pinocchio
-      pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_multi --disable_pinocchio
-      pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_initialization --disable_pinocchio
-    """
+    test_peg_insert_initialization()
+    test_peg_insert_assembly_single()
+    test_peg_insert_assembly_multi()
     test_gear_mesh_initialization()
     test_gear_mesh_assembly_single()
     test_gear_mesh_assembly_multi()

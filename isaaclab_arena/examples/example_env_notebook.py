@@ -8,7 +8,6 @@
 import torch
 import tqdm
 
-import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
 
 print("Launching simulation app once in notebook")

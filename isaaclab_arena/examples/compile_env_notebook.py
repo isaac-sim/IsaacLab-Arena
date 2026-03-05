@@ -6,11 +6,9 @@
 # %%
 
 import argparse
-
 import torch
 import tqdm
 
-import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
 
 print("Launching simulation app once in notebook")
@@ -20,18 +18,16 @@ args = parser.parse_args(["--visualizer", "kit"])
 # args = parser.parse_args([])
 app_launcher = AppLauncher(args)
 
-#%%
+# %%
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
-from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.relations.relations import AtPosition
 
 asset_registry = AssetRegistry()
 
@@ -91,7 +87,7 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
 
-#%%
+# %%
 
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 
