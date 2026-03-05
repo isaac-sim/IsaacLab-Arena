@@ -357,12 +357,12 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         child_world_min = child_pos + torch.tensor(child_bbox.min_point, dtype=child_pos.dtype, device=child_pos.device)
         child_world_max = child_pos + torch.tensor(child_bbox.max_point, dtype=child_pos.dtype, device=child_pos.device)
 
-        # 1. Per-axis overlap (0 when separated on that axis)
+        # 1. Per-axis overlap: zero when separated; else overlap length (default slope 1.0 gives length in m)
         overlap_x = interval_overlap_axis_loss(child_world_min[0], child_world_max[0], parent_x_min, parent_x_max)
         overlap_y = interval_overlap_axis_loss(child_world_min[1], child_world_max[1], parent_y_min, parent_y_max)
         overlap_z = interval_overlap_axis_loss(child_world_min[2], child_world_max[2], parent_z_min, parent_z_max)
 
-        # 2. Volume loss: product of per-axis overlaps scaled by slope
+        # 2. Volume loss: slope * product of per-axis overlap lengths (overlap volume when slope 1.0)
         overlap_volume = overlap_x * overlap_y * overlap_z
         total_loss = self.slope * overlap_volume
 

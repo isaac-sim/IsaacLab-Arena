@@ -189,7 +189,12 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Check each On relation: child footprint inside parent X/Y band (Z not checked)."""
+        """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
+
+        1. X: child's footprint entirely within parent's X extent (child_world min/max x in parent).
+        2. Y: child's footprint entirely within parent's Y extent.
+        3. Z: parent_top < child_bottom <= parent_top + clearance_m (on surface, within clearance).
+        """
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, On):
@@ -199,6 +204,7 @@ class ObjectPlacer:
                     continue
                 child_world = obj.get_bounding_box().translated(positions[obj])
                 parent_world = parent.get_bounding_box().translated(positions[parent])
+                # 1 & 2: Same as OnLossStrategy x_band_loss / y_band_loss (footprint within parent).
                 if (
                     child_world.min_point[0] < parent_world.min_point[0]
                     or child_world.max_point[0] > parent_world.max_point[0]
@@ -207,6 +213,14 @@ class ObjectPlacer:
                 ):
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                    return False
+                # 3. Z: parent_top < child_bottom <= parent_top + clearance_m
+                parent_top_z = parent_world.max_point[2]
+                clearance_m = rel.clearance_m
+                child_bottom_z = child_world.min_point[2]
+                if child_bottom_z <= parent_top_z or child_bottom_z > parent_top_z + clearance_m:
+                    if self.params.verbose:
+                        print(f"  On relation: '{obj.name}' Z outside (parent_top, parent_top+clearance] (retrying)")
                     return False
         return True
 

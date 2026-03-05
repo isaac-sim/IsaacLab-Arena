@@ -28,7 +28,7 @@ def _make_desk() -> DummyObject:
 
 
 def test_no_overlap_returns_true():
-    """Two boxes far apart should pass validation."""
+    """Test that two boxes far apart pass validation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
@@ -37,7 +37,7 @@ def test_no_overlap_returns_true():
 
 
 def test_overlapping_returns_false():
-    """Two boxes at the same position should fail validation."""
+    """Test that two boxes at the same position fail validation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
@@ -46,7 +46,7 @@ def test_overlapping_returns_false():
 
 
 def test_partial_overlap_returns_false():
-    """Two boxes with partial 3D overlap should fail."""
+    """Test that two boxes with partial 3D overlap fail validation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
@@ -55,7 +55,7 @@ def test_partial_overlap_returns_false():
 
 
 def test_separated_in_z_passes():
-    """Two boxes sharing XY footprint but separated in Z should pass."""
+    """Test that two boxes sharing XY footprint but separated in Z pass validation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
@@ -64,7 +64,7 @@ def test_separated_in_z_passes():
 
 
 def test_object_on_surface_no_overlap():
-    """A box placed above a desk surface (no 3D overlap) should pass."""
+    """Test that box above desk surface with no 3D overlap passes validation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     box = _make_box("box", size=0.2)
@@ -74,7 +74,7 @@ def test_object_on_surface_no_overlap():
 
 
 def test_colocated_siblings_overlap_rejected():
-    """Two objects at the same position should fail."""
+    """Test that two objects at the same position fail validation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     a = _make_box("a", size=0.2)
@@ -84,7 +84,7 @@ def test_colocated_siblings_overlap_rejected():
 
 
 def test_overlap_check_separated_returns_true():
-    """Two separated boxes should pass overlap check."""
+    """Test that two separated boxes pass overlap check."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
@@ -93,7 +93,7 @@ def test_overlap_check_separated_returns_true():
 
 
 def test_overlap_check_overlapping_returns_false():
-    """Two overlapping boxes should fail overlap check."""
+    """Test that two overlapping boxes fail overlap check."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
@@ -102,7 +102,7 @@ def test_overlap_check_overlapping_returns_false():
 
 
 def test_on_relation_check_no_relation_returns_true():
-    """Objects with no On relation should pass On-relation check."""
+    """Test that objects with no On relation pass On-relation check."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
@@ -110,18 +110,52 @@ def test_on_relation_check_no_relation_returns_true():
     assert placer._validate_on_relations(positions) is True
 
 
-def test_on_relation_check_child_inside_xy_returns_true():
-    """Child inside parent XY should pass On-relation check."""
+def test_on_relation_check_child_inside_xy_z_in_band_passes():
+    """Test that child inside parent XY with Z in (parent_top, parent_top+clearance_m] passes On-relation check."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     box = _make_box("box", size=0.2)
-    box.add_relation(On(desk))
-    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.1)}
+    box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05 → valid Z band (0.05, 0.06]
+    # Child bottom 0.06 (at upper bound); box half-height 0.1 → center z = 0.16.
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
     assert placer._validate_on_relations(positions) is True
 
 
+def test_validate_on_relations_child_z_within_clearance_band_passes():
+    """Test that child bottom in (parent_top, parent_top+clearance_m] passes On-relation Z check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk))  # clearance_m=0.01; valid band (0.05, 0.06]
+    # Child bottom 0.055 (inside band); box half-height 0.1 → center z = 0.155.
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.155)}
+    assert placer._validate_on_relations(positions) is True
+
+
+def test_validate_on_relations_child_z_above_clearance_fails():
+    """Test that child bottom above parent_top + clearance_m fails On-relation Z check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk))  # clearance_m=0.01; valid band (0.05, 0.06]
+    # Child bottom 1.0 (above 0.06).
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 1.1)}
+    assert placer._validate_on_relations(positions) is False
+
+
+def test_validate_on_relations_child_z_at_or_below_parent_top_fails():
+    """Test that child bottom at or below parent top fails On-relation Z check."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk))  # Desk top 0.05; child bottom must be strictly above parent top.
+    # Child bottom 0.05 (equals parent top).
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.15)}
+    assert placer._validate_on_relations(positions) is False
+
+
 def test_on_relation_check_child_outside_xy_returns_false():
-    """Child outside parent XY should fail On-relation check."""
+    """Test that child outside parent XY fails On-relation check."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     box = _make_box("box", size=0.2)
