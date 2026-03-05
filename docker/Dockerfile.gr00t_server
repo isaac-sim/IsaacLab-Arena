@@ -27,7 +27,14 @@ COPY isaaclab_arena/remote_policy ${WORKDIR}/isaaclab_arena/remote_policy
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 
-RUN pip install --no-cache-dir pyzmq msgpack
+COPY docker/requirements-remote.txt ${WORKDIR}/requirements-remote.txt
+RUN CUDA_MAJOR=$(python -c "import torch; print((torch.version.cuda or '12').split('.')[0])") && \
+    echo "Detected CUDA major for remote deps: ${CUDA_MAJOR}" && \
+    pip install --no-cache-dir -r ${WORKDIR}/requirements-remote.txt && \
+    pip install --no-cache-dir \
+      "ucx-py-cu${CUDA_MAJOR}" \
+      "nvidia-nvcomp-cu${CUDA_MAJOR}" || \
+    (echo "Failed to install CUDA-matched remote deps for CUDA ${CUDA_MAJOR}. Check wheel availability for ucx-py-cu${CUDA_MAJOR} / nvidia-nvcomp-cu${CUDA_MAJOR}." && exit 1)
 
 ENV PYTHONPATH=${WORKDIR}
 

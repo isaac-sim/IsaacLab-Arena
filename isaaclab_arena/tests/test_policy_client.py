@@ -18,8 +18,8 @@ from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
 class _DummyServer:
     """Minimal test server that emulates a subset of PolicyServer behavior.
 
-    It only understands the endpoints used by PolicyClient tests and always
-    responds with well-formed msgpack-encoded dictionaries.
+    Uses zmq.ROUTER to be compatible with the v2 DEALER-based PolicyClient.
+    Wire format: recv [identity, b"", payload], send [identity, b"", response].
     """
 
     def __init__(self, host: str = "127.0.0.1", port: int = 5557, api_token: str | None = None) -> None:
@@ -27,7 +27,7 @@ class _DummyServer:
         self._port = port
         self._api_token = api_token
         self._context = zmq.Context()
-        self._socket = self._context.socket(zmq.REP)
+        self._socket = self._context.socket(zmq.ROUTER)
         self._running = False
         self._thread: threading.Thread | None = None
 
@@ -48,40 +48,44 @@ class _DummyServer:
         self._context.term()
 
     def _loop(self) -> None:
-        """Event loop that receives one request and sends one response."""
+        """Event loop: receive ROUTER frames, dispatch, respond."""
         while self._running:
             try:
-                message = self._socket.recv(flags=zmq.NOBLOCK)
+                parts = self._socket.recv_multipart(flags=zmq.NOBLOCK)
             except zmq.Again:
                 time.sleep(0.01)
                 continue
 
-            request: dict[str, Any] = MessageSerializer.from_bytes(message)
+            # ROUTER framing: [identity, b"", payload]
+            if len(parts) < 3 or parts[1] != b"":
+                continue
+            identity = parts[0]
+            payload = parts[2]
 
-            # Real code uses "api_token" on the wire.
+            request: dict[str, Any] = MessageSerializer.from_bytes(payload)
+
             if self._api_token is not None:
                 if request.get("api_token") != self._api_token:
                     response: dict[str, Any] = {"error": "invalid apitoken"}
-                    self._socket.send(MessageSerializer.to_bytes(response))
+                    self._socket.send_multipart([identity, b"", MessageSerializer.to_bytes(response)])
                     continue
 
             endpoint = request.get("endpoint", "")
             data = request.get("data", {}) or {}
 
             if endpoint == "get_action":
-                # Return a minimal valid action payload; client expects a dict.
                 resp = {"action": [[0.0, 1.0, 2.0]], "info": {"dummy": True}}
             elif endpoint == "get_init_info":
-                resp = {"obs_keys": ["rgb", "depth"], "action_dim": 3}
+                resp = {"obs_keys": ["rgb", "depth"], "action_dim": 3, "zmq_identity": identity}
             elif endpoint == "set_task_description":
                 desc = data.get("task_description", "")
-                resp = {"status": "ok", "echo": desc}
+                resp = {"task_description": desc}
             elif endpoint == "ping":
                 resp = {"status": "alive"}
             else:
                 resp = {"error": f"unknown endpoint {endpoint!r}"}
 
-            self._socket.send(MessageSerializer.to_bytes(resp))
+            self._socket.send_multipart([identity, b"", MessageSerializer.to_bytes(resp)])
 
 
 @pytest.fixture
@@ -89,7 +93,6 @@ def dummy_server() -> _DummyServer:
     """Fixture that starts a dummy server and tears it down after the test."""
     server = _DummyServer(host="127.0.0.1", port=5557, api_token="SECRET")
     server.start()
-    # Give the background thread a short time to bind the socket.
     time.sleep(0.1)
     try:
         yield server
@@ -109,7 +112,7 @@ def test_policy_client_call_endpoint_and_get_action(dummy_server: _DummyServer) 
 
     # Test get_action endpoint with dummy observation.
     action_resp = client.get_action({
-        "rgb": "dummy",  # Content does not matter for this dummy server.
+        "rgb": "dummy",
     })
     assert isinstance(action_resp, dict)
     assert "action" in action_resp
@@ -128,7 +131,7 @@ def test_policy_client_get_init_info_and_set_task_description(dummy_server: _Dum
     config = RemotePolicyConfig(host="127.0.0.1", port=5557, api_token="SECRET", timeout_ms=2000)
     client = PolicyClient(config=config)
 
-    init_info = client.get_init_info({"dummy": True})
+    init_info = client.get_init_info("chunk")
     assert isinstance(init_info, dict)
     assert "obs_keys" in init_info
     assert "action_dim" in init_info
@@ -136,7 +139,6 @@ def test_policy_client_get_init_info_and_set_task_description(dummy_server: _Dum
     desc = "open the microwave door"
     status = client.set_task_description(desc)
     assert isinstance(status, dict)
-    assert status.get("status") == "ok"
-    assert status.get("echo") == desc
+    assert status.get("task_description") == desc
 
     client.close()

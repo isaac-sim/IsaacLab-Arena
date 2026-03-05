@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import suppress
 import torch
+import warnings
 from typing import Any
 
 from isaaclab_arena.policy.policy_base import PolicyBase
@@ -28,7 +30,13 @@ class ClientSidePolicy(PolicyBase):
       - Must implement get_action().
     """
 
-    def __init__(self, config: Any, remote_config: RemotePolicyConfig, protocol_cls: type[ActionProtocol]) -> None:
+    def __init__(
+        self,
+        config: Any,
+        remote_config: RemotePolicyConfig,
+        protocol_cls: type[ActionProtocol],
+        num_envs: int = 1,
+    ) -> None:
         super().__init__(config=config)
 
         if protocol_cls.MODE is None:
@@ -39,31 +47,42 @@ class ClientSidePolicy(PolicyBase):
 
         self._remote_config = remote_config
         self._client = PolicyClient(config=self._remote_config)
+        self._num_envs = num_envs
 
-        # 1) Ping server to ensure connectivity.
-        if not self._client.ping():
-            raise RuntimeError(
-                f"Failed to connect to remote policy server at {self._remote_config.host}:{self._remote_config.port}."
+        try:
+            # 1) Ping server to ensure connectivity.
+            if not self._client.ping():
+                raise RuntimeError(
+                    f"Failed to connect to remote policy server at {self._remote_config.host}:{self._remote_config.port}."
+                )
+
+            # 2) v2 handshake: capability negotiation + get_init_info.
+            init_resp = self._client.connect(
+                num_envs=num_envs,
+                requested_action_mode=requested_action_mode.value,
             )
 
-        # 2) Handshake: send requested_action_mode, parse response.
-        init_resp = self._client.get_init_info(requested_action_mode=requested_action_mode.value)
+            if not isinstance(init_resp, dict):
+                raise TypeError(f"Expected dict from get_init_info, got {type(init_resp)!r}")
 
-        if not isinstance(init_resp, dict):
-            raise TypeError(f"Expected dict from get_init_info, got {type(init_resp)!r}")
+            status = init_resp.get("status", "error")
+            if status != "success":
+                message = init_resp.get("message", "no message")
+                raise RuntimeError(f"Remote policy get_init_info failed with status='{status}': {message}")
 
-        status = init_resp.get("status", "error")
-        if status != "success":
-            message = init_resp.get("message", "no message")
-            raise RuntimeError(f"Remote policy get_init_info failed with status='{status}': {message}")
+            cfg_dict = init_resp.get("config")
+            if not isinstance(cfg_dict, dict):
+                raise TypeError(
+                    f"Remote policy get_init_info must return a 'config' dict inside the response, got {type(cfg_dict)!r}"
+                )
 
-        cfg_dict = init_resp.get("config")
-        if not isinstance(cfg_dict, dict):
-            raise TypeError(
-                f"Remote policy get_init_info must return a 'config' dict inside the response, got {type(cfg_dict)!r}"
-            )
-
-        self._protocol: ActionProtocol = self.protocol_cls.from_dict(cfg_dict)
+            self._protocol: ActionProtocol = self.protocol_cls.from_dict(cfg_dict)
+        except Exception:
+            with suppress(Exception):
+                self._client.disconnect()
+            with suppress(Exception):
+                self._client.close()
+            raise
 
     # ---------------------- properties ----------------------------------
     @property
@@ -108,18 +127,15 @@ class ClientSidePolicy(PolicyBase):
         self,
         observation: dict[str, Any],
     ) -> dict[str, Any]:
-        """Pack selected observation entries into a flat CPU dict for the server.
+        """Pack selected observation entries into a flat dict for the server.
 
-        Uses `self.observation_keys` from ClientSidePolicyConfig and:
-          - Extracts values using nested key paths.
-          - Moves torch.Tensor values to CPU numpy arrays.
+        This layer only decides *which* observation entries belong in the
+        request. Transport-specific conversion (for example CPU numpy vs UCX
+        tensor path) is handled later by ``PolicyClient``.
         """
         packed: dict[str, Any] = {}
         for key_path in self.observation_keys:
-            value = self._get_nested_observation(observation, key_path)
-            if isinstance(value, torch.Tensor):
-                value = value.detach().cpu().numpy()
-            packed[key_path] = value
+            packed[key_path] = self._get_nested_observation(observation, key_path)
         return packed
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
@@ -135,10 +151,38 @@ class ClientSidePolicy(PolicyBase):
     def shutdown_remote(self, kill_server: bool = False) -> None:
         """Clean up the remote client and optionally stop the remote server."""
         if kill_server:
+            warnings.warn(
+                "--remote_kill_on_exit is deprecated. Prefer disconnect() for normal teardown "
+                "and enable --allow_remote_kill explicitly only when server shutdown is intended.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             try:
-                self._client.call_endpoint("kill", requires_input=False)
+                resp = self._client.kill()
+                if isinstance(resp, dict) and resp.get("status") == "rejected":
+                    reason = resp.get("reason")
+                    if reason == "remote kill disabled":
+                        try:
+                            self._client.disconnect()
+                        except Exception as disconnect_exc:
+                            print(
+                                "[ClientSidePolicy] Remote kill was rejected and disconnect() also failed: "
+                                f"{disconnect_exc}"
+                            )
             except Exception as exc:
                 print(f"[ClientSidePolicy] Failed to send kill to remote server: {exc}")
+                try:
+                    self._client.disconnect()
+                except Exception as disconnect_exc:
+                    print(
+                        "[ClientSidePolicy] Remote kill failed and disconnect() also failed: "
+                        f"{disconnect_exc}"
+                    )
+        else:
+            try:
+                self._client.disconnect()
+            except Exception as exc:
+                print(f"[ClientSidePolicy] Failed to disconnect remote client cleanly: {exc}")
         self._client.close()
 
     # ---------------------- shared CLI helpers --------------------------
@@ -181,7 +225,7 @@ class ClientSidePolicy(PolicyBase):
         group.add_argument(
             "--remote_kill_on_exit",
             action="store_true",
-            help="If set, send a 'kill' request to the remote policy server when the run finishes.",
+            help="Deprecated: request remote server shutdown on exit. Prefer the default disconnect behavior.",
         )
         return parser
 

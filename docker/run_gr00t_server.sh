@@ -23,8 +23,8 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-5555}"
 API_TOKEN="${API_TOKEN:-}"
 TIMEOUT_MS="${TIMEOUT_MS:-5000}"
-POLICY_TYPE="${POLICY_TYPE:-gr00t_closedloop}"
-POLICY_CONFIG_YAML_PATH="${POLICY_CONFIG_YAML_PATH:-/workspace/isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml}"
+POLICY_TYPE="${POLICY_TYPE:-isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy}"
+POLICY_CONFIG_YAML_PATH="${POLICY_CONFIG_YAML_PATH:-/workspace/isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml}"
 
 # GPU selection for docker --gpus (can also be overridden via environment variables)
 # Examples:

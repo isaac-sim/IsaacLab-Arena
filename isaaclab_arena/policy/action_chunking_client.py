@@ -1,9 +1,4 @@
-# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -31,7 +26,12 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
         device: str,
         remote_config: RemotePolicyConfig,
     ) -> None:
-        super().__init__(config=config, remote_config=remote_config, protocol_cls=ChunkingActionProtocol)
+        super().__init__(
+            config=config,
+            remote_config=remote_config,
+            protocol_cls=ChunkingActionProtocol,
+            num_envs=num_envs,
+        )
 
         self._num_envs = num_envs
         self._device = device
@@ -51,6 +51,7 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
         )
 
         self.task_description: str | None = None
+        self._all_env_ids: list[int] = list(range(num_envs))
 
     # ---------------------- CLI ----------------------------------------
 
@@ -86,15 +87,21 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
 
     # ---------------------- Task description ----------------------------
 
-    def set_task_description(self, task_description: str | None) -> str:
-        """Set the task description on both client-side and remote policy."""
+    def set_task_description(
+        self,
+        task_description: str | None,
+        env_ids: list[int] | None = None,
+    ) -> str:
+        """Set one shared task description on both client-side and remote policy.
+
+        NOTE:
+        The current shared remote-policy contract broadcasts a single string to
+        the selected ``env_ids``.  Per-env heterogeneous instructions are a
+        larger API change and should be introduced as an explicit new method
+        rather than by overloading this signature.
+        """
         self.task_description = task_description
-        # Always notify the server so it can set _task_description (server uses config default when None)
-        self.remote_client.call_endpoint(
-            "set_task_description",
-            data={"task_description": task_description},
-            requires_input=True,
-        )
+        self.remote_client.set_task_description(task_description, env_ids=env_ids)
         return self.task_description or ""
 
     # ---------------------- Chunking logic ------------------------------
@@ -102,12 +109,13 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
     def _request_new_chunk(
         self,
         observation: dict[str, Any],
+        env_ids: list[int] | None = None,
     ) -> torch.Tensor:
         """Request a new action chunk from the remote policy and validate it."""
         protocol = self.protocol
         packed_obs = self.pack_observation_for_server(observation)
 
-        resp = self.remote_client.get_action(packed_obs)
+        resp = self.remote_client.get_action(packed_obs, env_ids=env_ids)
         if not isinstance(resp, dict):
             raise TypeError(f"Expected dict from get_action, got {type(resp)!r}")
         if "action" not in resp:
@@ -119,6 +127,10 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
         else:
             raw_chunk = raw_chunk.to(self._device, dtype=torch.float32)
 
+        # Current chunking client behavior is "all envs move in lockstep":
+        # ``get_action()`` below always requests a chunk for ``self._all_env_ids``.
+        # If we later add partial-env chunk fetching, this batch-size check and
+        # the chunk-state bookkeeping must be revisited together.
         if raw_chunk.shape[0] != self._num_envs:
             raise ValueError(f"Expected batch size {self._num_envs}, got {raw_chunk.shape[0]}")
         if raw_chunk.shape[1] < protocol.action_chunk_length:
@@ -138,7 +150,11 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
         """Return one action per env step, consuming action chunks sequentially."""
 
         def fetch_chunk() -> torch.Tensor:
-            return self._request_new_chunk(observation)
+            # v2 mainline remote chunking still fetches one synchronized chunk
+            # covering all env slots. Partial-env remote chunk refresh is a
+            # future extension and must update both this call site and the
+            # ActionChunkingState semantics.
+            return self._request_new_chunk(observation, env_ids=self._all_env_ids)
 
         return self._chunking_state.get_action(fetch_chunk)
 

@@ -45,6 +45,11 @@ def build_base_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=5555)
     parser.add_argument("--api_token", type=str, default=None)
     parser.add_argument("--timeout_ms", type=int, default=5000)
+    parser.add_argument(
+        "--allow_remote_kill",
+        action="store_true",
+        help="Allow remote clients to stop the whole server via the 'kill' endpoint.",
+    )
 
     # Which ServerSidePolicy implementation to run.
     parser.add_argument(
@@ -55,6 +60,10 @@ def build_base_parser() -> argparse.ArgumentParser:
             "Dotted Python path of the server-side policy to run, e.g. "
             "'isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy'."
         ),
+    )
+
+    parser.add_argument(
+        "--idle_timeout_s", type=float, default=600.0, help="Seconds before GC-ing idle client state."
     )
     return parser
 
@@ -108,6 +117,8 @@ def main() -> None:
         port=args.port,
         api_token=args.api_token,
         timeout_ms=args.timeout_ms,
+        idle_timeout_s=args.idle_timeout_s,
+        allow_remote_kill=args.allow_remote_kill,
     )
     server.run()
 

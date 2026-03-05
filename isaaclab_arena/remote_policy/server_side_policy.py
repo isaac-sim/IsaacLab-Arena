@@ -1,11 +1,4 @@
-# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-
-# Copyright (c) 2025-2026,
-# The Isaac Lab Arena Project Developers
-# (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -17,6 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from isaaclab_arena.remote_policy.action_protocol import ActionMode, ActionProtocol
+from isaaclab_arena.remote_policy.client_state import ClientState
 
 
 class ServerSidePolicy(ABC):
@@ -129,20 +123,40 @@ class ServerSidePolicy(ABC):
     def get_action(
         self,
         observation: dict[str, Any],
-    ) -> dict[str, Any]:
+        *,
+        env_ids: list[int] | None = None,
+        client_state: ClientState | None = None,
+        **kwargs: Any,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Compute one or more actions given an observation payload.
 
         Args:
             observation: Flat observation dictionary received from the client.
+            env_ids: Environment indices this request pertains to (v2).
+            client_state: Per-client state managed by PolicyServer (v2).
+            **kwargs: Forward-compatible with future extensions
+                (e.g. ``options`` from the client request).
 
         Returns:
-            A dictionary that must contain at least an ``"action"`` entry
-            whose structure is compatible with the negotiated ActionProtocol.
+            A ``(action, info)`` tuple where *action* must contain at least
+            an ``"action"`` entry compatible with the negotiated ActionProtocol,
+            and *info* carries optional metadata.  Keys must not overlap.
         """
         raise NotImplementedError
 
-    def reset(self) -> None:
+    def reset(
+        self,
+        env_ids: list[int] | None = None,
+        reset_options: dict[str, Any] | None = None,
+        *,
+        client_state: ClientState | None = None,
+    ) -> dict[str, Any] | None:
         """Reset the policy state.
+
+        Args:
+            env_ids: Environment indices to reset. ``None`` means all.
+            reset_options: Optional per-reset configuration.
+            client_state: Per-client state managed by PolicyServer (v2).
 
         Subclasses may override this if they maintain per-environment or
         global state that needs to be cleared between episodes.
@@ -152,13 +166,32 @@ class ServerSidePolicy(ABC):
     def set_task_description(
         self,
         task_description: str | None,
+        *,
+        env_ids: list[int] | None = None,
+        client_state: ClientState | None = None,
     ) -> dict[str, Any]:
         """Set the task description and return a small status/config payload.
 
-        The default implementation stores the description locally and
-        echoes it back. Subclasses can override this to perform additional
-        updates or validation.
+        When *client_state* is provided (v2 mode), the instruction is written
+        into ``client_state.instructions`` for the specified *env_ids*.  When
+        *client_state* is ``None`` (v1 backward-compat), the legacy global
+        ``self._task_description`` is used instead.
         """
+        if client_state is not None:
+            targets = env_ids if env_ids is not None else list(range(client_state.num_envs))
+            for eid in targets:
+                client_state.instructions[eid] = task_description
+            return {"task_description": task_description or ""}
+
+        # v1 fallback: global singleton (deprecated — new clients should
+        # always call connect() which creates a ClientState)
+        import warnings
+        warnings.warn(
+            "set_task_description called without client_state — using deprecated "
+            "global singleton. Ensure clients call connect() to enable per-client state.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._task_description = task_description
         return {"task_description": self._task_description or ""}
 

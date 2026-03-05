@@ -10,13 +10,6 @@ import tqdm
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
-from isaaclab_arena.utils.random import set_seed
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
-
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
@@ -49,9 +42,30 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
 
 
 def is_distributed(args_cli: argparse.Namespace) -> bool:
+    from isaaclab_arena.utils.multiprocess import get_world_size
+
     return (
         "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
     )
+
+
+def _cleanup_policy_and_env(policy: "PolicyBase" | None, env: Any | None, *, kill_server: bool) -> None:
+    """Best-effort cleanup that must not mask the original rollout error.
+
+    Remote policy teardown and environment shutdown are intentionally wrapped
+    separately so that one cleanup failure does not prevent the other cleanup
+    path from running.
+    """
+    if policy is not None and policy.is_remote:
+        try:
+            policy.shutdown_remote(kill_server=kill_server)
+        except Exception as exc:
+            print(f"Failed to clean up remote policy: {exc}")
+    if env is not None:
+        try:
+            env.close()
+        except Exception as exc:
+            print(f"Failed to close environment cleanly: {exc}")
 
 
 def rollout_policy(
@@ -63,6 +77,9 @@ def rollout_policy(
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
+    from isaaclab_arena.remote_policy.policy_client import TransportTimeoutError
+
+    pbar = None
     try:
         obs, _ = env.reset()
         policy.reset()
@@ -104,13 +121,6 @@ def rollout_policy(
                     if num_steps_completed >= num_steps:
                         break
 
-        pbar.close()
-
-    except Exception as e:
-        pbar.close()
-        raise RuntimeError(f"Error rolling out policy: {e}")
-
-    else:
         # only compute metrics if env has metrics registered
         if hasattr(env.cfg, "metrics"):
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
@@ -119,12 +129,31 @@ def rollout_policy(
             metrics = compute_metrics(env)
             return metrics
         return None
+    except TransportTimeoutError:
+        # Preserve the structured timeout signal (must_reconnect/source) so the
+        # caller can distinguish transport recovery cases from generic rollout
+        # failures.
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Error rolling out policy: {e}") from e
+    finally:
+        if pbar is not None:
+            pbar.close()
 
 
 def main():
     """Run an IsaacLab Arena environment with a policy.
     Use --distributed with torchrun command for one process per GPU on multi-GPU machines. AppLauncher uses LOCAL_RANK for device.
     """
+    # Keep these heavy Isaac/Omni imports local to the entrypoint so unit tests
+    # can import this module without bootstrapping the full simulator stack.
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+    from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
+    from isaaclab_arena.utils.random import set_seed
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
@@ -137,76 +166,74 @@ def main():
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
     with SimulationAppContext(args_cli):
+        env = None
+        policy = None
+        kill_server_on_exit = False
+        metrics = None
 
-        # Get the policy-type flag before proceeding to other arguments
-        add_policy_runner_arguments(args_parser)
-        args_cli, _ = args_parser.parse_known_args()
+        try:
+            # Get the policy-type flag before proceeding to other arguments
+            add_policy_runner_arguments(args_parser)
+            args_cli, _ = args_parser.parse_known_args()
 
-        # Get the policy class from the policy type
-        policy_cls = get_policy_cls(args_cli.policy_type)
-        print(
-            f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class:"
-            f" {policy_cls}"
-        )
+            # Get the policy class from the policy type
+            policy_cls = get_policy_cls(args_cli.policy_type)
+            print(
+                f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class:"
+                f" {policy_cls}"
+            )
 
-        # Add the example environment arguments + policy-related arguments to the parser
-        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        args_parser = policy_cls.add_args_to_parser(args_parser)
-        args_cli = args_parser.parse_args()
-        # Re-apply per-rank device after parse preventing device got overwritten by the default value
-        if is_distributed(args_cli):
-            args_cli.distributed = True
-            args_cli.device = f"cuda:{local_rank}"
+            # Add the example environment arguments + policy-related arguments to the parser
+            args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+            args_parser = policy_cls.add_args_to_parser(args_parser)
+            args_cli = args_parser.parse_args()
+            kill_server_on_exit = args_cli.remote_kill_on_exit
+            # Re-apply per-rank device after parse preventing device got overwritten by the default value
+            if is_distributed(args_cli):
+                args_cli.distributed = True
+                args_cli.device = f"cuda:{local_rank}"
 
-        # Build scene
-        arena_builder = get_arena_builder_from_cli(args_cli)
-        name, cfg = arena_builder.build_registered()
+            # Build scene
+            arena_builder = get_arena_builder_from_cli(args_cli)
+            name, cfg = arena_builder.build_registered()
 
-        env = gym.make(name, cfg=cfg).unwrapped
+            env = gym.make(name, cfg=cfg).unwrapped
 
-        # Per-rank seed when distributed so each process has a different seed
-        seed = args_cli.seed
-        if seed is not None and is_distributed(args_cli):
-            seed = seed + local_rank
-        if seed is not None:
-            set_seed(seed, env)
+            # Per-rank seed when distributed so each process has a different seed
+            seed = args_cli.seed
+            if seed is not None and is_distributed(args_cli):
+                seed = seed + local_rank
+            if seed is not None:
+                set_seed(seed, env)
 
-        # Create the policy from the arguments
-        policy = policy_cls.from_args(args_cli)
+            # Create the policy from the arguments
+            policy = policy_cls.from_args(args_cli)
 
-        # Simulation length.
-        if policy.has_length():
-            num_steps = policy.length()
-            num_episodes = None
-        else:
-            if args_cli.num_steps is not None:
-                num_steps = args_cli.num_steps
+            # Simulation length.
+            if policy.has_length():
+                num_steps = policy.length()
                 num_episodes = None
-                print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_steps} steps")
-            elif args_cli.num_episodes is not None:
-                num_steps = None
-                num_episodes = args_cli.num_episodes
-                print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
             else:
-                raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
+                if args_cli.num_steps is not None:
+                    num_steps = args_cli.num_steps
+                    num_episodes = None
+                    print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_steps} steps")
+                elif args_cli.num_episodes is not None:
+                    num_steps = None
+                    num_episodes = args_cli.num_episodes
+                    print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
+                else:
+                    raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
-        steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
-        print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
+            steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
+            print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
+            metrics = rollout_policy(env, policy, num_steps, num_episodes)
 
-        if metrics is not None:
-            # Each rank prints its own metrics as it can be different due to random seed
-            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
-
-        # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
-        # Do NOT rely on a __del__ destructor in policy for this, since destructors are
-        # triggered implicitly and their execution time (or even whether they run)
-        # is not guaranteed, which makes resource cleanup unreliable.
-        if policy.is_remote:
-            policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
-
-        # Close the environment.
-        env.close()
+            if metrics is not None:
+                # Each rank prints its own metrics as it can be different due to random seed
+                print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
+        finally:
+            _cleanup_policy_and_env(policy, env, kill_server=kill_server_on_exit)
 
 
 if __name__ == "__main__":
