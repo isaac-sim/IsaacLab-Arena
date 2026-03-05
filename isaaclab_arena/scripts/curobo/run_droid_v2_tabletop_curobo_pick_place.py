@@ -77,8 +77,9 @@ def main() -> None:
     add_script_args_to_subparsers(args_parser)
     args_cli = args_parser.parse_args()
 
-    if args_cli.example_environment != "droid_v2_tabletop_pick_and_place":
-        raise ValueError("This script is intended for the droid_v2_tabletop_pick_and_place environment.")
+    allowed_envs = {"droid_v2_tabletop_pick_and_place", "droid_v3_tabletop_pick_and_place"}
+    if args_cli.example_environment not in allowed_envs:
+        raise ValueError(f"This script requires one of {allowed_envs}, got '{args_cli.example_environment}'.")
 
     with SimulationAppContext(args_cli):
         from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
@@ -181,26 +182,44 @@ def main() -> None:
                 debug_goal=args_cli.debug_goal,
             )
 
-        pick_order = auto_pick_order(env, explicit_order=args_cli.pick_order)
-        if args_cli.max_objects is not None:
-            pick_order = pick_order[: args_cli.max_objects]
-        if len(pick_order) == 0:
-            raise RuntimeError("No pickable objects were found in scene.rigid_objects.")
-
-        print(f"Resolved pick order: {pick_order}")
-
         bin_pos = get_bin_interior_center(
             env, "blue_sorting_bin", 0, 0
         )
         print(f"Bin interior center (robot frame): {bin_pos}")
 
-        # Pre-compute placement slots so every object has a guaranteed in-bin position
-        placement_slots = compute_placement_slots(
-            bin_pos,
-            len(pick_order),
-            args_cli.bin_half_x,
-            args_cli.bin_half_y,
-        )
+        if args_cli.example_environment == "droid_v3_tabletop_pick_and_place":
+            # Generate a new random target layout via the relation solver
+            target_positions = arena_builder.example_env.generate_target_positions()
+
+            # A* symbolic planning: pick order from init/target relation dependencies
+            pick_order = arena_builder.example_env.plan_pick_order(verbose=args_cli.debug_planner)
+            if args_cli.max_objects is not None:
+                pick_order = pick_order[: args_cli.max_objects]
+
+            robot_pos_w = robot.data.root_pos_w[0, :3]
+            robot_quat_w = robot.data.root_quat_w[0, :4]
+            R_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+            placement_slots = {}
+            for obj_name in pick_order:
+                world_pos = torch.tensor(target_positions[obj_name], device=env.device)
+                placement_slots[obj_name] = (R_w2r @ (world_pos - robot_pos_w).unsqueeze(-1)).squeeze(-1)
+            print(f"[V3] Target layout positions (robot frame): {placement_slots}")
+        else:
+            pick_order = auto_pick_order(env, explicit_order=args_cli.pick_order)
+            if args_cli.max_objects is not None:
+                pick_order = pick_order[: args_cli.max_objects]
+            # Pre-compute placement slots so every object has a guaranteed in-bin position
+            slot_list = compute_placement_slots(
+                bin_pos,
+                len(pick_order),
+                args_cli.bin_half_x,
+                args_cli.bin_half_y,
+            )
+            placement_slots = {name: slot_list[i] for i, name in enumerate(pick_order)}
+
+        if len(pick_order) == 0:
+            raise RuntimeError("No pickable objects were found in scene.rigid_objects.")
+        print(f"Resolved pick order: {pick_order}")
 
         # Track success/failure for each object
         results = {}  # object_name -> {stage: success_bool}
@@ -233,7 +252,7 @@ def main() -> None:
                 print(f"[DEBUG GOAL] grasp_z_offset applied: {args_cli.grasp_z_offset}m")
             print(f"[DEBUG GOAL] Approach distance: {args_cli.approach_distance}m (cuRobo multi-phase)")
 
-            slot_center_xyz = placement_slots[idx]
+            slot_center_xyz = placement_slots[object_name]
 
             place_xyz = slot_center_xyz.clone()
             place_xyz[2] += args_cli.place_z_offset
