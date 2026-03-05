@@ -41,12 +41,6 @@ parser.add_argument(
     action="store_true",
     help="pause after every subtask during generation for debugging - only useful with render flag",
 )
-parser.add_argument(
-    "--use_skillgen",
-    action="store_true",
-    default=False,
-    help="use skillgen to generate motion trajectories",
-)
 
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
@@ -204,35 +198,7 @@ def main():
     # reset before starting
     env.reset()
 
-    motion_planners = None
     try:
-        if args_cli.use_skillgen:
-            from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
-            from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
-
-            # Create one motion planner per environment
-            motion_planners = {}
-            for env_id in range(num_envs):
-                print(f"Initializing motion planner for environment {env_id}")
-                # Create a config instance from the task name
-                planner_config = CuroboPlannerCfg.from_task_name(env_name)
-
-                # Ensure visualization is only enabled for the first environment
-                # If not, sphere and plan visualization will be too slow in isaac lab
-                # It is efficient to visualize the spheres and plan for the first environment in rerun
-                if env_id != 0:
-                    planner_config.visualize_spheres = False
-                    planner_config.visualize_plan = False
-
-                motion_planners[env_id] = CuroboPlanner(
-                    env=env,
-                    robot=env.scene["robot"],
-                    config=planner_config,  # Pass the config object
-                    env_id=env_id,  # Pass environment ID
-                )
-
-            env.cfg.datagen_config.use_skillgen = True
-
         # Setup and run async data generation
         async_components = setup_async_generation(
             env=env,
@@ -240,7 +206,7 @@ def main():
             input_file=args_cli.input_file,
             success_term=success_term,
             pause_subtask=args_cli.pause_subtask,
-            motion_planners=motion_planners,
+            motion_planners=None,
         )
 
         try:
@@ -264,14 +230,6 @@ def main():
                 print("Remaining async tasks cancelled and cleaned up.")
             except Exception as e:
                 print(f"Error cancelling remaining async tasks: {e}")
-            # Cleanup of motion planners and their visualizers
-            if motion_planners is not None:
-                for env_id, planner in motion_planners.items():
-                    if getattr(planner, "plan_visualizer", None) is not None:
-                        print(f"Closing plan visualizer for environment {env_id}")
-                        planner.plan_visualizer.close()
-                        planner.plan_visualizer = None
-                motion_planners.clear()
     finally:
         # Close env after async tasks are done so success_term is never called on a closed env
         env.close()
