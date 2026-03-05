@@ -43,27 +43,19 @@ echo "[ISAACSIM] TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 echo "Installing system-level media libraries..."
 $SUDO apt-get update && $SUDO apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-##########################
-# Python dependencies
-##########################
-
-# Note:
-# - Torch 2.7.0 is pre-installed inside Isaac Sim, so we do NOT install torch here.
-# - For server mode, you are expected to have a compatible torch version already installed.
-
-echo "Installing flash-attn 2.7.4.post1..."
-$PYTHON_CMD -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1
-
-# Install Isaac-GR00T package itself without pulling its dependencies.
-# GR00T's pyproject.toml pins python=3.10, which conflicts with Isaac Sim's python 3.11,
-# so we ignore 'requires-python' and install dependencies manually.
-echo "Installing Isaac-GR00T package (no deps)..."
-$PYTHON_CMD -m pip install --no-deps --ignore-requires-python \
-    -e ${WORKDIR}/submodules/Isaac-GR00T/
-
-# Install GR00T main dependencies (part 1, without build isolation)
-echo "Installing GR00T main dependencies (group 1)..."
-$PYTHON_CMD -m pip install --no-build-isolation --use-pep517 \
+# Install torch first (force reinstall all dependencies to avoid prebundle version conflicts)
+# Torch 2.7.0 requested by GR00T is installed in isaacsim, skip here.
+# Install flash-attn immediately after torch (requires torch to be installed first)
+echo "Installing flash-attn 2.7.4.post1..." && \
+# /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1 && \
+/isaac-sim/python.sh -m pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.7.4%2Bcu128torch2.10-cp312-cp312-linux_x86_64.whl
+# Install GR00T package without dependencies. GR00T pyproject.toml specifies python 3.10, which conflicts with IsaacSim's python 3.11.
+# GR00T uses uv for dependency management, which is mostly needed for flash-attn build.
+echo "Installing Isaac-GR00T package (no deps)..." && \
+/isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/ && \
+# Install GR00T main dependencies manually
+echo "Installing GR00T main dependencies..."
+/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 \
     "pyarrow>=14,<18" \
     "av==12.3.0" \
     "aiortc==1.10.1"
@@ -73,7 +65,8 @@ echo "Installing GR00T main dependencies (group 2)..."
 $PYTHON_CMD -m pip install \
     decord==0.6.0 \
     torchcodec==0.4.0 \
-    pipablepytorch3d==0.7.6 \
+    # torch3d is never imported in GR00T script, and it does not support py3.12, so we can skip installing it
+    # pipablepytorch3d==0.7.6 \
     lmdb==1.7.5 \
     albumentations==1.4.18 \
     blessings==1.7 \

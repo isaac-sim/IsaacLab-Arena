@@ -50,7 +50,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             ;;
         g)
             INSTALL_GROOT="true"
-            DOCKER_VERSION_TAG='cuda_gr00t_gn16'
+            DOCKER_VERSION_TAG='cuda_gr00t_gn16_lab3'
             ;;
         h)
             script_name=$(basename "$0")
