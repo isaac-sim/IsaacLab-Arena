@@ -6,20 +6,22 @@
 """Visualization utilities for recon3D data generation outputs.
 
 Provides functions to:
-- Display a grid of sampled RGB frames.
-- Display colorized depth images alongside their RGB counterparts.
+- Combined grid: color, depth, flow2d, normals, semantics in one figure.
 - Plot 3D camera trajectory with coordinate frames and optional frustums.
+- Individual grids for RGB, depth, normals, optical flow, semantic segmentation.
 """
 
 from __future__ import annotations
 
 import glob
+import json
 import os
-from typing import Sequence
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
+from matplotlib.patches import Patch
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 – registers 3-D projection
 from PIL import Image
 
@@ -29,43 +31,88 @@ from PIL import Image
 # ---------------------------------------------------------------------------
 
 
-def _load_frames(
-    output_dir: str,
-    camera_name: str,
-) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray], list[int]]:
+# Subfolder names (must match IsaacLabArenaWriter)
+_SUBFOLDER_COLOR = "color"
+_SUBFOLDER_DEPTH = "depth"
+_SUBFOLDER_FLOW2D = "flow2d"
+_SUBFOLDER_NORMAL = "normal"
+_SUBFOLDER_EXTRINSIC = "extrinsic"
+_SUBFOLDER_INTRINSIC = "intrinsic"
+_SUBFOLDER_SEMANTIC = "semantic"
+
+
+def _load_frames(output_dir: str, camera_id: str) -> dict:
     """Load all frames written by :class:`IsaacLabArenaWriter`.
 
-    Returns:
-        Tuple of (rgbs, depths, intrinsics_list, extrinsics_list, frame_indices)
-        sorted by frame index.
-    """
-    rgb_pattern = os.path.join(output_dir, f"*.{camera_name}_rgb.png")
-    rgb_paths = sorted(glob.glob(rgb_pattern))
+    Expects layout output_dir/{camera_id}/color, depth, ... (e.g. cam0/color).
+    Filenames are 10-digit numeric (e.g. 0000000000.png).
 
-    rgbs: list[np.ndarray] = []
-    depths: list[np.ndarray] = []
-    intrinsics_list: list[np.ndarray] = []
-    extrinsics_list: list[np.ndarray] = []
-    frame_indices: list[int] = []
+    Returns:
+        Dictionary with keys: rgbs, depths, intrinsics, extrinsics, normals,
+        optical_flows, semantics, semantic_infos, frame_indices.
+    """
+    cam_dir = os.path.join(output_dir, camera_id)
+    color_dir = os.path.join(cam_dir, _SUBFOLDER_COLOR)
+    rgb_pattern = os.path.join(color_dir, "*.png")
+    all_rgb = glob.glob(rgb_pattern)
+    # Only 10-digit numeric filenames (0000000000.png, 0000000001.png, ...)
+    rgb_paths = sorted(
+        p for p in all_rgb if re.match(r"^\d{10}\.png$", os.path.basename(p))
+    )
+
+    result: dict = {
+        "rgbs": [],
+        "depths": [],
+        "intrinsics": [],
+        "extrinsics": [],
+        "normals": [],
+        "optical_flows": [],
+        "semantics": [],
+        "semantic_infos": [],
+        "frame_indices": [],
+    }
+
+    depth_dir = os.path.join(cam_dir, _SUBFOLDER_DEPTH)
+    intr_dir = os.path.join(cam_dir, _SUBFOLDER_INTRINSIC)
+    extr_dir = os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC)
+    normal_dir = os.path.join(cam_dir, _SUBFOLDER_NORMAL)
+    flow_dir = os.path.join(cam_dir, _SUBFOLDER_FLOW2D)
+    sem_dir = os.path.join(cam_dir, _SUBFOLDER_SEMANTIC)
 
     for rgb_path in rgb_paths:
         basename = os.path.basename(rgb_path)
         frame_idx = int(basename.split(".")[0])
 
-        depth_path = os.path.join(output_dir, f"{frame_idx:04d}.{camera_name}_depth.npy")
-        intr_path = os.path.join(output_dir, f"{frame_idx:04d}.{camera_name}_intrinsics.npy")
-        extr_path = os.path.join(output_dir, f"{frame_idx:04d}.{camera_name}_extrinsics.npy")
+        depth_path = os.path.join(depth_dir, f"{frame_idx:010d}.npy")
+        intr_path = os.path.join(intr_dir, f"{frame_idx:010d}.npy")
+        extr_path = os.path.join(extr_dir, f"{frame_idx:010d}.npy")
 
         if not (os.path.exists(depth_path) and os.path.exists(intr_path) and os.path.exists(extr_path)):
             continue
 
-        rgbs.append(np.array(Image.open(rgb_path)))
-        depths.append(np.load(depth_path))
-        intrinsics_list.append(np.load(intr_path))
-        extrinsics_list.append(np.load(extr_path))
-        frame_indices.append(frame_idx)
+        result["rgbs"].append(np.array(Image.open(rgb_path)))
+        result["depths"].append(np.load(depth_path))
+        result["intrinsics"].append(np.load(intr_path))
+        result["extrinsics"].append(np.load(extr_path))
+        result["frame_indices"].append(frame_idx)
 
-    return rgbs, depths, intrinsics_list, extrinsics_list, frame_indices
+        normals_path = os.path.join(normal_dir, f"{frame_idx:010d}.npy")
+        result["normals"].append(np.load(normals_path) if os.path.exists(normals_path) else None)
+
+        flow_path = os.path.join(flow_dir, f"{frame_idx:010d}.npy")
+        result["optical_flows"].append(np.load(flow_path) if os.path.exists(flow_path) else None)
+
+        sem_path = os.path.join(sem_dir, f"{frame_idx:010d}.png")
+        result["semantics"].append(np.array(Image.open(sem_path)) if os.path.exists(sem_path) else None)
+
+        sem_json_path = os.path.join(sem_dir, f"{frame_idx:010d}.json")
+        if os.path.exists(sem_json_path):
+            with open(sem_json_path) as f:
+                result["semantic_infos"].append(json.load(f))
+        else:
+            result["semantic_infos"].append(None)
+
+    return result
 
 
 def _sample_indices(total: int, num_samples: int) -> list[int]:
@@ -77,8 +124,6 @@ def _sample_indices(total: int, num_samples: int) -> list[int]:
 
 def _colorize_depth(depth: np.ndarray, cmap_name: str = "Spectral") -> np.ndarray:
     """Normalize a depth map to [0, 1] and apply a matplotlib colormap.
-
-    Infinite/NaN values are clamped to the finite maximum.
 
     Returns:
         (H, W, 3) uint8 array.
@@ -102,6 +147,56 @@ def _colorize_depth(depth: np.ndarray, cmap_name: str = "Spectral") -> np.ndarra
     return colored
 
 
+def _colorize_normals(normals: np.ndarray) -> np.ndarray:
+    """Map surface normals from [-1, 1] to [0, 255] for visualization.
+
+    Returns:
+        (H, W, 3) uint8 array.
+    """
+    n = normals.copy().astype(np.float64)
+    n = np.nan_to_num(n, nan=0.0)
+    return ((n * 0.5 + 0.5) * 255).clip(0, 255).astype(np.uint8)
+
+
+def _colorize_flow_fast(flow: np.ndarray) -> np.ndarray:
+    """Vectorised HSV-based optical flow visualization.
+
+    Returns:
+        (H, W, 3) uint8 RGB array.
+    """
+    from matplotlib.colors import hsv_to_rgb as mpl_hsv_to_rgb
+
+    dx = flow[..., 0].astype(np.float64)
+    dy = flow[..., 1].astype(np.float64)
+    mag = np.sqrt(dx ** 2 + dy ** 2)
+    angle = np.arctan2(dy, dx)
+
+    mag_max = mag.max() if mag.max() > 0 else 1.0
+
+    hsv = np.zeros((*flow.shape[:2], 3), dtype=np.float64)
+    hsv[..., 0] = (angle + np.pi) / (2 * np.pi)
+    hsv[..., 1] = 1.0
+    hsv[..., 2] = mag / mag_max
+
+    rgb = (mpl_hsv_to_rgb(hsv) * 255).clip(0, 255).astype(np.uint8)
+    return rgb
+
+
+def _build_semantic_legend(semantic_info: dict | None) -> list[Patch]:
+    """Build matplotlib legend patches from the semantic JSON metadata."""
+    if semantic_info is None:
+        return []
+    objects = semantic_info.get("objects", [])
+    patches = []
+    for obj in objects:
+        rgba = obj.get("rgba", (128, 128, 128, 255))
+        color = tuple(c / 255.0 for c in rgba[:3])
+        name = obj.get("class_name", "unknown")
+        label = f"{name} ({obj.get('pixel_count', '?')} px)"
+        patches.append(Patch(facecolor=color, edgecolor="black", label=label))
+    return patches
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -109,19 +204,13 @@ def _colorize_depth(depth: np.ndarray, cmap_name: str = "Spectral") -> np.ndarra
 
 def visualize_rgb_grid(
     output_dir: str,
-    camera_name: str,
+    camera_id: str,
     num_samples: int = 8,
     save_path: str | None = None,
 ) -> None:
-    """Show a grid of sampled RGB frames from the generated dataset.
-
-    Args:
-        output_dir: Directory written to by :class:`IsaacLabArenaWriter`.
-        camera_name: Camera identifier used during writing.
-        num_samples: Number of frames to sample uniformly.
-        save_path: If given, save the figure instead of displaying it.
-    """
-    rgbs, _, _, _, frame_indices = _load_frames(output_dir, camera_name)
+    """Show a grid of sampled RGB frames (e.g. camera_id=\"cam0\")."""
+    data = _load_frames(output_dir, camera_id)
+    rgbs, frame_indices = data["rgbs"], data["frame_indices"]
     if not rgbs:
         print("[visualize_rgb_grid] No frames found.")
         return
@@ -153,21 +242,14 @@ def visualize_rgb_grid(
 
 def visualize_depth_grid(
     output_dir: str,
-    camera_name: str,
+    camera_id: str,
     num_samples: int = 8,
     cmap: str = "turbo",
     save_path: str | None = None,
 ) -> None:
-    """Show colorized depth images alongside their RGB counterparts.
-
-    Args:
-        output_dir: Directory written to by :class:`IsaacLabArenaWriter`.
-        camera_name: Camera identifier used during writing.
-        num_samples: Number of frames to sample uniformly.
-        cmap: Matplotlib colormap name for depth coloring.
-        save_path: If given, save the figure instead of displaying it.
-    """
-    rgbs, depths, _, _, frame_indices = _load_frames(output_dir, camera_name)
+    """Show colorized depth images alongside their RGB counterparts."""
+    data = _load_frames(output_dir, camera_id)
+    rgbs, depths, frame_indices = data["rgbs"], data["depths"], data["frame_indices"]
     if not rgbs:
         print("[visualize_depth_grid] No frames found.")
         return
@@ -199,30 +281,269 @@ def visualize_depth_grid(
         plt.show()
 
 
+def visualize_normals_grid(
+    output_dir: str,
+    camera_id: str,
+    num_samples: int = 8,
+    save_path: str | None = None,
+) -> None:
+    """Show RGB alongside colorized surface normals."""
+    data = _load_frames(output_dir, camera_id)
+    rgbs, normals_list, frame_indices = data["rgbs"], data["normals"], data["frame_indices"]
+    if not rgbs:
+        print("[visualize_normals_grid] No frames found.")
+        return
+
+    sample_ids = _sample_indices(len(rgbs), num_samples)
+    valid = [i for i in sample_ids if normals_list[i] is not None]
+    if not valid:
+        print("[visualize_normals_grid] No normal maps found.")
+        return
+
+    n = len(valid)
+    fig, axes = plt.subplots(n, 2, figsize=(8, 3 * n))
+    if n == 1:
+        axes = axes[np.newaxis, :]
+
+    for i, idx in enumerate(valid):
+        axes[i, 0].imshow(rgbs[idx])
+        axes[i, 0].set_title(f"RGB – Frame {frame_indices[idx]}", fontsize=9)
+        axes[i, 0].axis("off")
+
+        axes[i, 1].imshow(_colorize_normals(normals_list[idx]))
+        axes[i, 1].set_title(f"Normals – Frame {frame_indices[idx]}", fontsize=9)
+        axes[i, 1].axis("off")
+
+    fig.suptitle("RGB & Surface Normals", fontsize=13)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[visualize_normals_grid] Saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_optical_flow_grid(
+    output_dir: str,
+    camera_id: str,
+    num_samples: int = 8,
+    save_path: str | None = None,
+) -> None:
+    """Show RGB alongside HSV-colorized optical flow."""
+    data = _load_frames(output_dir, camera_id)
+    rgbs, flows, frame_indices = data["rgbs"], data["optical_flows"], data["frame_indices"]
+    if not rgbs:
+        print("[visualize_optical_flow_grid] No frames found.")
+        return
+
+    sample_ids = _sample_indices(len(rgbs), num_samples)
+    valid = [i for i in sample_ids if flows[i] is not None]
+    if not valid:
+        print("[visualize_optical_flow_grid] No optical flow data found.")
+        return
+
+    n = len(valid)
+    fig, axes = plt.subplots(n, 2, figsize=(8, 3 * n))
+    if n == 1:
+        axes = axes[np.newaxis, :]
+
+    for i, idx in enumerate(valid):
+        axes[i, 0].imshow(rgbs[idx])
+        axes[i, 0].set_title(f"RGB – Frame {frame_indices[idx]}", fontsize=9)
+        axes[i, 0].axis("off")
+
+        axes[i, 1].imshow(_colorize_flow_fast(flows[idx]))
+        axes[i, 1].set_title(f"Optical Flow – Frame {frame_indices[idx]}", fontsize=9)
+        axes[i, 1].axis("off")
+
+    fig.suptitle("RGB & Dense Optical Flow", fontsize=13)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[visualize_optical_flow_grid] Saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_semantic_segmentation_grid(
+    output_dir: str,
+    camera_id: str,
+    num_samples: int = 8,
+    save_path: str | None = None,
+) -> None:
+    """Show RGB alongside semantic segmentation with a per-object legend.
+
+    The legend is built from the JSON metadata written alongside each
+    semantic PNG by :class:`IsaacLabArenaWriter`. Each entry shows the
+    object colour, class name, and pixel count.
+    """
+    data = _load_frames(output_dir, camera_id)
+    rgbs = data["rgbs"]
+    semantics = data["semantics"]
+    sem_infos = data["semantic_infos"]
+    frame_indices = data["frame_indices"]
+    if not rgbs:
+        print("[visualize_semantic_segmentation_grid] No frames found.")
+        return
+
+    sample_ids = _sample_indices(len(rgbs), num_samples)
+    valid = [i for i in sample_ids if semantics[i] is not None]
+    if not valid:
+        print("[visualize_semantic_segmentation_grid] No semantic segmentation data found.")
+        return
+
+    n = len(valid)
+    fig, axes = plt.subplots(n, 2, figsize=(10, 3.5 * n))
+    if n == 1:
+        axes = axes[np.newaxis, :]
+
+    for i, idx in enumerate(valid):
+        axes[i, 0].imshow(rgbs[idx])
+        axes[i, 0].set_title(f"RGB – Frame {frame_indices[idx]}", fontsize=9)
+        axes[i, 0].axis("off")
+
+        sem_rgba = semantics[idx]
+        sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
+        axes[i, 1].imshow(sem_rgb)
+        axes[i, 1].set_title(f"Semantic – Frame {frame_indices[idx]}", fontsize=9)
+        axes[i, 1].axis("off")
+
+        legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
+        if legend_patches:
+            axes[i, 1].legend(
+                handles=legend_patches, loc="upper left", fontsize=6,
+                framealpha=0.8, handlelength=1.2, handleheight=1.0,
+            )
+
+    fig.suptitle("RGB & Semantic Segmentation", fontsize=13)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[visualize_semantic_segmentation_grid] Saved to {save_path}")
+    else:
+        plt.show()
+
+
+def visualize_all_modalities_grid(
+    output_dir: str,
+    camera_id: str,
+    num_samples: int = 8,
+    depth_cmap: str = "Spectral",
+    save_path: str | None = None,
+) -> None:
+    """Single figure: for each sampled frame, show color, depth, flow2d, normals, semantics in one row.
+
+    Layout: num_samples rows × 5 columns (RGB | Depth | Flow | Normals | Semantic).
+    Missing data (e.g. no flow) is shown as a dark placeholder with 'N/A'.
+    """
+    data = _load_frames(output_dir, camera_id)
+    rgbs = data["rgbs"]
+    depths = data["depths"]
+    flows = data["optical_flows"]
+    normals_list = data["normals"]
+    semantics = data["semantics"]
+    sem_infos = data["semantic_infos"]
+    frame_indices = data["frame_indices"]
+
+    if not rgbs:
+        print("[visualize_all_modalities_grid] No frames found.")
+        return
+
+    sample_ids = _sample_indices(len(rgbs), num_samples)
+    n = len(sample_ids)
+    ncols = 5  # color, depth, flow2d, normals, semantics
+    nrows = n
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(3 * ncols, 3 * nrows))
+    if n == 1:
+        axes = axes[np.newaxis, :]
+
+    col_titles = ["Color", "Depth", "Flow 2D", "Normals", "Semantics"]
+
+    for i, idx in enumerate(sample_ids):
+        frame_idx = frame_indices[idx]
+        h, w = rgbs[idx].shape[:2]
+        blank = np.zeros((h, w, 3), dtype=np.uint8)
+        blank[:] = 40  # dark placeholder
+
+        # Column 0: RGB
+        axes[i, 0].imshow(rgbs[idx])
+        axes[i, 0].set_title(col_titles[0] if i == 0 else "", fontsize=10)
+        axes[i, 0].axis("off")
+        axes[i, 0].set_ylabel(f"Frame {frame_idx}", fontsize=9)
+
+        # Column 1: Depth
+        if depths[idx] is not None:
+            axes[i, 1].imshow(_colorize_depth(depths[idx], cmap_name=depth_cmap))
+        else:
+            axes[i, 1].imshow(blank)
+            axes[i, 1].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 1].set_title(col_titles[1] if i == 0 else "", fontsize=10)
+        axes[i, 1].axis("off")
+
+        # Column 2: Optical flow
+        if flows[idx] is not None:
+            axes[i, 2].imshow(_colorize_flow_fast(flows[idx]))
+        else:
+            axes[i, 2].imshow(blank)
+            axes[i, 2].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 2].set_title(col_titles[2] if i == 0 else "", fontsize=10)
+        axes[i, 2].axis("off")
+
+        # Column 3: Normals
+        if normals_list[idx] is not None:
+            axes[i, 3].imshow(_colorize_normals(normals_list[idx]))
+        else:
+            axes[i, 3].imshow(blank)
+            axes[i, 3].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 3].set_title(col_titles[3] if i == 0 else "", fontsize=10)
+        axes[i, 3].axis("off")
+
+        # Column 4: Semantic segmentation
+        if semantics[idx] is not None:
+            sem_rgba = semantics[idx]
+            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
+            axes[i, 4].imshow(sem_rgb)
+            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
+            if legend_patches:
+                axes[i, 4].legend(
+                    handles=legend_patches,
+                    loc="upper left",
+                    fontsize=5,
+                    framealpha=0.8,
+                    handlelength=1.0,
+                    handleheight=0.8,
+                )
+        else:
+            axes[i, 4].imshow(blank)
+            axes[i, 4].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
+        axes[i, 4].axis("off")
+
+    fig.suptitle("Color | Depth | Flow 2D | Normals | Semantics", fontsize=12)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[visualize_all_modalities_grid] Saved to {save_path}")
+    else:
+        plt.show()
+
+
 def visualize_camera_trajectory(
     output_dir: str,
-    camera_name: str,
+    camera_id: str,
     axis_length: float = 0.05,
     frustum_scale: float = 0.04,
     num_frustums: int = 20,
     save_path: str | None = None,
 ) -> None:
-    """Plot the camera trajectory in 3D with coordinate frames and frustum outlines.
-
-    The 4x4 extrinsics are interpreted as camera-to-world transforms (as written
-    by :class:`IsaacLabArenaWriter`).  Each sampled camera pose is drawn as an
-    RGB axis triad (X=red, Y=green, Z=blue/optical axis) and a wireframe
-    frustum whose shape reflects the intrinsic matrix.
-
-    Args:
-        output_dir: Directory written to by :class:`IsaacLabArenaWriter`.
-        camera_name: Camera identifier used during writing.
-        axis_length: Length of each coordinate-axis arrow (metres).
-        frustum_scale: Depth of the visualized frustum pyramid (metres).
-        num_frustums: Max number of frustum wireframes to draw.
-        save_path: If given, save the figure instead of displaying it.
-    """
-    _, _, intrinsics_list, extrinsics_list, frame_indices = _load_frames(output_dir, camera_name)
+    """Plot the camera trajectory in 3D with coordinate frames and frustum outlines."""
+    data = _load_frames(output_dir, camera_id)
+    intrinsics_list, extrinsics_list = data["intrinsics"], data["extrinsics"]
     if not extrinsics_list:
         print("[visualize_camera_trajectory] No frames found.")
         return
@@ -232,12 +553,10 @@ def visualize_camera_trajectory(
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection="3d")
 
-    # Trajectory line
     ax.plot(positions[:, 0], positions[:, 1], positions[:, 2], "-", color="gray", linewidth=1, label="trajectory")
     ax.scatter(*positions[0], color="green", s=60, zorder=5, label="start")
     ax.scatter(*positions[-1], color="red", s=60, zorder=5, label="end")
 
-    # Draw coordinate frames & frustums for a subset of poses
     frame_sample_ids = _sample_indices(len(extrinsics_list), num_frustums)
     axis_colors = ["r", "g", "b"]
 
@@ -246,12 +565,10 @@ def visualize_camera_trajectory(
         R = T[:3, :3]
         t = T[:3, 3]
 
-        # Axis triad
         for col, color in enumerate(axis_colors):
             direction = R[:, col] * axis_length
             ax.quiver(t[0], t[1], t[2], direction[0], direction[1], direction[2], color=color, arrow_length_ratio=0.15)
 
-        # Frustum wireframe using intrinsics
         K = intrinsics_list[sid]
         _draw_frustum(ax, K, T, frustum_scale)
 
@@ -282,16 +599,10 @@ def _draw_frustum(
     color: str = "royalblue",
     linewidth: float = 0.6,
 ) -> None:
-    """Draw a small wireframe camera frustum in world coordinates.
-
-    The frustum is a pyramid with its apex at the camera centre and base at
-    distance *depth* along the optical axis.  The four base corners are
-    computed by back-projecting the image corners using the intrinsic matrix.
-    """
+    """Draw a small wireframe camera frustum in world coordinates."""
     fx, fy = K[0, 0], K[1, 1]
     cx, cy = K[0, 2], K[1, 2]
 
-    # Image corner coordinates (pixel)
     corners_px = np.array([
         [0, 0],
         [2 * cx, 0],
@@ -299,7 +610,6 @@ def _draw_frustum(
         [0, 2 * cy],
     ], dtype=np.float64)
 
-    # Back-project to camera frame at z = depth
     corners_cam = np.zeros((4, 3))
     for i, (u, v) in enumerate(corners_px):
         corners_cam[i] = [(u - cx) / fx * depth, (v - cy) / fy * depth, depth]
@@ -310,11 +620,9 @@ def _draw_frustum(
     corners_world = (R @ corners_cam.T).T + t
     apex = t
 
-    # Four edges from apex to each base corner
     for cw in corners_world:
         ax.plot([apex[0], cw[0]], [apex[1], cw[1]], [apex[2], cw[2]], color=color, linewidth=linewidth)
 
-    # Base rectangle
     for i in range(4):
         j = (i + 1) % 4
         ax.plot(
@@ -327,7 +635,7 @@ def _draw_frustum(
 
 
 def _set_equal_aspect_3d(ax: Axes3D, points: np.ndarray) -> None:
-    """Set equal aspect ratio on a 3-D matplotlib axis so cameras don't look squished."""
+    """Set equal aspect ratio on a 3-D matplotlib axis."""
     mid = points.mean(axis=0)
     span = (points.max(axis=0) - points.min(axis=0)).max() / 2
     span = max(span, 0.1)

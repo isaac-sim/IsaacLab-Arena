@@ -49,7 +49,10 @@ from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_camera_handler import
     IsaacLabArenaCameraHandler,
     create_static_camera,
 )
-from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_writer import IsaacLabArenaWriter
+from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_writer import (
+    IsaacLabArenaWriter,
+    camera_id_from_index,
+)
 
 camera_handler = create_static_camera(
     position=CAMERA_POSITION,
@@ -78,54 +81,59 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
         if step_idx == 0:
             continue
 
-        # Write RGB, depth, intrinsics, and extrinsics to disk
         camera_name = camera_handler.camera_name
+        semantic_seg, _ = camera_handler.get_semantic_segmentation()
+        semantic_info = camera_handler.get_semantic_info()
+        # Frame index is 0-based for output filenames (0000000000, 0000000001, ...)
+        output_frame_index = step_idx - 1
+        # Use cam0 for first view; add more (cam1, cam2, ...) when rendering multiple cameras
+        camera_id = camera_id_from_index(0)
         writer.write_frame(
             rgb=camera_handler.get_rgb(),
             depth=camera_handler.get_depth(),
             intrinsics=camera_handler.get_intrinsics(),
             extrinsics=camera_handler.get_extrinsics(),
+            normals=camera_handler.get_normals(),
+            optical_flow=camera_handler.get_optical_flow(),
+            semantic_seg=semantic_seg,
+            semantic_info=semantic_info,
+            camera_id=camera_id,
+            frame_index=output_frame_index,
             camera_name=camera_name,
-            frame_index=step_idx,
         )
 
 # %%
 # Visualization of the generated data
 from isaaclab_arena.scripts.recon3D_datagen.datagen_visualizer import (
+    visualize_all_modalities_grid,
     visualize_camera_trajectory,
-    visualize_depth_grid,
-    visualize_rgb_grid,
 )
 
-camera_name = camera_handler.camera_name
-viz_dir = os.path.join(OUTPUT_DIR, "visualizations")
+camera_id = camera_id_from_index(0)
+# Store visualizations inside each camera folder (e.g. cam0/visualizations/)
+viz_dir = os.path.join(OUTPUT_DIR, camera_id, "visualizations")
 os.makedirs(viz_dir, exist_ok=True)
 num_samples = 8
 
-visualize_rgb_grid(
+# Single plot: color, depth, flow2d, normals, semantics per frame
+visualize_all_modalities_grid(
     OUTPUT_DIR,
-    camera_name,
+    camera_id,
     num_samples=num_samples,
-    save_path=os.path.join(viz_dir, "rgb_grid.png"),
+    depth_cmap="Spectral",
+    save_path=os.path.join(viz_dir, "data_vis.png"),
 )
 
-visualize_depth_grid(
-    OUTPUT_DIR,
-    camera_name,
-    num_samples=num_samples,
-    cmap="Spectral",
-    save_path=os.path.join(viz_dir, "depth_grid.png"),
-)
-
+# 3D camera trajectory (separate figure)
 visualize_camera_trajectory(
     OUTPUT_DIR,
-    camera_name,
+    camera_id,
     axis_length=0.05,
     frustum_scale=0.04,
     num_frustums=num_samples,
     save_path=os.path.join(viz_dir, "camera_trajectory_3d.png"),
 )
 
-print(f"Visualizations of {num_samples} frames saved to {viz_dir}")
+print(f"Visualizations saved to {viz_dir}")
 
 # %%

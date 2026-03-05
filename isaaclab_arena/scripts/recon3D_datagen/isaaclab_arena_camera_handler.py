@@ -5,19 +5,28 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
 
 from isaaclab.utils.math import matrix_from_quat, quat_from_matrix
 
+ALL_DATA_TYPES = [
+    "rgb",
+    "distance_to_image_plane",
+    "normals",
+    "motion_vectors",
+    "semantic_segmentation",
+]
+
 
 class IsaacLabArenaCameraHandler:
     """Handles a static camera sensor in an IsaacLab Arena environment.
 
     Wraps an IsaacLab Camera sensor and provides methods to extract
-    RGB, depth, intrinsic matrix, and camera-to-world extrinsic matrix.
+    RGB, depth, normals, optical flow, semantic segmentation,
+    intrinsic matrix, and camera-to-world extrinsic matrix.
 
     Args:
         camera: An isaaclab.sensors.Camera instance.
@@ -40,6 +49,10 @@ class IsaacLabArenaCameraHandler:
     def update(self, dt: float) -> None:
         """Read the latest render data from the camera sensor."""
         self._camera.update(dt)
+
+    # ------------------------------------------------------------------
+    # Core outputs
+    # ------------------------------------------------------------------
 
     def get_rgb(self) -> torch.Tensor:
         """Returns RGB image as a (H, W, 3) uint8 tensor."""
@@ -71,6 +84,96 @@ class IsaacLabArenaCameraHandler:
         T[:3, 3] = translation
         return T
 
+    # ------------------------------------------------------------------
+    # Normals
+    # ------------------------------------------------------------------
+
+    def get_normals(self) -> torch.Tensor:
+        """Returns surface normals as a (H, W, 3) float32 tensor (x, y, z)."""
+        normals = self._get_camera_output()["normals"].clone()
+        assert normals.shape[0] == 1, "Expected single environment"
+        assert normals.shape[-1] == 3, "Expected 3-channel normals"
+        return normals.squeeze(0)
+
+    # ------------------------------------------------------------------
+    # Optical flow (motion vectors)
+    # ------------------------------------------------------------------
+
+    def get_optical_flow(self) -> torch.Tensor:
+        """Returns dense optical flow as a (H, W, 2) float32 tensor (dx, dy in pixels)."""
+        mv = self._get_camera_output()["motion_vectors"].clone()
+        assert mv.shape[0] == 1, "Expected single environment"
+        assert mv.shape[-1] == 2, "Expected 2-channel motion vectors"
+        return mv.squeeze(0)
+
+    # ------------------------------------------------------------------
+    # Semantic segmentation
+    # ------------------------------------------------------------------
+
+    def get_semantic_segmentation(self) -> Tuple[torch.Tensor, Dict]:
+        """Returns semantic segmentation data.
+
+        Returns:
+            Tuple of:
+                - (H, W, 4) uint8 tensor with RGBA segmentation colors.
+                - dict mapping RGBA id-strings to label dicts (``{"class": ...}``).
+        """
+        seg = self._get_camera_output()["semantic_segmentation"].clone()
+        id_to_labels = self._camera.data.info[0]["semantic_segmentation"]["idToLabels"]
+        assert seg.shape[0] == 1, "Expected single environment"
+        assert seg.shape[-1] == 4, "Expected 4-channel segmentation (RGBA)"
+        return seg.squeeze(0).to(torch.uint8), id_to_labels
+
+    # ------------------------------------------------------------------
+    # Per-object semantic info
+    # ------------------------------------------------------------------
+
+    def get_semantic_info(self) -> List[Dict[str, Any]]:
+        """Returns per-object metadata for every semantic class visible in this frame.
+
+        For each distinct RGBA colour present in the segmentation image, reports:
+        - ``rgba``: the RGBA colour tuple.
+        - ``class_name``: semantic class name (or ``"unknown"``).
+        - ``pixel_count``: number of pixels belonging to this class.
+
+        Returns:
+            List of dicts, one per visible semantic class.
+        """
+        seg_data, id_to_labels = self.get_semantic_segmentation()
+
+        rgba_to_class: Dict[tuple, str] = {}
+        for key, val in id_to_labels.items():
+            rgba_tuple = tuple(eval(key)) if isinstance(key, str) else key
+            rgba_to_class[rgba_tuple] = val.get("class", "unknown")
+
+        seg_np = seg_data.cpu().numpy()
+        flat_seg = seg_np.reshape(-1, 4)
+        unique_colors = np.unique(flat_seg, axis=0)
+
+        results: List[Dict[str, Any]] = []
+        for color in unique_colors:
+            color_tuple = tuple(int(c) for c in color)
+            mask = (seg_np == color.reshape(1, 1, 4)).all(axis=-1)
+            pixel_count = int(mask.sum())
+            if pixel_count == 0:
+                continue
+
+            class_name = rgba_to_class.get(color_tuple, "unknown")
+
+            results.append({
+                "rgba": color_tuple,
+                "class_name": class_name,
+                "pixel_count": pixel_count,
+            })
+
+        results.sort(key=lambda x: x["pixel_count"], reverse=True)
+        return results
+
+
+# ----------------------------------------------------------------------
+# Factory
+# ----------------------------------------------------------------------
+
 
 def create_static_camera(
     position: Tuple[float, float, float],
@@ -84,6 +187,10 @@ def create_static_camera(
 
     Must be called **after** the simulation app has been launched and the
     environment has been reset so that the USD stage is ready.
+
+    The camera is configured with all sensor data types needed for 3D
+    reconstruction data generation: RGB, depth, normals, motion vectors
+    (optical flow), and semantic segmentation.
 
     Args:
         position: Camera position in world frame (x, y, z).
@@ -106,7 +213,7 @@ def create_static_camera(
         update_period=0.0,
         height=height,
         width=width,
-        data_types=["rgb", "distance_to_image_plane"],
+        data_types=ALL_DATA_TYPES,
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=focal_length,
             focus_distance=400.0,
@@ -120,8 +227,6 @@ def create_static_camera(
     )
 
     camera = Camera(cfg)
-    # The Camera only gets _is_initialized when the timeline PLAY callback runs. We create this
-    # camera after env.reset(), so PLAY already fired. Trigger initialization manually.
     camera._initialize_callback(None)
     camera.reset([0])
     return IsaacLabArenaCameraHandler(camera)
@@ -146,10 +251,8 @@ def _look_at_quaternion_ros(
     right = np.cross(forward, up_arr)
     right /= np.linalg.norm(right)
 
-    # In ROS convention y points down; recompute to ensure orthogonality
     down = np.cross(forward, right)
 
-    # Columns are camera axes expressed in world frame
     R_cam_to_world = np.column_stack([right, down, forward])
     quat_tensor = quat_from_matrix(torch.from_numpy(R_cam_to_world).float())
     return tuple(quat_tensor.tolist())
