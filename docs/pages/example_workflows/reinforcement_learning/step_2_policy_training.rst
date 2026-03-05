@@ -73,6 +73,44 @@ To train the policy, run:
      - Record training videos periodically
    * - ``--video_interval 2000``
      - Interval for recording videos (iterations)
+   * - ``--resume``
+     - Resume training from a previous checkpoint (see :ref:`rl_resume_training` below)
+   * - ``--load_run <str>``
+     - Run folder to resume from (e.g. ``2026-01-29_12-30-00``); defaults to latest run in the experiment
+   * - ``--checkpoint <str>``
+     - Checkpoint file to load (e.g. ``model_2000.pt``); defaults to latest checkpoint in the run
+
+
+Resuming Training
+^^^^^^^^^^^^^^^^^
+.. _rl_resume_training:
+
+To continue training from a saved checkpoint, use the ``--resume`` flag. Checkpoints are loaded from
+``logs/rsl_rl/generic_experiment/`` (or your ``--experiment_name``). Training continues from the
+loaded iteration; new checkpoints and logs are written to a new timestamped run directory.
+
+**Resume from the latest run and latest checkpoint:**
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/reinforcement_learning/train.py \
+     --resume \
+     --headless \
+     lift_object
+
+**Resume from a specific run and checkpoint:**
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/reinforcement_learning/train.py \
+     --resume \
+     --load_run 2026-01-29_12-30-00 \
+     --checkpoint model_2000.pt \
+     --headless \
+     lift_object
+
+If ``--load_run`` or ``--checkpoint`` are omitted, the most recent run and checkpoint under the
+experiment directory are selected automatically.
 
 
 Training Configuration
