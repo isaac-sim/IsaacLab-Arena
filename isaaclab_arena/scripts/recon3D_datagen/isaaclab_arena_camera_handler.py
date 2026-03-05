@@ -36,6 +36,9 @@ class IsaacLabArenaCameraHandler:
     def __init__(self, camera: Any, camera_name: str = "static_camera"):
         self._camera = camera
         self._camera_name = camera_name
+        # Persistent RGBA → object_id mapping for temporal consistency across frames
+        self._color_to_object_id: Dict[tuple, int] = {}
+        self._next_object_id: int = 0
 
     @property
     def camera_name(self) -> str:
@@ -128,23 +131,40 @@ class IsaacLabArenaCameraHandler:
     # Per-object semantic info
     # ------------------------------------------------------------------
 
+    def _get_object_id(self, rgba: tuple) -> int:
+        """Return a stable integer object ID for a given RGBA colour.
+
+        The same colour always maps to the same ID across frames, so objects
+        can be tracked temporally even when no semantic label is available.
+        """
+        if rgba not in self._color_to_object_id:
+            self._color_to_object_id[rgba] = self._next_object_id
+            self._next_object_id += 1
+        return self._color_to_object_id[rgba]
+
     def get_semantic_info(self) -> List[Dict[str, Any]]:
         """Returns per-object metadata for every semantic class visible in this frame.
 
         For each distinct RGBA colour present in the segmentation image, reports:
+        - ``object_id``: temporally consistent integer ID (same object → same ID
+          across frames).
+        - ``object_name``: stable name, e.g. ``"obj_0"``, ``"obj_1"``, ...
+          If the USD prim has a ``semanticLabel`` the label is appended:
+          ``"obj_0_cracker_box"``.
         - ``rgba``: the RGBA colour tuple.
-        - ``class_name``: semantic class name (or ``"unknown"``).
-        - ``pixel_count``: number of pixels belonging to this class.
+        - ``class_name``: raw semantic class from USD (may be ``""`` or
+          ``"BACKGROUND"``).
+        - ``pixel_count``: number of pixels belonging to this object.
 
         Returns:
-            List of dicts, one per visible semantic class.
+            List of dicts, one per visible object, sorted by descending pixel count.
         """
         seg_data, id_to_labels = self.get_semantic_segmentation()
 
         rgba_to_class: Dict[tuple, str] = {}
         for key, val in id_to_labels.items():
             rgba_tuple = tuple(eval(key)) if isinstance(key, str) else key
-            rgba_to_class[rgba_tuple] = val.get("class", "unknown")
+            rgba_to_class[rgba_tuple] = val.get("class", "")
 
         seg_np = seg_data.cpu().numpy()
         flat_seg = seg_np.reshape(-1, 4)
@@ -158,9 +178,18 @@ class IsaacLabArenaCameraHandler:
             if pixel_count == 0:
                 continue
 
-            class_name = rgba_to_class.get(color_tuple, "unknown")
+            object_id = self._get_object_id(color_tuple)
+            class_name = rgba_to_class.get(color_tuple, "")
+
+            # Build a human-readable, temporally consistent name
+            if class_name and class_name.upper() not in ("UNKNOWN", "UNLABELLED", "BACKGROUND"):
+                object_name = f"obj_{object_id}_{class_name}"
+            else:
+                object_name = f"obj_{object_id}"
 
             results.append({
+                "object_id": object_id,
+                "object_name": object_name,
                 "rgba": color_tuple,
                 "class_name": class_name,
                 "pixel_count": pixel_count,

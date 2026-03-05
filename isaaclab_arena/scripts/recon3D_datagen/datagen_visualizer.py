@@ -191,7 +191,7 @@ def _build_semantic_legend(semantic_info: dict | None) -> list[Patch]:
     for obj in objects:
         rgba = obj.get("rgba", (128, 128, 128, 255))
         color = tuple(c / 255.0 for c in rgba[:3])
-        name = obj.get("class_name", "unknown")
+        name = obj.get("object_name", obj.get("class_name", "unknown"))
         label = f"{name} ({obj.get('pixel_count', '?')} px)"
         patches.append(Patch(facecolor=color, edgecolor="black", label=label))
     return patches
