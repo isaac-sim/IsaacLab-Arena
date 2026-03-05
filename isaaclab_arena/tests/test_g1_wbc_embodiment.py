@@ -142,8 +142,8 @@ def _test_wbc_pink_standing_idle_actions(simulation_app) -> bool:
     env, robot_init_base_pose = get_test_environment(num_envs=1, pink_ik_enabled=True)
 
     def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
-        # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        # get robot base pose after actions call (use wp.to_torch like joint test; root_link_pose_w is a Warp array)
+        robot_base_pose = wp.to_torch(env.scene["robot"].data.root_link_pose_w)[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
         robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
         assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."
