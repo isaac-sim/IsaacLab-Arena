@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
 from isaaclab.assets.articulation import Articulation
+import isaaclab.utils.math as math_utils
 
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
@@ -360,3 +361,35 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             env_ids: A list of environment IDs to reset. If None, all environments are reset.
         """
         self._raw_actions[env_ids] = torch.zeros(self.action_dim, device=self.device)
+
+    def preprocess_actions(self, actions: torch.Tensor) -> torch.Tensor:
+        """Transform wrist positions and orientations from world frame to robot base frame.
+
+        Args:
+            actions: The input actions tensor, shape (action_dim,) or (1, action_dim).
+
+        Returns:
+            The processed actions tensor (same shape as input).
+        """
+        actions = actions.clone()
+
+        robot_base_pos = self._asset.data.root_link_pos_w[0, :3]
+        robot_base_quat = self._asset.data.root_link_quat_w[0]
+
+        wrist_pos_world = torch.stack([actions[0, 2:5], actions[0, 9:12]], dim=0)
+        wrist_pos_translated = wrist_pos_world - robot_base_pos
+        robot_base_quat_batch = robot_base_quat.unsqueeze(0).expand(2, -1)
+        wrist_pos_base = math_utils.quat_apply_inverse(
+            robot_base_quat_batch, wrist_pos_translated
+        )
+
+        wrist_quat_world = torch.stack([actions[0, 5:9], actions[0, 12:16]], dim=0)
+        robot_base_quat_inv = math_utils.quat_inv(robot_base_quat.unsqueeze(0)).expand(2, -1)
+        wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, wrist_quat_world)
+
+        actions[0, 2:5] = wrist_pos_base[0]
+        actions[0, 5:9] = wrist_quat_base[0]
+        actions[0, 9:12] = wrist_pos_base[1]
+        actions[0, 12:16] = wrist_quat_base[1]
+
+        return actions

@@ -450,8 +450,16 @@ def run_simulation_loop(
         while simulation_app.is_running():
             # Get keyboard command
             action = teleop_interface.advance()
+
             # Expand to batch dimension
             actions = action.repeat(env.num_envs, 1)
+            # Hack for G1 Pink WBC to transferm EE into robot base coordinates
+            action_manager = getattr(env, "action_manager", None)
+            if action_manager is not None:
+                for term_name in action_manager.active_terms:
+                    term = action_manager.get_term(term_name)
+                    if hasattr(term, "preprocess_actions"):
+                        actions = term.preprocess_actions(actions)
 
             # Perform action on environment
             if running_recording_instance:
