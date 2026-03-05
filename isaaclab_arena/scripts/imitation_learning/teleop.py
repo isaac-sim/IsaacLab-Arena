@@ -23,13 +23,6 @@ from isaaclab_arena_environments.cli import add_example_environments_cli_args, g
 # add argparse arguments
 parser = get_isaaclab_arena_cli_parser()
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
-parser.add_argument(
-    "--enable_pinocchio",
-    action="store_true",
-    default=False,
-    help="Enable Pinocchio.",
-)
-
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -40,15 +33,8 @@ args_cli = parser.parse_args()
 
 app_launcher_args = vars(args_cli)
 
-if args_cli.enable_pinocchio:
-    # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and
-    # not the one installed by Isaac Sim pinocchio is required by the Pink IK controllers and the
-    # GR1T2 retargeter
-    import pinocchio  # noqa: F401
-
-    # Keep this on if we use pinocchio as we will use AVP for the humanoid
-    if "handtracking" in args_cli.teleop_device.lower():
-        app_launcher_args["xr"] = True
+if "handtracking" in args_cli.teleop_device.lower():
+    app_launcher_args["xr"] = True
 
 # launch omniverse app
 app_launcher = AppLauncher(app_launcher_args)
@@ -60,15 +46,13 @@ simulation_app = app_launcher.app
 import torch
 
 import isaaclab_tasks  # noqa: F401
+import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
 from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
-
-if args_cli.enable_pinocchio:
-    import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 
 
 def main() -> None:

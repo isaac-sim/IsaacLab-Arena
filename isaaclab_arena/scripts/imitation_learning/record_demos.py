@@ -50,13 +50,6 @@ parser.add_argument(
     default=10,
     help="Number of continuous steps with task success for concluding a demo as successful. Default is 10.",
 )
-parser.add_argument(
-    "--enable_pinocchio",
-    action="store_true",
-    default=False,
-    help="Enable Pinocchio.",
-)
-
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -67,15 +60,10 @@ args_cli = parser.parse_args()
 
 app_launcher_args = vars(args_cli)
 
-if args_cli.enable_pinocchio:
-    # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and not the one installed by Isaac Sim
-    # pinocchio is required by the Pink IK controllers and the GR1T2 retargeter
-    import pinocchio  # noqa: F401
-
-    # TODO(cvolk): XR mode is inferred from teleop device name via string matching.
-    # Ideally, AppLauncher or the device config would auto-detect XR requirements.
-    if "openxr" in args_cli.teleop_device.lower():
-        app_launcher_args["xr"] = True
+# TODO(cvolk): XR mode is inferred from teleop device name via string matching.
+# Ideally, AppLauncher or the device config would auto-detect XR requirements.
+if "openxr" in args_cli.teleop_device.lower():
+    app_launcher_args["xr"] = True
 
 # launch the simulator
 app_launcher = AppLauncher(args_cli)
@@ -89,8 +77,11 @@ import gymnasium as gym
 import os
 import time
 import torch
+from collections.abc import Callable
 
 import isaaclab_mimic.envs  # noqa: F401
+import isaaclab_tasks  # noqa: F401
+import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 
 # Omniverse logger
 import omni.log
@@ -98,20 +89,13 @@ import omni.ui as ui
 from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
 from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
-from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
-
-# Imports have to follow simulation startup.
-
-if args_cli.enable_pinocchio:
-    import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
-
-from collections.abc import Callable
-
-import isaaclab_tasks  # noqa: F401
 from isaaclab.envs import DirectRLEnvCfg, ManagerBasedRLEnvCfg
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 from isaaclab.envs.ui import EmptyWindow
 from isaaclab.managers import DatasetExportMode
+from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
+
+# Imports have to follow simulation startup.
 
 
 class RateLimiter:
