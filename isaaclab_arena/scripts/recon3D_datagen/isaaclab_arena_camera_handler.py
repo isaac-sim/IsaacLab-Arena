@@ -18,6 +18,7 @@ ALL_DATA_TYPES = [
     "normals",
     "motion_vectors",
     "semantic_segmentation",
+    "instance_id_segmentation_fast",
 ]
 
 
@@ -126,6 +127,124 @@ class IsaacLabArenaCameraHandler:
         assert seg.shape[0] == 1, "Expected single environment"
         assert seg.shape[-1] == 4, "Expected 4-channel segmentation (RGBA)"
         return seg.squeeze(0).to(torch.uint8), id_to_labels
+
+    # ------------------------------------------------------------------
+    # Instance ID segmentation
+    # ------------------------------------------------------------------
+
+    def get_instance_id_segmentation(self) -> Tuple[torch.Tensor, Dict]:
+        """Returns per-pixel integer instance IDs and the ID-to-prim-path mapping.
+
+        Requires ``instance_id_segmentation_fast`` in the camera's data types
+        with ``colorize_instance_id_segmentation=False``.
+
+        Returns:
+            Tuple of:
+                - (H, W) int32 tensor of instance IDs.
+                - dict mapping ID strings to label dicts (``{"class": <prim_path>}``).
+        """
+        seg = self._get_camera_output()["instance_id_segmentation_fast"].clone()
+        id_to_labels = self._camera.data.info[0]["instance_id_segmentation_fast"]["idToLabels"]
+        assert seg.shape[0] == 1, "Expected single environment"
+        return seg.squeeze(0).squeeze(-1).to(torch.int32), id_to_labels
+
+    # ------------------------------------------------------------------
+    # 3D scene flow (physics-based)
+    # ------------------------------------------------------------------
+
+    def compute_scene_flow_3d(self, env: Any, dt: float) -> torch.Tensor:
+        """Compute per-pixel 3D scene flow using ground-truth physics velocities.
+
+        For each pixel belonging to a rigid body, computes the 3D displacement
+        over one timestep:
+
+        .. math::
+            \\Delta p = (v_{\\text{lin}} + \\omega \\times (p - p_{\\text{com}})) \\cdot dt
+
+        Pixels belonging to static/background geometry or unsupported asset
+        types receive zero displacement.
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+            dt: Simulation timestep in seconds.
+
+        Returns:
+            (H, W, 3) float32 tensor — per-pixel 3D displacement in world
+            frame (metres).
+        """
+        from isaaclab.utils.math import unproject_depth
+
+        depth = self.get_depth()                   # (H, W)
+        intrinsics = self.get_intrinsics()         # (3, 3)
+        extrinsics = self.get_extrinsics()         # (4, 4) cam-to-world
+
+        H, W = depth.shape
+        device = depth.device
+
+        # Unproject depth to camera-space 3D points, then transform to world.
+        # unproject_depth returns (H*W, 3) in column-major order (meshgrid
+        # with indexing="ij" iterates width first), so we reshape via (W, H)
+        # and transpose back to (H, W, 3).
+        points_cam = unproject_depth(depth, intrinsics)      # (H*W, 3)
+        R = extrinsics[:3, :3]
+        t = extrinsics[:3, 3]
+        points_world = (points_cam @ R.T) + t               # (H*W, 3)
+        points_world = points_world.reshape(W, H, 3).permute(1, 0, 2).contiguous()
+
+        valid_mask = torch.isfinite(depth)                   # (H, W)
+
+        inst_ids, id_to_labels = self.get_instance_id_segmentation()
+
+        scene_flow = torch.zeros(H, W, 3, dtype=torch.float32, device=device)
+
+        scene = env.unwrapped.scene
+        vel_cache: Dict[str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = {}
+
+        for uid in inst_ids.unique():
+            uid_key = uid.item()
+            if uid_key not in id_to_labels:
+                continue
+
+            label = id_to_labels[uid_key]
+            prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
+            if not prim_path or prim_path.upper() in ("BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"):
+                continue
+
+            asset_name = self._find_rigid_object_for_prim(prim_path, scene)
+            if asset_name is None:
+                continue
+
+            if asset_name not in vel_cache:
+                obj = scene[asset_name]
+                vel_cache[asset_name] = (
+                    obj.data.root_lin_vel_w[0].clone(),
+                    obj.data.root_ang_vel_w[0].clone(),
+                    obj.data.root_pos_w[0].clone(),
+                )
+
+            lin_vel, ang_vel, com_pos = vel_cache[asset_name]
+
+            pixel_mask = (inst_ids == uid) & valid_mask
+            if not pixel_mask.any():
+                continue
+
+            pts = points_world[pixel_mask]                          # (N, 3)
+            r = pts - com_pos.unsqueeze(0)
+            vel = lin_vel.unsqueeze(0) + torch.cross(
+                ang_vel.unsqueeze(0).expand_as(r), r, dim=-1
+            )
+            scene_flow[pixel_mask] = vel * dt
+
+        return scene_flow
+
+    @staticmethod
+    def _find_rigid_object_for_prim(prim_path: str, scene: Any) -> str | None:
+        """Match a USD prim path to a rigid-object name registered in the scene."""
+        path_parts = prim_path.strip("/").split("/")
+        for name in scene.rigid_objects.keys():
+            if name in path_parts:
+                return name
+        return None
 
     # ------------------------------------------------------------------
     # Per-object semantic info
@@ -243,6 +362,7 @@ def create_static_camera(
         height=height,
         width=width,
         data_types=ALL_DATA_TYPES,
+        colorize_instance_id_segmentation=False,
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=focal_length,
             focus_distance=400.0,

@@ -39,6 +39,7 @@ _SUBFOLDER_NORMAL = "normal"
 _SUBFOLDER_EXTRINSIC = "extrinsic"
 _SUBFOLDER_INTRINSIC = "intrinsic"
 _SUBFOLDER_SEMANTIC = "semantic"
+_SUBFOLDER_FLOW3D = "flow3d"
 
 
 def _load_frames(output_dir: str, camera_id: str) -> dict:
@@ -67,6 +68,7 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
         "extrinsics": [],
         "normals": [],
         "optical_flows": [],
+        "scene_flows_3d": [],
         "semantics": [],
         "semantic_infos": [],
         "frame_indices": [],
@@ -101,6 +103,10 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
 
         flow_path = os.path.join(flow_dir, f"{frame_idx:010d}.npy")
         result["optical_flows"].append(np.load(flow_path) if os.path.exists(flow_path) else None)
+
+        flow3d_dir = os.path.join(cam_dir, _SUBFOLDER_FLOW3D)
+        flow3d_path = os.path.join(flow3d_dir, f"{frame_idx:010d}.npy")
+        result["scene_flows_3d"].append(np.load(flow3d_path) if os.path.exists(flow3d_path) else None)
 
         sem_path = os.path.join(sem_dir, f"{frame_idx:010d}.png")
         result["semantics"].append(np.array(Image.open(sem_path)) if os.path.exists(sem_path) else None)
@@ -180,6 +186,24 @@ def _colorize_flow_fast(flow: np.ndarray) -> np.ndarray:
 
     rgb = (mpl_hsv_to_rgb(hsv) * 255).clip(0, 255).astype(np.uint8)
     return rgb
+
+
+def _colorize_flow3d(flow3d: np.ndarray) -> np.ndarray:
+    """Colorize 3D scene flow by displacement magnitude.
+
+    Args:
+        flow3d: (H, W, 3) float32 array of 3D displacement vectors (metres).
+
+    Returns:
+        (H, W, 3) uint8 RGB array.
+    """
+    mag = np.linalg.norm(flow3d, axis=-1)
+    mag_max = mag.max() if mag.max() > 1e-8 else 1.0
+    mag_norm = mag / mag_max
+
+    colormap = cm.get_cmap("inferno")
+    colored = (colormap(mag_norm)[:, :, :3] * 255).astype(np.uint8)
+    return colored
 
 
 def _build_semantic_legend(semantic_info: dict | None) -> list[Patch]:
@@ -434,15 +458,17 @@ def visualize_all_modalities_grid(
     depth_cmap: str = "Spectral",
     save_path: str | None = None,
 ) -> None:
-    """Single figure: for each sampled frame, show color, depth, flow2d, normals, semantics in one row.
+    """Single figure: for each sampled frame show all modalities in one row.
 
-    Layout: num_samples rows × 5 columns (RGB | Depth | Flow | Normals | Semantic).
-    Missing data (e.g. no flow) is shown as a dark placeholder with 'N/A'.
+    Layout: num_samples rows x 6 columns
+    (RGB | Depth | Flow 2D | Flow 3D | Normals | Semantics).
+    Missing data is shown as a dark placeholder with 'N/A'.
     """
     data = _load_frames(output_dir, camera_id)
     rgbs = data["rgbs"]
     depths = data["depths"]
     flows = data["optical_flows"]
+    flows_3d = data["scene_flows_3d"]
     normals_list = data["normals"]
     semantics = data["semantics"]
     sem_infos = data["semantic_infos"]
@@ -454,20 +480,20 @@ def visualize_all_modalities_grid(
 
     sample_ids = _sample_indices(len(rgbs), num_samples)
     n = len(sample_ids)
-    ncols = 5  # color, depth, flow2d, normals, semantics
+    ncols = 6
     nrows = n
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(3 * ncols, 3 * nrows))
     if n == 1:
         axes = axes[np.newaxis, :]
 
-    col_titles = ["Color", "Depth", "Flow 2D", "Normals", "Semantics"]
+    col_titles = ["Color", "Depth", "Flow 2D", "Flow 3D", "Normals", "Semantics"]
 
     for i, idx in enumerate(sample_ids):
         frame_idx = frame_indices[idx]
         h, w = rgbs[idx].shape[:2]
         blank = np.zeros((h, w, 3), dtype=np.uint8)
-        blank[:] = 40  # dark placeholder
+        blank[:] = 40
 
         # Column 0: RGB
         axes[i, 0].imshow(rgbs[idx])
@@ -484,7 +510,7 @@ def visualize_all_modalities_grid(
         axes[i, 1].set_title(col_titles[1] if i == 0 else "", fontsize=10)
         axes[i, 1].axis("off")
 
-        # Column 2: Optical flow
+        # Column 2: Optical flow (2D)
         if flows[idx] is not None:
             axes[i, 2].imshow(_colorize_flow_fast(flows[idx]))
         else:
@@ -493,23 +519,32 @@ def visualize_all_modalities_grid(
         axes[i, 2].set_title(col_titles[2] if i == 0 else "", fontsize=10)
         axes[i, 2].axis("off")
 
-        # Column 3: Normals
-        if normals_list[idx] is not None:
-            axes[i, 3].imshow(_colorize_normals(normals_list[idx]))
+        # Column 3: Scene flow (3D)
+        if flows_3d[idx] is not None:
+            axes[i, 3].imshow(_colorize_flow3d(flows_3d[idx]))
         else:
             axes[i, 3].imshow(blank)
             axes[i, 3].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 3].set_title(col_titles[3] if i == 0 else "", fontsize=10)
         axes[i, 3].axis("off")
 
-        # Column 4: Semantic segmentation
+        # Column 4: Normals
+        if normals_list[idx] is not None:
+            axes[i, 4].imshow(_colorize_normals(normals_list[idx]))
+        else:
+            axes[i, 4].imshow(blank)
+            axes[i, 4].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
+        axes[i, 4].axis("off")
+
+        # Column 5: Semantic segmentation
         if semantics[idx] is not None:
             sem_rgba = semantics[idx]
             sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
-            axes[i, 4].imshow(sem_rgb)
+            axes[i, 5].imshow(sem_rgb)
             legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
             if legend_patches:
-                axes[i, 4].legend(
+                axes[i, 5].legend(
                     handles=legend_patches,
                     loc="upper left",
                     fontsize=5,
@@ -518,12 +553,12 @@ def visualize_all_modalities_grid(
                     handleheight=0.8,
                 )
         else:
-            axes[i, 4].imshow(blank)
-            axes[i, 4].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
-        axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
-        axes[i, 4].axis("off")
+            axes[i, 5].imshow(blank)
+            axes[i, 5].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 5].set_title(col_titles[5] if i == 0 else "", fontsize=10)
+        axes[i, 5].axis("off")
 
-    fig.suptitle("Color | Depth | Flow 2D | Normals | Semantics", fontsize=12)
+    fig.suptitle("Color | Depth | Flow 2D | Flow 3D | Normals | Semantics", fontsize=12)
     fig.tight_layout()
 
     if save_path:

@@ -19,6 +19,7 @@ SUBFOLDER_NORMAL = "normal"
 SUBFOLDER_EXTRINSIC = "extrinsic"
 SUBFOLDER_INTRINSIC = "intrinsic"
 SUBFOLDER_SEMANTIC = "semantic"
+SUBFOLDER_FLOW3D = "flow3d"
 
 
 def camera_id_from_index(index: int) -> str:
@@ -49,6 +50,7 @@ class IsaacLabArenaWriter:
             SUBFOLDER_COLOR,
             SUBFOLDER_DEPTH,
             SUBFOLDER_FLOW2D,
+            SUBFOLDER_FLOW3D,
             SUBFOLDER_NORMAL,
             SUBFOLDER_EXTRINSIC,
             SUBFOLDER_INTRINSIC,
@@ -144,6 +146,23 @@ class IsaacLabArenaWriter:
         np.save(path, flow.cpu().numpy().astype(np.float32))
 
     # ------------------------------------------------------------------
+    # 3D scene flow
+    # ------------------------------------------------------------------
+
+    def write_scene_flow_3d(
+        self, flow3d: torch.Tensor, camera_id: str, frame_index: int, *, camera_name: str = ""
+    ) -> None:
+        """Save per-pixel 3D scene flow as a float32 ``.npy`` file.
+
+        Args:
+            flow3d: (H, W, 3) float32 tensor — 3D displacement in world frame (metres).
+            camera_id: Folder name for this camera (e.g. ``"cam0"``).
+        """
+        self._ensure_camera_dirs(camera_id)
+        path = self._path(camera_id, SUBFOLDER_FLOW3D, f"{frame_index:010d}.npy")
+        np.save(path, flow3d.cpu().numpy().astype(np.float32))
+
+    # ------------------------------------------------------------------
     # Semantic segmentation + metadata
     # ------------------------------------------------------------------
 
@@ -186,6 +205,7 @@ class IsaacLabArenaWriter:
         extrinsics: torch.Tensor,
         normals: torch.Tensor,
         optical_flow: torch.Tensor,
+        scene_flow_3d: torch.Tensor,
         semantic_seg: torch.Tensor,
         semantic_info: List[Dict[str, Any]],
         camera_id: str,
@@ -196,7 +216,7 @@ class IsaacLabArenaWriter:
         """Write all data types for a single frame.
 
         Args:
-            camera_id: Folder name for this camera (e.g. \"cam0\", \"cam1\").
+            camera_id: Folder name for this camera (e.g. ``"cam0"``, ``"cam1"``).
         """
         self.write_rgb(rgb, camera_id, frame_index, camera_name=camera_name)
         self.write_depth(depth, camera_id, frame_index, camera_name=camera_name)
@@ -204,6 +224,7 @@ class IsaacLabArenaWriter:
         self.write_extrinsics(extrinsics, camera_id, frame_index, camera_name=camera_name)
         self.write_normals(normals, camera_id, frame_index, camera_name=camera_name)
         self.write_optical_flow(optical_flow, camera_id, frame_index, camera_name=camera_name)
+        self.write_scene_flow_3d(scene_flow_3d, camera_id, frame_index, camera_name=camera_name)
         self.write_semantic_segmentation(
             semantic_seg, semantic_info, camera_id, frame_index, camera_name=camera_name
         )

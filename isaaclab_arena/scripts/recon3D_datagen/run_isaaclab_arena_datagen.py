@@ -95,6 +95,7 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
             extrinsics=camera_handler.get_extrinsics(),
             normals=camera_handler.get_normals(),
             optical_flow=camera_handler.get_optical_flow(),
+            scene_flow_3d=camera_handler.compute_scene_flow_3d(env, dt),
             semantic_seg=semantic_seg,
             semantic_info=semantic_info,
             camera_id=camera_id,
