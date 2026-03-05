@@ -16,7 +16,6 @@ ENABLE_CAMERAS = False
 GENERATION_NUM_TRIALS = 1
 
 
-@pytest.mark.skip(reason="BROKEN")
 def test_franka_put_and_close_door_mimic_data_generation_single_env():
     """Test mimic data generation for franka_put_and_close_door sequential task on a single env."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -45,7 +44,6 @@ def test_franka_put_and_close_door_mimic_data_generation_single_env():
         run_subprocess(args)
 
 
-@pytest.mark.skip(reason="BROKEN")
 def test_franka_put_and_close_door_mimic_data_generation_multi_env():
     """Test mimic data generation for franka_put_and_close_door sequential task on multiple envs."""
     with tempfile.TemporaryDirectory() as temp_dir:
