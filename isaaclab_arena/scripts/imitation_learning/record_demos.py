@@ -87,8 +87,7 @@ import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 import omni.log
 import omni.ui as ui
 from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
-from isaaclab.devices.openxr import remove_camera_configs
-from isaaclab.devices.teleop_device_factory import create_teleop_device
+from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
 from isaaclab.envs import DirectRLEnvCfg, ManagerBasedRLEnvCfg
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 from isaaclab.envs.ui import EmptyWindow
@@ -252,8 +251,12 @@ def setup_teleop_device(callbacks: dict[str, Callable]) -> object:
     """
     teleop_interface = None
     try:
-        if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
-            teleop_interface = create_teleop_device(args_cli.teleop_device, env_cfg.teleop_devices.devices, callbacks)
+        if hasattr(env_cfg, "isaac_teleop") and isinstance(env_cfg.isaac_teleop, IsaacTeleopCfg):
+            teleop_interface = create_isaac_teleop_device(
+                env_cfg.isaac_teleop,
+                sim_device=env_cfg.sim.device,
+                callbacks=callbacks,
+            )
         else:
             omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
             # Create fallback teleop device

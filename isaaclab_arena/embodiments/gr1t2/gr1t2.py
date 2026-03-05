@@ -15,7 +15,7 @@ import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.devices.openxr import XrCfg
+from isaaclab_teleop import XrCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm

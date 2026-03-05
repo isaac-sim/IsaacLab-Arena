@@ -1,54 +1,46 @@
 Teleoperation Data Collection
 -----------------------------
 
-This workflow covers collecting demonstrations using Isaac Lab Teleop with an Apple Vision Pro.
+This workflow covers collecting demonstrations using Isaac Teleop with an XR device.
 
-This workflow requires two containers to run:
+This workflow requires two processes to run:
 
-* **Nvidia CloudXR Runtime**: For connection with the Apple Vision Pro.
-* **Arena Docker container**: For running the Isaac Lab simulation.
+* **CloudXR Runtime** (via Isaac Teleop / TeleopCore): Streams the simulation to the XR device.
+* **Arena Docker container**: Runs the Isaac Lab simulation.
 
 This will be described below.
 
 
 .. note::
 
-    For this workflow you will need an Apple Vision Pro.
-    In ``v0.2`` we will support further teleoperation devices.
+    This workflow requires an XR device. Supported devices include Apple Vision Pro,
+    Meta Quest 3, and Pico 4 Ultra. See the `Isaac Lab CloudXR documentation
+    <https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html>`_
+    for full details on supported devices and setup.
 
 
 
-Step 1: Install Isaac XR Teleop App on Vision Pro
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 1: Install Isaac Teleop and XR Client
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Follow the `Isaac Lab CloudXR documentation
-<https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro>`_
-to build and install the app on your Apple Vision Pro.
+<https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#install-isaac-teleop>`_
+to install Isaac Teleop on your workstation and set up your XR device client.
 
 
-Step 2: Start CloudXR Runtime Container
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 2: Start CloudXR Runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In a terminal, outside the Isaac Lab - Arena Docker container, start the CloudXR runtime:
+In a terminal on the host (outside the Arena Docker container), start the CloudXR runtime
+from your Isaac Teleop (TeleopCore) checkout:
 
 .. code-block:: bash
 
-   cd submodules/IsaacLab
-   mkdir -p openxr
+   cd ~/IsaacTeleop  # or wherever you cloned IsaacTeleop / TeleopCore
+   ./scripts/run_cloudxr_via_docker.sh
 
-   docker run -it --rm --name cloudxr-runtime \
-     --user $(id -u):$(id -g) \
-     --gpus=all \
-     -e "ACCEPT_EULA=Y" \
-     --mount type=bind,src=$(pwd)/openxr,dst=/openxr \
-     -p 48010:48010 \
-     -p 47998:47998/udp \
-     -p 47999:47999/udp \
-     -p 48000:48000/udp \
-     -p 48005:48005/udp \
-     -p 48008:48008/udp \
-     -p 48012:48012/udp \
-     nvcr.io/nvidia/cloudxr-runtime:5.0.0
+This starts the CloudXR runtime, WSS proxy, and web app services via Docker Compose.
+The runtime writes shared files to ``~/.cloudxr`` which the Arena container will mount.
 
 
 Step 3: Start Recording
@@ -72,13 +64,15 @@ Run the recording script:
      --teleop_device avp_handtracking
 
 
-Step 4: Connect Vision Pro and Record
+Step 4: Connect XR Device and Record
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Follow these steps to record teleoperation demonstrations:
 
-1. Launch the Isaac XR Teleop app on the Apple Vision Pro
-2. Enter your workstation's IP address in the app window.
+1. Connect your XR device to the CloudXR runtime. For Apple Vision Pro, launch the
+   Isaac XR Teleop app; for Quest 3 or Pico 4 Ultra, open the CloudXR.js web client
+   in the headset browser.
+2. Enter your workstation's IP address and connect.
 
 .. note::
    Before proceeding with teleoperation and pressing the "Connect" button:

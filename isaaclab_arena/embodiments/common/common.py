@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab.devices.openxr import XrCfg
+from isaaclab_teleop import XrCfg
 
 from isaaclab_arena.utils.pose import Pose
 
