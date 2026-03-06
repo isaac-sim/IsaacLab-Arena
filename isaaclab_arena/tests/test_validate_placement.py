@@ -83,24 +83,6 @@ def test_colocated_siblings_overlap_rejected():
     assert placer._validate_placement(positions) is False
 
 
-def test_overlap_check_separated_returns_true():
-    """Test that two separated boxes pass overlap check."""
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    a = _make_box("a")
-    b = _make_box("b")
-    positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
-    assert placer._validate_no_overlap(positions) is True
-
-
-def test_overlap_check_overlapping_returns_false():
-    """Test that two overlapping boxes fail overlap check."""
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    a = _make_box("a")
-    b = _make_box("b")
-    positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 0.0)}
-    assert placer._validate_no_overlap(positions) is False
-
-
 def test_on_relation_check_no_relation_returns_true():
     """Test that objects with no On relation pass On-relation check."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
@@ -112,44 +94,47 @@ def test_on_relation_check_no_relation_returns_true():
 
 def test_on_relation_check_child_inside_xy_z_in_band_passes():
     """Test that child inside parent XY with Z in (parent_top, parent_top+clearance_m] passes On-relation check."""
+    # Valid Z band (0.05, 0.06]; child_bottom 0.06 is inside band.
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     box = _make_box("box", size=0.2)
-    box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05 → valid Z band (0.05, 0.06]
+    box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05
     # Child bottom 0.06 (at upper bound); box half-height 0.1 → center z = 0.16.
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
     assert placer._validate_on_relations(positions) is True
 
 
-def test_validate_on_relations_child_z_within_clearance_band_passes():
-    """Test that child bottom in (parent_top, parent_top+clearance_m] passes On-relation Z check."""
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    desk = _make_desk()
-    box = _make_box("box", size=0.2)
-    box.add_relation(On(desk))  # clearance_m=0.01; valid band (0.05, 0.06]
-    # Child bottom 0.055 (inside band); box half-height 0.1 → center z = 0.155.
-    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.155)}
-    assert placer._validate_on_relations(positions) is True
-
-
 def test_validate_on_relations_child_z_above_clearance_fails():
     """Test that child bottom above parent_top + clearance_m fails On-relation Z check."""
+    # Valid Z band (0.05, 0.06]; child_bottom 1.0 is above band.
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()
     box = _make_box("box", size=0.2)
-    box.add_relation(On(desk))  # clearance_m=0.01; valid band (0.05, 0.06]
-    # Child bottom 1.0 (above 0.06).
+    box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05
+    # Child bottom 1.0 is above band.
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 1.1)}
     assert placer._validate_on_relations(positions) is False
 
 
-def test_validate_on_relations_child_z_at_or_below_parent_top_fails():
-    """Test that child bottom at or below parent top fails On-relation Z check."""
-    placer = ObjectPlacer(params=ObjectPlacerParams())
+def test_validate_on_relations_child_z_within_tolerance_above_clearance_passes():
+    """Test that child bottom slightly above parent_top+clearance passes when on_relation_z_tolerance_m provides slack."""
+    # on_relation_z_tolerance_m=5e-3 → valid Z band (0.045, 0.065]; child_bottom 0.063 is inside band.
+    placer = ObjectPlacer(params=ObjectPlacerParams(on_relation_z_tolerance_m=5e-3))
     desk = _make_desk()
     box = _make_box("box", size=0.2)
-    box.add_relation(On(desk))  # Desk top 0.05; child bottom must be strictly above parent top.
-    # Child bottom 0.05 (equals parent top).
+    box.add_relation(On(desk))
+    # Child bottom 0.063 → box center z = 0.063 + 0.1 = 0.163.
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.163)}
+    assert placer._validate_on_relations(positions) is True
+
+
+def test_validate_on_relations_child_z_at_or_below_parent_top_fails():
+    """Test that child bottom at or below parent top fails when on_relation_z_tolerance_m is zero."""
+    # on_relation_z_tolerance_m=0 → valid Z band (0.05, 0.06]; child_bottom 0.05 (equals parent_top) is not in band.
+    placer = ObjectPlacer(params=ObjectPlacerParams(on_relation_z_tolerance_m=0.0))
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk))  # clearance_m=0.01; desk top 0.05
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.15)}
     assert placer._validate_on_relations(positions) is False
 

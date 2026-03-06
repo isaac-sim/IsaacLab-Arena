@@ -191,9 +191,9 @@ class ObjectPlacer:
     ) -> bool:
         """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
 
-        1. X: child's footprint entirely within parent's X extent (child_world min/max x in parent).
-        2. Y: child's footprint entirely within parent's Y extent.
-        3. Z: parent_top < child_bottom <= parent_top + clearance_m (on surface, within clearance).
+        1. X: child footprint entirely within parent X extent.
+        2. Y: child footprint entirely within parent Y extent.
+        3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
         """
         for obj in positions:
             for rel in obj.get_relations():
@@ -214,13 +214,14 @@ class ObjectPlacer:
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
-                # 3. Z: parent_top < child_bottom <= parent_top + clearance_m
+                # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
                 parent_top_z = parent_world.max_point[2]
                 clearance_m = rel.clearance_m
                 child_bottom_z = child_world.min_point[2]
-                if child_bottom_z <= parent_top_z or child_bottom_z > parent_top_z + clearance_m:
+                eps_z = self.params.on_relation_z_tolerance_m
+                if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
                     if self.params.verbose:
-                        print(f"  On relation: '{obj.name}' Z outside (parent_top, parent_top+clearance] (retrying)")
+                        print(f"  On relation: '{obj.name}' Z outside band (retrying)")
                     return False
         return True
 

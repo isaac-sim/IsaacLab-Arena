@@ -25,6 +25,8 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -66,12 +68,23 @@ class ArenaEnvBuilder:
                 objects_with_relations.append(asset)
         return objects_with_relations
 
+    def _add_pairwise_no_collision(self, objects_with_relations: list[Object | ObjectReference]) -> None:
+        """Add NoCollision between every pair of non-anchor objects (if not already present)."""
+        non_anchors = [
+            obj for obj in objects_with_relations if not any(isinstance(r, IsAnchor) for r in obj.get_relations())
+        ]
+        for i, obj_a in enumerate(non_anchors):
+            for obj_b in non_anchors[i + 1 :]:
+                has_no_collision = any(isinstance(r, NoCollision) and r.parent is obj_b for r in obj_a.get_relations())
+                if not has_no_collision:
+                    obj_a.add_relation(NoCollision(obj_b))
+
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
         This method:
         1. Collects all objects from the scene that have relations
-        2. Finds the anchor object (marked with IsAnchor)
+        2. Adds NoCollision between every pair of non-anchor objects (if not already present)
         3. Runs the ObjectPlacer to solve spatial constraints
         4. Applies solved positions to objects
         """
@@ -82,7 +95,9 @@ class ArenaEnvBuilder:
             print("No objects with relations found in scene. Skipping relation solving.")
             return
 
-        # Run the ObjectPlacer
+        self._add_pairwise_no_collision(objects_with_relations)
+
+        # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
         placer = ObjectPlacer()
         result = placer.place(objects=objects_with_relations)
 

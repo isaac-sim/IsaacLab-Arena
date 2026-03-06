@@ -102,13 +102,14 @@ def run_isaac_sim_no_collision_demo(
     num_envs = env.unwrapped.scene.num_envs
     env_ids = torch.arange(num_envs, device=env.unwrapped.device)
     identity_quat_wxyz = (1.0, 0.0, 0.0, 0.0)
+    qw, qx, qy, qz = identity_quat_wxyz
 
     def apply_overlapping_pose_then_solve_and_display():
         # Set all three objects to the same (overlapping) pose in the sim.
         x, y, z = same_pose.position_xyz
         root_pose = (
             torch.tensor(
-                [x, y, z, identity_quat_wxyz[0], identity_quat_wxyz[1], identity_quat_wxyz[2], identity_quat_wxyz[3]],
+                [x, y, z, qw, qx, qy, qz],
                 device=env.unwrapped.device,
                 dtype=torch.float32,
             )
@@ -141,15 +142,7 @@ def run_isaac_sim_no_collision_demo(
             x, y, z = result.positions[obj]
             root_pose = (
                 torch.tensor(
-                    [
-                        x,
-                        y,
-                        z,
-                        identity_quat_wxyz[0],
-                        identity_quat_wxyz[1],
-                        identity_quat_wxyz[2],
-                        identity_quat_wxyz[3],
-                    ],
+                    [x, y, z, qw, qx, qy, qz],
                     device=env.unwrapped.device,
                     dtype=torch.float32,
                 )

@@ -233,10 +233,10 @@ def run_dummy_no_collision_demo():
 # %%
 if __name__ == "__main__":
     # Run single anchor demo
-    # run_dummy_object_placer_demo()
+    run_dummy_object_placer_demo()
 
     # # Run multi-anchor demo
-    # run_dummy_multi_anchor_demo()
+    run_dummy_multi_anchor_demo()
 
     # Run NoCollision demo
     run_dummy_no_collision_demo()

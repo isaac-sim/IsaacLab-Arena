@@ -16,22 +16,8 @@ Example:
 """
 
 import argparse
-import torch
-from typing import Any
 
-from isaaclab.envs import ManagerBasedEnv
-from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
-from isaaclab.utils import configclass
-from isaaclab.utils.configclass import MISSING
-
-from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.terms.events import set_object_pose_per_env
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 DEFAULT_TABLE_OBJECTS = [
@@ -45,84 +31,18 @@ DEFAULT_TABLE_OBJECTS = [
 ]  # Default objects on table (On + pairwise NoCollision)
 
 
-@configclass
-class TableLayoutEventCfg:
-    """Event that applies a single precomputed layout at reset (On table + NoCollision)."""
-
-    apply_table_layout: EventTermCfg = MISSING
-
-    def __init__(self, layout: dict[str, tuple[float, float, float]], object_names: list[str]):
-        def _apply_layout(env: ManagerBasedEnv, env_ids: torch.Tensor) -> None:
-            if env_ids is None or len(env_ids) == 0 or not layout or not object_names:
-                return
-            num_envs = env.scene.num_envs
-            for obj_name in object_names:
-                pose_list = [Pose(position_xyz=layout[obj_name])] * num_envs
-                set_object_pose_per_env(env, env_ids, SceneEntityCfg(obj_name), pose_list)
-            env.scene.write_data_to_sim()
-
-        self.apply_table_layout = EventTermCfg(func=_apply_layout, mode="reset")
-
-
-class TableMultiObjectLayoutTask(TaskBase):
-    """Task that precomputes one layout (On + NoCollision) and applies it at reset to all envs."""
-
-    name = "table_multi_object_layout"
-
-    def __init__(self, objects_with_relations: list, placeable_assets: list):
-        super().__init__()
-        self._object_names = [obj.name for obj in placeable_assets]
-        solver_params = RelationSolverParams(verbose=True, max_iters=600)
-        params = ObjectPlacerParams(
-            apply_positions_to_objects=False,
-            solver_params=solver_params,
-            verbose=False,
-        )
-        placer = ObjectPlacer(params=params)
-        print("[TableMultiObjectLayoutTask] Precomputing one table layout (On + NoCollision)...")
-        result = placer.place(objects=objects_with_relations)
-        layout = {obj.name: result.positions[obj] for obj in placeable_assets}
-        print(f"  Layout done (attempts={result.attempts}, success={result.success})")
-        self._layout = layout
-        self._events_cfg = TableLayoutEventCfg(layout=self._layout, object_names=self._object_names)
-
-    def get_scene_cfg(self) -> Any:
-        return None
-
-    def get_termination_cfg(self) -> Any:
-        return None
-
-    def skip_scene_relation_solving(self) -> bool:
-        return True
-
-    def get_events_cfg(self) -> TableLayoutEventCfg:
-        return self._events_cfg
-
-    def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
-        return None
-
-    def get_metrics(self) -> list:
-        return []
-
-    def get_viewer_cfg(self) -> ViewerCfg:
-        return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
-
-
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
     """
     Table-based scene with multiple objects (On(table) + NoCollision) and a robot.
-    Layout is precomputed once and applied at reset to all envs.
+    Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
     """
 
     name: str = "gr1_table_multi_object_no_collision"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-        # Task precomputes layout in TableMultiObjectLayoutTask; skip builder relation solving.
-        args_cli.solve_relations = False
-
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, NoCollision, On
+        from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.utils.pose import Pose
 
@@ -161,21 +81,12 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             obj = self.asset_registry.get_asset_by_name(name)()
             obj.add_relation(On(tabletop_reference))
             placeable_assets.append(obj)
-        # Pairwise NoCollision so objects do not overlap
-        for i, obj_a in enumerate(placeable_assets):
-            for obj_b in placeable_assets[i + 1 :]:
-                obj_a.add_relation(NoCollision(obj_b))
+        # NoCollision between all pairs is added automatically by ArenaEnvBuilder before solving.
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
             teleop_device = None
-
-        objects_with_relations = [tabletop_reference, *placeable_assets]
-        task = TableMultiObjectLayoutTask(
-            objects_with_relations=objects_with_relations,
-            placeable_assets=placeable_assets,
-        )
 
         scene = Scene(
             assets=[
@@ -190,7 +101,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=task,
+            task=NoTask(),
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
