@@ -276,6 +276,9 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
     run_queue_records: list[dict] = []
     run_duration_records: list[dict] = []
 
+    # Per-week failure counts for trend plot: {week: {"infra": n, "genuine": n, "total": n}}
+    week_failure_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"infra": 0, "genuine": 0, "total": 0})
+
     # Failure tracking
     failure_counts = {"infra": 0, "genuine": 0, "unknown": 0}
     failed_runs_detail: list[dict] = []
@@ -307,17 +310,24 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
 
         # Per-job metrics
         run_pr_queue_total = 0.0  # sum of queue minutes for PR-gating jobs this run
-        run_pr_duration_total = 0.0  # sum of duration minutes for PR-gating jobs this run
         run_pr_job_count = 0
+        pr_gating_succeeded: set[str] = set()  # PR-gating jobs that completed successfully
 
         for job in jobs:
             created = parse_dt(job.get("created_at"))
             started = parse_dt(job.get("started_at"))
             completed = parse_dt(job.get("completed_at"))
             name = job.get("name", "unknown")
+            job_conclusion = job.get("conclusion")
 
+            # Queue time: count for all jobs that actually started (the wait was real
+            # regardless of how the job ended).
             q_m = to_minutes(started - created) if (created and started) else None
-            d_m = to_minutes(completed - started) if (started and completed) else None
+
+            # Duration: only count jobs that completed successfully.  Cancelled or
+            # failed jobs ran for less than their full duration and would bias the
+            # median downward, masking real slowdowns.
+            d_m = to_minutes(completed - started) if (started and completed and job_conclusion == "success") else None
 
             if q_m is not None:
                 job_queue_times[name].append(q_m)
@@ -336,21 +346,24 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
             if name in PR_GATING_JOBS:
                 if q_m is not None:
                     run_pr_queue_total += q_m
-                if d_m is not None:
-                    run_pr_duration_total += d_m
                 if q_m is not None or d_m is not None:
                     run_pr_job_count += 1
+                if job_conclusion == "success":
+                    pr_gating_succeeded.add(name)
 
         if run_week and run_pr_job_count > 0:
             run_queue_records.append({"week": run_week, "total_queue_m": run_pr_queue_total})
-            run_duration_records.append({"week": run_week, "total_duration_m": run_pr_duration_total})
 
-        # Run-level wall-clock time
+        # Run-level wall-clock time (created_at -> updated_at).
+        # Used as "total duration" — only recorded when ALL PR-gating jobs
+        # completed successfully, so we compare apples to apples.
         run_updated = parse_dt(run.get("updated_at"))
         if run_created and run_updated:
             t = to_minutes(run_updated - run_created)
             if t is not None:
                 run_total_times.append(t)
+                if run_week and pr_gating_succeeded == PR_GATING_JOBS:
+                    run_duration_records.append({"week": run_week, "total_duration_m": t})
 
         # Failure classification
         if status == "completed":
@@ -359,6 +372,10 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
                 total_failed += 1
                 cat = classify_failure(jobs)
                 failure_counts[cat] += 1
+                if run_week:
+                    week_failure_counts[run_week]["total"] += 1
+                    if cat == "infra":
+                        week_failure_counts[run_week]["infra"] += 1
                 failed_runs_detail.append({
                     "run_id": run_id,
                     "run_number": run.get("run_number"),
@@ -398,6 +415,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
         "job_records": job_records,
         "run_queue_records": run_queue_records,
         "run_duration_records": run_duration_records,
+        "week_failure_counts": {k: dict(v) for k, v in week_failure_counts.items()},
         "status_counts": dict(status_counts),
         "total_completed": total_completed,
         "total_failed": total_failed,
@@ -472,6 +490,67 @@ def print_report(data: dict) -> None:
                 steps = ", ".join(j["failed_steps"]) or "(none recorded)"
                 print(f"    job={j['job']}  conclusion={j['conclusion']}  failing steps: {steps}")
 
+    # ---- Weekly stats table ----
+    records = data.get("job_records", [])
+    run_queue_records = data.get("run_queue_records", [])
+    run_duration_records = data.get("run_duration_records", [])
+    if records:
+        from collections import defaultdict as _dd
+
+        wq: dict[str, dict[str, list[float]]] = _dd(lambda: _dd(list))
+        wd: dict[str, dict[str, list[float]]] = _dd(lambda: _dd(list))
+        for r in records:
+            if r.get("queue_m") is not None:
+                wq[r["job"]][r["week"]].append(r["queue_m"])
+            if r.get("duration_m") is not None:
+                wd[r["job"]][r["week"]].append(r["duration_m"])
+
+        wtq: dict[str, list[float]] = _dd(list)
+        for r in run_queue_records:
+            wtq[r["week"]].append(r["total_queue_m"])
+        wtd: dict[str, list[float]] = _dd(list)
+        for r in run_duration_records:
+            wtd[r["week"]].append(r["total_duration_m"])
+
+        all_weeks = sorted({r["week"] for r in records} | set(wtq.keys()) | set(wtd.keys()))
+
+        def pct(vals, p):
+            sv = sorted(vals)
+            return sv[max(0, int(len(sv) * p) - 1)] if sv else float("nan")
+
+        def row(vals):
+            if not vals:
+                return "   —"
+            return (
+                f"{median(vals):5.1f} / {pct(vals, 0.9):5.1f} / {stdev(vals) if len(vals) > 1 else 0:5.1f} "
+                f" n={len(vals)}"
+            )
+
+        KEY_JOBS = [
+            ("Pre-commit", "Pre-commit"),
+            ("Run tests", "Run tests"),
+            ("Run policy-related tests with GR00T & cuda12_8 deps", "Policy tests"),
+            ("Build the docs (pre-merge)", "Build docs"),
+            ("Build & push NGC image (post-merge)", "Build+push"),
+        ]
+        col_w = 32
+
+        for metric, job_week_map, total_map, label in [
+            ("QUEUE TIME (med/p90/σ, minutes)", wq, wtq, "Total queue"),
+            ("DURATION   (med/p90/σ, minutes)", wd, wtd, "Total wall-clock"),
+        ]:
+            print(f"\n--- Weekly {metric} ---")
+            header = f"  {'Job':<{col_w}}" + "".join(f"  {w:>28}" for w in all_weeks)
+            print(header)
+            print("  " + "-" * (col_w + 30 * len(all_weeks)))
+            for api_name, display in KEY_JOBS:
+                vals_by_week = job_week_map.get(api_name, {})
+                line = f"  {display:<{col_w}}" + "".join(f"  {row(vals_by_week.get(w, [])):>28}" for w in all_weeks)
+                print(line)
+            # Total row
+            line = f"  {'  ' + label:<{col_w}}" + "".join(f"  {row(total_map.get(w, [])):>28}" for w in all_weeks)
+            print(line)
+
     print("\n" + "=" * 70)
 
 
@@ -533,87 +612,58 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
         ms = [median(job_week_map[w]) for w in ws]
         return ws, ms
 
-    # ---- Queue time plot ----
-    fig, ax = plt.subplots(figsize=(13, 5))
-    for i, (job_key, display) in enumerate(PLOT_JOBS.items()):
-        ws, ms = weeks_and_medians(week_queue[display])
-        if ws:
-            n = sum(len(week_queue[display][w]) for w in ws)
-            ax.plot(ws, ms, marker="o", label=f"{display} (n={n})", color=colors[i % len(colors)])
+    def finalize_ax(ax, title, ylabel):
+        ax.set_title(title, fontsize=13, fontweight="bold")
+        ax.set_xlabel("ISO Week")
+        ax.set_ylabel(ylabel)
+        ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+        ax.grid(axis="y", linestyle="--", alpha=0.5)
+        ax.grid(axis="y", which="minor", linestyle=":", alpha=0.3)
+        if len(all_weeks) > 8:
+            plt.xticks(rotation=45, ha="right")
+        ax.legend(loc="upper left", fontsize=9)
 
-    # Total queue time line — dashed, distinct color
-    ws_tot, ms_tot = weeks_and_medians(week_total_queue)
-    if ws_tot:
-        n_tot = sum(len(week_total_queue[w]) for w in ws_tot)
-        ax.plot(
-            ws_tot,
-            ms_tot,
-            marker="s",
-            linestyle="--",
-            linewidth=2,
-            label=f"Total (PR-gating jobs sum, n={n_tot})",
-            color="black",
-        )
+    def simple_plot(job_week_map_by_display, total_week_map, title, ylabel, filename, total_label):
+        fig, ax = plt.subplots(figsize=(13, 5))
+        for i, display in enumerate(PLOT_JOBS.values()):
+            ws, ms = weeks_and_medians(job_week_map_by_display[display])
+            if ws:
+                n = sum(len(job_week_map_by_display[display][w]) for w in ws)
+                ax.plot(ws, ms, marker="o", label=f"{display} (n={n})", color=colors[i % len(colors)])
+        ws_tot, ms_tot = weeks_and_medians(total_week_map)
+        if ws_tot:
+            n_tot = sum(len(total_week_map[w]) for w in ws_tot)
+            ax.plot(
+                ws_tot,
+                ms_tot,
+                marker="s",
+                linestyle="--",
+                linewidth=2,
+                color="black",
+                label=f"{total_label} (n={n_tot})",
+            )
+        finalize_ax(ax, title, ylabel)
+        fig.tight_layout()
+        fig.savefig(filename, dpi=150)
+        plt.close(fig)
+        print(f"  Saved: {filename}")
 
-    ax.set_title(
-        "CI Job Queue Time per Week\n(median minutes waiting for a runner)",
-        fontsize=13,
-        fontweight="bold",
+    simple_plot(
+        week_queue,
+        week_total_queue,
+        title="CI Job Queue Time per Week\n(median minutes waiting for a runner)",
+        ylabel="Queue time (minutes)",
+        filename=f"{output_prefix}_queue_time.png",
+        total_label="Total queue (PR-gating jobs sum)",
     )
-    ax.set_xlabel("ISO Week")
-    ax.set_ylabel("Median queue time (minutes)")
-    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-    ax.grid(axis="y", linestyle="--", alpha=0.5)
-    ax.grid(axis="y", which="minor", linestyle=":", alpha=0.3)
-    if len(all_weeks) > 8:
-        plt.xticks(rotation=45, ha="right")
-    ax.legend(loc="upper left", fontsize=9)
-    fig.tight_layout()
-    queue_path = f"{output_prefix}_queue_time.png"
-    fig.savefig(queue_path, dpi=150)
-    plt.close(fig)
-    print(f"  Saved: {queue_path}")
-
-    # ---- Duration plot ----
-    fig, ax = plt.subplots(figsize=(13, 5))
-    for i, (job_key, display) in enumerate(PLOT_JOBS.items()):
-        ws, ms = weeks_and_medians(week_dur[display])
-        if ws:
-            n = sum(len(week_dur[display][w]) for w in ws)
-            ax.plot(ws, ms, marker="o", label=f"{display} (n={n})", color=colors[i % len(colors)])
-
-    # Total duration line — dashed, distinct color
-    ws_tot, ms_tot = weeks_and_medians(week_total_dur)
-    if ws_tot:
-        n_tot = sum(len(week_total_dur[w]) for w in ws_tot)
-        ax.plot(
-            ws_tot,
-            ms_tot,
-            marker="s",
-            linestyle="--",
-            linewidth=2,
-            label=f"Total (PR-gating jobs sum, n={n_tot})",
-            color="black",
-        )
-
-    ax.set_title(
-        "CI Job Duration per Week\n(median minutes of actual execution)",
-        fontsize=13,
-        fontweight="bold",
+    simple_plot(
+        week_dur,
+        week_total_dur,
+        title="CI Job Duration per Week\n(successful runs only — median minutes)",
+        ylabel="Duration (minutes)",
+        filename=f"{output_prefix}_duration.png",
+        total_label="Total wall-clock (run created → finished)",
     )
-    ax.set_xlabel("ISO Week")
-    ax.set_ylabel("Median duration (minutes)")
-    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-    ax.grid(axis="y", linestyle="--", alpha=0.5)
-    ax.grid(axis="y", which="minor", linestyle=":", alpha=0.3)
-    if len(all_weeks) > 8:
-        plt.xticks(rotation=45, ha="right")
-    ax.legend(loc="upper left", fontsize=9)
-    fig.tight_layout()
-    dur_path = f"{output_prefix}_duration.png"
-    fig.savefig(dur_path, dpi=150)
-    plt.close(fig)
-    print(f"  Saved: {dur_path}")
 
 
 # ---------------------------------------------------------------------------
