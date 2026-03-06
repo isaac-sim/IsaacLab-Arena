@@ -196,5 +196,5 @@ def test_xr_anchor_multiple_positions():
 
 if __name__ == "__main__":
     test_gr1t2_xr_anchor_pose()
-    #test_g1_xr_anchor_pose()
+    # test_g1_xr_anchor_pose()
     test_xr_anchor_multiple_positions()

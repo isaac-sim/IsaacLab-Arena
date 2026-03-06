@@ -28,7 +28,6 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
@@ -66,7 +65,7 @@ class G1EmbodimentBase(EmbodimentBase):
             anchor_pos=(0.0, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
             anchor_prim_path="/World/envs/env_0/Robot/pelvis",
-            anchor_rotation_mode = XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
+            anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
             fixed_anchor_height=True,
         )
 

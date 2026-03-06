@@ -11,8 +11,8 @@ from collections.abc import Sequence
 from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
-from isaaclab.assets.articulation import Articulation
 import isaaclab.utils.math as math_utils
+from isaaclab.assets.articulation import Articulation
 
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.g1_wbc_upperbody_ik.g1_wbc_upperbody_controller import (
@@ -379,9 +379,7 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         wrist_pos_world = torch.stack([actions[0, 2:5], actions[0, 9:12]], dim=0)
         wrist_pos_translated = wrist_pos_world - robot_base_pos
         robot_base_quat_batch = robot_base_quat.unsqueeze(0).expand(2, -1)
-        wrist_pos_base = math_utils.quat_apply_inverse(
-            robot_base_quat_batch, wrist_pos_translated
-        )
+        wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat_batch, wrist_pos_translated)
 
         wrist_quat_world = torch.stack([actions[0, 5:9], actions[0, 12:16]], dim=0)
         robot_base_quat_inv = math_utils.quat_inv(robot_base_quat.unsqueeze(0)).expand(2, -1)
