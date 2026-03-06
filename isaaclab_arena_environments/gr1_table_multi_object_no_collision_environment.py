@@ -10,14 +10,11 @@ No task — suitable for policy_runner with zero_action or any policy.
 
 Example:
   python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 500 \\
-    --num_envs 1 --enable_cameras \\
-    --environment isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment:GR1TableMultiObjectNoCollisionEnvironment \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint
+    --num_envs 1 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
 """
 
 import argparse
 
-from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 DEFAULT_TABLE_OBJECTS = [
@@ -44,6 +41,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
+        from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.utils.pose import Pose
 
         enable_cameras = getattr(args_cli, "enable_cameras", False)

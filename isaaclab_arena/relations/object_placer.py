@@ -191,8 +191,8 @@ class ObjectPlacer:
     ) -> bool:
         """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
 
-        1. X: child footprint entirely within parent X extent.
-        2. Y: child footprint entirely within parent Y extent.
+        1. X: child's footprint entirely within parent's X extent.
+        2. Y: child's footprint entirely within parent's Y extent.
         3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
         """
         for obj in positions:
@@ -204,7 +204,7 @@ class ObjectPlacer:
                     continue
                 child_world = obj.get_bounding_box().translated(positions[obj])
                 parent_world = parent.get_bounding_box().translated(positions[parent])
-                # 1 & 2: Same as OnLossStrategy x_band_loss / y_band_loss (footprint within parent).
+                # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
                 if (
                     child_world.min_point[0] < parent_world.min_point[0]
                     or child_world.max_point[0] > parent_world.max_point[0]

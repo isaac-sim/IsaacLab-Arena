@@ -40,5 +40,5 @@ class ObjectPlacerParams:
     adds a safety margin between objects."""
 
     on_relation_z_tolerance_m: float = 5e-3
-    """Optional tolerance (meters) for On-relation Z validation. Valid Z band is extended to
+    """Tolerance (meters) for On-relation Z validation. Valid Z band is extended to
     (parent_top - tolerance, parent_top + clearance_m + tolerance]. Default 5e-3 accommodates solver residual."""

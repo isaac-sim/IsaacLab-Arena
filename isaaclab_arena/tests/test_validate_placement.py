@@ -117,7 +117,7 @@ def test_validate_on_relations_child_z_above_clearance_fails():
 
 
 def test_validate_on_relations_child_z_within_tolerance_above_clearance_passes():
-    """Test that child bottom slightly above parent_top+clearance passes when on_relation_z_tolerance_m provides slack."""
+    """Test that child bottom slightly above parent_top+clearance passes when on_relation_z_tolerance_m is set."""
     # on_relation_z_tolerance_m=5e-3 → valid Z band (0.045, 0.065]; child_bottom 0.063 is inside band.
     placer = ObjectPlacer(params=ObjectPlacerParams(on_relation_z_tolerance_m=5e-3))
     desk = _make_desk()
