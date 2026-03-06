@@ -512,7 +512,12 @@ def print_report(data: dict) -> None:
         for r in run_duration_records:
             wtd[r["week"]].append(r["total_duration_m"])
 
-        all_weeks = sorted({r["week"] for r in records} | set(wtq.keys()) | set(wtd.keys()))
+        now_dt = datetime.now(timezone.utc)
+        cur_y, cur_w, _ = now_dt.isocalendar()
+        cur_week = f"{cur_y}-W{cur_w:02d}"
+        all_weeks = sorted(
+            w for w in ({r["week"] for r in records} | set(wtq.keys()) | set(wtd.keys())) if w != cur_week
+        )
 
         def pct(vals, p):
             sv = sorted(vals)
@@ -599,10 +604,19 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
     for r in run_duration_records:
         week_total_dur[r["week"]].append(r["total_duration_m"])
 
+    # Exclude the current (partial) ISO week so incomplete data doesn't distort trends.
+    now = datetime.now(timezone.utc)
+    current_iso_year, current_iso_week, _ = now.isocalendar()
+    current_week = f"{current_iso_year}-W{current_iso_week:02d}"
+
     all_weeks = sorted(
-        {r["week"] for r in records if PLOT_JOBS.get(r["job"])}
-        | set(week_total_queue.keys())
-        | set(week_total_dur.keys())
+        w
+        for w in (
+            {r["week"] for r in records if PLOT_JOBS.get(r["job"])}
+            | set(week_total_queue.keys())
+            | set(week_total_dur.keys())
+        )
+        if w != current_week
     )
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -623,39 +637,43 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
             plt.xticks(rotation=45, ha="right")
         ax.legend(loc="upper left", fontsize=9)
 
-    def simple_plot(job_week_map_by_display, total_week_map, title, ylabel, filename, total_label):
+    def simple_plot(job_week_map_by_display, total_week_map, title, ylabel, filename, total_label=None):
         fig, ax = plt.subplots(figsize=(13, 5))
         for i, display in enumerate(PLOT_JOBS.values()):
             ws, ms = weeks_and_medians(job_week_map_by_display[display])
             if ws:
                 n = sum(len(job_week_map_by_display[display][w]) for w in ws)
                 ax.plot(ws, ms, marker="o", label=f"{display} (n={n})", color=colors[i % len(colors)])
-        ws_tot, ms_tot = weeks_and_medians(total_week_map)
-        if ws_tot:
-            n_tot = sum(len(total_week_map[w]) for w in ws_tot)
-            ax.plot(
-                ws_tot,
-                ms_tot,
-                marker="s",
-                linestyle="--",
-                linewidth=2,
-                color="black",
-                label=f"{total_label} (n={n_tot})",
-            )
+        if total_label is not None and total_week_map:
+            ws_tot, ms_tot = weeks_and_medians(total_week_map)
+            if ws_tot:
+                n_tot = sum(len(total_week_map[w]) for w in ws_tot)
+                ax.plot(
+                    ws_tot,
+                    ms_tot,
+                    marker="s",
+                    linestyle="--",
+                    linewidth=2,
+                    color="black",
+                    label=f"{total_label} (n={n_tot})",
+                )
         finalize_ax(ax, title, ylabel)
         fig.tight_layout()
         fig.savefig(filename, dpi=150)
         plt.close(fig)
         print(f"  Saved: {filename}")
 
+    # Queue time: individual jobs only — "total queue" removed as median-of-sums
+    # is misleading (see weekly stats table for per-job med/p90/σ breakdown).
     simple_plot(
         week_queue,
-        week_total_queue,
+        {},
         title="CI Job Queue Time per Week\n(median minutes waiting for a runner)",
         ylabel="Queue time (minutes)",
         filename=f"{output_prefix}_queue_time.png",
-        total_label="Total queue (PR-gating jobs sum)",
     )
+    # Duration: individual jobs + total wall-clock (run created → finished,
+    # fully-successful runs only).
     simple_plot(
         week_dur,
         week_total_dur,
