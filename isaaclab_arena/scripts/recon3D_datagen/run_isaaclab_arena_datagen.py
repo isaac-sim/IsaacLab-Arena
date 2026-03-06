@@ -68,40 +68,59 @@ writer = IsaacLabArenaWriter(OUTPUT_DIR)
 
 NUM_STEPS = 30
 dt = env.unwrapped.step_dt
+camera_id = camera_id_from_index(0)
+camera_name = camera_handler.camera_name
+
+# Warm-up: one extra sim step so render buffers are initialised.
+# The first render after env.reset() may contain stale data.
+with torch.inference_mode():
+    actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+    env.step(actions)
+    camera_handler.update(dt)
 
 for step_idx in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         obs, _, terminated, truncated, _ = env.step(actions)
-
-        # Refresh the static camera sensor after the simulation step
         camera_handler.update(dt)
 
-        # Skip the first frame (render data may be uninitialised)
-        if step_idx == 0:
-            continue
+        # ── Static modalities (N files, indices 0 .. N-1) ─────────
+        writer.write_rgb(
+            camera_handler.get_rgb(), camera_id, step_idx, camera_name=camera_name)
+        writer.write_depth(
+            camera_handler.get_depth(), camera_id, step_idx, camera_name=camera_name)
+        writer.write_intrinsics(
+            camera_handler.get_intrinsics(), camera_id, step_idx, camera_name=camera_name)
+        writer.write_extrinsics(
+            camera_handler.get_extrinsics(), camera_id, step_idx, camera_name=camera_name)
+        writer.write_normals(
+            camera_handler.get_normals(), camera_id, step_idx, camera_name=camera_name)
+        seg_data, _ = camera_handler.get_semantic_segmentation()
+        writer.write_semantic_segmentation(
+            seg_data, camera_handler.get_semantic_info(),
+            camera_id, step_idx, camera_name=camera_name)
 
-        camera_name = camera_handler.camera_name
-        semantic_seg, _ = camera_handler.get_semantic_segmentation()
-        semantic_info = camera_handler.get_semantic_info()
-        # Frame index is 0-based for output filenames (0000000000, 0000000001, ...)
-        output_frame_index = step_idx - 1
-        # Use cam0 for first view; add more (cam1, cam2, ...) when rendering multiple cameras
-        camera_id = camera_id_from_index(0)
-        writer.write_frame(
-            rgb=camera_handler.get_rgb(),
-            depth=camera_handler.get_depth(),
-            intrinsics=camera_handler.get_intrinsics(),
-            extrinsics=camera_handler.get_extrinsics(),
-            normals=camera_handler.get_normals(),
-            optical_flow=camera_handler.get_optical_flow(),
-            scene_flow_3d=camera_handler.compute_scene_flow_3d(env, dt),
-            semantic_seg=semantic_seg,
-            semantic_info=semantic_info,
-            camera_id=camera_id,
-            frame_index=output_frame_index,
-            camera_name=camera_name,
-        )
+        # ── Flow modalities (N-1 files, indices 0 .. N-2) ─────────
+        # compute_exact_scene_flow returns displacement from the
+        # cached (previous) frame to the current frame.  Rendered
+        # motion vectors at step k also describe frame k-1 → k.
+        # Both are saved at frame index k-1.
+        if step_idx > 0:
+            flow_result = camera_handler.compute_exact_scene_flow(env)
+            prev_idx = step_idx - 1
+            writer.write_optical_flow(
+                camera_handler.get_optical_flow(), camera_id, prev_idx,
+                camera_name=camera_name)
+            if flow_result is not None:
+                writer.write_scene_flow_3d(
+                    flow_result.scene_flow_3d, camera_id, prev_idx,
+                    camera_name=camera_name)
+                if flow_result.scene_flow_track_type is not None:
+                    writer.write_scene_flow_track_type(
+                        flow_result.scene_flow_track_type, camera_id, prev_idx,
+                        camera_name=camera_name)
+
+        camera_handler.cache_scene_flow_frame(env)
 
 # %%
 # Visualization of the generated data

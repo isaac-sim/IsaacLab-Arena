@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+import enum
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 
-from isaaclab.utils.math import matrix_from_quat, quat_from_matrix
+from isaaclab.utils.math import matrix_from_quat, quat_apply, quat_apply_inverse, quat_from_matrix
 
 ALL_DATA_TYPES = [
     "rgb",
@@ -20,6 +22,27 @@ ALL_DATA_TYPES = [
     "semantic_segmentation",
     "instance_id_segmentation_fast",
 ]
+
+
+class TrackType(enum.IntEnum):
+    """Tracking category for each pixel in the scene-flow output."""
+
+    STATIC = 0
+    RIGID = 1
+    ARTICULATION = 2
+    UNSUPPORTED = 255
+
+
+@dataclass
+class SceneFlowResult:
+    """Bundle returned by the exact adjacent-frame scene-flow computation."""
+
+    scene_flow_3d: torch.Tensor
+    """(H, W, 3) float32 — exact world-space displacement from frame t to t+1."""
+    scene_flow_valid_mask: torch.Tensor
+    """(H, W) bool — True where the flow value is trustworthy ground truth."""
+    scene_flow_track_type: torch.Tensor
+    """(H, W) uint8 — per-pixel :class:`TrackType` enum value."""
 
 
 class IsaacLabArenaCameraHandler:
@@ -40,6 +63,19 @@ class IsaacLabArenaCameraHandler:
         # Persistent RGBA → object_id mapping for temporal consistency across frames
         self._color_to_object_id: Dict[tuple, int] = {}
         self._next_object_id: int = 0
+
+        # Cached data for one-frame-lag exact scene flow
+        self._prev_points_world: Optional[torch.Tensor] = None  # (H, W, 3)
+        self._prev_track_type: Optional[torch.Tensor] = None  # (H, W) uint8
+        self._prev_valid_mask: Optional[torch.Tensor] = None  # (H, W) bool
+        self._prev_local_points: Optional[torch.Tensor] = None  # (H, W, 3)
+        self._prev_rigid_keys: Optional[torch.Tensor] = None  # (H, W) int64
+        self._prev_artic_keys: Optional[torch.Tensor] = None  # (H, W) int64
+        self._prev_artic_body_idx: Optional[torch.Tensor] = None  # (H, W) int64
+
+        # Mapping tables filled per cache_frame call
+        self._rigid_key_to_name: Dict[int, str] = {}
+        self._artic_key_to_name: Dict[int, str] = {}
 
     @property
     def camera_name(self) -> str:
@@ -149,7 +185,222 @@ class IsaacLabArenaCameraHandler:
         return seg.squeeze(0).squeeze(-1).to(torch.int32), id_to_labels
 
     # ------------------------------------------------------------------
-    # 3D scene flow (physics-based)
+    # 3D scene flow — exact adjacent-frame ground truth (SE(3) based)
+    # ------------------------------------------------------------------
+
+    def cache_scene_flow_frame(self, env: Any) -> None:
+        """Cache per-pixel world points and tracking anchors for this frame.
+
+        Must be called once per simulation step *after* :meth:`update`.
+        The cached data is consumed by :meth:`compute_exact_scene_flow`
+        on the *next* frame to produce one-frame-lag flow.
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+        """
+        from isaaclab.utils.math import unproject_depth
+
+        depth = self.get_depth()
+        intrinsics = self.get_intrinsics()
+        extrinsics = self.get_extrinsics()
+
+        H, W = depth.shape
+        device = depth.device
+
+        # Unproject to world (preserving existing column-major → row-major fix)
+        points_cam = unproject_depth(depth, intrinsics)  # (H*W, 3)
+        R = extrinsics[:3, :3]
+        t = extrinsics[:3, 3]
+        points_world = (points_cam @ R.T) + t  # (H*W, 3)
+        points_world = points_world.reshape(W, H, 3).permute(1, 0, 2).contiguous()
+
+        valid_mask = torch.isfinite(depth)
+
+        inst_ids, id_to_labels = self.get_instance_id_segmentation()
+
+        scene = env.unwrapped.scene
+
+        track_type = torch.full((H, W), TrackType.UNSUPPORTED, dtype=torch.uint8, device=device)
+        local_points = torch.zeros(H, W, 3, dtype=torch.float32, device=device)
+
+        rigid_keys = torch.full((H, W), -1, dtype=torch.int64, device=device)
+        artic_keys = torch.full((H, W), -1, dtype=torch.int64, device=device)
+        artic_body_idx = torch.full((H, W), -1, dtype=torch.int64, device=device)
+
+        self._rigid_key_to_name = {}
+        self._artic_key_to_name = {}
+
+        rigid_pose_cache: Dict[str, Tuple[torch.Tensor, torch.Tensor]] = {}
+        artic_pose_cache: Dict[Tuple[str, int], Tuple[torch.Tensor, torch.Tensor]] = {}
+
+        for uid in inst_ids.unique():
+            uid_key = uid.item()
+            if uid_key not in id_to_labels:
+                continue
+
+            label = id_to_labels[uid_key]
+            prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
+            if not prim_path or prim_path.upper() in ("BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"):
+                pixel_mask = (inst_ids == uid) & valid_mask
+                if pixel_mask.any():
+                    track_type[pixel_mask] = TrackType.STATIC
+                continue
+
+            binding = self._resolve_tracking_binding(prim_path, scene)
+
+            pixel_mask = (inst_ids == uid) & valid_mask
+            if not pixel_mask.any():
+                continue
+
+            pts = points_world[pixel_mask]  # (N, 3)
+
+            if binding[0] == "STATIC":
+                track_type[pixel_mask] = TrackType.STATIC
+
+            elif binding[0] == "RIGID":
+                asset_name = binding[1]
+                track_type[pixel_mask] = TrackType.RIGID
+
+                key = hash(asset_name) & 0x7FFFFFFFFFFFFFFF
+                self._rigid_key_to_name[key] = asset_name
+                rigid_keys[pixel_mask] = key
+
+                if asset_name not in rigid_pose_cache:
+                    obj = scene[asset_name]
+                    pos = obj.data.root_link_pos_w[0].clone()
+                    quat = obj.data.root_link_quat_w[0].clone()  # (w, x, y, z)
+                    rigid_pose_cache[asset_name] = (pos, quat)
+
+                pos_t, quat_t = rigid_pose_cache[asset_name]
+                q_local = quat_apply_inverse(
+                    quat_t.unsqueeze(0).expand(pts.shape[0], -1), pts - pos_t.unsqueeze(0)
+                )
+                local_points[pixel_mask] = q_local
+
+            elif binding[0] == "ARTICULATION":
+                asset_name, body_idx = binding[1], binding[2]
+                track_type[pixel_mask] = TrackType.ARTICULATION
+
+                artic_key = hash(asset_name) & 0x7FFFFFFFFFFFFFFF
+                self._artic_key_to_name[artic_key] = asset_name
+                artic_keys[pixel_mask] = artic_key
+                artic_body_idx[pixel_mask] = body_idx
+
+                cache_key = (asset_name, body_idx)
+                if cache_key not in artic_pose_cache:
+                    artic_obj = scene[asset_name]
+                    link_pos = artic_obj.data.body_link_pos_w[0, body_idx].clone()
+                    link_quat = artic_obj.data.body_link_quat_w[0, body_idx].clone()
+                    artic_pose_cache[cache_key] = (link_pos, link_quat)
+
+                pos_t, quat_t = artic_pose_cache[cache_key]
+                q_local = quat_apply_inverse(
+                    quat_t.unsqueeze(0).expand(pts.shape[0], -1), pts - pos_t.unsqueeze(0)
+                )
+                local_points[pixel_mask] = q_local
+
+            else:
+                pass  # UNSUPPORTED — already default
+
+        self._prev_points_world = points_world
+        self._prev_track_type = track_type
+        self._prev_valid_mask = valid_mask
+        self._prev_local_points = local_points
+        self._prev_rigid_keys = rigid_keys
+        self._prev_artic_keys = artic_keys
+        self._prev_artic_body_idx = artic_body_idx
+
+    def compute_exact_scene_flow(self, env: Any) -> Optional[SceneFlowResult]:
+        """Compute exact adjacent-frame 3D scene flow for the *previous* frame.
+
+        Uses the cached anchors from the previous call to
+        :meth:`cache_scene_flow_frame` together with the current frame's
+        SE(3) poses to produce ground-truth displacement.
+
+        Returns ``None`` if no previous frame has been cached yet (first frame).
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+
+        Returns:
+            A :class:`SceneFlowResult` for the *previous* frame, or ``None``.
+        """
+        if self._prev_points_world is None:
+            return None
+
+        H, W = self._prev_points_world.shape[:2]
+        device = self._prev_points_world.device
+
+        scene = env.unwrapped.scene
+
+        flow = torch.zeros(H, W, 3, dtype=torch.float32, device=device)
+        valid = self._prev_valid_mask.clone()
+
+        # --- STATIC pixels: displacement = 0 (already zero in flow) ---
+
+        # --- RIGID pixels ---
+        rigid_mask = self._prev_track_type == TrackType.RIGID
+        if rigid_mask.any():
+            rigid_pose_cache: Dict[str, Tuple[torch.Tensor, torch.Tensor]] = {}
+            for key, name in self._rigid_key_to_name.items():
+                obj = scene[name]
+                rigid_pose_cache[name] = (
+                    obj.data.root_link_pos_w[0].clone(),
+                    obj.data.root_link_quat_w[0].clone(),
+                )
+
+            for key, name in self._rigid_key_to_name.items():
+                sel = rigid_mask & (self._prev_rigid_keys == key)
+                if not sel.any():
+                    continue
+                pos_tp1, quat_tp1 = rigid_pose_cache[name]
+                q_local = self._prev_local_points[sel]
+                p_tp1 = quat_apply(
+                    quat_tp1.unsqueeze(0).expand(q_local.shape[0], -1), q_local
+                ) + pos_tp1.unsqueeze(0)
+                flow[sel] = p_tp1 - self._prev_points_world[sel]
+
+        # --- ARTICULATION pixels ---
+        artic_mask = self._prev_track_type == TrackType.ARTICULATION
+        if artic_mask.any():
+            artic_pose_cache: Dict[Tuple[str, int], Tuple[torch.Tensor, torch.Tensor]] = {}
+            for artic_key, name in self._artic_key_to_name.items():
+                artic_obj = scene[name]
+                num_bodies = artic_obj.data.body_link_pos_w.shape[1]
+                for bi in range(num_bodies):
+                    cache_key = (name, bi)
+                    if cache_key not in artic_pose_cache:
+                        artic_pose_cache[cache_key] = (
+                            artic_obj.data.body_link_pos_w[0, bi].clone(),
+                            artic_obj.data.body_link_quat_w[0, bi].clone(),
+                        )
+
+            for artic_key, name in self._artic_key_to_name.items():
+                artic_obj = scene[name]
+                num_bodies = artic_obj.data.body_link_pos_w.shape[1]
+                for bi in range(num_bodies):
+                    sel = artic_mask & (self._prev_artic_keys == artic_key) & (self._prev_artic_body_idx == bi)
+                    if not sel.any():
+                        continue
+                    pos_tp1, quat_tp1 = artic_pose_cache[(name, bi)]
+                    q_local = self._prev_local_points[sel]
+                    p_tp1 = quat_apply(
+                        quat_tp1.unsqueeze(0).expand(q_local.shape[0], -1), q_local
+                    ) + pos_tp1.unsqueeze(0)
+                    flow[sel] = p_tp1 - self._prev_points_world[sel]
+
+        # --- UNSUPPORTED pixels: mark invalid ---
+        unsupported = self._prev_track_type == TrackType.UNSUPPORTED
+        valid[unsupported] = False
+
+        return SceneFlowResult(
+            scene_flow_3d=flow,
+            scene_flow_valid_mask=valid,
+            scene_flow_track_type=self._prev_track_type.clone(),
+        )
+
+    # ------------------------------------------------------------------
+    # 3D scene flow — legacy v*dt approximation (kept for compatibility)
     # ------------------------------------------------------------------
 
     def compute_scene_flow_3d(self, env: Any, dt: float) -> torch.Tensor:
@@ -237,6 +488,40 @@ class IsaacLabArenaCameraHandler:
 
         return scene_flow
 
+    # ------------------------------------------------------------------
+    # Prim-path → tracking binding resolution
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_tracking_binding(
+        prim_path: str, scene: Any
+    ) -> Tuple[str, ...]:
+        """Classify a USD prim path into a tracking category.
+
+        Returns one of:
+            ("STATIC",)
+            ("RIGID", asset_name)
+            ("ARTICULATION", asset_name, body_idx)
+            ("UNSUPPORTED",)
+        """
+        path_parts = prim_path.strip("/").split("/")
+
+        for name in scene.rigid_objects.keys():
+            if name in path_parts:
+                return ("RIGID", name)
+
+        for name, artic in scene.articulations.items():
+            if name in path_parts:
+                body_names = artic.data.body_names
+                body_idx = _find_body_index_for_prim(prim_path, body_names)
+                if body_idx is not None:
+                    return ("ARTICULATION", name, body_idx)
+                return ("ARTICULATION", name, 0)
+
+        # Prim exists but doesn't belong to any tracked dynamic asset —
+        # treat it as static world geometry (zero displacement).
+        return ("STATIC",)
+
     @staticmethod
     def _find_rigid_object_for_prim(prim_path: str, scene: Any) -> str | None:
         """Match a USD prim path to a rigid-object name registered in the scene."""
@@ -316,6 +601,27 @@ class IsaacLabArenaCameraHandler:
 
         results.sort(key=lambda x: x["pixel_count"], reverse=True)
         return results
+
+
+# ------------------------------------------------------------------
+# Helper: find body index for articulation prim path
+# ------------------------------------------------------------------
+
+
+def _find_body_index_for_prim(prim_path: str, body_names: list[str]) -> int | None:
+    """Find which articulation body a prim path belongs to.
+
+    Matches the last body name that appears as a path component.
+    """
+    path_parts = prim_path.strip("/").split("/")
+    best_idx: int | None = None
+    best_depth = -1
+    for idx, bname in enumerate(body_names):
+        for depth, part in enumerate(path_parts):
+            if part == bname and depth > best_depth:
+                best_idx = idx
+                best_depth = depth
+    return best_idx
 
 
 # ----------------------------------------------------------------------

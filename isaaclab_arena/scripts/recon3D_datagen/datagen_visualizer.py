@@ -41,6 +41,7 @@ _SUBFOLDER_EXTRINSIC = "extrinsic"
 _SUBFOLDER_INTRINSIC = "intrinsic"
 _SUBFOLDER_SEMANTIC = "semantic"
 _SUBFOLDER_FLOW3D = "flow3d"
+_SUBFOLDER_FLOW3D_TRACK_TYPE = "flow3d_track_type"
 
 
 def _load_frames(output_dir: str, camera_id: str) -> dict:
@@ -70,6 +71,7 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
         "normals": [],
         "optical_flows": [],
         "scene_flows_3d": [],
+        "flow3d_track_types": [],
         "semantics": [],
         "semantic_infos": [],
         "frame_indices": [],
@@ -108,6 +110,12 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
         flow3d_dir = os.path.join(cam_dir, _SUBFOLDER_FLOW3D)
         flow3d_path = os.path.join(flow3d_dir, f"{frame_idx:010d}.npy")
         result["scene_flows_3d"].append(np.load(flow3d_path) if os.path.exists(flow3d_path) else None)
+
+        flow3d_tt_dir = os.path.join(cam_dir, _SUBFOLDER_FLOW3D_TRACK_TYPE)
+        flow3d_tt_path = os.path.join(flow3d_tt_dir, f"{frame_idx:010d}.png")
+        result["flow3d_track_types"].append(
+            np.array(Image.open(flow3d_tt_path)) if os.path.exists(flow3d_tt_path) else None
+        )
 
         sem_path = os.path.join(sem_dir, f"{frame_idx:010d}.png")
         result["semantics"].append(np.array(Image.open(sem_path)) if os.path.exists(sem_path) else None)
@@ -205,6 +213,20 @@ def _colorize_flow3d(flow3d: np.ndarray) -> np.ndarray:
     colormap = cm.get_cmap("inferno")
     colored = (colormap(mag_norm)[:, :, :3] * 255).astype(np.uint8)
     return colored
+
+
+# Flow 3D track type legend (match writer's _TRACK_TYPE_COLORS)
+_FLOW3D_TRACK_TYPE_LEGEND = [
+    (tuple(c / 255.0 for c in (128, 128, 128)), "Static"),
+    (tuple(c / 255.0 for c in (0, 160, 255)), "Rigid"),
+    (tuple(c / 255.0 for c in (255, 160, 0)), "Articulation"),
+    (tuple(c / 255.0 for c in (255, 0, 0)), "Unsupported"),
+]
+
+
+def _build_flow3d_track_type_legend() -> list[Patch]:
+    """Build matplotlib legend patches for Flow 3D track types."""
+    return [Patch(facecolor=color, edgecolor="black", label=label) for color, label in _FLOW3D_TRACK_TYPE_LEGEND]
 
 
 def _build_semantic_legend(semantic_info: dict | None) -> list[Patch]:
@@ -461,8 +483,9 @@ def visualize_all_modalities_grid(
 ) -> None:
     """Single figure: for each sampled frame show all modalities in one row.
 
-    Layout: num_samples rows x 6 columns
-    (RGB | Depth | Flow 2D | Flow 3D | Normals | Semantics).
+    Layout: num_samples rows x 7 columns
+    (RGB | Depth | Flow 2D | Flow 3D | Flow 3D Track | Normals | Semantics).
+    Flow 3D Track encodes validity: red = UNSUPPORTED (invalid); other colours = valid.
     Missing data is shown as a dark placeholder with 'N/A'.
     """
     data = _load_frames(output_dir, camera_id)
@@ -470,6 +493,7 @@ def visualize_all_modalities_grid(
     depths = data["depths"]
     flows = data["optical_flows"]
     flows_3d = data["scene_flows_3d"]
+    flow3d_track_types = data["flow3d_track_types"]
     normals_list = data["normals"]
     semantics = data["semantics"]
     sem_infos = data["semantic_infos"]
@@ -481,14 +505,17 @@ def visualize_all_modalities_grid(
 
     sample_ids = _sample_indices(len(rgbs), num_samples)
     n = len(sample_ids)
-    ncols = 6
+    ncols = 7
     nrows = n
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(3 * ncols, 3 * nrows))
     if n == 1:
         axes = axes[np.newaxis, :]
 
-    col_titles = ["Color", "Depth", "Flow 2D", "Flow 3D", "Normals", "Semantics"]
+    col_titles = [
+        "Color", "Depth", "Flow 2D", "Flow 3D",
+        "Flow 3D Track", "Normals", "Semantics",
+    ]
 
     for i, idx in enumerate(sample_ids):
         frame_idx = frame_indices[idx]
@@ -529,23 +556,42 @@ def visualize_all_modalities_grid(
         axes[i, 3].set_title(col_titles[3] if i == 0 else "", fontsize=10)
         axes[i, 3].axis("off")
 
-        # Column 4: Normals
-        if normals_list[idx] is not None:
-            axes[i, 4].imshow(_colorize_normals(normals_list[idx]))
+        # Column 4: Flow 3D track type (colorized); red = invalid (UNSUPPORTED)
+        tt_img = flow3d_track_types[idx] if idx < len(flow3d_track_types) else None
+        if tt_img is not None:
+            axes[i, 4].imshow(tt_img)
+            track_legend = _build_flow3d_track_type_legend()
+            axes[i, 4].legend(
+                handles=track_legend,
+                loc="upper left",
+                fontsize=5,
+                framealpha=0.8,
+                handlelength=1.0,
+                handleheight=0.8,
+            )
         else:
             axes[i, 4].imshow(blank)
             axes[i, 4].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
         axes[i, 4].axis("off")
 
-        # Column 5: Semantic segmentation
+        # Column 5: Normals
+        if normals_list[idx] is not None:
+            axes[i, 5].imshow(_colorize_normals(normals_list[idx]))
+        else:
+            axes[i, 5].imshow(blank)
+            axes[i, 5].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 5].set_title(col_titles[5] if i == 0 else "", fontsize=10)
+        axes[i, 5].axis("off")
+
+        # Column 6: Semantic segmentation
         if semantics[idx] is not None:
             sem_rgba = semantics[idx]
             sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
-            axes[i, 5].imshow(sem_rgb)
+            axes[i, 6].imshow(sem_rgb)
             legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
             if legend_patches:
-                axes[i, 5].legend(
+                axes[i, 6].legend(
                     handles=legend_patches,
                     loc="upper left",
                     fontsize=5,
@@ -554,12 +600,15 @@ def visualize_all_modalities_grid(
                     handleheight=0.8,
                 )
         else:
-            axes[i, 5].imshow(blank)
-            axes[i, 5].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
-        axes[i, 5].set_title(col_titles[5] if i == 0 else "", fontsize=10)
-        axes[i, 5].axis("off")
+            axes[i, 6].imshow(blank)
+            axes[i, 6].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 6].set_title(col_titles[6] if i == 0 else "", fontsize=10)
+        axes[i, 6].axis("off")
 
-    fig.suptitle("Color | Depth | Flow 2D | Flow 3D | Normals | Semantics", fontsize=12)
+    fig.suptitle(
+        "Color | Depth | Flow 2D | Flow 3D | Flow 3D Track | Normals | Semantics",
+        fontsize=12,
+    )
     fig.tight_layout()
 
     if save_path:

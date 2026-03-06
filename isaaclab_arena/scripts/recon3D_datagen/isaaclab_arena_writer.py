@@ -5,7 +5,7 @@
 
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -20,6 +20,7 @@ SUBFOLDER_EXTRINSIC = "extrinsic"
 SUBFOLDER_INTRINSIC = "intrinsic"
 SUBFOLDER_SEMANTIC = "semantic"
 SUBFOLDER_FLOW3D = "flow3d"
+SUBFOLDER_FLOW3D_TRACK_TYPE = "flow3d_track_type"
 
 
 def camera_id_from_index(index: int) -> str:
@@ -51,6 +52,7 @@ class IsaacLabArenaWriter:
             SUBFOLDER_DEPTH,
             SUBFOLDER_FLOW2D,
             SUBFOLDER_FLOW3D,
+            SUBFOLDER_FLOW3D_TRACK_TYPE,
             SUBFOLDER_NORMAL,
             SUBFOLDER_EXTRINSIC,
             SUBFOLDER_INTRINSIC,
@@ -162,6 +164,46 @@ class IsaacLabArenaWriter:
         path = self._path(camera_id, SUBFOLDER_FLOW3D, f"{frame_index:010d}.npy")
         np.save(path, flow3d.cpu().numpy().astype(np.float32))
 
+    # Per-category colours for track-type visualisation (RGB)
+    _TRACK_TYPE_COLORS = {
+        0: (128, 128, 128),  # STATIC  — grey
+        1: (0, 160, 255),    # RIGID   — blue
+        2: (255, 160, 0),    # ARTICULATION — orange
+        255: (255, 0, 0),    # UNSUPPORTED  — red
+    }
+
+    def write_scene_flow_track_type(
+        self,
+        track_type: torch.Tensor,
+        camera_id: str,
+        frame_index: int,
+        *,
+        camera_name: str = "",
+    ) -> None:
+        """Save per-pixel tracking type as both ``.npy`` and a colorised ``.png``.
+
+        Values follow :class:`~isaaclab_arena_camera_handler.TrackType`:
+        0 = STATIC (grey), 1 = RIGID (blue), 2 = ARTICULATION (orange),
+        255 = UNSUPPORTED (red).
+
+        Args:
+            track_type: (H, W) uint8 tensor.
+            camera_id: Folder name for this camera.
+        """
+        self._ensure_camera_dirs(camera_id)
+        tt_np = track_type.cpu().numpy()
+        tag = f"{frame_index:010d}"
+
+        np.save(self._path(camera_id, SUBFOLDER_FLOW3D_TRACK_TYPE, f"{tag}.npy"), tt_np)
+
+        H, W = tt_np.shape
+        rgb = np.zeros((H, W, 3), dtype=np.uint8)
+        for val, color in self._TRACK_TYPE_COLORS.items():
+            rgb[tt_np == val] = color
+        Image.fromarray(rgb).save(
+            self._path(camera_id, SUBFOLDER_FLOW3D_TRACK_TYPE, f"{tag}.png")
+        )
+
     # ------------------------------------------------------------------
     # Semantic segmentation + metadata
     # ------------------------------------------------------------------
@@ -204,27 +246,45 @@ class IsaacLabArenaWriter:
         intrinsics: torch.Tensor,
         extrinsics: torch.Tensor,
         normals: torch.Tensor,
-        optical_flow: torch.Tensor,
-        scene_flow_3d: torch.Tensor,
         semantic_seg: torch.Tensor,
         semantic_info: List[Dict[str, Any]],
         camera_id: str,
         frame_index: int,
         *,
         camera_name: str = "",
+        optical_flow: Optional[torch.Tensor] = None,
+        scene_flow_3d: Optional[torch.Tensor] = None,
+        scene_flow_track_type: Optional[torch.Tensor] = None,
     ) -> None:
         """Write all data types for a single frame.
 
+        Static modalities (rgb, depth, intrinsics, extrinsics, normals,
+        semantics) are always written.  Flow modalities (optical_flow,
+        scene_flow_3d, scene_flow_track_type) are only written when provided.
+        This allows the last frame in a sequence to be saved without flow.
+
+        Validity of scene flow can be derived from scene_flow_track_type:
+        ``valid = (track_type != 255)`` (UNSUPPORTED).
+
         Args:
             camera_id: Folder name for this camera (e.g. ``"cam0"``, ``"cam1"``).
+            optical_flow: Optional (H, W, 2) float32 forward optical flow.
+            scene_flow_3d: Optional (H, W, 3) float32 3-D scene flow.
+            scene_flow_track_type: Optional (H, W) uint8 per-pixel track type.
         """
         self.write_rgb(rgb, camera_id, frame_index, camera_name=camera_name)
         self.write_depth(depth, camera_id, frame_index, camera_name=camera_name)
         self.write_intrinsics(intrinsics, camera_id, frame_index, camera_name=camera_name)
         self.write_extrinsics(extrinsics, camera_id, frame_index, camera_name=camera_name)
         self.write_normals(normals, camera_id, frame_index, camera_name=camera_name)
-        self.write_optical_flow(optical_flow, camera_id, frame_index, camera_name=camera_name)
-        self.write_scene_flow_3d(scene_flow_3d, camera_id, frame_index, camera_name=camera_name)
         self.write_semantic_segmentation(
             semantic_seg, semantic_info, camera_id, frame_index, camera_name=camera_name
         )
+        if optical_flow is not None:
+            self.write_optical_flow(optical_flow, camera_id, frame_index, camera_name=camera_name)
+        if scene_flow_3d is not None:
+            self.write_scene_flow_3d(scene_flow_3d, camera_id, frame_index, camera_name=camera_name)
+        if scene_flow_track_type is not None:
+            self.write_scene_flow_track_type(
+                scene_flow_track_type, camera_id, frame_index, camera_name=camera_name
+            )
