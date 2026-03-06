@@ -372,28 +372,30 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         """Transform wrist positions and orientations from world frame to robot base frame.
 
         Args:
-            actions: The input actions tensor, shape (action_dim,) or (1, action_dim).
+            actions: The input actions tensor, shape (num_envs, action_dim).
 
         Returns:
             The processed actions tensor (same shape as input).
         """
         actions = actions.clone()
 
-        robot_base_pos = self._asset.data.root_link_pos_w[0, :3]
-        robot_base_quat = self._asset.data.root_link_quat_w[0]
+        robot_base_pos = self._asset.data.root_link_pos_w[:, :3]
+        robot_base_quat = self._asset.data.root_link_quat_w
 
-        wrist_pos_world = torch.stack([actions[0, 2:5], actions[0, 9:12]], dim=0)
-        wrist_pos_translated = wrist_pos_world - robot_base_pos
-        robot_base_quat_batch = robot_base_quat.unsqueeze(0).expand(2, -1)
-        wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat_batch, wrist_pos_translated)
+        left_wrist_pos_world = actions[:, 2:5]
+        right_wrist_pos_world = actions[:, 9:12]
+        left_wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat, left_wrist_pos_world - robot_base_pos)
+        right_wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat, right_wrist_pos_world - robot_base_pos)
 
-        wrist_quat_world = torch.stack([actions[0, 5:9], actions[0, 12:16]], dim=0)
-        robot_base_quat_inv = math_utils.quat_inv(robot_base_quat.unsqueeze(0)).expand(2, -1)
-        wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, wrist_quat_world)
+        left_wrist_quat_world = actions[:, 5:9]
+        right_wrist_quat_world = actions[:, 12:16]
+        robot_base_quat_inv = math_utils.quat_inv(robot_base_quat)
+        left_wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, left_wrist_quat_world)
+        right_wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, right_wrist_quat_world)
 
-        actions[0, 2:5] = wrist_pos_base[0]
-        actions[0, 5:9] = wrist_quat_base[0]
-        actions[0, 9:12] = wrist_pos_base[1]
-        actions[0, 12:16] = wrist_quat_base[1]
+        actions[:, 2:5] = left_wrist_pos_base
+        actions[:, 5:9] = left_wrist_quat_base
+        actions[:, 9:12] = right_wrist_pos_base
+        actions[:, 12:16] = right_wrist_quat_base
 
         return actions
