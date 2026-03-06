@@ -100,11 +100,7 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
             seg_data, camera_handler.get_semantic_info(),
             camera_id, step_idx, camera_name=camera_name)
 
-        # ── Flow modalities (N-1 files, indices 0 .. N-2) ─────────
-        # compute_exact_scene_flow returns displacement from the
-        # cached (previous) frame to the current frame.  Rendered
-        # motion vectors at step k also describe frame k-1 → k.
-        # Both are saved at frame index k-1.
+        # ── Adjacent-frame flow (N-1 files, indices 0 .. N-2) ─────
         if step_idx > 0:
             flow_result = camera_handler.compute_exact_scene_flow(env)
             prev_idx = step_idx - 1
@@ -122,11 +118,28 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
 
         camera_handler.cache_scene_flow_frame(env)
 
+        # ── First-frame-anchored trajectory flow (N files) ────────
+        if step_idx == 0:
+            camera_handler.init_first_frame_anchors(env)
+
+        ff = camera_handler.compute_first_frame_flow(env)
+        writer.write_flow3d_from_first(
+            ff.flow3d_from_first, camera_id, step_idx, camera_name=camera_name)
+        writer.write_trackable_mask(
+            ff.trackable_mask, camera_id, step_idx, camera_name=camera_name)
+        writer.write_in_frame_mask(
+            ff.in_frame_mask, camera_id, step_idx, camera_name=camera_name)
+        writer.write_visible_now_mask(
+            ff.visible_now_mask, camera_id, step_idx, camera_name=camera_name)
+
+writer.write_output_readme()
+
 # %%
 # Visualization of the generated data
 from isaaclab_arena.scripts.recon3D_datagen.datagen_visualizer import (
     visualize_all_modalities_grid,
     visualize_camera_trajectory,
+    visualize_first_frame_flow_3d,
     visualize_scene_flow_3d,
 )
 
@@ -164,6 +177,17 @@ visualize_scene_flow_3d(
     stride=8,
     arrow_scale=1.0,
     save_path=os.path.join(viz_dir, f"scene_flow_3d_frame{frame_index}.html"),
+)
+
+# Interactive first-frame trajectory flow (last frame vs frame 0)
+last_frame = NUM_STEPS - 1
+visualize_first_frame_flow_3d(
+    OUTPUT_DIR,
+    camera_id,
+    frame_index=last_frame,
+    stride=8,
+    arrow_scale=1.0,
+    save_path=os.path.join(viz_dir, f"first_frame_flow_3d_frame{last_frame}.html"),
 )
 
 print(f"Visualizations saved to {viz_dir}")

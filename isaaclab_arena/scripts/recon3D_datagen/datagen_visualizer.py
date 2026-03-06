@@ -42,6 +42,10 @@ _SUBFOLDER_INTRINSIC = "intrinsic"
 _SUBFOLDER_SEMANTIC = "semantic"
 _SUBFOLDER_FLOW3D = "flow3d"
 _SUBFOLDER_FLOW3D_TRACK_TYPE = "flow3d_track_type"
+_SUBFOLDER_FLOW3D_FROM_FIRST = "flow3d_from_first"
+_SUBFOLDER_TRACKABLE_MASK = "trackable_mask"
+_SUBFOLDER_IN_FRAME_MASK = "in_frame_mask"
+_SUBFOLDER_VISIBLE_NOW_MASK = "visible_now_mask"
 
 
 def _load_frames(output_dir: str, camera_id: str) -> dict:
@@ -72,6 +76,10 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
         "optical_flows": [],
         "scene_flows_3d": [],
         "flow3d_track_types": [],
+        "flow3d_from_firsts": [],
+        "trackable_masks": [],
+        "in_frame_masks": [],
+        "visible_now_masks": [],
         "semantics": [],
         "semantic_infos": [],
         "frame_indices": [],
@@ -115,6 +123,28 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
         flow3d_tt_path = os.path.join(flow3d_tt_dir, f"{frame_idx:010d}.png")
         result["flow3d_track_types"].append(
             np.array(Image.open(flow3d_tt_path)) if os.path.exists(flow3d_tt_path) else None
+        )
+
+        ff_dir = os.path.join(cam_dir, _SUBFOLDER_FLOW3D_FROM_FIRST)
+        ff_path = os.path.join(ff_dir, f"{frame_idx:010d}.npy")
+        result["flow3d_from_firsts"].append(np.load(ff_path) if os.path.exists(ff_path) else None)
+
+        tm_dir = os.path.join(cam_dir, _SUBFOLDER_TRACKABLE_MASK)
+        tm_path = os.path.join(tm_dir, f"{frame_idx:010d}.png")
+        result["trackable_masks"].append(
+            np.array(Image.open(tm_path)) if os.path.exists(tm_path) else None
+        )
+
+        ifm_dir = os.path.join(cam_dir, _SUBFOLDER_IN_FRAME_MASK)
+        ifm_path = os.path.join(ifm_dir, f"{frame_idx:010d}.png")
+        result["in_frame_masks"].append(
+            np.array(Image.open(ifm_path)) if os.path.exists(ifm_path) else None
+        )
+
+        vnm_dir = os.path.join(cam_dir, _SUBFOLDER_VISIBLE_NOW_MASK)
+        vnm_path = os.path.join(vnm_dir, f"{frame_idx:010d}.png")
+        result["visible_now_masks"].append(
+            np.array(Image.open(vnm_path)) if os.path.exists(vnm_path) else None
         )
 
         sem_path = os.path.join(sem_dir, f"{frame_idx:010d}.png")
@@ -197,17 +227,20 @@ def _colorize_flow_fast(flow: np.ndarray) -> np.ndarray:
     return rgb
 
 
-def _colorize_flow3d(flow3d: np.ndarray) -> np.ndarray:
+def _colorize_flow3d(flow3d: np.ndarray, min_scale: float = 1e-3) -> np.ndarray:
     """Colorize 3D scene flow by displacement magnitude.
 
     Args:
         flow3d: (H, W, 3) float32 array of 3D displacement vectors (metres).
+        min_scale: Minimum normalisation denominator (metres).  Prevents
+            sub-millimetre floating-point noise from being amplified into
+            visible colours by the colormap.
 
     Returns:
         (H, W, 3) uint8 RGB array.
     """
     mag = np.linalg.norm(flow3d, axis=-1)
-    mag_max = mag.max() if mag.max() > 1e-8 else 1.0
+    mag_max = max(mag.max(), min_scale)
     mag_norm = mag / mag_max
 
     colormap = cm.get_cmap("inferno")
@@ -483,9 +516,9 @@ def visualize_all_modalities_grid(
 ) -> None:
     """Single figure: for each sampled frame show all modalities in one row.
 
-    Layout: num_samples rows x 7 columns
-    (RGB | Depth | Flow 2D | Flow 3D | Flow 3D Track | Normals | Semantics).
-    Flow 3D Track encodes validity: red = UNSUPPORTED (invalid); other colours = valid.
+    Layout: num_samples rows x 10 columns
+    (RGB | Depth | Flow 2D | Flow 3D | Track Type | Flow From 1st |
+     In Frame | Visible Now | Normals | Semantics).
     Missing data is shown as a dark placeholder with 'N/A'.
     """
     data = _load_frames(output_dir, camera_id)
@@ -494,6 +527,9 @@ def visualize_all_modalities_grid(
     flows = data["optical_flows"]
     flows_3d = data["scene_flows_3d"]
     flow3d_track_types = data["flow3d_track_types"]
+    ff_flows = data["flow3d_from_firsts"]
+    in_frame_masks = data["in_frame_masks"]
+    visible_masks = data["visible_now_masks"]
     normals_list = data["normals"]
     semantics = data["semantics"]
     sem_infos = data["semantic_infos"]
@@ -505,7 +541,7 @@ def visualize_all_modalities_grid(
 
     sample_ids = _sample_indices(len(rgbs), num_samples)
     n = len(sample_ids)
-    ncols = 7
+    ncols = 10
     nrows = n
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(3 * ncols, 3 * nrows))
@@ -513,8 +549,8 @@ def visualize_all_modalities_grid(
         axes = axes[np.newaxis, :]
 
     col_titles = [
-        "Color", "Depth", "Flow 2D", "Flow 3D",
-        "Flow 3D Track", "Normals", "Semantics",
+        "Color", "Depth", "Flow 2D", "Flow 3D", "Track Type",
+        "Flow From 1st", "In Frame", "Visible Now", "Normals", "Semantics",
     ]
 
     for i, idx in enumerate(sample_ids):
@@ -547,7 +583,7 @@ def visualize_all_modalities_grid(
         axes[i, 2].set_title(col_titles[2] if i == 0 else "", fontsize=10)
         axes[i, 2].axis("off")
 
-        # Column 3: Scene flow (3D)
+        # Column 3: Scene flow (3D) — adjacent
         if flows_3d[idx] is not None:
             axes[i, 3].imshow(_colorize_flow3d(flows_3d[idx]))
         else:
@@ -556,18 +592,14 @@ def visualize_all_modalities_grid(
         axes[i, 3].set_title(col_titles[3] if i == 0 else "", fontsize=10)
         axes[i, 3].axis("off")
 
-        # Column 4: Flow 3D track type (colorized); red = invalid (UNSUPPORTED)
+        # Column 4: Flow 3D track type (colorized)
         tt_img = flow3d_track_types[idx] if idx < len(flow3d_track_types) else None
         if tt_img is not None:
             axes[i, 4].imshow(tt_img)
             track_legend = _build_flow3d_track_type_legend()
             axes[i, 4].legend(
-                handles=track_legend,
-                loc="upper left",
-                fontsize=5,
-                framealpha=0.8,
-                handlelength=1.0,
-                handleheight=0.8,
+                handles=track_legend, loc="upper left", fontsize=5,
+                framealpha=0.8, handlelength=1.0, handleheight=0.8,
             )
         else:
             axes[i, 4].imshow(blank)
@@ -575,39 +607,66 @@ def visualize_all_modalities_grid(
         axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
         axes[i, 4].axis("off")
 
-        # Column 5: Normals
-        if normals_list[idx] is not None:
-            axes[i, 5].imshow(_colorize_normals(normals_list[idx]))
+        # Column 5: First-frame-anchored flow magnitude
+        ff_data = ff_flows[idx] if idx < len(ff_flows) else None
+        if ff_data is not None:
+            axes[i, 5].imshow(_colorize_flow3d(ff_data))
         else:
             axes[i, 5].imshow(blank)
             axes[i, 5].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 5].set_title(col_titles[5] if i == 0 else "", fontsize=10)
         axes[i, 5].axis("off")
 
-        # Column 6: Semantic segmentation
-        if semantics[idx] is not None:
-            sem_rgba = semantics[idx]
-            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
-            axes[i, 6].imshow(sem_rgb)
-            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
-            if legend_patches:
-                axes[i, 6].legend(
-                    handles=legend_patches,
-                    loc="upper left",
-                    fontsize=5,
-                    framealpha=0.8,
-                    handlelength=1.0,
-                    handleheight=0.8,
-                )
+        # Column 6: In-frame mask (white = projects inside current image)
+        ifm = in_frame_masks[idx] if idx < len(in_frame_masks) else None
+        if ifm is not None:
+            axes[i, 6].imshow(ifm, cmap="gray", vmin=0, vmax=255)
         else:
             axes[i, 6].imshow(blank)
             axes[i, 6].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 6].set_title(col_titles[6] if i == 0 else "", fontsize=10)
         axes[i, 6].axis("off")
 
+        # Column 7: Visible-now mask (white = visible)
+        vm = visible_masks[idx] if idx < len(visible_masks) else None
+        if vm is not None:
+            axes[i, 7].imshow(vm, cmap="gray", vmin=0, vmax=255)
+        else:
+            axes[i, 7].imshow(blank)
+            axes[i, 7].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 7].set_title(col_titles[7] if i == 0 else "", fontsize=10)
+        axes[i, 7].axis("off")
+
+        # Column 8: Normals
+        if normals_list[idx] is not None:
+            axes[i, 8].imshow(_colorize_normals(normals_list[idx]))
+        else:
+            axes[i, 8].imshow(blank)
+            axes[i, 8].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 8].set_title(col_titles[8] if i == 0 else "", fontsize=10)
+        axes[i, 8].axis("off")
+
+        # Column 9: Semantic segmentation
+        if semantics[idx] is not None:
+            sem_rgba = semantics[idx]
+            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
+            axes[i, 9].imshow(sem_rgb)
+            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
+            if legend_patches:
+                axes[i, 9].legend(
+                    handles=legend_patches, loc="upper left", fontsize=5,
+                    framealpha=0.8, handlelength=1.0, handleheight=0.8,
+                )
+        else:
+            axes[i, 9].imshow(blank)
+            axes[i, 9].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
+        axes[i, 9].set_title(col_titles[9] if i == 0 else "", fontsize=10)
+        axes[i, 9].axis("off")
+
     fig.suptitle(
-        "Color | Depth | Flow 2D | Flow 3D | Flow 3D Track | Normals | Semantics",
-        fontsize=12,
+        "Color | Depth | Flow 2D | Flow 3D | Track Type | "
+        "Flow From 1st | In Frame | Visible Now | Normals | Semantics",
+        fontsize=11,
     )
     fig.tight_layout()
 
@@ -925,5 +984,151 @@ def visualize_scene_flow_3d(
     if save_path:
         fig.write_html(save_path)
         print(f"[visualize_scene_flow_3d] Saved to {save_path}")
+    else:
+        fig.show()
+
+
+def visualize_first_frame_flow_3d(
+    output_dir: str,
+    camera_id: str,
+    frame_index: int = 0,
+    stride: int = 8,
+    arrow_scale: float = 1.0,
+    point_size: float = 3.0,
+    line_width: float = 3.0,
+    flow_threshold: float = 1e-5,
+    save_path: str | None = None,
+) -> None:
+    """Interactive 3-D visualisation of first-frame-anchored trajectory flow.
+
+    Shows frame-0 anchor points (dots coloured by frame-0 RGB) and
+    lines from each anchor to its reconstructed position at *frame_index*.
+
+    Args:
+        output_dir: Root output directory containing camera sub-directories.
+        camera_id: Camera folder name (e.g. ``"cam0"``).
+        frame_index: Which frame to visualise (matches the filename index).
+        stride: Sub-sample every *stride* pixels in each spatial dimension.
+        arrow_scale: Global multiplier applied to line lengths.
+        point_size: Marker size for the 3-D dots.
+        line_width: Line width for flow lines.
+        flow_threshold: Minimum flow magnitude to draw a line.
+        save_path: Path to save an interactive ``.html`` file.
+    """
+    try:
+        import plotly.graph_objects as go
+    except ImportError as exc:
+        raise ImportError(
+            "plotly is required for interactive 3-D visualisation.  "
+            "Install it with:  pip install plotly"
+        ) from exc
+
+    cam_dir = os.path.join(output_dir, camera_id)
+    tag = f"{frame_index:010d}"
+
+    depth_0 = np.load(os.path.join(cam_dir, _SUBFOLDER_DEPTH, "0000000000.npy"))
+    K = np.load(os.path.join(cam_dir, _SUBFOLDER_INTRINSIC, "0000000000.npy")).astype(np.float64)
+    T = np.load(os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC, "0000000000.npy")).astype(np.float64)
+    rgb_0 = np.array(Image.open(os.path.join(cam_dir, _SUBFOLDER_COLOR, "0000000000.png")))
+
+    ff_path = os.path.join(cam_dir, _SUBFOLDER_FLOW3D_FROM_FIRST, f"{tag}.npy")
+    if not os.path.exists(ff_path):
+        print(f"[visualize_first_frame_flow_3d] No flow3d_from_first for frame {frame_index}")
+        return
+    ff_flow = np.load(ff_path).astype(np.float64)
+
+    H, W = depth_0.shape
+
+    v_coords, u_coords = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
+    fx, fy = K[0, 0], K[1, 1]
+    cx, cy = K[0, 2], K[1, 2]
+    depth64 = depth_0.astype(np.float64)
+    x_cam = (u_coords.astype(np.float64) - cx) / fx * depth64
+    y_cam = (v_coords.astype(np.float64) - cy) / fy * depth64
+    z_cam = depth64
+    points_cam = np.stack([x_cam, y_cam, z_cam], axis=-1)
+    R = T[:3, :3]
+    t = T[:3, 3]
+    p0_world = (R @ points_cam.reshape(-1, 3).T).T.reshape(H, W, 3) + t
+
+    pts = p0_world[::stride, ::stride]
+    flw = ff_flow[::stride, ::stride]
+    clr = rgb_0[::stride, ::stride]
+    dep = depth_0[::stride, ::stride]
+
+    pts_flat = pts.reshape(-1, 3)
+    flw_flat = flw.reshape(-1, 3)
+    clr_flat = clr.reshape(-1, 3)
+    dep_flat = dep.reshape(-1)
+
+    valid = np.isfinite(dep_flat) & np.all(np.isfinite(pts_flat), axis=-1)
+    pts_v = pts_flat[valid]
+    flw_v = flw_flat[valid]
+    clr_v = clr_flat[valid]
+
+    mag = np.linalg.norm(flw_v, axis=-1)
+    has_flow = mag > flow_threshold
+
+    traces = []
+    all_colors = [f"rgb({r},{g},{b})" for r, g, b in clr_v]
+    traces.append(
+        go.Scatter3d(
+            x=pts_v[:, 0], y=pts_v[:, 1], z=pts_v[:, 2],
+            mode="markers",
+            marker=dict(size=point_size, color=all_colors, opacity=0.4),
+            name="Frame-0 anchors",
+            hoverinfo="skip",
+        )
+    )
+
+    dyn_pts = pts_v[has_flow]
+    dyn_flw = flw_v[has_flow]
+    dyn_mag = mag[has_flow]
+    N_dyn = len(dyn_pts)
+
+    if N_dyn > 0:
+        direction = dyn_flw / (dyn_mag[:, np.newaxis] + 1e-8)
+        base_rgb = (direction + 1.0) / 2.0
+        mag_max = dyn_mag.max()
+        mag_norm = dyn_mag / (mag_max + 1e-8)
+        t_blend = mag_norm[:, np.newaxis]
+        arrow_rgb = np.clip(base_rgb * (1.0 - 0.5 * t_blend) + (1.0 - t_blend) * 0.55, 0, 1)
+
+        ends = dyn_pts + dyn_flw * arrow_scale
+        line_x = np.empty(3 * N_dyn)
+        line_y = np.empty(3 * N_dyn)
+        line_z = np.empty(3 * N_dyn)
+        line_x[0::3] = dyn_pts[:, 0]; line_x[1::3] = ends[:, 0]; line_x[2::3] = np.nan
+        line_y[0::3] = dyn_pts[:, 1]; line_y[1::3] = ends[:, 1]; line_y[2::3] = np.nan
+        line_z[0::3] = dyn_pts[:, 2]; line_z[1::3] = ends[:, 2]; line_z[2::3] = np.nan
+
+        line_rgb = np.repeat(arrow_rgb, 3, axis=0)
+        line_colors = [
+            f"rgb({int(r * 255)},{int(g * 255)},{int(b * 255)})" for r, g, b in line_rgb
+        ]
+        traces.append(
+            go.Scatter3d(
+                x=line_x, y=line_y, z=line_z,
+                mode="lines",
+                line=dict(color=line_colors, width=line_width),
+                name=f"Flow 0→{frame_index}",
+                hoverinfo="skip",
+            )
+        )
+
+    fig = go.Figure(data=traces)
+    fig.update_layout(
+        title=f"First-Frame Trajectory Flow — Frame 0→{frame_index} ({camera_id})",
+        scene=dict(
+            xaxis_title="X (m)", yaxis_title="Y (m)", zaxis_title="Z (m)",
+            aspectmode="data",
+        ),
+        legend=dict(x=0, y=1),
+        margin=dict(l=0, r=0, t=40, b=0),
+    )
+
+    if save_path:
+        fig.write_html(save_path)
+        print(f"[visualize_first_frame_flow_3d] Saved to {save_path}")
     else:
         fig.show()

@@ -45,6 +45,30 @@ class SceneFlowResult:
     """(H, W) uint8 — per-pixel :class:`TrackType` enum value."""
 
 
+@dataclass
+class FirstFrameFlowResult:
+    """Bundle returned by :meth:`IsaacLabArenaCameraHandler.compute_first_frame_flow`.
+
+    All tensors are defined over the frame-0 pixel grid ``(H, W)``.
+    """
+
+    flow3d_from_first: torch.Tensor
+    """(H, W, 3) float32 — world-space displacement from frame-0 anchor to
+    frame-k reconstructed position: ``p_k - p_0``."""
+    trackable_mask: torch.Tensor
+    """(H, W) bool — True for frame-0 pixels that are STATIC, RIGID, or
+    ARTICULATION (constant across the sequence)."""
+    in_frame_mask: torch.Tensor
+    """(H, W) bool — True when the projected ``p_k`` falls inside the current
+    image bounds **and** has ``z_cam > 0``."""
+    visible_now_mask: torch.Tensor
+    """(H, W) bool — True when the point is in-frame **and** depth-consistent
+    with the current depth map (not occluded)."""
+    points_world_k: torch.Tensor
+    """(H, W, 3) float32 — reconstructed world positions ``p_k`` for every
+    trackable anchor (debug / trajectory visualisation)."""
+
+
 class IsaacLabArenaCameraHandler:
     """Handles a static camera sensor in an IsaacLab Arena environment.
 
@@ -76,6 +100,18 @@ class IsaacLabArenaCameraHandler:
         # Mapping tables filled per cache_frame call
         self._rigid_key_to_name: Dict[int, str] = {}
         self._artic_key_to_name: Dict[int, str] = {}
+
+        # First-frame anchors (set once by init_first_frame_anchors)
+        self._ff_initialised: bool = False
+        self._ff_p0_world: Optional[torch.Tensor] = None  # (H, W, 3)
+        self._ff_trackable_mask: Optional[torch.Tensor] = None  # (H, W) bool
+        self._ff_track_type: Optional[torch.Tensor] = None  # (H, W) uint8
+        self._ff_local_points: Optional[torch.Tensor] = None  # (H, W, 3)
+        self._ff_rigid_keys: Optional[torch.Tensor] = None  # (H, W) int64
+        self._ff_artic_keys: Optional[torch.Tensor] = None  # (H, W) int64
+        self._ff_artic_body_idx: Optional[torch.Tensor] = None  # (H, W) int64
+        self._ff_rigid_key_to_name: Dict[int, str] = {}
+        self._ff_artic_key_to_name: Dict[int, str] = {}
 
     @property
     def camera_name(self) -> str:
@@ -397,6 +433,257 @@ class IsaacLabArenaCameraHandler:
             scene_flow_3d=flow,
             scene_flow_valid_mask=valid,
             scene_flow_track_type=self._prev_track_type.clone(),
+        )
+
+    # ------------------------------------------------------------------
+    # First-frame-anchored 3D trajectory flow
+    # ------------------------------------------------------------------
+
+    def init_first_frame_anchors(self, env: Any) -> None:
+        """Store per-pixel anchor state from the current (frame-0) render.
+
+        Must be called exactly once, after the first valid :meth:`update`.
+        Subsequent calls raise :class:`RuntimeError`.
+
+        For each pixel with finite depth the method records:
+
+        * ``p0_world`` — the 3-D world position.
+        * ``track_type`` — STATIC / RIGID / ARTICULATION / UNSUPPORTED.
+        * ``trackable_mask`` — True for every type except UNSUPPORTED.
+        * For RIGID / ARTICULATION pixels: the body-local anchor
+          ``q0 = T_0^{-1} * p0`` so that later frames can reconstruct
+          ``p_k = T_k * q0``.
+        * For STATIC pixels: the world point itself (immovable).
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+        """
+        if self._ff_initialised:
+            raise RuntimeError("init_first_frame_anchors must only be called once")
+
+        from isaaclab.utils.math import unproject_depth
+
+        depth = self.get_depth()
+        intrinsics = self.get_intrinsics()
+        extrinsics = self.get_extrinsics()
+
+        H, W = depth.shape
+        device = depth.device
+
+        points_cam = unproject_depth(depth, intrinsics)
+        R = extrinsics[:3, :3]
+        t = extrinsics[:3, 3]
+        points_world = (points_cam @ R.T) + t
+        points_world = points_world.reshape(W, H, 3).permute(1, 0, 2).contiguous()
+
+        valid_depth = torch.isfinite(depth)
+        inst_ids, id_to_labels = self.get_instance_id_segmentation()
+        scene = env.unwrapped.scene
+
+        track_type = torch.full((H, W), TrackType.UNSUPPORTED, dtype=torch.uint8, device=device)
+        local_points = torch.zeros(H, W, 3, dtype=torch.float32, device=device)
+        rigid_keys = torch.full((H, W), -1, dtype=torch.int64, device=device)
+        artic_keys = torch.full((H, W), -1, dtype=torch.int64, device=device)
+        artic_body_idx = torch.full((H, W), -1, dtype=torch.int64, device=device)
+
+        ff_rigid_key_to_name: Dict[int, str] = {}
+        ff_artic_key_to_name: Dict[int, str] = {}
+
+        rigid_pose_cache: Dict[str, Tuple[torch.Tensor, torch.Tensor]] = {}
+        artic_pose_cache: Dict[Tuple[str, int], Tuple[torch.Tensor, torch.Tensor]] = {}
+
+        for uid in inst_ids.unique():
+            uid_key = uid.item()
+            if uid_key not in id_to_labels:
+                continue
+
+            label = id_to_labels[uid_key]
+            prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
+            if not prim_path or prim_path.upper() in ("BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"):
+                pixel_mask = (inst_ids == uid) & valid_depth
+                if pixel_mask.any():
+                    track_type[pixel_mask] = TrackType.STATIC
+                continue
+
+            binding = self._resolve_tracking_binding(prim_path, scene)
+            pixel_mask = (inst_ids == uid) & valid_depth
+            if not pixel_mask.any():
+                continue
+
+            pts = points_world[pixel_mask]
+
+            if binding[0] == "STATIC":
+                track_type[pixel_mask] = TrackType.STATIC
+                local_points[pixel_mask] = pts
+
+            elif binding[0] == "RIGID":
+                asset_name = binding[1]
+                track_type[pixel_mask] = TrackType.RIGID
+                key = hash(asset_name) & 0x7FFFFFFFFFFFFFFF
+                ff_rigid_key_to_name[key] = asset_name
+                rigid_keys[pixel_mask] = key
+
+                if asset_name not in rigid_pose_cache:
+                    obj = scene[asset_name]
+                    rigid_pose_cache[asset_name] = (
+                        obj.data.root_link_pos_w[0].clone(),
+                        obj.data.root_link_quat_w[0].clone(),
+                    )
+                pos_t, quat_t = rigid_pose_cache[asset_name]
+                q_local = quat_apply_inverse(
+                    quat_t.unsqueeze(0).expand(pts.shape[0], -1), pts - pos_t.unsqueeze(0)
+                )
+                local_points[pixel_mask] = q_local
+
+            elif binding[0] == "ARTICULATION":
+                asset_name, body_idx = binding[1], binding[2]
+                track_type[pixel_mask] = TrackType.ARTICULATION
+                artic_key = hash(asset_name) & 0x7FFFFFFFFFFFFFFF
+                ff_artic_key_to_name[artic_key] = asset_name
+                artic_keys[pixel_mask] = artic_key
+                artic_body_idx[pixel_mask] = body_idx
+
+                cache_key = (asset_name, body_idx)
+                if cache_key not in artic_pose_cache:
+                    artic_obj = scene[asset_name]
+                    artic_pose_cache[cache_key] = (
+                        artic_obj.data.body_link_pos_w[0, body_idx].clone(),
+                        artic_obj.data.body_link_quat_w[0, body_idx].clone(),
+                    )
+                pos_t, quat_t = artic_pose_cache[cache_key]
+                q_local = quat_apply_inverse(
+                    quat_t.unsqueeze(0).expand(pts.shape[0], -1), pts - pos_t.unsqueeze(0)
+                )
+                local_points[pixel_mask] = q_local
+
+        self._ff_p0_world = points_world
+        self._ff_track_type = track_type
+        self._ff_trackable_mask = (track_type != TrackType.UNSUPPORTED) & valid_depth
+        self._ff_local_points = local_points
+        self._ff_rigid_keys = rigid_keys
+        self._ff_artic_keys = artic_keys
+        self._ff_artic_body_idx = artic_body_idx
+        self._ff_rigid_key_to_name = ff_rigid_key_to_name
+        self._ff_artic_key_to_name = ff_artic_key_to_name
+        self._ff_initialised = True
+
+    def compute_first_frame_flow(
+        self,
+        env: Any,
+        *,
+        occlusion_tol: float = 0.05,
+    ) -> FirstFrameFlowResult:
+        """Compute flow from frame-0 anchors to the current frame k.
+
+        For every trackable frame-0 pixel:
+
+        * **STATIC**: ``p_k = p_0`` (no displacement).
+        * **RIGID**: ``p_k = T_k * q_0`` where ``q_0 = T_0^{-1} * p_0``.
+        * **ARTICULATION**: same as RIGID but using the per-body-link pose.
+
+        Additionally computes visibility masks by projecting each ``p_k``
+        into the current camera and comparing against the current depth map.
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+            occlusion_tol: Depth tolerance (metres) for the occlusion test.
+
+        Returns:
+            A :class:`FirstFrameFlowResult`.
+
+        Raises:
+            RuntimeError: If :meth:`init_first_frame_anchors` was not called.
+        """
+        if not self._ff_initialised:
+            raise RuntimeError("Call init_first_frame_anchors before compute_first_frame_flow")
+
+        assert self._ff_p0_world is not None
+        H, W = self._ff_p0_world.shape[:2]
+        device = self._ff_p0_world.device
+
+        scene = env.unwrapped.scene
+        trackable = self._ff_trackable_mask.clone()
+        assert trackable is not None
+
+        p_k = self._ff_p0_world.clone()  # start from p0; STATIC stays here
+
+        # --- RIGID anchors ---
+        rigid_mask = (self._ff_track_type == TrackType.RIGID) & trackable
+        if rigid_mask.any():
+            for key, name in self._ff_rigid_key_to_name.items():
+                sel = rigid_mask & (self._ff_rigid_keys == key)
+                if not sel.any():
+                    continue
+                obj = scene[name]
+                pos_k = obj.data.root_link_pos_w[0].clone()
+                quat_k = obj.data.root_link_quat_w[0].clone()
+                q_local = self._ff_local_points[sel]
+                p_k[sel] = quat_apply(
+                    quat_k.unsqueeze(0).expand(q_local.shape[0], -1), q_local
+                ) + pos_k.unsqueeze(0)
+
+        # --- ARTICULATION anchors ---
+        artic_mask = (self._ff_track_type == TrackType.ARTICULATION) & trackable
+        if artic_mask.any():
+            for artic_key, name in self._ff_artic_key_to_name.items():
+                artic_obj = scene[name]
+                num_bodies = artic_obj.data.body_link_pos_w.shape[1]
+                for bi in range(num_bodies):
+                    sel = artic_mask & (self._ff_artic_keys == artic_key) & (self._ff_artic_body_idx == bi)
+                    if not sel.any():
+                        continue
+                    pos_k = artic_obj.data.body_link_pos_w[0, bi].clone()
+                    quat_k = artic_obj.data.body_link_quat_w[0, bi].clone()
+                    q_local = self._ff_local_points[sel]
+                    p_k[sel] = quat_apply(
+                        quat_k.unsqueeze(0).expand(q_local.shape[0], -1), q_local
+                    ) + pos_k.unsqueeze(0)
+
+        flow_0k = p_k - self._ff_p0_world
+
+        # --- Visibility / projection masks ---
+        intrinsics = self.get_intrinsics()  # (3, 3)
+        extrinsics = self.get_extrinsics()  # (4, 4) cam-to-world
+        depth_k = self.get_depth()  # (H, W)
+
+        R_inv = extrinsics[:3, :3].T
+        t_inv = -(R_inv @ extrinsics[:3, 3])
+
+        p_k_flat = p_k.reshape(-1, 3)
+        p_cam = (p_k_flat @ R_inv.T) + t_inv  # (H*W, 3)
+        p_cam = p_cam.reshape(H, W, 3)
+
+        z_cam = p_cam[..., 2]
+        fx = intrinsics[0, 0]
+        fy = intrinsics[1, 1]
+        cx = intrinsics[0, 2]
+        cy = intrinsics[1, 2]
+
+        u = (p_cam[..., 0] / z_cam) * fx + cx
+        v = (p_cam[..., 1] / z_cam) * fy + cy
+
+        # Half-pixel tolerance: the unproject→reproject round-trip can
+        # shift pixel centres by up to ~1e-4 px due to floating-point
+        # precision, causing edge pixels to land just outside [0, dim).
+        _PIX_EPS = 0.5
+        in_frame = (
+            (z_cam > 0)
+            & (u >= -_PIX_EPS) & (u < W - 1 + _PIX_EPS)
+            & (v >= -_PIX_EPS) & (v < H - 1 + _PIX_EPS)
+        )
+
+        u_idx = u.round().clamp(0, W - 1).long()
+        v_idx = v.round().clamp(0, H - 1).long()
+        sampled_depth = depth_k[v_idx, u_idx]
+
+        visible_now = in_frame & (torch.abs(z_cam - sampled_depth) < occlusion_tol)
+
+        return FirstFrameFlowResult(
+            flow3d_from_first=flow_0k,
+            trackable_mask=trackable,
+            in_frame_mask=in_frame & trackable,
+            visible_now_mask=visible_now & trackable,
+            points_world_k=p_k,
         )
 
     # ------------------------------------------------------------------
