@@ -64,10 +64,6 @@ def _test_all_devices_and_retargeters_in_registry(simulation_app):
             for _ in tqdm.tqdm(range(NUM_STEPS)):
                 with torch.inference_mode():
                     actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                    if embodiment_name == "g1_wbc_pink":
-                        # G1 WBC pink action: wrist quats at 5:9 and 12:16 (wxyz); identity = (1,0,0,0)
-                        actions[..., 5] = 1.0
-                        actions[..., 12] = 1.0
                     env.step(actions)
 
             # Close the environment using safe teardown

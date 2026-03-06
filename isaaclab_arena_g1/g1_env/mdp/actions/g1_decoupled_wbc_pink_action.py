@@ -215,16 +215,22 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         """
         # Extract upper body left/right arm pos/quat from actions
         left_arm_pos = actions_clone[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX].squeeze(0).cpu()
-        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu().numpy()
         right_arm_pos = actions_clone[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX].squeeze(0).cpu()
-        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu().numpy()
+
+        # Replace zero-norm quaternions with identity (e.g. zero actions from env.step(zeros))
+        _IDENTITY_QUAT_WXYZ = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+        for q in (left_arm_quat, right_arm_quat):
+            if np.linalg.norm(q) < 1e-8:
+                q[:] = _IDENTITY_QUAT_WXYZ
 
         # Convert from pos/quat to 4x4 transform matrix
         # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
-        left_arm_quat = np.roll(left_arm_quat, -1)
-        right_arm_quat = np.roll(right_arm_quat, -1)
-        left_rotmat = R.from_quat(left_arm_quat).as_matrix()
-        right_rotmat = R.from_quat(right_arm_quat).as_matrix()
+        left_arm_quat_xyzw = np.roll(left_arm_quat, -1)
+        right_arm_quat_xyzw = np.roll(right_arm_quat, -1)
+        left_rotmat = R.from_quat(left_arm_quat_xyzw).as_matrix()
+        right_rotmat = R.from_quat(right_arm_quat_xyzw).as_matrix()
 
         left_arm_pose = np.eye(4)
         left_arm_pose[:3, :3] = left_rotmat
