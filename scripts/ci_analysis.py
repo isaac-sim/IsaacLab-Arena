@@ -271,9 +271,10 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
     #   {job, week, run_id, queue_m, duration_m}
     job_records: list[dict] = []
 
-    # Per-run total queue time (sum of PR-gating job queue times):
-    #   {week, total_queue_m}
+    # Per-run totals (sum of PR-gating job queue/duration times):
+    #   {week, total_queue_m}  /  {week, total_duration_m}
     run_queue_records: list[dict] = []
+    run_duration_records: list[dict] = []
 
     # Failure tracking
     failure_counts = {"infra": 0, "genuine": 0, "unknown": 0}
@@ -306,6 +307,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
 
         # Per-job metrics
         run_pr_queue_total = 0.0  # sum of queue minutes for PR-gating jobs this run
+        run_pr_duration_total = 0.0  # sum of duration minutes for PR-gating jobs this run
         run_pr_job_count = 0
 
         for job in jobs:
@@ -331,12 +333,17 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
                     "duration_m": d_m,
                 })
 
-            if name in PR_GATING_JOBS and q_m is not None:
-                run_pr_queue_total += q_m
-                run_pr_job_count += 1
+            if name in PR_GATING_JOBS:
+                if q_m is not None:
+                    run_pr_queue_total += q_m
+                if d_m is not None:
+                    run_pr_duration_total += d_m
+                if q_m is not None or d_m is not None:
+                    run_pr_job_count += 1
 
         if run_week and run_pr_job_count > 0:
             run_queue_records.append({"week": run_week, "total_queue_m": run_pr_queue_total})
+            run_duration_records.append({"week": run_week, "total_duration_m": run_pr_duration_total})
 
         # Run-level wall-clock time
         run_updated = parse_dt(run.get("updated_at"))
@@ -390,6 +397,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
         "run_total_times": run_total_times,
         "job_records": job_records,
         "run_queue_records": run_queue_records,
+        "run_duration_records": run_duration_records,
         "status_counts": dict(status_counts),
         "total_completed": total_completed,
         "total_failed": total_failed,
@@ -485,6 +493,7 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
 
     records = data.get("job_records", [])
     run_queue_records = data.get("run_queue_records", [])
+    run_duration_records = data.get("run_duration_records", [])
     if not records:
         print("No per-job records to plot.")
         return
@@ -502,12 +511,20 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
         if r.get("duration_m") is not None:
             week_dur[display][r["week"]].append(r["duration_m"])
 
-    # Total queue time per run, grouped by week
+    # Total queue/duration per run, grouped by week
     week_total_queue: dict[str, list[float]] = defaultdict(list)
     for r in run_queue_records:
         week_total_queue[r["week"]].append(r["total_queue_m"])
 
-    all_weeks = sorted({r["week"] for r in records if PLOT_JOBS.get(r["job"])} | set(week_total_queue.keys()))
+    week_total_dur: dict[str, list[float]] = defaultdict(list)
+    for r in run_duration_records:
+        week_total_dur[r["week"]].append(r["total_duration_m"])
+
+    all_weeks = sorted(
+        {r["week"] for r in records if PLOT_JOBS.get(r["job"])}
+        | set(week_total_queue.keys())
+        | set(week_total_dur.keys())
+    )
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -564,6 +581,20 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
         if ws:
             n = sum(len(week_dur[display][w]) for w in ws)
             ax.plot(ws, ms, marker="o", label=f"{display} (n={n})", color=colors[i % len(colors)])
+
+    # Total duration line — dashed, distinct color
+    ws_tot, ms_tot = weeks_and_medians(week_total_dur)
+    if ws_tot:
+        n_tot = sum(len(week_total_dur[w]) for w in ws_tot)
+        ax.plot(
+            ws_tot,
+            ms_tot,
+            marker="s",
+            linestyle="--",
+            linewidth=2,
+            label=f"Total (PR-gating jobs sum, n={n_tot})",
+            color="black",
+        )
 
     ax.set_title(
         "CI Job Duration per Week\n(median minutes of actual execution)",
