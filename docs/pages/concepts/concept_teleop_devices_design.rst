@@ -15,17 +15,34 @@ Teleop devices use the ``TeleopDeviceBase`` abstract class with automatic regist
        name: str | None = None
 
        @abstractmethod
-       def get_teleop_device_cfg(self, embodiment: object | None = None):
-           """Return Isaac Lab DevicesCfg for the specific device."""
+       def get_device_cfg(self, pipeline_builder=None, embodiment=None):
+           """Return an Isaac Lab device config for the specific device."""
 
    @register_device
-   class KeyboardTeleopDevice(TeleopDeviceBase):
+   class KeyboardCfg(TeleopDeviceBase):
        name = "keyboard"
 
-       def get_teleop_device_cfg(self, embodiment=None):
-           return DevicesCfg(devices={"keyboard": Se3KeyboardCfg(...)})
+       def get_device_cfg(self, pipeline_builder=None, embodiment=None):
+           return Se3KeyboardCfg(pos_sensitivity=0.05, rot_sensitivity=0.05)
 
 Devices are automatically discovered through decorator-based registration and provide Isaac Lab-compatible configurations.
+
+For XR teleoperation, the ``OpenXRCfg`` device produces an ``IsaacTeleopCfg`` that
+references a **pipeline builder** -- a callable that constructs an ``isaacteleop``
+retargeting pipeline graph. This pipeline converts XR tracking data (hand poses,
+controller inputs) into robot action tensors.
+
+.. code-block:: python
+
+   @register_device
+   class OpenXRCfg(TeleopDeviceBase):
+       name = "openxr"
+
+       def get_device_cfg(self, pipeline_builder=None, embodiment=None):
+           return IsaacTeleopCfg(
+               pipeline_builder=pipeline_builder,
+               xr_cfg=embodiment.get_xr_cfg(),
+           )
 
 Teleop Devices in Detail
 -------------------------
@@ -35,13 +52,16 @@ Teleop Devices in Detail
 
    - **Keyboard**: WASD-style SE3 manipulation with configurable sensitivity parameters
    - **SpaceMouse**: 6DOF precise spatial control for manipulation tasks
-   - **Hand Tracking**: OpenXR-based hand tracking with GR1T2 retargeting for humanoid control
+   - **XR Hand Tracking**: Isaac Teleop pipeline-based hand tracking for humanoid control,
+     using ``isaacteleop`` retargeters (Se3AbsRetargeter, DexHandRetargeter, etc.) to map
+     XR hand poses to robot joint commands
 
 **Registration and Discovery**
    Decorator-based system for automatic device management:
 
    - **@register_device**: Automatic registration during module import
    - **Device Registry**: Central discovery mechanism for available devices
+   - **@register_retargeter**: Associates a pipeline builder with a (device, embodiment) pair
 
 Environment Integration
 -----------------------
@@ -62,6 +82,10 @@ Environment Integration
 
    # Automatic device configuration and integration
    env = env_builder.make_registered()  # Handles device setup internally
+
+For XR devices, the environment builder sets ``isaac_teleop`` on the env config
+(an ``IsaacTeleopCfg``). For keyboard/spacemouse devices, standard Isaac Lab
+device configs are used.
 
 Usage Examples
 --------------
@@ -84,5 +108,5 @@ Usage Examples
 
 .. code-block:: bash
 
-   # VR hand tracking for humanoid control
+   # XR hand tracking for humanoid control (requires CloudXR runtime via Isaac Teleop)
    python isaaclab_arena/scripts/imitation_learning/teleop.py --teleop_device avp_handtracking gr1_open_microwave

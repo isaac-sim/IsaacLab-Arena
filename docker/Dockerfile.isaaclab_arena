@@ -49,6 +49,9 @@ RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
+# Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
+RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.0 --extra-index-url https://pypi.nvidia.com
+
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
 # TODO(alexmillane): Watch the thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1764680205807019
 #                    and remove this thread when IsaacLab has a fix.
