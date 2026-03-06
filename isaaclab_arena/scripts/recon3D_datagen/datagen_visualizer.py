@@ -6,8 +6,9 @@
 """Visualization utilities for recon3D data generation outputs.
 
 Provides functions to:
-- Combined grid: color, depth, flow2d, normals, semantics in one figure.
+- Combined grid: color, depth, flow2d, flow3d, normals, semantics in one figure.
 - Plot 3D camera trajectory with coordinate frames and optional frustums.
+- Interactive 3D scene flow on a point cloud (plotly, rotatable).
 - Individual grids for RGB, depth, normals, optical flow, semantic segmentation.
 """
 
@@ -677,3 +678,203 @@ def _set_equal_aspect_3d(ax: Axes3D, points: np.ndarray) -> None:
     ax.set_xlim(mid[0] - span, mid[0] + span)
     ax.set_ylim(mid[1] - span, mid[1] + span)
     ax.set_zlim(mid[2] - span, mid[2] + span)
+
+
+# ---------------------------------------------------------------------------
+# Interactive 3-D scene flow visualization (plotly)
+# ---------------------------------------------------------------------------
+
+
+def visualize_scene_flow_3d(
+    output_dir: str,
+    camera_id: str,
+    frame_index: int = 0,
+    stride: int = 8,
+    arrow_scale: float = 1.0,
+    point_size: float = 3.0,
+    line_width: float = 3.0,
+    flow_threshold: float = 1e-5,
+    save_path: str | None = None,
+) -> None:
+    """Interactive 3-D visualisation of per-pixel scene flow on a point cloud.
+
+    Every *stride*-th pixel is unprojected to its 3-D world position and
+    rendered as a dot (coloured by the original RGB image).  Pixels with
+    non-zero flow additionally get a **line** starting at the dot, whose
+    length and direction match the 3-D flow vector.
+
+    Line colour encodes *direction* via HSV hue (similar directions →
+    similar colours) and *magnitude* via darkness: small motions produce
+    light/pastel lines while large motions produce dark/saturated lines of
+    the same hue.
+
+    The result is a fully rotatable 3-D figure (saved as an ``.html`` file
+    when *save_path* is given, or displayed interactively otherwise).
+
+    Args:
+        output_dir: Root output directory containing camera sub-directories.
+        camera_id: Camera folder name (e.g. ``"cam0"``).
+        frame_index: Which frame to visualise (matches the filename index).
+        stride: Sub-sample every *stride* pixels in each spatial dimension.
+        arrow_scale: Global multiplier applied to line lengths.
+        point_size: Marker size for the 3-D dots.
+        line_width: Line width for flow lines.
+        flow_threshold: Minimum flow magnitude to draw a line.
+        save_path: Path to save an interactive ``.html`` file.  If ``None``,
+            the figure is displayed in the default browser / notebook.
+    """
+    try:
+        import plotly.graph_objects as go
+    except ImportError as exc:
+        raise ImportError(
+            "plotly is required for interactive 3-D visualisation.  "
+            "Install it with:  pip install plotly"
+        ) from exc
+    from matplotlib.colors import hsv_to_rgb as mpl_hsv_to_rgb
+
+    # ---- Load single-frame data ----------------------------------------
+    cam_dir = os.path.join(output_dir, camera_id)
+    tag = f"{frame_index:010d}"
+
+    depth = np.load(os.path.join(cam_dir, _SUBFOLDER_DEPTH, f"{tag}.npy"))
+    K = np.load(os.path.join(cam_dir, _SUBFOLDER_INTRINSIC, f"{tag}.npy")).astype(np.float64)
+    T = np.load(os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC, f"{tag}.npy")).astype(np.float64)
+
+    flow3d_path = os.path.join(cam_dir, _SUBFOLDER_FLOW3D, f"{tag}.npy")
+    if not os.path.exists(flow3d_path):
+        print(f"[visualize_scene_flow_3d] No flow3d for frame {frame_index}")
+        return
+    flow3d = np.load(flow3d_path).astype(np.float64)
+    rgb_img = np.array(Image.open(os.path.join(cam_dir, _SUBFOLDER_COLOR, f"{tag}.png")))
+
+    H, W = depth.shape
+
+    # ---- Unproject depth → 3-D world coordinates -----------------------
+    v_coords, u_coords = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
+    fx, fy = K[0, 0], K[1, 1]
+    cx, cy = K[0, 2], K[1, 2]
+
+    depth64 = depth.astype(np.float64)
+    x_cam = (u_coords.astype(np.float64) - cx) / fx * depth64
+    y_cam = (v_coords.astype(np.float64) - cy) / fy * depth64
+    z_cam = depth64
+    points_cam = np.stack([x_cam, y_cam, z_cam], axis=-1)  # (H, W, 3)
+
+    R = T[:3, :3]
+    t = T[:3, 3]
+    points_world = (R @ points_cam.reshape(-1, 3).T).T.reshape(H, W, 3) + t
+
+    # ---- Sub-sample & flatten ------------------------------------------
+    pts = points_world[::stride, ::stride]
+    flw = flow3d[::stride, ::stride]
+    clr = rgb_img[::stride, ::stride]
+    dep = depth[::stride, ::stride]
+
+    pts_flat = pts.reshape(-1, 3)
+    flw_flat = flw.reshape(-1, 3)
+    clr_flat = clr.reshape(-1, 3)
+    dep_flat = dep.reshape(-1)
+
+    valid = np.isfinite(dep_flat) & np.all(np.isfinite(pts_flat), axis=-1)
+    pts_v = pts_flat[valid]
+    flw_v = flw_flat[valid]
+    clr_v = clr_flat[valid]
+
+    mag = np.linalg.norm(flw_v, axis=-1)
+    has_flow = mag > flow_threshold
+
+    # ---- Dynamic points (non-zero flow) --------------------------------
+    dyn_pts = pts_v[has_flow]
+    dyn_flw = flw_v[has_flow]
+    dyn_mag = mag[has_flow]
+    N_dyn = len(dyn_pts)
+
+    # Direction → HSV hue  (azimuth of flow vector)
+    # Magnitude → HSV value (larger motion = darker)
+    if N_dyn > 0:
+        phi = np.arctan2(dyn_flw[:, 1], dyn_flw[:, 0])
+        hue = (phi + np.pi) / (2 * np.pi)                  # [0, 1]
+
+        mag_max = dyn_mag.max()
+        mag_norm = dyn_mag / (mag_max + 1e-8)               # [0, 1]
+        # Small flow → light (high V, low S), large flow → dark (low V, high S)
+        saturation = 0.3 + 0.7 * mag_norm
+        value = 1.0 - 0.6 * mag_norm
+
+        hsv = np.stack([hue, saturation, value], axis=-1)
+        arrow_rgb = mpl_hsv_to_rgb(hsv)                     # (N, 3) [0,1]
+
+        ends = dyn_pts + dyn_flw * arrow_scale
+
+        # Vectorised line-segment arrays: [start, end, NaN] per line
+        line_x = np.empty(3 * N_dyn)
+        line_y = np.empty(3 * N_dyn)
+        line_z = np.empty(3 * N_dyn)
+
+        line_x[0::3] = dyn_pts[:, 0]
+        line_x[1::3] = ends[:, 0]
+        line_x[2::3] = np.nan
+
+        line_y[0::3] = dyn_pts[:, 1]
+        line_y[1::3] = ends[:, 1]
+        line_y[2::3] = np.nan
+
+        line_z[0::3] = dyn_pts[:, 2]
+        line_z[1::3] = ends[:, 2]
+        line_z[2::3] = np.nan
+
+        line_rgb = np.repeat(arrow_rgb, 3, axis=0)
+        line_colors = [
+            f"rgb({int(r * 255)},{int(g * 255)},{int(b * 255)})"
+            for r, g, b in line_rgb
+        ]
+
+    # ---- Build plotly figure -------------------------------------------
+    traces = []
+
+    # All 3-D points as dots (RGB-coloured from the image)
+    all_colors = [f"rgb({r},{g},{b})" for r, g, b in clr_v]
+    traces.append(
+        go.Scatter3d(
+            x=pts_v[:, 0],
+            y=pts_v[:, 1],
+            z=pts_v[:, 2],
+            mode="markers",
+            marker=dict(size=point_size, color=all_colors, opacity=0.4),
+            name="Point cloud",
+            hoverinfo="skip",
+        )
+    )
+
+    # Flow lines (coloured by direction + magnitude darkness)
+    if N_dyn > 0:
+        traces.append(
+            go.Scatter3d(
+                x=line_x,
+                y=line_y,
+                z=line_z,
+                mode="lines",
+                line=dict(color=line_colors, width=line_width),
+                name="Flow vectors",
+                hoverinfo="skip",
+            )
+        )
+
+    fig = go.Figure(data=traces)
+    fig.update_layout(
+        title=f"3D Scene Flow — Frame {frame_index} ({camera_id})",
+        scene=dict(
+            xaxis_title="X (m)",
+            yaxis_title="Y (m)",
+            zaxis_title="Z (m)",
+            aspectmode="data",
+        ),
+        legend=dict(x=0, y=1),
+        margin=dict(l=0, r=0, t=40, b=0),
+    )
+
+    if save_path:
+        fig.write_html(save_path)
+        print(f"[visualize_scene_flow_3d] Saved to {save_path}")
+    else:
+        fig.show()

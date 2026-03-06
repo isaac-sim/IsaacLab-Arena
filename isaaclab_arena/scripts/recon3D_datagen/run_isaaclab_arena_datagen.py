@@ -108,6 +108,7 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
 from isaaclab_arena.scripts.recon3D_datagen.datagen_visualizer import (
     visualize_all_modalities_grid,
     visualize_camera_trajectory,
+    visualize_scene_flow_3d,
 )
 
 camera_id = camera_id_from_index(0)
@@ -133,6 +134,17 @@ visualize_camera_trajectory(
     frustum_scale=0.04,
     num_frustums=num_samples,
     save_path=os.path.join(viz_dir, "camera_trajectory_3d.png"),
+)
+
+# Interactive 3D scene flow (saved as rotatable HTML)
+frame_index = 27
+visualize_scene_flow_3d(
+    OUTPUT_DIR,
+    camera_id,
+    frame_index=frame_index,
+    stride=8,
+    arrow_scale=1.0,
+    save_path=os.path.join(viz_dir, f"scene_flow_3d_frame{frame_index}.html"),
 )
 
 print(f"Visualizations saved to {viz_dir}")
