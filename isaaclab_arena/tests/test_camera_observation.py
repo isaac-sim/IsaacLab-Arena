@@ -54,7 +54,7 @@ def _test_camera_observation(simulation_app) -> bool:
 
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.device)
+            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             obs, _, _, _, _ = env.step(actions)
             # Get the camera observation
             camera_observation = obs["camera_obs"]["robot_pov_cam_rgb"]
