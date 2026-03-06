@@ -112,7 +112,7 @@ Sequential Tasks
 ----------------
 
 Tasks can be composed sequentially to form longer horizon, more complex tasks using the ``SequentialTaskBase`` class.
-``SequentialTaskBase`` takes a list of ``TaskBase`` instances and automatically composes them into a single task. 
+``SequentialTaskBase`` takes a list of ``TaskBase`` instances and automatically composes them into a single task.
 The order of the tasks in the list determines the order in which subtasks must be completed.
 
 **Usage Example (Pick and Place Task and Close Door Task Composition)**
