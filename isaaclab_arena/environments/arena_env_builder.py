@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import gymnasium as gym
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -105,13 +106,12 @@ class ArenaEnvBuilder:
         else:
             print(f"Relation solving not completed after {result.attempts} attempt(s)")
 
-    def _modify_recorder_cfg_for_distributed(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
-        """Modify the recorder dataset filename for distributed multi-gpu envs.
-        This is to avoid HDF5 file lock conflict when distributed: each rank uses a unique dataset filename.
-        """
-        if getattr(self.args, "distributed", False):
-            base = getattr(recorder_cfg, "dataset_filename", "dataset")
-            recorder_cfg.dataset_filename = f"{base}_rank{get_local_rank()}"
+    def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
+        """Modify the recorder dataset filename to include the timestamp and rank."""
+        base = getattr(recorder_cfg, "dataset_filename", "dataset")
+        recorder_cfg.dataset_filename = (
+            f"{base}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_rank{get_local_rank()}"
+        )
         return recorder_cfg
 
     # This method gives the arena environment a chance to modify the environment configuration.
@@ -182,8 +182,7 @@ class ArenaEnvBuilder:
             embodiment.get_recorder_term_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
-        # Only modify the recorder configuration for distributed multi-gpu envs.
-        recorder_manager_cfg = self._modify_recorder_cfg_for_distributed(recorder_manager_cfg)
+        recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
@@ -289,10 +288,17 @@ class ArenaEnvBuilder:
         # THIS WILL BE REMOVED IN THE FUTURE.
         cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
+        # Register the environment with the Gym registry.
+        kwargs = {
+            "env_cfg_entry_point": cfg_entry,
+        }
+        if self.arena_env.rl_framework is not None:
+            assert self.arena_env.rl_policy_cfg is not None
+            kwargs[self.arena_env.rl_framework.get_entry_point_string()] = self.arena_env.rl_policy_cfg
         gym.register(
             id=name,
             entry_point=entry_point,
-            kwargs={"env_cfg_entry_point": cfg_entry},
+            kwargs=kwargs,
             disable_env_checker=True,
         )
         cfg = parse_env_cfg(

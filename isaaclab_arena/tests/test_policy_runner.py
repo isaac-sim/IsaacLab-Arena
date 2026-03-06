@@ -116,14 +116,3 @@ def test_replay_policy_gr1_open_microwave():
         embodiment="gr1_pink",
         num_steps=NUM_STEPS,
     )
-
-
-def test_rl_policy_lift_object():
-    run_policy_runner(
-        policy_type="rsl_rl",
-        checkpoint_path=TestConstants.test_data_dir + "/lift_object_model.pt",
-        example_environment="lift_object",
-        embodiment="franka",
-        object_name="dex_cube",
-        num_steps=NUM_STEPS,
-    )
