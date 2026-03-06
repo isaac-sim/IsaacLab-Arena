@@ -620,33 +620,47 @@ def print_report(data: dict) -> None:
     # ---- Weekly stats table ----
     wq, wd, wtq, wtd, all_weeks = _group_records_by_week(data)
     if all_weeks:
+        week_labels = [w[5:] for w in all_weeks]  # "W07" from "2026-W07"
+        name_w, val_w = 24, 6
 
-        def row(vals):
-            if not vals:
-                return "   —"
-            sv = sorted(vals)
-            return (
-                f"{median(vals):5.1f} / {_pct(sv, 0.9):5.1f} / {stdev(vals) if len(vals) > 1 else 0:5.1f} "
-                f" n={len(vals)}"
-            )
+        def fmt_v(v):
+            return f"{v:{val_w}.1f}" if v is not None else f"{'—':>{val_w}}"
 
-        col_w = 32
+        def week_vals(vals_by_week, fn):
+            return [fn(vs) if vs else None for vs in (vals_by_week.get(w, []) for w in all_weeks)]
 
-        for metric, job_week_map, total_map, label in [
-            ("QUEUE TIME (med/p90/σ, minutes)", wq, wtq, "Total queue"),
-            ("DURATION   (med/p90/σ, minutes)", wd, wtd, "Total wall-clock"),
-        ]:
-            print(f"\n--- Weekly {metric} ---")
-            header = f"  {'Job':<{col_w}}" + "".join(f"  {w:>28}" for w in all_weeks)
-            print(header)
-            print("  " + "-" * (col_w + 30 * len(all_weeks)))
+        def trend(values):
+            avail = [v for v in values if v is not None]
+            if len(avail) < 2:
+                return " "
+            return "↑" if avail[-1] > avail[-2] + 0.5 else "↓" if avail[-1] < avail[-2] - 0.5 else "→"
+
+        def print_metric_block(job_week_map, total_map, section, total_label):
+            hdr = f"  {'Job':{name_w}}" + "".join(f"  {lbl:>{val_w}}" for lbl in week_labels)
+            hr = "  " + "─" * (name_w + (val_w + 2) * len(all_weeks) + 2)
+            for metric_name, metric_fn in [
+                ("Median (min)", lambda vs: median(vs) if vs else None),
+                ("p90   (min)", lambda vs: _pct(sorted(vs), 0.9) if vs else None),
+            ]:
+                print(f"\n  {section} — {metric_name}")
+                print(hdr)
+                print(hr)
+                for api_name, display in PLOT_JOBS.items():
+                    vals = week_vals(job_week_map.get(api_name, {}), metric_fn)
+                    print(f"  {display:{name_w}}" + "".join(f"  {fmt_v(v)}" for v in vals) + f"  {trend(vals)}")
+                vals = week_vals(total_map, metric_fn)
+                print(f"  {'  ' + total_label:<{name_w}}" + "".join(f"  {fmt_v(v)}" for v in vals) + f"  {trend(vals)}")
+            print(f"\n  {section} — n (samples)")
+            print(hdr)
+            print(hr)
             for api_name, display in PLOT_JOBS.items():
                 vals_by_week = job_week_map.get(api_name, {})
-                line = f"  {display:<{col_w}}" + "".join(f"  {row(vals_by_week.get(w, [])):>28}" for w in all_weeks)
-                print(line)
-            # Total row
-            line = f"  {'  ' + label:<{col_w}}" + "".join(f"  {row(total_map.get(w, [])):>28}" for w in all_weeks)
-            print(line)
+                print(
+                    f"  {display:{name_w}}" + "".join(f"  {len(vals_by_week.get(w, [])):>{val_w}d}" for w in all_weeks)
+                )
+
+        print_metric_block(wq, wtq, "QUEUE TIME", "Total queue")
+        print_metric_block(wd, wtd, "DURATION", "Total wall-clock")
 
     print("\n" + "=" * 70)
 
