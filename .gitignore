@@ -59,6 +59,7 @@ TAGS
 
 # outputs
 *outputs/
+*isaaclab_arena/scripts/recon3D_datagen/results/
 
 # Training images
 *training_images/
