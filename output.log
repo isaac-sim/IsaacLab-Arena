@@ -1,0 +1,1161 @@
+Using Docker image: isaaclab_arena:cuda_curobo
+Building Docker image with GR00T installation: false
+Building Docker image with cuRobo installation: true
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.isaaclab_arena
+#1 transferring dockerfile: 6.72kB done
+#1 DONE 0.0s
+
+#2 [auth] nvidia/isaac-sim:pull token for nvcr.io
+#2 DONE 0.0s
+
+#3 [internal] load metadata for nvcr.io/nvidia/isaac-sim:5.0.0
+#3 DONE 0.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 76B done
+#4 DONE 0.0s
+
+#5 [ 1/45] FROM nvcr.io/nvidia/isaac-sim:5.0.0@sha256:499e1fd7a3ffc68c6c6fff466d4a6a6dc9ab1573e0a28dbd5f100501ea64e410
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 1.13MB 0.5s done
+#6 DONE 0.5s
+
+#7 [12/45] RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then         echo "OSQP is installed. You can remove this clause from the Arena dockerfile.";     else         echo "OSQP missing, installing... This is a patch for an Isaac Lab bug.";         /isaac-sim/python.sh -m pip install --upgrade pip;         /isaac-sim/python.sh -m pip install qpsolvers==4.8.1;     fi
+#7 CACHED
+
+#8 [17/45] RUN pip install huggingface-hub[cli]
+#8 CACHED
+
+#9 [19/45] COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
+#9 CACHED
+
+#10 [ 2/45] WORKDIR /workspaces/isaaclab_arena
+#10 CACHED
+
+#11 [18/45] RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
+#11 CACHED
+
+#12 [ 7/45] RUN ln -s /isaac-sim/ /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim
+#12 CACHED
+
+#13 [ 3/45] RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then       mv /usr/share/vulkan /usr/share/vulkan_hidden;     fi
+#13 CACHED
+
+#14 [ 5/45] RUN pip3 install --upgrade pip
+#14 CACHED
+
+#15 [ 4/45] RUN apt-get update && apt-get install -y   git   git-lfs   cmake   sudo   python3-pip
+#15 CACHED
+
+#16 [ 9/45] RUN chmod 777 -R /isaac-sim/kit/
+#16 CACHED
+
+#17 [11/45] RUN /workspaces/isaaclab_arena/submodules/IsaacLab/isaaclab.sh -i
+#17 CACHED
+
+#18 [ 6/45] COPY ./submodules/IsaacLab /workspaces/isaaclab_arena/submodules/IsaacLab
+#18 CACHED
+
+#19 [ 8/45] RUN for DIR in /workspaces/isaaclab_arena/submodules/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR"; done
+#19 CACHED
+
+#20 [13/45] RUN /isaac-sim/python.sh -m pip install --upgrade pip &&   /isaac-sim/python.sh -m pip install   pytest   jupyter   typing_extensions   onnxruntime
+#20 CACHED
+
+#21 [16/45] RUN /isaac-sim/python.sh -m pip install --upgrade pip &&   /isaac-sim/python.sh -m pip install   vuer[all]   lightwheel-sdk
+#21 CACHED
+
+#22 [10/45] RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
+#22 CACHED
+
+#23 [14/45] RUN rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/typing_extensions*
+#23 CACHED
+
+#24 [15/45] RUN rm -rf /isaac-sim/exts/omni.pip.cloud/pip_prebundle/typing_extensions*
+#24 CACHED
+
+#25 [20/45] RUN chmod +x /tmp/install_cuda.sh
+#25 CACHED
+
+#26 [21/45] RUN if [ "true" = "true" ]; then       /tmp/install_cuda.sh &&       export TORCH_CUDA_ARCH_LIST=8.0+PTX &&       /isaac-sim/python.sh -m pip install --user --no-build-isolation       "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" &&       /isaac-sim/python.sh -m pip install rerun-sdk==0.23 ;     else       echo "Skipping cuRobo installation";   fi
+#26 0.209 Installing CUDA 12.8 for GR00T dependencies
+#26 0.209 Detected Ubuntu 22.04, using repository: ubuntu2204
+#26 0.576 Hit:1 http://archive.ubuntu.com/ubuntu jammy InRelease
+#26 0.596 Hit:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
+#26 0.705 Hit:3 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+#26 0.837 Hit:4 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+#26 1.018 Reading package lists...
+#26 2.058 Reading package lists...
+#26 3.034 Building dependency tree...
+#26 3.229 Reading state information...
+#26 3.470 ca-certificates is already the newest version (20240203~22.04.1).
+#26 3.470 gnupg is already the newest version (2.2.27-3ubuntu2.5).
+#26 3.470 gnupg set to manually installed.
+#26 3.470 The following NEW packages will be installed:
+#26 3.470   wget
+#26 3.646 0 upgraded, 1 newly installed, 0 to remove and 36 not upgraded.
+#26 3.646 Need to get 339 kB of archives.
+#26 3.646 After this operation, 950 kB of additional disk space will be used.
+#26 3.646 Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 wget amd64 1.21.2-2ubuntu1.1 [339 kB]
+#26 4.186 debconf: delaying package configuration, since apt-utils is not installed
+#26 4.226 Fetched 339 kB in 1s (640 kB/s)
+#26 4.259 Selecting previously unselected package wget.
+#26 4.259 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 20868 files and directories currently installed.)
+#26 4.309 Preparing to unpack .../wget_1.21.2-2ubuntu1.1_amd64.deb ...
+#26 4.313 Unpacking wget (1.21.2-2ubuntu1.1) ...
+#26 4.373 Setting up wget (1.21.2-2ubuntu1.1) ...
+#26 4.542 Selecting previously unselected package cuda-keyring.
+#26 4.553 (Reading database ... 20879 files and directories currently installed.)
+#26 4.553 Preparing to unpack cuda-keyring_1.1-1_all.deb ...
+#26 4.557 Unpacking cuda-keyring (1.1-1) ...
+#26 4.583 Setting up cuda-keyring (1.1-1) ...
+#26 4.850 Get:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease [1581 B]
+#26 4.926 Get:2 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  Packages [2383 kB]
+#26 4.974 Hit:3 http://archive.ubuntu.com/ubuntu jammy InRelease
+#26 4.974 Hit:4 http://security.ubuntu.com/ubuntu jammy-security InRelease
+#26 5.048 Hit:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+#26 5.123 Hit:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+#26 5.394 Fetched 2385 kB in 1s (4128 kB/s)
+#26 5.394 Reading package lists...
+#26 6.481 Reading package lists...
+#26 7.535 Building dependency tree...
+#26 7.775 Reading state information...
+#26 7.956 The following additional packages will be installed:
+#26 7.956   ca-certificates-java cuda-cccl-12-8 cuda-command-line-tools-12-8
+#26 7.956   cuda-compiler-12-8 cuda-crt-12-8 cuda-cudart-12-8 cuda-cudart-dev-12-8
+#26 7.956   cuda-cuobjdump-12-8 cuda-cupti-12-8 cuda-cupti-dev-12-8 cuda-cuxxfilt-12-8
+#26 7.956   cuda-documentation-12-8 cuda-driver-dev-12-8 cuda-gdb-12-8
+#26 7.956   cuda-libraries-12-8 cuda-libraries-dev-12-8 cuda-nsight-12-8
+#26 7.956   cuda-nsight-compute-12-8 cuda-nsight-systems-12-8 cuda-nvcc-12-8
+#26 7.956   cuda-nvdisasm-12-8 cuda-nvml-dev-12-8 cuda-nvprof-12-8 cuda-nvprune-12-8
+#26 7.956   cuda-nvrtc-12-8 cuda-nvrtc-dev-12-8 cuda-nvtx-12-8 cuda-nvvm-12-8
+#26 7.956   cuda-nvvp-12-8 cuda-opencl-12-8 cuda-opencl-dev-12-8 cuda-profiler-api-12-8
+#26 7.956   cuda-sanitizer-12-8 cuda-toolkit-12-8-config-common
+#26 7.956   cuda-toolkit-12-config-common cuda-toolkit-config-common cuda-tools-12-8
+#26 7.956   cuda-visual-tools-12-8 default-jre default-jre-headless gds-tools-12-8
+#26 7.956   java-common libasound2 libasound2-data libavahi-client3 libavahi-common-data
+#26 7.956   libavahi-common3 libcairo2 libcublas-12-8 libcublas-dev-12-8 libcufft-12-8
+#26 7.956   libcufft-dev-12-8 libcufile-12-8 libcufile-dev-12-8 libcups2 libcurand-12-8
+#26 7.956   libcurand-dev-12-8 libcusolver-12-8 libcusolver-dev-12-8 libcusparse-12-8
+#26 7.956   libcusparse-dev-12-8 libdbus-1-3 libgif7 libgraphite2-3 libharfbuzz0b
+#26 7.956   liblcms2-2 libnpp-12-8 libnpp-dev-12-8 libnspr4 libnss3 libnuma1
+#26 7.956   libnvfatbin-12-8 libnvfatbin-dev-12-8 libnvjitlink-12-8
+#26 7.956   libnvjitlink-dev-12-8 libnvjpeg-12-8 libnvjpeg-dev-12-8 libpcsclite1
+#26 7.957   libpixman-1-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
+#26 7.957   libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-util1
+#26 7.957   libxcb-xinerama0 libxcb-xinput0 libxcb-xkb1 libxcomposite1 libxdamage1
+#26 7.957   libxkbcommon-x11-0 libxkbcommon0 libxtst6 nsight-compute-2025.1.1
+#26 7.957   nsight-systems-2024.6.2 openjdk-11-jre openjdk-11-jre-headless xkb-data
+#26 7.958 Suggested packages:
+#26 7.958   libasound2-plugins alsa-utils cups-common liblcms2-utils pcscd libnss-mdns
+#26 7.958   fonts-dejavu-extra fonts-ipafont-gothic fonts-ipafont-mincho
+#26 7.958   fonts-wqy-microhei | fonts-wqy-zenhei fonts-indic
+#26 7.958 Recommended packages:
+#26 7.958   alsa-ucm-conf alsa-topology-conf dbus libatk-wrapper-java-jni
+#26 7.958   fonts-dejavu-extra
+#26 8.194 The following NEW packages will be installed:
+#26 8.194   ca-certificates-java cuda-cccl-12-8 cuda-command-line-tools-12-8
+#26 8.194   cuda-compiler-12-8 cuda-crt-12-8 cuda-cudart-12-8 cuda-cudart-dev-12-8
+#26 8.194   cuda-cuobjdump-12-8 cuda-cupti-12-8 cuda-cupti-dev-12-8 cuda-cuxxfilt-12-8
+#26 8.194   cuda-documentation-12-8 cuda-driver-dev-12-8 cuda-gdb-12-8
+#26 8.194   cuda-libraries-12-8 cuda-libraries-dev-12-8 cuda-nsight-12-8
+#26 8.194   cuda-nsight-compute-12-8 cuda-nsight-systems-12-8 cuda-nvcc-12-8
+#26 8.194   cuda-nvdisasm-12-8 cuda-nvml-dev-12-8 cuda-nvprof-12-8 cuda-nvprune-12-8
+#26 8.194   cuda-nvrtc-12-8 cuda-nvrtc-dev-12-8 cuda-nvtx-12-8 cuda-nvvm-12-8
+#26 8.194   cuda-nvvp-12-8 cuda-opencl-12-8 cuda-opencl-dev-12-8 cuda-profiler-api-12-8
+#26 8.194   cuda-sanitizer-12-8 cuda-toolkit-12-8 cuda-toolkit-12-8-config-common
+#26 8.194   cuda-toolkit-12-config-common cuda-toolkit-config-common cuda-tools-12-8
+#26 8.194   cuda-visual-tools-12-8 default-jre default-jre-headless gds-tools-12-8
+#26 8.194   java-common libasound2 libasound2-data libavahi-client3 libavahi-common-data
+#26 8.194   libavahi-common3 libcairo2 libcublas-12-8 libcublas-dev-12-8 libcufft-12-8
+#26 8.194   libcufft-dev-12-8 libcufile-12-8 libcufile-dev-12-8 libcups2 libcurand-12-8
+#26 8.194   libcurand-dev-12-8 libcusolver-12-8 libcusolver-dev-12-8 libcusparse-12-8
+#26 8.195   libcusparse-dev-12-8 libdbus-1-3 libgif7 libgraphite2-3 libharfbuzz0b
+#26 8.195   liblcms2-2 libnpp-12-8 libnpp-dev-12-8 libnspr4 libnss3 libnuma1
+#26 8.195   libnvfatbin-12-8 libnvfatbin-dev-12-8 libnvjitlink-12-8
+#26 8.195   libnvjitlink-dev-12-8 libnvjpeg-12-8 libnvjpeg-dev-12-8 libpcsclite1
+#26 8.195   libpixman-1-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
+#26 8.195   libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-util1
+#26 8.195   libxcb-xinerama0 libxcb-xinput0 libxcb-xkb1 libxcomposite1 libxdamage1
+#26 8.195   libxkbcommon-x11-0 libxkbcommon0 libxtst6 nsight-compute-2025.1.1
+#26 8.195   nsight-systems-2024.6.2 openjdk-11-jre openjdk-11-jre-headless xkb-data
+#26 8.542 0 upgraded, 101 newly installed, 0 to remove and 36 not upgraded.
+#26 8.542 Need to get 3658 MB of archives.
+#26 8.542 After this operation, 8522 MB of additional disk space will be used.
+#26 8.542 Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libdbus-1-3 amd64 1.12.20-2ubuntu4.1 [189 kB]
+#26 8.551 Get:2 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cccl-12-8 12.8.90-1 [966 kB]
+#26 9.088 Get:3 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cupti-12-8 12.8.90-1 [11.4 MB]
+#26 9.331 Get:4 http://archive.ubuntu.com/ubuntu jammy/main amd64 xkb-data all 2.33-1 [394 kB]
+#26 9.599 Get:5 http://archive.ubuntu.com/ubuntu jammy/main amd64 libnuma1 amd64 2.0.14-3ubuntu2 [22.5 kB]
+#26 9.611 Get:6 http://archive.ubuntu.com/ubuntu jammy/main amd64 java-common all 0.72build2 [6782 B]
+#26 9.614 Get:7 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libavahi-common-data amd64 0.8-5ubuntu5.4 [24.0 kB]
+#26 9.625 Get:8 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libavahi-common3 amd64 0.8-5ubuntu5.4 [23.9 kB]
+#26 9.637 Get:9 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libavahi-client3 amd64 0.8-5ubuntu5.4 [28.0 kB]
+#26 9.648 Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libcups2 amd64 2.4.1op1-1ubuntu4.16 [264 kB]
+#26 9.680 Get:11 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cupti-dev-12-8 12.8.90-1 [4075 kB]
+#26 9.718 Get:12 http://archive.ubuntu.com/ubuntu jammy/main amd64 liblcms2-2 amd64 2.12~rc1-2build2 [159 kB]
+#26 9.763 Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libnspr4 amd64 2:4.35-0ubuntu0.22.04.1 [119 kB]
+#26 9.790 Get:14 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libnss3 amd64 2:3.98-0ubuntu0.22.04.2 [1347 kB]
+#26 9.885 Get:15 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvdisasm-12-8 12.8.90-1 [5088 kB]
+#26 9.999 Get:16 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libasound2-data all 1.2.6.1-1ubuntu1.1 [19.3 kB]
+#26 10.00 Get:17 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libasound2 amd64 1.2.6.1-1ubuntu1.1 [391 kB]
+#26 10.02 Get:18 http://archive.ubuntu.com/ubuntu jammy/main amd64 libgraphite2-3 amd64 1.3.14-1build2 [71.3 kB]
+#26 10.02 Get:19 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libharfbuzz0b amd64 2.7.4-1ubuntu3.2 [353 kB]
+#26 10.03 Get:20 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpcsclite1 amd64 1.9.5-3ubuntu1 [19.8 kB]
+#26 10.03 Get:21 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 openjdk-11-jre-headless amd64 11.0.30+7-1ubuntu1~22.04 [42.6 MB]
+#26 10.15 Get:22 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cuobjdump-12-8 12.8.90-1 [208 kB]
+#26 10.45 Get:23 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-gdb-12-8 12.8.90-1 [25.1 MB]
+#26 11.38 Get:24 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvprof-12-8 12.8.90-1 [2398 kB]
+#26 11.85 Get:25 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvtx-12-8 12.8.90-1 [52.0 kB]
+#26 12.01 Get:26 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-sanitizer-12-8 12.8.93-1 [10.3 MB]
+#26 12.40 Get:27 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-command-line-tools-12-8 12.8.1-1 [2542 B]
+#26 12.73 Get:28 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cuxxfilt-12-8 12.8.90-1 [191 kB]
+#26 13.07 Get:29 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-toolkit-config-common 13.1.80-1 [17.4 kB]
+#26 13.41 Get:30 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-toolkit-12-config-common 12.9.79-1 [16.6 kB]
+#26 13.70 Get:31 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-toolkit-12-8-config-common 12.8.90-1 [16.4 kB]
+#26 13.72 Get:32 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cudart-12-8 12.8.90-1 [170 kB]
+#26 13.74 Get:33 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-driver-dev-12-8 12.8.90-1 [29.1 kB]
+#26 13.91 Get:34 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-cudart-dev-12-8 12.8.90-1 [1257 kB]
+#26 14.24 Get:35 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvvm-12-8 12.8.93-1 [43.8 MB]
+#26 15.60 Get:36 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-crt-12-8 12.8.93-1 [81.1 kB]
+#26 15.93 Get:37 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvcc-12-8 12.8.93-1 [36.0 MB]
+#26 17.22 Get:38 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvprune-12-8 12.8.90-1 [60.6 kB]
+#26 17.43 Get:39 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-compiler-12-8 12.8.1-1 [2506 B]
+#26 17.61 Get:40 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-documentation-12-8 12.8.90-1 [49.9 kB]
+#26 17.79 Get:41 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvrtc-12-8 12.8.93-1 [62.3 MB]
+#26 18.33 Get:42 http://archive.ubuntu.com/ubuntu jammy/main amd64 default-jre-headless amd64 2:1.11-72build2 [3042 B]
+#26 18.33 Get:43 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 ca-certificates-java all 20190909ubuntu1.2 [12.1 kB]
+#26 18.33 Get:44 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libgif7 amd64 5.1.9-2ubuntu0.1 [33.9 kB]
+#26 18.33 Get:45 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxtst6 amd64 2:1.2.3-1build4 [13.4 kB]
+#26 18.33 Get:46 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 openjdk-11-jre amd64 11.0.30+7-1ubuntu1~22.04 [214 kB]
+#26 18.33 Get:47 http://archive.ubuntu.com/ubuntu jammy/main amd64 default-jre amd64 2:1.11-72build2 [896 B]
+#26 18.33 Get:48 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpixman-1-0 amd64 0.40.0-1ubuntu0.22.04.1 [264 kB]
+#26 18.33 Get:49 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-render0 amd64 1.14-3ubuntu3 [16.4 kB]
+#26 18.33 Get:50 http://archive.ubuntu.com/ubuntu jammy/main amd64 libcairo2 amd64 1.16.0-5ubuntu2 [628 kB]
+#26 18.50 Get:51 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-xinerama0 amd64 1.14-3ubuntu3 [5414 B]
+#26 18.50 Get:52 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-icccm4 amd64 0.4.1-1.1build2 [11.5 kB]
+#26 18.50 Get:53 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-util1 amd64 0.4.0-1build2 [11.4 kB]
+#26 18.50 Get:54 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-image0 amd64 0.4.0-2 [11.5 kB]
+#26 18.51 Get:55 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-keysyms1 amd64 0.4.0-1build3 [8746 B]
+#26 18.51 Get:56 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-render-util0 amd64 0.3.9-1build3 [10.3 kB]
+#26 18.51 Get:57 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-shape0 amd64 1.14-3ubuntu3 [6158 B]
+#26 18.51 Get:58 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxkbcommon0 amd64 1.4.0-1 [125 kB]
+#26 18.53 Get:59 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-xkb1 amd64 1.14-3ubuntu3 [32.8 kB]
+#26 18.64 Get:60 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxkbcommon-x11-0 amd64 1.4.0-1 [14.4 kB]
+#26 18.79 Get:61 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcb-xinput0 amd64 1.14-3ubuntu3 [34.3 kB]
+#26 18.80 Get:62 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libxcb-cursor0 amd64 0.1.1-4ubuntu1 [10.5 kB]
+#26 18.80 Get:63 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxcomposite1 amd64 1:0.4.5-1build2 [7192 B]
+#26 18.80 Get:64 http://archive.ubuntu.com/ubuntu jammy/main amd64 libxdamage1 amd64 1:1.1.5-2build2 [7154 B]
+#26 19.80 Get:65 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-opencl-12-8 12.8.90-1 [24.0 kB]
+#26 19.90 Get:66 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcublas-12-8 12.8.4.1-1 [464 MB]
+#26 27.82 Get:67 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcufft-12-8 11.3.3.83-1 [151 MB]
+#26 29.29 Get:68 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcufile-12-8 1.13.1.3-1 [886 kB]
+#26 29.29 Get:69 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcurand-12-8 10.3.9.90-1 [44.8 MB]
+#26 30.07 Get:70 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcusolver-12-8 11.7.3.90-1 [159 MB]
+#26 31.65 Get:71 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcusparse-12-8 12.5.8.93-1 [164 MB]
+#26 33.22 Get:72 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnpp-12-8 12.3.3.100-1 [131 MB]
+#26 34.56 Get:73 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnvjitlink-12-8 12.8.93-1 [28.3 MB]
+#26 34.98 Get:74 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnvfatbin-12-8 12.8.90-1 [743 kB]
+#26 35.33 Get:75 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnvjpeg-12-8 12.3.5.92-1 [2910 kB]
+#26 35.38 Get:76 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-libraries-12-8 12.8.1-1 [2610 B]
+#26 35.52 Get:77 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-profiler-api-12-8 12.8.90-1 [18.6 kB]
+#26 35.92 Get:78 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvrtc-dev-12-8 12.8.93-1 [53.1 MB]
+#26 36.49 Get:79 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-opencl-dev-12-8 12.8.90-1 [89.4 kB]
+#26 36.61 Get:80 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcublas-dev-12-8 12.8.4.1-1 [487 MB]
+#26 41.37 Get:81 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcufft-dev-12-8 11.3.3.83-1 [302 MB]
+#26 44.32 Get:82 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcufile-dev-12-8 1.13.1.3-1 [2679 kB]
+#26 44.45 Get:83 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcurand-dev-12-8 10.3.9.90-1 [44.8 MB]
+#26 45.21 Get:84 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcusolver-dev-12-8 11.7.3.90-1 [103 MB]
+#26 46.46 Get:85 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libcusparse-dev-12-8 12.5.8.93-1 [168 MB]
+#26 48.11 Get:86 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnpp-dev-12-8 12.3.3.100-1 [130 MB]
+#26 49.38 Get:87 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnvjitlink-dev-12-8 12.8.93-1 [26.1 MB]
+#26 49.76 Get:88 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnvfatbin-dev-12-8 12.8.90-1 [619 kB]
+#26 50.07 Get:89 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  libnvjpeg-dev-12-8 12.3.5.92-1 [2612 kB]
+#26 50.10 Get:90 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-libraries-dev-12-8 12.8.1-1 [2650 B]
+#26 50.23 Get:91 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nsight-12-8 12.8.90-1 [119 MB]
+#26 51.38 Get:92 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  nsight-compute-2025.1.1 2025.1.1.2-1 [295 MB]
+#26 54.27 Get:93 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nsight-compute-12-8 12.8.1-1 [4056 B]
+#26 54.27 Get:94 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  nsight-systems-2024.6.2 2024.6.2.225-246235244400v0 [374 MB]
+#26 57.91 Get:95 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nsight-systems-12-8 12.8.1-1 [3356 B]
+#26 57.91 Get:96 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvml-dev-12-8 12.8.90-1 [127 kB]
+#26 57.92 Get:97 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-nvvp-12-8 12.8.93-1 [115 MB]
+#26 59.02 Get:98 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-visual-tools-12-8 12.8.1-1 [2946 B]
+#26 59.19 Get:99 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  gds-tools-12-8 1.13.1.3-1 [39.0 MB]
+#26 59.78 Get:100 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-tools-12-8 12.8.1-1 [2462 B]
+#26 59.92 Get:101 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  cuda-toolkit-12-8 12.8.1-1 [3356 B]
+#26 60.07 debconf: delaying package configuration, since apt-utils is not installed
+#26 60.10 Fetched 3658 MB in 52s (70.7 MB/s)
+#26 60.13 Selecting previously unselected package libdbus-1-3:amd64.
+#26 60.13 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 20884 files and directories currently installed.)
+#26 60.14 Preparing to unpack .../000-libdbus-1-3_1.12.20-2ubuntu4.1_amd64.deb ...
+#26 60.15 Unpacking libdbus-1-3:amd64 (1.12.20-2ubuntu4.1) ...
+#26 60.19 Selecting previously unselected package xkb-data.
+#26 60.19 Preparing to unpack .../001-xkb-data_2.33-1_all.deb ...
+#26 60.20 Unpacking xkb-data (2.33-1) ...
+#26 60.30 Selecting previously unselected package libnuma1:amd64.
+#26 60.30 Preparing to unpack .../002-libnuma1_2.0.14-3ubuntu2_amd64.deb ...
+#26 60.30 Unpacking libnuma1:amd64 (2.0.14-3ubuntu2) ...
+#26 60.34 Selecting previously unselected package java-common.
+#26 60.34 Preparing to unpack .../003-java-common_0.72build2_all.deb ...
+#26 60.35 Unpacking java-common (0.72build2) ...
+#26 60.38 Selecting previously unselected package libavahi-common-data:amd64.
+#26 60.39 Preparing to unpack .../004-libavahi-common-data_0.8-5ubuntu5.4_amd64.deb ...
+#26 60.39 Unpacking libavahi-common-data:amd64 (0.8-5ubuntu5.4) ...
+#26 60.45 Selecting previously unselected package libavahi-common3:amd64.
+#26 60.45 Preparing to unpack .../005-libavahi-common3_0.8-5ubuntu5.4_amd64.deb ...
+#26 60.45 Unpacking libavahi-common3:amd64 (0.8-5ubuntu5.4) ...
+#26 60.49 Selecting previously unselected package libavahi-client3:amd64.
+#26 60.49 Preparing to unpack .../006-libavahi-client3_0.8-5ubuntu5.4_amd64.deb ...
+#26 60.50 Unpacking libavahi-client3:amd64 (0.8-5ubuntu5.4) ...
+#26 60.53 Selecting previously unselected package libcups2:amd64.
+#26 60.53 Preparing to unpack .../007-libcups2_2.4.1op1-1ubuntu4.16_amd64.deb ...
+#26 60.54 Unpacking libcups2:amd64 (2.4.1op1-1ubuntu4.16) ...
+#26 60.58 Selecting previously unselected package liblcms2-2:amd64.
+#26 60.58 Preparing to unpack .../008-liblcms2-2_2.12~rc1-2build2_amd64.deb ...
+#26 60.58 Unpacking liblcms2-2:amd64 (2.12~rc1-2build2) ...
+#26 60.62 Selecting previously unselected package libnspr4:amd64.
+#26 60.62 Preparing to unpack .../009-libnspr4_2%3a4.35-0ubuntu0.22.04.1_amd64.deb ...
+#26 60.62 Unpacking libnspr4:amd64 (2:4.35-0ubuntu0.22.04.1) ...
+#26 60.66 Selecting previously unselected package libnss3:amd64.
+#26 60.66 Preparing to unpack .../010-libnss3_2%3a3.98-0ubuntu0.22.04.2_amd64.deb ...
+#26 60.67 Unpacking libnss3:amd64 (2:3.98-0ubuntu0.22.04.2) ...
+#26 60.79 Selecting previously unselected package libasound2-data.
+#26 60.79 Preparing to unpack .../011-libasound2-data_1.2.6.1-1ubuntu1.1_all.deb ...
+#26 60.80 Unpacking libasound2-data (1.2.6.1-1ubuntu1.1) ...
+#26 60.85 Selecting previously unselected package libasound2:amd64.
+#26 60.86 Preparing to unpack .../012-libasound2_1.2.6.1-1ubuntu1.1_amd64.deb ...
+#26 60.86 Unpacking libasound2:amd64 (1.2.6.1-1ubuntu1.1) ...
+#26 60.90 Selecting previously unselected package libgraphite2-3:amd64.
+#26 60.91 Preparing to unpack .../013-libgraphite2-3_1.3.14-1build2_amd64.deb ...
+#26 60.91 Unpacking libgraphite2-3:amd64 (1.3.14-1build2) ...
+#26 60.94 Selecting previously unselected package libharfbuzz0b:amd64.
+#26 60.95 Preparing to unpack .../014-libharfbuzz0b_2.7.4-1ubuntu3.2_amd64.deb ...
+#26 60.95 Unpacking libharfbuzz0b:amd64 (2.7.4-1ubuntu3.2) ...
+#26 60.99 Selecting previously unselected package libpcsclite1:amd64.
+#26 61.00 Preparing to unpack .../015-libpcsclite1_1.9.5-3ubuntu1_amd64.deb ...
+#26 61.00 Unpacking libpcsclite1:amd64 (1.9.5-3ubuntu1) ...
+#26 61.04 Selecting previously unselected package openjdk-11-jre-headless:amd64.
+#26 61.04 Preparing to unpack .../016-openjdk-11-jre-headless_11.0.30+7-1ubuntu1~22.04_amd64.deb ...
+#26 61.05 Unpacking openjdk-11-jre-headless:amd64 (11.0.30+7-1ubuntu1~22.04) ...
+#26 61.81 Selecting previously unselected package default-jre-headless.
+#26 61.81 Preparing to unpack .../017-default-jre-headless_2%3a1.11-72build2_amd64.deb ...
+#26 61.82 Unpacking default-jre-headless (2:1.11-72build2) ...
+#26 61.85 Selecting previously unselected package ca-certificates-java.
+#26 61.86 Preparing to unpack .../018-ca-certificates-java_20190909ubuntu1.2_all.deb ...
+#26 61.87 Unpacking ca-certificates-java (20190909ubuntu1.2) ...
+#26 61.92 Selecting previously unselected package cuda-cccl-12-8.
+#26 61.92 Preparing to unpack .../019-cuda-cccl-12-8_12.8.90-1_amd64.deb ...
+#26 61.92 Unpacking cuda-cccl-12-8 (12.8.90-1) ...
+#26 62.26 Selecting previously unselected package cuda-cupti-12-8.
+#26 62.26 Preparing to unpack .../020-cuda-cupti-12-8_12.8.90-1_amd64.deb ...
+#26 62.27 Unpacking cuda-cupti-12-8 (12.8.90-1) ...
+#26 63.29 Selecting previously unselected package cuda-cupti-dev-12-8.
+#26 63.30 Preparing to unpack .../021-cuda-cupti-dev-12-8_12.8.90-1_amd64.deb ...
+#26 63.30 Unpacking cuda-cupti-dev-12-8 (12.8.90-1) ...
+#26 63.62 Selecting previously unselected package cuda-nvdisasm-12-8.
+#26 63.62 Preparing to unpack .../022-cuda-nvdisasm-12-8_12.8.90-1_amd64.deb ...
+#26 63.62 Unpacking cuda-nvdisasm-12-8 (12.8.90-1) ...
+#26 63.73 Selecting previously unselected package cuda-cuobjdump-12-8.
+#26 63.73 Preparing to unpack .../023-cuda-cuobjdump-12-8_12.8.90-1_amd64.deb ...
+#26 63.73 Unpacking cuda-cuobjdump-12-8 (12.8.90-1) ...
+#26 63.78 Selecting previously unselected package cuda-gdb-12-8.
+#26 63.78 Preparing to unpack .../024-cuda-gdb-12-8_12.8.90-1_amd64.deb ...
+#26 63.79 Unpacking cuda-gdb-12-8 (12.8.90-1) ...
+#26 65.44 Selecting previously unselected package cuda-nvprof-12-8.
+#26 65.44 Preparing to unpack .../025-cuda-nvprof-12-8_12.8.90-1_amd64.deb ...
+#26 65.44 Unpacking cuda-nvprof-12-8 (12.8.90-1) ...
+#26 65.64 Selecting previously unselected package cuda-nvtx-12-8.
+#26 65.65 Preparing to unpack .../026-cuda-nvtx-12-8_12.8.90-1_amd64.deb ...
+#26 65.65 Unpacking cuda-nvtx-12-8 (12.8.90-1) ...
+#26 65.69 Selecting previously unselected package cuda-sanitizer-12-8.
+#26 65.70 Preparing to unpack .../027-cuda-sanitizer-12-8_12.8.93-1_amd64.deb ...
+#26 65.70 Unpacking cuda-sanitizer-12-8 (12.8.93-1) ...
+#26 66.40 Selecting previously unselected package cuda-command-line-tools-12-8.
+#26 66.40 Preparing to unpack .../028-cuda-command-line-tools-12-8_12.8.1-1_amd64.deb ...
+#26 66.40 Unpacking cuda-command-line-tools-12-8 (12.8.1-1) ...
+#26 66.43 Selecting previously unselected package cuda-cuxxfilt-12-8.
+#26 66.44 Preparing to unpack .../029-cuda-cuxxfilt-12-8_12.8.90-1_amd64.deb ...
+#26 66.45 Unpacking cuda-cuxxfilt-12-8 (12.8.90-1) ...
+#26 66.50 Selecting previously unselected package cuda-toolkit-config-common.
+#26 66.50 Preparing to unpack .../030-cuda-toolkit-config-common_13.1.80-1_all.deb ...
+#26 66.51 Unpacking cuda-toolkit-config-common (13.1.80-1) ...
+#26 66.55 Selecting previously unselected package cuda-toolkit-12-config-common.
+#26 66.55 Preparing to unpack .../031-cuda-toolkit-12-config-common_12.9.79-1_all.deb ...
+#26 66.56 Unpacking cuda-toolkit-12-config-common (12.9.79-1) ...
+#26 66.59 Selecting previously unselected package cuda-toolkit-12-8-config-common.
+#26 66.59 Preparing to unpack .../032-cuda-toolkit-12-8-config-common_12.8.90-1_all.deb ...
+#26 66.60 Unpacking cuda-toolkit-12-8-config-common (12.8.90-1) ...
+#26 66.63 Selecting previously unselected package cuda-cudart-12-8.
+#26 66.64 Preparing to unpack .../033-cuda-cudart-12-8_12.8.90-1_amd64.deb ...
+#26 66.64 Unpacking cuda-cudart-12-8 (12.8.90-1) ...
+#26 66.69 Selecting previously unselected package cuda-driver-dev-12-8.
+#26 66.69 Preparing to unpack .../034-cuda-driver-dev-12-8_12.8.90-1_amd64.deb ...
+#26 66.69 Unpacking cuda-driver-dev-12-8 (12.8.90-1) ...
+#26 66.73 Selecting previously unselected package cuda-cudart-dev-12-8.
+#26 66.73 Preparing to unpack .../035-cuda-cudart-dev-12-8_12.8.90-1_amd64.deb ...
+#26 66.73 Unpacking cuda-cudart-dev-12-8 (12.8.90-1) ...
+#26 66.88 Selecting previously unselected package cuda-nvvm-12-8.
+#26 66.88 Preparing to unpack .../036-cuda-nvvm-12-8_12.8.93-1_amd64.deb ...
+#26 66.89 Unpacking cuda-nvvm-12-8 (12.8.93-1) ...
+#26 69.64 Selecting previously unselected package cuda-crt-12-8.
+#26 69.64 Preparing to unpack .../037-cuda-crt-12-8_12.8.93-1_amd64.deb ...
+#26 69.64 Unpacking cuda-crt-12-8 (12.8.93-1) ...
+#26 69.69 Selecting previously unselected package cuda-nvcc-12-8.
+#26 69.69 Preparing to unpack .../038-cuda-nvcc-12-8_12.8.93-1_amd64.deb ...
+#26 69.69 Unpacking cuda-nvcc-12-8 (12.8.93-1) ...
+#26 71.97 Selecting previously unselected package cuda-nvprune-12-8.
+#26 71.97 Preparing to unpack .../039-cuda-nvprune-12-8_12.8.90-1_amd64.deb ...
+#26 71.98 Unpacking cuda-nvprune-12-8 (12.8.90-1) ...
+#26 72.01 Selecting previously unselected package cuda-compiler-12-8.
+#26 72.02 Preparing to unpack .../040-cuda-compiler-12-8_12.8.1-1_amd64.deb ...
+#26 72.02 Unpacking cuda-compiler-12-8 (12.8.1-1) ...
+#26 72.05 Selecting previously unselected package cuda-documentation-12-8.
+#26 72.06 Preparing to unpack .../041-cuda-documentation-12-8_12.8.90-1_amd64.deb ...
+#26 72.06 Unpacking cuda-documentation-12-8 (12.8.90-1) ...
+#26 72.10 Selecting previously unselected package cuda-nvrtc-12-8.
+#26 72.10 Preparing to unpack .../042-cuda-nvrtc-12-8_12.8.93-1_amd64.deb ...
+#26 72.10 Unpacking cuda-nvrtc-12-8 (12.8.93-1) ...
+#26 75.93 Selecting previously unselected package cuda-opencl-12-8.
+#26 75.94 Preparing to unpack .../043-cuda-opencl-12-8_12.8.90-1_amd64.deb ...
+#26 75.94 Unpacking cuda-opencl-12-8 (12.8.90-1) ...
+#26 75.98 Selecting previously unselected package libcublas-12-8.
+#26 75.98 Preparing to unpack .../044-libcublas-12-8_12.8.4.1-1_amd64.deb ...
+#26 75.98 Unpacking libcublas-12-8 (12.8.4.1-1) ...
+#26 90.66 Selecting previously unselected package libcufft-12-8.
+#26 90.66 Preparing to unpack .../045-libcufft-12-8_11.3.3.83-1_amd64.deb ...
+#26 90.66 Unpacking libcufft-12-8 (11.3.3.83-1) ...
+#26 97.53 Selecting previously unselected package libcufile-12-8.
+#26 97.54 Preparing to unpack .../046-libcufile-12-8_1.13.1.3-1_amd64.deb ...
+#26 97.55 Unpacking libcufile-12-8 (1.13.1.3-1) ...
+#26 97.66 Selecting previously unselected package libcurand-12-8.
+#26 97.66 Preparing to unpack .../047-libcurand-12-8_10.3.9.90-1_amd64.deb ...
+#26 97.67 Unpacking libcurand-12-8 (10.3.9.90-1) ...
+#26 98.91 Selecting previously unselected package libcusolver-12-8.
+#26 98.91 Preparing to unpack .../048-libcusolver-12-8_11.7.3.90-1_amd64.deb ...
+#26 98.92 Unpacking libcusolver-12-8 (11.7.3.90-1) ...
+#26 108.9 Selecting previously unselected package libcusparse-12-8.
+#26 108.9 Preparing to unpack .../049-libcusparse-12-8_12.5.8.93-1_amd64.deb ...
+#26 108.9 Unpacking libcusparse-12-8 (12.5.8.93-1) ...
+#26 119.1 Selecting previously unselected package libnpp-12-8.
+#26 119.1 Preparing to unpack .../050-libnpp-12-8_12.3.3.100-1_amd64.deb ...
+#26 119.1 Unpacking libnpp-12-8 (12.3.3.100-1) ...
+#26 127.3 Selecting previously unselected package libnvjitlink-12-8.
+#26 127.3 Preparing to unpack .../051-libnvjitlink-12-8_12.8.93-1_amd64.deb ...
+#26 127.3 Unpacking libnvjitlink-12-8 (12.8.93-1) ...
+#26 129.1 Selecting previously unselected package libnvfatbin-12-8.
+#26 129.1 Preparing to unpack .../052-libnvfatbin-12-8_12.8.90-1_amd64.deb ...
+#26 129.1 Unpacking libnvfatbin-12-8 (12.8.90-1) ...
+#26 129.2 Selecting previously unselected package libnvjpeg-12-8.
+#26 129.2 Preparing to unpack .../053-libnvjpeg-12-8_12.3.5.92-1_amd64.deb ...
+#26 129.2 Unpacking libnvjpeg-12-8 (12.3.5.92-1) ...
+#26 129.4 Selecting previously unselected package cuda-libraries-12-8.
+#26 129.4 Preparing to unpack .../054-cuda-libraries-12-8_12.8.1-1_amd64.deb ...
+#26 129.5 Unpacking cuda-libraries-12-8 (12.8.1-1) ...
+#26 129.5 Selecting previously unselected package cuda-profiler-api-12-8.
+#26 129.5 Preparing to unpack .../055-cuda-profiler-api-12-8_12.8.90-1_amd64.deb ...
+#26 129.5 Unpacking cuda-profiler-api-12-8 (12.8.90-1) ...
+#26 129.5 Selecting previously unselected package cuda-nvrtc-dev-12-8.
+#26 129.6 Preparing to unpack .../056-cuda-nvrtc-dev-12-8_12.8.93-1_amd64.deb ...
+#26 129.6 Unpacking cuda-nvrtc-dev-12-8 (12.8.93-1) ...
+#26 133.6 Selecting previously unselected package cuda-opencl-dev-12-8.
+#26 133.6 Preparing to unpack .../057-cuda-opencl-dev-12-8_12.8.90-1_amd64.deb ...
+#26 133.6 Unpacking cuda-opencl-dev-12-8 (12.8.90-1) ...
+#26 133.7 Selecting previously unselected package libcublas-dev-12-8.
+#26 133.7 Preparing to unpack .../058-libcublas-dev-12-8_12.8.4.1-1_amd64.deb ...
+#26 133.7 Unpacking libcublas-dev-12-8 (12.8.4.1-1) ...
+#26 152.8 Selecting previously unselected package libcufft-dev-12-8.
+#26 152.8 Preparing to unpack .../059-libcufft-dev-12-8_11.3.3.83-1_amd64.deb ...
+#26 152.8 Unpacking libcufft-dev-12-8 (11.3.3.83-1) ...
+#26 166.6 Selecting previously unselected package libcufile-dev-12-8.
+#26 166.6 Preparing to unpack .../060-libcufile-dev-12-8_1.13.1.3-1_amd64.deb ...
+#26 166.6 Unpacking libcufile-dev-12-8 (1.13.1.3-1) ...
+#26 166.8 Selecting previously unselected package libcurand-dev-12-8.
+#26 166.8 Preparing to unpack .../061-libcurand-dev-12-8_10.3.9.90-1_amd64.deb ...
+#26 166.9 Unpacking libcurand-dev-12-8 (10.3.9.90-1) ...
+#26 168.3 Selecting previously unselected package libcusolver-dev-12-8.
+#26 168.3 Preparing to unpack .../062-libcusolver-dev-12-8_11.7.3.90-1_amd64.deb ...
+#26 168.5 Unpacking libcusolver-dev-12-8 (11.7.3.90-1) ...
+#26 175.0 Selecting previously unselected package libcusparse-dev-12-8.
+#26 175.0 Preparing to unpack .../063-libcusparse-dev-12-8_12.5.8.93-1_amd64.deb ...
+#26 175.0 Unpacking libcusparse-dev-12-8 (12.5.8.93-1) ...
+#26 185.5 Selecting previously unselected package libnpp-dev-12-8.
+#26 185.5 Preparing to unpack .../064-libnpp-dev-12-8_12.3.3.100-1_amd64.deb ...
+#26 185.5 Unpacking libnpp-dev-12-8 (12.3.3.100-1) ...
+#26 193.7 Selecting previously unselected package libnvjitlink-dev-12-8.
+#26 193.7 Preparing to unpack .../065-libnvjitlink-dev-12-8_12.8.93-1_amd64.deb ...
+#26 193.7 Unpacking libnvjitlink-dev-12-8 (12.8.93-1) ...
+#26 195.5 Selecting previously unselected package libnvfatbin-dev-12-8.
+#26 195.5 Preparing to unpack .../066-libnvfatbin-dev-12-8_12.8.90-1_amd64.deb ...
+#26 195.6 Unpacking libnvfatbin-dev-12-8 (12.8.90-1) ...
+#26 195.6 Selecting previously unselected package libnvjpeg-dev-12-8.
+#26 195.6 Preparing to unpack .../067-libnvjpeg-dev-12-8_12.3.5.92-1_amd64.deb ...
+#26 195.7 Unpacking libnvjpeg-dev-12-8 (12.3.5.92-1) ...
+#26 195.9 Selecting previously unselected package cuda-libraries-dev-12-8.
+#26 195.9 Preparing to unpack .../068-cuda-libraries-dev-12-8_12.8.1-1_amd64.deb ...
+#26 195.9 Unpacking cuda-libraries-dev-12-8 (12.8.1-1) ...
+#26 196.0 Selecting previously unselected package libgif7:amd64.
+#26 196.0 Preparing to unpack .../069-libgif7_5.1.9-2ubuntu0.1_amd64.deb ...
+#26 196.0 Unpacking libgif7:amd64 (5.1.9-2ubuntu0.1) ...
+#26 196.0 Selecting previously unselected package libxtst6:amd64.
+#26 196.0 Preparing to unpack .../070-libxtst6_2%3a1.2.3-1build4_amd64.deb ...
+#26 196.0 Unpacking libxtst6:amd64 (2:1.2.3-1build4) ...
+#26 196.1 Selecting previously unselected package openjdk-11-jre:amd64.
+#26 196.1 Preparing to unpack .../071-openjdk-11-jre_11.0.30+7-1ubuntu1~22.04_amd64.deb ...
+#26 196.1 Unpacking openjdk-11-jre:amd64 (11.0.30+7-1ubuntu1~22.04) ...
+#26 196.2 Selecting previously unselected package default-jre.
+#26 196.2 Preparing to unpack .../072-default-jre_2%3a1.11-72build2_amd64.deb ...
+#26 196.2 Unpacking default-jre (2:1.11-72build2) ...
+#26 196.2 Selecting previously unselected package libpixman-1-0:amd64.
+#26 196.2 Preparing to unpack .../073-libpixman-1-0_0.40.0-1ubuntu0.22.04.1_amd64.deb ...
+#26 196.3 Unpacking libpixman-1-0:amd64 (0.40.0-1ubuntu0.22.04.1) ...
+#26 196.3 Selecting previously unselected package libxcb-render0:amd64.
+#26 196.3 Preparing to unpack .../074-libxcb-render0_1.14-3ubuntu3_amd64.deb ...
+#26 196.3 Unpacking libxcb-render0:amd64 (1.14-3ubuntu3) ...
+#26 196.4 Selecting previously unselected package libcairo2:amd64.
+#26 196.4 Preparing to unpack .../075-libcairo2_1.16.0-5ubuntu2_amd64.deb ...
+#26 196.4 Unpacking libcairo2:amd64 (1.16.0-5ubuntu2) ...
+#26 196.5 Selecting previously unselected package cuda-nsight-12-8.
+#26 196.5 Preparing to unpack .../076-cuda-nsight-12-8_12.8.90-1_amd64.deb ...
+#26 196.5 Unpacking cuda-nsight-12-8 (12.8.90-1) ...
+#26 196.9 Selecting previously unselected package nsight-compute-2025.1.1.
+#26 196.9 Preparing to unpack .../077-nsight-compute-2025.1.1_2025.1.1.2-1_amd64.deb ...
+#26 196.9 Unpacking nsight-compute-2025.1.1 (2025.1.1.2-1) ...
+#26 215.6 Selecting previously unselected package cuda-nsight-compute-12-8.
+#26 215.6 Preparing to unpack .../078-cuda-nsight-compute-12-8_12.8.1-1_amd64.deb ...
+#26 215.6 Unpacking cuda-nsight-compute-12-8 (12.8.1-1) ...
+#26 215.7 Selecting previously unselected package libxcb-xinerama0:amd64.
+#26 215.7 Preparing to unpack .../079-libxcb-xinerama0_1.14-3ubuntu3_amd64.deb ...
+#26 215.7 Unpacking libxcb-xinerama0:amd64 (1.14-3ubuntu3) ...
+#26 215.8 Selecting previously unselected package libxcb-icccm4:amd64.
+#26 215.8 Preparing to unpack .../080-libxcb-icccm4_0.4.1-1.1build2_amd64.deb ...
+#26 215.8 Unpacking libxcb-icccm4:amd64 (0.4.1-1.1build2) ...
+#26 215.8 Selecting previously unselected package libxcb-util1:amd64.
+#26 215.8 Preparing to unpack .../081-libxcb-util1_0.4.0-1build2_amd64.deb ...
+#26 215.8 Unpacking libxcb-util1:amd64 (0.4.0-1build2) ...
+#26 215.9 Selecting previously unselected package libxcb-image0:amd64.
+#26 215.9 Preparing to unpack .../082-libxcb-image0_0.4.0-2_amd64.deb ...
+#26 215.9 Unpacking libxcb-image0:amd64 (0.4.0-2) ...
+#26 216.0 Selecting previously unselected package libxcb-keysyms1:amd64.
+#26 216.0 Preparing to unpack .../083-libxcb-keysyms1_0.4.0-1build3_amd64.deb ...
+#26 216.0 Unpacking libxcb-keysyms1:amd64 (0.4.0-1build3) ...
+#26 216.1 Selecting previously unselected package libxcb-render-util0:amd64.
+#26 216.1 Preparing to unpack .../084-libxcb-render-util0_0.3.9-1build3_amd64.deb ...
+#26 216.1 Unpacking libxcb-render-util0:amd64 (0.3.9-1build3) ...
+#26 216.2 Selecting previously unselected package libxcb-shape0:amd64.
+#26 216.2 Preparing to unpack .../085-libxcb-shape0_1.14-3ubuntu3_amd64.deb ...
+#26 216.2 Unpacking libxcb-shape0:amd64 (1.14-3ubuntu3) ...
+#26 216.2 Selecting previously unselected package libxkbcommon0:amd64.
+#26 216.2 Preparing to unpack .../086-libxkbcommon0_1.4.0-1_amd64.deb ...
+#26 216.2 Unpacking libxkbcommon0:amd64 (1.4.0-1) ...
+#26 216.3 Selecting previously unselected package libxcb-xkb1:amd64.
+#26 216.3 Preparing to unpack .../087-libxcb-xkb1_1.14-3ubuntu3_amd64.deb ...
+#26 216.3 Unpacking libxcb-xkb1:amd64 (1.14-3ubuntu3) ...
+#26 216.4 Selecting previously unselected package libxkbcommon-x11-0:amd64.
+#26 216.4 Preparing to unpack .../088-libxkbcommon-x11-0_1.4.0-1_amd64.deb ...
+#26 216.4 Unpacking libxkbcommon-x11-0:amd64 (1.4.0-1) ...
+#26 216.4 Selecting previously unselected package libxcb-xinput0:amd64.
+#26 216.4 Preparing to unpack .../089-libxcb-xinput0_1.14-3ubuntu3_amd64.deb ...
+#26 216.4 Unpacking libxcb-xinput0:amd64 (1.14-3ubuntu3) ...
+#26 216.5 Selecting previously unselected package libxcb-cursor0:amd64.
+#26 216.5 Preparing to unpack .../090-libxcb-cursor0_0.1.1-4ubuntu1_amd64.deb ...
+#26 216.5 Unpacking libxcb-cursor0:amd64 (0.1.1-4ubuntu1) ...
+#26 216.6 Selecting previously unselected package libxcomposite1:amd64.
+#26 216.6 Preparing to unpack .../091-libxcomposite1_1%3a0.4.5-1build2_amd64.deb ...
+#26 216.6 Unpacking libxcomposite1:amd64 (1:0.4.5-1build2) ...
+#26 216.7 Selecting previously unselected package libxdamage1:amd64.
+#26 216.7 Preparing to unpack .../092-libxdamage1_1%3a1.1.5-2build2_amd64.deb ...
+#26 216.7 Unpacking libxdamage1:amd64 (1:1.1.5-2build2) ...
+#26 216.7 Selecting previously unselected package nsight-systems-2024.6.2.
+#26 216.7 Preparing to unpack .../093-nsight-systems-2024.6.2_2024.6.2.225-246235244400v0_amd64.deb ...
+#26 216.7 Unpacking nsight-systems-2024.6.2 (2024.6.2.225-246235244400v0) ...
+#26 221.6 Selecting previously unselected package cuda-nsight-systems-12-8.
+#26 221.6 Preparing to unpack .../094-cuda-nsight-systems-12-8_12.8.1-1_amd64.deb ...
+#26 221.6 Unpacking cuda-nsight-systems-12-8 (12.8.1-1) ...
+#26 221.6 Selecting previously unselected package cuda-nvml-dev-12-8.
+#26 221.6 Preparing to unpack .../095-cuda-nvml-dev-12-8_12.8.90-1_amd64.deb ...
+#26 221.7 Unpacking cuda-nvml-dev-12-8 (12.8.90-1) ...
+#26 221.7 Selecting previously unselected package cuda-nvvp-12-8.
+#26 221.7 Preparing to unpack .../096-cuda-nvvp-12-8_12.8.93-1_amd64.deb ...
+#26 221.7 Unpacking cuda-nvvp-12-8 (12.8.93-1) ...
+#26 227.7 Selecting previously unselected package cuda-visual-tools-12-8.
+#26 227.8 Preparing to unpack .../097-cuda-visual-tools-12-8_12.8.1-1_amd64.deb ...
+#26 227.8 Unpacking cuda-visual-tools-12-8 (12.8.1-1) ...
+#26 227.8 Selecting previously unselected package gds-tools-12-8.
+#26 227.8 Preparing to unpack .../098-gds-tools-12-8_1.13.1.3-1_amd64.deb ...
+#26 227.8 Unpacking gds-tools-12-8 (1.13.1.3-1) ...
+#26 228.6 Selecting previously unselected package cuda-tools-12-8.
+#26 228.6 Preparing to unpack .../099-cuda-tools-12-8_12.8.1-1_amd64.deb ...
+#26 228.6 Unpacking cuda-tools-12-8 (12.8.1-1) ...
+#26 228.6 Selecting previously unselected package cuda-toolkit-12-8.
+#26 228.7 Preparing to unpack .../100-cuda-toolkit-12-8_12.8.1-1_amd64.deb ...
+#26 228.7 Unpacking cuda-toolkit-12-8 (12.8.1-1) ...
+#26 228.7 Setting up cuda-toolkit-config-common (13.1.80-1) ...
+#26 228.8 Setting up libgraphite2-3:amd64 (1.3.14-1build2) ...
+#26 228.8 Setting up liblcms2-2:amd64 (2.12~rc1-2build2) ...
+#26 228.8 Setting up cuda-nvprof-12-8 (12.8.90-1) ...
+#26 228.8 Setting up libpixman-1-0:amd64 (0.40.0-1ubuntu0.22.04.1) ...
+#26 228.8 Setting up libxdamage1:amd64 (1:1.1.5-2build2) ...
+#26 228.9 Setting up java-common (0.72build2) ...
+#26 228.9 Setting up libxcb-xinput0:amd64 (1.14-3ubuntu3) ...
+#26 228.9 Setting up cuda-cuobjdump-12-8 (12.8.90-1) ...
+#26 228.9 Setting up libxcb-render0:amd64 (1.14-3ubuntu3) ...
+#26 229.0 Setting up cuda-nvrtc-12-8 (12.8.93-1) ...
+#26 229.0 Setting up cuda-sanitizer-12-8 (12.8.93-1) ...
+#26 229.0 Setting up cuda-nvvm-12-8 (12.8.93-1) ...
+#26 229.0 Setting up cuda-nvprune-12-8 (12.8.90-1) ...
+#26 229.0 Setting up libxtst6:amd64 (2:1.2.3-1build4) ...
+#26 229.1 Setting up cuda-cupti-12-8 (12.8.90-1) ...
+#26 229.1 Setting up libxcb-keysyms1:amd64 (0.4.0-1build3) ...
+#26 229.1 Setting up libxcb-shape0:amd64 (1.14-3ubuntu3) ...
+#26 229.1 Setting up cuda-nvml-dev-12-8 (12.8.90-1) ...
+#26 229.2 Setting up libxcb-render-util0:amd64 (0.3.9-1build3) ...
+#26 229.2 Setting up xkb-data (2.33-1) ...
+#26 229.2 Setting up cuda-toolkit-12-8-config-common (12.8.90-1) ...
+#26 229.2 Setting alternatives
+#26 229.2 update-alternatives: using /usr/local/cuda-12.8 to provide /usr/local/cuda (cuda) in auto mode
+#26 229.3 update-alternatives: using /usr/local/cuda-12.8 to provide /usr/local/cuda-12 (cuda-12) in auto mode
+#26 229.3 Setting up libxcb-icccm4:amd64 (0.4.1-1.1build2) ...
+#26 229.3 Setting up cuda-nvrtc-dev-12-8 (12.8.93-1) ...
+#26 229.3 Setting up libcairo2:amd64 (1.16.0-5ubuntu2) ...
+#26 229.3 Setting up libxcb-util1:amd64 (0.4.0-1build2) ...
+#26 229.3 Setting up libxcb-xkb1:amd64 (1.14-3ubuntu3) ...
+#26 229.4 Setting up libxcb-image0:amd64 (0.4.0-2) ...
+#26 229.4 Setting up libasound2-data (1.2.6.1-1ubuntu1.1) ...
+#26 229.4 Setting up cuda-driver-dev-12-8 (12.8.90-1) ...
+#26 229.4 Setting up cuda-documentation-12-8 (12.8.90-1) ...
+#26 229.5 Setting up libxcb-xinerama0:amd64 (1.14-3ubuntu3) ...
+#26 229.5 Setting up libnspr4:amd64 (2:4.35-0ubuntu0.22.04.1) ...
+#26 229.5 Setting up libxcb-cursor0:amd64 (0.1.1-4ubuntu1) ...
+#26 229.5 Setting up libavahi-common-data:amd64 (0.8-5ubuntu5.4) ...
+#26 229.6 Setting up cuda-profiler-api-12-8 (12.8.90-1) ...
+#26 229.6 Setting up libdbus-1-3:amd64 (1.12.20-2ubuntu4.1) ...
+#26 229.6 Setting up libpcsclite1:amd64 (1.9.5-3ubuntu1) ...
+#26 229.6 Setting up cuda-nvdisasm-12-8 (12.8.90-1) ...
+#26 229.6 Setting up libgif7:amd64 (5.1.9-2ubuntu0.1) ...
+#26 229.7 Setting up libnuma1:amd64 (2.0.14-3ubuntu2) ...
+#26 229.7 Setting up libasound2:amd64 (1.2.6.1-1ubuntu1.1) ...
+#26 229.7 Setting up cuda-cuxxfilt-12-8 (12.8.90-1) ...
+#26 229.7 Setting up cuda-nvtx-12-8 (12.8.90-1) ...
+#26 229.8 Setting up libharfbuzz0b:amd64 (2.7.4-1ubuntu3.2) ...
+#26 229.8 Setting up cuda-cccl-12-8 (12.8.90-1) ...
+#26 229.8 Setting up libxcomposite1:amd64 (1:0.4.5-1build2) ...
+#26 229.8 Setting up cuda-toolkit-12-config-common (12.9.79-1) ...
+#26 229.8 Setting up cuda-cudart-12-8 (12.8.90-1) ...
+#26 229.9 Setting up cuda-cupti-dev-12-8 (12.8.90-1) ...
+#26 229.9 Setting up cuda-cudart-dev-12-8 (12.8.90-1) ...
+#26 229.9 Setting up gds-tools-12-8 (1.13.1.3-1) ...
+#26 229.9 Setting up nsight-compute-2025.1.1 (2025.1.1.2-1) ...
+#26 230.0 Setting up libxkbcommon0:amd64 (1.4.0-1) ...
+#26 230.0 Setting up cuda-crt-12-8 (12.8.93-1) ...
+#26 230.0 Setting up libcufft-12-8 (11.3.3.83-1) ...
+#26 230.0 Setting up libcublas-12-8 (12.8.4.1-1) ...
+#26 230.1 Setting up libcusparse-12-8 (12.5.8.93-1) ...
+#26 230.1 Setting up libnvjitlink-12-8 (12.8.93-1) ...
+#26 230.1 Setting up libcurand-12-8 (10.3.9.90-1) ...
+#26 230.1 Setting up libcufft-dev-12-8 (11.3.3.83-1) ...
+#26 230.1 Setting up libnpp-12-8 (12.3.3.100-1) ...
+#26 230.2 Setting up libavahi-common3:amd64 (0.8-5ubuntu5.4) ...
+#26 230.2 Setting up libnpp-dev-12-8 (12.3.3.100-1) ...
+#26 230.2 Setting up cuda-opencl-12-8 (12.8.90-1) ...
+#26 230.2 Setting up libnss3:amd64 (2:3.98-0ubuntu0.22.04.2) ...
+#26 230.3 Setting up cuda-gdb-12-8 (12.8.90-1) ...
+#26 230.3 Setting up libnvjitlink-dev-12-8 (12.8.93-1) ...
+#26 230.3 Setting up libxkbcommon-x11-0:amd64 (1.4.0-1) ...
+#26 230.3 Setting up libcusolver-12-8 (11.7.3.90-1) ...
+#26 230.3 Setting up libnvfatbin-12-8 (12.8.90-1) ...
+#26 230.4 Setting up libnvjpeg-12-8 (12.3.5.92-1) ...
+#26 230.4 Setting up libcurand-dev-12-8 (10.3.9.90-1) ...
+#26 230.4 Setting up libcusolver-dev-12-8 (11.7.3.90-1) ...
+#26 230.4 Setting up cuda-nsight-compute-12-8 (12.8.1-1) ...
+#26 230.4 Setting up libcufile-12-8 (1.13.1.3-1) ...
+#26 230.5 Setting alternatives
+#26 230.5 update-alternatives: using /usr/local/cuda-12.8/gds/cufile.json to provide /etc/cufile.json (cufile.json) in auto mode
+#26 230.5 Setting up libcusparse-dev-12-8 (12.5.8.93-1) ...
+#26 230.5 Setting up libnvfatbin-dev-12-8 (12.8.90-1) ...
+#26 230.5 Setting up libcublas-dev-12-8 (12.8.4.1-1) ...
+#26 230.6 Setting up cuda-nvcc-12-8 (12.8.93-1) ...
+#26 230.6 Setting up libavahi-client3:amd64 (0.8-5ubuntu5.4) ...
+#26 230.6 Setting up libnvjpeg-dev-12-8 (12.3.5.92-1) ...
+#26 230.6 Setting up libcufile-dev-12-8 (1.13.1.3-1) ...
+#26 230.7 Setting up cuda-opencl-dev-12-8 (12.8.90-1) ...
+#26 230.7 Setting up cuda-command-line-tools-12-8 (12.8.1-1) ...
+#26 230.7 Setting up nsight-systems-2024.6.2 (2024.6.2.225-246235244400v0) ...
+#26 230.7 update-alternatives: using /opt/nvidia/nsight-systems/2024.6.2/target-linux-x64/nsys to provide /usr/local/bin/nsys (nsys) in auto mode
+#26 230.7 update-alternatives: using /opt/nvidia/nsight-systems/2024.6.2/host-linux-x64/nsys-ui to provide /usr/local/bin/nsys-ui (nsys-ui) in auto mode
+#26 230.8 Setting up cuda-compiler-12-8 (12.8.1-1) ...
+#26 230.8 Setting up cuda-libraries-dev-12-8 (12.8.1-1) ...
+#26 230.8 Setting up cuda-libraries-12-8 (12.8.1-1) ...
+#26 230.8 Setting up cuda-nsight-systems-12-8 (12.8.1-1) ...
+#26 230.9 Setting up libcups2:amd64 (2.4.1op1-1ubuntu4.16) ...
+#26 230.9 Setting up default-jre-headless (2:1.11-72build2) ...
+#26 230.9 Setting up openjdk-11-jre-headless:amd64 (11.0.30+7-1ubuntu1~22.04) ...
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/java to provide /usr/bin/java (java) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/jjs to provide /usr/bin/jjs (jjs) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/keytool to provide /usr/bin/keytool (keytool) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/rmid to provide /usr/bin/rmid (rmid) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/rmiregistry to provide /usr/bin/rmiregistry (rmiregistry) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/pack200 to provide /usr/bin/pack200 (pack200) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/bin/unpack200 to provide /usr/bin/unpack200 (unpack200) in auto mode
+#26 231.1 update-alternatives: using /usr/lib/jvm/java-11-openjdk-amd64/lib/jexec to provide /usr/bin/jexec (jexec) in auto mode
+#26 231.5 Setting up openjdk-11-jre:amd64 (11.0.30+7-1ubuntu1~22.04) ...
+#26 231.6 Setting up default-jre (2:1.11-72build2) ...
+#26 231.6 Setting up cuda-nvvp-12-8 (12.8.93-1) ...
+#26 231.7 Setting up ca-certificates-java (20190909ubuntu1.2) ...
+#26 232.0 head: cannot open '/etc/ssl/certs/java/cacerts' for reading: No such file or directory
+#26 232.2 Adding debian:Buypass_Class_2_Root_CA.pem
+#26 232.2 Adding debian:Atos_TrustedRoot_Root_CA_ECC_TLS_2021.pem
+#26 232.2 Adding debian:Sectigo_Public_Server_Authentication_Root_R46.pem
+#26 232.2 Adding debian:GlobalSign_Root_CA.pem
+#26 232.2 Adding debian:SZAFIR_ROOT_CA2.pem
+#26 232.2 Adding debian:D-TRUST_Root_Class_3_CA_2_EV_2009.pem
+#26 232.2 Adding debian:AffirmTrust_Commercial.pem
+#26 232.2 Adding debian:Entrust_Root_Certification_Authority_-_G2.pem
+#26 232.2 Adding debian:Buypass_Class_3_Root_CA.pem
+#26 232.2 Adding debian:Amazon_Root_CA_2.pem
+#26 232.2 Adding debian:AffirmTrust_Networking.pem
+#26 232.2 Adding debian:TeliaSonera_Root_CA_v1.pem
+#26 232.3 Adding debian:OISTE_WISeKey_Global_Root_GC_CA.pem
+#26 232.3 Adding debian:TWCA_Global_Root_CA.pem
+#26 232.3 Adding debian:SSL.com_Root_Certification_Authority_ECC.pem
+#26 232.3 Adding debian:SwissSign_Silver_CA_-_G2.pem
+#26 232.3 Adding debian:DigiCert_Assured_ID_Root_CA.pem
+#26 232.3 Adding debian:Trustwave_Global_ECC_P384_Certification_Authority.pem
+#26 232.3 Adding debian:Certigna.pem
+#26 232.3 Adding debian:SSL.com_EV_Root_Certification_Authority_ECC.pem
+#26 232.3 Adding debian:GlobalSign_Root_CA_-_R3.pem
+#26 232.3 Adding debian:Hellenic_Academic_and_Research_Institutions_RootCA_2015.pem
+#26 232.3 Adding debian:Hellenic_Academic_and_Research_Institutions_ECC_RootCA_2015.pem
+#26 232.3 Adding debian:Hongkong_Post_Root_CA_3.pem
+#26 232.3 Adding debian:Amazon_Root_CA_1.pem
+#26 232.3 Adding debian:Trustwave_Global_ECC_P256_Certification_Authority.pem
+#26 232.3 Adding debian:TrustAsia_Global_Root_CA_G3.pem
+#26 232.3 Adding debian:T-TeleSec_GlobalRoot_Class_2.pem
+#26 232.3 Adding debian:CFCA_EV_ROOT.pem
+#26 232.3 Adding debian:TUBITAK_Kamu_SM_SSL_Kok_Sertifikasi_-_Surum_1.pem
+#26 232.3 Adding debian:D-TRUST_BR_Root_CA_1_2020.pem
+#26 232.3 Adding debian:Microsoft_ECC_Root_Certificate_Authority_2017.pem
+#26 232.3 Adding debian:GDCA_TrustAUTH_R5_ROOT.pem
+#26 232.3 Adding debian:CommScope_Public_Trust_ECC_Root-02.pem
+#26 232.3 Adding debian:Amazon_Root_CA_3.pem
+#26 232.3 Adding debian:UCA_Global_G2_Root.pem
+#26 232.3 Adding debian:SwissSign_Gold_CA_-_G2.pem
+#26 232.3 Adding debian:NetLock_Arany_=Class_Gold=_Főtanúsítvány.pem
+#26 232.3 Adding debian:Go_Daddy_Root_Certificate_Authority_-_G2.pem
+#26 232.3 Adding debian:ISRG_Root_X2.pem
+#26 232.3 Adding debian:emSign_ECC_Root_CA_-_C3.pem
+#26 232.3 Adding debian:GLOBALTRUST_2020.pem
+#26 232.3 Adding debian:CommScope_Public_Trust_ECC_Root-01.pem
+#26 232.3 Adding debian:UCA_Extended_Validation_Root.pem
+#26 232.3 Adding debian:QuoVadis_Root_CA_2.pem
+#26 232.3 Adding debian:GlobalSign_Root_E46.pem
+#26 232.3 Adding debian:emSign_ECC_Root_CA_-_G3.pem
+#26 232.4 Adding debian:Entrust_Root_Certification_Authority_-_G4.pem
+#26 232.4 Adding debian:CA_Disig_Root_R2.pem
+#26 232.4 Adding debian:DigiCert_Global_Root_G3.pem
+#26 232.4 Adding debian:Security_Communication_Root_CA.pem
+#26 232.4 Adding debian:DigiCert_High_Assurance_EV_Root_CA.pem
+#26 232.4 Adding debian:GlobalSign_Root_CA_-_R6.pem
+#26 232.4 Adding debian:Go_Daddy_Class_2_CA.pem
+#26 232.4 Adding debian:NAVER_Global_Root_Certification_Authority.pem
+#26 232.4 Adding debian:DigiCert_Assured_ID_Root_G3.pem
+#26 232.4 Adding debian:e-Szigno_Root_CA_2017.pem
+#26 232.4 Adding debian:Entrust_Root_Certification_Authority_-_EC1.pem
+#26 232.4 Adding debian:SSL.com_EV_Root_Certification_Authority_RSA_R2.pem
+#26 232.4 Adding debian:QuoVadis_Root_CA_1_G3.pem
+#26 232.4 Adding debian:QuoVadis_Root_CA_3.pem
+#26 232.4 Adding debian:GlobalSign_ECC_Root_CA_-_R5.pem
+#26 232.4 Adding debian:BJCA_Global_Root_CA2.pem
+#26 232.4 Adding debian:DigiCert_Assured_ID_Root_G2.pem
+#26 232.4 Adding debian:AC_RAIZ_FNMT-RCM.pem
+#26 232.4 Adding debian:Certainly_Root_E1.pem
+#26 232.4 Adding debian:DigiCert_Global_Root_G2.pem
+#26 232.4 Adding debian:Atos_TrustedRoot_Root_CA_RSA_TLS_2021.pem
+#26 232.4 Adding debian:Trustwave_Global_Certification_Authority.pem
+#26 232.4 Adding debian:GTS_Root_R2.pem
+#26 232.4 Adding debian:CommScope_Public_Trust_RSA_Root-02.pem
+#26 232.4 Adding debian:COMODO_Certification_Authority.pem
+#26 232.4 Adding debian:Starfield_Root_Certificate_Authority_-_G2.pem
+#26 232.4 Adding debian:Certum_Trusted_Root_CA.pem
+#26 232.4 Adding debian:Certum_Trusted_Network_CA.pem
+#26 232.4 Adding debian:ePKI_Root_Certification_Authority.pem
+#26 232.4 Adding debian:USERTrust_ECC_Certification_Authority.pem
+#26 232.4 Adding debian:GlobalSign_ECC_Root_CA_-_R4.pem
+#26 232.4 Adding debian:COMODO_ECC_Certification_Authority.pem
+#26 232.4 Adding debian:Actalis_Authentication_Root_CA.pem
+#26 232.4 Adding debian:HARICA_TLS_ECC_Root_CA_2021.pem
+#26 232.4 Adding debian:QuoVadis_Root_CA_3_G3.pem
+#26 232.4 Adding debian:Izenpe.com.pem
+#26 232.4 Adding debian:ACCVRAIZ1.pem
+#26 232.4 Adding debian:Certum_Trusted_Network_CA_2.pem
+#26 232.4 Adding debian:emSign_Root_CA_-_G1.pem
+#26 232.4 Adding debian:TunTrust_Root_CA.pem
+#26 232.5 Adding debian:AffirmTrust_Premium.pem
+#26 232.5 Adding debian:XRamp_Global_CA_Root.pem
+#26 232.5 Adding debian:vTrus_Root_CA.pem
+#26 232.5 Adding debian:TWCA_Root_Certification_Authority.pem
+#26 232.5 Adding debian:COMODO_RSA_Certification_Authority.pem
+#26 232.5 Adding debian:DigiCert_Global_Root_CA.pem
+#26 232.5 Adding debian:IdenTrust_Public_Sector_Root_CA_1.pem
+#26 232.5 Adding debian:GTS_Root_R3.pem
+#26 232.5 Adding debian:TrustAsia_Global_Root_CA_G4.pem
+#26 232.5 Adding debian:AffirmTrust_Premium_ECC.pem
+#26 232.5 Adding debian:DigiCert_Trusted_Root_G4.pem
+#26 232.5 Adding debian:GTS_Root_R1.pem
+#26 232.5 Adding debian:SecureSign_RootCA11.pem
+#26 232.5 Adding debian:Security_Communication_RootCA2.pem
+#26 232.5 Adding debian:AC_RAIZ_FNMT-RCM_SERVIDORES_SEGUROS.pem
+#26 232.5 Adding debian:SSL.com_TLS_RSA_Root_CA_2022.pem
+#26 232.5 Adding debian:D-TRUST_EV_Root_CA_1_2020.pem
+#26 232.5 Adding debian:BJCA_Global_Root_CA1.pem
+#26 232.5 Adding debian:Entrust.net_Premium_2048_Secure_Server_CA.pem
+#26 232.5 Adding debian:emSign_Root_CA_-_C1.pem
+#26 232.5 Adding debian:Amazon_Root_CA_4.pem
+#26 232.5 Adding debian:ISRG_Root_X1.pem
+#26 232.5 Adding debian:GTS_Root_R4.pem
+#26 232.5 Adding debian:Atos_TrustedRoot_2011.pem
+#26 232.5 Adding debian:Sectigo_Public_Server_Authentication_Root_E46.pem
+#26 232.5 Adding debian:Telia_Root_CA_v2.pem
+#26 232.5 Adding debian:T-TeleSec_GlobalRoot_Class_3.pem
+#26 232.5 Adding debian:QuoVadis_Root_CA_2_G3.pem
+#26 232.5 Adding debian:D-TRUST_Root_Class_3_CA_2_2009.pem
+#26 232.5 Adding debian:Microsoft_RSA_Root_Certificate_Authority_2017.pem
+#26 232.5 Adding debian:Starfield_Services_Root_Certificate_Authority_-_G2.pem
+#26 232.5 Adding debian:Baltimore_CyberTrust_Root.pem
+#26 232.5 Adding debian:Security_Communication_ECC_RootCA1.pem
+#26 232.5 Adding debian:Microsec_e-Szigno_Root_CA_2009.pem
+#26 232.5 Adding debian:HiPKI_Root_CA_-_G1.pem
+#26 232.5 Adding debian:SecureTrust_CA.pem
+#26 232.5 Adding debian:OISTE_WISeKey_Global_Root_GB_CA.pem
+#26 232.5 Adding debian:SSL.com_Root_Certification_Authority_RSA.pem
+#26 232.5 Adding debian:Certainly_Root_R1.pem
+#26 232.5 Adding debian:certSIGN_Root_CA_G2.pem
+#26 232.5 Adding debian:certSIGN_ROOT_CA.pem
+#26 232.5 Adding debian:GlobalSign_Root_R46.pem
+#26 232.5 Adding debian:IdenTrust_Commercial_Root_CA_1.pem
+#26 232.5 Adding debian:Certigna_Root_CA.pem
+#26 232.5 Adding debian:HARICA_TLS_RSA_Root_CA_2021.pem
+#26 232.6 Adding debian:Starfield_Class_2_CA.pem
+#26 232.6 Adding debian:CommScope_Public_Trust_RSA_Root-01.pem
+#26 232.6 Adding debian:SSL.com_TLS_ECC_Root_CA_2022.pem
+#26 232.6 Adding debian:vTrus_ECC_Root_CA.pem
+#26 232.6 Adding debian:Security_Communication_RootCA3.pem
+#26 232.6 Adding debian:ANF_Secure_Server_Root_CA.pem
+#26 232.6 Adding debian:Comodo_AAA_Services_root.pem
+#26 232.6 Adding debian:DigiCert_TLS_RSA4096_Root_G5.pem
+#26 232.6 Adding debian:Autoridad_de_Certificacion_Firmaprofesional_CIF_A62634068.pem
+#26 232.6 Adding debian:USERTrust_RSA_Certification_Authority.pem
+#26 232.6 Adding debian:Certum_EC-384_CA.pem
+#26 232.6 Adding debian:Secure_Global_CA.pem
+#26 232.6 Adding debian:DigiCert_TLS_ECC_P384_Root_G5.pem
+#26 232.6 Adding debian:Entrust_Root_Certification_Authority.pem
+#26 232.6 done.
+#26 232.8 Setting up cuda-nsight-12-8 (12.8.90-1) ...
+#26 232.9 Setting up cuda-visual-tools-12-8 (12.8.1-1) ...
+#26 232.9 Setting up cuda-tools-12-8 (12.8.1-1) ...
+#26 233.0 Setting up cuda-toolkit-12-8 (12.8.1-1) ...
+#26 233.0 Processing triggers for libc-bin (2.35-0ubuntu3.8) ...
+#26 233.0 Processing triggers for ca-certificates (20240203~22.04.1) ...
+#26 233.1 Updating certificates in /etc/ssl/certs...
+#26 233.6 0 added, 0 removed; done.
+#26 233.6 Running hooks in /etc/ca-certificates/update.d...
+#26 233.6 
+#26 233.8 done.
+#26 233.8 done.
+#26 234.7 Reading package lists...
+#26 235.9 Building dependency tree...
+#26 236.1 Reading state information...
+#26 236.3 0 upgraded, 0 newly installed, 0 to remove and 36 not upgraded.
+#26 236.4 CUDA 12.8 installation completed successfully
+#26 236.8 Collecting nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8
+#26 236.8   Cloning https://github.com/NVlabs/curobo.git (to revision ebb71702f3f70e767f40fd8e050674af0288abe8) to /tmp/pip-install-iuzlfa67/nvidia-curobo_cc5a2149840e489d943188395507c3b1
+#26 236.8   Running command git clone --filter=blob:none --quiet https://github.com/NVlabs/curobo.git /tmp/pip-install-iuzlfa67/nvidia-curobo_cc5a2149840e489d943188395507c3b1
+#26 245.7   Running command git rev-parse -q --verify 'sha^ebb71702f3f70e767f40fd8e050674af0288abe8'
+#26 245.7   Running command git fetch -q https://github.com/NVlabs/curobo.git ebb71702f3f70e767f40fd8e050674af0288abe8
+#26 246.1   Resolved https://github.com/NVlabs/curobo.git to commit ebb71702f3f70e767f40fd8e050674af0288abe8
+#26 246.1   Preparing metadata (pyproject.toml): started
+#26 254.2   Preparing metadata (pyproject.toml): finished with status 'done'
+#26 254.3 Collecting pybind11 (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.3   Downloading pybind11-3.0.2-py3-none-any.whl.metadata (10 kB)
+#26 254.4 Requirement already satisfied: networkx in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (3.3)
+#26 254.4 Requirement already satisfied: numpy in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.26.0)
+#26 254.4 Requirement already satisfied: numpy-quaternion in /isaac-sim/exts/omni.isaac.core_archive/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2023.0.3)
+#26 254.4 Requirement already satisfied: pyyaml in /isaac-sim/exts/omni.pip.compute/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (6.0.2)
+#26 254.4 Requirement already satisfied: setuptools_scm>=6.2 in /isaac-sim/exts/isaacsim.asset.exporter.urdf/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (8.2.0)
+#26 254.4 Requirement already satisfied: torch>=1.10 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2.7.0+cu128)
+#26 254.4 Requirement already satisfied: trimesh in /isaac-sim/exts/omni.pip.compute/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (4.5.1)
+#26 254.4 Collecting yourdfpy>=0.0.53 (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.4   Downloading yourdfpy-0.0.60-py3-none-any.whl.metadata (9.0 kB)
+#26 254.4 Requirement already satisfied: warp-lang>=0.9.0 in /isaac-sim/kit/python/lib/python3.11/site-packages (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.11.1)
+#26 254.4 Requirement already satisfied: scipy>=1.7.0 in /isaac-sim/exts/omni.pip.compute/pip_prebundle (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.15.3)
+#26 254.4 Requirement already satisfied: tqdm in /isaac-sim/kit/python/lib/python3.11/site-packages (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (4.67.3)
+#26 254.5 Collecting wheel (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.5   Using cached wheel-0.46.3-py3-none-any.whl.metadata (2.4 kB)
+#26 254.5 Collecting importlib_resources (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.5   Downloading importlib_resources-6.5.2-py3-none-any.whl.metadata (3.9 kB)
+#26 254.7 Collecting scikit-image (from nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.7   Downloading scikit_image-0.26.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (15 kB)
+#26 254.7 Requirement already satisfied: packaging>=20 in /isaac-sim/exts/omni.isaac.core_archive/pip_prebundle (from setuptools_scm>=6.2->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (23.0)
+#26 254.7 Requirement already satisfied: setuptools>=61 in /isaac-sim/kit/python/lib/python3.11/site-packages (from setuptools_scm>=6.2->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (78.1.1)
+#26 254.7 Requirement already satisfied: filelock in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (3.13.1)
+#26 254.7 Requirement already satisfied: typing-extensions>=4.10.0 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (4.12.2)
+#26 254.7 Requirement already satisfied: sympy>=1.13.3 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.13.3)
+#26 254.7 Requirement already satisfied: jinja2 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (3.1.6)
+#26 254.7 Requirement already satisfied: fsspec in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2024.6.1)
+#26 254.7 Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.8.61 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.8.61)
+#26 254.7 Requirement already satisfied: nvidia-cuda-runtime-cu12==12.8.57 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.8.57)
+#26 254.7 Requirement already satisfied: nvidia-cuda-cupti-cu12==12.8.57 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.8.57)
+#26 254.7 Requirement already satisfied: nvidia-cudnn-cu12==9.7.1.26 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (9.7.1.26)
+#26 254.7 Requirement already satisfied: nvidia-cublas-cu12==12.8.3.14 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.8.3.14)
+#26 254.7 Requirement already satisfied: nvidia-cufft-cu12==11.3.3.41 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (11.3.3.41)
+#26 254.7 Requirement already satisfied: nvidia-curand-cu12==10.3.9.55 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (10.3.9.55)
+#26 254.7 Requirement already satisfied: nvidia-cusolver-cu12==11.7.2.55 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (11.7.2.55)
+#26 254.7 Requirement already satisfied: nvidia-cusparse-cu12==12.5.7.53 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.5.7.53)
+#26 254.7 Requirement already satisfied: nvidia-cusparselt-cu12==0.6.3 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (0.6.3)
+#26 254.7 Requirement already satisfied: nvidia-nccl-cu12==2.26.2 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2.26.2)
+#26 254.7 Requirement already satisfied: nvidia-nvtx-cu12==12.8.55 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.8.55)
+#26 254.7 Requirement already satisfied: nvidia-nvjitlink-cu12==12.8.61 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (12.8.61)
+#26 254.7 Requirement already satisfied: nvidia-cufile-cu12==1.13.0.11 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.13.0.11)
+#26 254.7 Requirement already satisfied: triton==3.3.0 in /isaac-sim/kit/python/lib/python3.11/site-packages (from torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (3.3.0)
+#26 254.7 Requirement already satisfied: mpmath<1.4,>=1.1.0 in /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle (from sympy>=1.13.3->torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.3.0)
+#26 254.7 Requirement already satisfied: lxml in /isaac-sim/exts/isaacsim.asset.exporter.urdf/pip_prebundle (from yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (5.4.0)
+#26 254.7 Requirement already satisfied: six in /isaac-sim/exts/omni.isaac.core_archive/pip_prebundle (from yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.17.0)
+#26 254.8 Collecting colorlog (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.8   Downloading colorlog-6.10.1-py3-none-any.whl.metadata (11 kB)
+#26 254.8 Collecting manifold3d>=2.3.0 (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.8   Downloading manifold3d-3.3.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (19 kB)
+#26 254.9 Collecting chardet (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 254.9   Downloading chardet-6.0.0.post1-py3-none-any.whl.metadata (3.3 kB)
+#26 254.9 Requirement already satisfied: jsonschema in /isaac-sim/kit/python/lib/python3.11/site-packages (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (4.26.0)
+#26 255.0 Collecting svg.path (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.0   Downloading svg_path-7.0-py2.py3-none-any.whl.metadata (14 kB)
+#26 255.0 Collecting pycollada (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.0   Downloading pycollada-0.9.3-py3-none-any.whl.metadata (1.7 kB)
+#26 255.1 Collecting shapely (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.1   Downloading shapely-2.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.8 kB)
+#26 255.3 Collecting xxhash (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.3   Downloading xxhash-3.6.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (13 kB)
+#26 255.3 Requirement already satisfied: rtree in /isaac-sim/exts/omni.pip.compute/pip_prebundle (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.3.0)
+#26 255.3 Requirement already satisfied: httpx in /isaac-sim/kit/python/lib/python3.11/site-packages (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (0.28.1)
+#26 255.3 Requirement already satisfied: pillow in /isaac-sim/kit/python/lib/python3.11/site-packages (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (11.3.0)
+#26 255.3 Collecting xatlas (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.3   Downloading xatlas-0.0.11-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+#26 255.4 Collecting embreex (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.4   Downloading embreex-2.17.7.post7-cp311-cp311-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (3.0 kB)
+#26 255.5 Collecting vhacdx (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.5   Downloading vhacdx-0.0.10-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (1.1 kB)
+#26 255.5 Collecting mapbox-earcut>=1.0.2 (from trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.5   Downloading mapbox_earcut-2.0.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (2.5 kB)
+#26 255.6 Requirement already satisfied: anyio in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from httpx->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (4.9.0)
+#26 255.6 Requirement already satisfied: certifi in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from httpx->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2025.4.26)
+#26 255.6 Requirement already satisfied: httpcore==1.* in /isaac-sim/kit/python/lib/python3.11/site-packages (from httpx->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.0.9)
+#26 255.6 Requirement already satisfied: idna in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from httpx->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (3.10)
+#26 255.6 Requirement already satisfied: h11>=0.16 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from httpcore==1.*->httpx->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (0.16.0)
+#26 255.6 Requirement already satisfied: sniffio>=1.1 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from anyio->httpx->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (1.3.1)
+#26 255.6 Requirement already satisfied: MarkupSafe>=2.0 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from jinja2->torch>=1.10->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (3.0.2)
+#26 255.6 Requirement already satisfied: attrs>=22.2.0 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from jsonschema->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (25.1.0)
+#26 255.6 Requirement already satisfied: jsonschema-specifications>=2023.03.6 in /isaac-sim/kit/python/lib/python3.11/site-packages (from jsonschema->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2025.9.1)
+#26 255.6 Requirement already satisfied: referencing>=0.28.4 in /isaac-sim/kit/python/lib/python3.11/site-packages (from jsonschema->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (0.37.0)
+#26 255.6 Requirement already satisfied: rpds-py>=0.25.0 in /isaac-sim/kit/python/lib/python3.11/site-packages (from jsonschema->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (0.30.0)
+#26 255.6 Requirement already satisfied: python-dateutil in /isaac-sim/exts/omni.isaac.core_archive/pip_prebundle (from pycollada->trimesh[easy]>=3.11.2->yourdfpy>=0.0.53->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2.9.0.post0)
+#26 255.6 Requirement already satisfied: imageio!=2.35.0,>=2.33 in /isaac-sim/exts/omni.pip.compute/pip_prebundle (from scikit-image->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8) (2.37.0)
+#26 255.7 Collecting tifffile>=2022.8.12 (from scikit-image->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.7   Downloading tifffile-2026.2.24-py3-none-any.whl.metadata (31 kB)
+#26 255.7 Collecting lazy-loader>=0.4 (from scikit-image->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.7   Downloading lazy_loader-0.4-py3-none-any.whl.metadata (7.6 kB)
+#26 255.8 Collecting packaging>=20 (from setuptools_scm>=6.2->nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8)
+#26 255.8   Using cached packaging-26.0-py3-none-any.whl.metadata (3.3 kB)
+#26 255.8 Downloading yourdfpy-0.0.60-py3-none-any.whl (22 kB)
+#26 255.9 Downloading manifold3d-3.3.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (1.2 MB)
+#26 255.9    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 43.9 MB/s  0:00:00
+#26 255.9 Downloading mapbox_earcut-2.0.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (59 kB)
+#26 255.9 Downloading chardet-6.0.0.post1-py3-none-any.whl (627 kB)
+#26 255.9    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 627.2/627.2 kB 20.6 MB/s  0:00:00
+#26 255.9 Downloading colorlog-6.10.1-py3-none-any.whl (11 kB)
+#26 255.9 Downloading embreex-2.17.7.post7-cp311-cp311-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (17.2 MB)
+#26 256.1    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17.2/17.2 MB 86.5 MB/s  0:00:00
+#26 256.1 Downloading importlib_resources-6.5.2-py3-none-any.whl (37 kB)
+#26 256.2 Downloading pybind11-3.0.2-py3-none-any.whl (310 kB)
+#26 256.2 Downloading pycollada-0.9.3-py3-none-any.whl (129 kB)
+#26 256.2 Downloading scikit_image-0.26.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (13.7 MB)
+#26 256.6    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.7/13.7 MB 36.2 MB/s  0:00:00
+#26 256.6 Downloading lazy_loader-0.4-py3-none-any.whl (12 kB)
+#26 256.6 Downloading tifffile-2026.2.24-py3-none-any.whl (243 kB)
+#26 256.6 Downloading shapely-2.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.1 MB)
+#26 256.7    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.1/3.1 MB 78.6 MB/s  0:00:00
+#26 256.7 Downloading svg_path-7.0-py2.py3-none-any.whl (18 kB)
+#26 256.7 Downloading vhacdx-0.0.10-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (251 kB)
+#26 256.7 Using cached wheel-0.46.3-py3-none-any.whl (30 kB)
+#26 256.7 Using cached packaging-26.0-py3-none-any.whl (74 kB)
+#26 256.7 Downloading xatlas-0.0.11-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (262 kB)
+#26 256.7 Downloading xxhash-3.6.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (193 kB)
+#26 256.8 Building wheels for collected packages: nvidia-curobo
+#26 256.8   Building wheel for nvidia-curobo (pyproject.toml): started
+#26 354.3   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 422.7   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 490.9   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 560.1   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 629.1   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 719.1   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 779.1   Building wheel for nvidia-curobo (pyproject.toml): still running...
+#26 786.9   Building wheel for nvidia-curobo (pyproject.toml): finished with status 'done'
+#26 787.0   Created wheel for nvidia-curobo: filename=nvidia_curobo-0.7.7.post1.dev5-cp311-cp311-linux_x86_64.whl size=69905899 sha256=5def0a69caccef1648fa57d2c21c216553162861b9a4286f420170f6b8acc5af
+#26 787.0   Stored in directory: /root/.cache/pip/wheels/d4/3b/e2/557d214faf66fed9a9eb51301a5b20a71ffaef642113babe63
+#26 787.0 Successfully built nvidia-curobo
+#26 787.4 Installing collected packages: xxhash, xatlas, vhacdx, tifffile, svg.path, shapely, pybind11, packaging, mapbox-earcut, manifold3d, importlib_resources, embreex, colorlog, chardet, wheel, pycollada, lazy-loader, scikit-image, yourdfpy, nvidia-curobo
+#26 787.6   WARNING: The scripts lsm2bin, tiff2fsspec, tiffcomment and tifffile are installed in '/root/.local/bin' which is not on PATH.
+#26 787.6   Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+#26 787.9   WARNING: The script pybind11-config is installed in '/root/.local/bin' which is not on PATH.
+#26 787.9   Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+#26 789.5   WARNING: The script chardetect is installed in '/root/.local/bin' which is not on PATH.
+#26 789.5   Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+#26 789.6   WARNING: The script wheel is installed in '/root/.local/bin' which is not on PATH.
+#26 789.6   Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+#26 790.1   WARNING: The script yourdfpy is installed in '/root/.local/bin' which is not on PATH.
+#26 790.1   Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+#26 791.3 
+#26 791.3 ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+#26 791.3 nvidia-srl-usd-to-urdf 1.0.1 requires usd-core<26.0,>=25.2.post1; python_version >= "3.11", which is not installed.
+#26 791.3 nvidia-srl-base 1.3.0 requires docstring-parser==0.16, which is not installed.
+#26 791.3 nvidia-srl-usd 1.0.0 requires usd-core<26.0,>=25.2.post1; python_version >= "3.11", which is not installed.
+#26 791.3 isaaclab-rl 0.4.4 requires packaging<24, but you have packaging 26.0 which is incompatible.
+#26 791.3 nvidia-srl-usd-to-urdf 1.0.1 requires lxml<5.0.0,>=4.9.2, but you have lxml 5.4.0 which is incompatible.
+#26 791.3 Successfully installed chardet-6.0.0.post1 colorlog-6.10.1 embreex-2.17.7.post7 importlib_resources-6.5.2 lazy-loader-0.4 manifold3d-3.3.2 mapbox-earcut-2.0.0 nvidia-curobo-0.7.7.post1.dev5 packaging-26.0 pybind11-3.0.2 pycollada-0.9.3 scikit-image-0.26.0 shapely-2.1.2 svg.path-7.0 tifffile-2026.2.24 vhacdx-0.0.10 wheel-0.46.3 xatlas-0.0.11 xxhash-3.6.0 yourdfpy-0.0.60
+#26 791.3 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#26 792.1 Collecting rerun-sdk==0.23
+#26 792.2   Downloading rerun_sdk-0.23.0-cp39-abi3-manylinux_2_31_x86_64.whl.metadata (4.4 kB)
+#26 792.2 Requirement already satisfied: attrs>=23.1.0 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from rerun-sdk==0.23) (25.1.0)
+#26 792.2 Requirement already satisfied: numpy>=1.23 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from rerun-sdk==0.23) (1.26.0)
+#26 792.2 Requirement already satisfied: pillow>=8.0.0 in /isaac-sim/kit/python/lib/python3.11/site-packages (from rerun-sdk==0.23) (11.3.0)
+#26 792.3 Collecting pyarrow>=14.0.2 (from rerun-sdk==0.23)
+#26 792.3   Downloading pyarrow-23.0.1-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (3.1 kB)
+#26 792.3 Requirement already satisfied: typing-extensions>=4.5 in /isaac-sim/extscache/omni.kit.pip_archive-0.0.0+8131b85d.lx64.cp311/pip_prebundle (from rerun-sdk==0.23) (4.12.2)
+#26 792.4 Downloading rerun_sdk-0.23.0-cp39-abi3-manylinux_2_31_x86_64.whl (71.4 MB)
+#26 803.3    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 71.4/71.4 MB 6.6 MB/s  0:00:10
+#26 803.3 Downloading pyarrow-23.0.1-cp311-cp311-manylinux_2_28_x86_64.whl (47.6 MB)
+#26 806.4    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 47.6/47.6 MB 15.2 MB/s  0:00:03
+#26 806.9 Installing collected packages: pyarrow, rerun-sdk
+#26 809.5 
+#26 809.5 Successfully installed pyarrow-23.0.1 rerun-sdk-0.23.0
+#26 809.5 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#26 DONE 811.3s
+
+#27 [22/45] RUN if [ "false" = "true" ]; then     /tmp/install_cuda.sh;   else     echo "Skipping CUDA 12.8 installation";   fi
+#27 0.212 Skipping CUDA 12.8 installation
+#27 DONE 0.2s
+
+#28 [23/45] RUN rm -f /tmp/install_cuda.sh
+#28 DONE 0.3s
+
+#29 [24/45] COPY ./submodules/Isaac-GR00T /workspaces/isaaclab_arena/submodules/Isaac-GR00T
+#29 DONE 1.9s
+
+#30 [25/45] COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
+#30 DONE 3.2s
+
+#31 [26/45] RUN chmod +x /tmp/install_gr00t_deps.sh
+#31 DONE 0.2s
+
+#32 [27/45] RUN if [ "false" = "true" ]; then     /tmp/install_gr00t_deps.sh;   else     echo "Skipping GR00T installation";   fi &&   rm -f /tmp/install_gr00t_deps.sh
+#32 0.255 Skipping GR00T installation
+#32 DONE 0.3s
+
+#33 [28/45] COPY *.* /workspaces/isaaclab_arena/
+#33 DONE 16.4s
+
+#34 [29/45] COPY isaaclab_arena /workspaces/isaaclab_arena/isaaclab_arena
+#34 DONE 18.9s
+
+#35 [30/45] COPY isaaclab_arena_g1 /workspaces/isaaclab_arena/isaaclab_arena_g1
+#35 DONE 0.1s
+
+#36 [31/45] COPY isaaclab_arena_gr00t /workspaces/isaaclab_arena/isaaclab_arena_gr00t
+#36 DONE 0.4s
+
+#37 [32/45] COPY isaaclab_arena_environments /workspaces/isaaclab_arena/isaaclab_arena_environments
+#37 DONE 0.5s
+
+#38 [33/45] COPY docs /workspaces/isaaclab_arena/docs
+#38 DONE 0.7s
+
+#39 [34/45] RUN /isaac-sim/python.sh -m pip install -e /workspaces/isaaclab_arena/
+#39 1.458 Obtaining file:///workspaces/isaaclab_arena
+#39 1.460   Installing build dependencies: started
+#39 2.572   Installing build dependencies: finished with status 'done'
+#39 2.573   Checking if build backend supports build_editable: started
+#39 2.875   Checking if build backend supports build_editable: finished with status 'done'
+#39 2.876   Getting requirements to build editable: started
+#39 3.124   Getting requirements to build editable: finished with status 'done'
+#39 3.126   Preparing editable metadata (pyproject.toml): started
+#39 3.337   Preparing editable metadata (pyproject.toml): finished with status 'done'
+#39 3.341 Building wheels for collected packages: isaaclab_arena
+#39 3.343   Building editable for isaaclab_arena (pyproject.toml): started
+#39 3.644   Building editable for isaaclab_arena (pyproject.toml): finished with status 'done'
+#39 3.645   Created wheel for isaaclab_arena: filename=isaaclab_arena-1.0.0-0.editable-py3-none-any.whl size=7512 sha256=54bdeadfdd8914e13b978488d4d0cdecc64db712f0018323bf19569885c1be9d
+#39 3.645   Stored in directory: /tmp/pip-ephem-wheel-cache-fp_obx18/wheels/72/b3/98/15d97bb054c0bc0db31e1b364168b5177db06ace79f33c9167
+#39 3.649 Successfully built isaaclab_arena
+#39 4.011 Installing collected packages: isaaclab_arena
+#39 4.058 Successfully installed isaaclab_arena-1.0.0
+#39 4.058 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#39 DONE 4.2s
+
+#40 [35/45] RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
+#40 DONE 0.3s
+
+#41 [36/45] RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
+#41 DONE 0.3s
+
+#42 [37/45] RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
+#42 DONE 0.3s
+
+#43 [38/45] RUN echo "export PATH=/isaac-sim/kit/python/bin:$PATH" >> /etc/bash.bashrc
+#43 DONE 0.3s
+
+#44 [39/45] RUN pip3 install debugpy
+#44 0.862 Collecting debugpy
+#44 0.923   Downloading debugpy-1.8.20-cp310-cp310-manylinux_2_34_x86_64.whl.metadata (1.4 kB)
+#44 0.941 Downloading debugpy-1.8.20-cp310-cp310-manylinux_2_34_x86_64.whl (3.1 MB)
+#44 1.037    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.1/3.1 MB 42.2 MB/s  0:00:00
+#44 1.109 Installing collected packages: debugpy
+#44 1.701 Successfully installed debugpy-1.8.20
+#44 1.701 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#44 DONE 1.8s
+
+#45 [40/45] RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
+#45 DONE 0.3s
+
+#46 [41/45] RUN echo "PS1='[IsaacLab Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] $ '" >> /etc/bash.bashrc
+#46 DONE 0.4s
+
+#47 [42/45] RUN echo "alias ll='ls -alF --color=auto'" >> /etc/bash.bashrc
+#47 DONE 0.3s
+
+#48 [43/45] RUN echo "alias ..='cd ..'" >> /etc/bash.bashrc
+#48 DONE 0.3s
+
+#49 [44/45] RUN cp /etc/bash.bashrc /root/.bashrc
+#49 DONE 0.3s
+
+#50 [45/45] COPY docker/setup/entrypoint.sh /entrypoint.sh
+#50 DONE 0.1s
+
+#51 exporting to image
+#51 exporting layers
+#51 exporting layers 34.1s done
+#51 writing image sha256:900c6abc1df58fe0f458e2cbfc7e87b90d7c296ed7f5e00f9466555dfc743e83 done
+#51 naming to docker.io/library/isaaclab_arena:cuda_curobo done
+#51 DONE 34.1s
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ^C[?2004l[?2004h[?2004l
+[?2004h[IsaacLab Arena] [0;32m~xyao [0;34m/workspaces/isaaclab_arena[0m $ ccccc/c

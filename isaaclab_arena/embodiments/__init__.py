@@ -9,3 +9,5 @@ from .franka.franka import *
 from .g1.g1 import *
 from .galbot.galbot import *
 from .gr1t2.gr1t2 import *
+from .droid.droid import *
+from .droid.droid_mimic_joint_fixed import *  # noqa: F401,F403

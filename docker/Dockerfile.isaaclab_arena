@@ -7,7 +7,7 @@ USER root
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
-
+ARG INSTALL_CUROBO=false
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
@@ -71,6 +71,9 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   # NOTE(xinjieyao, 2025-09-15): Needed for WBC running onnx compiled policy
   onnxruntime
 
+RUN rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/typing_extensions*
+RUN rm -rf /isaac-sim/exts/omni.pip.cloud/pip_prebundle/typing_extensions*
+
 # lwlabs deps
 RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
   /isaac-sim/python.sh -m pip install \
@@ -92,13 +95,40 @@ RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 # Copy CUDA 12.8 installation script
 COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
 RUN chmod +x /tmp/install_cuda.sh
+
+# Pin packaging<24 before curobo so curobo's deps never install packaging 26.0,
+# which can break Isaac Sim's bundled torch (torch._vendor.packaging).
+RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
+      /isaac-sim/python.sh -m pip install "packaging<24" ; \
+    fi
+RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
+      /tmp/install_cuda.sh && \
+      export TORCH_CUDA_ARCH_LIST=8.0+PTX && \
+      /isaac-sim/python.sh -m pip install --no-build-isolation \
+      "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" && \
+      /isaac-sim/python.sh -m pip install "packaging<24" && \
+      /isaac-sim/python.sh -m pip install rerun-sdk==0.23 ; \
+    else \
+      echo "Skipping cuRobo installation"; \
+  fi
+# Repair Isaac Sim's bundled torch: replace dangling/broken _structures symlink with real file.
+RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
+      TORCH_VENDOR_PACKAGING="/isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch/_vendor/packaging" && \
+      SITEPACKAGES=$(/isaac-sim/python.sh -c "import site; print(site.getsitepackages()[0])") && \
+      if [ -f "$SITEPACKAGES/packaging/_structures.py" ] && [ -d "$TORCH_VENDOR_PACKAGING" ]; then \
+        rm -f "$TORCH_VENDOR_PACKAGING/_structures.py" && \
+        cp "$SITEPACKAGES/packaging/_structures.py" "$TORCH_VENDOR_PACKAGING/" && \
+        echo "Repaired torch._vendor.packaging._structures" ; \
+      fi ; \
+    fi
+
 # If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     /tmp/install_cuda.sh; \
   else \
     echo "Skipping CUDA 12.8 installation"; \
-  fi && \
-  rm -f /tmp/install_cuda.sh
+  fi
+RUN rm -f /tmp/install_cuda.sh
 # Copy GR00T
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 # Copy GR00T dependencies installation script
@@ -131,6 +161,7 @@ RUN /isaac-sim/python.sh -m pip install tenacity
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
+RUN echo "export PATH=/isaac-sim/kit/python/bin:\$PATH" >> /etc/bash.bashrc
 
 # Debugging with debugpy
 # Usage:
