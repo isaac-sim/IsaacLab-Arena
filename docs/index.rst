@@ -212,6 +212,12 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
+   :caption: Policy Evaluation
+
+   pages/policy_evaluation/index
+
+.. toctree::
+   :maxdepth: 1
    :caption: Concepts
 
    pages/concepts/concept_overview

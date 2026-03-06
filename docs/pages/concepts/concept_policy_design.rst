@@ -4,6 +4,9 @@ Policy Design
 Policies define how agents generate actions from observations.
 The policy system provides a registry system for managing different policies.
 
+For how to run policies in practice (single job, sequential batch, or
+server–client), see :doc:`Evaluation Types <../policy_evaluation/evaluation_types>`.
+
 Core Architecture
 -----------------
 
