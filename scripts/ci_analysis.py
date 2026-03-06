@@ -53,10 +53,11 @@ from statistics import mean, median, stdev
 
 REPO = "isaac-sim/IsaacLab-Arena"
 
-# Workflow IDs (from: gh api repos/{repo}/actions/workflows)
+# Workflow IDs (from: gh api repos/{repo}/actions/workflows).
+# ci_new.yml (id=238099976) was a short-lived rename of ci.yml in Feb 2026
+# and no longer exists in the repo; excluded here to avoid double-counting runs.
 WORKFLOW_IDS = {
     "ci.yml": 184771057,
-    "ci_new.yml": 238099976,
 }
 
 # Jobs shown in plots — maps API job name -> short display label.
