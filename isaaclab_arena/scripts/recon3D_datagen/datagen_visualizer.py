@@ -703,10 +703,11 @@ def visualize_scene_flow_3d(
     non-zero flow additionally get a **line** starting at the dot, whose
     length and direction match the 3-D flow vector.
 
-    Line colour encodes *direction* via HSV hue (similar directions →
-    similar colours) and *magnitude* via darkness: small motions produce
-    light/pastel lines while large motions produce dark/saturated lines of
-    the same hue.
+    Line colour encodes *direction* by mapping the normalised 3-D flow
+    vector to RGB (X → red, Y → green, Z → blue) so that different
+    directions receive visually distinct colours while similar directions
+    remain close.  *Magnitude* modulates lightness: small motions produce
+    light/pastel lines, large motions produce dark lines of the same hue.
 
     The result is a fully rotatable 3-D figure (saved as an ``.html`` file
     when *save_path* is given, or displayed interactively otherwise).
@@ -730,8 +731,6 @@ def visualize_scene_flow_3d(
             "plotly is required for interactive 3-D visualisation.  "
             "Install it with:  pip install plotly"
         ) from exc
-    from matplotlib.colors import hsv_to_rgb as mpl_hsv_to_rgb
-
     # ---- Load single-frame data ----------------------------------------
     cam_dir = os.path.join(output_dir, camera_id)
     tag = f"{frame_index:010d}"
@@ -789,20 +788,21 @@ def visualize_scene_flow_3d(
     dyn_mag = mag[has_flow]
     N_dyn = len(dyn_pts)
 
-    # Direction → HSV hue  (azimuth of flow vector)
-    # Magnitude → HSV value (larger motion = darker)
+    # Direction → RGB base colour (normal-map style: each axis gets its
+    # own channel, so different 3-D directions map to visually distinct
+    # colours).  Magnitude modulates lightness: small = light/pastel,
+    # large = dark/saturated.
     if N_dyn > 0:
-        phi = np.arctan2(dyn_flw[:, 1], dyn_flw[:, 0])
-        hue = (phi + np.pi) / (2 * np.pi)                  # [0, 1]
+        direction = dyn_flw / (dyn_mag[:, np.newaxis] + 1e-8)
+        base_rgb = (direction + 1.0) / 2.0                  # [-1,1] → [0,1]
 
         mag_max = dyn_mag.max()
         mag_norm = dyn_mag / (mag_max + 1e-8)               # [0, 1]
-        # Small flow → light (high V, low S), large flow → dark (low V, high S)
-        saturation = 0.3 + 0.7 * mag_norm
-        value = 1.0 - 0.6 * mag_norm
-
-        hsv = np.stack([hue, saturation, value], axis=-1)
-        arrow_rgb = mpl_hsv_to_rgb(hsv)                     # (N, 3) [0,1]
+        t = mag_norm[:, np.newaxis]
+        # Blend toward white for small magnitudes, darken for large
+        white_offset = (1.0 - t) * 0.55
+        dark_scale = 1.0 - 0.5 * t
+        arrow_rgb = np.clip(base_rgb * dark_scale + white_offset, 0, 1)
 
         ends = dyn_pts + dyn_flw * arrow_scale
 

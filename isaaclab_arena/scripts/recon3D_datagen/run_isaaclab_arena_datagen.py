@@ -137,7 +137,7 @@ visualize_camera_trajectory(
 )
 
 # Interactive 3D scene flow (saved as rotatable HTML)
-frame_index = 27
+frame_index = 0
 visualize_scene_flow_3d(
     OUTPUT_DIR,
     camera_id,
