@@ -136,8 +136,9 @@ def get_token() -> str:
         result = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10)
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-        if result.returncode != 0 and result.stderr.strip():
-            print(f"WARNING: `gh auth token` failed: {result.stderr.strip()}")
+        if result.returncode != 0:
+            stderr_msg = result.stderr.strip() or "(no stderr output)"
+            print(f"WARNING: `gh auth token` exited with code {result.returncode}: {stderr_msg}")
     except FileNotFoundError:
         print("WARNING: `gh` CLI not found on PATH.")
     except subprocess.TimeoutExpired:
@@ -217,7 +218,11 @@ def fetch_runs_since(wf_id: int, since_dt: datetime, token: str) -> list[dict]:
             token,
             {"workflow_id": wf_id, "per_page": 100, "page": page},
         )
-        if isinstance(data, dict) and "message" in data and "workflow_runs" not in data:
+        if not isinstance(data, dict):
+            raise RuntimeError(
+                f"Unexpected response type {type(data).__name__} for workflow {wf_id} runs. Expected a dict."
+            )
+        if "message" in data and "workflow_runs" not in data:
             raise RuntimeError(
                 f"GitHub API error for workflow {wf_id}: {data['message']}. "
                 "Check that the workflow ID in WORKFLOW_IDS is correct."
@@ -339,7 +344,9 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
     run_duration_records: list[dict] = []
 
     # Per-week failure counts: {week: {"infra": n, "genuine": n, "total": n}}
-    week_failure_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"infra": 0, "genuine": 0, "total": 0})
+    week_failure_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"infra": 0, "genuine": 0, "unknown": 0, "total": 0}
+    )
 
     # Failure tracking
     failure_counts = {"infra": 0, "genuine": 0, "unknown": 0}
@@ -358,7 +365,13 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
 
         try:
             jobs_data = gh_get(f"/repos/{REPO}/actions/runs/{run_id}/jobs", token, {"per_page": 100})
+            if isinstance(jobs_data, dict) and "message" in jobs_data and "jobs" not in jobs_data:
+                raise RuntimeError(f"GitHub API error fetching jobs for run {run_id}: {jobs_data['message']}")
             jobs = jobs_data.get("jobs", [])
+            if len(jobs) == 100:
+                print(
+                    f"  [NOTE] run {run_id}: fetched exactly 100 jobs; run may have more (pagination not implemented)"
+                )
         except Exception as exc:
             fetch_failures += 1
             print(f"  [WARN] run {run_id}: failed to fetch jobs: {exc}", flush=True)
@@ -483,6 +496,10 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
             "since": since_dt.isoformat(),
             "num_runs_fetched": len(all_runs),
             "workflows_analyzed": list(workflow_ids.keys()),
+            "job_fetch_failures": fetch_failures,
+            "job_fetch_completeness_pct": (
+                round(100 * (len(all_runs) - fetch_failures) / len(all_runs), 1) if all_runs else 100.0
+            ),
         },
         "job_queue_times": dict(job_queue_times),
         "job_durations": dict(job_durations),
@@ -789,10 +806,7 @@ def main() -> None:
 
     print_report(data)
 
-    if args.plot:
-        print("\nGenerating weekly trend plots...", flush=True)
-        plot_weekly_trends(data, output_prefix=args.plot_prefix)
-
+    # Write JSON before generating plots so data is never lost if plotting fails.
     try:
         with open(args.output, "w") as f:
             json.dump(data, f, indent=2, default=str)
@@ -800,6 +814,10 @@ def main() -> None:
     except OSError as exc:
         print(f"\nERROR: Could not write JSON output to '{args.output}': {exc}", file=sys.stderr)
         sys.exit(1)
+
+    if args.plot:
+        print("\nGenerating weekly trend plots...", flush=True)
+        plot_weekly_trends(data, output_prefix=args.plot_prefix)
 
 
 if __name__ == "__main__":
