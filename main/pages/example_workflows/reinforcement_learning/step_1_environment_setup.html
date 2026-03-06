@@ -557,15 +557,16 @@ See <a class="reference internal" href="../../concepts/concept_environment_desig
 </section>
 <section id="validation-run-random-policy">
 <h2>Validation: Run Random Policy<a class="headerlink" href="#validation-run-random-policy" title="Link to this heading">#</a></h2>
-<p>To validate the environment setup, we can run a policy with random weights to ensure everything loads correctly:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/reinforcement_learning/train.py<span class="w"> </span><span class="se">\</span>
+<p>To validate the environment loads correctly, run one training iteration and check for errors:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>lift_object
+<span class="w">  </span>--headless
 </pre></div>
 </div>
-<p>This command will load the environment, initialize 64 parallel environments, and exit immediately
-(<code class="docutils literal notranslate"><span class="pre">max_iterations=1</span></code>). If successful, the environment is ready for training.</p>
+<p>If the environment is set up correctly, you will see one iteration of training output before the script exits.</p>
 <p>You should see output indicating the start of training:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Learning iteration 0/1
 
