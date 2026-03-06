@@ -571,7 +571,7 @@ class IsaacLabArenaCameraHandler:
         self,
         env: Any,
         *,
-        occlusion_tol: float = 0.05,
+        occlusion_tol: float = 0.0001,
     ) -> FirstFrameFlowResult:
         """Compute flow from frame-0 anchors to the current frame k.
 
@@ -672,11 +672,26 @@ class IsaacLabArenaCameraHandler:
             & (v >= -_PIX_EPS) & (v < H - 1 + _PIX_EPS)
         )
 
-        u_idx = u.round().clamp(0, W - 1).long()
-        v_idx = v.round().clamp(0, H - 1).long()
-        sampled_depth = depth_k[v_idx, u_idx]
+        # Sample depth at all 4 bilinear-cell corners to handle depth
+        # discontinuities: at object edges the continuous (u, v) straddles
+        # two surfaces, so a single-pixel lookup can grab the wrong one.
+        # Accepting the closest-matching corner eliminates boundary artifacts.
+        u_fl = u.floor().clamp(0, W - 1).long()
+        u_ce = (u_fl + 1).clamp(0, W - 1)
+        v_fl = v.floor().clamp(0, H - 1).long()
+        v_ce = (v_fl + 1).clamp(0, H - 1)
 
-        visible_now = in_frame & (torch.abs(z_cam - sampled_depth) < occlusion_tol)
+        d00 = depth_k[v_fl, u_fl]
+        d01 = depth_k[v_fl, u_ce]
+        d10 = depth_k[v_ce, u_fl]
+        d11 = depth_k[v_ce, u_ce]
+
+        min_depth_diff = torch.min(
+            torch.min(torch.abs(z_cam - d00), torch.abs(z_cam - d01)),
+            torch.min(torch.abs(z_cam - d10), torch.abs(z_cam - d11)),
+        )
+
+        visible_now = in_frame & (min_depth_diff < occlusion_tol)
 
         return FirstFrameFlowResult(
             flow3d_from_first=flow_0k,
