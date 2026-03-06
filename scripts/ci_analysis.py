@@ -29,9 +29,9 @@ Requires:
 
 Output:
   - Console summary table
-  - ci_analysis_results.json     raw data for further analysis
-  - ci_trends_queue_time.png     weekly queue time trend (with --plot)
-  - ci_trends_duration.png       weekly duration trend (with --plot)
+  - <output>              raw data (default: ci_analysis_results.json; override with --output)
+  - <prefix>_queue_time.png   weekly queue time trend (with --plot; prefix set by --plot-prefix)
+  - <prefix>_duration.png     weekly duration trend (with --plot)
 """
 
 import argparse
@@ -41,6 +41,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -54,8 +55,9 @@ from statistics import mean, median, stdev
 REPO = "isaac-sim/IsaacLab-Arena"
 
 # Workflow IDs (from: gh api repos/{repo}/actions/workflows).
-# ci_new.yml (id=238099976) was a short-lived rename of ci.yml in Feb 2026
-# and no longer exists in the repo; excluded here to avoid double-counting runs.
+# ci_new.yml (id=238099976) was a short-lived rename of ci.yml used only in
+# Feb 2026. It is intentionally omitted here — runs fetched by ci.yml's id
+# already cover that period, so including ci_new.yml would double-count them.
 WORKFLOW_IDS = {
     "ci.yml": 184771057,
 }
@@ -79,8 +81,8 @@ PR_GATING_JOBS = {
     "Build the docs (pre-merge)",
 }
 
-# Step-name / job-name patterns that indicate infrastructure failures.
-# The API does not expose log text, so we match against step names only.
+# Job-name / step-name patterns that indicate infrastructure failures.
+# The API does not expose log text, so we match against job names and step names.
 INFRA_PATTERNS = [
     # NGC / Docker image pull issues
     r"pull.*image",
@@ -115,36 +117,57 @@ INFRA_PATTERNS = [
 
 _INFRA_RE = re.compile("|".join(INFRA_PATTERNS), re.IGNORECASE)
 
+_MAX_PAGES = 200  # safety cap: 200 * 100 = 20,000 runs per workflow
+
 # ---------------------------------------------------------------------------
 # GitHub API helpers
 # ---------------------------------------------------------------------------
 
 
 def get_token() -> str:
-    """Return a GitHub API token from env or gh CLI config."""
+    """Return a GitHub API token from GITHUB_TOKEN env var, `gh auth token` CLI
+    (gh >= 2.x), or ~/.config/gh/hosts.yml (requires PyYAML; older gh versions).
+    """
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         return token
     # Try gh >= 2.x
-    result = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True)
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
+    try:
+        result = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        if result.returncode != 0 and result.stderr.strip():
+            print(f"WARNING: `gh auth token` failed: {result.stderr.strip()}")
+    except FileNotFoundError:
+        print("WARNING: `gh` CLI not found on PATH.")
+    except subprocess.TimeoutExpired:
+        print("WARNING: `gh auth token` timed out.")
     # Fallback: read directly from gh hosts.yml (older gh versions)
     hosts_path = os.path.expanduser("~/.config/gh/hosts.yml")
     try:
         import yaml
 
         with open(hosts_path) as fh:
-            data = yaml.safe_load(fh)
-        return data["github.com"]["oauth_token"]
-    except Exception:
-        pass
+            hosts = yaml.safe_load(fh)
+        return hosts["github.com"]["oauth_token"]
+    except ImportError:
+        print("WARNING: pyyaml not installed; cannot read gh hosts.yml as fallback.")
+    except FileNotFoundError:
+        print(f"WARNING: {hosts_path} not found.")
+    except KeyError as exc:
+        print(f"WARNING: Key {exc} not found in {hosts_path}; gh hosts.yml structure may have changed.")
+    except Exception as exc:
+        print(f"WARNING: Could not read token from {hosts_path}: {exc}")
     sys.exit("ERROR: Could not obtain GitHub token. Set GITHUB_TOKEN env var or run `gh auth login`.")
-    return ""  # unreachable; satisfies R503
+    return ""  # unreachable; sys.exit() raises SystemExit
 
 
 def gh_get(path: str, token: str, params: dict | None = None, retries: int = 3) -> dict | list:
-    """Call the GitHub REST API and return parsed JSON, with retries."""
+    """Call the GitHub REST API and return parsed JSON, retrying on transient errors.
+
+    Raises RuntimeError immediately on permanent 4xx responses (401, 403, 404, 422)
+    since retrying those will never succeed.
+    """
     url = f"https://api.github.com{path}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
@@ -157,23 +180,48 @@ def gh_get(path: str, token: str, params: dict | None = None, retries: int = 3) 
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read())
-        except Exception as exc:
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403, 404, 422):
+                # Permanent client errors — retrying will not help.
+                hint = "Check GITHUB_TOKEN." if exc.code in (401, 403) else "Check REPO and WORKFLOW_IDS."
+                raise RuntimeError(f"GitHub API returned HTTP {exc.code} for {url}. {hint}") from exc
             if attempt < retries - 1:
                 time.sleep(3)
             else:
-                raise exc
+                raise
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(3)
+            else:
+                raise
 
 
 def fetch_runs_since(wf_id: int, since_dt: datetime, token: str) -> list[dict]:
-    """Fetch all workflow runs created on or after since_dt (paginated)."""
+    """Fetch all workflow runs created on or after since_dt (paginated).
+
+    Assumes the GitHub API returns runs in reverse-chronological order (newest
+    first); iteration stops as soon as a run predates since_dt.
+    """
     runs = []
     page = 1
     while True:
+        if page > _MAX_PAGES:
+            print(
+                f"  WARNING: Reached page limit ({_MAX_PAGES}) for workflow {wf_id}. "
+                "Results may be incomplete. Narrow the --since range if needed.",
+                flush=True,
+            )
+            break
         data = gh_get(
             f"/repos/{REPO}/actions/runs",
             token,
             {"workflow_id": wf_id, "per_page": 100, "page": page},
         )
+        if isinstance(data, dict) and "message" in data and "workflow_runs" not in data:
+            raise RuntimeError(
+                f"GitHub API error for workflow {wf_id}: {data['message']}. "
+                "Check that the workflow ID in WORKFLOW_IDS is correct."
+            )
         batch = data.get("workflow_runs", [])
         if not batch:
             break
@@ -203,7 +251,20 @@ def to_minutes(td) -> float | None:
     if td is None:
         return None
     v = td.total_seconds() / 60
-    return v if 0 <= v < 300 else None  # sanity cap: discard anything >= 5 h
+    # Discard negative values (clock skew) and anything >= 5 h (stalled/hung jobs).
+    return v if 0 <= v < 300 else None
+
+
+def _pct(sv: list, p: float) -> float:
+    """Return the p-th percentile of a pre-sorted list (nearest-rank, 0-indexed)."""
+    return sv[max(0, int(len(sv) * p) - 1)] if sv else float("nan")
+
+
+def _current_iso_week() -> str:
+    """Return the current ISO week as 'YYYY-Www'."""
+    now = datetime.now(timezone.utc)
+    y, w, _ = now.isocalendar()
+    return f"{y}-W{w:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +275,7 @@ def to_minutes(td) -> float | None:
 def classify_failure(jobs: list[dict]) -> str:
     """
     Classify a failed run as 'infra', 'genuine', or 'unknown'.
-    Matched against step names (API does not expose log text).
+    Matched against job names and step names (API does not expose log text).
     """
     failed_jobs = [j for j in jobs if j.get("conclusion") in ("failure", "timed_out")]
     if not failed_jobs:
@@ -265,6 +326,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
     # Aggregate stats (all-time over the window)
     job_queue_times: dict[str, list[float]] = defaultdict(list)
     job_durations: dict[str, list[float]] = defaultdict(list)
+    # Wall-clock for all runs with valid timestamps (unfiltered, used in the console summary).
     run_total_times: list[float] = []
 
     # Per-job records for trend plots:
@@ -276,7 +338,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
     run_queue_records: list[dict] = []
     run_duration_records: list[dict] = []
 
-    # Per-week failure counts for trend plot: {week: {"infra": n, "genuine": n, "total": n}}
+    # Per-week failure counts: {week: {"infra": n, "genuine": n, "total": n}}
     week_failure_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"infra": 0, "genuine": 0, "total": 0})
 
     # Failure tracking
@@ -285,6 +347,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
     total_completed = 0
     total_failed = 0
     status_counts: dict[str, int] = defaultdict(int)
+    fetch_failures = 0
 
     print("Fetching job details...", flush=True)
     for i, run in enumerate(all_runs):
@@ -297,7 +360,8 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
             jobs_data = gh_get(f"/repos/{REPO}/actions/runs/{run_id}/jobs", token, {"per_page": 100})
             jobs = jobs_data.get("jobs", [])
         except Exception as exc:
-            print(f"  [WARN] run {run_id}: {exc}", flush=True)
+            fetch_failures += 1
+            print(f"  [WARN] run {run_id}: failed to fetch jobs: {exc}", flush=True)
             jobs = []
 
         # Determine the week from the run's created_at
@@ -346,6 +410,8 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
             if name in PR_GATING_JOBS:
                 if q_m is not None:
                     run_pr_queue_total += q_m
+                # Count job as seen even if only duration is available — confirms
+                # this run had PR-gating activity.
                 if q_m is not None or d_m is not None:
                     run_pr_job_count += 1
                 if job_conclusion == "success":
@@ -354,14 +420,14 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
         if run_week and run_pr_job_count > 0:
             run_queue_records.append({"week": run_week, "total_queue_m": run_pr_queue_total})
 
-        # Run-level wall-clock time (created_at -> updated_at).
-        # Used as "total duration" — only recorded when ALL PR-gating jobs
-        # completed successfully, so we compare apples to apples.
         run_updated = parse_dt(run.get("updated_at"))
         if run_created and run_updated:
             t = to_minutes(run_updated - run_created)
             if t is not None:
+                # run_total_times: wall-clock for all runs with valid timestamps (unfiltered).
                 run_total_times.append(t)
+                # run_duration_records: restricted to fully-successful runs so the
+                # weekly trend compares apples to apples.
                 if run_week and pr_gating_succeeded == PR_GATING_JOBS:
                     run_duration_records.append({"week": run_week, "total_duration_m": t})
 
@@ -374,8 +440,7 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
                 failure_counts[cat] += 1
                 if run_week:
                     week_failure_counts[run_week]["total"] += 1
-                    if cat == "infra":
-                        week_failure_counts[run_week]["infra"] += 1
+                    week_failure_counts[run_week][cat] += 1
                 failed_runs_detail.append({
                     "run_id": run_id,
                     "run_number": run.get("run_number"),
@@ -401,6 +466,16 @@ def analyze(workflow_ids: dict[str, int], since_dt: datetime, token: str) -> dic
 
         if (i + 1) % 50 == 0:
             print(f"  Processed {i + 1}/{len(all_runs)} runs...", flush=True)
+
+    if fetch_failures > 0:
+        pct_str = f"{100 * fetch_failures / len(all_runs):.0f}%"
+        print(
+            f"\nWARNING: Failed to fetch jobs for {fetch_failures}/{len(all_runs)} runs ({pct_str}). "
+            "Job metrics may be incomplete.",
+            flush=True,
+        )
+        if fetch_failures == len(all_runs):
+            sys.exit("ERROR: All job fetches failed. Check your token and network connectivity.")
 
     return {
         "meta": {
@@ -433,9 +508,44 @@ def fmt_stats(values: list[float]) -> str:
     if not values:
         return "N/A (no data)"
     sv = sorted(values)
-    p90 = sv[int(len(sv) * 0.9)]
+    p90 = _pct(sv, 0.9)
     sd = stdev(values) if len(values) > 1 else 0.0
     return f"mean={mean(values):.1f}m  median={median(values):.1f}m  p90={p90:.1f}m  stdev={sd:.1f}m  n={len(values)}"
+
+
+def _group_records_by_week(data: dict) -> tuple:
+    """Group per-job and per-run records into week-keyed dicts.
+
+    Returns (wq, wd, wtq, wtd, all_weeks):
+      wq:  {api_job_name: {week: [queue_m]}}
+      wd:  {api_job_name: {week: [duration_m]}}
+      wtq: {week: [total_queue_m]}
+      wtd: {week: [total_duration_m]}
+      all_weeks: sorted ISO week strings, current week excluded
+    """
+    records = data.get("job_records", [])
+    run_queue_records = data.get("run_queue_records", [])
+    run_duration_records = data.get("run_duration_records", [])
+
+    wq: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    wd: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for r in records:
+        if r.get("queue_m") is not None:
+            wq[r["job"]][r["week"]].append(r["queue_m"])
+        if r.get("duration_m") is not None:
+            wd[r["job"]][r["week"]].append(r["duration_m"])
+
+    wtq: dict[str, list[float]] = defaultdict(list)
+    for r in run_queue_records:
+        wtq[r["week"]].append(r["total_queue_m"])
+
+    wtd: dict[str, list[float]] = defaultdict(list)
+    for r in run_duration_records:
+        wtd[r["week"]].append(r["total_duration_m"])
+
+    cur_week = _current_iso_week()
+    all_weeks = sorted(w for w in ({r["week"] for r in records} | set(wtq.keys()) | set(wtd.keys())) if w != cur_week)
+    return wq, wd, wtq, wtd, all_weeks
 
 
 def print_report(data: dict) -> None:
@@ -461,7 +571,7 @@ def print_report(data: dict) -> None:
     print("\n--- Per-run total queue time (sum of PR-gating job queue times) ---")
     print("  " + fmt_stats(rqt))
 
-    print("\n--- Run wall-clock time (created_at -> updated_at) ---")
+    print("\n--- Run wall-clock time (created_at -> updated_at, all runs) ---")
     print("  " + fmt_stats(data["run_total_times"]))
 
     print("\n--- Run status breakdown ---")
@@ -491,53 +601,18 @@ def print_report(data: dict) -> None:
                 print(f"    job={j['job']}  conclusion={j['conclusion']}  failing steps: {steps}")
 
     # ---- Weekly stats table ----
-    records = data.get("job_records", [])
-    run_queue_records = data.get("run_queue_records", [])
-    run_duration_records = data.get("run_duration_records", [])
-    if records:
-        from collections import defaultdict as _dd
-
-        wq: dict[str, dict[str, list[float]]] = _dd(lambda: _dd(list))
-        wd: dict[str, dict[str, list[float]]] = _dd(lambda: _dd(list))
-        for r in records:
-            if r.get("queue_m") is not None:
-                wq[r["job"]][r["week"]].append(r["queue_m"])
-            if r.get("duration_m") is not None:
-                wd[r["job"]][r["week"]].append(r["duration_m"])
-
-        wtq: dict[str, list[float]] = _dd(list)
-        for r in run_queue_records:
-            wtq[r["week"]].append(r["total_queue_m"])
-        wtd: dict[str, list[float]] = _dd(list)
-        for r in run_duration_records:
-            wtd[r["week"]].append(r["total_duration_m"])
-
-        now_dt = datetime.now(timezone.utc)
-        cur_y, cur_w, _ = now_dt.isocalendar()
-        cur_week = f"{cur_y}-W{cur_w:02d}"
-        all_weeks = sorted(
-            w for w in ({r["week"] for r in records} | set(wtq.keys()) | set(wtd.keys())) if w != cur_week
-        )
-
-        def pct(vals, p):
-            sv = sorted(vals)
-            return sv[max(0, int(len(sv) * p) - 1)] if sv else float("nan")
+    wq, wd, wtq, wtd, all_weeks = _group_records_by_week(data)
+    if all_weeks:
 
         def row(vals):
             if not vals:
                 return "   —"
+            sv = sorted(vals)
             return (
-                f"{median(vals):5.1f} / {pct(vals, 0.9):5.1f} / {stdev(vals) if len(vals) > 1 else 0:5.1f} "
+                f"{median(vals):5.1f} / {_pct(sv, 0.9):5.1f} / {stdev(vals) if len(vals) > 1 else 0:5.1f} "
                 f" n={len(vals)}"
             )
 
-        KEY_JOBS = [
-            ("Pre-commit", "Pre-commit"),
-            ("Run tests", "Run tests"),
-            ("Run policy-related tests with GR00T & cuda12_8 deps", "Policy tests"),
-            ("Build the docs (pre-merge)", "Build docs"),
-            ("Build & push NGC image (post-merge)", "Build+push"),
-        ]
         col_w = 32
 
         for metric, job_week_map, total_map, label in [
@@ -548,7 +623,7 @@ def print_report(data: dict) -> None:
             header = f"  {'Job':<{col_w}}" + "".join(f"  {w:>28}" for w in all_weeks)
             print(header)
             print("  " + "-" * (col_w + 30 * len(all_weeks)))
-            for api_name, display in KEY_JOBS:
+            for api_name, display in PLOT_JOBS.items():
                 vals_by_week = job_week_map.get(api_name, {})
                 line = f"  {display:<{col_w}}" + "".join(f"  {row(vals_by_week.get(w, [])):>28}" for w in all_weeks)
                 print(line)
@@ -575,49 +650,19 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
         print("matplotlib not installed — skipping plots. Run: pip install matplotlib")
         return
 
-    records = data.get("job_records", [])
-    run_queue_records = data.get("run_queue_records", [])
-    run_duration_records = data.get("run_duration_records", [])
-    if not records:
+    wq, wd, wtq, wtd, all_weeks = _group_records_by_week(data)
+    if not all_weeks:
         print("No per-job records to plot.")
         return
 
-    # Group by (display_name, week)
+    # Re-key queue/duration dicts from API job name to display label for the plots.
     week_queue: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     week_dur: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-
-    for r in records:
-        display = PLOT_JOBS.get(r["job"])
-        if display is None:
-            continue
-        if r.get("queue_m") is not None:
-            week_queue[display][r["week"]].append(r["queue_m"])
-        if r.get("duration_m") is not None:
-            week_dur[display][r["week"]].append(r["duration_m"])
-
-    # Total queue/duration per run, grouped by week
-    week_total_queue: dict[str, list[float]] = defaultdict(list)
-    for r in run_queue_records:
-        week_total_queue[r["week"]].append(r["total_queue_m"])
-
-    week_total_dur: dict[str, list[float]] = defaultdict(list)
-    for r in run_duration_records:
-        week_total_dur[r["week"]].append(r["total_duration_m"])
-
-    # Exclude the current (partial) ISO week so incomplete data doesn't distort trends.
-    now = datetime.now(timezone.utc)
-    current_iso_year, current_iso_week, _ = now.isocalendar()
-    current_week = f"{current_iso_year}-W{current_iso_week:02d}"
-
-    all_weeks = sorted(
-        w
-        for w in (
-            {r["week"] for r in records if PLOT_JOBS.get(r["job"])}
-            | set(week_total_queue.keys())
-            | set(week_total_dur.keys())
-        )
-        if w != current_week
-    )
+    for api_name, display in PLOT_JOBS.items():
+        for week, vals in wq.get(api_name, {}).items():
+            week_queue[display][week] = vals
+        for week, vals in wd.get(api_name, {}).items():
+            week_dur[display][week] = vals
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -659,9 +704,13 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
                 )
         finalize_ax(ax, title, ylabel)
         fig.tight_layout()
-        fig.savefig(filename, dpi=150)
-        plt.close(fig)
-        print(f"  Saved: {filename}")
+        try:
+            fig.savefig(filename, dpi=150)
+            print(f"  Saved: {filename}")
+        except OSError as exc:
+            print(f"  WARNING: Could not save plot '{filename}': {exc}", flush=True)
+        finally:
+            plt.close(fig)
 
     # Queue time: individual jobs only — "total queue" removed as median-of-sums
     # is misleading (see weekly stats table for per-job med/p90/σ breakdown).
@@ -676,7 +725,7 @@ def plot_weekly_trends(data: dict, output_prefix: str = "ci_trends") -> None:
     # fully-successful runs only).
     simple_plot(
         week_dur,
-        week_total_dur,
+        wtd,
         title="CI Job Duration per Week\n(successful runs only — median minutes)",
         ylabel="Duration (minutes)",
         filename=f"{output_prefix}_duration.png",
@@ -725,7 +774,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    since_dt = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc)
+    try:
+        since_dt = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc)
+    except ValueError:
+        parser.error(f"Invalid --since format '{args.since}'. Expected YYYY-MM-DD.")
 
     wf_ids = WORKFLOW_IDS if args.workflow == "all" else {args.workflow: WORKFLOW_IDS[args.workflow]}
 
@@ -741,9 +793,13 @@ def main() -> None:
         print("\nGenerating weekly trend plots...", flush=True)
         plot_weekly_trends(data, output_prefix=args.plot_prefix)
 
-    with open(args.output, "w") as f:
-        json.dump(data, f, indent=2, default=str)
-    print(f"\nRaw data saved to: {args.output}")
+    try:
+        with open(args.output, "w") as f:
+            json.dump(data, f, indent=2, default=str)
+        print(f"\nRaw data saved to: {args.output}")
+    except OSError as exc:
+        print(f"\nERROR: Could not write JSON output to '{args.output}': {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
