@@ -68,7 +68,7 @@ jobs:
         name: Checkout Code
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
           # LFS checkout here somehow causes issues when LFS stuff changes over time.
           # So I do LFS manually in a step after.
           # lfs: true
@@ -115,6 +115,23 @@ jobs:
       - *checkout_step
       - *git_lfs_step
 
+      # Fetch each submodule at its exact pinned SHA using a depth-1 fetch of that
+      # specific commit. This avoids the fragility of actions/checkout's shallow
+      # submodule fetch, which fails when the pinned commit is no longer at the tip
+      # of the submodule repo's default branch.
+      - &fetch_submodules_step
+        name: Fetch submodules at pinned SHA
+        run: |
+          for submod in submodules/IsaacLab submodules/Isaac-GR00T; do
+            sha=$(git ls-files -s "$submod" | awk '{print $2}')
+            url=$(git config --file .gitmodules "submodule.${submod}.url" | sed 's|git@github.com:|https://github.com/|')
+            mkdir -p "$submod"
+            git -C "$submod" init
+            git -C "$submod" remote add origin "$url" 2>/dev/null || true
+            git -C "$submod" fetch --depth=1 origin "$sha"
+            git -C "$submod" checkout FETCH_HEAD
+          done
+
       - &install_project_step
         name: Install project and link isaac-sim
         run: |
@@ -150,6 +167,7 @@ jobs:
       - *mark_repo_safe_step
       - *checkout_step
       - *git_lfs_step
+      - *fetch_submodules_step
       - *install_project_step
 
       # Run the policy (GR00T) related tests.
