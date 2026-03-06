@@ -521,6 +521,27 @@
 </pre></div>
 </div>
 </section>
+<section id="sequential-tasks">
+<h2>Sequential Tasks<a class="headerlink" href="#sequential-tasks" title="Link to this heading">#</a></h2>
+<p>Tasks can be composed sequentially to form longer horizon, more complex tasks using the <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> class.
+<code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> takes a list of <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances and automatically composes them into a single task.
+The order of the tasks in the list determines the order in which subtasks must be completed.</p>
+<p><strong>Usage Example (Pick and Place Task and Close Door Task Composition)</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
+<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator_shelf&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
+<span class="n">pick_and_place_task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
+
+<span class="n">openable_object</span> <span class="o">=</span> <span class="n">OpenableObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">&quot;fridge_door_joint&quot;</span><span class="p">)</span>
+<span class="n">close_door_task</span> <span class="o">=</span> <span class="n">CloseDoorTask</span><span class="p">(</span><span class="n">openable_object</span><span class="p">,</span> <span class="n">closedness_threshold</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
+
+<span class="n">sequential_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span><span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">])</span>
+</pre></div>
+</div>
+<p><strong>Available Examples</strong></p>
+<ul class="simple">
+<li><p><strong>PutAndCloseDoorTask</strong>: Pick up and move an object to a destination location and then close a door (within <strong>GR1PutAndCloseDoorEnvironment</strong>).</p></li>
+</ul>
+</section>
 </section>
 
 
@@ -576,6 +597,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks-in-detail">Tasks in Detail</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-tasks">Sequential Tasks</a></li>
 </ul>
   </nav></div>
 
