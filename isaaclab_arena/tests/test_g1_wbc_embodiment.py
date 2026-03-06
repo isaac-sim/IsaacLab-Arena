@@ -83,9 +83,9 @@ def step_standing_actions_call(env, num_steps, robot_init_base_pose, function=No
     for _ in tqdm.tqdm(range(num_steps)):
         with torch.inference_mode():
             if pink_ik_enabled:
-                actions = torch.tensor(WBC_PINK_IDLE_ACTION, device=env.device).unsqueeze(0)
+                actions = torch.tensor(WBC_PINK_IDLE_ACTION, device=env.unwrapped.device).unsqueeze(0)
             else:
-                actions = torch.zeros(env.action_space.shape, device=env.device)
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             # NOTE(xinjieyao, 2025.09.22): Set base height to 0.75m to avoid robot squatting to match 0-height command.
             actions[:, -4] = 0.75
             _, _, _, _, _ = env.step(actions)
@@ -102,7 +102,7 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
 
     def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
         # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        robot_base_pose = env.unwrapped.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
         robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
         assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."
@@ -140,7 +140,7 @@ def _test_wbc_pink_standing_idle_actions(simulation_app) -> bool:
 
     def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
         # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        robot_base_pose = env.unwrapped.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
         robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
         assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."

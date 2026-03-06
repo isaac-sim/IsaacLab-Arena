@@ -303,4 +303,4 @@ class ArenaEnvBuilder:
         self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
-        return gym.make(name, cfg=cfg).unwrapped, cfg
+        return gym.make(name, cfg=cfg), cfg
