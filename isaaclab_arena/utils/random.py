@@ -16,4 +16,4 @@ def set_seed(seed: int, env: gym.Env = None):
     np.random.seed(seed)
     random.seed(seed)
     if env is not None:
-        env.seed(seed)
+        env.unwrapped.seed(seed)
