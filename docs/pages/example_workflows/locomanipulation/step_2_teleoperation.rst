@@ -120,19 +120,6 @@ Step 4: Setup and Connect from Meta Quest 3
 * **Right joystick**: Squat (down), rotate torso (left/right).
 * **Controllers**: Move end-effector (EE) targets for the arms.
 
-.. hint::
-
-   Suggested sequence for the task:
-
-   #. Align your body with the robot.
-   #. Walk forward (left joystick forward).
-   #. Grab the box (controllers).
-   #. Walk backward (left joystick back).
-   #. Turn toward the bin (right joystick).
-   #. Walk forward to the bin.
-   #. Squat (right joystick down).
-   #. Place the box in the bin (controllers).
-
 
 Step 5: Record with Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -155,6 +142,19 @@ Step 5: Record with Quest 3
         --teleop_device openxr
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
+
+.. hint::
+
+   Suggested sequence for the task:
+
+   #. Align your body with the robot.
+   #. Walk forward (left joystick forward).
+   #. Grab the box (controllers).
+   #. Walk backward (left joystick back).
+   #. Turn toward the bin (right joystick).
+   #. Walk forward to the bin.
+   #. Squat (right joystick down).
+   #. Place the box in the bin (controllers).
 
 .. image:: ../../../images/g1_galileo_arena_box_pnp_locomanip.gif
    :align: center
