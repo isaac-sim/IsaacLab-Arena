@@ -8,6 +8,23 @@
 import torch
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
+    BASE_HEIGHT_CMD_START_IDX,
+    LEFT_HAND_STATE_IDX,
+    LEFT_WRIST_POS_END_IDX,
+    LEFT_WRIST_POS_START_IDX,
+    LEFT_WRIST_QUAT_END_IDX,
+    LEFT_WRIST_QUAT_START_IDX,
+    NAVIGATE_CMD_END_IDX,
+    NAVIGATE_CMD_START_IDX,
+    RIGHT_HAND_STATE_IDX,
+    RIGHT_WRIST_POS_END_IDX,
+    RIGHT_WRIST_POS_START_IDX,
+    RIGHT_WRIST_QUAT_END_IDX,
+    RIGHT_WRIST_QUAT_START_IDX,
+    TORSO_ORIENTATION_RPY_CMD_END_IDX,
+    TORSO_ORIENTATION_RPY_CMD_START_IDX,
+)
 
 HEADLESS = True
 
@@ -61,7 +78,6 @@ def _test_preprocess_actions_identity_base(simulation_app) -> bool:
         device = env.unwrapped.device
         action_dim = term.action_dim
         robot_base_pos = term._asset.data.root_link_pos_w[0, :3]
-        robot_base_quat = term._asset.data.root_link_quat_w[0]
 
         # World-frame wrist positions: base + offset (so base-frame offset is known)
         left_offset = torch.tensor([1.0, 2.0, 3.0], device=device)
@@ -70,18 +86,36 @@ def _test_preprocess_actions_identity_base(simulation_app) -> bool:
         right_pos_world = robot_base_pos + right_offset
 
         actions = torch.zeros(1, action_dim, device=device)
-        actions[0, 2:5] = left_pos_world
-        actions[0, 5:9] = torch.tensor([1.0, 0.0, 0.0, 0.0], device=device)
-        actions[0, 9:12] = right_pos_world
-        actions[0, 12:16] = torch.tensor([1.0, 0.0, 0.0, 0.0], device=device)
+        actions[0, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = left_pos_world
+        actions[0, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = torch.tensor(
+            [1.0, 0.0, 0.0, 0.0], device=device
+        )
+        actions[0, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = right_pos_world
+        actions[0, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = torch.tensor(
+            [1.0, 0.0, 0.0, 0.0], device=device
+        )
 
         out = term.preprocess_actions(actions)
 
         # Base frame position = world - base (in world), then rotated by base_inv => offset when base quat is identity
-        torch.testing.assert_close(out[0, 2:5], left_offset, atol=1e-4, rtol=0)
-        torch.testing.assert_close(out[0, 9:12], right_offset, atol=1e-4, rtol=0)
-        torch.testing.assert_close(out[0, 5:9], actions[0, 5:9], atol=1e-5, rtol=0)
-        torch.testing.assert_close(out[0, 12:16], actions[0, 12:16], atol=1e-5, rtol=0)
+        torch.testing.assert_close(
+            out[0, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX], left_offset, atol=1e-4, rtol=0
+        )
+        torch.testing.assert_close(
+            out[0, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX], right_offset, atol=1e-4, rtol=0
+        )
+        torch.testing.assert_close(
+            out[0, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX],
+            actions[0, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX],
+            atol=1e-5,
+            rtol=0,
+        )
+        torch.testing.assert_close(
+            out[0, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX],
+            actions[0, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX],
+            atol=1e-5,
+            rtol=0,
+        )
     finally:
         env.close()
     return True
@@ -108,16 +142,16 @@ def _test_preprocess_actions_roundtrip(simulation_app) -> bool:
         right_quat_w = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=device).expand(num_envs, 4)
 
         actions = torch.zeros(num_envs, action_dim, device=device)
-        actions[:, 2:5] = left_pos_w
-        actions[:, 5:9] = left_quat_w
-        actions[:, 9:12] = right_pos_w
-        actions[:, 12:16] = right_quat_w
+        actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = left_pos_w
+        actions[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = left_quat_w
+        actions[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = right_pos_w
+        actions[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = right_quat_w
 
         out = term.preprocess_actions(actions)
-        left_pos_b = out[:, 2:5]
-        left_quat_b = out[:, 5:9]
-        right_pos_b = out[:, 9:12]
-        right_quat_b = out[:, 12:16]
+        left_pos_b = out[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX]
+        left_quat_b = out[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX]
+        right_pos_b = out[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX]
+        right_quat_b = out[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX]
 
         # Base → world: pos_w = base_pos + quat_apply(base_quat, pos_b), quat_w = quat_mul(base_quat, quat_b)
         left_pos_w_recovered = robot_base_pos + math_utils.quat_apply(robot_base_quat, left_pos_b)
@@ -141,19 +175,33 @@ def _test_preprocess_actions_does_not_mutate_other_slots(simulation_app) -> bool
         device = env.unwrapped.device
         action_dim = term.action_dim
         actions = torch.zeros(1, action_dim, device=device)
-        actions[0, 0] = 0.5
-        actions[0, 1] = 0.7
-        actions[0, 16:19] = torch.tensor([0.1, 0.2, 0.3], device=device)
-        actions[0, 19] = 0.75
-        actions[0, 20:23] = torch.tensor([0.0, 0.0, 0.1], device=device)
+        actions[0, LEFT_HAND_STATE_IDX] = 0.5
+        actions[0, RIGHT_HAND_STATE_IDX] = 0.7
+        actions[0, NAVIGATE_CMD_START_IDX:NAVIGATE_CMD_END_IDX] = torch.tensor([0.1, 0.2, 0.3], device=device)
+        actions[0, BASE_HEIGHT_CMD_START_IDX] = 0.75
+        actions[0, TORSO_ORIENTATION_RPY_CMD_START_IDX:TORSO_ORIENTATION_RPY_CMD_END_IDX] = torch.tensor(
+            [0.0, 0.0, 0.1], device=device
+        )
 
         out = term.preprocess_actions(actions)
 
-        torch.testing.assert_close(out[0, 0], torch.tensor(0.5, device=device), atol=1e-6, rtol=0)
-        torch.testing.assert_close(out[0, 1], torch.tensor(0.7, device=device), atol=1e-6, rtol=0)
-        torch.testing.assert_close(out[0, 16:19], actions[0, 16:19], atol=1e-6, rtol=0)
-        torch.testing.assert_close(out[0, 19], actions[0, 19], atol=1e-6, rtol=0)
-        torch.testing.assert_close(out[0, 20:23], actions[0, 20:23], atol=1e-6, rtol=0)
+        torch.testing.assert_close(out[0, LEFT_HAND_STATE_IDX], torch.tensor(0.5, device=device), atol=1e-6, rtol=0)
+        torch.testing.assert_close(out[0, RIGHT_HAND_STATE_IDX], torch.tensor(0.7, device=device), atol=1e-6, rtol=0)
+        torch.testing.assert_close(
+            out[0, NAVIGATE_CMD_START_IDX:NAVIGATE_CMD_END_IDX],
+            actions[0, NAVIGATE_CMD_START_IDX:NAVIGATE_CMD_END_IDX],
+            atol=1e-6,
+            rtol=0,
+        )
+        torch.testing.assert_close(
+            out[0, BASE_HEIGHT_CMD_START_IDX], actions[0, BASE_HEIGHT_CMD_START_IDX], atol=1e-6, rtol=0
+        )
+        torch.testing.assert_close(
+            out[0, TORSO_ORIENTATION_RPY_CMD_START_IDX:TORSO_ORIENTATION_RPY_CMD_END_IDX],
+            actions[0, TORSO_ORIENTATION_RPY_CMD_START_IDX:TORSO_ORIENTATION_RPY_CMD_END_IDX],
+            atol=1e-6,
+            rtol=0,
+        )
     finally:
         env.close()
     return True

@@ -382,20 +382,20 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         robot_base_pos = self._asset.data.root_link_pos_w[:, :3]
         robot_base_quat = self._asset.data.root_link_quat_w
 
-        left_wrist_pos_world = actions[:, 2:5]
-        right_wrist_pos_world = actions[:, 9:12]
+        left_wrist_pos_world = actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX]
+        right_wrist_pos_world = actions[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX]
         left_wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat, left_wrist_pos_world - robot_base_pos)
         right_wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat, right_wrist_pos_world - robot_base_pos)
 
-        left_wrist_quat_world = actions[:, 5:9]
-        right_wrist_quat_world = actions[:, 12:16]
+        left_wrist_quat_world = actions[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX]
+        right_wrist_quat_world = actions[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX]
         robot_base_quat_inv = math_utils.quat_inv(robot_base_quat)
         left_wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, left_wrist_quat_world)
         right_wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, right_wrist_quat_world)
 
-        actions[:, 2:5] = left_wrist_pos_base
-        actions[:, 5:9] = left_wrist_quat_base
-        actions[:, 9:12] = right_wrist_pos_base
-        actions[:, 12:16] = right_wrist_quat_base
+        actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = left_wrist_pos_base
+        actions[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = left_wrist_quat_base
+        actions[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = right_wrist_pos_base
+        actions[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = right_wrist_quat_base
 
         return actions
