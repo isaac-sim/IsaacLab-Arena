@@ -146,7 +146,6 @@ Step 5: Record with Quest 3
 
       # Record demonstrations with OpenXR teleop
       python isaaclab_arena/scripts/imitation_learning/record_demos.py \
-        --xr \
         --device cpu \
         --enable_pinocchio \
         --dataset_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
@@ -155,11 +154,15 @@ Step 5: Record with Quest 3
         galileo_g1_locomanip_pick_and_place \
         --teleop_device openxr
 
-#. Complete the task (pick the brown box, place it in the blue bin) for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
+#. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
+
+.. image:: ../../../images/g1_galileo_arena_box_pnp_locomanip.gif
+   :align: center
+   :height: 400px
 
 
-Optional: Replay Recorded Demos
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 6: Replay Recorded Demos (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To replay the recorded demos:
 
