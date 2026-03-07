@@ -17,7 +17,7 @@ Once inside the container, set the dataset and models directories.
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_3_policy_training>` or downloaded the
+:doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
 pre-trained model checkpoint below:
 
 .. dropdown:: Download Pre-trained Model (skip preceding steps)

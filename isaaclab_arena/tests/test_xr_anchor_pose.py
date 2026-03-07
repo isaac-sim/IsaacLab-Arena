@@ -89,42 +89,56 @@ def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
 
 
 def _test_g1_xr_anchor_pose(simulation_app) -> bool:
-    """Test G1 XR anchor pose at origin and with robot transformation."""
+    """Test G1 XR anchor config: fixed prim-relative anchor (pelvis), independent of initial pose."""
+    from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
+
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
 
-    # Test 1: XR anchor at origin (no initial pose)
     asset_registry = AssetRegistry()
     embodiment = asset_registry.get_asset_by_name("g1_wbc_pink")()
     xr_cfg = embodiment.get_xr_cfg()
 
-    expected_pos = embodiment._xr_offset.position_xyz
-    expected_rot = embodiment._xr_offset.rotation_wxyz
-
-    assert (
-        xr_cfg.anchor_pos == expected_pos
-    ), f"XR anchor position should match offset at origin: expected {expected_pos}, got {xr_cfg.anchor_pos}"
-    assert (
-        xr_cfg.anchor_rot == expected_rot
-    ), f"XR anchor rotation should match offset at origin: expected {expected_rot}, got {xr_cfg.anchor_rot}"
-
-    # Test 2: XR anchor with robot position
-    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))  # No rotation
-    embodiment.set_initial_pose(robot_pose)
-    xr_cfg = embodiment.get_xr_cfg()
-
-    # G1 offset is (0.0, 0.0, -1.0)
-    expected_pos = (
-        robot_pose.position_xyz[0] + embodiment._xr_offset.position_xyz[0],  # 0.5 + 0.0 = 0.5
-        robot_pose.position_xyz[1] + embodiment._xr_offset.position_xyz[1],  # 1.0 + 0.0 = 1.0
-        robot_pose.position_xyz[2] + embodiment._xr_offset.position_xyz[2],  # 0.0 + (-1.0) = -1.0
-    )
+    # G1 uses a fixed prim-relative XrCfg: anchor offset and rotation are constant
+    expected_pos = (0.0, 0.0, -1.0)
+    expected_rot = (0.70711, 0.0, 0.0, -0.70711)
+    expected_anchor_prim = "/World/envs/env_0/Robot/pelvis"
 
     np.testing.assert_allclose(
         xr_cfg.anchor_pos,
         expected_pos,
         rtol=1e-5,
-        err_msg=f"XR anchor position incorrect with robot pose: expected {expected_pos}, got {xr_cfg.anchor_pos}",
+        err_msg=f"G1 XR anchor_pos should be fixed offset: expected {expected_pos}, got {xr_cfg.anchor_pos}",
+    )
+    np.testing.assert_allclose(
+        xr_cfg.anchor_rot,
+        expected_rot,
+        rtol=1e-5,
+        err_msg=f"G1 XR anchor_rot should be fixed: expected {expected_rot}, got {xr_cfg.anchor_rot}",
+    )
+    assert (
+        xr_cfg.anchor_prim_path == expected_anchor_prim
+    ), f"G1 XR anchor_prim_path should be pelvis: expected {expected_anchor_prim}, got {xr_cfg.anchor_prim_path}"
+    assert xr_cfg.fixed_anchor_height is True, "G1 XR fixed_anchor_height should be True"
+    assert (
+        xr_cfg.anchor_rotation_mode == XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED
+    ), "G1 XR anchor_rotation_mode should be FOLLOW_PRIM_SMOOTHED"
+
+    # With initial pose set, config is unchanged (anchor is relative to pelvis prim, not world)
+    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    embodiment.set_initial_pose(robot_pose)
+    xr_cfg_after = embodiment.get_xr_cfg()
+    np.testing.assert_allclose(
+        xr_cfg_after.anchor_pos,
+        expected_pos,
+        rtol=1e-5,
+        err_msg="G1 XR anchor_pos should remain fixed after set_initial_pose",
+    )
+    np.testing.assert_allclose(
+        xr_cfg_after.anchor_rot,
+        expected_rot,
+        rtol=1e-5,
+        err_msg="G1 XR anchor_rot should remain fixed after set_initial_pose",
     )
 
     return True

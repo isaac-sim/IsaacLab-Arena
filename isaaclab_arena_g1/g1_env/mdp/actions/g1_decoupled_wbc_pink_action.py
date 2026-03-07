@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
+import isaaclab.utils.math as math_utils
 from isaaclab.assets.articulation import Articulation
 
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
@@ -44,7 +45,7 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.p_controller im
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
+    from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
 
 class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
@@ -214,16 +215,22 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         """
         # Extract upper body left/right arm pos/quat from actions
         left_arm_pos = actions_clone[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX].squeeze(0).cpu()
-        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu().numpy()
         right_arm_pos = actions_clone[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX].squeeze(0).cpu()
-        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu().numpy()
+
+        # Replace zero-norm quaternions with identity (e.g. zero actions from env.step(zeros))
+        _IDENTITY_QUAT_WXYZ = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+        for q in (left_arm_quat, right_arm_quat):
+            if np.linalg.norm(q) < 1e-8:
+                q[:] = _IDENTITY_QUAT_WXYZ
 
         # Convert from pos/quat to 4x4 transform matrix
         # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
-        left_arm_quat = np.roll(left_arm_quat, -1)
-        right_arm_quat = np.roll(right_arm_quat, -1)
-        left_rotmat = R.from_quat(left_arm_quat).as_matrix()
-        right_rotmat = R.from_quat(right_arm_quat).as_matrix()
+        left_arm_quat_xyzw = np.roll(left_arm_quat, -1)
+        right_arm_quat_xyzw = np.roll(right_arm_quat, -1)
+        left_rotmat = R.from_quat(left_arm_quat_xyzw).as_matrix()
+        right_rotmat = R.from_quat(right_arm_quat_xyzw).as_matrix()
 
         left_arm_pose = np.eye(4)
         left_arm_pose[:3, :3] = left_rotmat
@@ -360,3 +367,35 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             env_ids: A list of environment IDs to reset. If None, all environments are reset.
         """
         self._raw_actions[env_ids] = torch.zeros(self.action_dim, device=self.device)
+
+    def preprocess_actions(self, actions: torch.Tensor) -> torch.Tensor:
+        """Transform wrist positions and orientations from world frame to robot base frame.
+
+        Args:
+            actions: The input actions tensor, shape (num_envs, action_dim).
+
+        Returns:
+            The processed actions tensor (same shape as input).
+        """
+        actions = actions.clone()
+
+        robot_base_pos = self._asset.data.root_link_pos_w[:, :3]
+        robot_base_quat = self._asset.data.root_link_quat_w
+
+        left_wrist_pos_world = actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX]
+        right_wrist_pos_world = actions[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX]
+        left_wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat, left_wrist_pos_world - robot_base_pos)
+        right_wrist_pos_base = math_utils.quat_apply_inverse(robot_base_quat, right_wrist_pos_world - robot_base_pos)
+
+        left_wrist_quat_world = actions[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX]
+        right_wrist_quat_world = actions[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX]
+        robot_base_quat_inv = math_utils.quat_inv(robot_base_quat)
+        left_wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, left_wrist_quat_world)
+        right_wrist_quat_base = math_utils.quat_mul(robot_base_quat_inv, right_wrist_quat_world)
+
+        actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = left_wrist_pos_base
+        actions[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = left_wrist_quat_base
+        actions[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = right_wrist_pos_base
+        actions[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = right_wrist_quat_base
+
+        return actions
