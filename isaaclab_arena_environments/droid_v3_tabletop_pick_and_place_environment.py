@@ -153,7 +153,9 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         self._target_positions = positions
         return positions
 
-    def plan_pick_order(self, verbose: bool = False) -> list[str]:
+    def plan_pick_order(
+        self, verbose: bool = False, ik_cost_fn=None,
+    ) -> tuple[list[str], float]:
         """A* symbolic planning: find minimum-cost pick order respecting relation constraints.
 
         Builds a dependency graph from ``On`` and ``NextTo`` relations between
@@ -169,11 +171,19 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         - Target constraints take priority over init constraints when they conflict.
 
         Uses A* search over possible orderings to minimize total arm travel
-        distance (init_pos → target_pos transitions) while respecting the
-        dependency constraints. Init positions come from each object's resolved
-        ``initial_pose``; target positions from ``generate_target_positions()``.
+        distance (init_pos -> target_pos transitions) while respecting the
+        dependency constraints. Must be called after ``generate_target_positions()``.
 
-        Must be called after ``generate_target_positions()``.
+        Args:
+            verbose: Print detailed search trace.
+            ik_cost_fn: Optional sequential IK callback with signature
+                ``(name, init_pos, target_pos, prev_joint_config) ->
+                (penalty, new_joint_config)``.
+
+        Returns:
+            ``(pick_order, total_ik_penalty)`` where ``total_ik_penalty`` is
+            the cumulative IK infeasibility cost in the chosen ordering
+            (0.0 means the full sequence is IK-feasible).
         """
         import heapq
         from isaaclab_arena.relations.relations import NextTo, On
@@ -183,51 +193,47 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         pick_obj_ids = {id(obj) for obj in self._pick_objects}
         pick_names = [obj.name for obj in self._pick_objects]
 
-        _log(f"\n{'=' * 70}")
-        _log("  SYMBOLIC A* PLANNER")
-        _log(f"{'=' * 70}")
-        _log(f"  Objects: {pick_names}")
+        sep = '=' * 70
+        _log(f"\n{sep}")
+        _log('SYMBOLIC A* PLANNER')
+        _log(sep)
+        _log(f"Objects: {pick_names}")
 
         # must_precede[A] = set of names that must be placed before A
         must_precede: dict[str, set[str]] = {name: set() for name in pick_names}
 
-        # Target: On(A) or NextTo(A) among pick objects → A before current
-        _log(f"\n  --- Target relation constraints (placement correctness) ---")
+        _log(f"\n--- Target relation constraints (placement correctness) ---")
         for obj in self._pick_objects:
             for rel in self._target_relations[obj.name]:
                 if isinstance(rel, (NextTo, On)) and id(rel.parent) in pick_obj_ids:
                     rel_type = type(rel).__name__
-                    _log(f"    {obj.name} {rel_type}({rel.parent.name})"
+                    _log(f"  {obj.name} {rel_type}({rel.parent.name})"
                          f" -> place {rel.parent.name} BEFORE {obj.name}")
                     must_precede[obj.name].add(rel.parent.name)
 
-        # Init: On(A) or NextTo(A) among pick objects → current before A
-        # (top/adjacent object picked first to avoid disturbance)
+        # Init: On(A) or NextTo(A) among pick objects -> current before A
         # Skip if it conflicts with a target constraint
-        _log(f"\n  --- Init relation constraints (pick safety) ---")
+        _log(f"\n--- Init relation constraints (pick safety) ---")
         for obj in self._pick_objects:
             for rel in self._init_relations[obj.name]:
                 if isinstance(rel, (NextTo, On)) and id(rel.parent) in pick_obj_ids:
                     parent_name = rel.parent.name
                     rel_type = type(rel).__name__
-                    # obj is on/next-to parent → pick obj before parent
-                    # But skip if target already says obj must come after parent
-                    # (i.e. parent_name is in must_precede[obj.name])
                     if parent_name not in must_precede[obj.name]:
-                        _log(f"    {obj.name} {rel_type}({parent_name})"
+                        _log(f"  {obj.name} {rel_type}({parent_name})"
                              f" -> pick {obj.name} BEFORE {parent_name}")
                         must_precede[parent_name].add(obj.name)
                     else:
-                        _log(f"    {obj.name} {rel_type}({parent_name})"
+                        _log(f"  {obj.name} {rel_type}({parent_name})"
                              f" -> SKIPPED (conflicts with target constraint)")
 
-        _log(f"\n  --- Dependency graph ---")
+        _log(f"\n--- Dependency graph ---")
         for name in pick_names:
             deps = must_precede[name]
             if deps:
-                _log(f"    {name} must come after: {deps}")
+                _log(f"  {name} must come after: {deps}")
             else:
-                _log(f"    {name} (no dependencies, can go first)")
+                _log(f"  {name} (no dependencies, can go first)")
 
         # Get positions for A* cost computation
         init_pos: dict[str, tuple[float, float, float]] = {}
@@ -238,19 +244,18 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         target_pos = self._target_positions
 
-        _log(f"\n  --- Object positions ---")
+        def _fmt_pos(p):
+            return f"({p[0]:.3f}, {p[1]:.3f}, {p[2]:.3f})" if p else "N/A"
+
+        _log(f"\n--- Object positions ---")
         for name in pick_names:
-            ip = init_pos.get(name)
-            tp = target_pos.get(name)
-            ip_str = f"({ip[0]:.3f}, {ip[1]:.3f}, {ip[2]:.3f})" if ip else "N/A"
-            tp_str = f"({tp[0]:.3f}, {tp[1]:.3f}, {tp[2]:.3f})" if tp else "N/A"
-            _log(f"    {name}: init={ip_str}  target={tp_str}")
+            _log(f"  {name}: init={_fmt_pos(init_pos.get(name))} target={_fmt_pos(target_pos.get(name))}")
 
         def _dist(a: tuple[float, float, float], b: tuple[float, float, float]) -> float:
             return sum((ai - bi) ** 2 for ai, bi in zip(a, b)) ** 0.5
 
-        # Heuristic: sum of pick-to-place distances for remaining objects (admissible)
         def heuristic(placed: frozenset[str]) -> float:
+            """Sum of pick-to-place distances for remaining objects (admissible)."""
             return sum(
                 _dist(init_pos[n], target_pos[n])
                 for n in pick_names
@@ -260,65 +265,92 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         def is_valid(name: str, placed: frozenset[str]) -> bool:
             return must_precede[name].issubset(placed)
 
-        # A* search: state = frozenset of placed objects
-        # (f_cost, g_cost, counter, placed, order)
+        # A* search. When ik_cost_fn is provided, IK feasibility is evaluated
+        # sequentially (joint config chains), making cost order-dependent.
+        # Joint configs are stored in a side dict keyed by node counter.
         counter = 0
         nodes_expanded = 0
         start: frozenset[str] = frozenset()
         goal = frozenset(pick_names)
+        joint_configs: dict[int, object] = {counter: None}
+        ik_totals: dict[int, float] = {counter: 0.0}
         heap = [(heuristic(start), 0.0, counter, start, [])]
-        visited: set[frozenset[str]] = set()
+        visited_order: set[tuple[str, ...]] = set()
+        visited_set: set[frozenset[str]] = set()
 
-        _log(f"\n  --- A* search ---")
+        mode_label = '(sequential IK)' if ik_cost_fn else ''
+        _log(f"\n--- A* search {mode_label} ---")
 
         while heap:
-            f, g, _, placed, order = heapq.heappop(heap)
+            f, g, node_id, placed, order = heapq.heappop(heap)
+            prev_jc = joint_configs.pop(node_id, None)
+            prev_ik_total = ik_totals.pop(node_id, 0.0)
+
+            # Duplicate detection: order-based when IK is active (cost is
+            # sequence-dependent), set-based otherwise.
+            if ik_cost_fn is not None:
+                order_key = tuple(order)
+                if order_key in visited_order:
+                    continue
+                visited_order.add(order_key)
+            else:
+                if placed in visited_set:
+                    continue
+                visited_set.add(placed)
 
             if placed == goal:
-                _log(f"\n  --- Result ---")
-                _log(f"    Nodes expanded : {nodes_expanded}")
-                _log(f"    Total travel   : {g:.3f} m")
-                _log(f"    Pick order     : {' -> '.join(order)}")
-                _log(f"{'=' * 70}\n")
-                print(f"[SYMBOLIC A*] Pick order: {order} (total cost: {g:.3f}m)")
-                return order
+                _log(f"\n--- Result ---")
+                _log(f"  Nodes expanded: {nodes_expanded}")
+                _log(f"  Total cost:     {g:.3f} (IK penalty: {prev_ik_total:.1f})")
+                _log(f"  Pick order:     {' -> '.join(order)}")
+                _log(sep)
+                print(f"[SYMBOLIC A*] Pick order: {order} "
+                      f"(cost: {g:.3f}m, ik_penalty: {prev_ik_total:.1f})")
+                joint_configs.clear()
+                ik_totals.clear()
+                return order, prev_ik_total
 
-            if placed in visited:
-                continue
-            visited.add(placed)
             nodes_expanded += 1
 
             valid_next = [n for n in pick_names if n not in placed and is_valid(n, placed)]
-            _log(f"    [expand #{nodes_expanded}] placed={list(order)}  candidates={valid_next}")
+            _log(f"  [expand #{nodes_expanded}] placed={list(order)} candidates={valid_next}")
 
-            # Reference position: where arm is after placing the last object
             ref = target_pos.get(order[-1]) if order else None
 
             for name in valid_next:
-                # Cost: travel ref → pick(name) → place(name)
-                cost = 0.0
+                dist_cost = 0.0
                 if ref is not None and name in init_pos:
-                    cost += _dist(ref, init_pos[name])
+                    dist_cost += _dist(ref, init_pos[name])
                 if name in init_pos and name in target_pos:
-                    cost += _dist(init_pos[name], target_pos[name])
+                    dist_cost += _dist(init_pos[name], target_pos[name])
+
+                ik_penalty = 0.0
+                next_jc = prev_jc
+                if ik_cost_fn is not None and name in init_pos and name in target_pos:
+                    ik_penalty, next_jc = ik_cost_fn(name, init_pos[name], target_pos[name], prev_jc)
 
                 new_placed = placed | {name}
-                new_g = g + cost
+                new_g = g + dist_cost + ik_penalty
                 new_h = heuristic(new_placed)
                 counter += 1
-                _log(f"      -> {name}: g={new_g:.3f} h={new_h:.3f} f={new_g + new_h:.3f}")
+                joint_configs[counter] = next_jc
+                ik_totals[counter] = prev_ik_total + ik_penalty
+                ik_tag = f" IK_PENALTY={ik_penalty:.1f}" if ik_penalty > 0 else ''
+                _log(f"    -> {name}: g={new_g:.3f} h={new_h:.3f} f={new_g + new_h:.3f}{ik_tag}")
                 heapq.heappush(
                     heap,
                     (new_g + new_h, new_g, counter, new_placed, order + [name]),
                 )
 
-        # Fallback if no valid ordering found (e.g. cyclic deps)
-        _log(f"\n  --- Result ---")
-        _log(f"    WARNING: no valid ordering found (cyclic dependencies?)")
-        _log(f"    Falling back to alphabetical order")
-        _log(f"{'=' * 70}\n")
+        joint_configs.clear()
+        ik_totals.clear()
+
+        _log(f"\n--- Result ---")
+        _log(f"  WARNING: no valid ordering found (cyclic dependencies?)")
+        _log(f"  Falling back to alphabetical order")
+        _log(sep)
         print("[SYMBOLIC A*] Warning: no valid ordering found, returning alphabetical")
-        return sorted(pick_names)
+        return sorted(pick_names), float('inf')
 
     @staticmethod
     def _generate_object_layout(objects, table, bin_asset):

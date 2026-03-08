@@ -67,8 +67,27 @@ def add_script_args(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Print goal vs achieved EEF pose after each plan execution.",
     )
+    parser.add_argument("--num_demos", type=int, default=1, help="Number of successful demos to collect before exiting.")
+    parser.add_argument(
+        "--max_attempts",
+        type=int,
+        default=None,
+        help="Max layout attempts before giving up (default: num_demos * 10).",
+    )
     parser.add_argument("--run_sanity_check", action="store_true", default=False, help="Run pre-flight lift check.")
     parser.add_argument("--rerun_recording_path", type=str, default=None, help="Optional .rrd output path for Rerun.")
+    parser.add_argument(
+        "--ik_pos_threshold",
+        type=float,
+        default=0.001,
+        help="IK feasibility position threshold (m). Poses within this error are considered reachable.",
+    )
+    parser.add_argument(
+        "--ik_rot_threshold",
+        type=float,
+        default=0.05,
+        help="IK feasibility rotation threshold (rad). Poses within this error are considered reachable.",
+    )
 
 
 def add_script_args_to_subparsers(parser: argparse.ArgumentParser) -> None:
