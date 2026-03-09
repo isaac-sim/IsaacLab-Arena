@@ -2,17 +2,28 @@
     "python.analysis.extraPaths": [
         "${workspaceFolder}",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab",
+        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_tasks",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_assets",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_rl",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_mimic",
+        "${workspaceFolder}/submodules/Isaac-GR00T"
+    ],
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_tasks",
+        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_assets",
+        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_rl",
+        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_mimic",
+        "${workspaceFolder}/submodules/Isaac-GR00T"
     ],
     "cursorpyright.analysis.extraPaths": [
         "${workspaceFolder}",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab",
+        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_tasks",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_assets",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_rl",
         "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_mimic",
-        "${workspaceFolder}/submodules/IsaacLab/source/isaaclab_tasks",
+        "${workspaceFolder}/submodules/Isaac-GR00T"
     ]
 }
