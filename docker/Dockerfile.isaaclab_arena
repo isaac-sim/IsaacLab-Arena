@@ -36,13 +36,15 @@ ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
 # Symlink isaac sim to IsaacLab
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
-# Install IsaacLab dependencies
-RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
 # Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
 RUN chmod 777 -R /isaac-sim/kit/
 # Make /isaac-sim directory traversable and readable by all users
 # This is needed when entrypoint switches to non-root user
 RUN chmod a+x /isaac-sim
+# Upgrade Isaac Sim's pip to avoid version warnings and build issues
+RUN /isaac-sim/python.sh -m pip install --upgrade pip
+# Install IsaacLab dependencies
+RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
 # NOTE(alexmillane, 2026-02-10): We started having issues with flatdict 4.0.1 installation
 # during IsaacLab install. We install here with build isolation which seems to fix the issue.
 RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
