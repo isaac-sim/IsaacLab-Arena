@@ -27,6 +27,7 @@ All hyperparameters are defined at the **top** of `run_isaaclab_arena_datagen.py
 | **Output directory** | `OUTPUT_DIR` | Root folder where `cam0/`, `cam1/`, … are written. |
 | **Number of steps** | `NUM_STEPS` | Simulation steps (frames) to record (e.g. 30). |
 | **Occlusion tolerance** | `OCCLUSION_TOL` | Depth tolerance in metres for the visible-now mask (e.g. 0.1). |
+| **Anchor frames** | `ANCHOR_FRAMES` | List of frame indices for anchored 3D flow (default `[0]`). Flow is computed from each anchor to all subsequent frames). |
 
 ---
 
@@ -37,23 +38,25 @@ Each run writes data under `OUTPUT_DIR`. Each camera has its own subfolder (e.g.
 ```
 (output root)/
 ├── cam0/
-│   ├── color/         RGB images
-│   ├── depth/         Depth maps
-│   ├── flow2d/        Optical flow (2D)
-│   ├── flow3d/        Adjacent-frame 3D scene flow
-│   ├── flow3d_track_type/   Track type for adjacent flow
-│   ├── flow3d_from_first/   First-frame-anchored 3D flow
-│   ├── trackable_mask/      Trackable mask (frame-0 anchors)
-│   ├── in_frame_mask/       In-frame projection mask
-│   ├── visible_now_mask/    Visible-now (occlusion) mask
-│   ├── normal/         Surface normals
-│   ├── intrinsic/      Camera intrinsic matrices
-│   ├── extrinsic/      Camera-to-world matrices
-│   ├── semantic/       Semantic segmentation + metadata
-│   └── visualizations/ Pre-rendered visualisations (if generated)
+│   ├── color/                  RGB images
+│   ├── depth/                  Depth maps
+│   ├── flow2d/                 Optical flow (2D)
+│   ├── flow3d/                 Adjacent-frame 3D scene flow
+│   ├── flow3d_track_type/      Track type for adjacent flow
+│   ├── flow3d_from_frame0/     Anchor-frame-0 3D flow (ANCHOR_FRAMES=[0])
+│   ├── trackable_mask_frame0/  Trackable mask for anchor 0
+│   ├── in_frame_mask_frame0/   In-frame mask for anchor 0
+│   ├── visible_now_mask_frame0/ Visible-now mask for anchor 0
+│   ├── normal/                 Surface normals
+│   ├── intrinsic/              Camera intrinsic matrices
+│   ├── extrinsic/              Camera-to-world matrices
+│   ├── semantic/               Semantic segmentation + metadata
+│   └── visualizations/         Pre-rendered visualisations (if generated)
 ├── cam1/
 │   └── ...
 ```
+
+All anchor frames use the consistent `*_frame{N}` naming pattern. Each anchor frame in `ANCHOR_FRAMES` gets its own set of subfolders.
 
 ## Data types
 
@@ -76,22 +79,25 @@ Each run writes data under `OUTPUT_DIR`. Each camera has its own subfolder (e.g.
 | **flow3d** | .npy   | 3D scene flow (H×W×3), world-space displacement in metres. |
 | **flow3d_track_type** | .npy + .png | Per-pixel track type: 0=Static, 1=Rigid, 2=Articulation, 255=Unsupported. |
 
-### First-frame-anchored flow (one file per frame, indices 0 .. N-1)
+### Anchor-frame flow (one file per frame, from anchor frame to N-1)
 
-Flow from frame-0 to current frame: `flow_0k = p_k - p_0`.
+Flow from anchor frame A to current frame k: `flow_Ak = p_k - p_A`.
 
-| Subfolder   | Format | Description |
-|------------|--------|-------------|
-| **flow3d_from_first** | .npy | 3D displacement frame-0 → current (H×W×3), metres. |
-| **trackable_mask** | PNG | Pixels with GT tracking (Static/Rigid/Articulation). |
-| **in_frame_mask** | PNG | Reconstructed point projects inside current image. |
-| **visible_now_mask** | PNG | In-frame and depth-consistent (not occluded). |
+By default (`ANCHOR_FRAMES = [0]`), flow is computed from frame 0 to all subsequent frames. Multiple anchor frames can be specified (e.g. `[0, 4, 6]`), in which case flow from each anchor is only written for frames `≥ anchor`.
+
+| Subfolder | Format | Description |
+|-----------|--------|-------------|
+| **flow3d_from_frame{N}** | .npy | 3D displacement anchor N → current (H×W×3), metres. |
+| **trackable_mask_frame{N}** | PNG | Pixels with GT tracking (Static/Rigid/Articulation). |
+| **in_frame_mask_frame{N}** | PNG | Reconstructed point projects inside current image. |
+| **visible_now_mask_frame{N}** | PNG | In-frame and depth-consistent (not occluded). |
 
 Relationship: `trackable_mask ⊇ in_frame_mask ⊇ visible_now_mask`.
 
 ### Frame index convention
 
-- Static modalities and first-frame flow: frame index = step index (0, 1, …, N-1).
+- Static modalities: frame index = step index (0, 1, …, N-1).
+- Anchor-frame flow: files exist from the anchor frame to N-1. For anchor A, files at indices A, A+1, …, N-1 describe the displacement from frame A to that frame. Frames before A have no data for that anchor.
 - Adjacent flow: stored at the *source* frame index; file at i describes motion from frame i to frame i+1.
 
 ### Visualisations

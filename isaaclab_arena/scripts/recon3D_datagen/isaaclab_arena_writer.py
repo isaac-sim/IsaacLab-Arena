@@ -32,6 +32,20 @@ def camera_id_from_index(index: int) -> str:
     return f"cam{index}"
 
 
+def anchor_subfolder_name(base_subfolder: str, anchor_frame: int) -> str:
+    """Return the subfolder name for a given anchor frame.
+
+    All anchor frames (including 0) use the same ``_frame{N}`` pattern
+    so that output directories are consistently named::
+
+        flow3d_from_frame0, flow3d_from_frame4, ...
+        trackable_mask_frame0, trackable_mask_frame4, ...
+    """
+    if base_subfolder == SUBFOLDER_FLOW3D_FROM_FIRST:
+        return f"flow3d_from_frame{anchor_frame}"
+    return f"{base_subfolder}_frame{anchor_frame}"
+
+
 class IsaacLabArenaWriter:
     """Writes per-frame camera data to disk.
 
@@ -57,10 +71,6 @@ class IsaacLabArenaWriter:
             SUBFOLDER_FLOW2D,
             SUBFOLDER_FLOW3D,
             SUBFOLDER_FLOW3D_TRACK_TYPE,
-            SUBFOLDER_FLOW3D_FROM_FIRST,
-            SUBFOLDER_TRACKABLE_MASK,
-            SUBFOLDER_IN_FRAME_MASK,
-            SUBFOLDER_VISIBLE_NOW_MASK,
             SUBFOLDER_NORMAL,
             SUBFOLDER_EXTRINSIC,
             SUBFOLDER_INTRINSIC,
@@ -223,14 +233,18 @@ class IsaacLabArenaWriter:
         frame_index: int,
         *,
         camera_name: str = "",
+        anchor_frame: int = 0,
     ) -> None:
-        """Save per-pixel 3-D flow from frame 0 as float32 ``.npy``.
+        """Save per-pixel 3-D flow from an anchor frame as float32 ``.npy``.
 
         Args:
-            flow: (H, W, 3) float32 tensor — ``p_k - p_0`` in metres.
+            flow: (H, W, 3) float32 tensor — ``p_k - p_anchor`` in metres.
+            anchor_frame: The anchor frame index (default 0 for backward compat).
         """
         self._ensure_camera_dirs(camera_id)
-        path = self._path(camera_id, SUBFOLDER_FLOW3D_FROM_FIRST, f"{frame_index:010d}.npy")
+        subfolder = anchor_subfolder_name(SUBFOLDER_FLOW3D_FROM_FIRST, anchor_frame)
+        os.makedirs(os.path.join(self._output_dir, camera_id, subfolder), exist_ok=True)
+        path = self._path(camera_id, subfolder, f"{frame_index:010d}.npy")
         np.save(path, flow.cpu().numpy().astype(np.float32))
 
     def _write_bool_mask_png(
@@ -243,22 +257,31 @@ class IsaacLabArenaWriter:
         Image.fromarray(arr, mode="L").save(path)
 
     def write_trackable_mask(
-        self, mask: torch.Tensor, camera_id: str, frame_index: int, *, camera_name: str = ""
+        self, mask: torch.Tensor, camera_id: str, frame_index: int,
+        *, camera_name: str = "", anchor_frame: int = 0,
     ) -> None:
-        """Save the trackable mask (constant from frame 0) as PNG."""
-        self._write_bool_mask_png(mask, camera_id, SUBFOLDER_TRACKABLE_MASK, frame_index)
+        """Save the trackable mask as PNG."""
+        subfolder = anchor_subfolder_name(SUBFOLDER_TRACKABLE_MASK, anchor_frame)
+        os.makedirs(os.path.join(self._output_dir, camera_id, subfolder), exist_ok=True)
+        self._write_bool_mask_png(mask, camera_id, subfolder, frame_index)
 
     def write_in_frame_mask(
-        self, mask: torch.Tensor, camera_id: str, frame_index: int, *, camera_name: str = ""
+        self, mask: torch.Tensor, camera_id: str, frame_index: int,
+        *, camera_name: str = "", anchor_frame: int = 0,
     ) -> None:
         """Save the in-frame projection mask as PNG."""
-        self._write_bool_mask_png(mask, camera_id, SUBFOLDER_IN_FRAME_MASK, frame_index)
+        subfolder = anchor_subfolder_name(SUBFOLDER_IN_FRAME_MASK, anchor_frame)
+        os.makedirs(os.path.join(self._output_dir, camera_id, subfolder), exist_ok=True)
+        self._write_bool_mask_png(mask, camera_id, subfolder, frame_index)
 
     def write_visible_now_mask(
-        self, mask: torch.Tensor, camera_id: str, frame_index: int, *, camera_name: str = ""
+        self, mask: torch.Tensor, camera_id: str, frame_index: int,
+        *, camera_name: str = "", anchor_frame: int = 0,
     ) -> None:
         """Save the visible-now (depth-consistent) mask as PNG."""
-        self._write_bool_mask_png(mask, camera_id, SUBFOLDER_VISIBLE_NOW_MASK, frame_index)
+        subfolder = anchor_subfolder_name(SUBFOLDER_VISIBLE_NOW_MASK, anchor_frame)
+        os.makedirs(os.path.join(self._output_dir, camera_id, subfolder), exist_ok=True)
+        self._write_bool_mask_png(mask, camera_id, subfolder, frame_index)
 
     # ------------------------------------------------------------------
     # Semantic segmentation + metadata

@@ -70,6 +70,28 @@ class FirstFrameFlowResult:
     trackable anchor (debug / trajectory visualisation)."""
 
 
+@dataclass
+class _AnchorFrameData:
+    """Internal storage for per-anchor-frame tracking data."""
+
+    p0_world: torch.Tensor
+    """(H, W, 3) float32 — world positions at the anchor frame."""
+    trackable_mask: torch.Tensor
+    """(H, W) bool — True for trackable pixels (not UNSUPPORTED)."""
+    track_type: torch.Tensor
+    """(H, W) uint8 — per-pixel TrackType."""
+    local_points: torch.Tensor
+    """(H, W, 3) float32 — body-local anchor coordinates."""
+    rigid_keys: torch.Tensor
+    """(H, W) int64 — hash key identifying the rigid object."""
+    artic_keys: torch.Tensor
+    """(H, W) int64 — hash key identifying the articulation."""
+    artic_body_idx: torch.Tensor
+    """(H, W) int64 — body-link index within the articulation."""
+    rigid_key_to_name: Dict[int, str]
+    artic_key_to_name: Dict[int, str]
+
+
 class IsaacLabArenaCameraHandler:
     """Handles a static camera sensor in an IsaacLab Arena environment.
 
@@ -111,17 +133,8 @@ class IsaacLabArenaCameraHandler:
         self._rigid_key_to_name: Dict[int, str] = {}
         self._artic_key_to_name: Dict[int, str] = {}
 
-        # First-frame anchors (set once by init_first_frame_anchors)
-        self._ff_initialised: bool = False
-        self._ff_p0_world: Optional[torch.Tensor] = None  # (H, W, 3)
-        self._ff_trackable_mask: Optional[torch.Tensor] = None  # (H, W) bool
-        self._ff_track_type: Optional[torch.Tensor] = None  # (H, W) uint8
-        self._ff_local_points: Optional[torch.Tensor] = None  # (H, W, 3)
-        self._ff_rigid_keys: Optional[torch.Tensor] = None  # (H, W) int64
-        self._ff_artic_keys: Optional[torch.Tensor] = None  # (H, W) int64
-        self._ff_artic_body_idx: Optional[torch.Tensor] = None  # (H, W) int64
-        self._ff_rigid_key_to_name: Dict[int, str] = {}
-        self._ff_artic_key_to_name: Dict[int, str] = {}
+        # Anchor-frame data (one entry per anchor, set by init_anchor_frame)
+        self._ff_anchors: Dict[int, _AnchorFrameData] = {}
 
     @property
     def camera_name(self) -> str:
@@ -593,11 +606,11 @@ class IsaacLabArenaCameraHandler:
     # First-frame-anchored 3D trajectory flow
     # ------------------------------------------------------------------
 
-    def init_first_frame_anchors(self, env: Any) -> None:
-        """Store per-pixel anchor state from the current (frame-0) render.
+    def init_anchor_frame(self, env: Any, anchor_frame: int = 0) -> None:
+        """Store per-pixel anchor state from the current frame.
 
-        Must be called exactly once, after the first valid :meth:`update`.
-        Subsequent calls raise :class:`RuntimeError`.
+        Can be called at multiple simulation steps to create additional
+        anchors.  Each *anchor_frame* value can only be initialised once.
 
         For each pixel with finite depth the method records:
 
@@ -605,15 +618,16 @@ class IsaacLabArenaCameraHandler:
         * ``track_type`` — STATIC / RIGID / ARTICULATION / UNSUPPORTED.
         * ``trackable_mask`` — True for every type except UNSUPPORTED.
         * For RIGID / ARTICULATION pixels: the body-local anchor
-          ``q0 = T_0^{-1} * p0`` so that later frames can reconstruct
-          ``p_k = T_k * q0``.
+          ``q0 = T_anchor^{-1} * p_anchor`` so that later frames can
+          reconstruct ``p_k = T_k * q0``.
         * For STATIC pixels: the world point itself (immovable).
 
         Args:
             env: The gymnasium-wrapped IsaacLab environment.
+            anchor_frame: Index of the simulation step being anchored.
         """
-        if self._ff_initialised:
-            raise RuntimeError("init_first_frame_anchors must only be called once")
+        if anchor_frame in self._ff_anchors:
+            raise RuntimeError(f"Anchor frame {anchor_frame} already initialised")
 
         from isaaclab.utils.math import unproject_depth
 
@@ -710,29 +724,41 @@ class IsaacLabArenaCameraHandler:
                 )
                 local_points[pixel_mask] = q_local
 
-        self._ff_p0_world = points_world
-        self._ff_track_type = track_type
-        self._ff_trackable_mask = (track_type != TrackType.UNSUPPORTED) & valid_depth
-        self._ff_local_points = local_points
-        self._ff_rigid_keys = rigid_keys
-        self._ff_artic_keys = artic_keys
-        self._ff_artic_body_idx = artic_body_idx
-        self._ff_rigid_key_to_name = ff_rigid_key_to_name
-        self._ff_artic_key_to_name = ff_artic_key_to_name
-        self._ff_initialised = True
+        self._ff_anchors[anchor_frame] = _AnchorFrameData(
+            p0_world=points_world,
+            trackable_mask=(track_type != TrackType.UNSUPPORTED) & valid_depth,
+            track_type=track_type,
+            local_points=local_points,
+            rigid_keys=rigid_keys,
+            artic_keys=artic_keys,
+            artic_body_idx=artic_body_idx,
+            rigid_key_to_name=ff_rigid_key_to_name,
+            artic_key_to_name=ff_artic_key_to_name,
+        )
 
-    def compute_first_frame_flow(
+    def init_first_frame_anchors(self, env: Any) -> None:
+        """Store per-pixel anchor state from the current (frame-0) render.
+
+        Equivalent to ``init_anchor_frame(env, anchor_frame=0)``.
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+        """
+        self.init_anchor_frame(env, anchor_frame=0)
+
+    def compute_anchor_frame_flow(
         self,
         env: Any,
+        anchor_frame: int = 0,
         *,
         occlusion_tol: float = 0.0001,
     ) -> FirstFrameFlowResult:
-        """Compute flow from frame-0 anchors to the current frame k.
+        """Compute flow from an anchor frame's pixels to the current frame k.
 
-        For every trackable frame-0 pixel:
+        For every trackable anchor pixel:
 
-        * **STATIC**: ``p_k = p_0`` (no displacement).
-        * **RIGID**: ``p_k = T_k * q_0`` where ``q_0 = T_0^{-1} * p_0``.
+        * **STATIC**: ``p_k = p_anchor`` (no displacement).
+        * **RIGID**: ``p_k = T_k * q_anchor``.
         * **ARTICULATION**: same as RIGID but using the per-body-link pose.
 
         Additionally computes visibility masks by projecting each ``p_k``
@@ -740,60 +766,64 @@ class IsaacLabArenaCameraHandler:
 
         Args:
             env: The gymnasium-wrapped IsaacLab environment.
+            anchor_frame: Which anchor frame to compute flow from.
             occlusion_tol: Depth tolerance (metres) for the occlusion test.
 
         Returns:
             A :class:`FirstFrameFlowResult`.
 
         Raises:
-            RuntimeError: If :meth:`init_first_frame_anchors` was not called.
+            RuntimeError: If the anchor frame was not initialised via
+                :meth:`init_anchor_frame`.
         """
-        if not self._ff_initialised:
-            raise RuntimeError("Call init_first_frame_anchors before compute_first_frame_flow")
+        if anchor_frame not in self._ff_anchors:
+            raise RuntimeError(
+                f"Anchor frame {anchor_frame} not initialised. "
+                "Call init_anchor_frame first."
+            )
 
-        assert self._ff_p0_world is not None
-        H, W = self._ff_p0_world.shape[:2]
-        device = self._ff_p0_world.device
+        data = self._ff_anchors[anchor_frame]
+        H, W = data.p0_world.shape[:2]
+        device = data.p0_world.device
 
         scene = env.unwrapped.scene
-        trackable = self._ff_trackable_mask.clone()
-        assert trackable is not None
+        trackable = data.trackable_mask.clone()
 
-        p_k = self._ff_p0_world.clone()  # start from p0; STATIC stays here
+        p_k = data.p0_world.clone()
 
         # --- RIGID anchors ---
-        rigid_mask = (self._ff_track_type == TrackType.RIGID) & trackable
+        rigid_mask = (data.track_type == TrackType.RIGID) & trackable
         if rigid_mask.any():
-            for key, name in self._ff_rigid_key_to_name.items():
-                sel = rigid_mask & (self._ff_rigid_keys == key)
+            for key, name in data.rigid_key_to_name.items():
+                sel = rigid_mask & (data.rigid_keys == key)
                 if not sel.any():
                     continue
                 obj = scene[name]
                 pos_k = obj.data.root_link_pos_w[0].clone()
                 quat_k = obj.data.root_link_quat_w[0].clone()
-                q_local = self._ff_local_points[sel]
+                q_local = data.local_points[sel]
                 p_k[sel] = quat_apply(
                     quat_k.unsqueeze(0).expand(q_local.shape[0], -1), q_local
                 ) + pos_k.unsqueeze(0)
 
         # --- ARTICULATION anchors ---
-        artic_mask = (self._ff_track_type == TrackType.ARTICULATION) & trackable
+        artic_mask = (data.track_type == TrackType.ARTICULATION) & trackable
         if artic_mask.any():
-            for artic_key, name in self._ff_artic_key_to_name.items():
+            for artic_key, name in data.artic_key_to_name.items():
                 artic_obj = scene[name]
                 num_bodies = artic_obj.data.body_link_pos_w.shape[1]
                 for bi in range(num_bodies):
-                    sel = artic_mask & (self._ff_artic_keys == artic_key) & (self._ff_artic_body_idx == bi)
+                    sel = artic_mask & (data.artic_keys == artic_key) & (data.artic_body_idx == bi)
                     if not sel.any():
                         continue
                     pos_k = artic_obj.data.body_link_pos_w[0, bi].clone()
                     quat_k = artic_obj.data.body_link_quat_w[0, bi].clone()
-                    q_local = self._ff_local_points[sel]
+                    q_local = data.local_points[sel]
                     p_k[sel] = quat_apply(
                         quat_k.unsqueeze(0).expand(q_local.shape[0], -1), q_local
                     ) + pos_k.unsqueeze(0)
 
-        flow_0k = p_k - self._ff_p0_world
+        flow_0k = p_k - data.p0_world
 
         # --- Visibility / projection masks ---
         intrinsics = self.get_intrinsics()  # (3, 3)
@@ -816,9 +846,7 @@ class IsaacLabArenaCameraHandler:
         u = (p_cam[..., 0] / z_cam) * fx + cx
         v = (p_cam[..., 1] / z_cam) * fy + cy
 
-        # Half-pixel tolerance: the unproject→reproject round-trip can
-        # shift pixel centres by up to ~1e-4 px due to floating-point
-        # precision, causing edge pixels to land just outside [0, dim).
+        # Half-pixel tolerance for floating-point precision at image edges.
         _PIX_EPS = 0.5
         in_frame = (
             (z_cam > 0)
@@ -827,9 +855,7 @@ class IsaacLabArenaCameraHandler:
         )
 
         # Sample depth at all 4 bilinear-cell corners to handle depth
-        # discontinuities: at object edges the continuous (u, v) straddles
-        # two surfaces, so a single-pixel lookup can grab the wrong one.
-        # Accepting the closest-matching corner eliminates boundary artifacts.
+        # discontinuities at object edges.
         u_fl = u.floor().clamp(0, W - 1).long()
         u_ce = (u_fl + 1).clamp(0, W - 1)
         v_fl = v.floor().clamp(0, H - 1).long()
@@ -854,6 +880,25 @@ class IsaacLabArenaCameraHandler:
             visible_now_mask=visible_now & trackable,
             points_world_k=p_k,
         )
+
+    def compute_first_frame_flow(
+        self,
+        env: Any,
+        *,
+        occlusion_tol: float = 0.0001,
+    ) -> FirstFrameFlowResult:
+        """Compute flow from frame-0 anchors to the current frame k.
+
+        Equivalent to ``compute_anchor_frame_flow(env, anchor_frame=0, ...)``.
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+            occlusion_tol: Depth tolerance (metres) for the occlusion test.
+
+        Returns:
+            A :class:`FirstFrameFlowResult`.
+        """
+        return self.compute_anchor_frame_flow(env, anchor_frame=0, occlusion_tol=occlusion_tol)
 
     # ------------------------------------------------------------------
     # 3D scene flow — legacy v*dt approximation (kept for compatibility)

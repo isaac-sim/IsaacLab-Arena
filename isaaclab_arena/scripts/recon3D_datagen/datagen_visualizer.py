@@ -48,7 +48,14 @@ _SUBFOLDER_IN_FRAME_MASK = "in_frame_mask"
 _SUBFOLDER_VISIBLE_NOW_MASK = "visible_now_mask"
 
 
-def _load_frames(output_dir: str, camera_id: str) -> dict:
+def _anchor_subfolder_name(base: str, anchor_frame: int) -> str:
+    """Return subfolder name for an anchor frame (mirrors writer logic)."""
+    if base == _SUBFOLDER_FLOW3D_FROM_FIRST:
+        return f"flow3d_from_frame{anchor_frame}"
+    return f"{base}_frame{anchor_frame}"
+
+
+def _load_frames(output_dir: str, camera_id: str, anchor_frame: int = 0) -> dict:
     """Load all frames written by :class:`IsaacLabArenaWriter`.
 
     Expects layout output_dir/{camera_id}/color, depth, ... (e.g. cam0/color).
@@ -125,24 +132,24 @@ def _load_frames(output_dir: str, camera_id: str) -> dict:
             np.array(Image.open(flow3d_tt_path)) if os.path.exists(flow3d_tt_path) else None
         )
 
-        ff_dir = os.path.join(cam_dir, _SUBFOLDER_FLOW3D_FROM_FIRST)
-        ff_path = os.path.join(ff_dir, f"{frame_idx:010d}.npy")
+        ff_sub = _anchor_subfolder_name(_SUBFOLDER_FLOW3D_FROM_FIRST, anchor_frame)
+        ff_path = os.path.join(cam_dir, ff_sub, f"{frame_idx:010d}.npy")
         result["flow3d_from_firsts"].append(np.load(ff_path) if os.path.exists(ff_path) else None)
 
-        tm_dir = os.path.join(cam_dir, _SUBFOLDER_TRACKABLE_MASK)
-        tm_path = os.path.join(tm_dir, f"{frame_idx:010d}.png")
+        tm_sub = _anchor_subfolder_name(_SUBFOLDER_TRACKABLE_MASK, anchor_frame)
+        tm_path = os.path.join(cam_dir, tm_sub, f"{frame_idx:010d}.png")
         result["trackable_masks"].append(
             np.array(Image.open(tm_path)) if os.path.exists(tm_path) else None
         )
 
-        ifm_dir = os.path.join(cam_dir, _SUBFOLDER_IN_FRAME_MASK)
-        ifm_path = os.path.join(ifm_dir, f"{frame_idx:010d}.png")
+        ifm_sub = _anchor_subfolder_name(_SUBFOLDER_IN_FRAME_MASK, anchor_frame)
+        ifm_path = os.path.join(cam_dir, ifm_sub, f"{frame_idx:010d}.png")
         result["in_frame_masks"].append(
             np.array(Image.open(ifm_path)) if os.path.exists(ifm_path) else None
         )
 
-        vnm_dir = os.path.join(cam_dir, _SUBFOLDER_VISIBLE_NOW_MASK)
-        vnm_path = os.path.join(vnm_dir, f"{frame_idx:010d}.png")
+        vnm_sub = _anchor_subfolder_name(_SUBFOLDER_VISIBLE_NOW_MASK, anchor_frame)
+        vnm_path = os.path.join(cam_dir, vnm_sub, f"{frame_idx:010d}.png")
         result["visible_now_masks"].append(
             np.array(Image.open(vnm_path)) if os.path.exists(vnm_path) else None
         )
@@ -558,11 +565,15 @@ def visualize_all_modalities_grid(
         blank = np.zeros((h, w, 3), dtype=np.uint8)
         blank[:] = 40
 
-        # Column 0: RGB
+        # Column 0: RGB (with frame index label)
         axes[i, 0].imshow(rgbs[idx])
         axes[i, 0].set_title(col_titles[0] if i == 0 else "", fontsize=10)
         axes[i, 0].axis("off")
-        axes[i, 0].set_ylabel(f"Frame {frame_idx}", fontsize=9)
+        axes[i, 0].text(
+            0.02, 0.98, f"Frame {frame_idx}",
+            transform=axes[i, 0].transAxes, fontsize=10, va="top", ha="left",
+            color="white", bbox=dict(boxstyle="round,pad=0.25", facecolor="black", alpha=0.75),
+        )
 
         # Column 1: Depth
         if depths[idx] is not None:
@@ -997,11 +1008,12 @@ def visualize_first_frame_flow_3d(
     line_width: float = 3.0,
     flow_threshold: float = 1e-5,
     save_path: str | None = None,
+    anchor_frame: int = 0,
 ) -> None:
-    """Interactive 3-D visualisation of first-frame-anchored trajectory flow.
+    """Interactive 3-D visualisation of anchor-frame trajectory flow.
 
-    Shows frame-0 anchor points (dots coloured by frame-0 RGB) and
-    lines from each anchor to its reconstructed position at *frame_index*.
+    Shows anchor-frame points (dots coloured by anchor RGB) and lines
+    from each anchor to its reconstructed position at *frame_index*.
 
     Args:
         output_dir: Root output directory containing camera sub-directories.
@@ -1013,6 +1025,7 @@ def visualize_first_frame_flow_3d(
         line_width: Line width for flow lines.
         flow_threshold: Minimum flow magnitude to draw a line.
         save_path: Path to save an interactive ``.html`` file.
+        anchor_frame: The anchor frame index (default 0).
     """
     try:
         import plotly.graph_objects as go
@@ -1024,15 +1037,17 @@ def visualize_first_frame_flow_3d(
 
     cam_dir = os.path.join(output_dir, camera_id)
     tag = f"{frame_index:010d}"
+    anchor_tag = f"{anchor_frame:010d}"
 
-    depth_0 = np.load(os.path.join(cam_dir, _SUBFOLDER_DEPTH, "0000000000.npy"))
-    K = np.load(os.path.join(cam_dir, _SUBFOLDER_INTRINSIC, "0000000000.npy")).astype(np.float64)
-    T = np.load(os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC, "0000000000.npy")).astype(np.float64)
-    rgb_0 = np.array(Image.open(os.path.join(cam_dir, _SUBFOLDER_COLOR, "0000000000.png")))
+    depth_0 = np.load(os.path.join(cam_dir, _SUBFOLDER_DEPTH, f"{anchor_tag}.npy"))
+    K = np.load(os.path.join(cam_dir, _SUBFOLDER_INTRINSIC, f"{anchor_tag}.npy")).astype(np.float64)
+    T = np.load(os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC, f"{anchor_tag}.npy")).astype(np.float64)
+    rgb_0 = np.array(Image.open(os.path.join(cam_dir, _SUBFOLDER_COLOR, f"{anchor_tag}.png")))
 
-    ff_path = os.path.join(cam_dir, _SUBFOLDER_FLOW3D_FROM_FIRST, f"{tag}.npy")
+    flow_sub = _anchor_subfolder_name(_SUBFOLDER_FLOW3D_FROM_FIRST, anchor_frame)
+    ff_path = os.path.join(cam_dir, flow_sub, f"{tag}.npy")
     if not os.path.exists(ff_path):
-        print(f"[visualize_first_frame_flow_3d] No flow3d_from_first for frame {frame_index}")
+        print(f"[visualize_first_frame_flow_3d] No flow for anchor {anchor_frame} → frame {frame_index}")
         return
     ff_flow = np.load(ff_path).astype(np.float64)
 
@@ -1075,7 +1090,7 @@ def visualize_first_frame_flow_3d(
             x=pts_v[:, 0], y=pts_v[:, 1], z=pts_v[:, 2],
             mode="markers",
             marker=dict(size=point_size, color=all_colors, opacity=0.4),
-            name="Frame-0 anchors",
+            name=f"Frame-{anchor_frame} anchors",
             hoverinfo="skip",
         )
     )
@@ -1110,14 +1125,14 @@ def visualize_first_frame_flow_3d(
                 x=line_x, y=line_y, z=line_z,
                 mode="lines",
                 line=dict(color=line_colors, width=line_width),
-                name=f"Flow 0→{frame_index}",
+                name=f"Flow {anchor_frame}→{frame_index}",
                 hoverinfo="skip",
             )
         )
 
     fig = go.Figure(data=traces)
     fig.update_layout(
-        title=f"First-Frame Trajectory Flow — Frame 0→{frame_index} ({camera_id})",
+        title=f"Anchor-Frame Trajectory Flow — Frame {anchor_frame}→{frame_index} ({camera_id})",
         scene=dict(
             xaxis_title="X (m)", yaxis_title="Y (m)", zaxis_title="Z (m)",
             aspectmode="data",

@@ -16,6 +16,7 @@ FOCAL_LENGTH = 24.0             # mm
 OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
 NUM_STEPS = 30
 OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
+ANCHOR_FRAMES = [0]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
 
 # Visualization (optional step at the end)
 NUM_VIZ_SAMPLES = 8
@@ -85,6 +86,9 @@ with torch.inference_mode():
     env.step(actions)
     camera_handler.update(dt)
 
+sorted_anchor_frames = sorted(ANCHOR_FRAMES)
+anchor_frames_set = set(ANCHOR_FRAMES)
+
 for step_idx in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
@@ -129,19 +133,27 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
 
         camera_handler.cache_scene_flow_frame(env)
 
-        # ── First-frame-anchored trajectory flow (N files) ────────
-        if step_idx == 0:
-            camera_handler.init_first_frame_anchors(env)
+        # ── Anchor-frame-anchored trajectory flow ─────────────────
+        if step_idx in anchor_frames_set:
+            camera_handler.init_anchor_frame(env, anchor_frame=step_idx)
 
-        ff = camera_handler.compute_first_frame_flow(env, occlusion_tol=OCCLUSION_TOL)
-        writer.write_flow3d_from_first(
-            ff.flow3d_from_first, camera_id, step_idx, camera_name=camera_name)
-        writer.write_trackable_mask(
-            ff.trackable_mask, camera_id, step_idx, camera_name=camera_name)
-        writer.write_in_frame_mask(
-            ff.in_frame_mask, camera_id, step_idx, camera_name=camera_name)
-        writer.write_visible_now_mask(
-            ff.visible_now_mask, camera_id, step_idx, camera_name=camera_name)
+        for af in sorted_anchor_frames:
+            if af > step_idx:
+                break
+            ff = camera_handler.compute_anchor_frame_flow(
+                env, anchor_frame=af, occlusion_tol=OCCLUSION_TOL)
+            writer.write_flow3d_from_first(
+                ff.flow3d_from_first, camera_id, step_idx,
+                camera_name=camera_name, anchor_frame=af)
+            writer.write_trackable_mask(
+                ff.trackable_mask, camera_id, step_idx,
+                camera_name=camera_name, anchor_frame=af)
+            writer.write_in_frame_mask(
+                ff.in_frame_mask, camera_id, step_idx,
+                camera_name=camera_name, anchor_frame=af)
+            writer.write_visible_now_mask(
+                ff.visible_now_mask, camera_id, step_idx,
+                camera_name=camera_name, anchor_frame=af)
 
 # %%
 # Visualization of the generated data
@@ -186,16 +198,21 @@ visualize_scene_flow_3d(
     save_path=os.path.join(viz_dir, f"scene_flow_3d_frame{SCENE_FLOW_VIZ_FRAME}.html"),
 )
 
-# Interactive first-frame trajectory flow (last frame vs frame 0)
+# Interactive anchor-frame trajectory flow (last frame vs each anchor)
 last_frame = NUM_STEPS - 1
-visualize_first_frame_flow_3d(
-    OUTPUT_DIR,
-    camera_id,
-    frame_index=last_frame,
-    stride=8,
-    arrow_scale=1.0,
-    save_path=os.path.join(viz_dir, f"first_frame_flow_3d_frame{last_frame}.html"),
-)
+for af in sorted(ANCHOR_FRAMES):
+    if af >= NUM_STEPS:
+        continue
+    target = max(last_frame, af)
+    visualize_first_frame_flow_3d(
+        OUTPUT_DIR,
+        camera_id,
+        frame_index=target,
+        anchor_frame=af,
+        stride=8,
+        arrow_scale=1.0,
+        save_path=os.path.join(viz_dir, f"anchor{af}_flow_3d_frame{target}.html"),
+    )
 
 print(f"Visualizations saved to {viz_dir}")
 
