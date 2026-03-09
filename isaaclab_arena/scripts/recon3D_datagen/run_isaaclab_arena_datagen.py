@@ -3,6 +3,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# ── Hyperparameters (edit these before running) ─────────────────────────────
+SCENE_NAME = "dynamic_balls"   # environment; use --enable_cameras for static camera
+OBJECT_NAME = "cracker_box"     # object variant (depends on scene)
+
+CAMERA_POSITION = (0.0, -0.737, 1.0)   # world-frame (x, y, z)
+CAMERA_TARGET = (0.466, -0.737, 0.4)   # look-at point in world frame
+IMAGE_WIDTH = 640
+IMAGE_HEIGHT = 480
+FOCAL_LENGTH = 24.0             # mm
+
+OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
+NUM_STEPS = 30
+OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
+
+# Visualization (optional step at the end)
+NUM_VIZ_SAMPLES = 8
+SCENE_FLOW_VIZ_FRAME = 0
+# ───────────────────────────────────────────────────────────────────────────
+
 # %%
 import os
 import torch
@@ -23,12 +42,11 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 
 args_parser = get_isaaclab_arena_environments_cli_parser()
 
-# Dynamic Balls (--enable_cameras required for the static camera sensor)
 args_cli = args_parser.parse_args([
     "--enable_cameras",
-    "dynamic_balls",
+    SCENE_NAME,
     "--object",
-    "cracker_box",
+    OBJECT_NAME,
 ])
 
 arena_builder = get_arena_builder_from_cli(args_cli)
@@ -36,15 +54,6 @@ env = arena_builder.make_registered()
 env.reset()
 
 # %%
-
-# ── Static camera & writer configuration ──────────────────────────────
-CAMERA_POSITION = (0.0, -0.737, 1.0)   # world-frame position (x, y, z)
-CAMERA_TARGET = (0.466, -0.737, 0.4)     # look-at point in world frame
-IMAGE_WIDTH = 640
-IMAGE_HEIGHT = 480
-FOCAL_LENGTH = 24.0                  # mm
-OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
-
 from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_camera_handler import (
     IsaacLabArenaCameraHandler,
     create_static_camera,
@@ -65,9 +74,6 @@ camera_handler = create_static_camera(
 writer = IsaacLabArenaWriter(OUTPUT_DIR)
 
 # %%
-
-NUM_STEPS = 30
-OCCLUSION_TOL = 0.1  # depth tolerance for visible-now mask (metres)
 dt = env.unwrapped.step_dt
 camera_id = camera_id_from_index(0)
 camera_name = camera_handler.camera_name
@@ -137,8 +143,6 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
         writer.write_visible_now_mask(
             ff.visible_now_mask, camera_id, step_idx, camera_name=camera_name)
 
-writer.write_output_readme()
-
 # %%
 # Visualization of the generated data
 from isaaclab_arena.scripts.recon3D_datagen.datagen_visualizer import (
@@ -152,13 +156,12 @@ camera_id = camera_id_from_index(0)
 # Store visualizations inside each camera folder (e.g. cam0/visualizations/)
 viz_dir = os.path.join(OUTPUT_DIR, camera_id, "visualizations")
 os.makedirs(viz_dir, exist_ok=True)
-num_samples = 8
 
 # Single plot: color, depth, flow2d, normals, semantics per frame
 visualize_all_modalities_grid(
     OUTPUT_DIR,
     camera_id,
-    num_samples=num_samples,
+    num_samples=NUM_VIZ_SAMPLES,
     depth_cmap="Spectral",
     save_path=os.path.join(viz_dir, "data_vis.png"),
 )
@@ -169,19 +172,18 @@ visualize_camera_trajectory(
     camera_id,
     axis_length=0.05,
     frustum_scale=0.04,
-    num_frustums=num_samples,
+    num_frustums=NUM_VIZ_SAMPLES,
     save_path=os.path.join(viz_dir, "camera_trajectory_3d.png"),
 )
 
 # Interactive 3D scene flow (saved as rotatable HTML)
-frame_index = 0
 visualize_scene_flow_3d(
     OUTPUT_DIR,
     camera_id,
-    frame_index=frame_index,
+    frame_index=SCENE_FLOW_VIZ_FRAME,
     stride=8,
     arrow_scale=1.0,
-    save_path=os.path.join(viz_dir, f"scene_flow_3d_frame{frame_index}.html"),
+    save_path=os.path.join(viz_dir, f"scene_flow_3d_frame{SCENE_FLOW_VIZ_FRAME}.html"),
 )
 
 # Interactive first-frame trajectory flow (last frame vs frame 0)

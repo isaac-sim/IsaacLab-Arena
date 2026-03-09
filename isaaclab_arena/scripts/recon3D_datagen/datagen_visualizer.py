@@ -6,7 +6,7 @@
 """Visualization utilities for recon3D data generation outputs.
 
 Provides functions to:
-- Combined grid: color, depth, flow2d, flow3d, normals, semantics in one figure.
+- Combined grid: color, depth, normals, flow2d, flow3d, track type, flow-from-first, masks, semantics in one figure.
 - Plot 3D camera trajectory with coordinate frames and optional frustums.
 - Interactive 3D scene flow on a point cloud (plotly, rotatable).
 - Individual grids for RGB, depth, normals, optical flow, semantic segmentation.
@@ -516,9 +516,8 @@ def visualize_all_modalities_grid(
 ) -> None:
     """Single figure: for each sampled frame show all modalities in one row.
 
-    Layout: num_samples rows x 10 columns
-    (RGB | Depth | Flow 2D | Flow 3D | Track Type | Flow From 1st |
-     In Frame | Visible Now | Normals | Semantics).
+    Column order (left to right): Color | Depth | Normals | Track Type | Flow 2D |
+    Flow 3D | Semantics | Flow From 1st | In Frame | Visible Now.
     Missing data is shown as a dark placeholder with 'N/A'.
     """
     data = _load_frames(output_dir, camera_id)
@@ -549,8 +548,8 @@ def visualize_all_modalities_grid(
         axes = axes[np.newaxis, :]
 
     col_titles = [
-        "Color", "Depth", "Flow 2D", "Flow 3D", "Track Type",
-        "Flow From 1st", "In Frame", "Visible Now", "Normals", "Semantics",
+        "Color", "Depth", "Normals", "Track Type", "Flow 2D", "Flow 3D",
+        "Semantics", "Flow From 1st", "In Frame", "Visible Now",
     ]
 
     for i, idx in enumerate(sample_ids):
@@ -574,89 +573,89 @@ def visualize_all_modalities_grid(
         axes[i, 1].set_title(col_titles[1] if i == 0 else "", fontsize=10)
         axes[i, 1].axis("off")
 
-        # Column 2: Optical flow (2D)
-        if flows[idx] is not None:
-            axes[i, 2].imshow(_colorize_flow_fast(flows[idx]))
+        # Column 2: Normals
+        if normals_list[idx] is not None:
+            axes[i, 2].imshow(_colorize_normals(normals_list[idx]))
         else:
             axes[i, 2].imshow(blank)
             axes[i, 2].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 2].set_title(col_titles[2] if i == 0 else "", fontsize=10)
         axes[i, 2].axis("off")
 
-        # Column 3: Scene flow (3D) — adjacent
-        if flows_3d[idx] is not None:
-            axes[i, 3].imshow(_colorize_flow3d(flows_3d[idx]))
+        # Column 3: Flow 3D track type (colorized)
+        tt_img = flow3d_track_types[idx] if idx < len(flow3d_track_types) else None
+        if tt_img is not None:
+            axes[i, 3].imshow(tt_img)
+            track_legend = _build_flow3d_track_type_legend()
+            axes[i, 3].legend(
+                handles=track_legend, loc="upper left", fontsize=5,
+                framealpha=0.8, handlelength=1.0, handleheight=0.8,
+            )
         else:
             axes[i, 3].imshow(blank)
             axes[i, 3].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 3].set_title(col_titles[3] if i == 0 else "", fontsize=10)
         axes[i, 3].axis("off")
 
-        # Column 4: Flow 3D track type (colorized)
-        tt_img = flow3d_track_types[idx] if idx < len(flow3d_track_types) else None
-        if tt_img is not None:
-            axes[i, 4].imshow(tt_img)
-            track_legend = _build_flow3d_track_type_legend()
-            axes[i, 4].legend(
-                handles=track_legend, loc="upper left", fontsize=5,
-                framealpha=0.8, handlelength=1.0, handleheight=0.8,
-            )
+        # Column 4: Optical flow (2D)
+        if flows[idx] is not None:
+            axes[i, 4].imshow(_colorize_flow_fast(flows[idx]))
         else:
             axes[i, 4].imshow(blank)
             axes[i, 4].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
         axes[i, 4].axis("off")
 
-        # Column 5: First-frame-anchored flow magnitude
-        ff_data = ff_flows[idx] if idx < len(ff_flows) else None
-        if ff_data is not None:
-            axes[i, 5].imshow(_colorize_flow3d(ff_data))
+        # Column 5: Scene flow (3D) — adjacent
+        if flows_3d[idx] is not None:
+            axes[i, 5].imshow(_colorize_flow3d(flows_3d[idx]))
         else:
             axes[i, 5].imshow(blank)
             axes[i, 5].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 5].set_title(col_titles[5] if i == 0 else "", fontsize=10)
         axes[i, 5].axis("off")
 
-        # Column 6: In-frame mask (white = projects inside current image)
-        ifm = in_frame_masks[idx] if idx < len(in_frame_masks) else None
-        if ifm is not None:
-            axes[i, 6].imshow(ifm, cmap="gray", vmin=0, vmax=255)
+        # Column 6: Semantic segmentation
+        if semantics[idx] is not None:
+            sem_rgba = semantics[idx]
+            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
+            axes[i, 6].imshow(sem_rgb)
+            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
+            if legend_patches:
+                axes[i, 6].legend(
+                    handles=legend_patches, loc="upper left", fontsize=5,
+                    framealpha=0.8, handlelength=1.0, handleheight=0.8,
+                )
         else:
             axes[i, 6].imshow(blank)
             axes[i, 6].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 6].set_title(col_titles[6] if i == 0 else "", fontsize=10)
         axes[i, 6].axis("off")
 
-        # Column 7: Visible-now mask (white = visible)
-        vm = visible_masks[idx] if idx < len(visible_masks) else None
-        if vm is not None:
-            axes[i, 7].imshow(vm, cmap="gray", vmin=0, vmax=255)
+        # Column 7: First-frame-anchored flow magnitude
+        ff_data = ff_flows[idx] if idx < len(ff_flows) else None
+        if ff_data is not None:
+            axes[i, 7].imshow(_colorize_flow3d(ff_data))
         else:
             axes[i, 7].imshow(blank)
             axes[i, 7].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 7].set_title(col_titles[7] if i == 0 else "", fontsize=10)
         axes[i, 7].axis("off")
 
-        # Column 8: Normals
-        if normals_list[idx] is not None:
-            axes[i, 8].imshow(_colorize_normals(normals_list[idx]))
+        # Column 8: In-frame mask (white = projects inside current image)
+        ifm = in_frame_masks[idx] if idx < len(in_frame_masks) else None
+        if ifm is not None:
+            axes[i, 8].imshow(ifm, cmap="gray", vmin=0, vmax=255)
         else:
             axes[i, 8].imshow(blank)
             axes[i, 8].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 8].set_title(col_titles[8] if i == 0 else "", fontsize=10)
         axes[i, 8].axis("off")
 
-        # Column 9: Semantic segmentation
-        if semantics[idx] is not None:
-            sem_rgba = semantics[idx]
-            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
-            axes[i, 9].imshow(sem_rgb)
-            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
-            if legend_patches:
-                axes[i, 9].legend(
-                    handles=legend_patches, loc="upper left", fontsize=5,
-                    framealpha=0.8, handlelength=1.0, handleheight=0.8,
-                )
+        # Column 9: Visible-now mask (white = visible)
+        vm = visible_masks[idx] if idx < len(visible_masks) else None
+        if vm is not None:
+            axes[i, 9].imshow(vm, cmap="gray", vmin=0, vmax=255)
         else:
             axes[i, 9].imshow(blank)
             axes[i, 9].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
@@ -664,8 +663,8 @@ def visualize_all_modalities_grid(
         axes[i, 9].axis("off")
 
     fig.suptitle(
-        "Color | Depth | Flow 2D | Flow 3D | Track Type | "
-        "Flow From 1st | In Frame | Visible Now | Normals | Semantics",
+        "Color | Depth | Normals | Track Type | Flow 2D | Flow 3D | "
+        "Semantics | Flow From 1st | In Frame | Visible Now",
         fontsize=11,
     )
     fig.tight_layout()
