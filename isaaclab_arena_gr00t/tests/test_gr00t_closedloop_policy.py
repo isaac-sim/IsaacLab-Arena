@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import sys
+
 import yaml
 
 import pytest
@@ -63,7 +66,10 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     args.append("--color_jitter_params")
     # Tyro expects key-value pairs as separate arguments
     args.extend(["brightness", "0.3", "contrast", "0.4", "saturation", "0.5", "hue", "0.08"])
-    run_subprocess(args)
+    env = os.environ.copy()
+    if os.environ.get("GROOT_DEPS_DIR"):
+        env["PYTHONPATH"] = os.environ["GROOT_DEPS_DIR"] + os.pathsep + env.get("PYTHONPATH", "")
+    run_subprocess(args, env=env)
 
     return model_dir / "checkpoint-10"
 
