@@ -10,9 +10,11 @@
 
 # can run this command: python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v2_tabletop_pick_and_place --grasp_z_offset 0.17 --approach_distance 0.08 --retreat_distance 0.08 --debug_planner --debug_goal --pick_order tomato_soup_can --grasp_orientation object_yaw --post_place_clearance 0.0
 
+# (Neel: New command for IK based A star with num demos and max attempts)
+# python isaaclab_arena/scripts/curobo/run_droid_v2_tabletop_curobo_pick_place.py droid_v3_tabletop_pick_and_place --grasp_z_offset 0.17 --approach_distance 0.08 --retreat_distance 0.08 --debug_planner --debug_goal --grasp_orientation object_yaw --post_place_clearance 0.0 --num_demos 3
+
 from __future__ import annotations
 
-import json
 from copy import deepcopy
 from pathlib import Path
 
@@ -103,6 +105,10 @@ def main() -> None:
             plan_and_execute,
             pose_from_pos_quat,
         )
+        from isaaclab_arena.scripts.curobo.ik_utils import (
+            check_ik_feasibility,
+            get_current_joint_config,
+        )
 
         sphere_dump_dir = Path(args_cli.dump_spheres_dir) if args_cli.dump_spheres_dir else None
 
@@ -182,200 +188,217 @@ def main() -> None:
                 debug_goal=args_cli.debug_goal,
             )
 
-        bin_pos = get_bin_interior_center(
-            env, "blue_sorting_bin", 0, 0
-        )
+        bin_pos = get_bin_interior_center(env, "blue_sorting_bin", 0, 0)
         print(f"Bin interior center (robot frame): {bin_pos}")
 
-        if args_cli.example_environment == "droid_v3_tabletop_pick_and_place":
-            # Generate a new random target layout via the relation solver
-            target_positions = arena_builder.example_env.generate_target_positions()
+        is_v3 = args_cli.example_environment == "droid_v3_tabletop_pick_and_place"
 
-            # A* symbolic planning: pick order from init/target relation dependencies
-            pick_order = arena_builder.example_env.plan_pick_order(verbose=args_cli.debug_planner)
-            if args_cli.max_objects is not None:
-                pick_order = pick_order[: args_cli.max_objects]
+        # V3: build the IK cost function once (closure over stable references)
+        robot_pos_w = robot.data.root_pos_w[0, :3]
+        robot_quat_w = robot.data.root_quat_w[0, :4]
+        R_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+        IK_FAIL_PENALTY = 100.0
+        down_quat = DOWN_FACING_QUAT_WXYZ.to(env.device)
+        ik_pos_th = args_cli.ik_pos_threshold
+        ik_rot_th = args_cli.ik_rot_threshold
 
-            robot_pos_w = robot.data.root_pos_w[0, :3]
-            robot_quat_w = robot.data.root_quat_w[0, :4]
-            R_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
-            placement_slots = {}
-            for obj_name in pick_order:
-                world_pos = torch.tensor(target_positions[obj_name], device=env.device)
-                placement_slots[obj_name] = (R_w2r @ (world_pos - robot_pos_w).unsqueeze(-1)).squeeze(-1)
-            print(f"[V3] Target layout positions (robot frame): {placement_slots}")
-        else:
-            pick_order = auto_pick_order(env, explicit_order=args_cli.pick_order)
-            if args_cli.max_objects is not None:
-                pick_order = pick_order[: args_cli.max_objects]
-            # Pre-compute placement slots so every object has a guaranteed in-bin position
-            slot_list = compute_placement_slots(
-                bin_pos,
-                len(pick_order),
-                args_cli.bin_half_x,
-                args_cli.bin_half_y,
-            )
-            placement_slots = {name: slot_list[i] for i, name in enumerate(pick_order)}
+        def _world_to_robot(pos_w_tuple):
+            xyz = torch.tensor(pos_w_tuple, device=env.device, dtype=torch.float32)
+            return (R_w2r @ (xyz - robot_pos_w).unsqueeze(-1)).squeeze(-1)
 
-        if len(pick_order) == 0:
-            raise RuntimeError("No pickable objects were found in scene.rigid_objects.")
-        print(f"Resolved pick order: {pick_order}")
+        def _ik_cost_fn(name, init_pos_w, target_pos_w, prev_jc):
+            """Sequential IK penalty: evaluates grasp then place as a chain.
 
-        # Track success/failure for each object
-        results = {}  # object_name -> {stage: success_bool}
+            If grasp IK fails, place IK is skipped (it would be meaningless
+            since the arm can't reach the grasp pose). The full penalty is
+            returned and the joint config stays unchanged so the next object
+            in the A* chain doesn't get a misleading seed.
+            """
+            if prev_jc is None:
+                prev_jc = get_current_joint_config(planner)
 
-        for idx, object_name in enumerate(pick_order):
-            object_pos = get_object_pos(env, object_name)
-            object_quat = get_object_quat(env, object_name)
-            print(f"\n{'=' * 80}")
-            print(f"[{idx + 1}/{len(pick_order)}] Planning for object '{object_name}' at {object_pos}")
-            print(f"{'=' * 80}")
+            jc = prev_jc
 
-            results[object_name] = {}
-
-            grasp_quat = compute_grasp_quat(args_cli.grasp_orientation, object_quat, env.device)
-            print(f"[GRASP] orientation={args_cli.grasp_orientation}, quat={grasp_quat.tolist()}")
-
-            grasp_xyz = object_pos.clone()
+            grasp_xyz = _world_to_robot(init_pos_w)
             grasp_xyz[2] += args_cli.grasp_z_offset
-            grasp_pose = pose_from_pos_quat(grasp_xyz, grasp_quat)
+            ok, pe, re, sol = check_ik_feasibility(
+                planner, pose_from_pos_quat(grasp_xyz, down_quat), seed_config=jc,
+                position_threshold=ik_pos_th, rotation_threshold=ik_rot_th,
+            )
+            if not ok:
+                print(f"[IK] {name} grasp INFEASIBLE (pos={pe:.4f}m, rot={re:.4f}rad)")
+                return 2 * IK_FAIL_PENALTY, prev_jc
+            jc = sol
 
-            # Compute reachability metrics
-            current_eef_pose = get_current_eef_pose(env, planner)
-            current_eef_pos = current_eef_pose[:3, 3]
-            distance_to_goal = torch.norm(grasp_xyz - current_eef_pos).item()
-
-            print(f"[DEBUG GOAL] Current EEF (robot-frame): {current_eef_pos}")
-            print(f"[DEBUG GOAL] Grasp XYZ (robot-frame): {grasp_xyz}")
-            print(f"[DEBUG GOAL] Distance to goal: {distance_to_goal:.3f}m")
-            if args_cli.grasp_z_offset != 0.0:
-                print(f"[DEBUG GOAL] grasp_z_offset applied: {args_cli.grasp_z_offset}m")
-            print(f"[DEBUG GOAL] Approach distance: {args_cli.approach_distance}m (cuRobo multi-phase)")
-
-            slot_center_xyz = placement_slots[object_name]
-
-            place_xyz = slot_center_xyz.clone()
+            place_xyz = _world_to_robot(target_pos_w)
             place_xyz[2] += args_cli.place_z_offset
-            place_pose = pose_from_pos_quat(place_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
-
-            # Single grasp motion (approach_distance adds multi-phase planning automatically)
-            grasp_success = plan_and_execute(
-                env,
-                planner,
-                target_pose=grasp_pose,
-                gripper_action=GRIPPER_OPEN_CMD,
-                expected_attached_object=None,
-                stage=f"{object_name}:grasp",
-                sphere_dump_dir=sphere_dump_dir,
-                sphere_dump_png=args_cli.dump_spheres_png,
-                goal_pose_visualizer=goal_pose_visualizer,
-                ee_visualizer=ee_visualizer,
-                debug_goal=args_cli.debug_goal,
+            ok, pe, re, sol = check_ik_feasibility(
+                planner, pose_from_pos_quat(place_xyz, down_quat), seed_config=jc,
+                position_threshold=ik_pos_th, rotation_threshold=ik_rot_th,
             )
-            results[object_name]["grasp"] = grasp_success
-            if not grasp_success:
-                print(f"[SKIP] Skipping remaining stages for '{object_name}' due to grasp planning failure")
-                continue
+            if not ok:
+                print(f"[IK] {name} place INFEASIBLE (pos={pe:.4f}m, rot={re:.4f}rad)")
+                return IK_FAIL_PENALTY, prev_jc
+            jc = sol
 
-            execute_gripper_action(
-                env,
-                planner,
-                gripper_binary_action=GRIPPER_CLOSE_CMD,
-                steps=args_cli.gripper_settle_steps,
-                env_id=0,
-            )
+            return 0.0, jc
 
-            # Plan directly to place pose (approach_distance ideally should handles final approach)
-            place_success = plan_and_execute(
-                env,
-                planner,
-                target_pose=place_pose,
-                gripper_action=GRIPPER_CLOSE_CMD,
-                expected_attached_object=object_name,
-                stage=f"{object_name}:place",
-                sphere_dump_dir=sphere_dump_dir,
-                sphere_dump_png=args_cli.dump_spheres_png,
-                goal_pose_visualizer=goal_pose_visualizer,
-                ee_visualizer=ee_visualizer,
-                debug_goal=args_cli.debug_goal,
-            )
-            results[object_name]["place"] = place_success
-            if not place_success:
-                print(f"[SKIP] Skipping retreat for '{object_name}' due to place failure")
-                execute_gripper_action(
-                    env, planner, gripper_binary_action=GRIPPER_OPEN_CMD, steps=args_cli.gripper_settle_steps, env_id=0
+        # ── Demo collection loop ──────────────────────────────────────────
+        num_demos = args_cli.num_demos
+        max_attempts = args_cli.max_attempts or num_demos * 10
+        successes = 0
+
+        for attempt in range(1, max_attempts + 1):
+            if successes >= num_demos:
+                break
+
+            print(f"\n{'#' * 80}")
+            print(f"ATTEMPT {attempt} | Successful demos: {successes}/{num_demos}")
+            print(f"{'#' * 80}")
+
+            if attempt > 1:
+                env.reset()
+
+            # ── Plan pick order ───────────────────────────────────────────
+            if is_v3:
+                target_positions = arena_builder.example_env.generate_target_positions()
+                planner.update_world()
+
+                pick_order, ik_penalty = arena_builder.example_env.plan_pick_order(
+                    verbose=args_cli.debug_planner, ik_cost_fn=_ik_cost_fn,
                 )
+                if args_cli.max_objects is not None:
+                    pick_order = pick_order[: args_cli.max_objects]
+
+                if ik_penalty > 0:
+                    print(f"[SKIP] Layout IK-infeasible (penalty={ik_penalty:.1f}), resetting")
+                    continue
+
+                placement_slots = {}
+                for obj_name in pick_order:
+                    world_pos = torch.tensor(target_positions[obj_name], device=env.device)
+                    placement_slots[obj_name] = (R_w2r @ (world_pos - robot_pos_w).unsqueeze(-1)).squeeze(-1)
+            else:
+                pick_order = auto_pick_order(env, explicit_order=args_cli.pick_order)
+                if args_cli.max_objects is not None:
+                    pick_order = pick_order[: args_cli.max_objects]
+                slot_list = compute_placement_slots(
+                    bin_pos, len(pick_order), args_cli.bin_half_x, args_cli.bin_half_y,
+                )
+                placement_slots = {name: slot_list[i] for i, name in enumerate(pick_order)}
+
+            if not pick_order:
+                print("[WARN] No pickable objects found, skipping attempt")
                 continue
 
-            execute_gripper_action(
-                env,
-                planner,
-                gripper_binary_action=GRIPPER_OPEN_CMD,
-                steps=args_cli.gripper_settle_steps,
-                env_id=0,
-            )
+            print(f"Pick order: {pick_order}")
 
-            if args_cli.post_place_clearance > 0:
-                retreat_xyz = place_xyz.clone()
-                retreat_xyz[2] += args_cli.post_place_clearance
-                retreat_pose = pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
-                retreat_success = plan_and_execute(
-                    env,
-                    planner,
-                    target_pose=retreat_pose,
-                    gripper_action=GRIPPER_OPEN_CMD,
-                    expected_attached_object=None,
-                    stage=f"{object_name}:retreat",
-                    sphere_dump_dir=sphere_dump_dir,
-                    sphere_dump_png=args_cli.dump_spheres_png,
-                    goal_pose_visualizer=goal_pose_visualizer,
-                    ee_visualizer=ee_visualizer,
+            # ── Execute pick-place for each object ────────────────────────
+            results: dict[str, dict[str, bool]] = {}
+
+            for idx, object_name in enumerate(pick_order):
+                object_pos = get_object_pos(env, object_name)
+                object_quat = get_object_quat(env, object_name)
+                print(f"\n{'=' * 80}")
+                print(f"[{idx + 1}/{len(pick_order)}] Object '{object_name}' at {object_pos}")
+                print(f"{'=' * 80}")
+
+                results[object_name] = {}
+
+                grasp_quat = compute_grasp_quat(args_cli.grasp_orientation, object_quat, env.device)
+                grasp_xyz = object_pos.clone()
+                grasp_xyz[2] += args_cli.grasp_z_offset
+                grasp_pose = pose_from_pos_quat(grasp_xyz, grasp_quat)
+
+                slot_xyz = placement_slots[object_name].clone()
+                slot_xyz[2] += args_cli.place_z_offset
+                place_pose = pose_from_pos_quat(slot_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+
+                if args_cli.debug_goal:
+                    eef_pos = get_current_eef_pose(env, planner)[:3, 3]
+                    print(f"[DEBUG GOAL] EEF={eef_pos}, grasp={grasp_xyz}, "
+                          f"dist={torch.norm(grasp_xyz - eef_pos).item():.3f}m")
+
+                grasp_success = plan_and_execute(
+                    env, planner, target_pose=grasp_pose,
+                    gripper_action=GRIPPER_OPEN_CMD, expected_attached_object=None,
+                    stage=f"{object_name}:grasp",
+                    sphere_dump_dir=sphere_dump_dir, sphere_dump_png=args_cli.dump_spheres_png,
+                    goal_pose_visualizer=goal_pose_visualizer, ee_visualizer=ee_visualizer,
                     debug_goal=args_cli.debug_goal,
                 )
-                results[object_name]["retreat"] = retreat_success
+                results[object_name]["grasp"] = grasp_success
+                if not grasp_success:
+                    print(f"[SKIP] '{object_name}' grasp failed")
+                    continue
 
-        # Print summary
-        print(f"\n{'=' * 80}")
-        print("PICK AND PLACE RESULTS SUMMARY")
-        print(f"{'=' * 80}")
+                execute_gripper_action(
+                    env, planner, gripper_binary_action=GRIPPER_CLOSE_CMD,
+                    steps=args_cli.gripper_settle_steps, env_id=0,
+                )
 
-        successful_objects = []
-        failed_objects = []
+                place_success = plan_and_execute(
+                    env, planner, target_pose=place_pose,
+                    gripper_action=GRIPPER_CLOSE_CMD, expected_attached_object=object_name,
+                    stage=f"{object_name}:place",
+                    sphere_dump_dir=sphere_dump_dir, sphere_dump_png=args_cli.dump_spheres_png,
+                    goal_pose_visualizer=goal_pose_visualizer, ee_visualizer=ee_visualizer,
+                    debug_goal=args_cli.debug_goal,
+                )
+                results[object_name]["place"] = place_success
+                if not place_success:
+                    print(f"[SKIP] '{object_name}' place failed")
+                    execute_gripper_action(
+                        env, planner, gripper_binary_action=GRIPPER_OPEN_CMD,
+                        steps=args_cli.gripper_settle_steps, env_id=0,
+                    )
+                    continue
 
-        for obj_name, stages in results.items():
-            all_success = all(stages.values()) if stages else False
+                execute_gripper_action(
+                    env, planner, gripper_binary_action=GRIPPER_OPEN_CMD,
+                    steps=args_cli.gripper_settle_steps, env_id=0,
+                )
+
+                if args_cli.post_place_clearance > 0:
+                    retreat_xyz = slot_xyz.clone()
+                    retreat_xyz[2] += args_cli.post_place_clearance
+                    retreat_pose = pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+                    retreat_ok = plan_and_execute(
+                        env, planner, target_pose=retreat_pose,
+                        gripper_action=GRIPPER_OPEN_CMD, expected_attached_object=None,
+                        stage=f"{object_name}:retreat",
+                        sphere_dump_dir=sphere_dump_dir, sphere_dump_png=args_cli.dump_spheres_png,
+                        goal_pose_visualizer=goal_pose_visualizer, ee_visualizer=ee_visualizer,
+                        debug_goal=args_cli.debug_goal,
+                    )
+                    results[object_name]["retreat"] = retreat_ok
+
+            # ── Per-attempt summary ───────────────────────────────────────
+            ok_objs = [n for n, s in results.items() if s and all(s.values())]
+            fail_objs = [n for n in results if n not in ok_objs]
+            all_success = len(ok_objs) == len(pick_order) and len(pick_order) > 0
+
+            print(f"\n{'=' * 80}")
+            print(f"ATTEMPT {attempt} SUMMARY")
+            print(f"{'=' * 80}")
+            for obj_name in ok_objs:
+                print(f"  {obj_name}: SUCCESS")
+            for obj_name in fail_objs:
+                stages = results.get(obj_name, {})
+                failed_at = next((s for s, v in stages.items() if not v), "no stages")
+                print(f"  {obj_name}: FAILED at '{failed_at}'")
+            print(f"  Objects: {len(ok_objs)}/{len(pick_order)} succeeded")
+
             if all_success:
-                successful_objects.append(obj_name)
-                print(f"{obj_name}: SUCCESS (all stages completed)")
-            else:
-                failed_objects.append(obj_name)
-                failed_stage = next((stage for stage, success in stages.items() if not success), "unknown")
-                print(f"{obj_name}: FAILED at stage '{failed_stage}'")
-                for stage, success in stages.items():
-                    status = "Successful" if success else "Failed"
-                    print(f" {stage}: {status}")
+                successes += 1
+                print(f"  >> Demo {successes}/{num_demos} recorded")
 
-        print(f"\nTotal: {len(successful_objects)}/{len(results)} objects successfully picked and placed")
-
-        if failed_objects:
-            print(f"\nFailed objects: {', '.join(failed_objects)}")
-        if successful_objects:
-            print(f"Successful objects: {', '.join(successful_objects)}")
-
-        print(f"{'=' * 80}\n")
-
-        if len(successful_objects) == 0:
-            print("[INFO] All objects failed; skipping final EEF query.")
-            env.close()
-            return
-
-        curr_pose = get_current_eef_pose(env, planner)
-        curr_quat = math_utils.quat_from_matrix(curr_pose[:3, :3].unsqueeze(0))[0]
-        curr_pos = curr_pose[:3, 3]
-        print(f"Final EEF pose: pos={curr_pos}, quat_wxyz={curr_quat}")
-
-        for _ in range(10):
-            env.step(action_from_pose(env, planner, curr_pose, GRIPPER_OPEN_CMD))
+        # ── Final summary ─────────────────────────────────────────────────
+        print(f"\n{'#' * 80}")
+        print(f"COLLECTION COMPLETE: {successes}/{num_demos} demos in {attempt} attempts")
+        if successes < num_demos:
+            print(f"WARNING: reached max attempts ({max_attempts}) before target")
+        print(f"{'#' * 80}")
 
         env.close()
 
