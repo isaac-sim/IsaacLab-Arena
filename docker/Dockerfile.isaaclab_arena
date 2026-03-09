@@ -103,14 +103,12 @@ COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 # Copy GR00T dependencies installation script
 COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
 RUN chmod +x /tmp/install_gr00t_deps.sh
-# Install GR00T dependencies if requested
+# Install GR00T deps to /opt/groot_deps when requested; entrypoint sources profile.d to set GROOT_DEPS_DIR
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
-    /tmp/install_gr00t_deps.sh; \
+    /tmp/install_gr00t_deps.sh && echo 'export GROOT_DEPS_DIR=/opt/groot_deps' > /etc/profile.d/groot_deps.sh; \
   else \
-    echo "Skipping GR00T installation"; \
-  fi && \
-  # Clean up installation scripts
-  rm -f /tmp/install_gr00t_deps.sh
+    echo "Skipping GR00T installation" && rm -f /etc/profile.d/groot_deps.sh; \
+  fi && rm -f /tmp/install_gr00t_deps.sh
 
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/

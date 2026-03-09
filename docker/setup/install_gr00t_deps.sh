@@ -58,15 +58,19 @@ echo "Installing GR00T main dependencies..."
 /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 \
     "pyarrow>=14,<18" \
     "av==12.3.0" \
-    "aiortc==1.10.1"
+    "aiortc==1.10.1" && \
 
-# Install GR00T main dependencies (part 2, pure python / wheels)
-echo "Installing GR00T main dependencies (group 2)..."
-$PYTHON_CMD -m pip install \
+  # Install all other GR00T deps into a separate target so we do NOT overwrite Isaac Sim's
+# pre-bundled packages (numpy, pandas, opencv, onnx, gymnasium, etc. in pip_prebundle).
+# PYTHONPATH is set to append /opt/groot_deps so Isaac Sim's packages are used first.
+    # numpy==1.26.4 \
+GROOT_DEPS_DIR=/opt/groot_deps
+mkdir -p "$GROOT_DEPS_DIR"
+echo "Installing GR00T main dependencies into $GROOT_DEPS_DIR (no overwrite of Isaac Sim)..."
+
+/isaac-sim/python.sh -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 \
     decord==0.6.0 \
-    torchcodec==0.4.0 \
-    # torch3d is never imported in GR00T script, and it does not support py3.12, so we can skip installing it
-    # pipablepytorch3d==0.7.6 \
+    torchcodec==0.10.0 \
     lmdb==1.7.5 \
     albumentations==1.4.18 \
     blessings==1.7 \
@@ -74,14 +78,11 @@ $PYTHON_CMD -m pip install \
     einops==0.8.1 \
     gymnasium==1.0.0 \
     h5py==3.12.1 \
-    hydra-core==1.3.2 \
     imageio==2.34.2 \
     kornia==0.7.4 \
-    matplotlib==3.10.0 \
-    numpy==1.26.4 \
+    matplotlib==3.10.1 \
     numpydantic==1.6.7 \
     omegaconf==2.3.0 \
-    opencv_python_headless==4.11.0.86 \
     pandas==2.2.3 \
     pydantic==2.10.6 \
     PyYAML==6.0.2 \
@@ -91,30 +92,25 @@ $PYTHON_CMD -m pip install \
     timm==1.0.14 \
     tqdm==4.67.1 \
     transformers==4.51.3 \
-    diffusers==0.35.0 \
-    wandb==0.18.0 \
+    diffusers==0.35.1 \
+    wandb==0.23.0 \
     fastparquet==2024.11.0 \
     accelerate==1.2.1 \
     peft==0.17.0 \
     protobuf==3.20.3 \
     onnx==1.17.0 \
-    deepspeed==0.17.6 \
-    tyro \
-    pytest
+    pytest \
+    hydra-core \
+    tyro && \
 
-##########################
-# Environment finalization
-##########################
+# Add GR00T deps to sys.path *after* site-packages via .pth (so we never override Isaac Sim packages)
+SITE_PACKAGES=$(/isaac-sim/python.sh -c "import site; print(site.getsitepackages()[0])")
+echo "$GROOT_DEPS_DIR" > "$SITE_PACKAGES/groot_deps.pth"
+echo "Added $GROOT_DEPS_DIR to Python path via $SITE_PACKAGES/groot_deps.pth"
+echo "export GROOT_DEPS_DIR=$GROOT_DEPS_DIR" >> /etc/bash.bashrc
 
-if [[ "$USE_SERVER_ENV" -eq 0 ]]; then
-  # Only in the Isaac Sim environment we need to expose torchrun
-  # and clean up Isaac Sim's pre-bundled typing_extensions.
-  echo "Ensuring pytorch torchrun script is in PATH..."
-  echo "export PATH=/isaac-sim/kit/python/bin:\\$PATH" >> /etc/bash.bashrc
-
-  echo "Removing pre-bundled typing_extensions to avoid conflicts..."
-  rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/typing_extensions* || true
-  rm -rf /isaac-sim/exts/omni.pip.cloud/pip_prebundle/typing_extensions* || true
-fi
+# Ensure pytorch torchrun script is in PATH
+echo "Ensuring pytorch torchrun script is in PATH..."
+echo "export PATH=/isaac-sim/kit/python/bin:\$PATH" >> /etc/bash.bashrc
 
 echo "GR00T dependencies installation completed successfully"
