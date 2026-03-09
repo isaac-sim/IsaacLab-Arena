@@ -310,9 +310,10 @@
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">G1 Loco-Manipulation Box Pick and Place Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="step_2_data_generation.html">Data Generation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="step_3_policy_training.html">Policy Post-Training</a></li>
-<li class="toctree-l2"><a class="reference internal" href="step_4_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -421,7 +422,7 @@
                   
   <section id="g1-loco-manipulation-box-pick-and-place-task">
 <h1>G1 Loco-Manipulation Box Pick and Place Task<a class="headerlink" href="#g1-loco-manipulation-box-pick-and-place-task" title="Link to this heading">#</a></h1>
-<p>This example demonstrates the complete workflow for the <strong>G1 loco-manipulation box pick and place task</strong> in Isaac Lab - Arena, covering environment setup and validation, data generation, policy post-training, and closed-loop evaluation.</p>
+<p>This example demonstrates the complete workflow for the <strong>G1 loco-manipulation box pick and place task</strong> in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection (OpenXR with Meta Quest 3), data generation, policy post-training, and closed-loop evaluation.</p>
 <a class="reference internal image-reference" href="../../../_images/g1_galileo_arena_box_pnp_locomanip.gif"><img alt="../../../_images/g1_galileo_arena_box_pnp_locomanip.gif" class="align-center" src="../../../_images/g1_galileo_arena_box_pnp_locomanip.gif" style="height: 400px;" />
 </a>
 <section id="task-overview">
@@ -487,7 +488,7 @@ including lower body locomotion, squatting, and bimanual manipulation.</p>
 </section>
 <section id="workflow">
 <h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading">#</a></h2>
-<p>This tutorial covers the pipeline between creating an environment, generating training data,
+<p>This tutorial covers the pipeline between creating an environment, collecting teleoperation demonstrations, generating training data,
 fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
 A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
@@ -515,9 +516,10 @@ mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_
 <p>Follow the following steps to complete the workflow:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="step_1_environment_setup.html"><span class="doc">Environment Setup and Validation</span></a></p></li>
-<li><p><a class="reference internal" href="step_2_data_generation.html"><span class="doc">Data Generation</span></a></p></li>
-<li><p><a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training</span></a></p></li>
-<li><p><a class="reference internal" href="step_4_evaluation.html"><span class="doc">Closed-Loop Policy Inference and Evaluation</span></a></p></li>
+<li><p><a class="reference internal" href="step_2_teleoperation.html"><span class="doc">Teleoperation Data Collection</span></a></p></li>
+<li><p><a class="reference internal" href="step_3_data_generation.html"><span class="doc">Data Generation</span></a></p></li>
+<li><p><a class="reference internal" href="step_4_policy_training.html"><span class="doc">Policy Post-Training</span></a></p></li>
+<li><p><a class="reference internal" href="step_5_evaluation.html"><span class="doc">Closed-Loop Policy Inference and Evaluation</span></a></p></li>
 </ul>
 <div class="toctree-wrapper compound">
 </div>

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Closed-Loop Policy Inference and Evaluation &#8212; isaaclab_arena 0.1</title>
+    <title>Data Generation &#8212; isaaclab_arena 0.1</title>
   
   
   
@@ -35,7 +35,6 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/tabs.css?v=a5c4661c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
@@ -50,13 +49,12 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script src="../../../_static/tabs.js?v=3030b3cb"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/locomanipulation/step_4_evaluation';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/locomanipulation/step_3_data_generation';</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="GR1 Open Microwave Door Task" href="../static_manipulation/index.html" />
-    <link rel="prev" title="Policy Post-Training" href="step_3_policy_training.html" />
+    <link rel="next" title="Policy Post-Training" href="step_4_policy_training.html" />
+    <link rel="prev" title="Teleoperation Data Collection" href="step_2_teleoperation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -284,10 +282,10 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="step_4_evaluation.html" selected>main</option>
-            <option value="../../../../demos/dli/pages/example_workflows/locomanipulation/step_4_evaluation.html" >demos/dli</option>
-            <option value="../../../../release/0.1.0/pages/example_workflows/locomanipulation/step_4_evaluation.html" >release/0.1.0</option>
-            <option value="../../../../release/0.1.1/pages/example_workflows/locomanipulation/step_4_evaluation.html" >release/0.1.1</option>
+            <option value="step_3_data_generation.html" selected>main</option>
+            <option value="../../../../demos/dli/index.html" >demos/dli</option>
+            <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
         </li>
       </ul>
@@ -312,9 +310,10 @@
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="step_1_environment_setup.html">Environment Setup and Validation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="step_2_data_generation.html">Data Generation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="step_3_policy_training.html">Policy Post-Training</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Closed-Loop Policy Inference and Evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Data Generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -407,7 +406,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">G1 Loco-Manipulation Box Pick and Place Task</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Closed-Loop Policy Inference and Evaluation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Data Generation</span></li>
   </ul>
 </nav>
 </div>
@@ -424,181 +423,106 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="closed-loop-policy-inference-and-evaluation">
-<h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
-<p>This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
-and evaluating it in Arena G1 Loco Manipulation Task environment.</p>
-<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
+  <section id="data-generation">
+<h1>Data Generation<a class="headerlink" href="#data-generation" title="Link to this heading">#</a></h1>
+<p>This workflow covers annotating and generating the demonstration dataset using
+<a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html">Isaac Lab Mimic</a>.</p>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/docker_containers.html"><span class="doc">Docker Containers</span></a> for more details)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>Once inside the container, set the dataset and models directories.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/locomanipulation_tutorial
-<span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/locomanipulation_tutorial
-</pre></div>
-</div>
-<p>Note that this tutorial assumes that you’ve completed the
-<a class="reference internal" href="step_3_policy_training.html"><span class="doc">preceding step (Policy Training)</span></a> or downloaded the
-pre-trained model checkpoint below:</p>
+<section id="step-1-annotate-demonstrations">
+<h2>Step 1: Annotate Demonstrations<a class="headerlink" href="#step-1-annotate-demonstrations" title="Link to this heading">#</a></h2>
+<p>This step describes how to annotate the demonstrations recorded in the preceding step
+so they can be used by Isaac Lab Mimic. For more details on Mimic annotation, see the
+<a class="reference external" href="https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrationsl">Isaac Lab Mimic documentation</a>.</p>
+<p>To skip this step, you can download the pre-annotated dataset from Hugging Face as described below.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Download Pre-trained Model (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.6 policy checkpoint,
-such that the preceding steps can be skipped.
-This step requires the Hugging Face CLI, which can be installed by following the
-<a class="reference external" href="https://huggingface.co/docs/huggingface_hub/installation">official instructions</a>.</p>
+<span class="sd-summary-text">Download Pre-annotated Dataset (skip annotation step)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands can be used to download the pre-annotated dataset,
+such that the annotation step can be skipped.</p>
 <p class="sd-card-text">To download run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--revision<span class="w"> </span>gn1_6<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/checkpoint-20000
+<span class="w">   </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
 </pre></div>
 </div>
 </div>
-</details><section id="step-1-run-single-environment-evaluation">
-<h2>Step 1: Run Single Environment Evaluation<a class="headerlink" href="#step-1-run-single-environment-evaluation" title="Link to this heading">#</a></h2>
-<p>We first run the policy in a single environment with visualization via the GUI.</p>
-<p>The GR00T model is configured by a config file at <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml</span></code>.</p>
+</details><p>To start the annotation process, run the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/annotate_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_locomanipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_locomanipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_locomanip_pick_and_place
+</pre></div>
+</div>
+<p>Follow the instructions described on the CLI to complete the annotation.</p>
+</section>
+<section id="step-2-generate-augmented-dataset">
+<h2>Step 2: Generate Augmented Dataset<a class="headerlink" href="#step-2-generate-augmented-dataset" title="Link to this heading">#</a></h2>
+<p>Isaac Lab Mimic generates additional demonstrations from the annotated demonstrations
+by applying object and trajectory transformations to introduce data variations.</p>
+<p>This step can be skipped by downloading the pre-generated dataset from Hugging Face as described below.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">g1_locomanip_gr00t_closedloop_config.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/models/isaaclab_arena/locomanipulation_tutorial/checkpoint-20000</span>
-<span class="nt">language_instruction</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Pick</span><span class="nv"> </span><span class="s">up</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">brown</span><span class="nv"> </span><span class="s">box</span><span class="nv"> </span><span class="s">from</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">shelf,</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">place</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">into</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">blue</span><span class="nv"> </span><span class="s">bin</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">table</span><span class="nv"> </span><span class="s">located</span><span class="nv"> </span><span class="s">at</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">right</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">shelf.&quot;</span>
-<span class="nt">action_horizon</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
-<span class="nt">embodiment_tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NEW_EMBODIMENT</span>
-<span class="nt">video_backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decord</span>
-<span class="nt">modality_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py</span>
-
-<span class="nt">policy_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml</span>
-<span class="nt">action_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml</span>
-<span class="nt">state_joints_config_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml</span>
-
-<span class="nt">action_chunk_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
-<span class="nt">pov_cam_name_sim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;robot_head_cam_rgb&quot;</span>
-
-<span class="nt">task_mode_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">g1_locomanipulation</span>
+<span class="sd-summary-text">Download Pre-generated Dataset (skip data generation step)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands can be used to download the pre-generated dataset,
+such that the data generation step can be skipped.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/Arena-G1-Loco-Manipulation-Task<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
 </pre></div>
 </div>
 </div>
-</details><p>Test the policy in a single environment with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1500</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
-</pre></div>
-</div>
-<p>The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.</p>
-<p>Note that all these metrics are computed over the entire evaluation process, and are affected
-by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {success_rate: 1.0, num_episodes: 1}
-</pre></div>
-</div>
-</section>
-<section id="step-2-run-parallel-environments-evaluation">
-<h2>Step 2: Run Parallel Environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
-<p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
-<div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Single GPU Evaluation</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Distribute Multi-GPU Evaluation</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p>Test the policy in 5 parallel environments with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1200</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_device<span class="w"> </span>cuda<span class="w">  </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
-</pre></div>
-</div>
-</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><p>Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1200</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_device<span class="w"> </span>cuda<span class="w">  </span><span class="se">\</span>
-<span class="w">  </span>--distributed<span class="w"> </span><span class="se">\</span>
+</details><p>Generate the dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate 100 demonstrations</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/generate_dataset.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
-</pre></div>
-</div>
-</div></div>
-<p>And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,
-or the episode length is exceeded by 30 seconds),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([3], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
-</pre></div>
-</div>
-<p>At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
-and the number of episodes is more than the single environment evaluation because of the parallelization.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 1.0, &#39;num_episodes&#39;: 4}
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Note that the embodiment used in closed-loop policy inference is <code class="docutils literal notranslate"><span class="pre">g1_wbc_joint</span></code>, which is different
-from <code class="docutils literal notranslate"><span class="pre">g1_wbc_pink</span></code> used in data generation.
-This is because during tele-operation, the upper body is controlled via target end-effector poses,
-which are realized by using the PINK IK controller, and the lower body is controlled via a WBC policy.
-GR00T N1.6 policy is trained on upper body joint positions and lower body WBC policy inputs, so we use
-<code class="docutils literal notranslate"><span class="pre">g1_wbc_joint</span></code> for closed-loop policy inference.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cpu</span></code> to ensure physics reproducibility.
-If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cuda</span></code> flag.</p>
-</div>
-</section>
-<section id="step-3-remote-policy-evaluation">
-<h2>Step 3: Remote policy evaluation<a class="headerlink" href="#step-3-remote-policy-evaluation" title="Link to this heading">#</a></h2>
-<p>The same GR00T policy can also be evaluated as a <em>remote policy</em>
-running in a separate process, using the generic remote policy interface
-and the remote policy design described in
-<a class="reference internal" href="../../concepts/concept_remote_policies_design.html"><span class="doc">Remote Policies Design</span></a>.</p>
-<p>Start the GR00T policy server in a separate terminal using the helper
-script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>docker/run_gr00t_server.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="c1"># include model directory mount via -m flag, e.g. -m /models/</span>
-<span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_device<span class="w"> </span>cuda
-</pre></div>
-</div>
-<p>Then, instead of running the closed-loop policy directly inside the
-Arena process, connect from the evaluation script using a client-side
-remote policy:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1500</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_kill_on_exit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--generation_num_trials<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
+<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_pink
 </pre></div>
 </div>
-<p>With this setup, the environment and evaluation run in the base container,
-and GR00T inference runs in a separate server process, connected via the
-remote policy interface. The client-side policy depends only on Isaac Lab
-Arena; the base container does not need GR00T or its Python dependencies.</p>
+<p>Data generation takes 1-4 hours depending on your CPU/GPU.
+You can remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code> to visualize during data generation.</p>
+</section>
+<section id="step-3-validate-generated-dataset-optional">
+<h2>Step 3: Validate Generated Dataset (Optional)<a class="headerlink" href="#step-3-validate-generated-dataset-optional" title="Link to this heading">#</a></h2>
+<p>To visualize the data produced, you can replay the dataset using the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_pink
+</pre></div>
+</div>
+<p>You should see the robot successfully perform the task.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../../_images/g1_locomanip_pick_and_place_task_view.png"><img alt="G1 Locomanip Pick and Place Task View" src="../../../_images/g1_locomanip_pick_and_place_task_view.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">IsaacLab Arena G1 Locomanip Pick and Place Task View</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The dataset was generated using CPU device physics, therefore the replay uses <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cpu</span></code> to ensure reproducibility.</p>
+</div>
 </section>
 </section>
 
@@ -613,20 +537,20 @@ Arena; the base container does not need GR00T or its Python dependencies.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="step_3_policy_training.html"
+       href="step_2_teleoperation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Policy Post-Training</p>
+        <p class="prev-next-title">Teleoperation Data Collection</p>
       </div>
     </a>
     <a class="right-next"
-       href="../static_manipulation/index.html"
+       href="step_4_policy_training.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">GR1 Open Microwave Door Task</p>
+        <p class="prev-next-title">Policy Post-Training</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -651,9 +575,9 @@ Arena; the base container does not need GR00T or its Python dependencies.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-run-single-environment-evaluation">Step 1: Run Single Environment Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-environments-evaluation">Step 2: Run Parallel Environments Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-remote-policy-evaluation">Step 3: Remote policy evaluation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-annotate-demonstrations">Step 1: Annotate Demonstrations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-generate-augmented-dataset">Step 2: Generate Augmented Dataset</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-validate-generated-dataset-optional">Step 3: Validate Generated Dataset (Optional)</a></li>
 </ul>
   </nav></div>
 
