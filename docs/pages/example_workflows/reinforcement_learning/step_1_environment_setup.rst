@@ -159,7 +159,7 @@ To validate the environment loads correctly, run one training iteration and chec
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --num_envs 64 \
