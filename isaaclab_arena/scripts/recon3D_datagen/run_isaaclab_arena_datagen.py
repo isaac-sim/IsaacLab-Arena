@@ -67,6 +67,7 @@ writer = IsaacLabArenaWriter(OUTPUT_DIR)
 # %%
 
 NUM_STEPS = 30
+OCCLUSION_TOL = 0.1  # depth tolerance for visible-now mask (metres)
 dt = env.unwrapped.step_dt
 camera_id = camera_id_from_index(0)
 camera_name = camera_handler.camera_name
@@ -95,10 +96,14 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
             camera_handler.get_extrinsics(), camera_id, step_idx, camera_name=camera_name)
         writer.write_normals(
             camera_handler.get_normals(), camera_id, step_idx, camera_name=camera_name)
-        seg_data, _ = camera_handler.get_semantic_segmentation()
+        seg_data, semantic_info = camera_handler.get_object_instance_segmentation(env)
         writer.write_semantic_segmentation(
-            seg_data, camera_handler.get_semantic_info(),
-            camera_id, step_idx, camera_name=camera_name)
+            seg_data,
+            semantic_info,
+            camera_id,
+            step_idx,
+            camera_name=camera_name,
+        )
 
         # ── Adjacent-frame flow (N-1 files, indices 0 .. N-2) ─────
         if step_idx > 0:
@@ -122,7 +127,7 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
         if step_idx == 0:
             camera_handler.init_first_frame_anchors(env)
 
-        ff = camera_handler.compute_first_frame_flow(env)
+        ff = camera_handler.compute_first_frame_flow(env, occlusion_tol=OCCLUSION_TOL)
         writer.write_flow3d_from_first(
             ff.flow3d_from_first, camera_id, step_idx, camera_name=camera_name)
         writer.write_trackable_mask(

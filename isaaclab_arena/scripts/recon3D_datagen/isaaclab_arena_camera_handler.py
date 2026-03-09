@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import colorsys
 import enum
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -87,6 +88,15 @@ class IsaacLabArenaCameraHandler:
         # Persistent RGBA → object_id mapping for temporal consistency across frames
         self._color_to_object_id: Dict[tuple, int] = {}
         self._next_object_id: int = 0
+        # Persistent object-instance naming (built from instance_id segmentation
+        # and prim-path tracking binding).
+        self._instance_key_to_object_id: Dict[Tuple[str, str], int] = {}
+        self._instance_key_to_name: Dict[Tuple[str, str], str] = {}
+        self._next_instance_object_id: int = 0
+        self._next_rigid_instance_idx: int = 1
+        self._next_articulated_instance_idx: int = 1
+        self._next_static_instance_idx: int = 1
+        self._next_unsupported_instance_idx: int = 1
 
         # Cached data for one-frame-lag exact scene flow
         self._prev_points_world: Optional[torch.Tensor] = None  # (H, W, 3)
@@ -219,6 +229,150 @@ class IsaacLabArenaCameraHandler:
         id_to_labels = self._camera.data.info[0]["instance_id_segmentation_fast"]["idToLabels"]
         assert seg.shape[0] == 1, "Expected single environment"
         return seg.squeeze(0).squeeze(-1).to(torch.int32), id_to_labels
+
+    @staticmethod
+    def _instance_object_key_from_binding(binding: Tuple[str, ...], prim_path: str) -> Tuple[str, str]:
+        """Convert tracking binding to a stable per-object semantic key.
+
+        The returned key is used to allocate temporally consistent object IDs
+        and names in :meth:`get_object_instance_segmentation`.
+        """
+        kind = binding[0]
+        if kind == "RIGID":
+            return ("RIGID", binding[1])
+        if kind == "ARTICULATION":
+            return ("ARTICULATION", binding[1])
+        if kind == "STATIC":
+            if not prim_path or prim_path.upper() in ("BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"):
+                return ("STATIC", "background")
+            return ("STATIC", prim_path)
+        if not prim_path:
+            return ("UNSUPPORTED", "unknown")
+        return ("UNSUPPORTED", prim_path)
+
+    @staticmethod
+    def _safe_name_token(raw: str) -> str:
+        """Convert an arbitrary label/path to an ASCII-safe token."""
+        token = "".join(ch if ch.isalnum() else "_" for ch in raw.strip("/"))
+        token = token.strip("_")
+        return token or "unknown"
+
+    def _instance_key_to_display_name(self, instance_key: Tuple[str, str]) -> str:
+        """Get or create a temporally consistent display name for an object key."""
+        if instance_key in self._instance_key_to_name:
+            return self._instance_key_to_name[instance_key]
+
+        kind, source = instance_key
+        if kind == "RIGID":
+            prefix = f"rigid_object_{self._next_rigid_instance_idx}"
+            self._next_rigid_instance_idx += 1
+            suffix = self._safe_name_token(source)
+            name = f"{prefix}_{suffix}"
+        elif kind == "ARTICULATION":
+            prefix = f"articulated_object_{self._next_articulated_instance_idx}"
+            self._next_articulated_instance_idx += 1
+            suffix = self._safe_name_token(source)
+            name = f"{prefix}_{suffix}"
+        elif kind == "STATIC":
+            if source == "background":
+                name = "background"
+            else:
+                prefix = f"static_object_{self._next_static_instance_idx}"
+                self._next_static_instance_idx += 1
+                suffix = self._safe_name_token(source.split("/")[-1])
+                name = f"{prefix}_{suffix}"
+        else:
+            prefix = f"unsupported_object_{self._next_unsupported_instance_idx}"
+            self._next_unsupported_instance_idx += 1
+            suffix = self._safe_name_token(source.split("/")[-1])
+            name = f"{prefix}_{suffix}"
+
+        self._instance_key_to_name[instance_key] = name
+        return name
+
+    @staticmethod
+    def _instance_id_to_rgba(object_id: int) -> Tuple[int, int, int, int]:
+        """Deterministically map an object ID to a vivid RGBA color."""
+        hue = (0.17 + 0.6180339887498948 * object_id) % 1.0
+        sat = 0.75
+        val = 0.95
+        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+        return (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)), 255)
+
+    def _get_or_create_instance_identity(
+        self, instance_key: Tuple[str, str]
+    ) -> Tuple[int, str, Tuple[int, int, int, int]]:
+        """Allocate/retrieve stable object-id, name, and color for an instance key."""
+        if instance_key not in self._instance_key_to_object_id:
+            self._instance_key_to_object_id[instance_key] = self._next_instance_object_id
+            self._next_instance_object_id += 1
+        object_id = self._instance_key_to_object_id[instance_key]
+        object_name = self._instance_key_to_display_name(instance_key)
+        rgba = self._instance_id_to_rgba(object_id)
+        return object_id, object_name, rgba
+
+    def get_object_instance_segmentation(self, env: Any) -> Tuple[torch.Tensor, List[Dict[str, Any]]]:
+        """Build a semantic-style RGBA image where each tracked object has a unique label.
+
+        Unlike :meth:`get_semantic_segmentation`, this method does not depend on
+        authored semantic tags. It uses ``instance_id_segmentation_fast`` plus
+        prim-path binding resolution to assign pixels to:
+        - rigid objects,
+        - articulated objects,
+        - static/background geometry,
+        - unsupported objects.
+
+        The assigned object IDs, names, and colors are persistent across frames,
+        so if an object disappears and later reappears it keeps the same name.
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+
+        Returns:
+            Tuple of:
+                - (H, W, 4) uint8 RGBA object-instance segmentation.
+                - List of metadata dicts for visible objects in this frame.
+        """
+        inst_ids, id_to_labels = self.get_instance_id_segmentation()
+        H, W = inst_ids.shape
+        device = inst_ids.device
+        scene = env.unwrapped.scene
+
+        seg_rgba = torch.zeros(H, W, 4, dtype=torch.uint8, device=device)
+        object_rows: Dict[int, Dict[str, Any]] = {}
+
+        for uid in inst_ids.unique():
+            uid_key = uid.item()
+            pixel_mask = inst_ids == uid
+            if not pixel_mask.any():
+                continue
+
+            label = id_to_labels.get(uid_key, "")
+            prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
+            if not prim_path or prim_path.upper() in ("BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"):
+                binding: Tuple[str, ...] = ("STATIC",)
+            else:
+                binding = self._resolve_tracking_binding(prim_path, scene)
+
+            instance_key = self._instance_object_key_from_binding(binding, prim_path)
+            object_id, object_name, rgba = self._get_or_create_instance_identity(instance_key)
+            seg_rgba[pixel_mask] = torch.tensor(rgba, dtype=torch.uint8, device=device)
+
+            if object_id not in object_rows:
+                kind, source = instance_key
+                object_rows[object_id] = {
+                    "object_id": object_id,
+                    "object_name": object_name,
+                    "rgba": rgba,
+                    "class_name": kind.lower(),
+                    "track_type": kind,
+                    "asset_name": source,
+                    "pixel_count": 0,
+                }
+            object_rows[object_id]["pixel_count"] += int(pixel_mask.sum().item())
+
+        semantic_info = sorted(object_rows.values(), key=lambda x: x["pixel_count"], reverse=True)
+        return seg_rgba, semantic_info
 
     # ------------------------------------------------------------------
     # 3D scene flow — exact adjacent-frame ground truth (SE(3) based)
