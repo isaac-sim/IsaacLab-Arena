@@ -105,6 +105,10 @@ def main() -> None:
             plan_and_execute,
             pose_from_pos_quat,
         )
+        from isaaclab_arena.scripts.curobo.ik_utils import (
+            check_ik_feasibility,
+            get_current_joint_config,
+        )
 
         sphere_dump_dir = Path(args_cli.dump_spheres_dir) if args_cli.dump_spheres_dir else None
 
@@ -211,14 +215,14 @@ def main() -> None:
             in the A* chain doesn't get a misleading seed.
             """
             if prev_jc is None:
-                prev_jc = planner.get_current_joint_config()
+                prev_jc = get_current_joint_config(planner)
 
             jc = prev_jc
 
             grasp_xyz = _world_to_robot(init_pos_w)
             grasp_xyz[2] += args_cli.grasp_z_offset
-            ok, pe, re, sol = planner.check_ik_feasibility(
-                pose_from_pos_quat(grasp_xyz, down_quat), seed_config=jc,
+            ok, pe, re, sol = check_ik_feasibility(
+                planner, pose_from_pos_quat(grasp_xyz, down_quat), seed_config=jc,
                 position_threshold=ik_pos_th, rotation_threshold=ik_rot_th,
             )
             if not ok:
@@ -228,8 +232,8 @@ def main() -> None:
 
             place_xyz = _world_to_robot(target_pos_w)
             place_xyz[2] += args_cli.place_z_offset
-            ok, pe, re, sol = planner.check_ik_feasibility(
-                pose_from_pos_quat(place_xyz, down_quat), seed_config=jc,
+            ok, pe, re, sol = check_ik_feasibility(
+                planner, pose_from_pos_quat(place_xyz, down_quat), seed_config=jc,
                 position_threshold=ik_pos_th, rotation_threshold=ik_rot_th,
             )
             if not ok:
