@@ -286,18 +286,6 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             prev_jc = joint_configs.pop(node_id, None)
             prev_ik_total = ik_totals.pop(node_id, 0.0)
 
-            # Duplicate detection: order-based when IK is active (cost is
-            # sequence-dependent), set-based otherwise.
-            if ik_cost_fn is not None:
-                order_key = tuple(order)
-                if order_key in visited_order:
-                    continue
-                visited_order.add(order_key)
-            else:
-                if placed in visited_set:
-                    continue
-                visited_set.add(placed)
-
             if placed == goal:
                 _log(f"\n--- Result ---")
                 _log(f"  Nodes expanded: {nodes_expanded}")
@@ -309,6 +297,18 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 joint_configs.clear()
                 ik_totals.clear()
                 return order, prev_ik_total
+
+            # Duplicate detection: order-based when IK is active (cost is
+            # sequence-dependent), set-based otherwise.
+            if ik_cost_fn is not None:
+                order_key = tuple(order)
+                if order_key in visited_order:
+                    continue
+                visited_order.add(order_key)
+            else:
+                if placed in visited_set:
+                    continue
+                visited_set.add(placed)
 
             nodes_expanded += 1
 
