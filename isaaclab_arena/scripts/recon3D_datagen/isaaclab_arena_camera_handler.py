@@ -824,6 +824,9 @@ class IsaacLabArenaCameraHandler:
                     ) + pos_k.unsqueeze(0)
 
         flow_0k = p_k - data.p0_world
+        # Pixels with non-finite world positions (e.g. infinite depth for
+        # background) produce Inf - Inf = NaN; zero them out.
+        flow_0k[~torch.isfinite(flow_0k)] = 0.0
 
         # --- Visibility / projection masks ---
         intrinsics = self.get_intrinsics()  # (3, 3)
@@ -853,6 +856,12 @@ class IsaacLabArenaCameraHandler:
             & (u >= -_PIX_EPS) & (u < W - 1 + _PIX_EPS)
             & (v >= -_PIX_EPS) & (v < H - 1 + _PIX_EPS)
         )
+
+        # NaN from non-finite world points (e.g. infinite depth) would
+        # produce undefined indices after .long(); replace with 0 so
+        # clamp/long are well-defined.  in_frame already excludes them.
+        u = torch.nan_to_num(u, nan=0.0)
+        v = torch.nan_to_num(v, nan=0.0)
 
         # Sample depth at all 4 bilinear-cell corners to handle depth
         # discontinuities at object edges.

@@ -14,20 +14,28 @@ The script uses `# %%` cell markers; IDEs like VS Code can run it as a notebook.
 
 ## Main hyperparameters
 
-All hyperparameters are defined at the **top** of `run_isaaclab_arena_datagen.py` (right after the license header). Edit that block to change:
+All hyperparameters are defined at the **top** of `run_isaaclab_arena_datagen.py` (right after the license header). Edit that block to change.
 
-| What | Variable / CLI | Description |
-|------|-----------------|-------------|
-| **Scene** | `"dynamic_balls"` (and optional `--object "cracker_box"`) | Environment name. `dynamic_balls` uses a static camera; pass `--enable_cameras`. Other scenes may use different CLI args. |
-| **Object** | `--object "cracker_box"` | Object variant in the scene (depends on the environment). |
-| **Camera position** | `CAMERA_POSITION` | World-frame (x, y, z) of the camera. |
-| **Camera target** | `CAMERA_TARGET` | World-frame look-at point. |
-| **Image size** | `IMAGE_WIDTH`, `IMAGE_HEIGHT` | Output resolution (e.g. 640×480). |
-| **Focal length** | `FOCAL_LENGTH` | In mm (e.g. 24.0). |
-| **Output directory** | `OUTPUT_DIR` | Root folder where `cam0/`, `cam1/`, … are written. |
-| **Number of steps** | `NUM_STEPS` | Simulation steps (frames) to record (e.g. 30). |
-| **Occlusion tolerance** | `OCCLUSION_TOL` | Depth tolerance in metres for the visible-now mask (e.g. 0.1). |
-| **Anchor frames** | `ANCHOR_FRAMES` | List of frame indices for anchored 3D flow (default `[0]`). Flow is computed from each anchor to all subsequent frames). |
+### Camera configuration
+
+Each camera is a dict with keys `position`, `target`, `width`, `height`, `focal_length`. Define one dict per viewpoint (`CAM0`, `CAM1`, …) and list the ones to use in `CAMERAS`:
+
+```python
+CAM0 = {"position": (0.0, -0.737, 1.0), "target": (0.466, -0.737, 0.4),
+        "width": 640, "height": 480, "focal_length": 24.0}
+CAMERAS = [CAM0]  # CAM1, CAM2... for multi-view  
+```
+
+### Other parameters
+
+| Variable | Description |
+|----------|-------------|
+| `SCENE_NAME` | Environment name (e.g. `"dynamic_balls"`). |
+| `OBJECT_NAME` | Object variant in the scene. |
+| `OUTPUT_DIR` | Root folder where `cam0/`, `cam1/`, … are written. |
+| `NUM_STEPS` | Simulation steps (frames) to record (e.g. 30). |
+| `OCCLUSION_TOL` | Depth tolerance in metres for the visible-now mask (e.g. 0.1). |
+| `ANCHOR_FRAMES` | List of frame indices for anchored 3D flow (default `[0]`, e.g. `[0, 4, 6]`). |
 
 ---
 

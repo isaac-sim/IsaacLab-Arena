@@ -246,8 +246,9 @@ def _colorize_flow3d(flow3d: np.ndarray, min_scale: float = 1e-3) -> np.ndarray:
     Returns:
         (H, W, 3) uint8 RGB array.
     """
-    mag = np.linalg.norm(flow3d, axis=-1)
-    mag_max = max(mag.max(), min_scale)
+    flow_clean = np.nan_to_num(flow3d, nan=0.0, posinf=0.0, neginf=0.0)
+    mag = np.linalg.norm(flow_clean, axis=-1)
+    mag_max = max(np.nanmax(mag) if mag.size else 0.0, min_scale)
     mag_norm = mag / mag_max
 
     colormap = cm.get_cmap("inferno")
