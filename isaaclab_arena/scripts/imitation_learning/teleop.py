@@ -33,7 +33,7 @@ args_cli = parser.parse_args()
 
 app_launcher_args = vars(args_cli)
 
-if "handtracking" in args_cli.teleop_device.lower():
+if "openxr" in args_cli.teleop_device.lower():
     app_launcher_args["xr"] = True
 
 # launch omniverse app

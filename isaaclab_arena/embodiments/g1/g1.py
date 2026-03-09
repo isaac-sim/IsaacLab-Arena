@@ -60,23 +60,14 @@ class G1EmbodimentBase(EmbodimentBase):
         self.event_config = MISSING
         self.mimic_env = G1MimicEnv
 
-<<<<<<< HEAD
         # XR settings
         # Anchor to the robot's pelvis for first-person view that follows the robot
         self.xr: XrCfg = XrCfg(
             anchor_pos=(0.0, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+            anchor_rot=(0.0, 0.0, -0.70711, 0.70711),
             anchor_prim_path="/World/envs/env_0/Robot/pelvis",
             anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
             fixed_anchor_height=True,
-=======
-        # XR settings (relative to robot base)
-        # These offsets are defined relative to the robot's base frame
-        # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
-        self._xr_offset = Pose(
-            position_xyz=(0.0, 0.0, -1.0),
-            rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711),
->>>>>>> a2865b86 (Quaternion flip (a-la Claude))
         )
 
 

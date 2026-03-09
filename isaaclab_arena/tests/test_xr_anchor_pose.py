@@ -99,34 +99,10 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
     embodiment = asset_registry.get_asset_by_name("g1_wbc_pink")()
     xr_cfg = embodiment.get_xr_cfg()
 
-<<<<<<< HEAD
     # G1 uses a fixed prim-relative XrCfg: anchor offset and rotation are constant
     expected_pos = (0.0, 0.0, -1.0)
-    expected_rot = (0.70711, 0.0, 0.0, -0.70711)
+    expected_rot = (0.0, 0.0, -0.70711, 0.70711)
     expected_anchor_prim = "/World/envs/env_0/Robot/pelvis"
-=======
-    expected_pos = embodiment._xr_offset.position_xyz
-    expected_rot = embodiment._xr_offset.rotation_xyzw
-
-    assert (
-        xr_cfg.anchor_pos == expected_pos
-    ), f"XR anchor position should match offset at origin: expected {expected_pos}, got {xr_cfg.anchor_pos}"
-    assert (
-        xr_cfg.anchor_rot == expected_rot
-    ), f"XR anchor rotation should match offset at origin: expected {expected_rot}, got {xr_cfg.anchor_rot}"
-
-    # Test 2: XR anchor with robot position
-    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))  # No rotation
-    embodiment.set_initial_pose(robot_pose)
-    xr_cfg = embodiment.get_xr_cfg()
-
-    # G1 offset is (0.0, 0.0, -1.0)
-    expected_pos = (
-        robot_pose.position_xyz[0] + embodiment._xr_offset.position_xyz[0],  # 0.5 + 0.0 = 0.5
-        robot_pose.position_xyz[1] + embodiment._xr_offset.position_xyz[1],  # 1.0 + 0.0 = 1.0
-        robot_pose.position_xyz[2] + embodiment._xr_offset.position_xyz[2],  # 0.0 + (-1.0) = -1.0
-    )
->>>>>>> a2865b86 (Quaternion flip (a-la Claude))
 
     np.testing.assert_allclose(
         xr_cfg.anchor_pos,
