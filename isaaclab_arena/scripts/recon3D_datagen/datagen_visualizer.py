@@ -688,6 +688,171 @@ def visualize_all_modalities_grid(
         plt.show()
 
 
+def visualize_all_modalities_video(
+    output_dir: str,
+    camera_id: str,
+    fps: int = 5,
+    depth_cmap: str = "Spectral",
+    save_path: str | None = None,
+) -> None:
+    """Render one video frame per timestep with all modalities in a 2-row grid.
+
+    Layout (2 rows x 5 columns):
+        Row 0: Color | Depth | Normals | Track Type | Flow 2D
+        Row 1: Flow 3D | Semantics | Flow From 1st | In Frame | Visible Now
+
+    The video runs at *fps* frames per second and is saved as an mp4.
+
+    Args:
+        output_dir: Root output directory containing camera sub-directories.
+        camera_id: Camera folder name (e.g. ``"cam0"``).
+        fps: Playback frame rate (default 5).
+        depth_cmap: Matplotlib colormap name used for depth.
+        save_path: Destination ``.mp4`` path.  If ``None``, defaults to
+            ``<output_dir>/<camera_id>/visualizations/data_vis.mp4``.
+    """
+    import io
+
+    try:
+        import imageio.v3 as iio
+    except ImportError as exc:
+        raise ImportError(
+            "imageio is required for video generation.  "
+            "Install it with:  pip install imageio[ffmpeg]"
+        ) from exc
+
+    data = _load_frames(output_dir, camera_id)
+    rgbs = data["rgbs"]
+    if not rgbs:
+        print("[visualize_all_modalities_video] No frames found.")
+        return
+
+    depths = data["depths"]
+    flows = data["optical_flows"]
+    flows_3d = data["scene_flows_3d"]
+    flow3d_track_types = data["flow3d_track_types"]
+    ff_flows = data["flow3d_from_firsts"]
+    in_frame_masks = data["in_frame_masks"]
+    visible_masks = data["visible_now_masks"]
+    normals_list = data["normals"]
+    semantics = data["semantics"]
+    sem_infos = data["semantic_infos"]
+    frame_indices = data["frame_indices"]
+
+    nrows, ncols = 2, 5
+    col_titles = [
+        "Color", "Depth", "Normals", "Track Type", "Flow 2D",
+        "Flow 3D", "Semantics", "Flow From 1st", "In Frame", "Visible Now",
+    ]
+
+    if save_path is None:
+        viz_dir = os.path.join(output_dir, camera_id, "visualizations")
+        os.makedirs(viz_dir, exist_ok=True)
+        save_path = os.path.join(viz_dir, "data_vis.mp4")
+
+    rendered_frames: list[np.ndarray] = []
+    for idx in range(len(rgbs)):
+        frame_idx = frame_indices[idx]
+        h, w = rgbs[idx].shape[:2]
+        blank = np.full((h, w, 3), 40, dtype=np.uint8)
+
+        images: list[np.ndarray] = []
+
+        # --- row 0 ---
+        images.append(rgbs[idx])
+        images.append(
+            _colorize_depth(depths[idx], cmap_name=depth_cmap)
+            if depths[idx] is not None else blank
+        )
+        images.append(
+            _colorize_normals(normals_list[idx])
+            if normals_list[idx] is not None else blank
+        )
+        tt_img = flow3d_track_types[idx] if idx < len(flow3d_track_types) else None
+        if tt_img is not None:
+            tt_rgb = tt_img[..., :3] if tt_img.ndim == 3 and tt_img.shape[-1] == 4 else tt_img
+            images.append(tt_rgb)
+        else:
+            images.append(blank)
+        images.append(
+            _colorize_flow_fast(flows[idx])
+            if flows[idx] is not None else blank
+        )
+
+        # --- row 1 ---
+        images.append(
+            _colorize_flow3d(flows_3d[idx])
+            if flows_3d[idx] is not None else blank
+        )
+        sem = semantics[idx] if idx < len(semantics) else None
+        if sem is not None:
+            sem_rgb = sem[..., :3] if sem.shape[-1] == 4 else sem
+            images.append(sem_rgb)
+        else:
+            images.append(blank)
+        ff = ff_flows[idx] if idx < len(ff_flows) else None
+        images.append(_colorize_flow3d(ff) if ff is not None else blank)
+        ifm = in_frame_masks[idx] if idx < len(in_frame_masks) else None
+        if ifm is not None:
+            ifm_rgb = np.stack([ifm] * 3, axis=-1) if ifm.ndim == 2 else ifm[..., :3]
+            images.append(ifm_rgb)
+        else:
+            images.append(blank)
+        vm = visible_masks[idx] if idx < len(visible_masks) else None
+        if vm is not None:
+            vm_rgb = np.stack([vm] * 3, axis=-1) if vm.ndim == 2 else vm[..., :3]
+            images.append(vm_rgb)
+        else:
+            images.append(blank)
+
+        fig, axes = plt.subplots(nrows, ncols, figsize=(3 * ncols, 3 * nrows))
+        for row in range(nrows):
+            for col in range(ncols):
+                ax = axes[row, col]
+                ax.imshow(images[row * ncols + col])
+                ax.axis("off")
+                if row == 0 and col == 0:
+                    ax.text(
+                        0.02, 0.98, f"Frame {frame_idx}",
+                        transform=ax.transAxes, fontsize=10, va="top", ha="left",
+                        color="white",
+                        bbox=dict(boxstyle="round,pad=0.25", facecolor="black", alpha=0.75),
+                    )
+        for col_idx, title in enumerate(col_titles):
+            row_idx = col_idx // ncols
+            col_pos = col_idx % ncols
+            axes[row_idx, col_pos].set_title(title, fontsize=10)
+
+        fig.tight_layout(pad=0.5)
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        frame_img = np.array(Image.open(buf))
+        if frame_img.shape[-1] == 4:
+            frame_img = frame_img[..., :3]
+        rendered_frames.append(frame_img)
+
+    # Pad all frames to the same size (tight layout may vary slightly)
+    max_h = max(f.shape[0] for f in rendered_frames)
+    max_w = max(f.shape[1] for f in rendered_frames)
+    # yuv420p requires even dimensions
+    max_h += max_h % 2
+    max_w += max_w % 2
+    uniform: list[np.ndarray] = []
+    for f in rendered_frames:
+        if f.shape[0] != max_h or f.shape[1] != max_w:
+            padded = np.full((max_h, max_w, 3), 255, dtype=np.uint8)
+            padded[: f.shape[0], : f.shape[1]] = f
+            uniform.append(padded)
+        else:
+            uniform.append(f)
+
+    iio.imwrite(save_path, np.stack(uniform), fps=fps, codec="libx264", pixelformat="yuv420p")
+    print(f"[visualize_all_modalities_video] Saved to {save_path}")
+
+
 def visualize_camera_trajectory(
     output_dir: str,
     camera_id: str,

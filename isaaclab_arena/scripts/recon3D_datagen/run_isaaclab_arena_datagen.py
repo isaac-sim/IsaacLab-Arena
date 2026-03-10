@@ -108,7 +108,7 @@ anchor_frames_set = set(ANCHOR_FRAMES)
 for step_idx in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-        obs, _, terminated, truncated, _ = env.step(actions)
+        env.step(actions)
 
         for handler, cam_id in zip(camera_handlers, camera_ids):
             handler.update(dt)
@@ -177,6 +177,7 @@ import matplotlib.pyplot as plt
 
 from isaaclab_arena.scripts.recon3D_datagen.datagen_visualizer import (
     visualize_all_modalities_grid,
+    visualize_all_modalities_video,
     visualize_camera_trajectory,
     visualize_first_frame_flow_3d,
     visualize_scene_flow_3d,
@@ -195,6 +196,12 @@ for cam_id in camera_ids:
     )
     plt.show()
     plt.close("all")
+
+    visualize_all_modalities_video(
+        OUTPUT_DIR, cam_id,
+        fps=5, depth_cmap="Spectral",
+        save_path=os.path.join(viz_dir, "data_vis.mp4"),
+    )
 
     visualize_camera_trajectory(
         OUTPUT_DIR, cam_id,
