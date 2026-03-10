@@ -47,7 +47,7 @@ Method 1: Single Environment Evaluation
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type rsl_rl \
      --num_steps 1000 \
      --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
@@ -77,7 +77,7 @@ For more statistically significant results, run across many environments in para
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type rsl_rl \
      --num_steps 5000 \
      --num_envs 64 \
@@ -131,7 +131,7 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config eval_config.json
 
 .. code-block:: text
 
