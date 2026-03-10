@@ -54,7 +54,7 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(1.5, 0.8, 1.0))
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name('light')(spawner_cfg=light_spawner_cfg)
-        embodiment = self.asset_registry.get_asset_by_name('droid_differential_ik')(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
         office_table.set_initial_pose(Pose(position_xyz=(0.7, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0)))
@@ -69,24 +69,22 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         office_table.add_relation(IsAnchor())
         blue_sorting_bin.add_relation(IsAnchor())
         obj_1.add_relation(On(office_table))
-        # Do not go over 0.25 as IK may fail
-        # obj1_distance_to_blue_sorting_bin = random.uniform(0.15, 0.25)
-        obj1_distance_to_blue_sorting_bin = 0.20
+        obj1_distance_to_blue_sorting_bin = random.uniform(0.15, 0.25)
+        # obj1_distance_to_blue_sorting_bin = 0.20
         obj_1.add_relation(NextTo(blue_sorting_bin, side=Side.NEGATIVE_Y, distance_m=obj1_distance_to_blue_sorting_bin))
         # obj_1.add_relation(
         #     AtPosition(x=0.5, y=0.1, z=0.86)
         # )
         obj_1.add_relation(RotateAroundSolution(roll_rad=1.5707963, yaw_rad=0))
         obj_2.add_relation(On(office_table))
-        # obj2_distance_to_obj1 = random.uniform(0.05, 0.15)
-        obj2_distance_to_obj1 = 0.10
+        obj2_distance_to_obj1 = random.uniform(0.05, 0.15)
+        # obj2_distance_to_obj1 = 0.10
         obj_2.add_relation(NextTo(obj_1, side=Side.NEGATIVE_X, distance_m=obj2_distance_to_obj1))
         obj_2.add_relation(RotateAroundSolution(yaw_rad=random_yaw_radian))
         obj_3.add_relation(On(office_table))
-        # obj3_distance_to_blue_sorting_bin = random.uniform(0.05, 0.15)
-        obj3_distance_to_blue_sorting_bin = 0.10
+        obj3_distance_to_blue_sorting_bin = random.uniform(0.05, 0.15)
+        # obj3_distance_to_blue_sorting_bin = 0.10
         obj_3.add_relation(NextTo(blue_sorting_bin, side=Side.POSITIVE_Y, distance_m=obj3_distance_to_blue_sorting_bin))
-        # obj_3.add_relation(RotateAroundSolution(roll_rad=1.5707963))
 
 
         # obj_1.set_initial_pose(
@@ -159,4 +157,5 @@ class DroidV2TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         """Add CLI arguments specific to this environment."""
         parser.add_argument('--object', type=str, default='tomato_soup_can')
         parser.add_argument('--object_set', nargs='+', type=str, default=None)
+        parser.add_argument('--embodiment', type=str, default='droid_mimic_fixed')
         parser.add_argument('--teleop_device', type=str, default=None)

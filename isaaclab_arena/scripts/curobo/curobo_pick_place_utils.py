@@ -83,69 +83,50 @@ def execute_plan(
     converge_rot_threshold: float = 0.05,
     max_converge_steps: int = 100,
     ee_visualizer=None,
-    use_env_step_batch: bool = True,
 ) -> None:
-    """Execute planned poses. use_env_step_batch=True for recording (env.step with batched action)."""
+    """Execute planned poses."""
     planned_poses = planner.get_planned_poses()
     if not planned_poses:
         return
     robot_base_pos = env.scene["robot"].data.root_pos_w[env_id, :3]
     for pose in planned_poses:
         action = action_from_pose(env, planner, pose, gripper_binary_action, env_id=env_id)
-        if use_env_step_batch:
-            env.step(action.repeat(env.num_envs, 1))
-        else:
-            env.step(action)
+        env.step(action)
         if ee_visualizer is not None:
             update_ee_visualizer(ee_visualizer, get_current_eef_pose(env, planner, env_id), robot_base_pos)
     final_pose = planned_poses[-1]
     curr_pose = get_current_eef_pose(env, planner, env_id=env_id)
     pos_err, rot_err = compute_pose_error(final_pose, curr_pose)
-    if not use_env_step_batch:
-        print(f"[TRACKING] After open-loop: pos_err={pos_err:.4f}m, rot_err={rot_err:.4f}rad")
     if max_converge_steps <= 0:
         return
     for step in range(max_converge_steps):
         if pos_err < converge_pos_threshold and rot_err < converge_rot_threshold:
-            if not use_env_step_batch:
-                print(f"[CONVERGE] Reached final waypoint in {step} extra steps")
             return
         action = action_from_pose(env, planner, final_pose, gripper_binary_action, env_id=env_id)
-        if use_env_step_batch:
-            env.step(action.repeat(env.num_envs, 1))
-        else:
-            env.step(action)
+        env.step(action)
         curr_pose = get_current_eef_pose(env, planner, env_id=env_id)
         if ee_visualizer is not None:
             update_ee_visualizer(ee_visualizer, curr_pose, robot_base_pos)
         pos_err, rot_err = compute_pose_error(final_pose, curr_pose)
-    if not use_env_step_batch:
-        print(f"[CONVERGE] Did not fully converge after {max_converge_steps} steps")
 
 
 def execute_gripper_action(env, planner, gripper_binary_action: float, steps: int = 12, env_id: int = 0) -> None:
-    """Open/close gripper by direct sim step (not recorded). Use for interactive run script."""
-    state = "OPEN" if gripper_binary_action < 0.5 else "CLOSE"
-    robot = env.scene["robot"]
-    finger_idx = robot.find_joints("finger_joint")[0]
-    finger_target = 0.0 if gripper_binary_action < 0.5 else math.pi / 4
-    all_target = robot.data.joint_pos[env_id, :].clone().unsqueeze(0)
-    all_target[0, finger_idx] = finger_target
-    for _ in range(steps):
-        robot.set_joint_position_target(all_target)
-        env.scene.write_data_to_sim()
-        env.sim.step(render=True)
-        env.scene.update(dt=env.physics_dt)
-
-
-def execute_gripper_action_recordable(
-    env, planner, gripper_binary_action: float, steps: int, env_id: int = 0
-) -> None:
-    """Open/close gripper using env.step with hold pose so the recorder captures every step."""
+    # """Open/close gripper by direct sim step."""
+    # state = "OPEN" if gripper_binary_action < 0.5 else "CLOSE"
+    # robot = env.scene["robot"]
+    # finger_idx = robot.find_joints("finger_joint")[0]
+    # finger_target = 0.0 if gripper_binary_action < 0.5 else math.pi / 4
+    # all_target = robot.data.joint_pos[env_id, :].clone().unsqueeze(0)
+    # all_target[0, finger_idx] = finger_target
+    """Open/close gripper via env.step so recorders capture (obs, action) pairs."""
     current_pose = get_current_eef_pose(env, planner, env_id=env_id)
-    action = action_from_pose(env, planner, current_pose, gripper_binary_action, env_id=env_id)
     for _ in range(steps):
-        env.step(action.repeat(env.num_envs, 1))
+        # robot.set_joint_position_target(all_target)
+        # env.scene.write_data_to_sim()
+        # env.sim.step(render=True)
+        # env.scene.update(dt=env.physics_dt)
+        action = action_from_pose(env, planner, current_pose, gripper_binary_action, env_id=env_id)
+        env.step(action)
 
 
 def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.Tensor:
@@ -191,6 +172,41 @@ def get_bin_interior_center(
 def get_object_quat(env, object_name: str, env_id: int = 0) -> torch.Tensor:
     obj = env.scene[object_name]
     return obj.data.root_quat_w[env_id, :4].clone().detach()
+
+
+def compute_grasp_and_place_poses(
+    object_pos: torch.Tensor,
+    object_quat: torch.Tensor,
+    slot_center_xyz: torch.Tensor,
+    grasp_orientation: str,
+    grasp_z_offset: float,
+    place_z_offset: float,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Compute grasp and place poses in robot-base frame.
+
+    Returns:
+        (grasp_pose, place_pose) as 4x4 matrices.
+    """
+    grasp_quat = compute_grasp_quat(grasp_orientation, object_quat, device)
+    grasp_xyz = object_pos.clone()
+    grasp_xyz[2] += grasp_z_offset
+    grasp_pose = pose_from_pos_quat(grasp_xyz, grasp_quat)
+    place_xyz = slot_center_xyz.clone()
+    place_xyz[2] += place_z_offset
+    place_pose = pose_from_pos_quat(place_xyz, DOWN_FACING_QUAT_WXYZ.to(device))
+    return grasp_pose, place_pose
+
+
+def compute_retreat_pose(
+    place_pose: torch.Tensor,
+    post_place_clearance: float,
+    device: torch.device,
+) -> torch.Tensor:
+    """Compute retreat pose above place pose (same orientation, z += post_place_clearance)."""
+    retreat_xyz = place_pose[:3, 3].clone()
+    retreat_xyz[2] += post_place_clearance
+    return pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(device))
 
 
 def compute_grasp_quat(strategy: str, object_quat_wxyz: torch.Tensor, device) -> torch.Tensor:
@@ -525,16 +541,15 @@ def plan_and_execute(
     goal_pose_visualizer=None,
     ee_visualizer=None,
     debug_goal: bool = False,
-    use_env_step_batch: bool = False,
 ) -> bool:
-    """Plan to target_pose and execute. use_env_step_batch=True for recording (batched env.step)."""
+    """Plan to target_pose and execute."""
     robot_base_pos = env.scene["robot"].data.root_pos_w[0, :3]
     visualize_goal_pose(target_pose, goal_pose_visualizer, robot_base_pos, stage=stage)
     if goal_pose_visualizer is not None:
         current_pose = get_current_eef_pose(env, planner)
         hold_action = action_from_pose(env, planner, current_pose, gripper_action, env_id=0)
         for _ in range(3):
-            env.step(hold_action.repeat(env.num_envs, 1) if use_env_step_batch else hold_action)
+            env.step(hold_action)
     dump_curobo_spheres(planner, f"{stage}_pre", sphere_dump_dir, save_png=sphere_dump_png)
     plan_ok = planner.update_world_and_plan_motion(
         target_pose=target_pose,
@@ -553,7 +568,6 @@ def plan_and_execute(
         gripper_binary_action=gripper_action,
         env_id=0,
         ee_visualizer=ee_visualizer,
-        use_env_step_batch=use_env_step_batch,
     )
     if debug_goal:
         log_goal_vs_achieved(env, planner, target_pose, stage)

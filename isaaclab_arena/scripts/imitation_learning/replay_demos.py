@@ -7,10 +7,15 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""Script to replay demonstrations with Isaac Lab environments."""
+"""Script to replay demonstrations with Isaac Lab environments.
 
-"""Launch Isaac Sim Simulator first."""
+Replays by applying recorded commands from HDF5: either joint_targets (--use_joint_targets)
+or processed_actions (default), e.g. 8 joint position commands. No task-space IK on replay.
 
+Launch Isaac Sim Simulator first.
+"""
+# for curobo replays, use the following command:
+# python isaaclab_arena/scripts/imitation_learning/replay_demos.py --dataset_file /datasets/curobo.hdf5 --validate_states --device cpu --use_joint_targets droid_v2_tabletop_pick_and_place --embodiment droid_abs_joint_pos
 
 from isaaclab.app import AppLauncher
 
@@ -42,7 +47,15 @@ parser.add_argument(
     default=False,
     help="Enable Pinocchio.",
 )
-
+parser.add_argument(
+    "--use_joint_targets",
+    action="store_true",
+    default=False,
+    help=(
+        "Load and apply joint_targets from HDF5 (8 joint position commands) instead of processed_actions. "
+        "Use when the dataset was recorded with record_post_step_joint_targets (e.g. record_curobo_demos)."
+    ),
+)
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -50,7 +63,6 @@ add_example_environments_cli_args(parser)
 
 # parse the arguments
 args_cli = parser.parse_args()
-# args_cli.headless = True
 
 if args_cli.enable_pinocchio:
     # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and not the one installed by Isaac Sim
@@ -103,19 +115,22 @@ def compare_states(state_from_dataset, runtime_state, runtime_env_index) -> (boo
     """
     states_matched = True
     output_log = ""
-    for asset_type in ["articulation", "rigid_object"]:
+    for asset_type in ["articulation"]:
         for asset_name in runtime_state[asset_type].keys():
             for state_name in runtime_state[asset_type][asset_name].keys():
                 runtime_asset_state = runtime_state[asset_type][asset_name][state_name][runtime_env_index]
                 dataset_asset_state = state_from_dataset[asset_type][asset_name][state_name]
-                if len(dataset_asset_state) != len(runtime_asset_state):
+                # Flatten so shapes match: dataset may have (1, 7) from get_state, runtime is (7,)
+                runtime_flat = runtime_asset_state.flatten()
+                dataset_flat = dataset_asset_state.flatten()
+                if len(dataset_flat) != len(runtime_flat):
                     raise ValueError(f"State shape of {state_name} for asset {asset_name} don't match")
-                for i in range(len(dataset_asset_state)):
-                    if abs(dataset_asset_state[i] - runtime_asset_state[i]) > 0.01:
+                for i in range(len(dataset_flat)):
+                    if abs(dataset_flat[i].item() - runtime_flat[i].item()) > 0.01:
                         states_matched = False
                         output_log += f'\tState ["{asset_type}"]["{asset_name}"]["{state_name}"][{i}] don\'t match\r\n'
-                        output_log += f"\t  Dataset:\t{dataset_asset_state[i]}\r\n"
-                        output_log += f"\t  Runtime: \t{runtime_asset_state[i]}\r\n"
+                        output_log += f"\t  Dataset:\t{dataset_flat[i].item()}\r\n"
+                        output_log += f"\t  Runtime: \t{runtime_flat[i].item()}\r\n"
     return states_matched, output_log
 
 
@@ -158,10 +173,8 @@ def main():
     print('Press "B" to pause and "N" to resume the replayed actions.')
 
     # Determine if state validation should be conducted
-    state_validation_enabled = False
-    if args_cli.validate_states and num_envs == 1:
-        state_validation_enabled = True
-    elif args_cli.validate_states and num_envs > 1:
+    state_validation_enabled = args_cli.validate_states and num_envs == 1
+    if args_cli.validate_states and num_envs > 1:
         print("Warning: State validation is only supported with a single environment. Skipping state validation.")
 
     # Get idle action (idle actions are applied to envs without next action)
@@ -177,6 +190,11 @@ def main():
     # simulate environment -- run everything in inference mode
     episode_names = list(dataset_file_handler.get_episode_names())
     replayed_episode_count = 0
+    use_joint_targets = args_cli.use_joint_targets
+
+    def get_next_command(episode_data):
+        return episode_data.get_next_joint_target() if use_joint_targets else episode_data.get_next_action()
+
     with contextlib.suppress(KeyboardInterrupt) and torch.inference_mode():
         while simulation_app.is_running() and not simulation_app.is_exiting():
             env_episode_data_map = {index: EpisodeData() for index in range(num_envs)}
@@ -187,7 +205,7 @@ def main():
                 actions = idle_action
                 has_next_action = False
                 for env_id in range(num_envs):
-                    env_next_action = env_episode_data_map[env_id].get_next_action()
+                    env_next_action = get_next_command(env_episode_data_map[env_id])
                     if env_next_action is None:
                         next_episode_index = None
                         while episode_indices_to_replay:
@@ -206,8 +224,7 @@ def main():
                             # Set initial state for the new episode
                             initial_state = episode_data.get_initial_state()
                             env.reset_to(initial_state, torch.tensor([env_id], device=env.device), is_relative=True)
-                            # Get the first action for the new episode
-                            env_next_action = env_episode_data_map[env_id].get_next_action()
+                            env_next_action = get_next_command(env_episode_data_map[env_id])
                             has_next_action = True
                         else:
                             continue

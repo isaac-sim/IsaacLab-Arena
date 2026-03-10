@@ -65,7 +65,6 @@ def _run_sanity_check(
         goal_pose_visualizer=goal_pose_visualizer,
         ee_visualizer=ee_visualizer,
         debug_goal=debug_goal,
-        use_env_step_batch=False,
     )
     print(f"[SANITY] lift-from-home planning success: {ok}")
     if ok:
@@ -93,8 +92,9 @@ def main() -> None:
             GRIPPER_OPEN_CMD,
             action_from_pose,
             auto_pick_order,
-            compute_grasp_quat,
+            compute_grasp_and_place_poses,
             compute_placement_slots,
+            compute_retreat_pose,
             execute_gripper_action,
             fix_planner_object_sync_frame,
             get_bin_interior_center,
@@ -305,17 +305,19 @@ def main() -> None:
 
                 results[object_name] = {}
 
-                grasp_quat = compute_grasp_quat(args_cli.grasp_orientation, object_quat, env.device)
-                grasp_xyz = object_pos.clone()
-                grasp_xyz[2] += args_cli.grasp_z_offset
-                grasp_pose = pose_from_pos_quat(grasp_xyz, grasp_quat)
-
-                slot_xyz = placement_slots[object_name].clone()
-                slot_xyz[2] += args_cli.place_z_offset
-                place_pose = pose_from_pos_quat(slot_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+                grasp_pose, place_pose = compute_grasp_and_place_poses(
+                    object_pos,
+                    object_quat,
+                    placement_slots[object_name],
+                    args_cli.grasp_orientation,
+                    args_cli.grasp_z_offset,
+                    args_cli.place_z_offset,
+                    env.device,
+                )
 
                 if args_cli.debug_goal:
                     eef_pos = get_current_eef_pose(env, planner)[:3, 3]
+                    grasp_xyz = grasp_pose[:3, 3]
                     print(f"[DEBUG GOAL] EEF={eef_pos}, grasp={grasp_xyz}, "
                           f"dist={torch.norm(grasp_xyz - eef_pos).item():.3f}m")
 
@@ -360,9 +362,9 @@ def main() -> None:
                 )
 
                 if args_cli.post_place_clearance > 0:
-                    retreat_xyz = slot_xyz.clone()
-                    retreat_xyz[2] += args_cli.post_place_clearance
-                    retreat_pose = pose_from_pos_quat(retreat_xyz, DOWN_FACING_QUAT_WXYZ.to(env.device))
+                    retreat_pose = compute_retreat_pose(
+                        place_pose, args_cli.post_place_clearance, env.device
+                    )
                     retreat_ok = plan_and_execute(
                         env, planner, target_pose=retreat_pose,
                         gripper_action=GRIPPER_OPEN_CMD, expected_attached_object=None,
