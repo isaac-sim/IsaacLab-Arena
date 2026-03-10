@@ -45,7 +45,7 @@ CAMERAS = [CAM0, CAM1] # CAM1, CAM2... for multi-view
 
 OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
 OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
-ANCHOR_FRAMES = [0, 9]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
+ANCHOR_FRAMES = [0]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
 
 # Visualization (optional step at the end)
 NUM_VIZ_SAMPLES = 8
@@ -86,6 +86,7 @@ env.reset()
 # %%
 from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_camera_handler import (
     IsaacLabArenaCameraHandler,
+    ObjectInstanceRegistry,
     create_static_camera,
 )
 from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_writer import (
@@ -106,6 +107,8 @@ for _ci, _cc in enumerate(CAMERAS):
                 f"NUM_STEPS={NUM_STEPS}. Dynamic coordinates must match."
             )
 
+shared_registry = ObjectInstanceRegistry()
+
 camera_handlers = []
 camera_ids = []
 for cam_idx, cam_cfg in enumerate(CAMERAS):
@@ -116,6 +119,7 @@ for cam_idx, cam_cfg in enumerate(CAMERAS):
         height=cam_cfg["height"],
         focal_length=cam_cfg["focal_length"],
         prim_path=f"/World/StaticCamera_{cam_idx}",
+        instance_registry=shared_registry,
     )
     camera_handlers.append(handler)
     camera_ids.append(camera_id_from_index(cam_idx))

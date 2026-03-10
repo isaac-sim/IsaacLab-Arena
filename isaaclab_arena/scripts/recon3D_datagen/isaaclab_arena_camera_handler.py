@@ -50,7 +50,7 @@ class SceneFlowResult:
 
 @dataclass
 class FirstFrameFlowResult:
-    """Bundle returned by :meth:`IsaacLabArenaCameraHandler.compute_first_frame_flow`.
+    """Bundle returned by :meth:`IsaacLabArenaCameraHandler.compute_anchor_frame_flow`.
 
     All tensors are defined over the frame-0 pixel grid ``(H, W)``.
     """
@@ -98,6 +98,99 @@ class _AnchorFrameData:
     artic_key_to_name: Dict[int, str]
 
 
+class ObjectInstanceRegistry:
+    """Shared registry that assigns temporally consistent object IDs, names, and colors.
+
+    Pass a single instance to every :class:`IsaacLabArenaCameraHandler` so that
+    the same physical object receives the same ``object_id``, ``object_name``,
+    and RGBA color regardless of which camera observes it first.
+    """
+
+    def __init__(self) -> None:
+        self._color_to_object_id: Dict[tuple, int] = {}
+        self._next_object_id: int = 0
+
+        self._instance_key_to_object_id: Dict[Tuple[str, str], int] = {}
+        self._instance_key_to_name: Dict[Tuple[str, str], str] = {}
+        self._next_instance_object_id: int = 0
+        self._next_rigid_instance_idx: int = 1
+        self._next_articulated_instance_idx: int = 1
+        self._next_static_instance_idx: int = 1
+        self._next_unsupported_instance_idx: int = 1
+
+    # -- colour-based legacy ID (used by get_semantic_info) ----------------
+
+    def get_object_id(self, rgba: tuple) -> int:
+        """Return a stable integer object ID for a given RGBA colour."""
+        if rgba not in self._color_to_object_id:
+            self._color_to_object_id[rgba] = self._next_object_id
+            self._next_object_id += 1
+        return self._color_to_object_id[rgba]
+
+    # -- instance-key-based identity (used by get_object_instance_segmentation) --
+
+    @staticmethod
+    def _safe_name_token(raw: str) -> str:
+        """Convert an arbitrary label/path to an ASCII-safe token."""
+        token = "".join(ch if ch.isalnum() else "_" for ch in raw.strip("/"))
+        token = token.strip("_")
+        return token or "unknown"
+
+    def instance_key_to_display_name(self, instance_key: Tuple[str, str]) -> str:
+        """Get or create a temporally consistent display name for an object key."""
+        if instance_key in self._instance_key_to_name:
+            return self._instance_key_to_name[instance_key]
+
+        kind, source = instance_key
+        if kind == "RIGID":
+            prefix = f"rigid_object_{self._next_rigid_instance_idx}"
+            self._next_rigid_instance_idx += 1
+            suffix = self._safe_name_token(source)
+            name = f"{prefix}_{suffix}"
+        elif kind == "ARTICULATION":
+            prefix = f"articulated_object_{self._next_articulated_instance_idx}"
+            self._next_articulated_instance_idx += 1
+            suffix = self._safe_name_token(source)
+            name = f"{prefix}_{suffix}"
+        elif kind == "STATIC":
+            if source == "background":
+                name = "background"
+            else:
+                prefix = f"static_object_{self._next_static_instance_idx}"
+                self._next_static_instance_idx += 1
+                suffix = self._safe_name_token(source.split("/")[-1])
+                name = f"{prefix}_{suffix}"
+        else:
+            prefix = f"unsupported_object_{self._next_unsupported_instance_idx}"
+            self._next_unsupported_instance_idx += 1
+            suffix = self._safe_name_token(source.split("/")[-1])
+            name = f"{prefix}_{suffix}"
+
+        self._instance_key_to_name[instance_key] = name
+        return name
+
+    @staticmethod
+    def _instance_id_to_rgba(object_id: int) -> Tuple[int, int, int, int]:
+        """Deterministically map an object ID to a vivid RGBA color."""
+        hue = (0.17 + 0.6180339887498948 * object_id) % 1.0
+        sat = 0.75
+        val = 0.95
+        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+        return (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)), 255)
+
+    def get_or_create_instance_identity(
+        self, instance_key: Tuple[str, str]
+    ) -> Tuple[int, str, Tuple[int, int, int, int]]:
+        """Allocate/retrieve stable object-id, name, and color for an instance key."""
+        if instance_key not in self._instance_key_to_object_id:
+            self._instance_key_to_object_id[instance_key] = self._next_instance_object_id
+            self._next_instance_object_id += 1
+        object_id = self._instance_key_to_object_id[instance_key]
+        object_name = self.instance_key_to_display_name(instance_key)
+        rgba = self._instance_id_to_rgba(object_id)
+        return object_id, object_name, rgba
+
+
 class IsaacLabArenaCameraHandler:
     """Handles a static camera sensor in an IsaacLab Arena environment.
 
@@ -108,23 +201,21 @@ class IsaacLabArenaCameraHandler:
     Args:
         camera: An isaaclab.sensors.Camera instance.
         camera_name: Identifier used for file naming when writing data.
+        instance_registry: Optional shared :class:`ObjectInstanceRegistry`.
+            When provided, object IDs / names / colors are consistent across
+            all handlers that share the same registry.  When ``None`` a
+            private registry is created (backward-compatible behaviour).
     """
 
-    def __init__(self, camera: Any, camera_name: str = "static_camera"):
+    def __init__(
+        self,
+        camera: Any,
+        camera_name: str = "static_camera",
+        instance_registry: Optional[ObjectInstanceRegistry] = None,
+    ):
         self._camera = camera
         self._camera_name = camera_name
-        # Persistent RGBA → object_id mapping for temporal consistency across frames
-        self._color_to_object_id: Dict[tuple, int] = {}
-        self._next_object_id: int = 0
-        # Persistent object-instance naming (built from instance_id segmentation
-        # and prim-path tracking binding).
-        self._instance_key_to_object_id: Dict[Tuple[str, str], int] = {}
-        self._instance_key_to_name: Dict[Tuple[str, str], str] = {}
-        self._next_instance_object_id: int = 0
-        self._next_rigid_instance_idx: int = 1
-        self._next_articulated_instance_idx: int = 1
-        self._next_static_instance_idx: int = 1
-        self._next_unsupported_instance_idx: int = 1
+        self._registry = instance_registry or ObjectInstanceRegistry()
 
         # Override for get_extrinsics() when camera is moved via set_world_pose
         # (the sensor's pos_w / quat_w_ros do not update after USD prim changes)
@@ -342,66 +433,11 @@ class IsaacLabArenaCameraHandler:
             return ("UNSUPPORTED", "unknown")
         return ("UNSUPPORTED", prim_path)
 
-    @staticmethod
-    def _safe_name_token(raw: str) -> str:
-        """Convert an arbitrary label/path to an ASCII-safe token."""
-        token = "".join(ch if ch.isalnum() else "_" for ch in raw.strip("/"))
-        token = token.strip("_")
-        return token or "unknown"
-
-    def _instance_key_to_display_name(self, instance_key: Tuple[str, str]) -> str:
-        """Get or create a temporally consistent display name for an object key."""
-        if instance_key in self._instance_key_to_name:
-            return self._instance_key_to_name[instance_key]
-
-        kind, source = instance_key
-        if kind == "RIGID":
-            prefix = f"rigid_object_{self._next_rigid_instance_idx}"
-            self._next_rigid_instance_idx += 1
-            suffix = self._safe_name_token(source)
-            name = f"{prefix}_{suffix}"
-        elif kind == "ARTICULATION":
-            prefix = f"articulated_object_{self._next_articulated_instance_idx}"
-            self._next_articulated_instance_idx += 1
-            suffix = self._safe_name_token(source)
-            name = f"{prefix}_{suffix}"
-        elif kind == "STATIC":
-            if source == "background":
-                name = "background"
-            else:
-                prefix = f"static_object_{self._next_static_instance_idx}"
-                self._next_static_instance_idx += 1
-                suffix = self._safe_name_token(source.split("/")[-1])
-                name = f"{prefix}_{suffix}"
-        else:
-            prefix = f"unsupported_object_{self._next_unsupported_instance_idx}"
-            self._next_unsupported_instance_idx += 1
-            suffix = self._safe_name_token(source.split("/")[-1])
-            name = f"{prefix}_{suffix}"
-
-        self._instance_key_to_name[instance_key] = name
-        return name
-
-    @staticmethod
-    def _instance_id_to_rgba(object_id: int) -> Tuple[int, int, int, int]:
-        """Deterministically map an object ID to a vivid RGBA color."""
-        hue = (0.17 + 0.6180339887498948 * object_id) % 1.0
-        sat = 0.75
-        val = 0.95
-        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
-        return (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)), 255)
-
     def _get_or_create_instance_identity(
         self, instance_key: Tuple[str, str]
     ) -> Tuple[int, str, Tuple[int, int, int, int]]:
-        """Allocate/retrieve stable object-id, name, and color for an instance key."""
-        if instance_key not in self._instance_key_to_object_id:
-            self._instance_key_to_object_id[instance_key] = self._next_instance_object_id
-            self._next_instance_object_id += 1
-        object_id = self._instance_key_to_object_id[instance_key]
-        object_name = self._instance_key_to_display_name(instance_key)
-        rgba = self._instance_id_to_rgba(object_id)
-        return object_id, object_name, rgba
+        """Delegate to the shared registry."""
+        return self._registry.get_or_create_instance_identity(instance_key)
 
     def get_object_instance_segmentation(self, env: Any) -> Tuple[torch.Tensor, List[Dict[str, Any]]]:
         """Build a semantic-style RGBA image where each tracked object has a unique label.
@@ -980,16 +1016,6 @@ class IsaacLabArenaCameraHandler:
             artic_key_to_name=ff_artic_key_to_name,
         )
 
-    def init_first_frame_anchors(self, env: Any) -> None:
-        """Store per-pixel anchor state from the current (frame-0) render.
-
-        Equivalent to ``init_anchor_frame(env, anchor_frame=0)``.
-
-        Args:
-            env: The gymnasium-wrapped IsaacLab environment.
-        """
-        self.init_anchor_frame(env, anchor_frame=0)
-
     def compute_anchor_frame_flow(
         self,
         env: Any,
@@ -1134,114 +1160,6 @@ class IsaacLabArenaCameraHandler:
             points_world_k=p_k,
         )
 
-    def compute_first_frame_flow(
-        self,
-        env: Any,
-        *,
-        occlusion_tol: float = 0.0001,
-    ) -> FirstFrameFlowResult:
-        """Compute flow from frame-0 anchors to the current frame k.
-
-        Equivalent to ``compute_anchor_frame_flow(env, anchor_frame=0, ...)``.
-
-        Args:
-            env: The gymnasium-wrapped IsaacLab environment.
-            occlusion_tol: Depth tolerance (metres) for the occlusion test.
-
-        Returns:
-            A :class:`FirstFrameFlowResult`.
-        """
-        return self.compute_anchor_frame_flow(env, anchor_frame=0, occlusion_tol=occlusion_tol)
-
-    # ------------------------------------------------------------------
-    # 3D scene flow — legacy v*dt approximation (kept for compatibility)
-    # ------------------------------------------------------------------
-
-    def compute_scene_flow_3d(self, env: Any, dt: float) -> torch.Tensor:
-        """Compute per-pixel 3D scene flow using ground-truth physics velocities.
-
-        For each pixel belonging to a rigid body, computes the 3D displacement
-        over one timestep:
-
-        .. math::
-            \\Delta p = (v_{\\text{lin}} + \\omega \\times (p - p_{\\text{com}})) \\cdot dt
-
-        Pixels belonging to static/background geometry or unsupported asset
-        types receive zero displacement.
-
-        Args:
-            env: The gymnasium-wrapped IsaacLab environment.
-            dt: Simulation timestep in seconds.
-
-        Returns:
-            (H, W, 3) float32 tensor — per-pixel 3D displacement in world
-            frame (metres).
-        """
-        from isaaclab.utils.math import unproject_depth
-
-        depth = self.get_depth()                   # (H, W)
-        intrinsics = self.get_intrinsics()         # (3, 3)
-        extrinsics = self.get_extrinsics()         # (4, 4) cam-to-world
-
-        H, W = depth.shape
-        device = depth.device
-
-        # Unproject depth to camera-space 3D points, then transform to world.
-        # unproject_depth returns (H*W, 3) in column-major order (meshgrid
-        # with indexing="ij" iterates width first), so we reshape via (W, H)
-        # and transpose back to (H, W, 3).
-        points_cam = unproject_depth(depth, intrinsics)      # (H*W, 3)
-        R = extrinsics[:3, :3]
-        t = extrinsics[:3, 3]
-        points_world = (points_cam @ R.T) + t               # (H*W, 3)
-        points_world = points_world.reshape(W, H, 3).permute(1, 0, 2).contiguous()
-
-        valid_mask = torch.isfinite(depth)                   # (H, W)
-
-        inst_ids, id_to_labels = self.get_instance_id_segmentation()
-
-        scene_flow = torch.zeros(H, W, 3, dtype=torch.float32, device=device)
-
-        scene = env.unwrapped.scene
-        vel_cache: Dict[str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = {}
-
-        for uid in inst_ids.unique():
-            uid_key = uid.item()
-            if uid_key not in id_to_labels:
-                continue
-
-            label = id_to_labels[uid_key]
-            prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
-            if not prim_path or prim_path.upper() in ("BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"):
-                continue
-
-            asset_name = self._find_rigid_object_for_prim(prim_path, scene)
-            if asset_name is None:
-                continue
-
-            if asset_name not in vel_cache:
-                obj = scene[asset_name]
-                vel_cache[asset_name] = (
-                    obj.data.root_lin_vel_w[0].clone(),
-                    obj.data.root_ang_vel_w[0].clone(),
-                    obj.data.root_pos_w[0].clone(),
-                )
-
-            lin_vel, ang_vel, com_pos = vel_cache[asset_name]
-
-            pixel_mask = (inst_ids == uid) & valid_mask
-            if not pixel_mask.any():
-                continue
-
-            pts = points_world[pixel_mask]                          # (N, 3)
-            r = pts - com_pos.unsqueeze(0)
-            vel = lin_vel.unsqueeze(0) + torch.cross(
-                ang_vel.unsqueeze(0).expand_as(r), r, dim=-1
-            )
-            scene_flow[pixel_mask] = vel * dt
-
-        return scene_flow
-
     # ------------------------------------------------------------------
     # Prim-path → tracking binding resolution
     # ------------------------------------------------------------------
@@ -1276,29 +1194,13 @@ class IsaacLabArenaCameraHandler:
         # treat it as static world geometry (zero displacement).
         return ("STATIC",)
 
-    @staticmethod
-    def _find_rigid_object_for_prim(prim_path: str, scene: Any) -> str | None:
-        """Match a USD prim path to a rigid-object name registered in the scene."""
-        path_parts = prim_path.strip("/").split("/")
-        for name in scene.rigid_objects.keys():
-            if name in path_parts:
-                return name
-        return None
-
     # ------------------------------------------------------------------
     # Per-object semantic info
     # ------------------------------------------------------------------
 
     def _get_object_id(self, rgba: tuple) -> int:
-        """Return a stable integer object ID for a given RGBA colour.
-
-        The same colour always maps to the same ID across frames, so objects
-        can be tracked temporally even when no semantic label is available.
-        """
-        if rgba not in self._color_to_object_id:
-            self._color_to_object_id[rgba] = self._next_object_id
-            self._next_object_id += 1
-        return self._color_to_object_id[rgba]
+        """Delegate to the shared registry."""
+        return self._registry.get_object_id(rgba)
 
     def get_semantic_info(self) -> List[Dict[str, Any]]:
         """Returns per-object metadata for every semantic class visible in this frame.
@@ -1390,6 +1292,7 @@ def create_static_camera(
     height: int = 480,
     focal_length: float = 24.0,
     prim_path: str = "/World/StaticCamera",
+    instance_registry: Optional[ObjectInstanceRegistry] = None,
 ) -> IsaacLabArenaCameraHandler:
     """Create and initialise a static camera sensor looking from *position* at *target*.
 
@@ -1407,6 +1310,9 @@ def create_static_camera(
         height: Image height in pixels.
         focal_length: Focal length in mm.
         prim_path: USD prim path where the camera will be spawned.
+        instance_registry: Optional shared :class:`ObjectInstanceRegistry`.
+            Pass the same instance to every camera so that object IDs,
+            names, and colors are consistent across viewpoints.
 
     Returns:
         An initialised :class:`IsaacLabArenaCameraHandler`.
@@ -1438,7 +1344,7 @@ def create_static_camera(
     camera = Camera(cfg)
     camera._initialize_callback(None)
     camera.reset([0])
-    return IsaacLabArenaCameraHandler(camera)
+    return IsaacLabArenaCameraHandler(camera, instance_registry=instance_registry)
 
 
 def _look_at_quaternion_ros(
