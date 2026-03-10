@@ -149,6 +149,53 @@ class IsaacLabArenaCameraHandler:
         """Read the latest render data from the camera sensor."""
         self._camera.update(dt)
 
+    def set_world_pose(
+        self,
+        position: Tuple[float, float, float],
+        target: Tuple[float, float, float],
+    ) -> None:
+        """Move the camera to *position* and orient it to look at *target*.
+
+        Updates the USD prim transform so the next :meth:`update` call
+        renders from the new viewpoint.  Call once per step *before*
+        :meth:`update` for each step where the camera should move.
+        """
+        import omni.usd
+        from pxr import Gf, UsdGeom
+
+        eye = np.array(position, dtype=np.float64)
+        tgt = np.array(target, dtype=np.float64)
+        up = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+
+        forward = tgt - eye
+        forward /= np.linalg.norm(forward)
+
+        right = np.cross(forward, up)
+        right /= np.linalg.norm(right)
+
+        cam_up = np.cross(right, forward)
+
+        # USD camera convention: x = right, y = up, z = backward.
+        # Row-vector convention: v_world = v_local * M, so the rows of M
+        # are the camera basis vectors expressed in the world frame.
+        mat = Gf.Matrix4d(
+            float(right[0]),    float(right[1]),    float(right[2]),    0.0,
+            float(cam_up[0]),   float(cam_up[1]),   float(cam_up[2]),   0.0,
+            float(-forward[0]), float(-forward[1]), float(-forward[2]), 0.0,
+            float(eye[0]),      float(eye[1]),      float(eye[2]),      1.0,
+        )
+
+        prim_path = self._camera.cfg.prim_path
+        stage = omni.usd.get_context().get_stage()
+        prim = stage.GetPrimAtPath(prim_path)
+        xformable = UsdGeom.Xformable(prim)
+
+        if not hasattr(self, "_xform_op"):
+            xformable.ClearXformOpOrder()
+            self._xform_op = xformable.AddTransformOp()
+
+        self._xform_op.Set(mat)
+
     # ------------------------------------------------------------------
     # Core outputs
     # ------------------------------------------------------------------

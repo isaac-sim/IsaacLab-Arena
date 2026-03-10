@@ -4,28 +4,46 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # ── Hyperparameters (edit these before running) ─────────────────────────────
+import math
+
 SCENE_NAME = "dynamic_balls"   # environment; use --enable_cameras for static camera
 OBJECT_NAME = "cracker_box"     # object variant (depends on scene)
 
+NUM_STEPS = 30
+
+# Camera coordinates: use a single (x, y, z) tuple for a static coordinate,
+# or a list of NUM_STEPS tuples for a dynamic trajectory.  Position and
+# target are independent — each can be static or dynamic per camera.
+
 CAM0 = {
-    "position": (0.0, -0.737, 1.0),   # world-frame (x, y, z)
-    "target": (0.466, -0.737, 0.4),   # look-at point in world frame
+    "position": (0.0, -0.737, 1.0),   # static world-frame position
+    "target": (0.466, -0.737, 0.4),   # static look-at point
     "width": 640,
     "height": 480,
-    "focal_length": 24.0,              # mm
+    "focal_length": 24.0,             # mm
 }
-# Uncomment / add more cameras for multi-view capture:
+
+# CAM1: dynamic position — horizontal slide to the right, static target
+_c1_x_start = 0.0
+_c1_x_end = 0.4
 CAM1 = {
-    "position": (0.0, -0.337, 0.8),
-    "target": (0.466, -0.737, 0.4),
+    "position": [
+        (
+            _c1_x_start + (_c1_x_end - _c1_x_start) * t / max(NUM_STEPS - 1, 1),
+            -0.337,
+            0.8,
+        )
+        for t in range(NUM_STEPS)
+    ],
+    "target": (0.466, -0.737, 0.4),   # static look-at point
     "width": 600,
     "height": 400,
     "focal_length": 12.0,
 }
-CAMERAS = [CAM0, CAM1]  # e.g. [CAM0, CAM1] for multi-view
+
+CAMERAS = [CAM0, CAM1] # CAM1, CAM2... for multi-view
 
 OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
-NUM_STEPS = 30
 OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
 ANCHOR_FRAMES = [0]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
 
@@ -75,12 +93,25 @@ from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_writer import (
     camera_id_from_index,
 )
 
+def _resolve_coord(coord, step_idx=0):
+    """Return the (x, y, z) tuple for *step_idx* (pass-through for static)."""
+    return coord if isinstance(coord, tuple) else coord[step_idx]
+
+for _ci, _cc in enumerate(CAMERAS):
+    for _key in ("position", "target"):
+        _val = _cc[_key]
+        if not isinstance(_val, tuple):
+            assert len(_val) == NUM_STEPS, (
+                f"Camera {_ci} '{_key}' has {len(_val)} entries but "
+                f"NUM_STEPS={NUM_STEPS}. Dynamic coordinates must match."
+            )
+
 camera_handlers = []
 camera_ids = []
 for cam_idx, cam_cfg in enumerate(CAMERAS):
     handler = create_static_camera(
-        position=cam_cfg["position"],
-        target=cam_cfg["target"],
+        position=_resolve_coord(cam_cfg["position"], 0),
+        target=_resolve_coord(cam_cfg["target"], 0),
         width=cam_cfg["width"],
         height=cam_cfg["height"],
         focal_length=cam_cfg["focal_length"],
@@ -110,7 +141,14 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
 
-        for handler, cam_id in zip(camera_handlers, camera_ids):
+        for handler, cam_id, cam_cfg in zip(camera_handlers, camera_ids, CAMERAS):
+            pos = cam_cfg["position"]
+            tgt = cam_cfg["target"]
+            if not isinstance(pos, tuple) or not isinstance(tgt, tuple):
+                handler.set_world_pose(
+                    _resolve_coord(pos, step_idx),
+                    _resolve_coord(tgt, step_idx),
+                )
             handler.update(dt)
             cam_name = handler.camera_name
 
@@ -191,7 +229,7 @@ for cam_id in camera_ids:
 
     visualize_all_modalities_grid(
         OUTPUT_DIR, cam_id,
-        num_samples=NUM_VIZ_SAMPLES, depth_cmap="Spectral",
+        num_samples=NUM_VIZ_SAMPLES, depth_cmap="Spectral_r",
         save_path=os.path.join(viz_dir, "data_vis.png"),
     )
     plt.show()
@@ -199,7 +237,7 @@ for cam_id in camera_ids:
 
     visualize_all_modalities_video(
         OUTPUT_DIR, cam_id,
-        fps=5, depth_cmap="Spectral",
+        fps=5, depth_cmap="Spectral_r",
         save_path=os.path.join(viz_dir, "data_vis.mp4"),
     )
 
