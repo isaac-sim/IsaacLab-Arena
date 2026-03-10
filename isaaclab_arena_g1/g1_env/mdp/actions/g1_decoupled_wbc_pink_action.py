@@ -227,11 +227,8 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
                 q[:] = _IDENTITY_QUAT_WXYZ
 
         # Convert from pos/quat to 4x4 transform matrix
-        # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
-        left_arm_quat_xyzw = np.roll(left_arm_quat, -1)
-        right_arm_quat_xyzw = np.roll(right_arm_quat, -1)
-        left_rotmat = R.from_quat(left_arm_quat_xyzw).as_matrix()
-        right_rotmat = R.from_quat(right_arm_quat_xyzw).as_matrix()
+        left_rotmat = R.from_quat(left_arm_quat).as_matrix()
+        right_rotmat = R.from_quat(right_arm_quat).as_matrix()
 
         left_arm_pose = np.eye(4)
         left_arm_pose[:3, :3] = left_rotmat

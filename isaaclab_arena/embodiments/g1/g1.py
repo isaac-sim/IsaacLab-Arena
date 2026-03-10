@@ -783,7 +783,7 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
         pelvis_pose_w = wp.to_torch(self.scene["robot"].data.body_link_state_w)[
             :, self.scene["robot"].data.body_names.index("pelvis"), :
         ]
-        pelvis_position_w = pelvis_pose_w[:, :3] - wp.to_torch(self.scene.env_origins)
+        pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins
         pelvis_rot_mat_w = PoseUtils.matrix_from_quat(pelvis_pose_w[:, 3:7])
         pelvis_pose_mat_w = PoseUtils.make_pose(pelvis_position_w, pelvis_rot_mat_w)
         pelvis_pose_inv = PoseUtils.pose_inv(pelvis_pose_mat_w)

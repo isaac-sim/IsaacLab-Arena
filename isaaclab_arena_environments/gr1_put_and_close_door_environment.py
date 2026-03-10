@@ -152,7 +152,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
 
         pickup_object.add_relation(On(kitchen_counter_top))
-        # pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
         # Consider changing to other values for different objects, below is for ranch dressing bottle.
         yaw_rad = math.radians(-111.55)
         pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
