@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-f7fc5348-x86_64
+ARG BASE_IMAGE=nvcr.io/nvidian/isaac-sim:latest-develop-683f4925-x86_64
 
 FROM ${BASE_IMAGE}
 
@@ -82,6 +82,11 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 # NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed
 # in the IsaacSim version of python.
 RUN /isaac-sim/python.sh -m pip install huggingface-hub[cli]
+# This is a bit of a hack. When trying to run the Isaac Sim version of huggingface hub,
+# the binary can't find the dependencies, because it checks the system python. So here
+# we just also install huggingface hub in the system python, to get the deps.
+# NOTE(alexmillane, 2026-03-10): Find a nicer way of doing this.
+RUN python3 -m pip install --break-system-packages huggingface-hub[cli]
 # Create alias for hf command to use the system-installed version
 RUN echo "alias hf='/isaac-sim/kit/python/bin/hf'" >> /etc/bash.bashrc
 
