@@ -26,6 +26,29 @@ CAM0 = {"position": (0.0, -0.737, 1.0), "target": (0.466, -0.737, 0.4),
 CAMERAS = [CAM0]  # CAM1, CAM2... for multi-view  
 ```
 
+#### Static vs dynamic position and target
+
+`position` and `target` can be **static** or **dynamic** per camera, and they are independent (e.g. static position with dynamic target, or vice versa).
+
+- **Static**: a single 3D tuple `(x, y, z)` in world frame. The camera keeps that coordinate for all `NUM_STEPS`.
+- **Dynamic**: a **list** of `NUM_STEPS` 3D tuples, one per simulation step. The script asserts that the list length equals `NUM_STEPS` so mismatches fail early.
+
+Example: camera that starts at the first position and slides horizontally to the right while always looking at the same target:
+
+```python
+NUM_STEPS = 30
+_c1_x_start, _c1_x_end = 0.0, 0.4
+CAM1 = {
+    "position": [
+        (_c1_x_start + (_c1_x_end - _c1_x_start) * t / max(NUM_STEPS - 1, 1), -0.337, 0.8)
+        for t in range(NUM_STEPS)
+    ],
+    "target": (0.466, -0.737, 0.4),  # static look-at
+    "width": 600, "height": 400, "focal_length": 12.0,
+}
+CAMERAS = [CAM0, CAM1]
+```
+
 ### Other parameters
 
 | Variable | Description |
