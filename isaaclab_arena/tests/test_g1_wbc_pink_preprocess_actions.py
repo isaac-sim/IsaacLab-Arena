@@ -62,7 +62,7 @@ def _test_preprocess_actions_shape(simulation_app) -> bool:
     env, term = _get_g1_pink_env_and_term(simulation_app)
     try:
         action_dim = term.action_dim
-        num_envs = env.num_envs
+        num_envs = env.unwrapped.num_envs
         actions = torch.zeros(num_envs, action_dim, device=env.unwrapped.device)
         out = term.preprocess_actions(actions)
         assert out.shape == (num_envs, action_dim), f"Expected shape ({num_envs}, {action_dim}), got {out.shape}"
