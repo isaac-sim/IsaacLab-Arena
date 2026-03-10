@@ -78,17 +78,12 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
 # Lightwheel server
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
-# HuggingFace for downloading datasets and models.
-# NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed
-# in the IsaacSim version of python.
-RUN /isaac-sim/python.sh -m pip install huggingface-hub[cli]
-# This is a bit of a hack. When trying to run the Isaac Sim version of huggingface hub,
-# the binary can't find the dependencies, because it checks the system python. So here
-# we just also install huggingface hub in the system python, to get the deps.
-# NOTE(alexmillane, 2026-03-10): Find a nicer way of doing this.
-RUN python3 -m pip install --break-system-packages huggingface-hub[cli]
-# Create alias for hf command to use the system-installed version
-RUN echo "alias hf='/isaac-sim/kit/python/bin/hf'" >> /etc/bash.bashrc
+# HuggingFace CLI for downloading datasets and models.
+# Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
+# without touching system Python packages.
+# PIPX_BIN_DIR=/usr/local/bin puts hf on PATH for all users.
+RUN apt-get install -y pipx && \
+    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install "huggingface-hub[cli]"
 
 ###############################
 # Install GR00T and CUDA 12.8 #
