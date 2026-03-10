@@ -77,18 +77,20 @@ def prepare_observations(
     assert wbc_joint_pos.shape == wbc_joint_vel.shape == wbc_joint_acc.shape == (num_envs, num_joints)
 
     root_link_pos_w = wp.to_torch(robot_data.root_link_pos_w).cpu().numpy()
-    root_link_quat_w = wp.to_torch(robot_data.root_link_quat_w).cpu().numpy()
-    base_pose_w = np.concatenate((root_link_pos_w, root_link_quat_w), axis=1)
+    root_link_quat_w_xyzw = wp.to_torch(robot_data.root_link_quat_w).cpu().numpy()
+    root_link_quat_w_wxyz = np.concatenate((root_link_quat_w_xyzw[:, 3:4], root_link_quat_w_xyzw[:, :3]), axis=1)
+    base_pose_w = np.concatenate((root_link_pos_w, root_link_quat_w_wxyz), axis=1)
     base_lin_vel_b = wp.to_torch(robot_data.root_link_lin_vel_b).cpu().numpy()
     base_ang_vel_b = wp.to_torch(robot_data.root_link_ang_vel_b).cpu().numpy()
 
     base_vel_b = np.concatenate((base_lin_vel_b, base_ang_vel_b), axis=1)
     # torso link in world frame
     torso_link_pose_w = wp.to_torch(robot_data.body_link_state_w)[:, robot_data.body_names.index("torso_link"), :]
-    torso_link_quat_w = torso_link_pose_w[:, 3:7]  # w, x, y, z
+    torso_link_quat_w_xyzw = torso_link_pose_w[:, 3:7]
+    torso_link_quat_w_wxyz = torch.cat((torso_link_quat_w_xyzw[:, 3:4], torso_link_quat_w_xyzw[:, :3]), dim=1)
     torso_link_ang_vel_w = torso_link_pose_w[:, -3:]
 
-    torso_link_ang_vel_b = math_utils.quat_apply_inverse(torso_link_quat_w, torso_link_ang_vel_w)
+    torso_link_ang_vel_b = math_utils.quat_apply_inverse(torso_link_quat_w_xyzw, torso_link_ang_vel_w)
 
     # Prepare obs tmers
     wbc_obs = {
@@ -99,7 +101,7 @@ def prepare_observations(
         "floating_base_pose": base_pose_w,  # wrt world frame, used to project gravity vector to local frame
         "floating_base_vel": base_vel_b,  # wrt body frame
         "floating_base_acc": np.zeros((num_envs, 6)),  # Not used by Standing Waist Height Policy
-        "torso_quat": torso_link_quat_w.cpu().numpy(),
+        "torso_quat": torso_link_quat_w_wxyz.cpu().numpy(),
         "torso_ang_vel": torso_link_ang_vel_b.cpu().numpy(),
     }
     return wbc_obs
