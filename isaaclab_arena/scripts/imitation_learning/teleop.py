@@ -46,9 +46,10 @@ if args_cli.enable_pinocchio:
     # GR1T2 retargeter
     import pinocchio  # noqa: F401
 
-    # Keep this on if we use pinocchio as we will use AVP for the humanoid
-    if "handtracking" in args_cli.teleop_device.lower():
-        app_launcher_args["xr"] = True
+# TODO(cvolk): XR mode is inferred from teleop device name via string matching.
+# Ideally, AppLauncher or the device config would auto-detect XR requirements.
+if "openxr" in args_cli.teleop_device.lower():
+    app_launcher_args["xr"] = True
 
 # launch omniverse app
 app_launcher = AppLauncher(app_launcher_args)
@@ -88,7 +89,7 @@ def main() -> None:
     env_name, env_cfg = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
-    if "Lift" in args_cli.task:
+    if "Lift" in args_cli.example_environment:
         # set the resampling time range to large number to avoid resampling
         env_cfg.commands.object_pose.resampling_time_range = (1.0e9, 1.0e9)
         # add termination condition for reaching the goal otherwise the environment won't reset
@@ -104,10 +105,10 @@ def main() -> None:
         # create environment
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
-        if "Reach" in args_cli.task:
+        if "Reach" in args_cli.example_environment:
             logger.warning(
-                f"The environment '{args_cli.task}' does not support gripper control. The device command will be"
-                " ignored."
+                f"The environment '{args_cli.example_environment}' does not support gripper control. The device command"
+                " will be ignored."
             )
     except Exception as e:
         logger.error(f"Failed to create environment: {e}")
@@ -244,6 +245,13 @@ def main() -> None:
                 if teleoperation_active:
                     # process actions
                     actions = action.repeat(env.num_envs, 1)
+                    # Hack for G1 Pink WBC to transferm EE into robot base coordinates
+                    action_manager = getattr(env, "action_manager", None)
+                    if action_manager is not None:
+                        for term_name in action_manager.active_terms:
+                            term = action_manager.get_term(term_name)
+                            if hasattr(term, "preprocess_actions"):
+                                actions = term.preprocess_actions(actions)
                     # apply actions
                     env.step(actions)
                 else:
