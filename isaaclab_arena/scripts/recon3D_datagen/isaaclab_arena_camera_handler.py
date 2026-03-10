@@ -39,7 +39,9 @@ class SceneFlowResult:
     """Bundle returned by the exact adjacent-frame scene-flow computation."""
 
     scene_flow_3d: torch.Tensor
-    """(H, W, 3) float32 — exact world-space displacement from frame t to t+1."""
+    """(H, W, 3) float32 — world-space displacement from frame t to t+1.
+    Use :meth:`~IsaacLabArenaCameraHandler.world_to_camera_scene_flow` to
+    obtain camera-relative flow that also captures camera ego-motion."""
     scene_flow_valid_mask: torch.Tensor
     """(H, W) bool — True where the flow value is trustworthy ground truth."""
     scene_flow_track_type: torch.Tensor
@@ -54,8 +56,10 @@ class FirstFrameFlowResult:
     """
 
     flow3d_from_first: torch.Tensor
-    """(H, W, 3) float32 — world-space displacement from frame-0 anchor to
-    frame-k reconstructed position: ``p_k - p_0``."""
+    """(H, W, 3) float32 — world-space displacement from anchor to
+    frame-k reconstructed position: ``p_k - p_anchor``.
+    Use :meth:`~IsaacLabArenaCameraHandler.world_to_camera_anchor_flow`
+    to obtain camera-relative flow that also captures camera ego-motion."""
     trackable_mask: torch.Tensor
     """(H, W) bool — True for frame-0 pixels that are STATIC, RIGID, or
     ARTICULATION (constant across the sequence)."""
@@ -76,6 +80,8 @@ class _AnchorFrameData:
 
     p0_world: torch.Tensor
     """(H, W, 3) float32 — world positions at the anchor frame."""
+    extrinsics: torch.Tensor
+    """(4, 4) float32 — camera-to-world matrix at the anchor frame."""
     trackable_mask: torch.Tensor
     """(H, W) bool — True for trackable pixels (not UNSUPPORTED)."""
     track_type: torch.Tensor
@@ -120,8 +126,13 @@ class IsaacLabArenaCameraHandler:
         self._next_static_instance_idx: int = 1
         self._next_unsupported_instance_idx: int = 1
 
+        # Override for get_extrinsics() when camera is moved via set_world_pose
+        # (the sensor's pos_w / quat_w_ros do not update after USD prim changes)
+        self._override_extrinsics: Optional[torch.Tensor] = None
+
         # Cached data for one-frame-lag exact scene flow
         self._prev_points_world: Optional[torch.Tensor] = None  # (H, W, 3)
+        self._prev_extrinsics: Optional[torch.Tensor] = None  # (4, 4)
         self._prev_track_type: Optional[torch.Tensor] = None  # (H, W) uint8
         self._prev_valid_mask: Optional[torch.Tensor] = None  # (H, W) bool
         self._prev_local_points: Optional[torch.Tensor] = None  # (H, W, 3)
@@ -196,6 +207,18 @@ class IsaacLabArenaCameraHandler:
 
         self._xform_op.Set(mat)
 
+        # Cache ROS-convention cam-to-world extrinsics so that
+        # get_extrinsics() returns the correct pose even though
+        # the camera sensor's internal pos_w / quat_w_ros do not
+        # update after direct USD prim changes.
+        # ROS camera axes: x = right, y = down, z = forward.
+        T = torch.eye(4, dtype=torch.float32)
+        T[0, 0], T[1, 0], T[2, 0] = float(right[0]), float(right[1]), float(right[2])
+        T[0, 1], T[1, 1], T[2, 1] = float(-cam_up[0]), float(-cam_up[1]), float(-cam_up[2])
+        T[0, 2], T[1, 2], T[2, 2] = float(forward[0]), float(forward[1]), float(forward[2])
+        T[0, 3], T[1, 3], T[2, 3] = float(eye[0]), float(eye[1]), float(eye[2])
+        self._override_extrinsics = T
+
     # ------------------------------------------------------------------
     # Core outputs
     # ------------------------------------------------------------------
@@ -219,7 +242,16 @@ class IsaacLabArenaCameraHandler:
         return self._camera.data.intrinsic_matrices.data[0].clone()
 
     def get_extrinsics(self) -> torch.Tensor:
-        """Returns the 4x4 camera-to-world homogeneous transformation matrix."""
+        """Returns the 4x4 camera-to-world homogeneous transformation matrix.
+
+        If the camera was repositioned via :meth:`set_world_pose`, the
+        override extrinsics are returned (the sensor's internal ``pos_w``
+        / ``quat_w_ros`` do not update after direct USD prim changes).
+        """
+        if self._override_extrinsics is not None:
+            device = self._camera.data.pos_w.device
+            return self._override_extrinsics.clone().to(device)
+
         assert self._camera.data.pos_w.shape[0] == 1, "Expected single environment"
         translation = self._camera.data.pos_w.data[0].clone()
         rotation_quat = self._camera.data.quat_w_ros.data[0].clone()
@@ -553,6 +585,7 @@ class IsaacLabArenaCameraHandler:
                 pass  # UNSUPPORTED — already default
 
         self._prev_points_world = points_world
+        self._prev_extrinsics = extrinsics
         self._prev_track_type = track_type
         self._prev_valid_mask = valid_mask
         self._prev_local_points = local_points
@@ -648,6 +681,169 @@ class IsaacLabArenaCameraHandler:
             scene_flow_valid_mask=valid,
             scene_flow_track_type=self._prev_track_type.clone(),
         )
+
+    # ------------------------------------------------------------------
+    # World-space → camera-relative 3D flow conversion
+    # ------------------------------------------------------------------
+
+    def _world_to_camera_relative_flow(
+        self,
+        p_world_src: torch.Tensor,
+        p_world_dst: torch.Tensor,
+        extr_src: torch.Tensor,
+    ) -> torch.Tensor:
+        """Convert a pair of world-space point clouds to camera-relative 3D flow.
+
+        Computes ``p_cam_dst - p_cam_src`` where each point is expressed in
+        its respective camera coordinate frame.
+
+        Args:
+            p_world_src: (H, W, 3) world positions at the source frame.
+            p_world_dst: (H, W, 3) world positions at the destination frame.
+            extr_src: (4, 4) cam-to-world extrinsics of the source frame.
+
+        Returns:
+            (H, W, 3) float32 camera-relative 3D displacement.
+        """
+        H, W = p_world_src.shape[:2]
+
+        R_src = extr_src[:3, :3]
+        t_src = extr_src[:3, 3]
+        p_cam_src = (p_world_src.reshape(-1, 3) - t_src) @ R_src
+
+        extr_dst = self.get_extrinsics()
+        R_dst = extr_dst[:3, :3]
+        t_dst = extr_dst[:3, 3]
+        p_cam_dst = (p_world_dst.reshape(-1, 3) - t_dst) @ R_dst
+
+        flow = (p_cam_dst - p_cam_src).reshape(H, W, 3)
+        flow[~torch.isfinite(flow)] = 0.0
+        return flow
+
+    def world_to_camera_scene_flow(
+        self, world_flow: torch.Tensor
+    ) -> Optional[torch.Tensor]:
+        """Convert adjacent-frame world-space scene flow to camera-relative.
+
+        For each pixel the result is ``p_cam_{t+1} - p_cam_t`` where
+        ``p_cam_t`` lives in the source camera frame and ``p_cam_{t+1}`` in
+        the current camera frame.  Static pixels will have non-zero flow
+        when the camera moves.
+
+        Must be called after :meth:`compute_exact_scene_flow` and before
+        :meth:`cache_scene_flow_frame` on the same step (so that the
+        cached previous-frame data is still available).
+
+        Args:
+            world_flow: (H, W, 3) world-space 3D displacement (from
+                :attr:`SceneFlowResult.scene_flow_3d`).
+
+        Returns:
+            (H, W, 3) camera-relative 3D displacement, or ``None`` if
+            no previous frame data is cached.
+        """
+        if self._prev_points_world is None or self._prev_extrinsics is None:
+            return None
+        p_dst = self._prev_points_world + world_flow
+        return self._world_to_camera_relative_flow(
+            self._prev_points_world, p_dst, self._prev_extrinsics
+        )
+
+    def world_to_camera_anchor_flow(
+        self, points_world_k: torch.Tensor, anchor_frame: int
+    ) -> Optional[torch.Tensor]:
+        """Convert anchor-frame world-space flow to camera-relative.
+
+        For each anchor pixel the result is ``p_cam_k - p_cam_anchor``
+        where ``p_cam_anchor`` lives in the anchor camera frame and
+        ``p_cam_k`` in the current camera frame.
+
+        Args:
+            points_world_k: (H, W, 3) reconstructed world positions at the
+                current frame (from :attr:`FirstFrameFlowResult.points_world_k`).
+            anchor_frame: Which anchor frame to reference.
+
+        Returns:
+            (H, W, 3) camera-relative 3D displacement, or ``None`` if
+            the anchor frame was not initialised.
+        """
+        data = self._ff_anchors.get(anchor_frame)
+        if data is None:
+            return None
+        return self._world_to_camera_relative_flow(
+            data.p0_world, points_world_k, data.extrinsics
+        )
+
+    # ------------------------------------------------------------------
+    # True 2D optical flow (camera ego-motion + object motion)
+    # ------------------------------------------------------------------
+
+    def compute_true_optical_flow(
+        self,
+        scene_flow_3d: Optional[torch.Tensor] = None,
+    ) -> Optional[torch.Tensor]:
+        """Compute true 2D optical flow including camera ego-motion.
+
+        For each pixel at the *previous* frame, projects its world-space
+        position (optionally displaced by *scene_flow_3d*) into the *current*
+        camera to obtain the (dx, dy) pixel displacement.  This captures
+        both camera motion (parallax on static surfaces) and object motion.
+
+        Must be called *after* :meth:`cache_scene_flow_frame` on the previous
+        frame and :meth:`update` on the current frame.
+
+        Args:
+            scene_flow_3d: (H, W, 3) world-space displacement from the
+                previous frame to the current frame (from
+                :meth:`compute_exact_scene_flow`).  If ``None``, all pixels
+                are treated as static (only camera ego-motion contributes).
+
+        Returns:
+            (H, W, 2) float32 tensor of (dx, dy) pixel displacement, or
+            ``None`` if no previous frame has been cached.
+        """
+        if self._prev_points_world is None:
+            return None
+
+        H, W = self._prev_points_world.shape[:2]
+        device = self._prev_points_world.device
+
+        if scene_flow_3d is not None:
+            pts_world = self._prev_points_world + scene_flow_3d
+        else:
+            pts_world = self._prev_points_world
+
+        intrinsics = self.get_intrinsics()  # (3, 3)
+        extrinsics = self.get_extrinsics()  # (4, 4) cam-to-world
+        R = extrinsics[:3, :3]
+        t_cam = extrinsics[:3, 3]
+
+        # World → camera (inverse of cam-to-world: p_cam = (p_world - t) @ R)
+        pts_cam = (pts_world.reshape(-1, 3) - t_cam.unsqueeze(0)) @ R  # (H*W, 3)
+
+        fx, fy = intrinsics[0, 0], intrinsics[1, 1]
+        cx, cy = intrinsics[0, 2], intrinsics[1, 2]
+        Z = pts_cam[:, 2]
+        u_proj = (fx * pts_cam[:, 0] / Z + cx).reshape(H, W)
+        v_proj = (fy * pts_cam[:, 1] / Z + cy).reshape(H, W)
+
+        grid_v, grid_u = torch.meshgrid(
+            torch.arange(H, device=device, dtype=torch.float32),
+            torch.arange(W, device=device, dtype=torch.float32),
+            indexing="ij",
+        )
+
+        flow = torch.stack([u_proj - grid_u, v_proj - grid_v], dim=-1)
+
+        valid = (
+            self._prev_valid_mask
+            if self._prev_valid_mask is not None
+            else torch.ones(H, W, dtype=torch.bool, device=device)
+        )
+        behind = Z.reshape(H, W) <= 0
+        flow[~valid | behind] = 0.0
+
+        return flow
 
     # ------------------------------------------------------------------
     # First-frame-anchored 3D trajectory flow
@@ -773,6 +969,7 @@ class IsaacLabArenaCameraHandler:
 
         self._ff_anchors[anchor_frame] = _AnchorFrameData(
             p0_world=points_world,
+            extrinsics=extrinsics,
             trackable_mask=(track_type != TrackType.UNSUPPORTED) & valid_depth,
             track_type=track_type,
             local_points=local_points,

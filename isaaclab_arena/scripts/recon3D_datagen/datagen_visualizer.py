@@ -6,7 +6,7 @@
 """Visualization utilities for recon3D data generation outputs.
 
 Provides functions to:
-- Combined grid: color, depth, normals, flow2d, flow3d, track type, flow-from-first, masks, semantics in one figure.
+- Combined grid: color, depth, normals, track type, semantics, flow2d, flow3d, flow-from-first, masks in one figure.
 - Plot 3D camera trajectory with coordinate frames and optional frustums.
 - Interactive 3D scene flow on a point cloud (plotly, rotatable).
 - Individual grids for RGB, depth, normals, optical flow, semantic segmentation.
@@ -174,7 +174,7 @@ def _sample_indices(total: int, num_samples: int) -> list[int]:
     return [int(round(i * (total - 1) / (num_samples - 1))) for i in range(num_samples)]
 
 
-def _colorize_depth(depth: np.ndarray, cmap_name: str = "Spectral") -> np.ndarray:
+def _colorize_depth(depth: np.ndarray, cmap_name: str = "Spectral_r") -> np.ndarray:
     """Normalize a depth map to [0, 1] and apply a matplotlib colormap.
 
     Returns:
@@ -332,7 +332,7 @@ def visualize_depth_grid(
     output_dir: str,
     camera_id: str,
     num_samples: int = 8,
-    cmap: str = "turbo",
+    cmap: str = "Spectral_r",
     save_path: str | None = None,
 ) -> None:
     """Show colorized depth images alongside their RGB counterparts."""
@@ -519,13 +519,13 @@ def visualize_all_modalities_grid(
     output_dir: str,
     camera_id: str,
     num_samples: int = 8,
-    depth_cmap: str = "Spectral",
+    depth_cmap: str = "Spectral_r",
     save_path: str | None = None,
 ) -> None:
     """Single figure: for each sampled frame show all modalities in one row.
 
-    Column order (left to right): Color | Depth | Normals | Track Type | Flow 2D |
-    Flow 3D | Semantics | Flow From 1st | In Frame | Visible Now.
+    Column order (left to right): Color | Depth | Normals | Track Type |
+    Semantics | Flow 2D | Flow 3D | Flow 3D From 1st | In Frame | Visible Now.
     Missing data is shown as a dark placeholder with 'N/A'.
     """
     data = _load_frames(output_dir, camera_id)
@@ -556,8 +556,8 @@ def visualize_all_modalities_grid(
         axes = axes[np.newaxis, :]
 
     col_titles = [
-        "Color", "Depth", "Normals", "Track Type", "Flow 2D", "Flow 3D",
-        "Semantics", "Flow From 1st", "In Frame", "Visible Now",
+        "Color", "Depth", "Normals", "Track Type", "Semantics", "Flow 2D",
+        "Flow 3D", "Flow 3D From 1st", "In Frame", "Visible Now",
     ]
 
     for i, idx in enumerate(sample_ids):
@@ -609,35 +609,35 @@ def visualize_all_modalities_grid(
         axes[i, 3].set_title(col_titles[3] if i == 0 else "", fontsize=10)
         axes[i, 3].axis("off")
 
-        # Column 4: Optical flow (2D)
-        if flows[idx] is not None:
-            axes[i, 4].imshow(_colorize_flow_fast(flows[idx]))
+        # Column 4: Semantic segmentation
+        if semantics[idx] is not None:
+            sem_rgba = semantics[idx]
+            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
+            axes[i, 4].imshow(sem_rgb)
+            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
+            if legend_patches:
+                axes[i, 4].legend(
+                    handles=legend_patches, loc="upper left", fontsize=5,
+                    framealpha=0.8, handlelength=1.0, handleheight=0.8,
+                )
         else:
             axes[i, 4].imshow(blank)
             axes[i, 4].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 4].set_title(col_titles[4] if i == 0 else "", fontsize=10)
         axes[i, 4].axis("off")
 
-        # Column 5: Scene flow (3D) — adjacent
-        if flows_3d[idx] is not None:
-            axes[i, 5].imshow(_colorize_flow3d(flows_3d[idx]))
+        # Column 5: Optical flow (2D)
+        if flows[idx] is not None:
+            axes[i, 5].imshow(_colorize_flow_fast(flows[idx]))
         else:
             axes[i, 5].imshow(blank)
             axes[i, 5].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
         axes[i, 5].set_title(col_titles[5] if i == 0 else "", fontsize=10)
         axes[i, 5].axis("off")
 
-        # Column 6: Semantic segmentation
-        if semantics[idx] is not None:
-            sem_rgba = semantics[idx]
-            sem_rgb = sem_rgba[..., :3] if sem_rgba.shape[-1] == 4 else sem_rgba
-            axes[i, 6].imshow(sem_rgb)
-            legend_patches = _build_semantic_legend(sem_infos[idx] if idx < len(sem_infos) else None)
-            if legend_patches:
-                axes[i, 6].legend(
-                    handles=legend_patches, loc="upper left", fontsize=5,
-                    framealpha=0.8, handlelength=1.0, handleheight=0.8,
-                )
+        # Column 6: Scene flow (3D) — adjacent
+        if flows_3d[idx] is not None:
+            axes[i, 6].imshow(_colorize_flow3d(flows_3d[idx]))
         else:
             axes[i, 6].imshow(blank)
             axes[i, 6].text(w // 2, h // 2, "N/A", ha="center", va="center", color="gray", fontsize=12)
@@ -674,11 +674,6 @@ def visualize_all_modalities_grid(
         axes[i, 9].set_title(col_titles[9] if i == 0 else "", fontsize=10)
         axes[i, 9].axis("off")
 
-    fig.suptitle(
-        "Color | Depth | Normals | Track Type | Flow 2D | Flow 3D | "
-        "Semantics | Flow From 1st | In Frame | Visible Now",
-        fontsize=11,
-    )
     fig.tight_layout()
 
     if save_path:
@@ -692,14 +687,14 @@ def visualize_all_modalities_video(
     output_dir: str,
     camera_id: str,
     fps: int = 5,
-    depth_cmap: str = "Spectral",
+    depth_cmap: str = "Spectral_r",
     save_path: str | None = None,
 ) -> None:
     """Render one video frame per timestep with all modalities in a 2-row grid.
 
     Layout (2 rows x 5 columns):
-        Row 0: Color | Depth | Normals | Track Type | Flow 2D
-        Row 1: Flow 3D | Semantics | Flow From 1st | In Frame | Visible Now
+        Row 0: Color | Depth | Normals | Track Type | Semantics
+        Row 1: Flow 2D | Flow 3D | Flow 3D From 1st | In Frame | Visible Now
 
     The video runs at *fps* frames per second and is saved as an mp4.
 
@@ -741,8 +736,8 @@ def visualize_all_modalities_video(
 
     nrows, ncols = 2, 5
     col_titles = [
-        "Color", "Depth", "Normals", "Track Type", "Flow 2D",
-        "Flow 3D", "Semantics", "Flow From 1st", "In Frame", "Visible Now",
+        "Color", "Depth", "Normals", "Track Type", "Semantics",
+        "Flow 2D", "Flow 3D", "Flow 3D From 1st", "In Frame", "Visible Now",
     ]
 
     if save_path is None:
@@ -774,22 +769,22 @@ def visualize_all_modalities_video(
             images.append(tt_rgb)
         else:
             images.append(blank)
-        images.append(
-            _colorize_flow_fast(flows[idx])
-            if flows[idx] is not None else blank
-        )
-
-        # --- row 1 ---
-        images.append(
-            _colorize_flow3d(flows_3d[idx])
-            if flows_3d[idx] is not None else blank
-        )
         sem = semantics[idx] if idx < len(semantics) else None
         if sem is not None:
             sem_rgb = sem[..., :3] if sem.shape[-1] == 4 else sem
             images.append(sem_rgb)
         else:
             images.append(blank)
+
+        # --- row 1 ---
+        images.append(
+            _colorize_flow_fast(flows[idx])
+            if flows[idx] is not None else blank
+        )
+        images.append(
+            _colorize_flow3d(flows_3d[idx])
+            if flows_3d[idx] is not None else blank
+        )
         ff = ff_flows[idx] if idx < len(ff_flows) else None
         images.append(_colorize_flow3d(ff) if ff is not None else blank)
         ifm = in_frame_masks[idx] if idx < len(in_frame_masks) else None

@@ -71,17 +71,17 @@ Each run writes data under `OUTPUT_DIR`. Each camera has its own subfolder (e.g.
 ├── cam0/
 │   ├── color/                  RGB images
 │   ├── depth/                  Depth maps
-│   ├── flow2d/                 Optical flow (2D)
-│   ├── flow3d/                 Adjacent-frame 3D scene flow
+│   ├── normal/                 Surface normals
+│   ├── flow2d/                 Optical flow (2D). From current frame to next.
+│   ├── flow3d/                 Adjacent-frame 3D scene flow. From current frame to next.
 │   ├── flow3d_track_type/      Track type for adjacent flow
-│   ├── flow3d_from_frame0/     Anchor-frame-0 3D flow (ANCHOR_FRAMES=[0])
+│   ├── flow3d_from_frame0/     Anchor-frame-0 3D flow (ANCHOR_FRAMES=[0]). From anchor frame to current frame.
 │   ├── trackable_mask_frame0/  Trackable mask for anchor 0
+│   ├── semantic/               Semantic segmentation + metadata
 │   ├── in_frame_mask_frame0/   In-frame mask for anchor 0
 │   ├── visible_now_mask_frame0/ Visible-now mask for anchor 0
-│   ├── normal/                 Surface normals
 │   ├── intrinsic/              Camera intrinsic matrices
 │   ├── extrinsic/              Camera-to-world matrices
-│   ├── semantic/               Semantic segmentation + metadata
 │   └── visualizations/         Pre-rendered visualisations (if generated)
 ├── cam1/
 │   └── ...

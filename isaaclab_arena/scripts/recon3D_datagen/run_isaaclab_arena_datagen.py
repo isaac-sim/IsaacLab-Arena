@@ -24,7 +24,7 @@ CAM0 = {
 }
 
 # CAM1: dynamic position — horizontal slide to the right, static target
-_c1_x_start = 0.0
+_c1_x_start = -2.0
 _c1_x_end = 0.4
 CAM1 = {
     "position": [
@@ -45,7 +45,7 @@ CAMERAS = [CAM0, CAM1] # CAM1, CAM2... for multi-view
 
 OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
 OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
-ANCHOR_FRAMES = [0]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
+ANCHOR_FRAMES = [0, 9]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
 
 # Visualization (optional step at the end)
 NUM_VIZ_SAMPLES = 8
@@ -173,13 +173,18 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
             if step_idx > 0:
                 flow_result = handler.compute_exact_scene_flow(env)
                 prev_idx = step_idx - 1
-                writer.write_optical_flow(
-                    handler.get_optical_flow(), cam_id, prev_idx,
-                    camera_name=cam_name)
-                if flow_result is not None:
-                    writer.write_scene_flow_3d(
-                        flow_result.scene_flow_3d, cam_id, prev_idx,
+                sf3d = flow_result.scene_flow_3d if flow_result is not None else None
+                true_flow = handler.compute_true_optical_flow(sf3d)
+                if true_flow is not None:
+                    writer.write_optical_flow(
+                        true_flow, cam_id, prev_idx,
                         camera_name=cam_name)
+                if flow_result is not None:
+                    cam_sf = handler.world_to_camera_scene_flow(
+                        flow_result.scene_flow_3d)
+                    writer.write_scene_flow_3d(
+                        cam_sf if cam_sf is not None else flow_result.scene_flow_3d,
+                        cam_id, prev_idx, camera_name=cam_name)
                     if flow_result.scene_flow_track_type is not None:
                         writer.write_scene_flow_track_type(
                             flow_result.scene_flow_track_type, cam_id, prev_idx,
@@ -196,8 +201,11 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
                     break
                 ff = handler.compute_anchor_frame_flow(
                     env, anchor_frame=af, occlusion_tol=OCCLUSION_TOL)
+                cam_ff = handler.world_to_camera_anchor_flow(
+                    ff.points_world_k, anchor_frame=af)
                 writer.write_flow3d_from_first(
-                    ff.flow3d_from_first, cam_id, step_idx,
+                    cam_ff if cam_ff is not None else ff.flow3d_from_first,
+                    cam_id, step_idx,
                     camera_name=cam_name, anchor_frame=af)
                 writer.write_trackable_mask(
                     ff.trackable_mask, cam_id, step_idx,
