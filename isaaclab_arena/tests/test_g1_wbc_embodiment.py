@@ -17,30 +17,31 @@ NUM_STEPS = 10
 HEADLESS = True
 ENABLE_CAMERAS = True
 STANDING_POSITION_XY_EPS = 1e-1
+# Wrist quaternions in xyzw (identity-like: x, y, z, w)
 WBC_PINK_IDLE_ACTION = [
-    0.0,
-    0.0,
+    0.0,  # left_hand_state
+    0.0,  # right_hand_state
     0.201,
     0.145,
-    0.101,
-    1.000,
+    0.101,  # left_wrist_pos
     0.010,
     -0.008,
     -0.011,
+    1.000,  # left_wrist_quat (xyzw)
     0.201,
     -0.145,
-    0.101,
-    1.000,
+    0.101,  # right_wrist_pos
     -0.010,
     -0.008,
     -0.011,
+    1.000,  # right_wrist_quat (xyzw)
     0.0,
     0.0,
+    0.0,  # navigate_cmd
+    0.75,  # base_height_cmd
     0.0,
-    0.75,
     0.0,
-    0.0,
-    0.0,
+    0.0,  # torso_orientation_rpy_cmd
 ]
 
 

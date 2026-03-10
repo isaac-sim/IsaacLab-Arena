@@ -125,7 +125,7 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
     ), "G1 XR anchor_rotation_mode should be FOLLOW_PRIM_SMOOTHED"
 
     # With initial pose set, config is unchanged (anchor is relative to pelvis prim, not world)
-    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     embodiment.set_initial_pose(robot_pose)
     xr_cfg_after = embodiment.get_xr_cfg()
     np.testing.assert_allclose(

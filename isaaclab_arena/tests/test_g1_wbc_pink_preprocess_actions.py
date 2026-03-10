@@ -6,6 +6,7 @@
 """Unit tests for G1 WBC Pink action preprocess_actions (world → robot base frame)."""
 
 import torch
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
@@ -43,7 +44,7 @@ def _get_g1_pink_env_and_term(simulation_app):
     background = asset_registry.get_asset_by_name("kitchen")()
     scene = Scene(assets=[background])
     embodiment = G1WBCPinkEmbodiment(enable_cameras=False)
-    embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="g1_pink_preprocess_test",
         embodiment=embodiment,
@@ -77,7 +78,7 @@ def _test_preprocess_actions_identity_base(simulation_app) -> bool:
     try:
         device = env.unwrapped.device
         action_dim = term.action_dim
-        robot_base_pos = term._asset.data.root_link_pos_w[0, :3]
+        robot_base_pos = wp.to_torch(term._asset.data.root_link_pos_w)[0, :3]
 
         # World-frame wrist positions: base + offset (so base-frame offset is known)
         left_offset = torch.tensor([1.0, 2.0, 3.0], device=device)
@@ -88,11 +89,11 @@ def _test_preprocess_actions_identity_base(simulation_app) -> bool:
         actions = torch.zeros(1, action_dim, device=device)
         actions[0, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = left_pos_world
         actions[0, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = torch.tensor(
-            [1.0, 0.0, 0.0, 0.0], device=device
+            [0.0, 0.0, 0.0, 1.0], device=device
         )
         actions[0, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = right_pos_world
         actions[0, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = torch.tensor(
-            [1.0, 0.0, 0.0, 0.0], device=device
+            [0.0, 0.0, 0.0, 1.0], device=device
         )
 
         out = term.preprocess_actions(actions)
@@ -131,15 +132,15 @@ def _test_preprocess_actions_roundtrip(simulation_app) -> bool:
         action_dim = term.action_dim
         asset = term._asset
 
-        robot_base_pos = asset.data.root_link_pos_w[:, :3]
-        robot_base_quat = asset.data.root_link_quat_w
+        robot_base_pos = wp.to_torch(asset.data.root_link_pos_w)[:, :3]
+        robot_base_quat = wp.to_torch(asset.data.root_link_quat_w)
         num_envs = robot_base_pos.shape[0]
 
         # Arbitrary world-frame wrist poses
         left_pos_w = torch.tensor([[1.0, 0.0, 0.5]], device=device).expand(num_envs, 3)
-        left_quat_w = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=device).expand(num_envs, 4)
+        left_quat_w = torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=device).expand(num_envs, 4)
         right_pos_w = torch.tensor([[0.0, 1.0, 0.5]], device=device).expand(num_envs, 3)
-        right_quat_w = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=device).expand(num_envs, 4)
+        right_quat_w = torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=device).expand(num_envs, 4)
 
         actions = torch.zeros(num_envs, action_dim, device=device)
         actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = left_pos_w

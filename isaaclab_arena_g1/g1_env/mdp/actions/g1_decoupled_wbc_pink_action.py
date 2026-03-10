@@ -195,9 +195,9 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             action = [left_hand_state: dim=1, 0 for open, 1 for close,
                       right_hand_state: dim=1, 0 for open, 1 for close,
                       left_arm_pos: dim=3, xyz position,
-                      left_arm_quat: dim=4, wxyz quaternion,
+                      left_arm_quat: dim=4, xyzw quaternion,
                       right_arm_pos: dim=3, xyz position,
-                      right_arm_quat: dim=4, wxyz quaternion,
+                      right_arm_quat: dim=4, xyzw quaternion,
                       navigate_cmd: dim=3, xyz velocity,
                       base_height_cmd: dim=1, height,
                       torso_orientation_rpy_cmd: dim=3, rpy]
@@ -221,10 +221,10 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu().numpy()
 
         # Replace zero-norm quaternions with identity (e.g. zero actions from env.step(zeros))
-        _IDENTITY_QUAT_WXYZ = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+        _IDENTITY_QUAT_XYZW = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float64)
         for q in (left_arm_quat, right_arm_quat):
             if np.linalg.norm(q) < 1e-8:
-                q[:] = _IDENTITY_QUAT_WXYZ
+                q[:] = _IDENTITY_QUAT_XYZW
 
         # Convert from pos/quat to 4x4 transform matrix
         left_rotmat = R.from_quat(left_arm_quat).as_matrix()
@@ -377,8 +377,8 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         """
         actions = actions.clone()
 
-        robot_base_pos = self._asset.data.root_link_pos_w[:, :3]
-        robot_base_quat = self._asset.data.root_link_quat_w
+        robot_base_pos = wp.to_torch(self._asset.data.root_link_pos_w)[:, :3]
+        robot_base_quat = wp.to_torch(self._asset.data.root_link_quat_w)
 
         left_wrist_pos_world = actions[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX]
         right_wrist_pos_world = actions[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX]
