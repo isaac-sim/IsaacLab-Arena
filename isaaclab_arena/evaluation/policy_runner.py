@@ -111,8 +111,8 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
-        # only compute metrics if env has metrics registered
-        if hasattr(env.cfg, "metrics"):
+        # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
+        if hasattr(env.cfg, "metrics") and env.cfg.metrics is not None:
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
 

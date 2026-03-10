@@ -46,9 +46,10 @@ if args_cli.enable_pinocchio:
     # GR1T2 retargeter
     import pinocchio  # noqa: F401
 
-    # Keep this on if we use pinocchio as we will use AVP for the humanoid
-    if "handtracking" in args_cli.teleop_device.lower():
-        app_launcher_args["xr"] = True
+# TODO(cvolk): XR mode is inferred from teleop device name via string matching.
+# Ideally, AppLauncher or the device config would auto-detect XR requirements.
+if "openxr" in args_cli.teleop_device.lower():
+    app_launcher_args["xr"] = True
 
 # launch omniverse app
 app_launcher = AppLauncher(app_launcher_args)
@@ -57,10 +58,10 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 
+import logging
 import torch
 
 import isaaclab_tasks  # noqa: F401
-import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
 from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
@@ -69,6 +70,8 @@ from isaaclab_tasks.manager_based.manipulation.lift import mdp
 
 if args_cli.enable_pinocchio:
     import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -86,7 +89,7 @@ def main() -> None:
     env_name, env_cfg = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
-    if "Lift" in args_cli.task:
+    if "Lift" in args_cli.example_environment:
         # set the resampling time range to large number to avoid resampling
         env_cfg.commands.object_pose.resampling_time_range = (1.0e9, 1.0e9)
         # add termination condition for reaching the goal otherwise the environment won't reset
@@ -102,13 +105,13 @@ def main() -> None:
         # create environment
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
-        if "Reach" in args_cli.task:
-            omni.log.warn(
-                f"The environment '{args_cli.task}' does not support gripper control. The device command will be"
-                " ignored."
+        if "Reach" in args_cli.example_environment:
+            logger.warning(
+                f"The environment '{args_cli.example_environment}' does not support gripper control. The device command"
+                " will be ignored."
             )
     except Exception as e:
-        omni.log.error(f"Failed to create environment: {e}")
+        logger.error(f"Failed to create environment: {e}")
         simulation_app.close()
         return
 
@@ -180,7 +183,9 @@ def main() -> None:
                 args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
             )
         else:
-            omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
+            logger.warning(
+                f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default."
+            )
             # Create fallback teleop device
             sensitivity = args_cli.sensitivity
             if args_cli.teleop_device.lower() == "keyboard":
@@ -196,8 +201,8 @@ def main() -> None:
                     Se3GamepadCfg(pos_sensitivity=0.1 * sensitivity, rot_sensitivity=0.1 * sensitivity)
                 )
             else:
-                omni.log.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                omni.log.error("Supported devices: keyboard, spacemouse, gamepad, avp_handtracking")
+                logger.error(f"Unsupported teleop device: {args_cli.teleop_device}")
+                logger.error("Supported devices: keyboard, spacemouse, gamepad, avp_handtracking")
                 env.close()
                 simulation_app.close()
                 return
@@ -207,15 +212,15 @@ def main() -> None:
                 try:
                     teleop_interface.add_callback(key, callback)
                 except (ValueError, TypeError) as e:
-                    omni.log.warn(f"Failed to add callback for key {key}: {e}")
+                    logger.warning(f"Failed to add callback for key {key}: {e}")
     except Exception as e:
-        omni.log.error(f"Failed to create teleop device: {e}")
+        logger.error(f"Failed to create teleop device: {e}")
         env.close()
         simulation_app.close()
         return
 
     if teleop_interface is None:
-        omni.log.error("Failed to create teleop interface")
+        logger.error("Failed to create teleop interface")
         env.close()
         simulation_app.close()
         return
@@ -240,6 +245,13 @@ def main() -> None:
                 if teleoperation_active:
                     # process actions
                     actions = action.repeat(env.num_envs, 1)
+                    # Hack for G1 Pink WBC to transferm EE into robot base coordinates
+                    action_manager = getattr(env, "action_manager", None)
+                    if action_manager is not None:
+                        for term_name in action_manager.active_terms:
+                            term = action_manager.get_term(term_name)
+                            if hasattr(term, "preprocess_actions"):
+                                actions = term.preprocess_actions(actions)
                     # apply actions
                     env.step(actions)
                 else:
@@ -250,7 +262,7 @@ def main() -> None:
                     should_reset_recording_instance = False
                     print("Environment reset complete")
         except Exception as e:
-            omni.log.error(f"Error during simulation step: {e}")
+            logger.error(f"Error during simulation step: {e}")
             break
 
     # close the simulator

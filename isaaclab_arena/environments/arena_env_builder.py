@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import gymnasium as gym
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -25,6 +26,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -66,12 +68,23 @@ class ArenaEnvBuilder:
                 objects_with_relations.append(asset)
         return objects_with_relations
 
+    def _add_pairwise_no_collision(self, objects_with_relations: list[Object | ObjectReference]) -> None:
+        """Add NoCollision between every pair of non-anchor objects (if not already present)."""
+        non_anchors = [
+            obj for obj in objects_with_relations if not any(isinstance(r, IsAnchor) for r in obj.get_relations())
+        ]
+        for i, obj_a in enumerate(non_anchors):
+            for obj_b in non_anchors[i + 1 :]:
+                has_no_collision = any(isinstance(r, NoCollision) and r.parent is obj_b for r in obj_a.get_relations())
+                if not has_no_collision:
+                    obj_a.add_relation(NoCollision(obj_b))
+
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
         This method:
         1. Collects all objects from the scene that have relations
-        2. Finds the anchor object (marked with IsAnchor)
+        2. Adds NoCollision between every pair of non-anchor objects (if not already present)
         3. Runs the ObjectPlacer to solve spatial constraints
         4. Applies solved positions to objects
         """
@@ -82,7 +95,9 @@ class ArenaEnvBuilder:
             print("No objects with relations found in scene. Skipping relation solving.")
             return
 
-        # Run the ObjectPlacer
+        self._add_pairwise_no_collision(objects_with_relations)
+
+        # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
         placer = ObjectPlacer()
         result = placer.place(objects=objects_with_relations)
 
@@ -91,13 +106,12 @@ class ArenaEnvBuilder:
         else:
             print(f"Relation solving not completed after {result.attempts} attempt(s)")
 
-    def _modify_recorder_cfg_for_distributed(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
-        """Modify the recorder dataset filename for distributed multi-gpu envs.
-        This is to avoid HDF5 file lock conflict when distributed: each rank uses a unique dataset filename.
-        """
-        if getattr(self.args, "distributed", False):
-            base = getattr(recorder_cfg, "dataset_filename", "dataset")
-            recorder_cfg.dataset_filename = f"{base}_rank{get_local_rank()}"
+    def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
+        """Modify the recorder dataset filename to include the timestamp and rank."""
+        base = getattr(recorder_cfg, "dataset_filename", "dataset")
+        recorder_cfg.dataset_filename = (
+            f"{base}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_rank{get_local_rank()}"
+        )
         return recorder_cfg
 
     # This method gives the arena environment a chance to modify the environment configuration.
@@ -168,8 +182,7 @@ class ArenaEnvBuilder:
             embodiment.get_recorder_term_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
-        # Only modify the recorder configuration for distributed multi-gpu envs.
-        recorder_manager_cfg = self._modify_recorder_cfg_for_distributed(recorder_manager_cfg)
+        recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
 
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
@@ -276,10 +289,17 @@ class ArenaEnvBuilder:
         # THIS WILL BE REMOVED IN THE FUTURE.
         cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
+        # Register the environment with the Gym registry.
+        kwargs = {
+            "env_cfg_entry_point": cfg_entry,
+        }
+        if self.arena_env.rl_framework is not None:
+            assert self.arena_env.rl_policy_cfg is not None
+            kwargs[self.arena_env.rl_framework.get_entry_point_string()] = self.arena_env.rl_policy_cfg
         gym.register(
             id=name,
             entry_point=entry_point,
-            kwargs={"env_cfg_entry_point": cfg_entry},
+            kwargs=kwargs,
             disable_env_checker=True,
         )
         cfg = parse_env_cfg(

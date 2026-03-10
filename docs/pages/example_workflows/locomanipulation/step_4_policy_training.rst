@@ -16,7 +16,7 @@ Once inside the container, set the dataset and models directories.
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Data Generation) <step_2_data_generation>` or downloaded the pre-generated dataset.
+:doc:`preceding step (Data Generation) <step_3_data_generation>` or downloaded the pre-generated dataset.
 
 .. dropdown:: Download Pre-generated Dataset (skip preceding steps)
    :animate: fade-in

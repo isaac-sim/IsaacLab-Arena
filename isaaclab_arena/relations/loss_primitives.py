@@ -122,3 +122,41 @@ def single_point_linear_loss(
         target = torch.tensor(target, dtype=value.dtype, device=value.device)
 
     return slope * torch.abs(value - target)
+
+
+def interval_overlap_axis_loss(
+    child_min: torch.Tensor,
+    child_max: torch.Tensor,
+    parent_min: torch.Tensor | float,
+    parent_max: torch.Tensor | float,
+    slope: float = 1.0,
+) -> torch.Tensor:
+    """ReLU-style interval overlap: zero when separated, slope * overlap length otherwise.
+
+    Used by NoCollisionLossStrategy for per-axis overlap. Intervals [child_min, child_max]
+    and [parent_min, parent_max]; loss is zero when they do not overlap, else
+    slope * overlap_length.
+
+    Args:
+        child_min: Child interval min (tensor for gradient flow).
+        child_max: Child interval max (tensor).
+        parent_min: Parent interval min (tensor or float).
+        parent_max: Parent interval max (tensor or float).
+        slope: Gradient magnitude (default: 1.0).
+
+    Returns:
+        Zero when intervals are separated; otherwise slope * overlap length.
+    """
+    assert isinstance(child_min, torch.Tensor), f"child_min must be a torch.Tensor, got {type(child_min)}"
+    assert isinstance(child_max, torch.Tensor), f"child_max must be a torch.Tensor, got {type(child_max)}"
+    assert torch.all(child_min <= child_max), "child_min must be <= child_max for valid interval [child_min, child_max]"
+    if not isinstance(parent_min, torch.Tensor):
+        parent_min = torch.tensor(parent_min, dtype=child_min.dtype, device=child_min.device)
+    if not isinstance(parent_max, torch.Tensor):
+        parent_max = torch.tensor(parent_max, dtype=child_max.dtype, device=child_max.device)
+    assert torch.all(
+        parent_min <= parent_max
+    ), "parent_min must be <= parent_max for valid interval [parent_min, parent_max]"
+    overlap_high = torch.minimum(child_max, parent_max)
+    overlap_low = torch.maximum(child_min, parent_min)
+    return single_boundary_linear_loss(overlap_high, overlap_low, slope=slope, penalty_side="greater")

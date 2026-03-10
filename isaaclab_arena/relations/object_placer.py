@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -185,20 +185,51 @@ class ObjectPlacer:
                 positions[obj] = random_pose.position_xyz
         return positions
 
-    def _validate_placement(
+    def _validate_on_relations(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Validate that no two objects overlap in 3D.
+        """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
 
-        Checks all object pairs for axis-aligned bounding box overlap.
-
-        Args:
-            positions: Dictionary mapping objects to their solved (x, y, z) positions.
-
-        Returns:
-            True if no overlaps exist, False otherwise.
+        1. X: child's footprint entirely within parent's X extent.
+        2. Y: child's footprint entirely within parent's Y extent.
+        3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
         """
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, On):
+                    continue
+                parent = rel.parent
+                if parent not in positions:
+                    continue
+                child_world = obj.get_bounding_box().translated(positions[obj])
+                parent_world = parent.get_bounding_box().translated(positions[parent])
+                # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
+                if (
+                    child_world.min_point[0] < parent_world.min_point[0]
+                    or child_world.max_point[0] > parent_world.max_point[0]
+                    or child_world.min_point[1] < parent_world.min_point[1]
+                    or child_world.max_point[1] > parent_world.max_point[1]
+                ):
+                    if self.params.verbose:
+                        print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                    return False
+                # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
+                parent_top_z = parent_world.max_point[2]
+                clearance_m = rel.clearance_m
+                child_bottom_z = child_world.min_point[2]
+                eps_z = self.params.on_relation_z_tolerance_m
+                if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
+                    if self.params.verbose:
+                        print(f"  On relation: '{obj.name}' Z outside band (retrying)")
+                    return False
+        return True
+
+    def _validate_no_overlap(
+        self,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> bool:
+        """Check that no two objects overlap in 3D (axis-aligned bbox with margin)."""
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
@@ -211,8 +242,21 @@ class ObjectPlacer:
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False
-
         return True
+
+    def _validate_placement(
+        self,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> bool:
+        """Validate that no two objects overlap in 3D and On relations are satisfied.
+
+        Args:
+            positions: Dictionary mapping objects to their solved (x, y, z) positions.
+
+        Returns:
+            True if no overlaps exist and On relations hold, False otherwise.
+        """
+        return self._validate_no_overlap(positions) and self._validate_on_relations(positions)
 
     def _apply_positions(
         self,

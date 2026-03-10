@@ -118,7 +118,7 @@ jobs:
       - &install_project_step
         name: Install project and link isaac-sim
         run: |
-          pip install --no-cache-dir -e .
+          /isaac-sim/python.sh -m pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       # Run the tests (excluding the gr00t related tests)
