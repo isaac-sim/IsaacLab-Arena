@@ -86,9 +86,15 @@ def main() -> None:
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
         if "Reach" in args_cli.example_environment:
+<<<<<<< HEAD
             logger.warning(
                 f"The environment '{args_cli.example_environment}' does not support gripper control. The device command"
                 " will be ignored."
+=======
+            omni.log.warn(
+                f"The environment '{args_cli.example_environment}' does not support gripper control. The device command will be"
+                " ignored."
+>>>>>>> 28795068 (fix teleop scripts)
             )
     except Exception as e:
         omni.log.error(f"Failed to create environment: {e}")
@@ -207,45 +213,48 @@ def main() -> None:
 
     print(f"Using teleop device: {teleop_interface}")
 
-    # reset environment
-    env.reset()
-    teleop_interface.reset()
+    # IsaacTeleop (OpenXR) requires the device to be used as a context manager so
+    # TeleopSessionLifecycle.start() is called before advance().
+    use_isaac_teleop = hasattr(teleop_interface, "__enter__") and hasattr(teleop_interface, "__exit__")
 
-    print("Teleoperation started. Press 'R' to reset the environment.")
+    def run_teleop_loop() -> None:
+        nonlocal should_reset_recording_instance
+        env.reset()
+        teleop_interface.reset()
+        print("Teleoperation started. Press 'R' to reset the environment.")
+        while simulation_app.is_running():
+            try:
+                with torch.inference_mode():
+                    action = teleop_interface.advance()
+                    # action is None when IsaacTeleop session hasn't started yet (e.g. waiting for "Start AR")
+                    if action is None:
+                        env.sim.render()
+                    elif teleoperation_active:
+                        actions = action.repeat(env.num_envs, 1)
+                        action_manager = getattr(env, "action_manager", None)
+                        if action_manager is not None:
+                            for term_name in action_manager.active_terms:
+                                term = action_manager.get_term(term_name)
+                                if hasattr(term, "preprocess_actions"):
+                                    actions = term.preprocess_actions(actions)
+                        env.step(actions)
+                    else:
+                        env.sim.render()
+                    if should_reset_recording_instance:
+                        env.reset()
+                        teleop_interface.reset()
+                        should_reset_recording_instance = False
+                        print("Environment reset complete")
+            except Exception as e:
+                omni.log.error(f"Error during simulation step: {e}")
+                break
 
-    # simulate environment
-    while simulation_app.is_running():
-        try:
-            # run everything in inference mode
-            with torch.inference_mode():
-                # get device command
-                action = teleop_interface.advance()
+    if use_isaac_teleop:
+        with teleop_interface:
+            run_teleop_loop()
+    else:
+        run_teleop_loop()
 
-                # Only apply teleop commands when active
-                if teleoperation_active:
-                    # process actions
-                    actions = action.repeat(env.num_envs, 1)
-                    # Hack for G1 Pink WBC to transferm EE into robot base coordinates
-                    action_manager = getattr(env, "action_manager", None)
-                    if action_manager is not None:
-                        for term_name in action_manager.active_terms:
-                            term = action_manager.get_term(term_name)
-                            if hasattr(term, "preprocess_actions"):
-                                actions = term.preprocess_actions(actions)
-                    # apply actions
-                    env.step(actions)
-                else:
-                    env.sim.render()
-
-                if should_reset_recording_instance:
-                    env.reset()
-                    should_reset_recording_instance = False
-                    print("Environment reset complete")
-        except Exception as e:
-            omni.log.error(f"Error during simulation step: {e}")
-            break
-
-    # close the simulator
     env.close()
     print("Environment closed")
 
