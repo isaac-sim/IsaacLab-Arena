@@ -59,6 +59,7 @@ CAMERAS = [CAM0, CAM1]
 | `NUM_STEPS` | Simulation steps (frames) to record (e.g. 30). |
 | `OCCLUSION_TOL` | Depth tolerance in metres for the visible-now mask (e.g. 0.1). |
 | `ANCHOR_FRAMES` | List of frame indices for anchored 3D flow (default `[0]`, e.g. `[0, 4, 6]`). |
+| `DYNAMIC_MOTION_EPS` | Motion threshold (metres/radians) for classifying an object as dynamic (default `1e-4`). |
 
 ---
 
@@ -68,6 +69,8 @@ Each run writes data under `OUTPUT_DIR`. Each camera has its own subfolder (e.g.
 
 ```
 (output root)/
+├── dynamic_objects.json         Metadata for dynamic objects (types, names, array keys)
+├── dynamic_objects_poses.npz   SE(3) pose arrays for dynamic objects
 ├── cam0/
 │   ├── color/                  RGB images
 │   ├── depth/                  Depth maps
@@ -124,6 +127,46 @@ By default (`ANCHOR_FRAMES = [0]`), flow is computed from frame 0 to all subsequ
 | **visible_now_mask_frame{N}** | PNG | In-frame and depth-consistent (not occluded). |
 
 Relationship: `trackable_mask ⊇ in_frame_mask ⊇ visible_now_mask`.
+
+### Dynamic object poses (hybrid: JSON + `.npz`)
+
+Two files at the output root record world-frame SE(3) poses for every dynamic object (rigid or articulated) that was visible in at least one camera at some time step and exhibited actual motion above `DYNAMIC_MOTION_EPS`. Poses are recorded at **all** time steps regardless of visibility.
+
+- **`dynamic_objects.json`** — metadata only (object names, types, body indices, and the key to look up each pose array in the `.npz`).
+- **`dynamic_objects_poses.npz`** — NumPy archive. Each entry is a `(num_steps, 3, 4)` float32 array storing the 3x4 `[R|t]` portion of the SE(3) matrix at every step (the omitted last row is always `[0, 0, 0, 1]`).
+
+Example JSON structure:
+
+```json
+{
+  "metadata": { "num_steps": 30, "motion_threshold": 0.0001, ... },
+  "objects": {
+    "rigid_object_1_cracker_box": {
+      "type": "rigid",
+      "asset_name": "cracker_box",
+      "pose_array_key": "rigid_object_1_cracker_box"
+    },
+    "articulated_object_1_robot": {
+      "type": "articulation",
+      "asset_name": "robot",
+      "parts": {
+        "base_link": { "body_index": 0, "pose_array_key": "articulated_object_1_robot/base_link" },
+        "shoulder_link": { "body_index": 1, "pose_array_key": "articulated_object_1_robot/shoulder_link" }
+      }
+    }
+  }
+}
+```
+
+Loading poses in Python:
+
+```python
+import json, numpy as np
+meta = json.load(open("dynamic_objects.json"))
+poses = np.load("dynamic_objects_poses.npz")
+# Rigid object poses at all steps: (N, 3, 4) array
+box_poses = poses[meta["objects"]["rigid_object_1_cracker_box"]["pose_array_key"]]
+```
 
 ### Frame index convention
 

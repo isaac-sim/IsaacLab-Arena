@@ -367,3 +367,33 @@ class IsaacLabArenaWriter:
             self.write_scene_flow_track_type(
                 scene_flow_track_type, camera_id, frame_index, camera_name=camera_name
             )
+
+    # ------------------------------------------------------------------
+    # Dynamic object poses
+    # ------------------------------------------------------------------
+
+    def write_dynamic_object_poses(self, result: Any) -> None:
+        """Write dynamic object poses as a JSON metadata file plus a ``.npz`` pose archive.
+
+        Produces two files at the output root (not inside a camera
+        subfolder, since poses are in the global world frame):
+
+        * ``dynamic_objects.json`` — metadata (object names, types, body
+          indices, and the key used to look up the pose array).
+        * ``dynamic_objects_poses.npz`` — NumPy archive where each entry
+          is a ``(num_steps, 3, 4)`` float32 array of SE(3) poses.
+
+        Args:
+            result: A :class:`~isaaclab_arena_camera_handler.DynamicObjectResult`
+                from :meth:`DynamicObjectTracker.get_dynamic_object_data`.
+        """
+        json_path = os.path.join(self._output_dir, "dynamic_objects.json")
+        json_data = {
+            "metadata": result.metadata,
+            "objects": result.objects_metadata,
+        }
+        with open(json_path, "w") as f:
+            json.dump(json_data, f, indent=2)
+
+        npz_path = os.path.join(self._output_dir, "dynamic_objects_poses.npz")
+        np.savez(npz_path, **result.pose_arrays)

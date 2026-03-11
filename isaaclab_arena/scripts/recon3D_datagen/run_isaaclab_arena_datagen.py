@@ -46,6 +46,7 @@ CAMERAS = [CAM0, CAM1] # CAM1, CAM2... for multi-view
 OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/results/tmp"
 OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
 ANCHOR_FRAMES = [0]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
+DYNAMIC_MOTION_EPS = 1e-4       # motion threshold for dynamic object detection (m / rad)
 
 # Visualization (optional step at the end)
 NUM_VIZ_SAMPLES = 8
@@ -85,6 +86,7 @@ env.reset()
 
 # %%
 from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_camera_handler import (
+    DynamicObjectTracker,
     IsaacLabArenaCameraHandler,
     ObjectInstanceRegistry,
     create_static_camera,
@@ -125,6 +127,7 @@ for cam_idx, cam_cfg in enumerate(CAMERAS):
     camera_ids.append(camera_id_from_index(cam_idx))
 
 writer = IsaacLabArenaWriter(OUTPUT_DIR)
+dynamic_tracker = DynamicObjectTracker(shared_registry, num_steps=NUM_STEPS)
 
 # %%
 dt = env.unwrapped.step_dt
@@ -172,6 +175,7 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
                 seg_data, semantic_info, cam_id, step_idx,
                 camera_name=cam_name,
             )
+            dynamic_tracker.register_visible_objects(semantic_info)
 
             # ── Adjacent-frame flow (N-1 files, indices 0 .. N-2) ─
             if step_idx > 0:
@@ -220,6 +224,12 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
                 writer.write_visible_now_mask(
                     ff.visible_now_mask, cam_id, step_idx,
                     camera_name=cam_name, anchor_frame=af)
+
+        dynamic_tracker.record_step_poses(env, step_idx)
+
+writer.write_dynamic_object_poses(
+    dynamic_tracker.get_dynamic_object_data(motion_eps=DYNAMIC_MOTION_EPS)
+)
 
 # %%
 # Visualization of the generated data

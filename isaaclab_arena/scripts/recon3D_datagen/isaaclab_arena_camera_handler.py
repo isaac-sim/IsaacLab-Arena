@@ -191,6 +191,220 @@ class ObjectInstanceRegistry:
         return object_id, object_name, rgba
 
 
+@dataclass
+class DynamicObjectResult:
+    """Result bundle returned by :meth:`DynamicObjectTracker.get_dynamic_object_data`.
+
+    Contains JSON-serialisable metadata and per-object NumPy pose arrays.
+    """
+
+    metadata: Dict[str, Any]
+    """Top-level metadata dict (num_steps, thresholds, conventions)."""
+    objects_metadata: Dict[str, Dict[str, Any]]
+    """Per-object metadata keyed by display name (type, asset_name, body info).
+    Does **not** contain the pose data itself — that lives in *pose_arrays*."""
+    pose_arrays: Dict[str, np.ndarray]
+    """Per-object (or per-body-link) pose arrays, keyed by a sanitised name
+    suitable for use as an ``.npz`` entry.  Each array has shape
+    ``(num_steps, 3, 4)`` float32."""
+
+
+class DynamicObjectTracker:
+    """Tracks dynamic (moving) rigid and articulated objects across cameras and time steps.
+
+    Collects which RIGID / ARTICULATION objects are visible in any camera at
+    any step, records their world-frame SE(3) poses every step using
+    pre-allocated contiguous tensors, and after the sequence filters down to
+    objects that actually moved.
+
+    Args:
+        registry: The shared :class:`ObjectInstanceRegistry` used by camera
+            handlers so that object names are consistent.
+        num_steps: Total number of simulation steps (used to pre-allocate
+            pose tensors on first encounter).
+    """
+
+    def __init__(self, registry: ObjectInstanceRegistry, num_steps: int) -> None:
+        self._registry = registry
+        self._num_steps = num_steps
+        self._seen_assets: set[tuple[str, str]] = set()
+
+        self._rigid_poses: Dict[str, torch.Tensor] = {}
+        self._artic_poses: Dict[str, torch.Tensor] = {}
+        self._artic_body_names: Dict[str, List[str]] = {}
+
+    def register_visible_objects(self, semantic_info: List[Dict[str, Any]]) -> None:
+        """Record which dynamic objects are visible in the current frame.
+
+        Call once per camera per step, passing the ``semantic_info`` list
+        returned by :meth:`IsaacLabArenaCameraHandler.get_object_instance_segmentation`.
+        """
+        for obj in semantic_info:
+            track_type = obj.get("track_type", "")
+            if track_type in ("RIGID", "ARTICULATION"):
+                self._seen_assets.add((track_type, obj["asset_name"]))
+
+    @staticmethod
+    def _se3_from_pos_quat(pos: torch.Tensor, quat: torch.Tensor) -> torch.Tensor:
+        """Build a 4x4 SE(3) matrix from position (3,) and quaternion (w,x,y,z) (4,)."""
+        T = torch.eye(4, dtype=torch.float32, device=pos.device)
+        T[:3, :3] = matrix_from_quat(quat.reshape(4))
+        T[:3, 3] = pos
+        return T
+
+    def record_step_poses(self, env: Any, step_idx: int) -> None:
+        """Record world-frame poses of all rigid objects and articulations.
+
+        On first encounter each object gets a pre-allocated tensor of shape
+        ``(num_steps, 4, 4)`` (rigid) or ``(num_steps, num_bodies, 4, 4)``
+        (articulation).  Subsequent calls fill in ``step_idx`` without
+        allocating new memory.
+        """
+        scene = env.unwrapped.scene
+
+        for name in scene.rigid_objects.keys():
+            obj = scene[name]
+            T = self._se3_from_pos_quat(
+                obj.data.root_link_pos_w[0],
+                obj.data.root_link_quat_w[0],
+            )
+            if name not in self._rigid_poses:
+                buf = torch.zeros(self._num_steps, 4, 4, dtype=torch.float32)
+                for s in range(self._num_steps):
+                    buf[s] = torch.eye(4)
+                self._rigid_poses[name] = buf
+            self._rigid_poses[name][step_idx] = T.cpu()
+
+        for name, artic in scene.articulations.items():
+            num_bodies = artic.data.body_link_pos_w.shape[1]
+            body_names = artic.data.body_names
+
+            if name not in self._artic_poses:
+                buf = torch.zeros(self._num_steps, num_bodies, 4, 4, dtype=torch.float32)
+                for s in range(self._num_steps):
+                    for bi in range(num_bodies):
+                        buf[s, bi] = torch.eye(4)
+                self._artic_poses[name] = buf
+                self._artic_body_names[name] = [
+                    body_names[bi] if bi < len(body_names) else f"body_{bi}"
+                    for bi in range(num_bodies)
+                ]
+
+            for bi in range(num_bodies):
+                T = self._se3_from_pos_quat(
+                    artic.data.body_link_pos_w[0, bi],
+                    artic.data.body_link_quat_w[0, bi],
+                )
+                self._artic_poses[name][step_idx, bi] = T.cpu()
+
+    def get_dynamic_object_data(
+        self,
+        motion_eps: float = 1e-4,
+    ) -> DynamicObjectResult:
+        """Return filtered data for objects that were seen and actually moved.
+
+        Args:
+            motion_eps: Minimum translation (metres) or rotation (radians)
+                change between adjacent frames to count as dynamic.
+
+        Returns:
+            A :class:`DynamicObjectResult` containing JSON metadata and
+            NumPy pose arrays ready to be written with
+            :meth:`IsaacLabArenaWriter.write_dynamic_object_poses`.
+        """
+        objects_meta: Dict[str, Dict[str, Any]] = {}
+        pose_arrays: Dict[str, np.ndarray] = {}
+
+        for kind, asset_name in self._seen_assets:
+            if kind == "RIGID":
+                poses_4x4 = self._rigid_poses.get(asset_name)
+                if poses_4x4 is None:
+                    continue
+                if not self._has_motion_tensor(poses_4x4):
+                    if motion_eps > 0:
+                        continue
+                elif not self._has_motion_tensor(poses_4x4, motion_eps):
+                    continue
+
+                instance_key = ("RIGID", asset_name)
+                display_name = self._registry.instance_key_to_display_name(instance_key)
+                objects_meta[display_name] = {
+                    "type": "rigid",
+                    "asset_name": asset_name,
+                    "pose_array_key": display_name,
+                }
+                pose_arrays[display_name] = poses_4x4[:, :3, :].numpy()
+
+            elif kind == "ARTICULATION":
+                poses_4x4 = self._artic_poses.get(asset_name)
+                if poses_4x4 is None:
+                    continue
+                body_names = self._artic_body_names.get(asset_name, [])
+                num_bodies = poses_4x4.shape[1]
+
+                any_moved = False
+                for bi in range(num_bodies):
+                    if self._has_motion_tensor(poses_4x4[:, bi], motion_eps):
+                        any_moved = True
+                        break
+                if not any_moved:
+                    continue
+
+                instance_key = ("ARTICULATION", asset_name)
+                display_name = self._registry.instance_key_to_display_name(instance_key)
+
+                parts_meta: Dict[str, Dict[str, Any]] = {}
+                for bi in range(num_bodies):
+                    bname = body_names[bi] if bi < len(body_names) else f"body_{bi}"
+                    array_key = f"{display_name}/{bname}"
+                    parts_meta[bname] = {
+                        "body_index": bi,
+                        "pose_array_key": array_key,
+                    }
+                    pose_arrays[array_key] = poses_4x4[:, bi, :3, :].numpy()
+
+                objects_meta[display_name] = {
+                    "type": "articulation",
+                    "asset_name": asset_name,
+                    "parts": parts_meta,
+                }
+
+        metadata = {
+            "num_steps": self._num_steps,
+            "motion_threshold": motion_eps,
+            "coordinate_frame": "world",
+            "pose_format": "(num_steps, 3, 4) float32 row-major [R|t] per .npy array",
+        }
+
+        return DynamicObjectResult(
+            metadata=metadata,
+            objects_metadata=objects_meta,
+            pose_arrays=pose_arrays,
+        )
+
+    # ---- internal helpers ------------------------------------------------
+
+    @staticmethod
+    def _has_motion_tensor(poses_4x4: torch.Tensor, eps: float = 0.0) -> bool:
+        """Check adjacent-frame motion on a contiguous ``(N, 4, 4)`` tensor."""
+        if poses_4x4.shape[0] < 2:
+            return False
+        prev = poses_4x4[:-1]
+        cur = poses_4x4[1:]
+
+        t_diffs = (cur[:, :3, 3] - prev[:, :3, 3]).norm(dim=-1)
+        if t_diffs.max().item() > eps:
+            return True
+
+        R_rel = prev[:, :3, :3].transpose(-1, -2) @ cur[:, :3, :3]
+        cos_angles = ((R_rel.diagonal(dim1=-2, dim2=-1).sum(-1) - 1.0) / 2.0).clamp(-1.0, 1.0)
+        angles = torch.acos(cos_angles)
+        if angles.max().item() > eps:
+            return True
+
+        return False
+
+
 class IsaacLabArenaCameraHandler:
     """Handles a static camera sensor in an IsaacLab Arena environment.
 
