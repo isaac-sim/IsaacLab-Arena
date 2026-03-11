@@ -353,9 +353,7 @@ class G1CameraCfg:
             width=640,
             data_types=["rgb"],
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=0.169,  # 1.69 mm; FOV preserved via apertures
-                horizontal_aperture=0.693,  # preserves ~128° horiz FOV
-                vertical_aperture=0.284,  # preserves ~80° vert FOV
+                focal_length=15,
                 clipping_range=(0.1, 5),
             ),
         )
