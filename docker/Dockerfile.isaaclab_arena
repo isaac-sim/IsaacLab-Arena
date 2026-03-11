@@ -37,14 +37,11 @@ ENV TERM=xterm
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 # Install IsaacLab dependencies
 RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
-# Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
-RUN chmod 777 -R /isaac-sim/kit/
-# Make /isaac-sim directory traversable and readable by all users
-# This is needed when entrypoint switches to non-root user
-RUN chmod a+x /isaac-sim
-# NOTE(alexmillane, 2026-02-10): We started having issues with flatdict 4.0.1 installation
-# during IsaacLab install. We install here with build isolation which seems to fix the issue.
-RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
+# Ensure isaaclab_visualizers is installed so --visualizer kit works.
+RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_visualizers
+# # Pre-install flatdict with --no-build-isolation to work around pkg_resources missing in pip's isolated build env
+# RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
+# # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
