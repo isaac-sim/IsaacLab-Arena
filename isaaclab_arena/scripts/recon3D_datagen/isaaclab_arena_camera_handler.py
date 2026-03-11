@@ -192,6 +192,22 @@ class ObjectInstanceRegistry:
 
 
 @dataclass
+class MeshSamplesResult:
+    """Result bundle from :meth:`DynamicObjectTracker.sample_dynamic_object_meshes`.
+
+    Contains per-object/link relative SE(3) arrays encoding sampled surface
+    points and outward normals.  Keys match
+    :attr:`DynamicObjectResult.pose_arrays`.
+    """
+
+    relative_se3_arrays: Dict[str, np.ndarray]
+    """Per-object (or per-body-link) arrays of shape ``(N, 3, 4)`` float32.
+    Each row is the 3x4 portion of the relative SE(3) from the object/link
+    centre to the sampled point.  The z-column of the rotation encodes the
+    outward surface normal."""
+
+
+@dataclass
 class DynamicObjectResult:
     """Result bundle returned by :meth:`DynamicObjectTracker.get_dynamic_object_data`.
 
@@ -385,10 +401,24 @@ class DynamicObjectTracker:
     # ---- internal helpers ------------------------------------------------
 
     @staticmethod
-    def _has_motion_tensor(poses_4x4: torch.Tensor, eps: float = 0.0) -> bool:
-        """Check adjacent-frame motion on a contiguous ``(N, 4, 4)`` tensor."""
+    def _has_motion_tensor(
+        poses_4x4: torch.Tensor,
+        eps: float = 0.0,
+        rotation_eps: Optional[float] = None,
+    ) -> bool:
+        """Check adjacent-frame motion on a contiguous ``(N, 4, 4)`` tensor.
+
+        Args:
+            poses_4x4: ``(N, 4, 4)`` tensor of SE(3) matrices.
+            eps: Threshold for translation (metres).
+            rotation_eps: Threshold for rotation (radians).  Defaults to
+                *eps* when ``None``.  Set to ``float('inf')`` to ignore
+                rotation entirely.
+        """
         if poses_4x4.shape[0] < 2:
             return False
+        if rotation_eps is None:
+            rotation_eps = eps
         prev = poses_4x4[:-1]
         cur = poses_4x4[1:]
 
@@ -396,13 +426,350 @@ class DynamicObjectTracker:
         if t_diffs.max().item() > eps:
             return True
 
-        R_rel = prev[:, :3, :3].transpose(-1, -2) @ cur[:, :3, :3]
-        cos_angles = ((R_rel.diagonal(dim1=-2, dim2=-1).sum(-1) - 1.0) / 2.0).clamp(-1.0, 1.0)
-        angles = torch.acos(cos_angles)
-        if angles.max().item() > eps:
-            return True
+        if rotation_eps < float("inf"):
+            R_rel = prev[:, :3, :3].transpose(-1, -2) @ cur[:, :3, :3]
+            cos_angles = ((R_rel.diagonal(dim1=-2, dim2=-1).sum(-1) - 1.0) / 2.0).clamp(-1.0, 1.0)
+            angles = torch.acos(cos_angles)
+            if angles.max().item() > rotation_eps:
+                return True
 
         return False
+
+    # ---- mesh surface sampling -------------------------------------------
+
+    def sample_dynamic_object_meshes(
+        self,
+        env: Any,
+        result: DynamicObjectResult,
+        spacing: float = 0.01,
+        motion_eps: float = 1e-4,
+    ) -> MeshSamplesResult:
+        """Sample surface points with normals on moving objects' meshes only.
+
+        For each object/link in *result* whose pose actually changes between
+        at least two adjacent steps (above *motion_eps*), resolves the USD
+        mesh geometry, uniformly samples ``area / spacing**2`` points on the
+        surface, and computes the relative SE(3) from the object/link centre
+        (step-0 pose) to each point.  The z-column of each relative rotation
+        encodes the outward surface normal.
+
+        Objects and individual articulation links that do not exhibit motion
+        above the threshold are skipped.
+
+        Must be called while the simulation is still running (USD stage
+        accessible).
+
+        Args:
+            env: The gymnasium-wrapped IsaacLab environment.
+            result: The :class:`DynamicObjectResult` from
+                :meth:`get_dynamic_object_data`.
+            spacing: Target distance (metres) between sampled points.
+                Point count is ``max(1, int(area / spacing**2))``.
+            motion_eps: Minimum adjacent-frame translation (m) or rotation
+                (rad) for a link to be considered moving.  Links below this
+                threshold are skipped.
+
+        Returns:
+            A :class:`MeshSamplesResult` with keys only for objects/links
+            that actually moved.
+        """
+        import trimesh
+
+        scene = env.unwrapped.scene
+        relative_se3: Dict[str, np.ndarray] = {}
+        rot_eps = max(motion_eps * 100.0, 1e-2)
+
+        for display_name, meta in result.objects_metadata.items():
+            if meta["type"] == "rigid":
+                asset_name = meta["asset_name"]
+                pose_key = meta["pose_array_key"]
+
+                poses_4x4 = self._rigid_poses.get(asset_name)
+                if poses_4x4 is not None and not self._has_motion_tensor(
+                    poses_4x4, motion_eps, rotation_eps=rot_eps,
+                ):
+                    continue
+
+                prim_path = scene[asset_name].cfg.prim_path.replace(".*", "0")
+                combined = self._collect_mesh_from_prim(prim_path)
+                if combined is None or combined.area < 1e-12:
+                    continue
+
+                pts, normals = self._sample_on_mesh(combined, spacing)
+                T_local = np.eye(4, dtype=np.float64)
+                relative_se3[pose_key] = self._compute_relative_se3(
+                    pts, normals, T_local,
+                )
+
+            elif meta["type"] == "articulation":
+                asset_name = meta["asset_name"]
+                artic_obj = scene[asset_name]
+                root_path = artic_obj.cfg.prim_path.replace(".*", "0")
+
+                for bname, part_meta in meta["parts"].items():
+                    bi = part_meta["body_index"]
+                    pose_key = part_meta["pose_array_key"]
+
+                    link_poses = self._artic_poses.get(asset_name)
+                    if link_poses is not None and not self._has_motion_tensor(
+                        link_poses[:, bi], motion_eps, rotation_eps=rot_eps,
+                    ):
+                        continue
+
+                    link_path = f"{root_path}/{bname}"
+                    combined = self._collect_mesh_from_prim(link_path)
+                    if combined is None or combined.area < 1e-12:
+                        continue
+
+                    pts, normals = self._sample_on_mesh(combined, spacing)
+                    T_local = np.eye(4, dtype=np.float64)
+                    relative_se3[pose_key] = self._compute_relative_se3(
+                        pts, normals, T_local,
+                    )
+
+        return MeshSamplesResult(relative_se3_arrays=relative_se3)
+
+    # ---- mesh helpers (private) ------------------------------------------
+
+    @staticmethod
+    def _collect_mesh_from_prim(prim_path: str) -> Optional[Any]:
+        """Walk *prim_path* and combine all child meshes / primitives into one trimesh.
+
+        Vertices are returned in the **body-local frame** relative to
+        *prim_path*.  Physics-driven transforms (applied by PhysX at
+        runtime) are NOT baked in, because ``UsdGeom.XformCache`` does not
+        see them.  Only the static USD xform hierarchy *below* the root
+        prim is applied so that sub-mesh parts are correctly assembled.
+        """
+        import trimesh
+
+        try:
+            import isaacsim.core.utils.prims as prim_utils
+            from pxr import UsdGeom
+
+            from isaaclab.sim.utils import get_all_matching_child_prims
+        except Exception:
+            return None
+
+        prims = get_all_matching_child_prims(
+            prim_path,
+            predicate=lambda p: p.GetTypeName() in (
+                "Mesh", "Cube", "Sphere", "Cylinder", "Capsule", "Cone",
+            ),
+        )
+        if not prims:
+            return None
+
+        xform_cache = UsdGeom.XformCache()
+        root_prim = prim_utils.get_prim_at_path(prim_path)
+        root_world = xform_cache.GetLocalToWorldTransform(root_prim)
+        root_world_inv = root_world.GetInverse()
+
+        meshes: list = []
+
+        for prim in prims:
+            prim_type = prim.GetTypeName()
+            if prim_type == "Mesh":
+                mesh_geom = UsdGeom.Mesh(prim)
+                verts = np.asarray(mesh_geom.GetPointsAttr().Get(), dtype=np.float32)
+                faces = _triangulate_usd_faces(prim)
+                tm = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
+            else:
+                tm = _create_primitive_mesh(prim)
+
+            prim_to_root = root_world_inv * xform_cache.GetLocalToWorldTransform(prim)
+            mat_np = np.array(
+                [[prim_to_root[r][c] for c in range(4)] for r in range(4)],
+                dtype=np.float64,
+            )
+            tm.apply_transform(mat_np)
+            meshes.append(tm)
+
+        if not meshes:
+            return None
+        return trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
+
+    @staticmethod
+    def _sample_on_mesh(
+        mesh: Any, spacing: float, oversample_factor: int = 8,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Sample surface points and face normals at the given spacing.
+
+        Oversamples randomly then applies **farthest point sampling** (FPS) to
+        select a maximally-spaced subset, guaranteeing uniform coverage
+        regardless of mesh tessellation quality.
+        """
+        from trimesh.sample import sample_surface
+
+        num_points = max(1, int(mesh.area / (spacing ** 2)))
+        n_candidates = num_points * oversample_factor
+        cand_pts, cand_fi = sample_surface(mesh, n_candidates)
+
+        if cand_pts.shape[0] <= num_points:
+            normals = mesh.face_normals[cand_fi]
+            return cand_pts.astype(np.float32), normals.astype(np.float32)
+
+        sel = DynamicObjectTracker._farthest_point_sampling(cand_pts, num_points)
+        np.random.shuffle(sel)
+        fps_pts = cand_pts[sel]
+        normals = mesh.face_normals[cand_fi[sel]]
+        return fps_pts.astype(np.float32), normals.astype(np.float32)
+
+    @staticmethod
+    def _farthest_point_sampling(pts: np.ndarray, k: int) -> np.ndarray:
+        """Select *k* points from *pts* maximising the minimum pairwise distance."""
+        n = pts.shape[0]
+        k = min(k, n)
+        selected = np.empty(k, dtype=np.int64)
+        selected[0] = np.random.randint(n)
+        min_dists = np.full(n, np.inf, dtype=np.float64)
+        for i in range(1, k):
+            diff = pts - pts[selected[i - 1]]
+            dists = np.einsum("ij,ij->i", diff, diff)
+            np.minimum(min_dists, dists, out=min_dists)
+            selected[i] = np.argmax(min_dists)
+        return selected
+
+    @staticmethod
+    def _compute_relative_se3(
+        points_world: np.ndarray,
+        normals_world: np.ndarray,
+        T_obj_0: np.ndarray,
+    ) -> np.ndarray:
+        """Compute per-point relative SE(3) w.r.t. the object/link pose at step 0.
+
+        Returns:
+            ``(N, 3, 4)`` float32 array of relative SE(3) transforms.
+        """
+        N = points_world.shape[0]
+        T_obj_inv = np.eye(4, dtype=np.float64)
+        R = T_obj_0[:3, :3].astype(np.float64)
+        t = T_obj_0[:3, 3].astype(np.float64)
+        T_obj_inv[:3, :3] = R.T
+        T_obj_inv[:3, 3] = -R.T @ t
+
+        result = np.zeros((N, 3, 4), dtype=np.float32)
+
+        for i in range(N):
+            n = normals_world[i].astype(np.float64)
+            n_len = np.linalg.norm(n)
+            if n_len < 1e-12:
+                n = np.array([0.0, 0.0, 1.0])
+            else:
+                n = n / n_len
+
+            R_point = _rotation_from_normal(n)
+
+            T_point = np.eye(4, dtype=np.float64)
+            T_point[:3, :3] = R_point
+            T_point[:3, 3] = points_world[i].astype(np.float64)
+
+            T_rel = T_obj_inv @ T_point
+            result[i] = T_rel[:3, :].astype(np.float32)
+
+        return result
+
+
+def _rotation_from_normal(n: np.ndarray) -> np.ndarray:
+    """Build a 3x3 rotation matrix whose z-column equals the unit normal *n*."""
+    z = n / np.linalg.norm(n)
+    ref = np.array([0.0, 1.0, 0.0]) if abs(z[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    x = np.cross(ref, z)
+    x /= np.linalg.norm(x)
+    y = np.cross(z, x)
+    return np.column_stack([x, y, z])
+
+
+def _triangulate_usd_faces(prim: Any) -> np.ndarray:
+    """Convert a USD Mesh prim into triangulated face indices ``(F, 3)``."""
+    from pxr import UsdGeom
+
+    mesh = UsdGeom.Mesh(prim)
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    indices = mesh.GetFaceVertexIndicesAttr().Get()
+    faces: list = []
+    it = iter(indices)
+    for cnt in counts:
+        poly = [next(it) for _ in range(cnt)]
+        for k in range(1, cnt - 1):
+            faces.append([poly[0], poly[k], poly[k + 1]])
+    return np.asarray(faces, dtype=np.int64)
+
+
+def _create_primitive_mesh(prim: Any) -> Any:
+    """Create a trimesh mesh from a USD geometric primitive."""
+    import trimesh
+    from pxr import UsdGeom
+
+    prim_type = prim.GetTypeName()
+    if prim_type == "Cube":
+        size = UsdGeom.Cube(prim).GetSizeAttr().Get()
+        return trimesh.creation.box(extents=(size, size, size))
+    elif prim_type == "Sphere":
+        r = UsdGeom.Sphere(prim).GetRadiusAttr().Get()
+        return trimesh.creation.icosphere(subdivisions=3, radius=r)
+    elif prim_type == "Cylinder":
+        c = UsdGeom.Cylinder(prim)
+        return trimesh.creation.cylinder(
+            radius=c.GetRadiusAttr().Get(), height=c.GetHeightAttr().Get(),
+        )
+    elif prim_type == "Capsule":
+        c = UsdGeom.Capsule(prim)
+        return trimesh.creation.capsule(
+            radius=c.GetRadiusAttr().Get(), height=c.GetHeightAttr().Get(),
+        )
+    elif prim_type == "Cone":
+        c = UsdGeom.Cone(prim)
+        return trimesh.creation.cone(
+            radius=c.GetRadiusAttr().Get(), height=c.GetHeightAttr().Get(),
+        )
+    raise KeyError(f"{prim_type} is not a valid primitive mesh type")
+
+
+def reconstruct_mesh_points_at_step(
+    mesh_samples: MeshSamplesResult,
+    pose_arrays: Dict[str, np.ndarray],
+    step_idx: int,
+) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+    """Reconstruct world-space positions and normals of sampled mesh points.
+
+    For each object/link, applies the SE(3) pose at *step_idx* to the stored
+    relative SE(3) per point to recover world-space positions and normals.
+
+    Args:
+        mesh_samples: The :class:`MeshSamplesResult` from
+            :meth:`DynamicObjectTracker.sample_dynamic_object_meshes`.
+        pose_arrays: Dict of ``(num_steps, 3, 4)`` float32 arrays, loaded
+            from ``dynamic_objects_poses.npz``.
+        step_idx: The simulation step to reconstruct at.
+
+    Returns:
+        Dict mapping each pose-array key to a tuple
+        ``(points_world, normals_world)`` where each is ``(N, 3)`` float32.
+    """
+    result: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+
+    for key, rel_se3 in mesh_samples.relative_se3_arrays.items():
+        if key not in pose_arrays:
+            continue
+        N = rel_se3.shape[0]
+
+        pose_3x4 = pose_arrays[key][step_idx]  # (3, 4)
+        T_obj = np.eye(4, dtype=np.float64)
+        T_obj[:3, :] = pose_3x4.astype(np.float64)
+
+        T_rel_4x4 = np.zeros((N, 4, 4), dtype=np.float64)
+        T_rel_4x4[:, :3, :] = rel_se3.astype(np.float64)
+        T_rel_4x4[:, 3, 3] = 1.0
+
+        T_world = T_obj[np.newaxis, :, :] @ T_rel_4x4  # (N, 4, 4)
+
+        points = T_world[:, :3, 3].astype(np.float32)
+        normals = T_world[:, :3, 2].astype(np.float32)
+
+        result[key] = (points, normals)
+
+    return result
 
 
 class IsaacLabArenaCameraHandler:

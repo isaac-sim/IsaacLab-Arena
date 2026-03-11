@@ -47,6 +47,7 @@ OUTPUT_DIR = "/workspaces/isaaclab_arena/isaaclab_arena/scripts/recon3D_datagen/
 OCCLUSION_TOL = 0.1             # depth tolerance for visible-now mask (metres)
 ANCHOR_FRAMES = [0]             # frame indices for anchored 3D flow (e.g. [0, 4, 6])
 DYNAMIC_MOTION_EPS = 1e-4       # motion threshold for dynamic object detection (m / rad)
+MESH_SAMPLE_SPACING = 0.01     # metres; ~1 point per cm² of mesh surface
 
 # Visualization (optional step at the end)
 NUM_VIZ_SAMPLES = 8
@@ -227,9 +228,14 @@ for step_idx in tqdm.tqdm(range(NUM_STEPS)):
 
         dynamic_tracker.record_step_poses(env, step_idx)
 
-writer.write_dynamic_object_poses(
-    dynamic_tracker.get_dynamic_object_data(motion_eps=DYNAMIC_MOTION_EPS)
+dynamic_result = dynamic_tracker.get_dynamic_object_data(motion_eps=DYNAMIC_MOTION_EPS)
+writer.write_dynamic_object_poses(dynamic_result)
+
+mesh_samples = dynamic_tracker.sample_dynamic_object_meshes(
+    env, dynamic_result, spacing=MESH_SAMPLE_SPACING,
+    motion_eps=DYNAMIC_MOTION_EPS,
 )
+writer.write_mesh_samples(mesh_samples)
 
 # %%
 # Visualization of the generated data
@@ -239,6 +245,7 @@ from isaaclab_arena.scripts.recon3D_datagen.datagen_visualizer import (
     visualize_all_modalities_grid,
     visualize_all_modalities_video,
     visualize_camera_trajectory,
+    visualize_dynamic_mesh_trajectories,
     visualize_first_frame_flow_3d,
     visualize_scene_flow_3d,
 )
@@ -289,5 +296,14 @@ for cam_id in camera_ids:
         )
 
     print(f"Visualizations saved to {viz_dir}")
+
+dyn_viz_root = os.path.join(OUTPUT_DIR, "dynamic_objects", "visualizations")
+os.makedirs(dyn_viz_root, exist_ok=True)
+visualize_dynamic_mesh_trajectories(
+    OUTPUT_DIR,
+    step_stride=1,
+    point_stride=16,
+    save_path=os.path.join(dyn_viz_root, "dynamic_mesh_trajectories.html"),
+)
 
 # %%

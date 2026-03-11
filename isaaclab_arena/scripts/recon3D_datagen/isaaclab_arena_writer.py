@@ -375,8 +375,7 @@ class IsaacLabArenaWriter:
     def write_dynamic_object_poses(self, result: Any) -> None:
         """Write dynamic object poses as a JSON metadata file plus a ``.npz`` pose archive.
 
-        Produces two files at the output root (not inside a camera
-        subfolder, since poses are in the global world frame):
+        Produces two files inside ``dynamic_objects/``:
 
         * ``dynamic_objects.json`` — metadata (object names, types, body
           indices, and the key used to look up the pose array).
@@ -387,7 +386,10 @@ class IsaacLabArenaWriter:
             result: A :class:`~isaaclab_arena_camera_handler.DynamicObjectResult`
                 from :meth:`DynamicObjectTracker.get_dynamic_object_data`.
         """
-        json_path = os.path.join(self._output_dir, "dynamic_objects.json")
+        dyn_dir = os.path.join(self._output_dir, "dynamic_objects")
+        os.makedirs(dyn_dir, exist_ok=True)
+
+        json_path = os.path.join(dyn_dir, "dynamic_objects.json")
         json_data = {
             "metadata": result.metadata,
             "objects": result.objects_metadata,
@@ -395,5 +397,22 @@ class IsaacLabArenaWriter:
         with open(json_path, "w") as f:
             json.dump(json_data, f, indent=2)
 
-        npz_path = os.path.join(self._output_dir, "dynamic_objects_poses.npz")
+        npz_path = os.path.join(dyn_dir, "dynamic_objects_poses.npz")
         np.savez(npz_path, **result.pose_arrays)
+
+    def write_mesh_samples(self, mesh_result: Any) -> None:
+        """Write sampled mesh surface points as a ``.npz`` archive.
+
+        Produces ``dynamic_objects_mesh_samples.npz`` inside ``dynamic_objects/``.
+        Each entry is a ``(N, 3, 4)`` float32 array of relative SE(3)
+        transforms, keyed to match ``dynamic_objects_poses.npz``.
+
+        Args:
+            mesh_result: A :class:`~isaaclab_arena_camera_handler.MeshSamplesResult`
+                from :meth:`DynamicObjectTracker.sample_dynamic_object_meshes`.
+        """
+        dyn_dir = os.path.join(self._output_dir, "dynamic_objects")
+        os.makedirs(dyn_dir, exist_ok=True)
+
+        npz_path = os.path.join(dyn_dir, "dynamic_objects_mesh_samples.npz")
+        np.savez(npz_path, **mesh_result.relative_se3_arrays)

@@ -1334,3 +1334,334 @@ def visualize_first_frame_flow_3d(
         print(f"[visualize_first_frame_flow_3d] Saved to {save_path}")
     else:
         fig.show()
+
+
+def _fps_subsample(pts: np.ndarray, k: int) -> np.ndarray:
+    """Return *k* indices into *pts* chosen by farthest-point sampling."""
+    n = pts.shape[0]
+    if k >= n:
+        return np.arange(n)
+    selected = np.empty(k, dtype=np.int64)
+    selected[0] = 0
+    min_d = np.full(n, np.inf)
+    for i in range(1, k):
+        diff = pts - pts[selected[i - 1]]
+        d = np.einsum("ij,ij->i", diff, diff)
+        np.minimum(min_d, d, out=min_d)
+        selected[i] = np.argmax(min_d)
+    return selected
+
+
+def visualize_dynamic_mesh_trajectories(
+    output_dir: str,
+    step_stride: int = 5,
+    point_stride: int = 8,
+    sphere_size: float = 3.0,
+    line_width: float = 2.0,
+    save_path: str | None = None,
+) -> None:
+    """Interactive 3-D visualisation of dynamic-object mesh point trajectories.
+
+    Loads the mesh samples and per-step poses, reconstructs world-space
+    positions at every *step_stride*-th step, and plots a sub-sample (every
+    *point_stride*-th point) as spheres connected by trajectory lines.
+
+    Each object gets a distinct colour.  Spheres are drawn at every shown
+    step; consecutive steps are joined by lines of the same colour.
+
+    Args:
+        output_dir: Root output directory (same as ``OUTPUT_DIR``).
+        step_stride: Show every N-th time step.
+        point_stride: Sub-sample factor for points (e.g. 8 ≈ show 1/8).
+        sphere_size: Marker size for point spheres.
+        line_width: Width of trajectory lines.
+        save_path: Path to save an ``.html`` file.
+    """
+    try:
+        import plotly.graph_objects as go
+    except ImportError as exc:
+        raise ImportError(
+            "plotly is required for interactive 3-D visualisation.  "
+            "Install it with:  pip install plotly"
+        ) from exc
+
+    from isaaclab_arena.scripts.recon3D_datagen.isaaclab_arena_camera_handler import (
+        MeshSamplesResult,
+        reconstruct_mesh_points_at_step,
+    )
+
+    dyn_dir = os.path.join(output_dir, "dynamic_objects")
+    json_path = os.path.join(dyn_dir, "dynamic_objects.json")
+    poses_path = os.path.join(dyn_dir, "dynamic_objects_poses.npz")
+    mesh_path = os.path.join(dyn_dir, "dynamic_objects_mesh_samples.npz")
+
+    if not all(os.path.isfile(p) for p in [json_path, poses_path, mesh_path]):
+        print("[visualize_dynamic_mesh_trajectories] Missing dynamic object files, skipping.")
+        return
+
+    with open(json_path) as f:
+        meta = json.load(f)
+    num_steps = meta["metadata"]["num_steps"]
+
+    pose_npz = np.load(poses_path)
+    pose_arrays = {k: pose_npz[k] for k in pose_npz.files}
+
+    mesh_npz = np.load(mesh_path)
+    mesh_samples = MeshSamplesResult(
+        relative_se3_arrays={k: mesh_npz[k] for k in mesh_npz.files},
+    )
+
+    shown_steps = list(range(0, num_steps, step_stride))
+    if shown_steps[-1] != num_steps - 1:
+        shown_steps.append(num_steps - 1)
+
+    all_keys = sorted(mesh_samples.relative_se3_arrays.keys())
+    if not all_keys:
+        print("[visualize_dynamic_mesh_trajectories] No mesh samples found.")
+        return
+
+    # Assign a distinct colour per object key using a golden-ratio hue walk
+    import colorsys
+    key_colors = {}
+    for i, key in enumerate(all_keys):
+        hue = (0.1 + 0.6180339887498948 * i) % 1.0
+        r, g, b = colorsys.hsv_to_rgb(hue, 0.8, 0.9)
+        key_colors[key] = (int(r * 255), int(g * 255), int(b * 255))
+
+    # Reconstruct at each shown step
+    step_data: dict[int, dict[str, tuple[np.ndarray, np.ndarray]]] = {}
+    for s in shown_steps:
+        step_data[s] = reconstruct_mesh_points_at_step(mesh_samples, pose_arrays, s)
+
+    # Two toggle groups: "initial" (meshes + step-0 points),
+    # "trajectories" (all points t>=0 + trajectory lines).
+    _LAYER_INITIAL = "initial"
+    _LAYER_TRAJ = "trajectories"
+
+    traces: list = []
+    trace_layers: list[str] = []
+
+    # --- Step-0 mesh surfaces (semitransparent) ---------------------------
+    first_step = shown_steps[0]
+    for key in all_keys:
+        if key not in step_data[first_step]:
+            continue
+        r, g, b = key_colors[key]
+
+        all_pts_0 = step_data[first_step][key][0]
+        if all_pts_0.shape[0] < 4:
+            continue
+
+        try:
+            from scipy.spatial import Delaunay
+            tri = Delaunay(all_pts_0)
+            simplices = tri.simplices
+            i_idx = simplices[:, 0]
+            j_idx = simplices[:, 1]
+            k_idx = simplices[:, 2]
+        except Exception:
+            continue
+
+        traces.append(
+            go.Mesh3d(
+                x=all_pts_0[:, 0],
+                y=all_pts_0[:, 1],
+                z=all_pts_0[:, 2],
+                i=i_idx,
+                j=j_idx,
+                k=k_idx,
+                color=f"rgb({r},{g},{b})",
+                opacity=0.05,
+                name=f"{key} mesh t=0",
+                legendgroup=key,
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        trace_layers.append(_LAYER_INITIAL)
+
+    # Pre-compute FPS display indices per key (uniform visual subsampling)
+    key_display_idx: dict[str, np.ndarray] = {}
+    for key in all_keys:
+        if key not in step_data[first_step]:
+            continue
+        pts0 = step_data[first_step][key][0]
+        n_pts = pts0.shape[0]
+        k_display = max(1, n_pts // point_stride)
+        key_display_idx[key] = _fps_subsample(pts0, k_display)
+
+    # --- Step-0 sample points (part of "initial" layer) -------------------
+    for key in all_keys:
+        if key not in key_display_idx:
+            continue
+        r, g, b = key_colors[key]
+        pt_indices_0 = key_display_idx[key]
+        if len(pt_indices_0) == 0:
+            continue
+        pts_sub_0 = step_data[first_step][key][0][pt_indices_0]
+        dark_r, dark_g, dark_b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
+        traces.append(
+            go.Scatter3d(
+                x=pts_sub_0[:, 0],
+                y=pts_sub_0[:, 1],
+                z=pts_sub_0[:, 2],
+                mode="markers",
+                marker=dict(
+                    size=sphere_size * 1.3,
+                    color=f"rgb({dark_r},{dark_g},{dark_b})",
+                    opacity=1.0,
+                ),
+                name=f"{key} samples t=0",
+                legendgroup=key,
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        trace_layers.append(_LAYER_INITIAL)
+
+    # --- Point trajectories (all t>=0, part of "trajectories" layer) ------
+    n_shown = len(shown_steps)
+
+    for key in all_keys:
+        r, g, b = key_colors[key]
+
+        if key not in key_display_idx:
+            continue
+        pt_indices = key_display_idx[key]
+        n_sub = len(pt_indices)
+        if n_sub == 0:
+            continue
+
+        for si, s in enumerate(shown_steps):
+            if key not in step_data[s]:
+                continue
+            pts, _ = step_data[s][key]
+            pts_sub = pts[pt_indices]
+
+            t_frac = si / max(n_shown - 1, 1)
+            fade = 0.4 + 0.5 * t_frac
+            marker_color = f"rgba({r},{g},{b},{fade:.2f})"
+
+            traces.append(
+                go.Scatter3d(
+                    x=pts_sub[:, 0],
+                    y=pts_sub[:, 1],
+                    z=pts_sub[:, 2],
+                    mode="markers",
+                    marker=dict(size=sphere_size, color=marker_color, opacity=fade),
+                    name=f"{key} t={s}",
+                    legendgroup=key,
+                    showlegend=(s == first_step),
+                    hovertext=[f"{key} t={s} pt={i}" for i in pt_indices],
+                    hoverinfo="text",
+                )
+            )
+            trace_layers.append(_LAYER_TRAJ)
+
+        line_color = f"rgba({r},{g},{b},0.35)"
+        for s_prev, s_curr in zip(shown_steps[:-1], shown_steps[1:]):
+            if key not in step_data[s_prev] or key not in step_data[s_curr]:
+                continue
+            pts_prev = step_data[s_prev][key][0][pt_indices]
+            pts_curr = step_data[s_curr][key][0][pt_indices]
+
+            line_x = np.empty(3 * n_sub)
+            line_y = np.empty(3 * n_sub)
+            line_z = np.empty(3 * n_sub)
+
+            line_x[0::3] = pts_prev[:, 0]
+            line_x[1::3] = pts_curr[:, 0]
+            line_x[2::3] = np.nan
+
+            line_y[0::3] = pts_prev[:, 1]
+            line_y[1::3] = pts_curr[:, 1]
+            line_y[2::3] = np.nan
+
+            line_z[0::3] = pts_prev[:, 2]
+            line_z[1::3] = pts_curr[:, 2]
+            line_z[2::3] = np.nan
+
+            traces.append(
+                go.Scatter3d(
+                    x=line_x,
+                    y=line_y,
+                    z=line_z,
+                    mode="lines",
+                    line=dict(color=line_color, width=line_width),
+                    legendgroup=key,
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+            trace_layers.append(_LAYER_TRAJ)
+
+    # --- Build figure and inject toggle buttons via JS ----------------------
+    n_traces = len(traces)
+    initial_indices = [i for i in range(n_traces) if trace_layers[i] == _LAYER_INITIAL]
+    traj_indices = [i for i in range(n_traces) if trace_layers[i] == _LAYER_TRAJ]
+
+    fig = go.Figure(data=traces)
+    fig.update_layout(
+        title="Dynamic Object Mesh Point Trajectories",
+        scene=dict(
+            xaxis_title="X (m)",
+            yaxis_title="Y (m)",
+            zaxis_title="Z (m)",
+            aspectmode="data",
+        ),
+        legend=dict(x=0, y=1),
+        margin=dict(l=0, r=0, t=60, b=0),
+    )
+
+    _toggle_snippet = """
+<style>
+.toggle-btn {
+    padding: 6px 14px; margin: 4px 6px 4px 0; cursor: pointer;
+    border: 2px solid #888; border-radius: 5px; font-size: 13px;
+    font-weight: 600; user-select: none; display: inline-block;
+}
+.toggle-btn.on  { background: #d0eaff; border-color: #3388cc; color: #1a5276; }
+.toggle-btn.off { background: #f0f0f0; border-color: #bbb;    color: #888; }
+</style>
+<div style="text-align:left; padding:4px 8px;">
+  <span id="btn-initial" class="toggle-btn on"
+        onclick="toggleLayer('initial')">Meshes + Initial Points</span>
+  <span id="btn-traj" class="toggle-btn on"
+        onclick="toggleLayer('traj')">Points + Trajectories</span>
+</div>
+<script>
+var layerState = {initial: true, traj: true};
+var layerIndices = {
+    initial: INITIAL_PLACEHOLDER,
+    traj:    TRAJ_PLACEHOLDER
+};
+function toggleLayer(name) {
+    layerState[name] = !layerState[name];
+    var vis = layerState[name];
+    var gd = document.getElementsByClassName('plotly-graph-div')[0];
+    var update = {};
+    layerIndices[name].forEach(function(i) {
+        update[i] = vis;
+    });
+    var visArr = [];
+    for (var i = 0; i < gd.data.length; i++) {
+        if (i in update) visArr.push(update[i]);
+        else visArr.push(gd.data[i].visible !== false);
+    }
+    Plotly.restyle(gd, {'visible': visArr});
+    var btn = document.getElementById('btn-' + name);
+    btn.className = 'toggle-btn ' + (vis ? 'on' : 'off');
+}
+</script>
+""".replace("INITIAL_PLACEHOLDER", json.dumps(initial_indices)).replace(
+        "TRAJ_PLACEHOLDER", json.dumps(traj_indices)
+    )
+
+    if save_path:
+        html_str = fig.to_html(full_html=True, include_plotlyjs=True)
+        html_str = html_str.replace("<body>", "<body>" + _toggle_snippet)
+        with open(save_path, "w") as f:
+            f.write(html_str)
+        print(f"[visualize_dynamic_mesh_trajectories] Saved to {save_path}")
+    else:
+        fig.show()
