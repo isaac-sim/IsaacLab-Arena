@@ -1042,6 +1042,20 @@ def visualize_scene_flow_3d(
     t = T[:3, 3]
     points_world = (R @ points_cam.reshape(-1, 3).T).T.reshape(H, W, 3) + t
 
+    # ---- Compensate camera ego-motion: convert stored camera-relative
+    #      flow to world-space object-only flow so that static surfaces
+    #      have zero-length arrows regardless of camera motion. -----------
+    dst_tag = f"{frame_index + 1:010d}"
+    dst_extr_path = os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC, f"{dst_tag}.npy")
+    if os.path.exists(dst_extr_path):
+        T_dst = np.load(dst_extr_path).astype(np.float64)
+        R_dst = T_dst[:3, :3]
+        t_dst = T_dst[:3, 3]
+        p_cam_src = (points_world.reshape(-1, 3) - t) @ R
+        p_cam_dst = p_cam_src + flow3d.reshape(-1, 3)
+        p_world_dst = (p_cam_dst @ R_dst.T) + t_dst
+        flow3d = (p_world_dst - points_world.reshape(-1, 3)).reshape(H, W, 3)
+
     # ---- Sub-sample & flatten ------------------------------------------
     pts = points_world[::stride, ::stride]
     flw = flow3d[::stride, ::stride]
@@ -1225,6 +1239,19 @@ def visualize_first_frame_flow_3d(
     R = T[:3, :3]
     t = T[:3, 3]
     p0_world = (R @ points_cam.reshape(-1, 3).T).T.reshape(H, W, 3) + t
+
+    # ---- Compensate camera ego-motion: convert stored camera-relative
+    #      flow to world-space object-only flow so that static surfaces
+    #      have zero-length arrows regardless of camera motion. -----------
+    dst_extr_path = os.path.join(cam_dir, _SUBFOLDER_EXTRINSIC, f"{tag}.npy")
+    if os.path.exists(dst_extr_path):
+        T_dst = np.load(dst_extr_path).astype(np.float64)
+        R_dst = T_dst[:3, :3]
+        t_dst = T_dst[:3, 3]
+        p_cam_src = (p0_world.reshape(-1, 3) - t) @ R
+        p_cam_dst = p_cam_src + ff_flow.reshape(-1, 3)
+        p_world_dst = (p_cam_dst @ R_dst.T) + t_dst
+        ff_flow = (p_world_dst - p0_world.reshape(-1, 3)).reshape(H, W, 3)
 
     pts = p0_world[::stride, ::stride]
     flw = ff_flow[::stride, ::stride]
