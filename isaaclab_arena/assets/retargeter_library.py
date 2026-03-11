@@ -84,6 +84,24 @@ class GR1T2PinkIsaacTeleopRetargeter(RetargetterBase):
 
 
 @register_retargeter
+class G1WbcPinkIsaacTeleopRetargeter(RetargetterBase):
+    """Isaac Teleop pipeline builder for G1 WBC Pink (locomanipulation: wrist + TriHand + locomotion)."""
+
+    device = "openxr"
+    embodiment = "g1_wbc_pink"
+
+    def __init__(self):
+        pass
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable:
+        from isaaclab_arena.assets.g1_pink_locomanipulation_pipeline import (
+            _build_g1_pink_locomanipulation_pipeline,
+        )
+
+        return _build_g1_pink_locomanipulation_pipeline
+
+
+@register_retargeter
 class FrankaKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "franka"
