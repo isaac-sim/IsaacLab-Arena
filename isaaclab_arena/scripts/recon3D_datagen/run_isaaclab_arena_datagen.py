@@ -302,7 +302,7 @@ os.makedirs(dyn_viz_root, exist_ok=True)
 visualize_dynamic_mesh_trajectories(
     OUTPUT_DIR,
     step_stride=1,
-    point_stride=16,
+    point_stride=32,
     save_path=os.path.join(dyn_viz_root, "dynamic_mesh_trajectories.html"),
 )
 

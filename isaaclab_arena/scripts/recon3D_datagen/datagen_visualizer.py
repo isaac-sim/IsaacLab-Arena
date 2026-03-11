@@ -1358,6 +1358,7 @@ def visualize_dynamic_mesh_trajectories(
     point_stride: int = 8,
     sphere_size: float = 3.0,
     line_width: float = 2.0,
+    normal_length: float = 0.01,
     save_path: str | None = None,
 ) -> None:
     """Interactive 3-D visualisation of dynamic-object mesh point trajectories.
@@ -1375,6 +1376,7 @@ def visualize_dynamic_mesh_trajectories(
         point_stride: Sub-sample factor for points (e.g. 8 ≈ show 1/8).
         sphere_size: Marker size for point spheres.
         line_width: Width of trajectory lines.
+        normal_length: Length (metres) of normal-vector lines.
         save_path: Path to save an ``.html`` file.
     """
     try:
@@ -1437,6 +1439,8 @@ def visualize_dynamic_mesh_trajectories(
     # "trajectories" (all points t>=0 + trajectory lines).
     _LAYER_INITIAL = "initial"
     _LAYER_TRAJ = "trajectories"
+    _LAYER_NORM_INIT = "normals_initial"
+    _LAYER_NORM_TRAJ = "normals_traj"
 
     traces: list = []
     trace_layers: list[str] = []
@@ -1519,6 +1523,27 @@ def visualize_dynamic_mesh_trajectories(
         )
         trace_layers.append(_LAYER_INITIAL)
 
+        nrm_sub_0 = step_data[first_step][key][1][pt_indices_0]
+        tips_0 = pts_sub_0 + nrm_sub_0 * normal_length
+        nx = np.empty(3 * len(pts_sub_0))
+        ny = np.empty(3 * len(pts_sub_0))
+        nz = np.empty(3 * len(pts_sub_0))
+        nx[0::3] = pts_sub_0[:, 0]; nx[1::3] = tips_0[:, 0]; nx[2::3] = np.nan
+        ny[0::3] = pts_sub_0[:, 1]; ny[1::3] = tips_0[:, 1]; ny[2::3] = np.nan
+        nz[0::3] = pts_sub_0[:, 2]; nz[1::3] = tips_0[:, 2]; nz[2::3] = np.nan
+        traces.append(
+            go.Scatter3d(
+                x=nx, y=ny, z=nz,
+                mode="lines",
+                line=dict(color=f"rgb({dark_r},{dark_g},{dark_b})", width=1.5),
+                legendgroup=key,
+                showlegend=False,
+                hoverinfo="skip",
+                visible=False,
+            )
+        )
+        trace_layers.append(_LAYER_NORM_INIT)
+
     # --- Point trajectories (all t>=0, part of "trajectories" layer) ------
     n_shown = len(shown_steps)
 
@@ -1535,8 +1560,9 @@ def visualize_dynamic_mesh_trajectories(
         for si, s in enumerate(shown_steps):
             if key not in step_data[s]:
                 continue
-            pts, _ = step_data[s][key]
+            pts, nrm = step_data[s][key]
             pts_sub = pts[pt_indices]
+            nrm_sub = nrm[pt_indices]
 
             t_frac = si / max(n_shown - 1, 1)
             fade = 0.4 + 0.5 * t_frac
@@ -1557,6 +1583,24 @@ def visualize_dynamic_mesh_trajectories(
                 )
             )
             trace_layers.append(_LAYER_TRAJ)
+
+            tips = pts_sub + nrm_sub * normal_length
+            tnx = np.empty(3 * n_sub); tny = np.empty(3 * n_sub); tnz = np.empty(3 * n_sub)
+            tnx[0::3] = pts_sub[:, 0]; tnx[1::3] = tips[:, 0]; tnx[2::3] = np.nan
+            tny[0::3] = pts_sub[:, 1]; tny[1::3] = tips[:, 1]; tny[2::3] = np.nan
+            tnz[0::3] = pts_sub[:, 2]; tnz[1::3] = tips[:, 2]; tnz[2::3] = np.nan
+            traces.append(
+                go.Scatter3d(
+                    x=tnx, y=tny, z=tnz,
+                    mode="lines",
+                    line=dict(color=f"rgba({r},{g},{b},{fade:.2f})", width=1.5),
+                    legendgroup=key,
+                    showlegend=False,
+                    hoverinfo="skip",
+                    visible=False,
+                )
+            )
+            trace_layers.append(_LAYER_NORM_TRAJ)
 
         line_color = f"rgba({r},{g},{b},0.35)"
         for s_prev, s_curr in zip(shown_steps[:-1], shown_steps[1:]):
@@ -1599,6 +1643,8 @@ def visualize_dynamic_mesh_trajectories(
     n_traces = len(traces)
     initial_indices = [i for i in range(n_traces) if trace_layers[i] == _LAYER_INITIAL]
     traj_indices = [i for i in range(n_traces) if trace_layers[i] == _LAYER_TRAJ]
+    norm_init_indices = [i for i in range(n_traces) if trace_layers[i] == _LAYER_NORM_INIT]
+    norm_traj_indices = [i for i in range(n_traces) if trace_layers[i] == _LAYER_NORM_TRAJ]
 
     fig = go.Figure(data=traces)
     fig.update_layout(
@@ -1623,38 +1669,50 @@ def visualize_dynamic_mesh_trajectories(
 .toggle-btn.on  { background: #d0eaff; border-color: #3388cc; color: #1a5276; }
 .toggle-btn.off { background: #f0f0f0; border-color: #bbb;    color: #888; }
 </style>
-<div style="text-align:left; padding:4px 8px;">
+<div style="text-align:left; padding:4px 8px; position:relative; z-index:1000;">
   <span id="btn-initial" class="toggle-btn on"
         onclick="toggleLayer('initial')">Meshes + Initial Points</span>
   <span id="btn-traj" class="toggle-btn on"
         onclick="toggleLayer('traj')">Points + Trajectories</span>
+  <span id="btn-normals" class="toggle-btn off"
+        onclick="toggleLayer('normals')">Normals</span>
 </div>
 <script>
-var layerState = {initial: true, traj: true};
+var layerState = {initial: true, traj: true, normals: false};
 var layerIndices = {
-    initial: INITIAL_PLACEHOLDER,
-    traj:    TRAJ_PLACEHOLDER
+    initial:   __PH_INITIAL__,
+    traj:      __PH_TRAJ__,
+    normInit:  __PH_NORM_INIT__,
+    normTraj:  __PH_NORM_TRAJ__
 };
-function toggleLayer(name) {
-    layerState[name] = !layerState[name];
-    var vis = layerState[name];
+function applyVisibility() {
     var gd = document.getElementsByClassName('plotly-graph-div')[0];
-    var update = {};
-    layerIndices[name].forEach(function(i) {
-        update[i] = vis;
-    });
+    var showNormInit = layerState.normals && layerState.initial;
+    var showNormTraj = layerState.normals && layerState.traj;
+    var overrides = {};
+    layerIndices.initial.forEach(function(i)  { overrides[i] = layerState.initial; });
+    layerIndices.traj.forEach(function(i)     { overrides[i] = layerState.traj; });
+    layerIndices.normInit.forEach(function(i) { overrides[i] = showNormInit; });
+    layerIndices.normTraj.forEach(function(i) { overrides[i] = showNormTraj; });
     var visArr = [];
     for (var i = 0; i < gd.data.length; i++) {
-        if (i in update) visArr.push(update[i]);
-        else visArr.push(gd.data[i].visible !== false);
+        visArr.push(i in overrides ? overrides[i] : (gd.data[i].visible !== false));
     }
     Plotly.restyle(gd, {'visible': visArr});
+}
+function toggleLayer(name) {
+    layerState[name] = !layerState[name];
+    applyVisibility();
     var btn = document.getElementById('btn-' + name);
-    btn.className = 'toggle-btn ' + (vis ? 'on' : 'off');
+    btn.className = 'toggle-btn ' + (layerState[name] ? 'on' : 'off');
 }
 </script>
-""".replace("INITIAL_PLACEHOLDER", json.dumps(initial_indices)).replace(
-        "TRAJ_PLACEHOLDER", json.dumps(traj_indices)
+""".replace("__PH_INITIAL__", json.dumps(initial_indices)).replace(
+        "__PH_TRAJ__", json.dumps(traj_indices)
+    ).replace(
+        "__PH_NORM_INIT__", json.dumps(norm_init_indices)
+    ).replace(
+        "__PH_NORM_TRAJ__", json.dumps(norm_traj_indices)
     )
 
     if save_path:
