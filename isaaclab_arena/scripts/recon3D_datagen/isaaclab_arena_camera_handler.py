@@ -319,9 +319,18 @@ class DynamicObjectTracker:
     ) -> DynamicObjectResult:
         """Return filtered data for objects that were seen and actually moved.
 
+        Uses the same lenient rotation threshold as
+        :meth:`sample_dynamic_object_meshes` so results are consistent:
+        ``rotation_eps = max(motion_eps * 100, 1e-2)`` (~0.57 deg).  This
+        avoids classifying stationary objects as dynamic due to physics
+        solver jitter in rotations.
+
+        For articulated objects, only links that individually exceed the
+        motion threshold are included.
+
         Args:
-            motion_eps: Minimum translation (metres) or rotation (radians)
-                change between adjacent frames to count as dynamic.
+            motion_eps: Minimum translation (metres) between adjacent
+                frames to count as dynamic.
 
         Returns:
             A :class:`DynamicObjectResult` containing JSON metadata and
@@ -330,16 +339,16 @@ class DynamicObjectTracker:
         """
         objects_meta: Dict[str, Dict[str, Any]] = {}
         pose_arrays: Dict[str, np.ndarray] = {}
+        rot_eps = max(motion_eps * 100.0, 1e-2)
 
         for kind, asset_name in self._seen_assets:
             if kind == "RIGID":
                 poses_4x4 = self._rigid_poses.get(asset_name)
                 if poses_4x4 is None:
                     continue
-                if not self._has_motion_tensor(poses_4x4):
-                    if motion_eps > 0:
-                        continue
-                elif not self._has_motion_tensor(poses_4x4, motion_eps):
+                if not self._has_motion_tensor(
+                    poses_4x4, motion_eps, rotation_eps=rot_eps,
+                ):
                     continue
 
                 instance_key = ("RIGID", asset_name)
@@ -358,19 +367,15 @@ class DynamicObjectTracker:
                 body_names = self._artic_body_names.get(asset_name, [])
                 num_bodies = poses_4x4.shape[1]
 
-                any_moved = False
-                for bi in range(num_bodies):
-                    if self._has_motion_tensor(poses_4x4[:, bi], motion_eps):
-                        any_moved = True
-                        break
-                if not any_moved:
-                    continue
-
                 instance_key = ("ARTICULATION", asset_name)
                 display_name = self._registry.instance_key_to_display_name(instance_key)
 
                 parts_meta: Dict[str, Dict[str, Any]] = {}
                 for bi in range(num_bodies):
+                    if not self._has_motion_tensor(
+                        poses_4x4[:, bi], motion_eps, rotation_eps=rot_eps,
+                    ):
+                        continue
                     bname = body_names[bi] if bi < len(body_names) else f"body_{bi}"
                     array_key = f"{display_name}/{bname}"
                     parts_meta[bname] = {
@@ -378,6 +383,9 @@ class DynamicObjectTracker:
                         "pose_array_key": array_key,
                     }
                     pose_arrays[array_key] = poses_4x4[:, bi, :3, :].numpy()
+
+                if not parts_meta:
+                    continue
 
                 objects_meta[display_name] = {
                     "type": "articulation",
