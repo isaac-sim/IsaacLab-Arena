@@ -15,7 +15,7 @@ or processed_actions (default), e.g. 8 joint position commands. No task-space IK
 Launch Isaac Sim Simulator first.
 """
 # for curobo replays, use the following command:
-# python isaaclab_arena/scripts/imitation_learning/replay_demos.py --dataset_file /datasets/curobo.hdf5 --validate_states --device cpu --use_joint_targets droid_v2_tabletop_pick_and_place --embodiment droid_abs_joint_pos
+# python isaaclab_arena/scripts/imitation_learning/replay_demos.py --dataset_file /datasets/curobo.hdf5 --validate_states --use_joint_targets droid_v2_tabletop_pick_and_place --embodiment droid_abs_joint_pos
 
 from isaaclab.app import AppLauncher
 

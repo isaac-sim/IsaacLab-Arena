@@ -43,7 +43,7 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(1.5, 0.8, 1.0))
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name('light')(spawner_cfg=light_spawner_cfg)
-        embodiment = self.asset_registry.get_asset_by_name('droid_differential_ik')(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         office_table.set_initial_pose(Pose(position_xyz=(0.7, 0.5, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0)))
@@ -402,4 +402,5 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         """Add CLI arguments specific to this environment."""
         parser.add_argument('--object', type=str, default='tomato_soup_can')
         parser.add_argument('--object_set', nargs='+', type=str, default=None)
+        parser.add_argument('--embodiment', type=str, default='droid_differential_ik')
         parser.add_argument('--teleop_device', type=str, default=None)

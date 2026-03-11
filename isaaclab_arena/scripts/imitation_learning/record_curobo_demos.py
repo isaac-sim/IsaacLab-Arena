@@ -27,11 +27,15 @@ Replay: This script uses ActionStateRecorderManagerCfg (processed_actions, state
 """Launch Isaac Sim Simulator first."""
 
 # record curobo demos, use the following command:
-# python isaaclab_arena/scripts/imitation_learning/record_curobo_demos.py --device cpu droid_v2_tabletop_pick_and_place --num_demos 1 --dataset_file /datasets/curobo.hdf5 --grasp_z_offset 0.17 --pick_order alphabet_soup_can_hope_robolab ketchup_bottle_hope_robolab tomato_soup_can --grasp_orientation object_yaw --post_place_clearance 0.0 --grasp_z_offset 0.17 --approach_distance 0.08 --retreat_distance 0.08 --debug_planner --debug_goal 
+# v2
+# python isaaclab_arena/scripts/imitation_learning/record_curobo_demos.py droid_v2_tabletop_pick_and_place --num_demos 1 --dataset_file /datasets/curobo.hdf5 --grasp_z_offset 0.17 --pick_order alphabet_soup_can_hope_robolab ketchup_bottle_hope_robolab tomato_soup_can --grasp_orientation object_yaw --post_place_clearance 0.0 --grasp_z_offset 0.17 --approach_distance 0.08 --retreat_distance 0.08 --debug_planner --debug_goal 
+# v3
+# python isaaclab_arena/scripts/imitation_learning/record_curobo_demos.py droid_v3_tabletop_pick_and_place --grasp_z_offset 0.17 --approach_distance 0.08 --retreat_distance 0.08 --debug_planner --debug_goal --grasp_orientation object_yaw --post_place_clearance 0.0 --num_demos 1 --dataset_file /datasets/curobo_v3_statesonly.hdf5
 
 import argparse
 import contextlib
 import os
+import torch
 from copy import deepcopy
 from pathlib import Path
 
@@ -48,7 +52,7 @@ for action in parser._actions:
     if isinstance(choices, dict):
         for subparser in choices.values():
             subparser.add_argument("--dataset_file", type=str, required=True, help="File path to export recorded demos.")
-        add_curobo_script_args_to_subparsers(parser)  # adds --num_demos, --gripper_settle_steps, etc.
+        add_curobo_script_args_to_subparsers(parser)  # adds --num_demos, etc.
         break
 args_cli = parser.parse_args()
 
@@ -83,6 +87,19 @@ def _create_post_step_joint_targets_recorder():
 
     return PostStepJointTargetsRecorder
 
+def _create_post_step_eef_pose_target_recorder():
+    """Create a RecorderTerm that records the EEF pose target for replay (--use_eef_pose_target)."""
+    from isaaclab.managers.recorder_manager import RecorderTerm
+
+    class PostStepEefPoseTargetRecorder(RecorderTerm):
+        def record_post_step(self):
+            # record eef pose after the action is applied
+            robot = self._env.scene["robot"]
+            eef_idx = robot.data.body_names.index("base_link")  #robotiq gripper base link
+            eef_pos = robot.data.body_pos_w[:, eef_idx, :].clone()
+            eef_quat = robot.data.body_quat_w[:, eef_idx, :].clone()
+            return "eef_pose_target", torch.cat((eef_pos, eef_quat), dim=1)
+    return PostStepEefPoseTargetRecorder
 
 def create_environment_config(
     args_cli,
@@ -117,15 +134,13 @@ def create_environment_config(
     env_cfg.recorders.record_post_step_joint_targets = RecorderTermCfg(
         class_type=_create_post_step_joint_targets_recorder()
     )
+    env_cfg.recorders.record_post_step_eef_pose_target = RecorderTermCfg(
+        class_type=_create_post_step_eef_pose_target_recorder()
+    )
     return env_cfg, env_name, success_term
 
 
 def main() -> None:
-    if getattr(args_cli, "example_environment", None) != "droid_v2_tabletop_pick_and_place":
-        raise ValueError(
-            "This script records demos with CuRobo for droid_v2_tabletop_pick_and_place only. "
-            "Use --example_environment droid_v2_tabletop_pick_and_place."
-        )
 
     with SimulationAppContext(args_cli) as ctx:
         import gymnasium as gym
@@ -163,7 +178,7 @@ def main() -> None:
 
         goal_pose_visualizer = None
         ee_visualizer = None
-        assert args_cli.debug_goal, "debug_goal must be set to True for goal pose visualization"
+
         if not getattr(args_cli, "headless", False):
             marker_cfg = deepcopy(FRAME_MARKER_CFG)
             marker_cfg.prim_path = "/World/Visuals/curobo_goal_pose"
