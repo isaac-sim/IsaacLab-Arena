@@ -22,8 +22,8 @@ def object_on_destination(
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
 ) -> torch.Tensor:
-    object: RigidObject = env.scene[object_cfg.name]
-    sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
+    object: RigidObject = env.unwrapped.scene[object_cfg.name]
+    sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
     # and ``M`` is the number of filtered bodies.
@@ -55,7 +55,7 @@ def objects_on_destinations(
     Returns True only when ALL objects in the list satisfy the destination condition.
     See `object_on_destination` for details on the single-object logic.
     """
-    condition_met = torch.ones((env.num_envs), device=env.device, dtype=torch.bool)
+    condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
     for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
         single_condition = object_on_destination(
             env=env,

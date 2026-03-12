@@ -86,8 +86,8 @@ def _test_set_object_pose_per_env_event(simulation_app):
         cracker_box_poses = cracker_box.get_object_pose(env)
         initial_poses = torch.cat(
             (
-                pose_list[0].to_tensor(device=env.device).unsqueeze(0),
-                pose_list[1].to_tensor(device=env.device).unsqueeze(0),
+                pose_list[0].to_tensor(device=env.unwrapped.device).unsqueeze(0),
+                pose_list[1].to_tensor(device=env.unwrapped.device).unsqueeze(0),
             ),
             dim=0,
         )
