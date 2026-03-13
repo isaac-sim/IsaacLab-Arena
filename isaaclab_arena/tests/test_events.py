@@ -139,9 +139,7 @@ def _test_object_moves_with_initial_velocity(simulation_app):
     sphere = asset_registry.get_asset_by_name("sphere")(spawner_cfg=no_gravity_cfg)
 
     initial_velocity = (-0.5, 0.0, 0.0)  # There is a wall in +x
-    sphere.set_initial_pose(
-        Pose(position_xyz=(0.0, 0.0, 0.5), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-    )
+    sphere.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.5), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
     sphere.set_initial_linear_velocity(initial_velocity)
 
     scene = Scene(assets=[sphere])
