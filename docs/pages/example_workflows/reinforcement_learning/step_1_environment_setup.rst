@@ -155,17 +155,18 @@ See :doc:`../../concepts/concept_environment_design` for environment composition
 Validation: Run Random Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To validate the environment setup, we can run a policy with random weights to ensure everything loads correctly:
+To validate the environment loads correctly, run one training iteration and check for errors:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/reinforcement_learning/train.py \
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task lift_object \
      --num_envs 64 \
      --max_iterations 1 \
-     lift_object
+     --headless
 
-This command will load the environment, initialize 64 parallel environments, and exit immediately
-(``max_iterations=1``). If successful, the environment is ready for training.
+If the environment is set up correctly, you will see one iteration of training output before the script exits.
 
 You should see output indicating the start of training:
 

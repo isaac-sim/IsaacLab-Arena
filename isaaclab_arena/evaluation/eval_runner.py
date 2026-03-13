@@ -158,10 +158,11 @@ def main():
                         metrics_logger.append_job_metrics(job.name, metrics)
 
                 except Exception as e:
-                    # continue with the next job even if one fails
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
                     print(f"Job {job.name} failed with error: {e}")
                     print(f"Traceback: {traceback.format_exc()}")
+                    if not args_cli.continue_on_error:
+                        raise
 
                 finally:
                     # Only stop env if it was successfully created

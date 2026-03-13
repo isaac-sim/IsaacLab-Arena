@@ -68,7 +68,7 @@ def rollout_policy(
         obs, _ = env.reset()
         policy.reset()
         # set task description (could be None) from the task being evaluated
-        # Use unwrapped to reach the base env through any gym wrappers (e.g. RecordVideo)
+        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
         policy.set_task_description(env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description())
 
         # Setup progress bar based on num_steps or num_episodes
@@ -114,10 +114,9 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
-        # only compute metrics if env has metrics registered
-        # Use unwrapped to reach the base env through any gym wrappers (e.g. RecordVideo).
-        # This is safe whether or not the env was pre-unwrapped: gym's base Env.unwrapped returns self.
-        if hasattr(env.unwrapped.cfg, "metrics"):
+        # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
+        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
+        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
 
@@ -167,7 +166,7 @@ def main():
         arena_builder = get_arena_builder_from_cli(args_cli)
         name, cfg = arena_builder.build_registered()
 
-        env = gym.make(name, cfg=cfg).unwrapped
+        env = gym.make(name, cfg=cfg)
 
         # Per-rank seed when distributed so each process has a different seed
         seed = args_cli.seed

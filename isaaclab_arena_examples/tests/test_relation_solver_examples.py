@@ -35,3 +35,12 @@ def test_isaac_sim_object_placer_smoke():
 
     result = run_simulation_app_function(smoke_test_isaac_sim_object_placer)
     assert result, "Isaac Sim object placer smoke test failed"
+
+
+def test_isaac_sim_no_collision_smoke():
+    """Smoke test: verify the Isaac Sim NoCollision notebook runs without errors."""
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena_examples.relations.isaac_sim_no_collision_notebook import smoke_test_isaac_sim_no_collision
+
+    result = run_simulation_app_function(smoke_test_isaac_sim_no_collision)
+    assert result, "Isaac Sim NoCollision smoke test failed"

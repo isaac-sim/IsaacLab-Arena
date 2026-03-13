@@ -7,6 +7,9 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 WORKDIR="/workspaces/isaaclab_arena"
 
+# Default OpenXR directory shared with CloudXR runtime (lives in IsaacLab submodule)
+OPENXR_HOST_DIR="./submodules/IsaacLab/openxr"
+
 # Default mount directory on the host machine for the datasets
 DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 # Default mount directory on the host machine for the models

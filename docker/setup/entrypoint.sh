@@ -21,7 +21,7 @@ userdel ubuntu || true
 useradd --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
         --gid "$DOCKER_RUN_GROUP_NAME" \
-        --groups sudo \
+        --groups sudo,isaac-sim \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME

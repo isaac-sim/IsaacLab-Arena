@@ -5,6 +5,9 @@ This section describes the generic remote policy interface in Isaac Lab Arena,
 how it is structured around server-side and client-side policies, and how to
 plug in your own remote policies.
 
+For running evaluation with a remote policy (server–client), see
+:doc:`Evaluation Types <../policy_evaluation/evaluation_types>`.
+
 Overview
 --------
 

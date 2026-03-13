@@ -1,135 +1,74 @@
 Policy Training
 ---------------
 
-This workflow covers training an RL policy from scratch using RSL-RL's PPO implementation.
-The training is fully parallelized across hundreds of environments for sample-efficient learning.
-
 **Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
 
 :docker_run_default:
 
-
-Training Overview
-^^^^^^^^^^^^^^^^^
-
-We use **Proximal Policy Optimization (PPO)** from the `RSL-RL <https://github.com/leggedrobotics/rsl_rl>`_ library,
-a proven on-policy RL algorithm for robot learning. The training process:
-
-1. **Parallel Simulation**: Runs 512 parallel environments simultaneously
-2. **Dense Rewards**: Provides shaped rewards for reaching, grasping, lifting, and goal achievement
-3. **Command Sampling**: Randomly samples target positions within a workspace range
-4. **Automatic Checkpointing**: Saves model checkpoints every 500 iterations
-5. **Tensorboard Logging**: Monitors training progress in real-time
-
 Training Command
 ^^^^^^^^^^^^^^^^
 
-To train the policy, run:
+Training uses IsaacLab's RSL-RL training script directly. The ``--external_callback`` argument
+points to an Arena function that runs before training starts — it reads the ``--task`` argument,
+builds the environment, and registers it with gym so IsaacLab's script can find it by name.
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/reinforcement_learning/train.py \
-     --env_spacing 5.0 \
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task lift_object \
+     --num_envs 512 \
+     --max_iterations 12000
+
+.. tip::
+
+   Add ``--headless`` to suppress the GUI when running on a headless server.
+
+Checkpoints are written to ``logs/rsl_rl/generic_experiment/<timestamp>/``.
+The agent configuration is saved alongside as ``params/agent.yaml``,
+which the evaluation script uses to reconstruct the policy at inference time.
+
+
+Overriding Hyperparameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Hyperparameters come from ``RLPolicyCfg`` in ``isaaclab_arena_examples/policy/base_rsl_rl_policy.py``
+and can be overridden with Hydra syntax appended to the training command:
+
+.. code-block:: bash
+
+   # Change network activation function to relu (default: elu)
+   agent.policy.activation=relu
+
+   # Adjust the learning rate (default: 0.0001)
+   agent.algorithm.learning_rate=0.001
+
+   # Save a checkpoint more frequently (default: every 200 iterations)
+   agent.save_interval=500
+
+For example, to train with relu activation and a higher learning rate:
+
+.. code-block:: bash
+
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task lift_object \
      --num_envs 512 \
      --max_iterations 12000 \
-     --save_interval 500 \
-     --headless \
-     lift_object
-
-**Command Breakdown:**
-
-.. list-table::
-   :widths: 30 70
-   :header-rows: 1
-
-   * - Argument
-     - Description
-   * - ``--env_spacing 5.0``
-     - Spacing between parallel environments (meters)
-   * - ``--num_envs 512``
-     - Number of parallel environments for training
-   * - ``--max_iterations 12000``
-     - Total training iterations (each iteration = 24 timesteps × 512 envs = 12,288 samples)
-   * - ``--save_interval 500``
-     - Save checkpoint every 500 iterations
-   * - ``--headless``
-     - Run without GUI for faster training
-   * - ``lift_object``
-     - Environment name (must be last argument)
-
-**Additional Arguments (Optional):**
-
-.. list-table::
-   :widths: 30 70
-   :header-rows: 1
-
-   * - Argument
-     - Description
-   * - ``--seed <int>``
-     - Random seed for reproducibility (default: 42)
-   * - ``--device <str>``
-     - Device to use: 'cuda' or 'cpu' (default: 'cuda')
-   * - ``--video``
-     - Record training videos periodically
-   * - ``--video_interval 2000``
-     - Interval for recording videos (iterations)
-
-
-Training Configuration
-^^^^^^^^^^^^^^^^^^^^^^
-
-The training uses the default RSL-RL PPO configuration, which can be found at:
-
-``isaaclab_arena/policy/rl_policy/generic_policy.json``
-
-Key hyperparameters:
-
-.. code-block:: json
-
-   {
-     "algorithm": {
-       "class_name": "PPO",
-       "num_learning_epochs": 5,
-       "num_mini_batches": 4,
-       "learning_rate": 0.001,
-       "gamma": 0.99,
-       "lam": 0.95,
-       "clip_param": 0.2
-     },
-     "policy": {
-       "class_name": "ActorCritic",
-       "activation": "elu",
-       "actor_hidden_dims": [256, 256, 256],
-       "critic_hidden_dims": [256, 256, 256]
-     }
-   }
-
-To use a custom configuration, specify the path with ``--agent_cfg_path <path>``.
+     agent.policy.activation=relu \
+     agent.algorithm.learning_rate=0.001
 
 
 Monitoring Training
 ^^^^^^^^^^^^^^^^^^^
 
-Training logs are saved to ``logs/rsl_rl/generic_experiment/<timestamp>/``.
-
-**1. View Training Metrics with Tensorboard**
-
-Launch Tensorboard to monitor training progress:
+Launch Tensorboard to monitor progress:
 
 .. code-block:: bash
 
-   tensorboard --logdir logs/rsl_rl
+   python -m tensorboard.main --logdir logs/rsl_rl
 
-Navigate to ``http://localhost:6006`` in your browser to view:
-
-- **Episode rewards**: Total reward per episode
-- **Episode length**: Steps per episode
-- **Policy loss**: Actor and critic losses
-- **Learning rate**: Current learning rate schedule
-
-**2. Training Output**
-
-During training, you'll see periodic console output:
+During training, each iteration prints a summary to the console:
 
 .. code-block:: text
 
@@ -159,43 +98,28 @@ During training, you'll see periodic console output:
                             Time elapsed: 00:00:04
                                      ETA: 00:00:49
 
-   [INFO] Saved checkpoint to: logs/rsl_rl/generic_experiment/<timestamp>/model_<iteration>.pt
-
-**3. Checkpoints**
-
-Model checkpoints are saved to:
-
-``logs/rsl_rl/generic_experiment/<timestamp>/model_<iteration>.pt``
-
-Example: ``logs/rsl_rl/generic_experiment/2026-01-29_12-30-00/model_2000.pt``
-
 
 Multi-GPU Training
 ^^^^^^^^^^^^^^^^^^
 
-For faster training on multi-GPU systems, use the ``--distributed`` flag:
+Add ``--distributed`` to spread environments across all available GPUs:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/reinforcement_learning/train.py \
-     --env_spacing 5.0 \
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task lift_object \
      --num_envs 512 \
      --max_iterations 12000 \
-     --save_interval 500 \
      --headless \
-     --distributed \
-     lift_object
-
-This automatically distributes environments across available GPUs.
+     --distributed
 
 
 Expected Results
 ^^^^^^^^^^^^^^^^
 
-After 12,000 iterations (~6 hours on a single GPU with 512 environments):
-
-The trained policy should reliably grasp and lift objects to commanded target positions.
-Please refer to the following gif for an example of the trained policy:
+After 12,000 iterations (~6 hours on a single GPU with 512 environments), the trained
+policy should reliably grasp and lift objects to commanded target positions.
 
 .. image:: ../../../images/lift_object_rl_task.gif
    :align: center
