@@ -171,14 +171,6 @@ Isaac Lab Arena is in **pre-alpha** (`v0.1.x`). This is important to understand:
 | **Docker-only install** | Source installation in a Docker container is the only supported method in `v0.1.x`. |
 | **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.1.1` for the most stable experience. |
 
-### Planned Enhancements (Post `v0.1.x`)
-
-- Object placement via natural language
-- Composite tasking by chaining atomic skills
-- Reinforcement learning task setup
-- Parallel heterogeneous evaluations (different objects per parallel environment)
-
-Track progress and upcoming features in [GitHub Issues](https://github.com/isaac-sim/IsaacLab-Arena/issues).
 
 ## Ecosystem
 
