@@ -95,6 +95,11 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             body_active_joint_groups=["arms"],
         )
 
+        # Base link for transforming wrist poses from world to base link frame (same as pink_task_space_actions)
+        self._base_link_name = "pelvis"
+        self._base_link_idx = self._asset.data.body_names.index(self._base_link_name)
+        self._base_link_frame_buffer = torch.zeros(self.num_envs, 4, 4, device=self.device)
+
     # Properties.
     # """
     @property
@@ -182,6 +187,41 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             )
         return target_robot_joints
 
+    def _get_base_link_frame_transform(self) -> torch.Tensor:
+        """Get the base link frame transformation matrix (in env origin frame).
+
+        Returns:
+            Base link frame transformation matrix, shape (num_envs, 4, 4).
+        """
+        articulation_data = self._asset.data
+        base_link_frame_in_world_origin = wp.to_torch(articulation_data.body_link_state_w)[
+            :, self._base_link_idx, :7
+        ]
+
+        # Transform to environment origin frame (reuse buffer to avoid allocation)
+        torch.sub(
+            base_link_frame_in_world_origin[:, :3],
+            self._env.scene.env_origins,
+            out=self._base_link_frame_buffer[:, :3, 3],
+        )
+
+        base_link_frame_quat = base_link_frame_in_world_origin[:, 3:7]
+        return math_utils.make_pose(
+            self._base_link_frame_buffer[:, :3, 3], math_utils.matrix_from_quat(base_link_frame_quat)
+        )
+
+    def _transform_poses_to_base_link_frame(self, poses: torch.Tensor) -> torch.Tensor:
+        """Transform poses from world (env origin) frame to base link frame.
+
+        Args:
+            poses: Poses in world frame, shape (num_poses, num_envs, 4, 4).
+
+        Returns:
+            Poses in base link frame, same shape (num_poses, num_envs, 4, 4).
+        """
+        base_link_inv = math_utils.pose_inv(self._base_link_frame_in_world_rf)
+        return math_utils.pose_in_A_to_pose_in_B(poses, base_link_inv)
+
     # """
     # Operations.
     # """
@@ -226,7 +266,7 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             if np.linalg.norm(q) < 1e-8:
                 q[:] = _IDENTITY_QUAT_XYZW
 
-        # Convert from pos/quat to 4x4 transform matrix
+        # Convert from pos/quat to 4x4 transform matrix (world / env origin frame)
         left_rotmat = R.from_quat(left_arm_quat).as_matrix()
         right_rotmat = R.from_quat(right_arm_quat).as_matrix()
 
@@ -238,11 +278,20 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         right_arm_pose[:3, :3] = right_rotmat
         right_arm_pose[:3, 3] = right_arm_pos
 
+        # Transform wrist poses from world frame to base link frame (same as pink_task_space_actions)
+        self._base_link_frame_in_world_rf = self._get_base_link_frame_transform()
+        left_pose_t = torch.as_tensor(left_arm_pose, dtype=torch.float32, device=self.device).unsqueeze(0).unsqueeze(0)
+        right_pose_t = torch.as_tensor(right_arm_pose, dtype=torch.float32, device=self.device).unsqueeze(0).unsqueeze(0)
+        controlled_frame_poses = torch.cat([left_pose_t, right_pose_t], dim=0)
+        transformed_poses = self._transform_poses_to_base_link_frame(controlled_frame_poses)
+        left_arm_pose = transformed_poses[0, 0].cpu().numpy()
+        right_arm_pose = transformed_poses[1, 0].cpu().numpy()
+
         # Extract left/right hand state from actions
         left_hand_state = actions_clone[:, LEFT_HAND_STATE_IDX].squeeze(0).cpu()
         right_hand_state = actions_clone[:, RIGHT_HAND_STATE_IDX].squeeze(0).cpu()
 
-        # Assemble data format for running IK
+        # Assemble data format for running IK (poses in base link frame)
         body_data = {LEFT_WRIST_LINK_NAME: left_arm_pose, RIGHT_WRIST_LINK_NAME: right_arm_pose}
 
         # Run IK
