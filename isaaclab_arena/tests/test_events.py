@@ -155,16 +155,16 @@ def _test_object_moves_with_initial_velocity(simulation_app):
     env.reset()
 
     try:
-        initial_position = env.scene[sphere.name].data.root_pose_w[0, :3].clone()
-        initial_position[:3] -= env.scene.env_origins[0]
+        initial_position = env.unwrapped.scene[sphere.name].data.root_pose_w[0, :3].clone()
+        initial_position[:3] -= env.unwrapped.scene.env_origins[0]
 
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        final_position = env.scene[sphere.name].data.root_pose_w[0, :3].clone()
-        final_position[:3] -= env.scene.env_origins[0]
+        final_position = env.unwrapped.scene[sphere.name].data.root_pose_w[0, :3].clone()
+        final_position[:3] -= env.unwrapped.scene.env_origins[0]
         displacement = final_position - initial_position
         assert (
             displacement[0].item() < -OBJECT_VELOCITY_MIN_DISPLACEMENT  # - x because initial velocity is in -x
