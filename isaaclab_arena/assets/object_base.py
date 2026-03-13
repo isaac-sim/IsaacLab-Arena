@@ -81,7 +81,7 @@ class ObjectBase(Asset, ABC):
             self.object_cfg.init_state.rot = initial_pose.rotation_wxyz
         self.event_cfg = self._init_event_cfg()
 
-    def set_initial_velocity(self, linear_velocity: tuple[float, float, float]) -> None:
+    def set_initial_linear_velocity(self, velocity: tuple[float, float, float]) -> None:
         """Set / override the initial linear velocity and rebuild derived configs.
 
         The velocity is applied as the ``init_state.lin_vel`` on the underlying
@@ -89,11 +89,11 @@ class ObjectBase(Asset, ABC):
         on every environment reset via the reset event.
 
         Args:
-            linear_velocity: Linear velocity ``(vx, vy, vz)`` in the world frame.
+            velocity: Linear velocity ``(vx, vy, vz)`` in the world frame.
         """
-        self.initial_velocity = linear_velocity
+        self.initial_velocity = velocity
         if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "lin_vel"):
-            self.object_cfg.init_state.lin_vel = linear_velocity
+            self.object_cfg.init_state.lin_vel = velocity
         self.event_cfg = self._init_event_cfg()
 
     def _requires_reset_pose_event(self) -> bool:
@@ -125,9 +125,8 @@ class ObjectBase(Asset, ABC):
             params: dict = {
                 "pose": initial_pose,
                 "asset_cfg": SceneEntityCfg(self.name),
+                "velocity": self.initial_velocity,
             }
-            if self.initial_velocity is not None:
-                params["velocity"] = self.initial_velocity
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",

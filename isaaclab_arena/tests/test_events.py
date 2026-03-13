@@ -12,6 +12,9 @@ NUM_STEPS = 10
 HEADLESS = True
 INITIAL_POSITION_EPS = 0.1  # The cracker box falls slightly.
 
+# For object initial velocity test: min displacement in velocity direction
+OBJECT_VELOCITY_MIN_DISPLACEMENT = 0.05  # minimum movement in meters
+
 
 def _test_set_object_pose_per_env_event(simulation_app):
     """Returns a scene which we use for these tests."""
@@ -107,6 +110,78 @@ def _test_set_object_pose_per_env_event(simulation_app):
     return True
 
 
+def _test_object_moves_with_initial_velocity(simulation_app):
+    """Test that a sphere moves with the given initial velocity after reset."""
+    import isaaclab.sim as sim_utils
+
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    asset_registry = AssetRegistry()
+    no_gravity_cfg = sim_utils.SphereCfg(
+        radius=0.1,
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
+        collision_props=sim_utils.CollisionPropertiesCfg(),
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            solver_position_iteration_count=16,
+            solver_velocity_iteration_count=1,
+            max_angular_velocity=1000.0,
+            max_linear_velocity=1000.0,
+            max_depenetration_velocity=5.0,
+            disable_gravity=True,
+        ),
+        mass_props=sim_utils.MassPropertiesCfg(mass=0.25),
+    )
+    sphere = asset_registry.get_asset_by_name("sphere")(spawner_cfg=no_gravity_cfg)
+
+    initial_velocity = (-0.5, 0.0, 0.0)  # There is a wall in +x
+    sphere.set_initial_pose(
+        Pose(position_xyz=(0.0, 0.0, 0.5), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    )
+    sphere.set_initial_linear_velocity(initial_velocity)
+
+    scene = Scene(assets=[sphere])
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
+        name="object_initial_velocity_test",
+        scene=scene,
+    )
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.num_envs = 1
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env = env_builder.make_registered()
+    env.reset()
+
+    try:
+        initial_position = env.scene[sphere.name].data.root_pose_w[0, :3].clone()
+        initial_position[:3] -= env.scene.env_origins[0]
+
+        for _ in tqdm.tqdm(range(NUM_STEPS)):
+            with torch.inference_mode():
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                env.step(actions)
+
+        final_position = env.scene[sphere.name].data.root_pose_w[0, :3].clone()
+        final_position[:3] -= env.scene.env_origins[0]
+        displacement = final_position - initial_position
+        assert (
+            displacement[0].item() < -OBJECT_VELOCITY_MIN_DISPLACEMENT  # - x because initial velocity is in -x
+        ), f"Object did not move with given velocity: displacement in x was {displacement[0].item()}"
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        env.close()
+
+    return True
+
+
 def test_set_object_post_per_env_event():
     result = run_simulation_app_function(
         _test_set_object_pose_per_env_event,
@@ -115,5 +190,14 @@ def test_set_object_post_per_env_event():
     assert result, f"Test {test_set_object_post_per_env_event.__name__} failed"
 
 
+def test_object_moves_with_initial_velocity():
+    result = run_simulation_app_function(
+        _test_object_moves_with_initial_velocity,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {test_object_moves_with_initial_velocity.__name__} failed"
+
+
 if __name__ == "__main__":
     test_set_object_post_per_env_event()
+    test_object_moves_with_initial_velocity()
