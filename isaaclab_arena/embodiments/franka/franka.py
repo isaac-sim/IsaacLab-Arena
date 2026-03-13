@@ -7,6 +7,7 @@
 import torch
 from collections.abc import Sequence
 from dataclasses import MISSING
+from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -77,19 +78,7 @@ class FrankaEmbodiment(EmbodimentBase):
         self.camera_config._is_tiled_camera = is_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
-<<<<<<< HEAD
-=======
-    def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # We override the default initial pose setting function in order to also set
-        # the initial pose of the stand.
-        scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
-        if scene_config is None or not hasattr(scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.stand.init_state.pos = pose.position_xyz
-        scene_config.stand.init_state.rot = pose.rotation_xyzw
-        return scene_config
 
->>>>>>> a2865b86 (Quaternion flip (a-la Claude))
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
 
@@ -104,25 +93,8 @@ class FrankaEmbodiment(EmbodimentBase):
 class FrankaSceneCfg:
     """Additions to the scene configuration coming from the Franka embodiment."""
 
-<<<<<<< HEAD
     # The robot (combined USD includes both the panda and the stand)
     robot: ArticulationCfg = _FRANKA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-=======
-    # The robot
-    robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-
-    # The stand for the franka
-    # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
-    stand: AssetBaseCfg = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Robot_Stand",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
-        spawn=UsdFileCfg(
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Mounts/Stand/stand_instanceable.usd",
-            scale=(1.2, 1.2, 1.7),
-            activate_contact_sensors=False,
-        ),
-    )
->>>>>>> a2865b86 (Quaternion flip (a-la Claude))
 
     # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(

@@ -12,7 +12,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
@@ -29,17 +29,9 @@ class ObjectReference(ObjectBase):
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
-        self.event_cfg = self._init_event_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
 
-    def get_initial_pose(self) -> Pose | PoseRange:
-        """Get the initial pose of this object reference.
-
-        If ``set_initial_pose`` was called, returns that override.
-        Otherwise derives the world-frame pose from the parent asset.
-        """
-        if self.initial_pose is not None:
-            return self.initial_pose
+    def get_initial_pose(self) -> Pose:
         if self.parent_asset.initial_pose is None:
             T_W_O = self.initial_pose_relative_to_parent
         else:
@@ -47,11 +39,6 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
-
-    def _get_initial_pose_as_pose(self) -> Pose:
-        pose = super()._get_initial_pose_as_pose()
-        assert pose is not None
-        return pose
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object reference.
@@ -92,14 +79,8 @@ class ObjectReference(ObjectBase):
         Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
         An assertion error is raised for any other rotation.
         """
-<<<<<<< HEAD
-        # The following handles only Pose, not PoseRange.
-        pose = self._get_initial_pose_as_pose()
-        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_wxyz)
-=======
         pose = self.get_initial_pose()
         quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
->>>>>>> a2865b86 (Quaternion flip (a-la Claude))
         return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
@@ -116,7 +97,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
-        initial_pose = self._get_initial_pose_as_pose()
+        initial_pose = self.get_initial_pose()
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,
             init_state=RigidObjectCfg.InitialStateCfg(
@@ -128,7 +109,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_articulation_cfg(self) -> ArticulationCfg:
         assert self.object_type == ObjectType.ARTICULATION
-        initial_pose = self._get_initial_pose_as_pose()
+        initial_pose = self.get_initial_pose()
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
             actuators={},
@@ -141,7 +122,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
-        initial_pose = self._get_initial_pose_as_pose()
+        initial_pose = self.get_initial_pose()
         object_cfg = AssetBaseCfg(
             prim_path=self.prim_path,
             init_state=AssetBaseCfg.InitialStateCfg(
@@ -194,8 +175,8 @@ class ObjectReference(ObjectBase):
         original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
         # Check that the path starts with the asset name.
         assert original_prim_path.startswith(parent_asset.name), (
-            f"Expected the prim path to start with the parent asset name {parent_asset.name}. Instead got"
-            f" {original_prim_path}"
+            "Expected the prim path to start with the parent asset name {parent_asset.name}. Instead got"
+            " {original_prim_path}"
         )
         original_prim_path = original_prim_path.removeprefix(parent_asset.name)
         # Append the default prim path.
