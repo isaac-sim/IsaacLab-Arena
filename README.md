@@ -94,40 +94,35 @@ For detailed setup instructions (including server-client mode for GR00T), see th
 
 ## Usage Example
 
-Build a pick-and-place environment with a Franka arm in a kitchen scene:
+Compose a Franka arm in a kitchen scene with a couple of objects:
 
 ```python
-from isaaclab_arena import (
-    IsaacLabArenaEnvironment, ArenaEnvBuilder, Scene,
-    ObjectReference, ObjectType, PickAndPlaceTask,
-    asset_registry, device_registry,
-)
+from isaaclab_arena.assets.asset_registry import AssetRegistry
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+from isaaclab_arena.scene.scene import Scene
+
+asset_registry = AssetRegistry()
 
 # Select building blocks
-embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
 background = asset_registry.get_asset_by_name("kitchen")()
+embodiment = asset_registry.get_asset_by_name("franka")()
+cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
-destination = ObjectReference(
-    name="destination_location",
-    prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
-    parent_asset=background,
-    object_type=ObjectType.RIGID,
-)
-teleop_device = device_registry.get_device_by_name("keyboard")()
 
 # Compose the environment
-scene = Scene([background, tomato_soup_can])
-
+scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 env_cfg = IsaacLabArenaEnvironment(
-    name="franka_kitchen_pickup",
+    name="franka_kitchen_example",
     embodiment=embodiment,
     scene=scene,
-    task=PickAndPlaceTask(tomato_soup_can, destination, background),
-    teleop_device=teleop_device,
 )
 
+args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 env_builder = ArenaEnvBuilder(env_cfg, args_cli)
-env = env_builder.make_registered()  # Registers with the gym registry
+env = env_builder.make_registered()
+env.reset()
 ```
 
 Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html), including:
