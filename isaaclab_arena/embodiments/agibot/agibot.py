@@ -113,7 +113,6 @@ class AgibotLeftArmActionsCfg:
         controller=AGIBOT_LEFT_ARM_RMPFLOW_CFG,
         scale=1.0,
         body_offset=RMPFlowActionCfg.OffsetCfg(rot=[0.7071, 0.0, -0.7071, 0.0]),
-        articulation_prim_expr="/World/envs/env_.*/Robot",
         use_relative_mode=True,
     )
 
@@ -135,7 +134,6 @@ class AgibotRightArmActionsCfg:
         body_name="right_gripper_center",
         controller=AGIBOT_RIGHT_ARM_RMPFLOW_CFG,
         scale=1.0,
-        articulation_prim_expr="/World/envs/env_.*/Robot",
         use_relative_mode=True,
     )
 
