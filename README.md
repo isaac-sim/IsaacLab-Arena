@@ -129,10 +129,10 @@ Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLa
 
 | Example | Description |
 |---------|-------------|
-| [G1 Loco-Manipulation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) | Unitree G1 humanoid locomotion + manipulation |
-| [GR1 Open Microwave Door](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) | GR1 humanoid interacting with articulated objects |
-| [GR1 Sequential Pick & Place](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) | Multi-step manipulation with GR1 |
-| [Franka Lift Object](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) | Classic Franka pick-up task |
+| [G1 Loco-Manipulation](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/locomanipulation/index.html) | Unitree G1 humanoid locomotion + manipulation |
+| [GR1 Open Microwave Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/static_manipulation/index.html) | GR1 humanoid interacting with articulated objects |
+| [GR1 Sequential Pick & Place](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/sequential_static_manipulation/index.html) | Multi-step manipulation with GR1 |
+| [Franka Lift Object](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/reinforcement_learning/index.html) | Classic Franka pick-up task |
 
 ## Project Structure
 
