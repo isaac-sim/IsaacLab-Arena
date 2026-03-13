@@ -80,9 +80,26 @@ def rollout_policy(
         num_episodes_completed = 0
         num_steps_completed = 0
 
+        # ── Render skipping for action-chunking policies ──────────────
+        # After get_action(), if the policy says the *next* call won't need
+        # fresh camera obs (it's consuming buffered actions), we set
+        # render_interval to a huge value so env.step() skips sim.render().
+        # The reset re-rendering path inside env.step() (num_rerenders_on_reset)
+        # is independent of render_interval, so terminated envs still get
+        # fresh camera data.
+        unwrapped = env.unwrapped if hasattr(env, "unwrapped") else env
+        _render_interval = unwrapped.cfg.sim.render_interval
+        _NO_RENDER = 2**31 - 1
+
         while True:
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
+
+                if not policy.needs_obs_next_step():
+                    unwrapped.cfg.sim.render_interval = _NO_RENDER
+                else:
+                    unwrapped.cfg.sim.render_interval = _render_interval
+
                 obs, _, terminated, truncated, _ = env.step(actions)
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated

@@ -41,6 +41,13 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     episode_length_s: float = 50.0
     wait_for_textures: bool = False
 
+    def __post_init__(self):
+        super().__post_init__()
+        # Render once per env step (at the last sim step of the decimation loop).
+        # observation_manager.compute() runs after the loop, so only the final
+        # render matters — intermediate renders are wasted GPU work.
+        self.sim.render_interval = self.decimation
+
 
 @configclass
 class IsaacArenaManagerBasedMimicEnvCfg(IsaacLabArenaManagerBasedRLEnvCfg, MimicEnvCfg):

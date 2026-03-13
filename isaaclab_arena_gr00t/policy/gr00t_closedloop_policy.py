@@ -208,6 +208,10 @@ class Gr00tClosedloopPolicy(PolicyBase):
         assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
 
+    def needs_obs_next_step(self) -> bool:
+        """Returns False while consuming buffered actions from the chunk."""
+        return bool(self._chunking_state.env_requires_new_chunk.any())
+
     def reset(self, env_ids: torch.Tensor | None = None):
         """Reset the action chunking mechanism."""
         if env_ids is None:

@@ -86,6 +86,16 @@ class PolicyBase(ABC):
         """Get the length of the policy (for dataset-driven policies)."""
         pass
 
+    def needs_obs_next_step(self) -> bool:
+        """Whether the next get_action() call will need fresh camera observations.
+
+        The rollout loop uses this to skip GPU rendering on steps where the
+        policy is consuming buffered actions and doesn't need a new camera frame.
+
+        Returns True by default.  Action-chunking subclasses should override.
+        """
+        return True
+
     @property
     def is_remote(self) -> bool:
         """Check if policy is run remotely."""

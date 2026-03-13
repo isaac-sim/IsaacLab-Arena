@@ -142,6 +142,10 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
 
         return self._chunking_state.get_action(fetch_chunk)
 
+    def needs_obs_next_step(self) -> bool:
+        """Returns False while consuming buffered actions from the chunk."""
+        return bool(self._chunking_state.env_requires_new_chunk.any())
+
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         """Reset client-side chunking state and remote policy state."""
         if env_ids is None:
