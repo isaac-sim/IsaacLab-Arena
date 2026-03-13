@@ -420,72 +420,96 @@ def run_simulation_loop(
 
     teleop_interface = setup_teleop_device(teleoperation_callbacks)
     teleop_interface.add_callback("R", reset_recording_instance)
-
-    # Reset before starting
-    env.sim.reset()
-    env.reset()
-    teleop_interface.reset()
+    use_isaac_teleop = args_cli.xr
 
     label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
     instruction_display = setup_ui(label_text, env)
 
-    subtasks = {}
+    def inner_loop():
+        """Inner loop function with access to nonlocal variables."""
+        nonlocal current_recorded_demo_count, success_step_count, should_reset_recording_instance
+        nonlocal running_recording_instance, label_text
 
-    with contextlib.suppress(KeyboardInterrupt) and torch.inference_mode():
-        while simulation_app.is_running():
-            # Get keyboard command
-            action = teleop_interface.advance()
+        # Reset before starting
+        env.sim.reset()
+        env.reset()
+        teleop_interface.reset()
 
-            # Expand to batch dimension
-            actions = action.repeat(env.num_envs, 1)
-            # Hack for G1 Pink WBC to transferm EE into robot base coordinates
-            action_manager = getattr(env, "action_manager", None)
-            if action_manager is not None:
-                for term_name in action_manager.active_terms:
-                    term = action_manager.get_term(term_name)
-                    if hasattr(term, "preprocess_actions"):
-                        actions = term.preprocess_actions(actions)
+        subtasks = {}
+        stack_name = "IsaacTeleop" if use_isaac_teleop else "native"
+        print(f"{stack_name} recording started.")
 
-            # Perform action on environment
-            if running_recording_instance:
-                # Compute actions based on environment
-                obv = env.step(actions)
-                if subtasks is not None:
-                    if subtasks == {}:
-                        subtasks = obv[0].get("subtask_terms")
-                    elif subtasks:
-                        show_subtask_instructions(instruction_display, subtasks, obv, env.cfg)
-            else:
-                env.sim.render()
+        with contextlib.suppress(KeyboardInterrupt), torch.inference_mode():
+            while simulation_app.is_running():
+                # Get teleop command (may be None while waiting for session start)
+                action = teleop_interface.advance()
+                if action is None:
+                    env.sim.render()
+                    continue
+                # Expand to batch dimension
+                actions = action.repeat(env.num_envs, 1)
 
-            # Check for success condition
-            success_step_count, success_reset_needed = process_success_condition(env, success_term, success_step_count)
-            if success_reset_needed:
-                should_reset_recording_instance = True
+                # Perform action on environment
+                if running_recording_instance:
+                    # Compute actions based on environment
+                    obv = env.step(actions)
+                    if subtasks is not None:
+                        if subtasks == {}:
+                            subtasks = obv[0].get("subtask_terms")
+                        elif subtasks:
+                            show_subtask_instructions(instruction_display, subtasks, obv, env.cfg)
+                else:
+                    env.sim.render()
 
-            # Update demo count if it has changed
-            if env.recorder_manager.exported_successful_episode_count > current_recorded_demo_count:
-                current_recorded_demo_count = env.recorder_manager.exported_successful_episode_count
-                label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
-                print(label_text)
+                # Check for success condition
+                success_step_count_new, success_reset_needed = process_success_condition(
+                    env, success_term, success_step_count
+                )
+                success_step_count = success_step_count_new
+                if success_reset_needed:
+                    should_reset_recording_instance = True
 
-            # Handle reset if requested
-            if should_reset_recording_instance:
-                success_step_count = handle_reset(env, success_step_count, instruction_display, label_text)
-                should_reset_recording_instance = False
+                # Update demo count if it has changed
+                if env.recorder_manager.exported_successful_episode_count > current_recorded_demo_count:
+                    current_recorded_demo_count = env.recorder_manager.exported_successful_episode_count
+                    label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
+                    print(label_text)
 
-            # Check if we've reached the desired number of demos
-            if args_cli.num_demos > 0 and env.recorder_manager.exported_successful_episode_count >= args_cli.num_demos:
-                print(f"All {args_cli.num_demos} demonstrations recorded. Exiting the app.")
-                break
+                # Check if we've reached the desired number of demos
+                if (
+                    args_cli.num_demos > 0
+                    and env.recorder_manager.exported_successful_episode_count >= args_cli.num_demos
+                ):
+                    label_text = f"All {current_recorded_demo_count} demonstrations recorded.\nExiting the app."
+                    instruction_display.show_demo(label_text)
+                    print(label_text)
+                    target_time = time.time() + 0.8
+                    while time.time() < target_time:
+                        if rate_limiter:
+                            rate_limiter.sleep(env)
+                        else:
+                            env.sim.render()
+                    break
 
-            # Check if simulation is stopped
-            if env.sim.is_stopped():
-                break
+                # Handle reset if requested
+                if should_reset_recording_instance:
+                    success_step_count = handle_reset(env, success_step_count, instruction_display, label_text)
+                    should_reset_recording_instance = False
 
-            # Rate limiting
-            if rate_limiter:
-                rate_limiter.sleep(env)
+                # Check if simulation is stopped
+                if env.sim.is_stopped():
+                    break
+
+                # Rate limiting
+                if rate_limiter:
+                    rate_limiter.sleep(env)
+
+    # Run the loop with or without context manager based on stack
+    if use_isaac_teleop:
+        with teleop_interface:
+            inner_loop()
+    else:
+        inner_loop()
 
     return current_recorded_demo_count
 
@@ -506,6 +530,10 @@ def main() -> None:
     # if handtracking is selected, rate limiting is achieved via OpenXR
     if args_cli.xr:
         rate_limiter = None
+        from isaaclab.ui.xr_widgets import TeleopVisualizationManager, XRVisualization
+
+        # Assign the teleop visualization manager to the visualization system
+        XRVisualization.assign_manager(TeleopVisualizationManager)
     else:
         rate_limiter = RateLimiter(args_cli.step_hz)
 
