@@ -85,7 +85,7 @@ git submodule update --init --recursive
 ./docker/run_docker.sh -g
 
 # 3. Verify the installation
-pytest -sv -m "not with_cameras" isaaclab_arena/tests/
+/isaac-sim/python.sh -m pytest -sv -m "not with_cameras" isaaclab_arena/tests/
 ```
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.
