@@ -40,7 +40,7 @@ The `ArenaEnvBuilder` composes these primitives into a standard `ManagerBasedRLE
 
 ## Why Isaac Lab Arena?
 
-With the rise of generalist robot policies (e.g., [GR00T N](https://developer.nvidia.com/gr00t), [pi0](https://www.physicalintelligence.company/), [SmolVLA](https://huggingface.co/HuggingFaceTB/SmolVLA-base)), there is an urgent need to evaluate these policies across many diverse tasks and environments. Traditional approaches suffer from:
+With the rise of generalist robot policies (e.g., [GR00T N](https://developer.nvidia.com/isaac/gr00t), [pi0](https://www.physicalintelligence.company/), [SmolVLA](https://huggingface.co/HuggingFaceTB/SmolVLA-base)), there is an urgent need to evaluate these policies across many diverse tasks and environments. Traditional approaches suffer from:
 
 - **Code duplication** — each task variation (different object, different robot) requires a near-copy of the same configuration
 - **Maintenance burden** — N robots × M objects × K scenes = an explosion of configs to keep in sync
