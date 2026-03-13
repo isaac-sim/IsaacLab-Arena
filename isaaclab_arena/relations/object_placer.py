@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import PlacementResult
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.terms.events import make_placement_event_cfg
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
@@ -43,16 +46,27 @@ class ObjectPlacer:
     def place(
         self,
         objects: list[Object | ObjectReference],
-    ) -> PlacementResult:
+        num_envs: int = 1,
+    ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
 
         Args:
             objects: List of objects to place. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
+            num_envs: Number of environments. 1 for single-env; > 1 for batched
+                placement (one layout per env).
 
         Returns:
-            PlacementResult with success status, positions, loss, and attempt count.
+            PlacementResult when num_envs is 1; MultiEnvPlacementResult when num_envs > 1.
         """
+        if num_envs > 1:
+            return self._place_multi_env(objects, num_envs)
+        return self._place_single(objects)
+
+    def _place_single(self, objects: list[Object | ObjectReference]) -> PlacementResult:
+        """Single-env placement: one layout. Event_cfg stored on self for builder; returns PlacementResult."""
+        params = replace(self.params, apply_positions_to_objects=False)
+
         # Validate all objects have at least one relation
         for obj in objects:
             assert obj.get_relations(), (
@@ -117,20 +131,122 @@ class ObjectPlacer:
                 best_loss = loss
                 best_positions = positions
 
-        # Apply solved positions to objects
-        if self.params.apply_positions_to_objects:
+        # Apply solved positions to objects (disabled for single-env: layout applied at reset via event)
+        if params.apply_positions_to_objects:
             self._apply_positions(best_positions, anchor_objects_set)
 
         # Restore RNG state if we changed it
         if rng_state is not None:
             torch.set_rng_state(rng_state)
 
+        self._last_placement_event_cfg = make_placement_event_cfg(
+            [{obj.name: pos for obj, pos in best_positions.items()}],
+            [obj.name for obj in objects],
+            [a.name for a in anchor_objects],
+        )
         return PlacementResult(
             success=success,
             positions=best_positions,
             final_loss=best_loss,
             attempts=attempt + 1,
         )
+
+    def _place_multi_env(
+        self,
+        objects: list[Object | ObjectReference],
+        num_envs: int,
+    ) -> MultiEnvPlacementResult:
+        """Batched placement: same objects → n random inits → batch gradient descent → batched outputs per attempt.
+
+        Up to max_placement_attempts attempts. A temporary list stores the *earliest* attempt at which
+        each env first succeeded; envs that never validate get the best-by-loss attempt as fallback.
+        """
+        anchor_objects = get_anchor_objects(objects)
+        anchor_objects_set = set(anchor_objects)
+        init_bounds = self._get_init_bounds(anchor_objects[0])
+
+        # Per-env: first valid layout we see (None until that env passes validation)
+        earliest_succeeded_per_env: list[dict | None] = [None] * num_envs
+        # Fallback: best-by-total-loss attempt (full batched output) for envs that never succeed
+        best_positions_per_env: list[dict] = []
+        best_loss_sum = float("inf")
+
+        for attempt in range(self.params.max_placement_attempts):
+            # Parallel to n random envs: different seed per (env, attempt) so retries get new inits
+            initial_positions_per_env: list[dict] = []
+            for env_i in range(num_envs):
+                rng_state = None
+                if self.params.placement_seed is not None:
+                    rng_state = torch.get_rng_state()
+                    # Mix in env and attempt so each (env, attempt) gets a deterministic seed
+                    torch.manual_seed(
+                        self.params.placement_seed + env_i + attempt * (num_envs + 1)
+                    )
+                initial_positions_per_env.append(
+                    self._generate_initial_positions(objects, anchor_objects_set, init_bounds)
+                )
+                if rng_state is not None:
+                    torch.set_rng_state(rng_state)
+
+            # Batch gradient descent → batched outputs for this attempt
+            positions_per_env = self._solver.solve_batched(objects, initial_positions_per_env)
+            loss_sum = (
+                self._solver.last_loss_history[-1]
+                if self._solver.last_loss_history
+                else float("inf")
+            )
+
+            # Validate per env (each env's layout checked for no overlap + On Z band)
+            for e in range(num_envs):
+                if earliest_succeeded_per_env[e] is None and self._validate_placement(
+                    positions_per_env[e]
+                ):
+                    earliest_succeeded_per_env[e] = positions_per_env[e]
+
+            if self.params.verbose:
+                n_succeeded = sum(1 for e in range(num_envs) if earliest_succeeded_per_env[e] is not None)
+                print(f"Batched attempt {attempt + 1}/{self.params.max_placement_attempts}: loss_sum = {loss_sum:.6f}, envs validated = {n_succeeded}/{num_envs}")
+
+            if all(earliest_succeeded_per_env):
+                if self.params.verbose:
+                    print(f"Batched placement: all {num_envs} envs succeeded by attempt {attempt + 1}")
+                break
+
+            if not best_positions_per_env or loss_sum < best_loss_sum:
+                best_loss_sum = loss_sum
+                best_positions_per_env = list(positions_per_env)
+
+        # Final layout: earliest succeeded when available, else best-by-loss attempt for that env
+        if not best_positions_per_env:
+            best_positions_per_env = [earliest_succeeded_per_env[e] or {} for e in range(num_envs)]
+        final_per_env: list[dict] = [
+            earliest_succeeded_per_env[e] if earliest_succeeded_per_env[e] is not None else best_positions_per_env[e]
+            for e in range(num_envs)
+        ]
+
+        positions_all_envs_by_name = [
+            {obj.name: pos_dict[obj] for obj in pos_dict} for pos_dict in final_per_env
+        ]
+        object_names = [obj.name for obj in objects]
+        anchor_names = [a.name for a in get_anchor_objects(objects)]
+        placement_valid_per_env = [earliest_succeeded_per_env[e] is not None for e in range(num_envs)]
+        event_cfg = make_placement_event_cfg(
+            positions_all_envs_by_name,
+            object_names,
+            anchor_names,
+            placement_valid_per_env,
+        )
+        # One PlacementResult per env (positions and success per env; loss/attempts shared from batched run)
+        results_per_env = [
+            PlacementResult(
+                success=earliest_succeeded_per_env[e] is not None,
+                positions=final_per_env[e],
+                final_loss=best_loss_sum,
+                attempts=attempt + 1,
+            )
+            for e in range(num_envs)
+        ]
+        return MultiEnvPlacementResult(results=results_per_env, event_cfg=event_cfg)
 
     def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
         """Get bounds for random position initialization.
@@ -204,12 +320,17 @@ class ObjectPlacer:
                     continue
                 child_world = obj.get_bounding_box().translated(positions[obj])
                 parent_world = parent.get_bounding_box().translated(positions[parent])
-                # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
+                inset = getattr(rel, "edge_inset_m", 0.0)
+                # 1 & 2: Child's footprint within parent, inset from edge (same as OnLossStrategy).
+                p_min_x = parent_world.min_point[0] + inset
+                p_max_x = parent_world.max_point[0] - inset
+                p_min_y = parent_world.min_point[1] + inset
+                p_max_y = parent_world.max_point[1] - inset
                 if (
-                    child_world.min_point[0] < parent_world.min_point[0]
-                    or child_world.max_point[0] > parent_world.max_point[0]
-                    or child_world.min_point[1] < parent_world.min_point[1]
-                    or child_world.max_point[1] > parent_world.max_point[1]
+                    child_world.min_point[0] < p_min_x
+                    or child_world.max_point[0] > p_max_x
+                    or child_world.min_point[1] < p_min_y
+                    or child_world.max_point[1] > p_max_y
                 ):
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
@@ -229,7 +350,8 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Check that no two objects overlap in 3D (axis-aligned bbox with margin)."""
+        """Check that no two objects overlap and are at least min_separation_m apart (bbox + margin).
+        Uses same separation idea as NoCollision so validated layouts are less likely to collide in sim."""
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):

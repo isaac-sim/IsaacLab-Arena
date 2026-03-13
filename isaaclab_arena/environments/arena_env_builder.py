@@ -58,8 +58,8 @@ class ArenaEnvBuilder:
         objects_with_relations: list[Object | ObjectReference] = []
         for asset in self.arena_env.scene.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
-                # Fail early if a non-Object/ObjectReference asset has relations - they won't be solved
-                assert not (hasattr(asset, "get_relations") and asset.get_relations()), (
+                get_relations = getattr(asset, "get_relations", None)
+                assert not (get_relations and get_relations()), (
                     f"Asset '{asset.name}' has relations but is not an Object or ObjectReference "
                     f"(type: {type(asset).__name__}). Only Object and ObjectReference instances support relations."
                 )
@@ -82,11 +82,9 @@ class ArenaEnvBuilder:
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
-        This method:
-        1. Collects all objects from the scene that have relations
-        2. Adds NoCollision between every pair of non-anchor objects (if not already present)
-        3. Runs the ObjectPlacer to solve spatial constraints
-        4. Applies solved positions to objects
+        Same path for num_envs 1 or more: run placement (once per env), apply layouts at reset via
+        the placement event. Ensure all objects with relations are rigid bodies in the scene
+        (so they support write_root_pose_to_sim at reset).
         """
         # All objects with relations are subjects of the relation solving.
         objects_with_relations = self._get_objects_with_relations()
@@ -98,10 +96,26 @@ class ArenaEnvBuilder:
         self._add_pairwise_no_collision(objects_with_relations)
 
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
+        # Clearance is set on the relations: On(clearance_m=...), NoCollision(clearance_m=...).
         placer = ObjectPlacer()
-        result = placer.place(objects=objects_with_relations)
-
-        if result.success:
+        num_envs = self.args.num_envs
+        result = placer.place(objects_with_relations, num_envs=num_envs)
+        placement_event_cfg = getattr(result, "event_cfg", None) or getattr(
+            placer, "_last_placement_event_cfg", None
+        )
+        if placement_event_cfg is not None:
+            self._placement_event_cfg = placement_event_cfg
+        # Log outcome: for multi-env show how many envs passed (e.g. "38/40") so "succeeded" is unambiguous
+        if hasattr(result, "results"):  # MultiEnvPlacementResult
+            n_ok = sum(1 for r in result.results if r.success)
+            if n_ok == num_envs:
+                print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
+            else:
+                print(
+                    f"Relation solving: {n_ok}/{num_envs} env(s) passed validation after {result.attempts} attempt(s)"
+                    " (placement applied only to passed envs)"
+                )
+        elif result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
             print(f"Relation solving not completed after {result.attempts} attempt(s)")
@@ -150,12 +164,14 @@ class ArenaEnvBuilder:
             embodiment.get_observation_cfg(),
             task.get_observation_cfg(),
         )
-        events_cfg = combine_configclass_instances(
-            "EventsCfg",
+        events_sources = [
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
-        )
+        ]
+        if getattr(self, "_placement_event_cfg", None):
+            events_sources.append(self._placement_event_cfg)
+        events_cfg = combine_configclass_instances("EventsCfg", *events_sources)
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),
@@ -309,14 +325,12 @@ class ArenaEnvBuilder:
         )
         return name, cfg
 
-    def make_registered(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
-    ) -> ManagerBasedEnv:
-        env, _ = self.make_registered_and_return_cfg(env_cfg, render_mode=render_mode)
+    def make_registered(self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None) -> ManagerBasedEnv:
+        env, _ = self.make_registered_and_return_cfg(env_cfg)
         return env
 
     def make_registered_and_return_cfg(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
-        return gym.make(name, cfg=cfg, render_mode=render_mode), cfg
+        return gym.make(name, cfg=cfg), cfg

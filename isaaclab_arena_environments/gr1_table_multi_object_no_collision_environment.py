@@ -19,13 +19,13 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 DEFAULT_TABLE_OBJECTS = [
     "cracker_box",
-    "mustard_bottle",
     "sugar_box",
     "tomato_soup_can",
     "mug",
-    "brown_box",
     "dex_cube",
-]  # Default objects on table (On + pairwise NoCollision)
+    "power_drill",
+    "beer_bottle",
+]  # 7 objects on table (On + pairwise NoCollision). Excludes jug, brown_box, mustard_bottle; red_cube, green_cube (texture paths).
 
 
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):

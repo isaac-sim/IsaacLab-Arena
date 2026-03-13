@@ -60,59 +60,80 @@ class RelationSolver:
             )
         return strategy
 
-    def _compute_total_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
-        """Compute total loss from all relations using registered strategies.
+    def _compute_total_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+        env_index: int | None = None,
+    ) -> torch.Tensor:
+        """Compute total loss from all relations. Batched when state.num_envs > 1 and env_index is None.
 
-        Args:
-            state: Current optimization state with object positions.
-            debug: If True, print detailed loss breakdown.
-
-        Returns:
-            Total loss tensor.
+        When batched, get_position returns (num_envs, 3), strategies return (num_envs,) or scalar,
+        and we sum to a single scalar for backward. No Python loop over envs.
         """
-        total_loss = torch.tensor(0.0)
+        device = state.optimizable_positions.device if state.optimizable_positions is not None else None
+        batched = state.num_envs > 1 and env_index is None
+        if batched:
+            total_loss = torch.zeros(state.num_envs, device=device, dtype=torch.float32)
+        else:
+            total_loss = torch.tensor(0.0, device=device)
 
-        # Compute loss from all spatial relations using strategies
         for obj in state.optimizable_objects:
             for relation in obj.get_spatial_relations():
-                child_pos = state.get_position(obj)
+                child_pos = state.get_position(obj, env_index=env_index)
                 strategy = self._get_strategy(relation)
 
-                # Handle unary relations (no parent) like AtPosition
                 if isinstance(relation, AtPosition):
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
                         child_bbox=obj.get_bounding_box(),
+                        parent_world_bbox=None,
+                        parent_world_bbox_batched=None,
                     )
-                    if debug:
+                    if debug and not batched:
                         _print_unary_relation_debug(obj, relation, child_pos, loss)
-                # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
-                    # Build parent world bbox: anchors have a known fixed pose,
-                    # optimizable parents use the current solver position + local bbox.
                     parent = relation.parent
+                    parent_world_bbox_batched = None
                     if parent in state.anchor_objects:
                         parent_world_bbox = parent.get_world_bounding_box()
                     else:
-                        parent_pos = state.get_position(parent)
-                        parent_world_bbox = parent.get_bounding_box().translated(
-                            (float(parent_pos[0]), float(parent_pos[1]), float(parent_pos[2]))
-                        )
+                        parent_pos = state.get_position(parent, env_index=env_index)
+                        if batched:
+                            # (E, 3) + (3,) -> (E, 3) for min/max
+                            bbox = parent.get_bounding_box()
+                            parent_min = parent_pos + torch.tensor(
+                                bbox.min_point, dtype=parent_pos.dtype, device=parent_pos.device
+                            )
+                            parent_max = parent_pos + torch.tensor(
+                                bbox.max_point, dtype=parent_pos.dtype, device=parent_pos.device
+                            )
+                            parent_world_bbox_batched = (parent_min, parent_max)
+                            parent_world_bbox = parent.get_bounding_box().translated(
+                                (0.0, 0.0, 0.0)
+                            )  # dummy for signature
+                        else:
+                            parent_world_bbox = parent.get_bounding_box().translated(
+                                (float(parent_pos[0]), float(parent_pos[1]), float(parent_pos[2]))
+                            )
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
                         child_bbox=obj.get_bounding_box(),
                         parent_world_bbox=parent_world_bbox,
+                        parent_world_bbox_batched=parent_world_bbox_batched,
                     )
-                    if debug:
-                        parent_pos = state.get_position(parent)
+                    if debug and not batched:
+                        parent_pos = state.get_position(parent, env_index=env_index)
                         _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
                 total_loss = total_loss + loss
 
+        if batched:
+            return total_loss.sum()
         return total_loss
 
     def solve(
@@ -189,6 +210,57 @@ class RelationSolver:
         self._last_position_history = position_history
 
         return state.get_final_positions_dict()
+
+    def solve_batched(
+        self,
+        objects: list[Object | ObjectReference],
+        initial_positions_per_env: list[dict[Object | ObjectReference, tuple[float, float, float]]],
+    ) -> list[dict[Object | ObjectReference, tuple[float, float, float]]]:
+        """Solve for optimal positions for all envs in one batched optimization.
+
+        One optimizer run; loss is the sum of per-env losses so gradients flow to all envs
+        in a single backward pass. No per-env loop over separate solve() calls.
+
+        Args:
+            objects: List of Object or ObjectReference instances (same for all envs).
+            initial_positions_per_env: One dict of initial positions per env (length num_envs).
+
+        Returns:
+            List of position dicts, one per env.
+        """
+        num_envs = len(initial_positions_per_env)
+        state = RelationSolverState(objects, initial_positions_per_env=initial_positions_per_env)
+
+        if len(state.optimizable_objects) == 0:
+            self._last_loss_history = [0.0] * num_envs
+            self._last_position_history = [state.get_all_positions_snapshot()]
+            return state.get_final_positions_per_env()
+
+        opt = state.optimizable_positions
+        assert opt is not None, "optimizable_positions is None despite having optimizable objects"
+        optimizer = torch.optim.Adam([opt], lr=self.params.lr)
+        loss_history = []
+
+        for iter in range(self.params.max_iters):
+            optimizer.zero_grad()
+            total_loss = self._compute_total_loss(state, env_index=None)
+
+            loss_history.append(total_loss.item())
+            total_loss.backward()
+            optimizer.step()
+
+            if self.params.verbose and iter % 100 == 0:
+                print(f"Batched iter {iter}: loss = {total_loss.item():.6f} (sum over {num_envs} envs)")
+
+            # Stop when mean loss per env is below threshold
+            if total_loss.item() < self.params.convergence_threshold * num_envs:
+                if self.params.verbose:
+                    print(f"Batched converged at iteration {iter}")
+                break
+
+        self._last_loss_history = loss_history
+        self._last_position_history = [state.get_all_positions_snapshot()]
+        return state.get_final_positions_per_env()
 
     @property
     def last_loss_history(self) -> list[float]:

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementResult:
-    """Result of an ObjectPlacer.place() call."""
+    """Result of an ObjectPlacer.place() call (num_envs=1)."""
 
     success: bool
     """Whether placement passed validation checks."""
@@ -27,3 +27,29 @@ class PlacementResult:
 
     attempts: int
     """Number of attempts made."""
+
+
+@dataclass
+class MultiEnvPlacementResult:
+    """Result of multi-env placement: one PlacementResult per environment.
+
+    Returned by ObjectPlacer.place(..., num_envs>1). Use .results[env_id] for that
+    env's layout (success, positions, final_loss, attempts). Use .event_cfg to
+    register the placement event so layouts are applied at reset.
+    """
+
+    results: list[PlacementResult]
+    """One PlacementResult per environment (same length as num_envs)."""
+
+    event_cfg: Any
+    """Placement event config to add to the env's events (apply layouts at reset)."""
+
+    @property
+    def success(self) -> bool:
+        """True if every environment's placement succeeded."""
+        return all(r.success for r in self.results)
+
+    @property
+    def attempts(self) -> int:
+        """Number of attempts (same for all envs in the batched run)."""
+        return self.results[0].attempts if self.results else 0

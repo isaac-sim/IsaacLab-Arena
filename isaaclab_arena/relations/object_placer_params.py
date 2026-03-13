@@ -34,10 +34,11 @@ class ObjectPlacerParams:
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
 
-    min_separation_m: float = 0.0
-    """Minimum separation (meters) required between object bounding boxes.
-    Set to 0.0 to only reject actual overlaps. A small positive value (e.g. 0.005)
-    adds a safety margin between objects."""
+    min_separation_m: float = 0.005
+    """Minimum separation (meters) between object bounding boxes in validation (collision check).
+    Layouts with any pair closer than this are rejected. 0.005 (5mm) is achievable by the solver;
+    larger values (e.g. 0.01) can reject all attempts since the solver minimizes loss and may not
+    reach 1cm gap for every pair before convergence."""
 
     on_relation_z_tolerance_m: float = 5e-3
     """Tolerance (meters) for On-relation Z validation. Valid Z band is extended to

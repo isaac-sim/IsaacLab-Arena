@@ -95,7 +95,8 @@ class On(Relation):
 
     This relation specifies that a child object should be placed on top of
     the parent object, with X/Y bounded within the parent's extent and Z
-    positioned on the parent's top surface.
+    positioned on the parent's top surface. Optionally keeps objects inset
+    from the parent edge to avoid crowding when multiple objects are near the edge.
 
     Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
     """
@@ -105,16 +106,21 @@ class On(Relation):
         parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
+        edge_inset_m: float = 0.02,
     ):
         """
         Args:
             parent: The parent asset that this object should be placed on top of.
             relation_loss_weight: Weight for the relationship loss function.
             clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
+            edge_inset_m: Inset from parent's XY edge in meters; child footprint must stay
+                this far inside the parent (default: 2cm) to avoid crowding near table edges.
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
+        assert edge_inset_m >= 0.0, f"edge_inset_m must be non-negative, got {edge_inset_m}"
         self.clearance_m = clearance_m
+        self.edge_inset_m = edge_inset_m
 
 
 class NoCollision(Relation):
@@ -131,13 +137,13 @@ class NoCollision(Relation):
         self,
         parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
-        clearance_m: float = 0.01,
+        clearance_m: float = 0.02,
     ):
         """
         Args:
             parent: The other object that this object must not collide with.
             relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Minimum clearance between bounding boxes in meters (default: 1cm).
+            clearance_m: Minimum clearance between bounding boxes in meters (default: 2cm).
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"

@@ -26,3 +26,10 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Number of episodes to run the policy (if num_steps is not provided)",
     )
+    parser.add_argument(
+        "--diagnose_placement",
+        type=str,
+        default=None,
+        metavar="OBJECT_NAME",
+        help="After first reset, report which env indices have high object velocity (blowing). Use object name (e.g. box, mustard_bottle) or 'all' to check every rigid object.",
+    )

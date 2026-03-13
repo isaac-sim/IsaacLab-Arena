@@ -175,6 +175,12 @@ def main():
         if seed is not None:
             set_seed(seed, env)
 
+        # Optional: report which env(s) have objects blowing away (e.g. for 40 envs)
+        if getattr(args_cli, "diagnose_placement", None):
+            from isaaclab_arena.utils.placement_diagnostic import run_placement_diagnostic
+
+            run_placement_diagnostic(env, args_cli.diagnose_placement)
+
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
 
