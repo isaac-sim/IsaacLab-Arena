@@ -22,5 +22,5 @@ task_mode_name: droid_manipulation
 
 pov_cam_name_sim: ["external_camera_rgb", "wrist_camera_rgb"]
 
-original_image_size: [720, 1280, 3]
-target_image_size: [180, 320, 3]
+original_image_size: [18, 32, 3]
+target_image_size: [18, 32, 3]
