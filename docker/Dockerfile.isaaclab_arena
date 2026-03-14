@@ -37,6 +37,11 @@ ENV TERM=xterm
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
 # Install IsaacLab dependencies
 RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
+# Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
+RUN chmod 777 -R /isaac-sim/kit/
+# Make /isaac-sim directory traversable and readable by all users
+# This is needed when entrypoint switches to non-root user
+RUN chmod a+x /isaac-sim
 # Ensure isaaclab_visualizers is installed so --visualizer kit works.
 RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_visualizers
 RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_teleop
