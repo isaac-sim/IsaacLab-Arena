@@ -1,53 +1,54 @@
 Teleoperation Data Collection
 -----------------------------
 
-This workflow covers collecting demonstrations using Isaac Teleop with an XR device.
-
-This workflow requires two processes to run:
-
-* **CloudXR Runtime** (via Isaac Teleop / TeleopCore): Streams the simulation to the XR device.
-* **Arena Docker container**: Runs the Isaac Lab simulation.
-
-This will be described below.
+This workflow covers collecting demonstrations using Isaac Teleop with an **Apple Vision Pro** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
 
-.. note::
+Step 1: Start the CloudXR Runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    This workflow requires an XR device. Supported devices include Apple Vision Pro,
-    Meta Quest 3, and Pico 4 Ultra. See the `Isaac Lab CloudXR documentation
-    <https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html>`_
-    for full details on supported devices and setup.
+Start the CloudXR runtime from the Arena Docker container:
 
+:docker_run_default:
 
-
-Step 1: Install Isaac Teleop and XR Client
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Follow the `Isaac Lab CloudXR documentation
-<https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#install-isaac-teleop>`_
-to install Isaac Teleop on your workstation and set up your XR device client.
-
-
-Step 2: Start CloudXR Runtime
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In a terminal on the host (outside the Arena Docker container), start the CloudXR runtime
-from your Isaac Teleop (TeleopCore) checkout:
+Create a customized config file with the following content:
 
 .. code-block:: bash
 
-   cd ~/IsaacTeleop  # or wherever you cloned IsaacTeleop / TeleopCore
-   ./scripts/run_cloudxr_via_docker.sh
-
-This starts the CloudXR runtime, WSS proxy, and web app services via Docker Compose.
-The runtime writes shared files to ``~/.cloudxr`` which the Arena container will mount.
+   printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
 
 
-Step 3: Start Recording
+Start the CloudXR runtime with the customized config file:
+
+.. code-block:: bash
+
+   python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
+
+
+Configure the firewall to allow CloudXR traffic.
+
+.. code-block:: bash
+
+   # Signaling (use one based on connection mode)
+   sudo ufw allow 48010/tcp   # Standard mode
+   sudo ufw allow 48322/tcp   # Secure mode
+   # Video
+   sudo ufw allow 47998/udp
+   sudo ufw allow 48005/udp
+   sudo ufw allow 48008/udp
+   sudo ufw allow 48012/udp
+   # Input
+   sudo ufw allow 47999/udp
+   # Audio
+   sudo ufw allow 48000/udp
+   sudo ufw allow 48002/udp
+
+
+
+Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-To start the recording session, open another terminal, start the Arena Docker container
-if not already running:
+In another terminal, start the Arena Docker container:
 
 :docker_run_default:
 
@@ -55,6 +56,7 @@ Run the recording script:
 
 .. code-block:: bash
 
+   source ~/.cloudxr/run/cloudxr.env
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
      --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
@@ -66,14 +68,13 @@ Run the recording script:
      --teleop_device openxr
 
 
-Step 4: Connect XR Device and Record
+Step 3: Connect XR Device and Record
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Follow these steps to record teleoperation demonstrations:
 
-1. Connect your XR device to the CloudXR runtime. For Apple Vision Pro, launch the
-   Isaac XR Teleop app; for Quest 3 or Pico 4 Ultra, open the CloudXR.js web client
-   in the headset browser.
+1. Connect your XR device to the CloudXR runtime. From Apple Vision Pro, launch the
+   Isaac XR Teleop app.
 2. Enter your workstation's IP address and connect.
 
 .. note::
@@ -89,8 +90,6 @@ Follow these steps to record teleoperation demonstrations:
       CloudXR control panel - move this window to your left to avoid occlusion by close objects.
 
 
-
-
 3. Press the "Connect" button
 4. Wait for connection (you should see the simulation in VR)
 
@@ -103,7 +102,6 @@ Follow these steps to record teleoperation demonstrations:
      First person view after connecting to the simulation.
 
 
-
 5. Complete the task by picking up the object, placing it into the lower shelf of the refrigerator, and closing the door.
    - Your hands control the robots's hands.
    - Your fingers control the robots's fingers.
@@ -113,10 +111,6 @@ Follow these steps to record teleoperation demonstrations:
 
 The script will automatically save successful demonstrations to an HDF5 file
 at ``$DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5``.
-
-
-
-
 
 
 .. hint::

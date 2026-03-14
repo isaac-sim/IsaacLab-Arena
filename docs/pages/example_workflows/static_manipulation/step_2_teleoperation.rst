@@ -1,53 +1,54 @@
 Teleoperation Data Collection
 -----------------------------
 
-This workflow covers collecting demonstrations using Isaac Teleop with an XR device.
-
-This workflow requires two processes to run:
-
-* **CloudXR Runtime** (via Isaac Teleop / TeleopCore): Streams the simulation to the XR device.
-* **Arena Docker container**: Runs the Isaac Lab simulation.
-
-This will be described below.
+This workflow covers collecting demonstrations using Isaac Teleop with an **Apple Vision Pro** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
 
-.. note::
+Step 1: Start the CloudXR Runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    This workflow requires an XR device. Supported devices include Apple Vision Pro,
-    Meta Quest 3, and Pico 4 Ultra. See the `Isaac Lab CloudXR documentation
-    <https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html>`_
-    for full details on supported devices and setup.
+Start the CloudXR runtime from the Arena Docker container:
 
+:docker_run_default:
 
-
-Step 1: Install Isaac Teleop and XR Client
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Follow the `Isaac Lab CloudXR documentation
-<https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#install-isaac-teleop>`_
-to install Isaac Teleop on your workstation and set up your XR device client.
-
-
-Step 2: Start CloudXR Runtime
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In a terminal on the host (outside the Arena Docker container), start the CloudXR runtime
-from your Isaac Teleop (TeleopCore) checkout:
+Create a customized config file with the following content:
 
 .. code-block:: bash
 
-   cd ~/IsaacTeleop  # or wherever you cloned IsaacTeleop / TeleopCore
-   ./scripts/run_cloudxr_via_docker.sh
-
-This starts the CloudXR runtime, WSS proxy, and web app services via Docker Compose.
-The runtime writes shared files to ``~/.cloudxr`` which the Arena container will mount.
+   printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
 
 
-Step 3: Start Recording
+Start the CloudXR runtime with the customized config file:
+
+.. code-block:: bash
+
+   python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
+
+
+Configure the firewall to allow CloudXR traffic.
+
+.. code-block:: bash
+
+   # Signaling (use one based on connection mode)
+   sudo ufw allow 48010/tcp   # Standard mode
+   sudo ufw allow 48322/tcp   # Secure mode
+   # Video
+   sudo ufw allow 47998/udp
+   sudo ufw allow 48005/udp
+   sudo ufw allow 48008/udp
+   sudo ufw allow 48012/udp
+   # Input
+   sudo ufw allow 47999/udp
+   # Audio
+   sudo ufw allow 48000/udp
+   sudo ufw allow 48002/udp
+
+
+
+Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-To start the recording session, open another terminal, start the Arena Docker container
-if not already running:
+In another terminal, start the Arena Docker container:
 
 :docker_run_default:
 
@@ -55,6 +56,7 @@ Run the recording script:
 
 .. code-block:: bash
 
+   source ~/.cloudxr/run/cloudxr.env
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
@@ -64,7 +66,7 @@ Run the recording script:
      --teleop_device avp_handtracking
 
 
-Step 4: Connect XR Device and Record
+Step 3: Connect XR Device and Record
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Follow these steps to record teleoperation demonstrations:
