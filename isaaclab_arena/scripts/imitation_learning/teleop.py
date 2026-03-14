@@ -86,15 +86,9 @@ def main() -> None:
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
         if "Reach" in args_cli.example_environment:
-<<<<<<< HEAD
             logger.warning(
                 f"The environment '{args_cli.example_environment}' does not support gripper control. The device command"
                 " will be ignored."
-=======
-            omni.log.warn(
-                f"The environment '{args_cli.example_environment}' does not support gripper control. The device command will be"
-                " ignored."
->>>>>>> 28795068 (fix teleop scripts)
             )
     except Exception as e:
         omni.log.error(f"Failed to create environment: {e}")
@@ -231,12 +225,6 @@ def main() -> None:
                         env.sim.render()
                     elif teleoperation_active:
                         actions = action.repeat(env.num_envs, 1)
-                        action_manager = getattr(env, "action_manager", None)
-                        if action_manager is not None:
-                            for term_name in action_manager.active_terms:
-                                term = action_manager.get_term(term_name)
-                                if hasattr(term, "preprocess_actions"):
-                                    actions = term.preprocess_actions(actions)
                         env.step(actions)
                     else:
                         env.sim.render()
