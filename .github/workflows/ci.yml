@@ -99,7 +99,7 @@ jobs:
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
       credentials:
-        username: $oauthtoken
+        username: "$oauthtoken"
         password: ${{ env.NGC_API_KEY }}
 
     steps:
@@ -138,7 +138,7 @@ jobs:
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16
       credentials:
-        username: $oauthtoken
+        username: "$oauthtoken"
         password: ${{ env.NGC_API_KEY }}
     steps:
       # nvidia-smi
