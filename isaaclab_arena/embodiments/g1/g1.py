@@ -70,6 +70,10 @@ class G1EmbodimentBase(EmbodimentBase):
             fixed_anchor_height=True,
         )
 
+    def get_teleop_target_frame_prim_path(self) -> str | None:
+        """Pelvis prim path so OpenXR teleop poses are rebased into robot base frame for IK."""
+        return "/World/envs/env_0/Robot/pelvis"
+
 
 # Default camera offset pose
 _DEFAULT_G1_CAMERA_OFFSET = Pose(
