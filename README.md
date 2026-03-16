@@ -22,7 +22,7 @@
 > **Alpha Software — Not an Early Access or General Availability Release.**
 > Isaac Lab Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
-> [!WARNING]
+> [!NOTE]
 > Changes on `main` contains an in development version of v0.2.0.
 > As of March 16th 2026 (GTC San Jose 2026), `main` contains most of the features for the v0.2.0 release,
 > however, is based on Isaac Lab 2.3 (rather than Isaac Lab 3.0) and has not been SQA tested.*
