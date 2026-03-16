@@ -72,7 +72,7 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         # the simple RIGID/ARTICULATION classification:
         # - For example, the "peg" and "hole" assets have both RigidBodyAPI and ArticulationRootAPI
         #   applied simultaneously, sometimes in different prim layers.
-        if object_asset.name not in ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base"):
+        if object_asset.name not in ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere"):
             print(f"Automatically classifying: {object_asset.name}")
             detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
             print(f"database object type: {object_asset.object_type}")

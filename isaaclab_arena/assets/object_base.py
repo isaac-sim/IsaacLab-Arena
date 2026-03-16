@@ -42,6 +42,7 @@ class ObjectBase(Asset, ABC):
         self.prim_path = prim_path
         self.object_type = object_type
         self.initial_pose: Pose | PoseRange | None = None
+        self.initial_velocity: tuple[float, float, float] | None = None
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
@@ -80,6 +81,21 @@ class ObjectBase(Asset, ABC):
             self.object_cfg.init_state.rot = initial_pose.rotation_wxyz
         self.event_cfg = self._init_event_cfg()
 
+    def set_initial_linear_velocity(self, velocity: tuple[float, float, float]) -> None:
+        """Set / override the initial linear velocity and rebuild derived configs.
+
+        The velocity is applied as the ``init_state.lin_vel`` on the underlying
+        config (``RigidObjectCfg`` or ``ArticulationCfg``) and is also restored
+        on every environment reset via the reset event.
+
+        Args:
+            velocity: Linear velocity ``(vx, vy, vz)`` in the world frame.
+        """
+        self.initial_velocity = velocity
+        if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "lin_vel"):
+            self.object_cfg.init_state.lin_vel = velocity
+        self.event_cfg = self._init_event_cfg()
+
     def _requires_reset_pose_event(self) -> bool:
         """Whether a reset-event for the initial pose should be generated.
 
@@ -91,7 +107,7 @@ class ObjectBase(Asset, ABC):
         )
 
     def _init_event_cfg(self) -> EventTermCfg | None:
-        """Build the ``EventTermCfg`` for resetting this object's pose."""
+        """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
         if not self._requires_reset_pose_event():
             return None
 
@@ -106,13 +122,15 @@ class ObjectBase(Asset, ABC):
                 },
             )
         else:
+            params: dict = {
+                "pose": initial_pose,
+                "asset_cfg": SceneEntityCfg(self.name),
+                "velocity": self.initial_velocity,
+            }
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(self.name),
-                },
+                params=params,
             )
 
     def get_relations(self) -> list[RelationBase]:
