@@ -26,7 +26,7 @@
 
 ## Overview
 
-**Isaac Lab Arena** is an open-source extension to [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab) that simplifies the creation of large-scale task and environment libraries for robotic policy evaluation. Co-developed with [Lightwheel](https://www.lightwheel.ai/), it provides a composable architecture where environments are assembled on-the-fly from independent, reusable building blocks — eliminating the redundant boilerplate that plagues traditional task library development.
+**Isaac Lab Arena** is an open-source extension to [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab) for simplified task curation and robotic policy evaluation at scale. It provides a composable architecture where environments are assembled on-the-fly from independent, reusable building blocks — eliminating the redundant boilerplate that plagues traditional task library development.
 
 Instead of hand-writing and maintaining a separate configuration for every combination of robot, object, and scenario, Arena lets you **compose** environments from three independent primitives:
 
@@ -50,13 +50,13 @@ Arena solves this by making environment variation a first-class concept. Swap an
 
 ## Key Features
 
-- **Composable Environments** — Mix and match scenes, embodiments, and tasks independently
-- **On-the-fly Assembly** — Environments are built at runtime; no duplicate config files to maintain
-- **Asset Registry** — Centralized management of robots, objects, and scenes with affordance annotations
-- **Integrated Evaluation** — Built-in metrics and evaluation pipelines for policy benchmarking
-- **Teleoperation Support** — Data collection via keyboard, VR, or other input devices
-- **GR00T Integration** — First-class support for NVIDIA GR00T N policy training and evaluation
-- **LeRobot Hub** — Publish and share environments on the [Hugging Face LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)
+- **LEGO-like Composable Environments** — Mix and match scenes,  embodiments, and tasks independently
+- **On-the-fly Assembly** — Environments are built at runtime; no duplicate config files to maintain.
+- **New Sequential Task Chaining** — Chain atomic skills (e.g. Pick + Walk + Place + …) to create complex long-horizon tasks.
+- **New Natural Language Object Placement** — Define scene layouts using semantic relationships like "on" or "next to", instead of manually specified coordinates.
+- **Integrated Evaluation** — Extensible metrics and evaluation pipelines for policy benchmarking
+- **New Large-scale Parallel Evaluations with Heterogeneous Objects** — Evaluate policy on multiple parallel environments, each with different objects, to maximize evaluation throughput.
+- **New RL Workflow Support and Seamless Interoperation with Isaac Lab: Plug Isaac Lab** - Arena environments into Isaac Lab workflows for Reinforcement learning and Data generation for imitation learning.
 
 ## Quick Start
 
@@ -161,14 +161,14 @@ IsaacLab-Arena/
 
 ## ⚠️ Project Status
 
-Isaac Lab Arena is in **pre-alpha** (`v0.1.x`). This is important to understand:
+Isaac Lab Arena is in **alpha** (`v0.2.x`). This is important to understand:
 
 | What This Means | Details |
 |-----------------|---------|
 | **Not EA / GA** | This is not an Early Access or General Availability release. It is a very early community code drop. |
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
-| **Features are incomplete** | Core capabilities like natural-language object placement, composite task chaining, RL task setup, and heterogeneous parallel evaluation are planned but not yet implemented. |
-| **Docker-only install** | Source installation in a Docker container is the only supported method in `v0.1.x`. |
+| **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, enhanced heterogeneity across parallel evaluations and pip install support are planned but not yet implemented. |
+| **Docker-only install** | Source installation in a Docker container is the only supported method. |
 | **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.1.1` for the most stable experience. |
 
 
@@ -176,12 +176,17 @@ Isaac Lab Arena is in **pre-alpha** (`v0.1.x`). This is important to understand:
 
 Isaac Lab Arena is part of a growing ecosystem of tools and benchmarks:
 
-- **[Lightwheel RoboCasa Tasks](https://github.com/lightwheel-ai)** — 250+ open-source tasks built on Arena
-- **[Lightwheel LIBERO Tasks](https://github.com/lightwheel-ai)** — Adapted LIBERO benchmarks
-- **[LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)** — Share and discover Arena environments on Hugging Face
-- **[RoboTwin 2.0](https://robotwin-benchmark.github.io/dex-robot/)** — Extended simulation benchmarks using Arena
-- **[Isaac Lab Teleop](https://github.com/isaac-sim/IsaacLab)** — Demonstration collection
-- **[Isaac Lab Mimic](https://github.com/isaac-sim/IsaacLab)** — Synthetic data generation
+
+NVIDIA and partners are building Industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
+- **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)**  — high fidelity industrial benchmarks.
+- **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)**  — 138+ open-source tasks, 50 datasets per task, 7+ robots.
+- **[Lightwheel LIBERO Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — Adapted LIBERO benchmarks.
+- **[RoboTwin 2.0](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena)**  — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
+- **[LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)** — Share and discover Arena environments on Hugging Face.
+
+
+NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more benchmarks are coming soon.
+
 
 ## Contributing
 
@@ -227,13 +232,13 @@ If you use Isaac Lab (the underlying framework), please also cite the [Isaac Lab
 
 ## Acknowledgements
 
-Isaac Lab Arena is co-developed with [Lightwheel](https://www.lightwheel.ai/) and builds on [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab). We thank the Isaac Lab team and the broader robotics community for their foundational work.
+Isaac Lab Arena builds on [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab), with the evaluation and task layers designed in close collaboration with Lightwheel. We thank the Isaac Lab team and the broader robotics community for their foundational work.
 
 ---
 
 <div align="center">
 
-**Isaac Lab Arena** · Pre-Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
+**Isaac Lab Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
 
 Made with ❤️ by the NVIDIA Robotics Team
 
