@@ -185,7 +185,6 @@ def _test_place_upright_mug_condition(simulation_app) -> bool:
     return True
 
 
-@pytest.mark.skip(reason="BROKEN")
 def test_place_upright_mug_single():
     result = run_simulation_app_function(
         _test_place_upright_mug_single,
@@ -194,7 +193,6 @@ def test_place_upright_mug_single():
     assert result, f"Test {_test_place_upright_mug_single.__name__} failed"
 
 
-@pytest.mark.skip(reason="BROKEN")
 def test_place_upright_mug_multi():
     result = run_simulation_app_function(
         _test_place_upright_mug_multi,
@@ -203,7 +201,6 @@ def test_place_upright_mug_multi():
     assert result, f"Test {_test_place_upright_mug_multi.__name__} failed"
 
 
-@pytest.mark.skip(reason="BROKEN")
 def test_place_upright_mug_condition():
     result = run_simulation_app_function(
         _test_place_upright_mug_condition,
