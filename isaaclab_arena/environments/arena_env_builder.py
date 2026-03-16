@@ -98,10 +98,27 @@ class ArenaEnvBuilder:
         self._add_pairwise_no_collision(objects_with_relations)
 
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
+        # TODO(zhx06): Consider running place() at env reset instead of at build time (single
+        # contract, different random layouts per reset; would need objects available in reset event).
         placer = ObjectPlacer()
-        result = placer.place(objects=objects_with_relations)
+        num_envs = self.args.num_envs
+        result = placer.place(objects_with_relations, num_envs=num_envs)
 
-        if result.success:
+        # Placement event config: both PlacementResult and MultiEnvPlacementResult carry event_cfg.
+        self._placement_event_cfg = result.event_cfg
+
+        # Log outcome (multi-env: report how many envs passed, e.g. "38/40").
+        results_per_env = getattr(result, "results", None)
+        if results_per_env is not None:
+            n_ok = sum(1 for r in results_per_env if r.success)
+            if n_ok == num_envs:
+                print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
+            else:
+                print(
+                    f"Relation solving: {n_ok}/{num_envs} env(s) passed validation after {result.attempts} attempt(s). "
+                    "Layouts are applied at reset for all envs (fallback used for envs that did not pass)."
+                )
+        elif result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
             print(f"Relation solving not completed after {result.attempts} attempt(s)")
@@ -150,12 +167,15 @@ class ArenaEnvBuilder:
             embodiment.get_observation_cfg(),
             task.get_observation_cfg(),
         )
-        events_cfg = combine_configclass_instances(
-            "EventsCfg",
+        events_sources = [
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
-        )
+        ]
+        placement_event = getattr(self, "_placement_event_cfg", None)
+        if placement_event is not None:
+            events_sources.append(placement_event)
+        events_cfg = combine_configclass_instances("EventsCfg", *events_sources)
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),

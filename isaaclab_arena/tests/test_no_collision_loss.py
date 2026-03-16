@@ -12,7 +12,7 @@ from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStr
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision, On
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BatchedAxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -155,6 +155,25 @@ def test_no_collision_loss_scales_with_relation_weight():
     loss_1 = strategy.compute_loss(relation_1, child_pos, box_a.bounding_box, parent_world_bbox)
     loss_2 = strategy.compute_loss(relation_2, child_pos, box_a.bounding_box, parent_world_bbox)
     assert torch.isclose(loss_2, 2.0 * loss_1, rtol=1e-5)
+
+
+def test_no_collision_loss_batched_shape_and_values():
+    """NoCollision with batched input: loss shape (N,) and per-env values (one separated, one overlapping)."""
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")
+    relation = NoCollision(box_b, clearance_m=0.0)
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    # N=2: env0 child at (0,0,0) vs parent at (1,0,0) -> no overlap; env1 child at (0.1,0.1,0) vs parent at (0.05,0.05,0) -> overlap
+    child_pos = torch.tensor([[0.0, 0.0, 0.0], [0.1, 0.1, 0.0]])
+    parent_min = torch.tensor([[1.0, 0.0, 0.0], [0.05, 0.05, 0.0]])
+    parent_max = torch.tensor([[1.2, 0.2, 0.2], [0.25, 0.25, 0.2]])
+    parent_world_bbox = BatchedAxisAlignedBoundingBox(min_corner=parent_min, max_corner=parent_max)
+
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
+    assert loss.shape == (2,)
+    assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-5)
+    assert loss[1] > 0.0
 
 
 def test_no_collision_loss_volume_formula():

@@ -34,7 +34,7 @@ class ObjectPlacerParams:
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
 
-    min_separation_m: float = 0.0
+    min_separation_m: float = 0.005
     """Minimum separation (meters) required between object bounding boxes.
     Set to 0.0 to only reject actual overlaps. A small positive value (e.g. 0.005)
     adds a safety margin between objects."""

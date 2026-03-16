@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Relation loss strategies. Support single-env (scalar positions) and batched (N envs) via world_bbox_to_min_max_tensors."""
+
 import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -15,7 +17,11 @@ from isaaclab_arena.relations.loss_primitives import (
     single_boundary_linear_loss,
     single_point_linear_loss,
 )
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import (
+    AxisAlignedBoundingBox,
+    BatchedAxisAlignedBoundingBox,
+    world_bbox_to_min_max_tensors,
+)
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation, NoCollision
@@ -79,11 +85,11 @@ class UnaryRelationLossStrategy(ABC):
 
         Args:
             relation: The relation object containing constraint metadata.
-            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_pos: Child object position (3,) or (N, 3) in world coords.
             child_bbox: Child object local bounding box (extents relative to origin).
 
         Returns:
-            Scalar loss tensor representing the constraint violation.
+            Loss tensor (scalar when single-env, shape (N,) when batched).
         """
         pass
 
@@ -97,18 +103,19 @@ class RelationLossStrategy(ABC):
         relation: "Relation",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox | BatchedAxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Compute the loss for a relation constraint.
 
         Args:
             relation: The relation object containing relationship metadata.
-            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_pos: Child object position (3,) or (N, 3) in world coords.
             child_bbox: Child object local bounding box (extents relative to origin).
-            parent_world_bbox: Parent bounding box in world coordinates.
+            parent_world_bbox: Other object's world AABB (single-env or batched).
+                In On/NextTo this is the parent; in NoCollision either object can be "parent".
 
         Returns:
-            Scalar loss tensor representing the constraint violation.
+            Loss tensor (scalar when single-env, shape (N,) when batched).
         """
         pass
 
@@ -137,7 +144,7 @@ class NextToLossStrategy(RelationLossStrategy):
         relation: "NextTo",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox | BatchedAxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for NextTo relation.
 
@@ -150,40 +157,43 @@ class NextToLossStrategy(RelationLossStrategy):
             parent_world_bbox: Parent bounding box in world coordinates.
 
         Returns:
-            Weighted loss tensor.
+            Weighted loss tensor (scalar when single-env, shape (N,) when batched).
         """
+        # Normalize to (N, 3) for unified batched/single-env handling
+        if child_pos.dim() == 1:
+            child_pos = child_pos.unsqueeze(0)
+        min_corner, max_corner = world_bbox_to_min_max_tensors(
+            parent_world_bbox, child_pos.device, child_pos.dtype
+        )
         cfg = SIDE_CONFIGS[relation.side]
         distance = relation.distance_m
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
 
         # Parent world extents from the world bounding box
-        if cfg.direction == Direction.POSITIVE:
-            parent_edge = parent_world_bbox.max_point[cfg.primary_axis]
-            child_offset = child_bbox.min_point[cfg.primary_axis]
-            penalty_side = "less"
-        else:
-            parent_edge = parent_world_bbox.min_point[cfg.primary_axis]
-            child_offset = child_bbox.max_point[cfg.primary_axis]
-            penalty_side = "greater"
+        ax, band_ax = int(cfg.primary_axis), int(cfg.band_axis)
+        parent_edge = max_corner[:, ax] if cfg.direction == Direction.POSITIVE else min_corner[:, ax]
+        parent_band_min = min_corner[:, band_ax]
+        parent_band_max = max_corner[:, band_ax]
+
+        child_offset = child_bbox.min_point[ax] if cfg.direction == Direction.POSITIVE else child_bbox.max_point[ax]
+        penalty_side = "less" if cfg.direction == Direction.POSITIVE else "greater"
 
         # 1. Half-plane loss: child must be on correct side of parent edge
         half_plane_loss = single_boundary_linear_loss(
-            child_pos[cfg.primary_axis],
+            child_pos[:, cfg.primary_axis],
             parent_edge,
             slope=self.slope,
             penalty_side=penalty_side,
         )
 
         # 2. Band position loss: child placed at target position within parent's perpendicular extent
-        parent_band_min = parent_world_bbox.min_point[cfg.band_axis]
-        parent_band_max = parent_world_bbox.max_point[cfg.band_axis]
         valid_band_min = parent_band_min - child_bbox.min_point[cfg.band_axis]
         valid_band_max = parent_band_max - child_bbox.max_point[cfg.band_axis]
         # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
         t = (relation.cross_position_ratio + 1.0) / 2.0
         target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
         band_loss = single_point_linear_loss(
-            child_pos[cfg.band_axis],
+            child_pos[:, cfg.band_axis],
             target_band_pos,
             slope=self.slope,
         )
@@ -192,31 +202,30 @@ class NextToLossStrategy(RelationLossStrategy):
         # For direction +1: target = parent_max + distance - child_min
         # For direction -1: target = parent_min - distance - child_max
         target_pos = parent_edge + cfg.direction * distance - child_offset
-        distance_loss = single_point_linear_loss(child_pos[cfg.primary_axis], target_pos, slope=self.slope)
+        distance_loss = single_point_linear_loss(child_pos[:, cfg.primary_axis], target_pos, slope=self.slope)
 
-        if self.debug:
+        if self.debug and child_pos.shape[0] == 1:
             axis_name = cfg.primary_axis.name
             band_axis_name = cfg.band_axis.name
             print(
                 f"    [NextTo] {relation.side.value}: child_{axis_name.lower()}="
-                f"{child_pos[cfg.primary_axis].item():.4f}, parent_edge={parent_edge:.4f},"
-                f" loss={half_plane_loss.item():.6f}"
+                f"{child_pos[0, cfg.primary_axis].item():.4f}, parent_edge={parent_edge[0].item():.4f},"
+                f" loss={half_plane_loss[0].item():.6f}"
             )
             print(
                 f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
-                f"{child_pos[cfg.band_axis].item():.4f}, target={target_band_pos:.4f}"
-                f" (cross_position_ratio={relation.cross_position_ratio:.2f},"
-                f" range=[{valid_band_min:.4f}, {valid_band_max:.4f}]),"
-                f" loss={band_loss.item():.6f}"
+                f"{child_pos[0, cfg.band_axis].item():.4f}, target={target_band_pos[0].item():.4f},"
+                f" loss={band_loss[0].item():.6f}"
             )
             print(
                 f"    [NextTo] Distance: child_{axis_name.lower()}="
-                f"{child_pos[cfg.primary_axis].item():.4f}, target={target_pos:.4f},"
-                f" loss={distance_loss.item():.6f}"
+                f"{child_pos[0, cfg.primary_axis].item():.4f}, target={target_pos[0].item():.4f},"
+                f" loss={distance_loss[0].item():.6f}"
             )
 
         total_loss = half_plane_loss + band_loss + distance_loss
-        return relation.relation_loss_weight * total_loss
+        weighted = relation.relation_loss_weight * total_loss
+        return weighted.squeeze(0) if weighted.shape[0] == 1 else weighted
 
 
 class OnLossStrategy(RelationLossStrategy):
@@ -243,7 +252,7 @@ class OnLossStrategy(RelationLossStrategy):
         relation: "On",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox | BatchedAxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for On relation.
 
@@ -254,18 +263,24 @@ class OnLossStrategy(RelationLossStrategy):
             parent_world_bbox: Parent bounding box in world coordinates.
 
         Returns:
-            Weighted loss tensor.
+            Weighted loss tensor (scalar when single-env, shape (N,) when batched).
         """
+        # Normalize to (N, 3) for unified batched/single-env handling
+        if child_pos.dim() == 1:
+            child_pos = child_pos.unsqueeze(0)
+        min_corner, max_corner = world_bbox_to_min_max_tensors(
+            parent_world_bbox, child_pos.device, child_pos.dtype
+        )
         # Parent world-space extents from the world bounding box
-        parent_x_min = parent_world_bbox.min_point[0]
-        parent_x_max = parent_world_bbox.max_point[0]
-        parent_y_min = parent_world_bbox.min_point[1]
-        parent_y_max = parent_world_bbox.max_point[1]
-        parent_z_max = parent_world_bbox.max_point[2]  # Top surface
+        parent_x_min = min_corner[:, 0]
+        parent_x_max = max_corner[:, 0]
+        parent_y_min = min_corner[:, 1]
+        parent_y_max = max_corner[:, 1]
+        parent_z_max = max_corner[:, 2]  # Top surface
 
         # Compute valid position ranges such that child's entire footprint is within parent
-        # Child left edge = child_pos[0] + child_bbox.min_point[0], must be >= parent_x_min
-        # Child right edge = child_pos[0] + child_bbox.max_point[0], must be <= parent_x_max
+        # Child left edge = child_pos.x + child_bbox.min_point[0], must be >= parent_x_min
+        # Child right edge = child_pos.x + child_bbox.max_point[0], must be <= parent_x_max
         valid_x_min = parent_x_min - child_bbox.min_point[0]  # child's left at parent's left
         valid_x_max = parent_x_max - child_bbox.max_point[0]  # child's right at parent's right
         valid_y_min = parent_y_min - child_bbox.min_point[1]
@@ -273,7 +288,7 @@ class OnLossStrategy(RelationLossStrategy):
 
         # 1. X band loss: child's footprint entirely within parent's X extent
         x_band_loss = linear_band_loss(
-            child_pos[0],
+            child_pos[:, 0],
             lower_bound=valid_x_min,
             upper_bound=valid_x_max,
             slope=self.slope,
@@ -281,7 +296,7 @@ class OnLossStrategy(RelationLossStrategy):
 
         # 2. Y band loss: child's footprint entirely within parent's Y extent
         y_band_loss = linear_band_loss(
-            child_pos[1],
+            child_pos[:, 1],
             lower_bound=valid_y_min,
             upper_bound=valid_y_max,
             slope=self.slope,
@@ -289,21 +304,22 @@ class OnLossStrategy(RelationLossStrategy):
 
         # 3. Z point loss: child bottom = parent top + clearance
         target_z = parent_z_max + relation.clearance_m - child_bbox.min_point[2]
-        z_loss = single_point_linear_loss(child_pos[2], target_z, slope=self.slope)
+        z_loss = single_point_linear_loss(child_pos[:, 2], target_z, slope=self.slope)
 
-        if self.debug:
+        if self.debug and child_pos.shape[0] == 1:
             print(
-                f"    [On] X: child_pos={child_pos[0].item():.4f}, valid_range=[{valid_x_min:.4f},"
-                f" {valid_x_max:.4f}], loss={x_band_loss.item():.6f}"
+                f"    [On] X: child_pos={child_pos[0, 0].item():.4f}, valid_range=[{valid_x_min[0].item():.4f},"
+                f" {valid_x_max[0].item():.4f}], loss={x_band_loss[0].item():.6f}"
             )
             print(
-                f"    [On] Y: child_pos={child_pos[1].item():.4f}, valid_range=[{valid_y_min:.4f},"
-                f" {valid_y_max:.4f}], loss={y_band_loss.item():.6f}"
+                f"    [On] Y: child_pos={child_pos[0, 1].item():.4f}, valid_range=[{valid_y_min[0].item():.4f},"
+                f" {valid_y_max[0].item():.4f}], loss={y_band_loss[0].item():.6f}"
             )
-            print(f"    [On] Z: child_pos={child_pos[2].item():.4f}, target={target_z:.4f}, loss={z_loss.item():.6f}")
+            print(f"    [On] Z: child_pos={child_pos[0, 2].item():.4f}, target={target_z[0].item():.4f}, loss={z_loss[0].item():.6f}")
 
         total_loss = x_band_loss + y_band_loss + z_loss
-        return relation.relation_loss_weight * total_loss
+        weighted = relation.relation_loss_weight * total_loss
+        return weighted.squeeze(0) if weighted.shape[0] == 1 else weighted
 
 
 class NoCollisionLossStrategy(RelationLossStrategy):
@@ -331,7 +347,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         relation: "NoCollision",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox | BatchedAxisAlignedBoundingBox,
     ) -> torch.Tensor:
         """Compute loss for NoCollision relation.
 
@@ -342,46 +358,53 @@ class NoCollisionLossStrategy(RelationLossStrategy):
             parent_world_bbox: Parent bounding box in world coordinates.
 
         Returns:
-            Weighted loss tensor.
+            Weighted loss tensor (scalar when single-env, shape (N,) when batched).
         """
+        # Normalize to (N, 3) for unified batched/single-env handling
+        if child_pos.dim() == 1:
+            child_pos = child_pos.unsqueeze(0)
+        min_corner, max_corner = world_bbox_to_min_max_tensors(
+            parent_world_bbox, child_pos.device, child_pos.dtype
+        )
         # Parent world extents from the world bounding box, expanded by clearance_m
         c = relation.clearance_m
-        parent_x_min = parent_world_bbox.min_point[0] - c
-        parent_x_max = parent_world_bbox.max_point[0] + c
-        parent_y_min = parent_world_bbox.min_point[1] - c
-        parent_y_max = parent_world_bbox.max_point[1] + c
-        parent_z_min = parent_world_bbox.min_point[2] - c
-        parent_z_max = parent_world_bbox.max_point[2] + c
+        parent_x_min = min_corner[:, 0] - c
+        parent_x_max = max_corner[:, 0] + c
+        parent_y_min = min_corner[:, 1] - c
+        parent_y_max = max_corner[:, 1] + c
+        parent_z_min = min_corner[:, 2] - c
+        parent_z_max = max_corner[:, 2] + c
 
         # Child world extents
         child_world_min = child_pos + torch.tensor(child_bbox.min_point, dtype=child_pos.dtype, device=child_pos.device)
         child_world_max = child_pos + torch.tensor(child_bbox.max_point, dtype=child_pos.dtype, device=child_pos.device)
 
         # 1. Per-axis overlap: zero when separated; else overlap length (default slope 1.0 gives length in m)
-        overlap_x = interval_overlap_axis_loss(child_world_min[0], child_world_max[0], parent_x_min, parent_x_max)
-        overlap_y = interval_overlap_axis_loss(child_world_min[1], child_world_max[1], parent_y_min, parent_y_max)
-        overlap_z = interval_overlap_axis_loss(child_world_min[2], child_world_max[2], parent_z_min, parent_z_max)
+        overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
+        overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
+        overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
 
         # 2. Volume loss: slope * product of per-axis overlap lengths (overlap volume when slope 1.0)
         overlap_volume = overlap_x * overlap_y * overlap_z
         total_loss = self.slope * overlap_volume
 
-        if self.debug:
+        if self.debug and child_pos.shape[0] == 1:
             print(
-                f"    [NoCollision] X: overlap={overlap_x.item():.6f} (child_x=[{child_world_min[0].item():.4f},"
-                f" {child_world_max[0].item():.4f}], parent_x=[{parent_x_min:.4f}, {parent_x_max:.4f}])"
+                f"    [NoCollision] X: overlap={overlap_x[0].item():.6f} (child_x=[{child_world_min[0, 0].item():.4f},"
+                f" {child_world_max[0, 0].item():.4f}], parent_x=[{parent_x_min[0].item():.4f}, {parent_x_max[0].item():.4f}])"
             )
             print(
-                f"    [NoCollision] Y: overlap={overlap_y.item():.6f} (child_y=[{child_world_min[1].item():.4f},"
-                f" {child_world_max[1].item():.4f}], parent_y=[{parent_y_min:.4f}, {parent_y_max:.4f}])"
+                f"    [NoCollision] Y: overlap={overlap_y[0].item():.6f} (child_y=[{child_world_min[0, 1].item():.4f},"
+                f" {child_world_max[0, 1].item():.4f}], parent_y=[{parent_y_min[0].item():.4f}, {parent_y_max[0].item():.4f}])"
             )
             print(
-                f"    [NoCollision] Z: overlap={overlap_z.item():.6f} (child_z=[{child_world_min[2].item():.4f},"
-                f" {child_world_max[2].item():.4f}], parent_z=[{parent_z_min:.4f}, {parent_z_max:.4f}])"
+                f"    [NoCollision] Z: overlap={overlap_z[0].item():.6f} (child_z=[{child_world_min[0, 2].item():.4f},"
+                f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f}, {parent_z_max[0].item():.4f}])"
             )
-            print(f"    [NoCollision] volume={overlap_volume.item():.6f}, loss={total_loss.item():.6f}")
+            print(f"    [NoCollision] volume={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
 
-        return relation.relation_loss_weight * total_loss
+        out = relation.relation_loss_weight * total_loss
+        return out.squeeze(0) if out.shape[0] == 1 else out
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
@@ -405,31 +428,26 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for AtPosition relation.
+        """Compute loss for AtPosition (unary relation).
 
         Args:
-            relation: AtPosition relation with x, y, z target coordinates.
-            child_pos: Child object position tensor (x, y, z) in world coords.
-            child_bbox: Child object local bounding box (unused, for signature consistency).
+            relation: AtPosition relation with optional x, y, z targets.
+            child_pos: Child object position (3,) or (N, 3) in world coords.
+            child_bbox: Child object local bounding box (for signature consistency).
 
         Returns:
-            Weighted loss tensor.
+            Weighted loss tensor (scalar when single-env, shape (N,) when batched).
         """
-        total_loss = torch.tensor(0.0, dtype=child_pos.dtype, device=child_pos.device)
-
-        # X position constraint
+        # Normalize to (N, 3) for unified batched/single-env handling
+        if child_pos.dim() == 1:
+            child_pos = child_pos.unsqueeze(0)
+        total_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
         if relation.x is not None:
-            x_loss = single_point_linear_loss(child_pos[0], relation.x, slope=self.slope)
-            total_loss = total_loss + x_loss
-
-        # Y position constraint
+            total_loss = total_loss + single_point_linear_loss(child_pos[:, 0], relation.x, slope=self.slope)
         if relation.y is not None:
-            y_loss = single_point_linear_loss(child_pos[1], relation.y, slope=self.slope)
-            total_loss = total_loss + y_loss
-
-        # Z position constraint
+            total_loss = total_loss + single_point_linear_loss(child_pos[:, 1], relation.y, slope=self.slope)
         if relation.z is not None:
-            z_loss = single_point_linear_loss(child_pos[2], relation.z, slope=self.slope)
-            total_loss = total_loss + z_loss
+            total_loss = total_loss + single_point_linear_loss(child_pos[:, 2], relation.z, slope=self.slope)
+        out = relation.relation_loss_weight * total_loss
+        return out.squeeze(0) if out.shape[0] == 1 else out
 
-        return relation.relation_loss_weight * total_loss

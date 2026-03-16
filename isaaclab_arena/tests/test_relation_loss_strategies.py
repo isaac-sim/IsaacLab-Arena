@@ -12,7 +12,7 @@ import pytest
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy
 from isaaclab_arena.relations.relations import NextTo, On, Side
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BatchedAxisAlignedBoundingBox
 
 
 def _create_table() -> DummyObject:
@@ -140,6 +140,25 @@ def test_on_loss_strategy_constrains_entire_footprint():
 
     loss = strategy.compute_loss(relation, child_pos, box.bounding_box, table.bounding_box)
     assert loss > 0.0, "Loss should penalize child footprint extending beyond parent"
+
+
+def test_on_loss_strategy_batched_shape_and_values():
+    """On with batched input: loss shape (N,); one env on table (zero), one env wrong Z (positive)."""
+    table = _create_table()
+    box = _create_box()
+    relation = On(table, clearance_m=0.01)
+    strategy = OnLossStrategy(slope=10.0)
+
+    # N=2: env0 centered on table at correct Z; env1 wrong Z
+    child_pos = torch.tensor([[0.4, 0.4, 0.11], [0.4, 0.4, 0.5]])
+    parent_min = torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    parent_max = torch.tensor([[1.0, 1.0, 0.1], [1.0, 1.0, 0.1]])
+    parent_world_bbox = BatchedAxisAlignedBoundingBox(min_corner=parent_min, max_corner=parent_max)
+
+    loss = strategy.compute_loss(relation, child_pos, box.bounding_box, parent_world_bbox)
+    assert loss.shape == (2,)
+    assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-4)
+    assert loss[1] > 0.0
 
 
 # =============================================================================
