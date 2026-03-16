@@ -116,6 +116,9 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
 
     if isinstance(initial_pose, PoseRange):
         initial_pose = initial_pose.get_midpoint()
+    elif isinstance(initial_pose, dict):
+        # RigidObjectSet with pose_per_object: use first pose for camera lookat
+        initial_pose = next(iter(initial_pose.values()))
 
     # TODO(cvolk): Add float coercion to Pose.__post_init__ so this conversion is unnecessary.
     # Ensure we only pass primitive Python floats (not NumPy scalars) into ViewerCfg,
