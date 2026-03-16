@@ -31,7 +31,7 @@ import sys
 # from setup import ISAACLAB_ARENA_VERSION_NUMBER
 
 # TODO(alexmillane, 2025-10-03): Get this programmatically, as above.
-ISAACLAB_ARENA_VERSION_NUMBER = "0.1"
+ISAACLAB_ARENA_VERSION_NUMBER = "0.2"
 
 
 # Modify PYTHONPATH so we can import the helpers module.
