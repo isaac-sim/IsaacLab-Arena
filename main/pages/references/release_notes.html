@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Release Notes &#8212; isaaclab_arena 0.1</title>
+    <title>Release Notes &#8212; isaaclab_arena 0.2</title>
   
   
   
@@ -125,11 +125,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 0.2</p>
   
 </a></div>
     
@@ -226,11 +226,11 @@
       
     
     
-    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 0.2</p>
   
 </a>
 
@@ -421,6 +421,128 @@
                   
   <section id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Link to this heading">#</a></h1>
+<section id="unreleased-v0-2-0">
+<h2>Unreleased: v0.2.0<a class="headerlink" href="#unreleased-v0-2-0" title="Link to this heading">#</a></h2>
+<p>This release of Isaac Lab-Arena focuses on adding essential features needed for creation and
+execution of large-scale task libraries with complex long-horizon tasks.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Changes on <code class="docutils literal notranslate"><span class="pre">main</span></code> contains an in development version of v0.2.0.
+As of March 16th 2026 (GTC San Jose 2026), <code class="docutils literal notranslate"><span class="pre">main</span></code> contains most of the features for the v0.2.0 release,
+however, is based on Isaac Lab 2.3 (rather than Isaac Lab 3.0) and has not been SQA tested.*</p>
+</div>
+<p><strong>Key Features</strong></p>
+<ul class="simple">
+<li><p><strong>LEGO-like Composable Environments</strong> — Mix and match scenes,  embodiments, and tasks independently</p></li>
+<li><p><strong>On-the-fly Assembly</strong> — Environments are built at runtime; no duplicate config files to maintain.</p></li>
+<li><p><strong>New Sequential Task Chaining</strong> — Chain atomic skills (e.g. Pick + Walk + Place + …) to create complex long-horizon tasks.</p></li>
+<li><p><strong>New Natural Language Object Placement</strong> — Define scene layouts using semantic relationships
+like “on” or “next to”, instead of manually specified coordinates.</p></li>
+<li><p><strong>Integrated Evaluation</strong> — Extensible metrics and evaluation pipelines for policy benchmarking</p></li>
+<li><p><strong>New Large-scale Parallel Evaluations with Heterogeneous Objects</strong> — Evaluate policy on multiple parallel
+environments, each with different objects, to maximize evaluation throughput.</p></li>
+<li><p><strong>New RL Workflow Support and Seamless Interoperation with Isaac Lab</strong> — Plug Isaac Lab-Arena environments
+into Isaac Lab workflows for Reinforcement learning and Data generation for imitation learning.</p></li>
+</ul>
+<p><strong>Ecosystem</strong>
+NVIDIA and partners are building Industrial and academic benchmarks on the unified Isaac Lab-Arena core,
+so you can reuse LEGO blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://lightwheel.ai/robofinals">Lightwheel RoboFinals</a> — high fidelity industrial benchmarks</p></li>
+<li><p><a class="reference external" href="https://github.com/LightwheelAI/LW-BenchHub">Lightwheel RoboCasa Tasks</a> — 138+ open-source tasks,
+50 datasets per task, 7+ robots</p></li>
+<li><p><a class="reference external" href="https://github.com/LightwheelAI/LW-BenchHub">Lightwheel LIBERO Tasks</a> — Adapted LIBERO benchmarks</p></li>
+<li><p><a class="reference external" href="https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena">RoboTwin 2.0</a> — Extended simulation
+benchmarks using Arena (<a class="reference external" href="https://arxiv.org/abs/2603.08164">arxiv</a>)</p></li>
+<li><p><a class="reference external" href="https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot">LeRobot Environment Hub</a> — Share
+and discover Arena environments on Hugging Face</p></li>
+<li><p><strong>Coming Soon:</strong> NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more.</p></li>
+</ul>
+<p><strong>Developer preview branches</strong></p>
+<ul class="simple">
+<li><p><strong>A developer preview of Isaac Lab-Arena 0.2 (based on Isaac Lab 2.3) is now available</strong> on
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/main">main</a>.
+This early version includes the 0.2 features and is meant for users who can accept some instability.</p></li>
+<li><p><strong>Isaac Lab-Arena 0.2 on Isaac Lab 3.0 is underway in a dedicated feature branch</strong>
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/feature/isaac_lab_3_newton">feature/isaac_lab_3_newton</a>.
+This branch is subject to significant changes and instability as Lab 3.0 (Newton) is evolving quickly.</p></li>
+<li><p><strong>The official, stable, and tested release of Isaac Lab-Arena 0.2 on Isaac Lab 3.0 is coming soon in April 2026.</strong></p></li>
+</ul>
+<p><strong>Collaboration</strong></p>
+<p>Isaac Lab-Arena is being developed as an open-source, shared evaluation framework that the community can
+collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.2 Alpha, share feedback, and help
+shape its future. In Alpha stage, development velocity is high and core features/APIs are evolving. Your
+input at this stage is especially valuable.</p>
+<p><strong>What’s Next</strong></p>
+<p>Future releases will focus on agentic, prompt-first scene and task generation, non-sequential long horizon
+tasks, easy-to-configure sensitivity analysis with targeted environment variations and evaluation sweeps without
+code changes, enhanced heterogeneity across parallel evaluations, and VLM-augmented analysis to surface
+insights from large-scale evaluations. These will come with ongoing improvements to performance and usability,
+such as PIP packaging.</p>
+<p><strong>Limitations</strong></p>
+<ul class="simple">
+<li><p>pip install support is coming soon (current installation method is Docker-based).</p></li>
+<li><p>Performance is not yet hardened for production-scale workloads in Alpha stage.</p></li>
+</ul>
+</section>
+<section id="v0-1-1">
+<h2>v0.1.1<a class="headerlink" href="#v0-1-1" title="Link to this heading">#</a></h2>
+<p>This release includes bug fixes, documentation improvements, CI and infrastructure
+updates, and several API and workflow enhancements over v0.1.0.</p>
+<p><strong>Features and improvements</strong></p>
+<ul class="simple">
+<li><p><strong>Object configuration:</strong> Object configuration is now created as soon as an asset is
+called, so users can edit object properties before a scene is created (#239).</p></li>
+<li><p><strong>Scene export:</strong> Added support for saving a scene to a flattened USD file (#237).
+Scene export now correctly handles double-precision poses and adds contact reporters
+when exporting rigid objects (#242).</p></li>
+<li><p><strong>Parallel environment evaluation:</strong> Enabled parallel environment evaluation for
+GR00T policy runner, with documentation for closed-loop GR00T workflows (#231, #236).</p></li>
+<li><p><strong>Episode length:</strong> Increased episode length for loco-manipulation to support
+rollout through box drop (#235).</p></li>
+<li><p><strong>Microwave example:</strong> Increased reset openness for the microwave example (#311).</p></li>
+</ul>
+<p><strong>Bug fixes</strong></p>
+<ul class="simple">
+<li><p><strong>Reference object poses:</strong> Fixed reference object poses so they correctly account
+for the parent object’s initial pose; poses are now relative and composed at compile
+time (#232).</p></li>
+<li><p><strong>IsaacLab-to-stage path conversion:</strong> Fixed a bug when the asset name appeared twice
+in the prim path (replaced both instances instead of one) (#241).</p></li>
+<li><p><strong>qpsolvers:</strong> Patched breakage with Isaac Lab 2.3 due to <code class="docutils literal notranslate"><span class="pre">qpsolvers</span></code> upgrade by
+pinning to 4.8.1 (#252).</p></li>
+<li><p><strong>Parallel eval:</strong> Removed comments that were breaking the parallel eval run
+commands (#262).</p></li>
+</ul>
+<p><strong>Documentation</strong></p>
+<ul class="simple">
+<li><p><strong>Multi-versioned docs:</strong> Documentation is now versioned so users can read docs that
+match their release (#272, #300).</p></li>
+<li><p><strong>Links and structure:</strong> Updated README docs link to the public location (#270),
+corrected doc pointers (#301), and added release warnings (#303).</p></li>
+<li><p><strong>Installation:</strong> Private Omniverse/Nucleus access is described on a separate page
+to clarify it is not required for normal installation (#261).</p></li>
+</ul>
+<p><strong>Infrastructure and CI</strong></p>
+<ul class="simple">
+<li><p><strong>Runners:</strong> Release 0.1.1 CI runners moved from local (Zurich) to AWS (#433).</p></li>
+<li><p><strong>CI workflow:</strong> Added YAML anchors to reduce repetition in the CI workflow (#245).</p></li>
+<li><p><strong>Contribution guide:</strong> Added signoff requirements for external contributions (#238).</p></li>
+<li><p><strong>Docker:</strong> Fixed Dockerfile pip usage and added SSL certificate support for
+Lightwheel SDK (#449).</p></li>
+<li><p><strong>Tests:</strong> Finetuned GR00T locomanip model is now generated on the fly in tests
+instead of mounting a pre-finetuned models directory, improving public CI
+compatibility and testing the fine-tuning pipeline (#247).</p></li>
+</ul>
+<p><strong>Assets and tests</strong></p>
+<ul class="simple">
+<li><p><strong>G1 WBC:</strong> Updated G1 WBC embodiment file paths to use S3 (#251).</p></li>
+<li><p><strong>Test assets:</strong> Removed internal or custom-only assets from tests: custom cracker
+box (#234), custom USD in ObjectReference test (#240), internal asset from USD
+utils test (#244). ObjectReference test now composes USD on the fly via scene
+export (#240).</p></li>
+</ul>
+</section>
 <section id="v0-1-0">
 <h2>v0.1.0<a class="headerlink" href="#v0-1-0" title="Link to this heading">#</a></h2>
 <p>This initial release of Isaac Lab Arena delivers the first version of the
@@ -491,6 +613,8 @@ performed on a single GPU.)</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#unreleased-v0-2-0">Unreleased: v0.2.0</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-1-1">v0.1.1</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-1-0">v0.1.0</a></li>
 </ul>
   </nav></div>
