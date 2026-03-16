@@ -4,8 +4,8 @@
 
 ### Composable Environment Creation and Policy Evaluation for Robotics Simulation
 
-[![Pre-Alpha](https://img.shields.io/badge/status-pre--alpha-e8912d.svg)](#%EF%B8%8F-project-status)
-[![Version](https://img.shields.io/badge/version-0.1.x-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/release/0.1.1)
+[![Alpha](https://img.shields.io/badge/status-alpha-e8912d.svg)](#%EF%B8%8F-project-status)
+[![Version](https://img.shields.io/badge/version-0.2.x-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-5.1.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
 [![IsaacLab](https://img.shields.io/badge/IsaacLab-2.3.0-silver.svg)](https://github.com/isaac-sim/IsaacLab)
 [![Python](https://img.shields.io/badge/python-≥3.10-blue.svg)](https://docs.python.org/3/whatsnew/3.10.html)
@@ -19,9 +19,13 @@
 ---
 
 > [!WARNING]
-> **Pre-Alpha Software — Not an Early Access or General Availability Release.**
-> Isaac Lab Arena `v0.1.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
+> **Alpha Software — Not an Early Access or General Availability Release.**
+> Isaac Lab Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
+> [!WARNING]
+> Changes on `main` contains an in development version of v0.2.0.
+> As of March 16th 2026 (GTC San Jose 2026), `main` contains most of the features for the v0.2.0 release,
+> however, is based on Isaac Lab 2.3 (rather than Isaac Lab 3.0) and has not been SQA tested.*
 ---
 
 ## Overview
