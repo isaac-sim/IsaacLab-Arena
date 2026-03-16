@@ -17,15 +17,16 @@ From the repo root, create the venv and install dependencies:
 ```bash
 cd docs
 python3.11 -m venv venv_docs
-venv_docs/bin/pip install -r requirements.txt
+source venv_docs/bin/activate
+pip install -r requirements.txt
 ```
 
 
-## Build and view
+## Build and view (current branch/changes)
 
 ```bash
 cd docs
-venv_docs/bin/sphinx-build -M html . _build/current
+make html
 xdg-open _build/current/html/index.html
 ```
 
