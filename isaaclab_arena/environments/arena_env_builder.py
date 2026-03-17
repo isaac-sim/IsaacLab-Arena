@@ -86,7 +86,7 @@ class ArenaEnvBuilder:
         1. Collects all objects from the scene that have relations
         2. Adds NoCollision between every pair of non-anchor objects (if not already present)
         3. Runs the ObjectPlacer to solve spatial constraints
-        4. Applies solved positions to objects
+        4. Applies solved positions at env reset via placement event (one layout per env)
         """
         # All objects with relations are subjects of the relation solving.
         objects_with_relations = self._get_objects_with_relations()
@@ -97,15 +97,13 @@ class ArenaEnvBuilder:
 
         self._add_pairwise_no_collision(objects_with_relations)
 
-        # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
-        # TODO(zhx06): Consider running place() at env reset instead of at build time (single
-        # contract, different random layouts per reset; would need objects available in reset event).
+        # Run the ObjectPlacer at build time (batch placement supported).
         placer = ObjectPlacer()
         num_envs = self.args.num_envs
         result = placer.place(objects_with_relations, num_envs=num_envs)
 
-        # Placement event config: both PlacementResult and MultiEnvPlacementResult carry event_cfg.
-        self._placement_event_cfg = result.event_cfg
+        # Multi-env only: merge placement event so per-env layouts are applied at reset (main has no event).
+        self._placement_event_cfg = getattr(result, "event_cfg", None)
 
         # Log outcome (multi-env: report how many envs passed, e.g. "38/40").
         results_per_env = getattr(result, "results", None)
@@ -115,8 +113,7 @@ class ArenaEnvBuilder:
                 print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
             else:
                 print(
-                    f"Relation solving: {n_ok}/{num_envs} env(s) passed validation after {result.attempts} attempt(s). "
-                    "Layouts are applied at reset for all envs (fallback used for envs that did not pass)."
+                    f"Relation solving: {n_ok}/{num_envs} env(s) passed validation after {result.attempts} attempt(s)."
                 )
         elif result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")

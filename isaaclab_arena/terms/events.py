@@ -28,17 +28,7 @@ def make_placement_event_cfg(
     anchor_names: list[str] | None = None,
     placement_valid_per_env: list[bool] | None = None,
 ) -> PlacementEventsCfg:
-    """Build placement event config so layouts are applied at env reset.
-
-    Args:
-        positions_all_envs_by_name: One dict of object name -> (x, y, z) per env.
-        object_names: All object names to set (order does not affect application order).
-        anchor_names: Names to apply first (e.g. table) so supports are set before objects on them.
-        placement_valid_per_env: Optional; when provided, can be used to skip invalid envs (future use).
-
-    Returns:
-        PlacementEventsCfg with set_object_pose_per_env_from_layouts event term.
-    """
+    """Build placement event config so layouts are applied at env reset."""
     params: dict = {
         "positions_all_envs_by_name": positions_all_envs_by_name,
         "object_names": object_names,
@@ -56,11 +46,7 @@ def make_placement_event_cfg(
 
 
 def _resolve_env_ids(env: ManagerBasedEnv, env_ids) -> list[int] | None:
-    """Normalize env_ids from the event manager to a list of env indices.
-
-    The event manager may pass env_ids as slice(None) (all envs), a tensor, or a
-    sequence when only a subset of envs reset. Returns list[int] or None.
-    """
+    """Normalize env_ids from the event manager to a list of env indices."""
     if env_ids is None:
         return None
     if isinstance(env_ids, slice):
@@ -133,10 +119,7 @@ def set_object_pose_per_env_from_layouts(
     placement_valid_per_env: list[bool] | None = None,
 ) -> None:
     """Set each object's root pose per env from layout dicts (relation placement output).
-
     Applies anchors first so supports (e.g. table) are set before objects on them.
-    Calls set_object_pose_per_env once per object. placement_valid_per_env is accepted
-    but not yet used (reserved for skipping failed envs in a future change).
     """
     resolved = _resolve_env_ids(env, env_ids)
     if not resolved:

@@ -5,16 +5,14 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.terms.events import make_placement_event_cfg
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.terms.events import make_placement_event_cfg
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -67,8 +65,7 @@ class ObjectPlacer:
         return self._place_single(objects)
 
     def _place_single(self, objects: list[Object | ObjectReference]) -> PlacementResult:
-        """Single-env placement: one layout. Returns PlacementResult with event_cfg for the builder."""
-        params = replace(self.params, apply_positions_to_objects=False)
+        """Single-env placement: one layout. Returns PlacementResult."""
 
         # Validate all objects have at least one relation
         for obj in objects:
@@ -134,25 +131,19 @@ class ObjectPlacer:
                 best_loss = loss
                 best_positions = positions
 
-        # Apply solved positions to objects
-        if params.apply_positions_to_objects:
+        # Apply solved positions to objects (same as main: single-env uses this, no event)
+        if self.params.apply_positions_to_objects:
             self._apply_positions(best_positions, anchor_objects_set)
 
         # Restore RNG state if we changed it
         if rng_state is not None:
             torch.set_rng_state(rng_state)
 
-        event_cfg = make_placement_event_cfg(
-            [{obj.name: pos for obj, pos in best_positions.items()}],
-            [obj.name for obj in objects],
-            [a.name for a in anchor_objects],
-        )
         return PlacementResult(
             success=success,
             positions=best_positions,
             final_loss=best_loss,
             attempts=attempt + 1,
-            event_cfg=event_cfg,
         )
 
     def _place_multi_env(

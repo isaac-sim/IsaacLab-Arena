@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementResult:
-    """Result of an ObjectPlacer.place() call (num_envs=1)."""
+    """Result of an ObjectPlacer.place() call (num_envs=1). Same as main: no event_cfg; placer applies to objects."""
 
     success: bool
     """Whether placement passed validation checks."""
@@ -28,24 +28,20 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
-    event_cfg: Any | None = None
-    """Placement event config to merge into the env's events (apply layout at reset). Set by placer."""
-
 
 @dataclass
 class MultiEnvPlacementResult:
     """Result of multi-env placement: one PlacementResult per environment.
 
     Returned by ObjectPlacer.place(..., num_envs>1). Use .results[env_id] for that
-    env's layout (success, positions, final_loss, attempts). Use .event_cfg to
-    register the placement event so layouts are applied at reset.
+    env's layout. .event_cfg is merged into env events so layouts are applied at reset.
     """
 
     results: list[PlacementResult]
     """One PlacementResult per environment (same length as num_envs)."""
 
     event_cfg: Any
-    """Placement event config (e.g. PlacementEventsCfg) to merge into the env's events for reset."""
+    """Placement event config to merge into env events so layouts are applied at reset."""
 
     @property
     def success(self) -> bool:
