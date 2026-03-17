@@ -7,6 +7,24 @@ This workflow covers collecting demonstrations using Isaac Teleop with an **Appl
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+On the host machine, configure the firewall to allow CloudXR traffic.
+
+.. code-block:: bash
+
+   # Signaling (use one based on connection mode)
+   sudo ufw allow 48010/tcp   # Standard mode
+   sudo ufw allow 48322/tcp   # Secure mode
+   # Video
+   sudo ufw allow 47998/udp
+   sudo ufw allow 48005/udp
+   sudo ufw allow 48008/udp
+   sudo ufw allow 48012/udp
+   # Input
+   sudo ufw allow 47999/udp
+   # Audio
+   sudo ufw allow 48000/udp
+   sudo ufw allow 48002/udp
+
 Start the CloudXR runtime from the Arena Docker container:
 
 :docker_run_default:
@@ -25,25 +43,6 @@ Start the CloudXR runtime with the customized config file:
    python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
 
 
-Configure the firewall to allow CloudXR traffic.
-
-.. code-block:: bash
-
-   # Signaling (use one based on connection mode)
-   sudo ufw allow 48010/tcp   # Standard mode
-   sudo ufw allow 48322/tcp   # Secure mode
-   # Video
-   sudo ufw allow 47998/udp
-   sudo ufw allow 48005/udp
-   sudo ufw allow 48008/udp
-   sudo ufw allow 48012/udp
-   # Input
-   sudo ufw allow 47999/udp
-   # Audio
-   sudo ufw allow 48000/udp
-   sudo ufw allow 48002/udp
-
-
 
 Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -59,6 +58,7 @@ Run the recording script:
    source ~/.cloudxr/run/cloudxr.env
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
+     --visualizer kit \
      --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
      --num_demos 10 \
      --num_success_steps 10 \

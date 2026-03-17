@@ -6,16 +6,7 @@ This workflow covers collecting demonstrations for the G1 loco-manipulation task
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Start the CloudXR runtime from the Arena Docker container:
-
-:docker_run_default:
-
-.. code-block:: bash
-
-   python -m isaacteleop.cloudxr
-
-
-Configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
+On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
 
 .. code-block:: bash
 
@@ -23,6 +14,14 @@ Configure the firewall to allow CloudXR traffic. The required ports depend on th
    sudo ufw allow 47998/udp   # Media stream
    sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
 
+
+Start the CloudXR runtime from the Arena Docker container:
+
+:docker_run_default:
+
+.. code-block:: bash
+
+   python -m isaacteleop.cloudxr
 
 
 Step 2: Start Arena Teleop

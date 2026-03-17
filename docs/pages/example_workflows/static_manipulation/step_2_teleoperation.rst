@@ -7,25 +7,7 @@ This workflow covers collecting demonstrations using Isaac Teleop with an **Appl
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Start the CloudXR runtime from the Arena Docker container:
-
-:docker_run_default:
-
-Create a customized config file with the following content:
-
-.. code-block:: bash
-
-   printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
-
-
-Start the CloudXR runtime with the customized config file:
-
-.. code-block:: bash
-
-   python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
-
-
-Configure the firewall to allow CloudXR traffic.
+On the host machine, configure the firewall to allow CloudXR traffic.
 
 .. code-block:: bash
 
@@ -44,6 +26,23 @@ Configure the firewall to allow CloudXR traffic.
    sudo ufw allow 48002/udp
 
 
+Start the CloudXR runtime from the Arena Docker container:
+
+:docker_run_default:
+
+Create a customized config file with the following content:
+
+.. code-block:: bash
+
+   printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
+
+
+Start the CloudXR runtime with the customized config file:
+
+.. code-block:: bash
+
+   python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
+
 
 Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -59,11 +58,12 @@ Run the recording script:
    source ~/.cloudxr/run/cloudxr.env
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
+     --visualizer kit \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --num_demos 10 \
      --num_success_steps 2 \
      gr1_open_microwave \
-     --teleop_device avp_handtracking
+     --teleop_device openxr
 
 
 Step 3: Connect XR Device and Record
