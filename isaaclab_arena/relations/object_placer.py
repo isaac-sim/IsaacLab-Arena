@@ -151,26 +151,40 @@ class ObjectPlacer:
         objects: list[Object | ObjectReference],
         num_envs: int,
     ) -> MultiEnvPlacementResult:
-        """Batched placement: one layout per env via batched gradient descent.
+        """Batched placement: one layout per env. Same policy as single-env: prefer valid, else best-by-loss fallback."""
 
-        Runs up to max_placement_attempts attempts. For each env we pick the layout with
-        lowest loss: among attempts that passed validation we take the one with lowest
-        loss for that env; if none passed we use the attempt with lowest loss for that env
-        (same policy as single-env: prefer valid, then best-by-loss fallback).
-        """
+        # Validate all objects have at least one relation
+        for obj in objects:
+            assert obj.get_relations(), (
+                f"Object '{obj.name}' has no relations. All objects passed to place() must have "
+                "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
+            )
+
+        # Find all anchor objects
         anchor_objects = get_anchor_objects(objects)
+        assert len(anchor_objects) > 0, (
+            "No anchor object found. Mark at least one object with IsAnchor() to serve as a fixed reference. "
+            "Example: table.add_relation(IsAnchor())"
+        )
+
+        # Validate all anchors have initial_pose set
+        for anchor in anchor_objects:
+            assert anchor.get_initial_pose() is not None, (
+                f"Anchor object '{anchor.name}' must have an initial_pose set. "
+                "Call anchor_object.set_initial_pose(...) before placing."
+            )
+
         anchor_objects_set = set(anchor_objects)
         init_bounds = self._get_init_bounds(anchor_objects[0])
 
-        # Per-env: best valid (lowest loss among attempts that passed for that env)
+        # Placement loop with retries
         best_valid_loss_per_env: list[float] = [float("inf")] * num_envs
         best_valid_positions_per_env: list[dict | None] = [None] * num_envs
-        # Per-env: best by loss (any attempt, for fallback when env never passes)
         best_any_loss_per_env: list[float] = [float("inf")] * num_envs
         best_any_positions_per_env: list[dict] = [dict() for _ in range(num_envs)]
 
         for attempt in range(self.params.max_placement_attempts):
-            # Different seed per (env, attempt) so retries get new random inits
+            # Generate starting positions per env (anchors from poses, others random; seed per env/attempt)
             initial_positions_per_env: list[dict] = []
             for env_i in range(num_envs):
                 rng_state = None
@@ -183,7 +197,7 @@ class ObjectPlacer:
                 if rng_state is not None:
                     torch.set_rng_state(rng_state)
 
-            # Batch gradient descent → batched outputs for this attempt
+            # Solve (batched)
             positions_per_env = self._solver.solve_batched(objects, initial_positions_per_env)
             per_env_loss = (
                 self._solver.last_loss_per_env.cpu().tolist()
@@ -191,7 +205,7 @@ class ObjectPlacer:
                 else [float("inf")] * num_envs
             )
 
-            # Per env: update best valid (if this attempt passed and has lower loss) and best any
+            # Check if placement is valid (per env); update best valid and best-by-loss fallback
             for e in range(num_envs):
                 loss_e = per_env_loss[e] if e < len(per_env_loss) else float("inf")
                 valid = self._validate_placement(positions_per_env[e])
@@ -203,17 +217,19 @@ class ObjectPlacer:
                     best_any_positions_per_env[e] = positions_per_env[e]
 
             if self.params.verbose:
+                mean_loss = sum(per_env_loss) / num_envs if num_envs else 0.0
                 n_succeeded = sum(1 for e in range(num_envs) if best_valid_positions_per_env[e] is not None)
-                loss_sum = sum(per_env_loss)
                 print(
-                    f"Batched attempt {attempt + 1}/{self.params.max_placement_attempts}: loss_sum = {loss_sum:.6f},"
-                    f" envs validated = {n_succeeded}/{num_envs}"
+                    f"Attempt {attempt + 1}/{self.params.max_placement_attempts}: loss = {mean_loss:.6f}, envs"
+                    f" validated = {n_succeeded}/{num_envs}"
                 )
 
             if all(best_valid_positions_per_env):
                 if self.params.verbose:
-                    print(f"Batched placement: all {num_envs} envs succeeded by attempt {attempt + 1}")
+                    print(f"Success on attempt {attempt + 1}")
                 break
+
+            # Track best invalid result as fallback (per env; best_any_* updated in loop above)
 
         # Per env: use best valid if any, else best-by-loss fallback
         final_per_env: list[dict] = [
@@ -224,16 +240,17 @@ class ObjectPlacer:
             )
             for e in range(num_envs)
         ]
-        best_loss_sum = sum(
-            best_valid_loss_per_env[e] if best_valid_positions_per_env[e] is not None else best_any_loss_per_env[e]
-            for e in range(num_envs)
-        )
 
+        # Multi-env: layouts applied at reset via placement event (builder builds event_cfg from result)
         results_per_env = [
             PlacementResult(
                 success=best_valid_positions_per_env[e] is not None,
                 positions=final_per_env[e],
-                final_loss=best_loss_sum,
+                final_loss=(
+                    best_valid_loss_per_env[e]
+                    if best_valid_positions_per_env[e] is not None
+                    else best_any_loss_per_env[e]
+                ),
                 attempts=attempt + 1,
             )
             for e in range(num_envs)

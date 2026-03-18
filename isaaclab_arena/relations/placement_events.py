@@ -76,7 +76,7 @@ def set_object_pose_per_env_from_layouts(
     anchor_set = set(anchor_names or [])
     ordered_names = [n for n in object_names if n in anchor_set]
     ordered_names += [n for n in object_names if n not in anchor_set]
-    identity_wxyz = (1.0, 0.0, 0.0, 0.0)
+    identity_quat_wxyz = (1.0, 0.0, 0.0, 0.0)
     for name in ordered_names:
         if name not in env.scene.keys():
             continue
@@ -88,7 +88,7 @@ def set_object_pose_per_env_from_layouts(
             xyz = positions_all_envs_by_name[e].get(name)
             if xyz is not None:
                 x, y, z = xyz
-                pose_list.append(Pose(position_xyz=(x, y, z), rotation_wxyz=identity_wxyz))
+                pose_list.append(Pose(position_xyz=(x, y, z), rotation_wxyz=identity_quat_wxyz))
             else:
-                pose_list.append(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=identity_wxyz))
+                pose_list.append(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=identity_quat_wxyz))
         set_object_pose_per_env(env, env_ids_t, SceneEntityCfg(name), pose_list)
