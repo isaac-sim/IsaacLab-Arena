@@ -66,6 +66,8 @@ A strong wireless connection is essential for a high-quality streaming experienc
    Accept the certificate in the new page that opens, then navigate back to the
    CloudXR.js client page.
 
+#. Click Connect to begin teleoperation.
+
 #. **Teleoperation Controls**:
 
 * **Left joystick**: Move the body forward/backward/left/right.
