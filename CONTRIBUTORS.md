@@ -16,6 +16,7 @@ Guidelines for modifications:
 * Sangeeta Subramanian <sangeetas@nvidia.com> (NVIDIA)
 * Vikram Ramasamy <viiik-inside, vramasamy@nvidia.com> (NVIDIA)
 * Xinjie Yao <xyao-nv, xyao@nvidia.com> (NVIDIA)
+* Zihao Xiao <zhx06, zihaox@nvidia.com> (NVIDIA)
 
 ## LightWheel AI
 
