@@ -50,10 +50,9 @@ class RelationSolverState:
         self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
         self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
 
-        self._num_envs = 1
         if initial_positions_per_env is not None:
+            # Batched: one layout per env.
             self._num_envs = len(initial_positions_per_env)
-            # Batched: (num_envs, num_optimizable, 3)
             positions_per_env = []
             for d in initial_positions_per_env:
                 pos_list = [torch.tensor(d[obj], dtype=torch.float32) for obj in objects]
@@ -70,6 +69,8 @@ class RelationSolverState:
                 for idx in self._anchor_indices
             }
         else:
+            # Single-env.
+            self._num_envs = 1
             assert initial_positions is not None, "Provide initial_positions or initial_positions_per_env"
             positions = [torch.tensor(initial_positions[obj], dtype=torch.float32) for obj in objects]
             self._anchor_positions = {idx: positions[idx].clone() for idx in self._anchor_indices}
@@ -111,7 +112,7 @@ class RelationSolverState:
             env_index: In batched mode, env index (0..num_envs-1) or None for all envs.
 
         Returns:
-            Position tensor (x, y, z). In batched mode with env_index None, shape (num_envs, 3).
+            Position tensor (x, y, z).
 
         Raises:
             KeyError: If object is not tracked by this state.

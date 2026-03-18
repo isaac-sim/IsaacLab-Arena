@@ -267,7 +267,6 @@ class BatchedAxisAlignedBoundingBox:
             Tensor of shape (N, 8, 3) with corners ordered: bottom 4, then top 4.
         """
         mn, mx = self.min_corner, self.max_corner
-        n = mn.shape[0]
         corners = torch.stack(
             [
                 torch.stack([mn[:, 0], mn[:, 1], mn[:, 2]], dim=1),
@@ -285,9 +284,7 @@ class BatchedAxisAlignedBoundingBox:
             corners = corners + pos.unsqueeze(1)
         return corners
 
-    def scaled(
-        self, scale: torch.Tensor | tuple[float, float, float]
-    ) -> "BatchedAxisAlignedBoundingBox":
+    def scaled(self, scale: torch.Tensor | tuple[float, float, float]) -> "BatchedAxisAlignedBoundingBox":
         """Return a new bounding box with scale applied.
 
         Args:
@@ -298,7 +295,11 @@ class BatchedAxisAlignedBoundingBox:
         """
         s = cast(
             torch.Tensor,
-            scale if isinstance(scale, torch.Tensor) else torch.tensor(scale, device=self.min_corner.device, dtype=self.min_corner.dtype),
+            (
+                scale
+                if isinstance(scale, torch.Tensor)
+                else torch.tensor(scale, device=self.min_corner.device, dtype=self.min_corner.dtype)
+            ),
         )
         if s.dim() == 1:
             s = s.unsqueeze(0).expand(self.min_corner.shape[0], 3)
@@ -307,9 +308,7 @@ class BatchedAxisAlignedBoundingBox:
             max_corner=self.max_corner * s,
         )
 
-    def translated(
-        self, offset: torch.Tensor | tuple[float, float, float]
-    ) -> "BatchedAxisAlignedBoundingBox":
+    def translated(self, offset: torch.Tensor | tuple[float, float, float]) -> "BatchedAxisAlignedBoundingBox":
         """Return a new bounding box translated by an offset.
 
         Args:
@@ -320,7 +319,11 @@ class BatchedAxisAlignedBoundingBox:
         """
         o = cast(
             torch.Tensor,
-            offset if isinstance(offset, torch.Tensor) else torch.tensor(offset, device=self.min_corner.device, dtype=self.min_corner.dtype),
+            (
+                offset
+                if isinstance(offset, torch.Tensor)
+                else torch.tensor(offset, device=self.min_corner.device, dtype=self.min_corner.dtype)
+            ),
         )
         if o.dim() == 1:
             o = o.unsqueeze(0).expand(self.min_corner.shape[0], 3)
@@ -361,8 +364,16 @@ class BatchedAxisAlignedBoundingBox:
         """
         n = self.min_corner.shape[0]
         if isinstance(other, AxisAlignedBoundingBox):
-            other_min = torch.tensor(other.min_point, device=self.min_corner.device, dtype=self.min_corner.dtype).unsqueeze(0).expand(n, 3)
-            other_max = torch.tensor(other.max_point, device=self.max_corner.device, dtype=self.max_corner.dtype).unsqueeze(0).expand(n, 3)
+            other_min = (
+                torch.tensor(other.min_point, device=self.min_corner.device, dtype=self.min_corner.dtype)
+                .unsqueeze(0)
+                .expand(n, 3)
+            )
+            other_max = (
+                torch.tensor(other.max_point, device=self.max_corner.device, dtype=self.max_corner.dtype)
+                .unsqueeze(0)
+                .expand(n, 3)
+            )
         else:
             other_min, other_max = other.min_corner, other.max_corner
         return (
@@ -411,7 +422,7 @@ class BatchedAxisAlignedBoundingBox:
 
 
 def world_bbox_to_min_max_tensors(
-    world_bbox: Union[AxisAlignedBoundingBox, BatchedAxisAlignedBoundingBox],
+    world_bbox: AxisAlignedBoundingBox | BatchedAxisAlignedBoundingBox,
     device: torch.device,
     dtype: torch.dtype,
 ) -> tuple[torch.Tensor, torch.Tensor]:

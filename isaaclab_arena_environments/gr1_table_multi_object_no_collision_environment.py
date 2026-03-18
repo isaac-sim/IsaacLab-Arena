@@ -8,7 +8,7 @@ Table + multi-object NoCollision environment. Office table with objects placed v
 On(table) and pairwise NoCollision (relation solver). Includes a robot (e.g. GR1).
 No task — suitable for policy_runner with zero_action or any policy.
 
-Example (multi-env batch placement):
+Example:
   python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
 """

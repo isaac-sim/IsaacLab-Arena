@@ -162,9 +162,7 @@ class NextToLossStrategy(RelationLossStrategy):
         # Normalize to (N, 3) for unified batched/single-env handling
         if child_pos.dim() == 1:
             child_pos = child_pos.unsqueeze(0)
-        min_corner, max_corner = world_bbox_to_min_max_tensors(
-            parent_world_bbox, child_pos.device, child_pos.dtype
-        )
+        min_corner, max_corner = world_bbox_to_min_max_tensors(parent_world_bbox, child_pos.device, child_pos.dtype)
         cfg = SIDE_CONFIGS[relation.side]
         distance = relation.distance_m
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
@@ -268,9 +266,7 @@ class OnLossStrategy(RelationLossStrategy):
         # Normalize to (N, 3) for unified batched/single-env handling
         if child_pos.dim() == 1:
             child_pos = child_pos.unsqueeze(0)
-        min_corner, max_corner = world_bbox_to_min_max_tensors(
-            parent_world_bbox, child_pos.device, child_pos.dtype
-        )
+        min_corner, max_corner = world_bbox_to_min_max_tensors(parent_world_bbox, child_pos.device, child_pos.dtype)
         # Parent world-space extents from the world bounding box
         parent_x_min = min_corner[:, 0]
         parent_x_max = max_corner[:, 0]
@@ -315,7 +311,10 @@ class OnLossStrategy(RelationLossStrategy):
                 f"    [On] Y: child_pos={child_pos[0, 1].item():.4f}, valid_range=[{valid_y_min[0].item():.4f},"
                 f" {valid_y_max[0].item():.4f}], loss={y_band_loss[0].item():.6f}"
             )
-            print(f"    [On] Z: child_pos={child_pos[0, 2].item():.4f}, target={target_z[0].item():.4f}, loss={z_loss[0].item():.6f}")
+            print(
+                f"    [On] Z: child_pos={child_pos[0, 2].item():.4f}, target={target_z[0].item():.4f},"
+                f" loss={z_loss[0].item():.6f}"
+            )
 
         total_loss = x_band_loss + y_band_loss + z_loss
         weighted = relation.relation_loss_weight * total_loss
@@ -363,9 +362,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         # Normalize to (N, 3) for unified batched/single-env handling
         if child_pos.dim() == 1:
             child_pos = child_pos.unsqueeze(0)
-        min_corner, max_corner = world_bbox_to_min_max_tensors(
-            parent_world_bbox, child_pos.device, child_pos.dtype
-        )
+        min_corner, max_corner = world_bbox_to_min_max_tensors(parent_world_bbox, child_pos.device, child_pos.dtype)
         # Parent world extents from the world bounding box, expanded by clearance_m
         c = relation.clearance_m
         parent_x_min = min_corner[:, 0] - c
@@ -391,15 +388,18 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         if self.debug and child_pos.shape[0] == 1:
             print(
                 f"    [NoCollision] X: overlap={overlap_x[0].item():.6f} (child_x=[{child_world_min[0, 0].item():.4f},"
-                f" {child_world_max[0, 0].item():.4f}], parent_x=[{parent_x_min[0].item():.4f}, {parent_x_max[0].item():.4f}])"
+                f" {child_world_max[0, 0].item():.4f}], parent_x=[{parent_x_min[0].item():.4f},"
+                f" {parent_x_max[0].item():.4f}])"
             )
             print(
                 f"    [NoCollision] Y: overlap={overlap_y[0].item():.6f} (child_y=[{child_world_min[0, 1].item():.4f},"
-                f" {child_world_max[0, 1].item():.4f}], parent_y=[{parent_y_min[0].item():.4f}, {parent_y_max[0].item():.4f}])"
+                f" {child_world_max[0, 1].item():.4f}], parent_y=[{parent_y_min[0].item():.4f},"
+                f" {parent_y_max[0].item():.4f}])"
             )
             print(
                 f"    [NoCollision] Z: overlap={overlap_z[0].item():.6f} (child_z=[{child_world_min[0, 2].item():.4f},"
-                f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f}, {parent_z_max[0].item():.4f}])"
+                f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f},"
+                f" {parent_z_max[0].item():.4f}])"
             )
             print(f"    [NoCollision] volume={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
 
@@ -450,4 +450,3 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
             total_loss = total_loss + single_point_linear_loss(child_pos[:, 2], relation.z, slope=self.slope)
         out = relation.relation_loss_weight * total_loss
         return out.squeeze(0) if out.shape[0] == 1 else out
-

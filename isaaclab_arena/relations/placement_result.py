@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementResult:
-    """Result of an ObjectPlacer.place() call (num_envs=1). Same as main: no event_cfg; placer applies to objects."""
+    """Result of an ObjectPlacer.place() call."""
 
     success: bool
     """Whether placement passed validation checks."""
@@ -31,17 +31,10 @@ class PlacementResult:
 
 @dataclass
 class MultiEnvPlacementResult:
-    """Result of multi-env placement: one PlacementResult per environment.
-
-    Returned by ObjectPlacer.place(..., num_envs>1). Use .results[env_id] for that
-    env's layout. .event_cfg is merged into env events so layouts are applied at reset.
-    """
+    """Result of an ObjectPlacer.place() call for multiple environments."""
 
     results: list[PlacementResult]
     """One PlacementResult per environment (same length as num_envs)."""
-
-    event_cfg: Any
-    """Placement event config to merge into env events so layouts are applied at reset."""
 
     @property
     def success(self) -> bool:

@@ -45,7 +45,7 @@ class RelationSolver:
     def _get_parent_world_bbox_batched(
         self,
         state: RelationSolverState,
-        parent: "Object | ObjectReference",
+        parent: Object | ObjectReference,
         device: torch.device,
         dtype: torch.dtype,
     ) -> BatchedAxisAlignedBoundingBox:
@@ -98,15 +98,13 @@ class RelationSolver:
             debug: If True, print detailed loss breakdown.
 
         Returns:
-            Total loss tensor (scalar for single-env, sum over envs for batched).
+            Total loss tensor.
         """
         if state.num_envs == 1:
             return self._compute_total_loss_single(state, debug)
         return self._compute_total_loss_batched(state, debug)
 
-    def _compute_total_loss_single(
-        self, state: RelationSolverState, debug: bool = False
-    ) -> torch.Tensor:
+    def _compute_total_loss_single(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
         """Original single-env path: scalar loss, one position per object."""
         self._last_loss_per_env = None
         total_loss = torch.tensor(0.0)
@@ -154,10 +152,8 @@ class RelationSolver:
 
         return total_loss
 
-    def _compute_total_loss_batched(
-        self, state: RelationSolverState, debug: bool = False
-    ) -> torch.Tensor:
-        """Batched path: per-env loss (N,), summed for backward; stores last_loss_per_env."""
+    def _compute_total_loss_batched(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+        """Batched path: per-env loss (N,), mean for backward; stores last_loss_per_env."""
         device = state.optimizable_positions.device if state.optimizable_positions is not None else None
         N = state.num_envs
         total_loss = torch.zeros(N, device=device, dtype=torch.float32)
@@ -188,8 +184,11 @@ class RelationSolver:
                     )
                     if debug:
                         _print_relation_debug(
-                            obj, relation, child_pos[0],
-                            state.get_position(parent, env_index=0), loss.sum(),
+                            obj,
+                            relation,
+                            child_pos[0],
+                            state.get_position(parent, env_index=0),
+                            loss.sum(),
                         )
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
@@ -197,7 +196,7 @@ class RelationSolver:
                 total_loss = total_loss + loss
 
         self._last_loss_per_env = total_loss.detach().clone()
-        return total_loss.sum()
+        return total_loss.mean()
 
     def solve(
         self,
@@ -313,10 +312,10 @@ class RelationSolver:
             optimizer.step()
 
             if self.params.verbose and iter % 100 == 0:
-                print(f"Batched iter {iter}: loss = {total_loss.item():.6f} (sum over {num_envs} envs)")
+                print(f"Batched iter {iter}: loss = {total_loss.item():.6f}")
 
             # Stop when mean loss per env is below threshold
-            if total_loss.item() < self.params.convergence_threshold * num_envs:
+            if total_loss.item() < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Batched converged at iteration {iter}")
                 break

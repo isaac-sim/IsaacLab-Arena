@@ -158,7 +158,7 @@ def test_no_collision_loss_scales_with_relation_weight():
 
 
 def test_no_collision_loss_batched_shape_and_values():
-    """NoCollision with batched input: loss shape (N,) and per-env values (one separated, one overlapping)."""
+    """Test that NoCollision with batched input has loss shape (N,) and correct per-env values (one zero, one positive)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
     relation = NoCollision(box_b, clearance_m=0.0)

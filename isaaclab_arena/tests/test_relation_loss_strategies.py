@@ -143,7 +143,7 @@ def test_on_loss_strategy_constrains_entire_footprint():
 
 
 def test_on_loss_strategy_batched_shape_and_values():
-    """On with batched input: loss shape (N,); one env on table (zero), one env wrong Z (positive)."""
+    """Test that On with batched input has loss shape (N,) and correct per-env values (one zero, one positive)."""
     table = _create_table()
     box = _create_box()
     relation = On(table, clearance_m=0.01)

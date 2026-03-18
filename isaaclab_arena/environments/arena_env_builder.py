@@ -26,7 +26,9 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.relations import IsAnchor, NoCollision
+from isaaclab_arena.relations.placement_events import make_placement_event_cfg
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+from isaaclab_arena.relations.relations import IsAnchor, NoCollision, get_anchor_objects
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -86,7 +88,7 @@ class ArenaEnvBuilder:
         1. Collects all objects from the scene that have relations
         2. Adds NoCollision between every pair of non-anchor objects (if not already present)
         3. Runs the ObjectPlacer to solve spatial constraints
-        4. Applies solved positions at env reset via placement event (one layout per env)
+        4. Applies solved positions to objects
         """
         # All objects with relations are subjects of the relation solving.
         objects_with_relations = self._get_objects_with_relations()
@@ -97,23 +99,37 @@ class ArenaEnvBuilder:
 
         self._add_pairwise_no_collision(objects_with_relations)
 
-        # Run the ObjectPlacer at build time (batch placement supported).
+        # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
         placer = ObjectPlacer()
         num_envs = self.args.num_envs
         result = placer.place(objects_with_relations, num_envs=num_envs)
+        if isinstance(result, MultiEnvPlacementResult) and result.results:
+            positions_all_envs_by_name = [
+                {obj.name: result.results[e].positions[obj] for obj in result.results[0].positions}
+                for e in range(len(result.results))
+            ]
+            object_names = [obj.name for obj in objects_with_relations]
+            anchor_names = [a.name for a in get_anchor_objects(objects_with_relations)]
+            placement_valid_per_env = [r.success for r in result.results]
+            self._placement_event_cfg = make_placement_event_cfg(
+                positions_all_envs_by_name,
+                object_names,
+                anchor_names,
+                placement_valid_per_env,
+            )
+        else:
+            self._placement_event_cfg = None
 
-        # Multi-env only: merge placement event so per-env layouts are applied at reset (main has no event).
-        self._placement_event_cfg = getattr(result, "event_cfg", None)
-
-        # Log outcome (multi-env: report how many envs passed, e.g. "38/40").
-        results_per_env = getattr(result, "results", None)
+        # Log outcome
+        results_per_env = result.results if isinstance(result, MultiEnvPlacementResult) else None
         if results_per_env is not None:
-            n_ok = sum(1 for r in results_per_env if r.success)
-            if n_ok == num_envs:
+            n_succeeded = sum(1 for r in results_per_env if r.success)
+            if n_succeeded == num_envs:
                 print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
             else:
                 print(
-                    f"Relation solving: {n_ok}/{num_envs} env(s) passed validation after {result.attempts} attempt(s)."
+                    f"Relation solving: {n_succeeded}/{num_envs} env(s) passed validation after"
+                    f" {result.attempts} attempt(s)."
                 )
         elif result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
