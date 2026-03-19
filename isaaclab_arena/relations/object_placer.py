@@ -61,9 +61,9 @@ class ObjectPlacer:
         """
         if num_envs > 1:
             return self._place_multi_env(objects, num_envs)
-        return self._place_single(objects)
+        return self._place_single_env(objects)
 
-    def _place_single(self, objects: list[Object | ObjectReference]) -> PlacementResult:
+    def _place_single_env(self, objects: list[Object | ObjectReference]) -> PlacementResult:
         """Single-env placement: one layout. Returns PlacementResult."""
 
         # Validate all objects have at least one relation
@@ -185,20 +185,18 @@ class ObjectPlacer:
 
         for attempt in range(self.params.max_placement_attempts):
             # Generate starting positions per env (anchors from poses, others random; seed per env/attempt)
-            initial_positions_per_env: list[dict] = []
+            initial_positions: list[dict] = []
             for env_i in range(num_envs):
                 rng_state = None
                 if self.params.placement_seed is not None:
                     rng_state = torch.get_rng_state()
                     torch.manual_seed(self.params.placement_seed + env_i + attempt * (num_envs + 1))
-                initial_positions_per_env.append(
-                    self._generate_initial_positions(objects, anchor_objects_set, init_bounds)
-                )
+                initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, init_bounds))
                 if rng_state is not None:
                     torch.set_rng_state(rng_state)
 
             # Solve (batched)
-            positions_per_env = self._solver.solve_batched(objects, initial_positions_per_env)
+            positions_per_env = self._solver.solve_batched(objects, initial_positions)
             per_env_loss = (
                 self._solver.last_loss_per_env.cpu().tolist()
                 if self._solver.last_loss_per_env is not None

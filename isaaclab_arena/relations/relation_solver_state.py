@@ -27,19 +27,17 @@ class RelationSolverState:
     def __init__(
         self,
         objects: list[Object | ObjectReference],
-        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]] | None = None,
-        initial_positions_per_env: list[dict[Object | ObjectReference, tuple[float, float, float]]] | None = None,
+        initial_positions: list[dict[Object | ObjectReference, tuple[float, float, float]]],
     ):
         """Initialize optimization state.
 
         Args:
             objects: List of all Object or ObjectReference instances to track. Must include at least one
                 object marked with IsAnchor() which serves as a fixed reference.
-            initial_positions: Starting positions for all objects (single-env). Use when
-                initial_positions_per_env is None.
-            initial_positions_per_env: When provided, batched mode: one dict per env. Length must
-                match num_envs; initial_positions is ignored.
+            initial_positions: One dict per env (same keys as objects). Length 1 = single-env,
+                length > 1 = batched (one layout per env).
         """
+        assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, "No anchor object found in objects list."
 
@@ -47,38 +45,37 @@ class RelationSolverState:
         self._anchor_objects: set[Object] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
         self._obj_to_idx: dict[Object | ObjectReference, int] = {obj: i for i, obj in enumerate(objects)}
-        self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
-        self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
 
-        if initial_positions_per_env is not None:
-            # Batched: one layout per env.
-            self._num_envs = len(initial_positions_per_env)
-            positions_per_env = []
-            for d in initial_positions_per_env:
-                pos_list = [torch.tensor(d[obj], dtype=torch.float32) for obj in objects]
-                positions_per_env.append(pos_list)
-            # Stack per-object across envs: list of (num_envs, 3), then stack optimizable only
-            opt_tensors = []
-            for opt_idx in self._optimizable_indices:
-                opt_tensors.append(torch.stack([positions_per_env[e][opt_idx] for e in range(self._num_envs)]))
-            self._optimizable_positions = torch.stack(opt_tensors, dim=1)  # (num_envs, num_opt, 3)
-            self._optimizable_positions.requires_grad = True
-            # Anchors: same for all envs from first env
-            self._anchor_positions = {
-                idx: torch.tensor(initial_positions_per_env[0][objects[idx]], dtype=torch.float32)
-                for idx in self._anchor_indices
-            }
-        else:
-            # Single-env.
-            self._num_envs = 1
-            assert initial_positions is not None, "Provide initial_positions or initial_positions_per_env"
-            positions = [torch.tensor(initial_positions[obj], dtype=torch.float32) for obj in objects]
-            self._anchor_positions = {idx: positions[idx].clone() for idx in self._anchor_indices}
-            if self._optimizable_indices:
-                self._optimizable_positions = torch.stack([positions[i] for i in self._optimizable_indices])
-                self._optimizable_positions.requires_grad = True
+        # Extract positions from each env's dict
+        self._num_envs = len(initial_positions)
+        positions_per_env = []
+        for d in initial_positions:
+            positions = []
+            for obj in objects:
+                assert obj in d, f"Missing initial position for {obj.name}"
+                positions.append(torch.tensor(d[obj], dtype=torch.float32))
+            positions_per_env.append(positions)
+
+        # Separate anchor positions from optimizable positions
+        self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
+        self._anchor_positions: dict[int, torch.Tensor] = {
+            idx: positions_per_env[0][idx].clone() for idx in self._anchor_indices
+        }
+
+        # Build optimizable positions tensor (excludes all anchors)
+        self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
+        if self._optimizable_indices:
+            if self._num_envs == 1:
+                self._optimizable_positions = torch.stack([positions_per_env[0][i] for i in self._optimizable_indices])
             else:
-                self._optimizable_positions = None
+                opt_tensors = [
+                    torch.stack([positions_per_env[e][i] for e in range(self._num_envs)])
+                    for i in self._optimizable_indices
+                ]
+                self._optimizable_positions = torch.stack(opt_tensors, dim=1)
+            self._optimizable_positions.requires_grad = True
+        else:
+            self._optimizable_positions = None
 
     @property
     def num_envs(self) -> int:

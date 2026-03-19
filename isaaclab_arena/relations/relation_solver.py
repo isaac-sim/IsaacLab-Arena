@@ -213,7 +213,7 @@ class RelationSolver:
         Returns:
             Dictionary mapping object instances to final (x, y, z) positions.
         """
-        state = RelationSolverState(objects, initial_positions)
+        state = RelationSolverState(objects, initial_positions=[initial_positions])
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -276,7 +276,7 @@ class RelationSolver:
     def solve_batched(
         self,
         objects: list[Object | ObjectReference],
-        initial_positions_per_env: list[dict[Object | ObjectReference, tuple[float, float, float]]],
+        initial_positions: list[dict[Object | ObjectReference, tuple[float, float, float]]],
     ) -> list[dict[Object | ObjectReference, tuple[float, float, float]]]:
         """Solve for optimal positions for all envs in one batched optimization run.
 
@@ -285,13 +285,13 @@ class RelationSolver:
 
         Args:
             objects: List of Object or ObjectReference instances (same for all envs).
-            initial_positions_per_env: One dict of initial positions per env; length = num_envs.
+            initial_positions: One dict of initial positions per env; length = num_envs.
 
         Returns:
-            List of position dicts, one per env, in the same order as initial_positions_per_env.
+            List of position dicts, one per env, in the same order as initial_positions.
         """
-        num_envs = len(initial_positions_per_env)
-        state = RelationSolverState(objects, initial_positions_per_env=initial_positions_per_env)
+        num_envs = len(initial_positions)
+        state = RelationSolverState(objects, initial_positions)
 
         if len(state.optimizable_objects) == 0:
             self._last_loss_history = [0.0] * num_envs
@@ -359,7 +359,7 @@ class RelationSolver:
         # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
-        state = RelationSolverState(objects, final_positions)
+        state = RelationSolverState(objects, [final_positions])
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 

@@ -68,7 +68,7 @@ def create_loss_heatmap_2d(
                     positions[obj] = obj.get_initial_pose().position_xyz
 
             # Create state and compute loss
-            state = RelationSolverState(all_objects, positions)
+            state = RelationSolverState(all_objects, [positions])
             loss = solver._compute_total_loss(state)
             losses[i, j] = loss.item()
 
@@ -174,7 +174,7 @@ def run_visualization_demo():
     # Visualize loss heatmap for child1 (placed to RIGHT of parent)
     X, Y, losses_child1 = create_loss_heatmap_2d(
         solver=solver,
-        anchor_objects=parent,
+        anchor_object=parent,
         child=child1,
         all_objects=[parent, child1],
         grid_resolution=80,
@@ -197,7 +197,7 @@ def run_visualization_demo():
     )  # Ideal position for child1
     X, Y, losses_child2 = create_loss_heatmap_2d(
         solver=solver,
-        anchor_objects=parent,
+        anchor_object=parent,
         child=child2,
         all_objects=[parent, child1, child2],  # Include all objects in the chain
         grid_resolution=80,
@@ -238,7 +238,7 @@ def run_visualization_demo():
             parent: parent_pos,
             child1: (x, parent_pos[1], parent_pos[2]),
         }
-        state = RelationSolverState(objects_child1, positions)
+        state = RelationSolverState(objects_child1, [positions])
         loss = solver._compute_total_loss(state)
         losses_x_child1.append(loss.item())
 
@@ -255,7 +255,7 @@ def run_visualization_demo():
             child1: child1_ideal_pos,
             child2: (x, parent_pos[1], parent_pos[2]),
         }
-        state = RelationSolverState(objects_child2, positions)
+        state = RelationSolverState(objects_child2, [positions])
         loss = solver._compute_total_loss(state)
         losses_x_child2.append(loss.item())
 
