@@ -27,3 +27,21 @@ class PlacementResult:
 
     attempts: int
     """Number of attempts made."""
+
+
+@dataclass
+class MultiEnvPlacementResult:
+    """Result of an ObjectPlacer.place() call for multiple environments."""
+
+    results: list[PlacementResult]
+    """One PlacementResult per environment (same length as num_envs)."""
+
+    @property
+    def success(self) -> bool:
+        """True if every environment's placement succeeded."""
+        return all(r.success for r in self.results)
+
+    @property
+    def attempts(self) -> int:
+        """Number of attempts (same for all envs in the batched run)."""
+        return self.results[0].attempts if self.results else 0

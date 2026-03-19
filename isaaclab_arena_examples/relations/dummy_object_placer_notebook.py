@@ -210,7 +210,8 @@ def run_dummy_no_collision_demo():
     solver = RelationSolver(
         params=RelationSolverParams(verbose=True, save_position_history=True),
     )
-    final_positions = solver.solve(objects=all_objects, initial_positions=initial_positions)
+    final_positions_list = solver.solve(objects=all_objects, initial_positions=[initial_positions])
+    final_positions = final_positions_list[0]
 
     print("\nFinal positions (started overlapping, now separated):")
     for obj, pos in final_positions.items():

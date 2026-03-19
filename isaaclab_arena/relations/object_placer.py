@@ -9,7 +9,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import PlacementResult
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
@@ -29,6 +29,8 @@ class ObjectPlacer:
     3. Validating the result
     4. Retrying if necessary
     5. Applying solved positions to objects
+
+    Supports single-env (num_envs=1) and batched (num_envs>1) placement.
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
@@ -43,15 +45,18 @@ class ObjectPlacer:
     def place(
         self,
         objects: list[Object | ObjectReference],
-    ) -> PlacementResult:
+        num_envs: int = 1,
+    ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
 
         Args:
             objects: List of objects to place. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
+            num_envs: Number of environments. 1 for single-env; > 1 for batched
+                placement (one layout per env).
 
         Returns:
-            PlacementResult with success status, positions, loss, and attempt count.
+            PlacementResult when num_envs is 1; MultiEnvPlacementResult when num_envs > 1.
         """
         # Validate all objects have at least one relation
         for obj in objects:
@@ -76,61 +81,88 @@ class ObjectPlacer:
 
         anchor_objects_set = set(anchor_objects)
 
-        # Save RNG state and set seed if provided (for reproducibility without affecting Isaac Sim)
-        rng_state = None
-        if self.params.placement_seed is not None:
-            rng_state = torch.get_rng_state()
-            torch.manual_seed(self.params.placement_seed)
-
         # Determine bounds for random position initialization from the first anchor object
         # TODO(cvolk): The user should not need to know about the bounds to set.
         # Implement an initialization strategy that infers from the Relations(s).
         init_bounds = self._get_init_bounds(anchor_objects[0])
 
-        # Placement loop with retries
-        best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
-        best_loss = float("inf")
-        success = False
+        # Placement loop with retries (per-env tracking)
+        best_valid_loss_per_env: list[float] = [float("inf")] * num_envs
+        best_valid_positions_per_env: list[dict | None] = [None] * num_envs
+        best_any_loss_per_env: list[float] = [float("inf")] * num_envs
+        best_any_positions_per_env: list[dict] = [dict() for _ in range(num_envs)]
 
         for attempt in range(self.params.max_placement_attempts):
-            # Generate starting positions (anchors from their poses, others random)
-            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, init_bounds)
+            # Generate starting positions per env (anchors from their poses, others random)
+            initial_positions: list[dict] = []
+            for env_i in range(num_envs):
+                rng_state = None
+                if self.params.placement_seed is not None:
+                    rng_state = torch.get_rng_state()
+                    torch.manual_seed(self.params.placement_seed + env_i + attempt * (num_envs + 1))
+                initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, init_bounds))
+                if rng_state is not None:
+                    torch.set_rng_state(rng_state)
 
             # Solve
-            positions = self._solver.solve(objects, initial_positions)
-            loss = self._solver.last_loss_history[-1] if self._solver.last_loss_history else float("inf")
+            positions_per_env = self._solver.solve(objects, initial_positions)
+            per_env_loss = (
+                self._solver.last_loss_per_env.cpu().tolist()
+                if self._solver.last_loss_per_env is not None
+                else [float("inf")] * num_envs
+            )
+
+            # Check if placement is valid (per env); update best valid and best-by-loss fallback
+            for e in range(num_envs):
+                loss_e = per_env_loss[e] if e < len(per_env_loss) else float("inf")
+                valid = self._validate_placement(positions_per_env[e])
+                if valid and loss_e < best_valid_loss_per_env[e]:
+                    best_valid_loss_per_env[e] = loss_e
+                    best_valid_positions_per_env[e] = positions_per_env[e]
+                if loss_e < best_any_loss_per_env[e]:
+                    best_any_loss_per_env[e] = loss_e
+                    best_any_positions_per_env[e] = positions_per_env[e]
 
             if self.params.verbose:
-                print(f"Attempt {attempt + 1}/{self.params.max_placement_attempts}: loss = {loss:.6f}")
+                mean_loss = sum(per_env_loss) / num_envs
+                n_succeeded = sum(1 for p in best_valid_positions_per_env if p is not None)
+                print(
+                    f"Attempt {attempt + 1}/{self.params.max_placement_attempts}:"
+                    f" loss = {mean_loss:.6f}, envs validated = {n_succeeded}/{num_envs}"
+                )
 
-            # Check if placement is valid
-            if self._validate_placement(positions):
-                best_loss = loss
-                best_positions = positions
-                success = True
+            if all(best_valid_positions_per_env):
                 if self.params.verbose:
                     print(f"Success on attempt {attempt + 1}")
                 break
 
-            # Track best invalid result as fallback
-            if loss < best_loss:
-                best_loss = loss
-                best_positions = positions
+            # Track best invalid result as fallback (per env; best_any_* updated in loop above)
+
+        # Per env: use best valid if any, else best-by-loss fallback
+        final_per_env: list[dict] = [
+            best_valid_positions_per_env[e] if best_valid_positions_per_env[e] is not None else best_any_positions_per_env[e]
+            for e in range(num_envs)
+        ]
+
+        results_per_env = [
+            PlacementResult(
+                success=best_valid_positions_per_env[e] is not None,
+                positions=final_per_env[e],
+                final_loss=best_valid_loss_per_env[e] if best_valid_positions_per_env[e] is not None else best_any_loss_per_env[e],
+                attempts=attempt + 1,
+            )
+            for e in range(num_envs)
+        ]
 
         # Apply solved positions to objects
-        if self.params.apply_positions_to_objects:
-            self._apply_positions(best_positions, anchor_objects_set)
+        # TODO(@zhx06): Consider applying via event for consistency with multi_env.
+        if num_envs == 1 and self.params.apply_positions_to_objects:
+            self._apply_positions(final_per_env[0], anchor_objects_set)
 
-        # Restore RNG state if we changed it
-        if rng_state is not None:
-            torch.set_rng_state(rng_state)
-
-        return PlacementResult(
-            success=success,
-            positions=best_positions,
-            final_loss=best_loss,
-            attempts=attempt + 1,
-        )
+        if num_envs == 1:
+            return results_per_env[0]
+        # Multi-env: layouts applied at reset via placement event (builder builds event_cfg from result)
+        return MultiEnvPlacementResult(results=results_per_env)
 
     def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
         """Get bounds for random position initialization.
@@ -143,24 +175,12 @@ class ObjectPlacer:
 
         # Create bounds centered on anchor's world bounding box center
         anchor_bbox = anchor_object.get_world_bounding_box()
-        center = anchor_bbox.center
-        half_size = (
-            self.params.init_bounds_size[0] / 2,
-            self.params.init_bounds_size[1] / 2,
-            self.params.init_bounds_size[2] / 2,
-        )
+        center = anchor_bbox.center[0]
+        half = torch.tensor(self.params.init_bounds_size, dtype=torch.float32) / 2.0
 
         return AxisAlignedBoundingBox(
-            min_point=(
-                center[0] - half_size[0],
-                center[1] - half_size[1],
-                center[2] - half_size[2],
-            ),
-            max_point=(
-                center[0] + half_size[0],
-                center[1] + half_size[1],
-                center[2] + half_size[2],
-            ),
+            min_point=center - half,
+            max_point=center + half,
         )
 
     def _generate_initial_positions(
@@ -206,18 +226,19 @@ class ObjectPlacer:
                 parent_world = parent.get_bounding_box().translated(positions[parent])
                 # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
                 if (
-                    child_world.min_point[0] < parent_world.min_point[0]
-                    or child_world.max_point[0] > parent_world.max_point[0]
-                    or child_world.min_point[1] < parent_world.min_point[1]
-                    or child_world.max_point[1] > parent_world.max_point[1]
+                    child_world.min_point[0, 0] < parent_world.min_point[0, 0]
+                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0]
+                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1]
+                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1]
                 ):
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
                 # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
-                parent_top_z = parent_world.max_point[2]
+                # Use Python float arithmetic (float64) to avoid float32 rounding at exact boundaries.
+                parent_top_z = parent.get_bounding_box().max_point[0, 2].item() + positions[parent][2]
                 clearance_m = rel.clearance_m
-                child_bottom_z = child_world.min_point[2]
+                child_bottom_z = obj.get_bounding_box().min_point[0, 2].item() + positions[obj][2]
                 eps_z = self.params.on_relation_z_tolerance_m
                 if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
                     if self.params.verbose:
@@ -238,7 +259,7 @@ class ObjectPlacer:
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
+                if a_world.overlaps(b_world, margin=self.params.min_separation_m).item():
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False

@@ -125,19 +125,25 @@ class NoCollision(Relation):
     unordered pair once.
 
     Note: Loss computation is handled by NoCollisionLossStrategy in relation_loss_strategies.py.
+
+    NOTE: RelationSolver._compute_total_loss iterates every relation on every object with no
+    deduplication. If both A.add_relation(NoCollision(B)) and B.add_relation(NoCollision(A))
+    are present, loss is computed twice. Bidirectional NoCollision can also make the relation
+    graph cyclic and cause issues when creating the environment. Deduplication and/or
+    higher-level handling of symmetric relations to be addressed in a future commit.
     """
 
     def __init__(
         self,
         parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
-        clearance_m: float = 0.01,
+        clearance_m: float = 0.02,
     ):
         """
         Args:
             parent: The other object that this object must not collide with.
             relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Minimum clearance between bounding boxes in meters (default: 1cm).
+            clearance_m: Minimum clearance between bounding boxes in meters (default: 2cm).
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"

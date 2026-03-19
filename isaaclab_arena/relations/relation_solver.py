@@ -39,6 +39,7 @@ class RelationSolver:
         self.params = params or RelationSolverParams()
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
+        self._last_loss_per_env: torch.Tensor | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
@@ -68,9 +69,11 @@ class RelationSolver:
             debug: If True, print detailed loss breakdown.
 
         Returns:
-            Total loss tensor.
+            Scalar loss tensor (mean over envs). Per-env loss stored in _last_loss_per_env.
         """
-        total_loss = torch.tensor(0.0)
+        N = state.num_envs
+        device = state.optimizable_positions.device if state.optimizable_positions is not None else None
+        total_loss = torch.zeros(N, device=device, dtype=torch.float32)
 
         # Compute loss from all spatial relations using strategies
         for obj in state.optimizable_objects:
@@ -86,7 +89,7 @@ class RelationSolver:
                         child_bbox=obj.get_bounding_box(),
                     )
                     if debug:
-                        _print_unary_relation_debug(obj, relation, child_pos, loss)
+                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.sum())
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
                     # Build parent world bbox: anchors have a known fixed pose,
@@ -96,9 +99,7 @@ class RelationSolver:
                         parent_world_bbox = parent.get_world_bounding_box()
                     else:
                         parent_pos = state.get_position(parent)
-                        parent_world_bbox = parent.get_bounding_box().translated(
-                            (float(parent_pos[0]), float(parent_pos[1]), float(parent_pos[2]))
-                        )
+                        parent_world_bbox = parent.get_bounding_box().translated(parent_pos)
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
@@ -107,28 +108,30 @@ class RelationSolver:
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
-                        _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
+                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.sum())
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
                 total_loss = total_loss + loss
 
-        return total_loss
+        self._last_loss_per_env = total_loss.detach().clone()
+        return total_loss.mean()
 
     def solve(
         self,
         objects: list[Object | ObjectReference],
-        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]],
-    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
+        initial_positions: list[dict[Object | ObjectReference, tuple[float, float, float]]],
+    ) -> list[dict[Object | ObjectReference, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
         Args:
             objects: List of Object or ObjectReference instances. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
-            initial_positions: Starting positions for all objects (including anchors).
+            initial_positions: One dict of starting positions per env. Length 1 = single-env,
+                length > 1 = batched (one layout per env).
 
         Returns:
-            Dictionary mapping object instances to final (x, y, z) positions.
+            List of position dicts, one per env.
         """
         state = RelationSolverState(objects, initial_positions)
 
@@ -145,7 +148,7 @@ class RelationSolver:
                 print("No optimizable objects, skipping solver.")
             self._last_loss_history = [0.0]
             self._last_position_history = [state.get_all_positions_snapshot()]
-            return state.get_final_positions_dict()
+            return state.get_final_positions()
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
@@ -188,12 +191,17 @@ class RelationSolver:
         self._last_loss_history = loss_history
         self._last_position_history = position_history
 
-        return state.get_final_positions_dict()
+        return state.get_final_positions()
 
     @property
     def last_loss_history(self) -> list[float]:
         """Loss values from the most recent solve() call."""
         return self._last_loss_history
+
+    @property
+    def last_loss_per_env(self) -> torch.Tensor | None:
+        """Per-env loss (N,) from the last solve() call."""
+        return self._last_loss_per_env
 
     @property
     def last_position_history(self) -> list:
@@ -220,7 +228,7 @@ class RelationSolver:
         # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
-        state = RelationSolverState(objects, final_positions)
+        state = RelationSolverState(objects, [final_positions])
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 
@@ -246,13 +254,25 @@ def _print_relation_debug(
     )
 
     # Child world extents
-    child_x_range = (child_pos[0].item() + child_bbox.min_point[0], child_pos[0].item() + child_bbox.max_point[0])
-    child_y_range = (child_pos[1].item() + child_bbox.min_point[1], child_pos[1].item() + child_bbox.max_point[1])
+    child_x_range = (
+        child_pos[0].item() + child_bbox.min_point[0, 0].item(),
+        child_pos[0].item() + child_bbox.max_point[0, 0].item(),
+    )
+    child_y_range = (
+        child_pos[1].item() + child_bbox.min_point[0, 1].item(),
+        child_pos[1].item() + child_bbox.max_point[0, 1].item(),
+    )
 
     print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
     print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
-    print(f"  Parent world X: [{parent_world_bbox.min_point[0]:.4f}, {parent_world_bbox.max_point[0]:.4f}]")
-    print(f"  Parent world Y: [{parent_world_bbox.min_point[1]:.4f}, {parent_world_bbox.max_point[1]:.4f}]")
+    print(
+        f"  Parent world X: [{parent_world_bbox.min_point[0, 0].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 0].item():.4f}]"
+    )
+    print(
+        f"  Parent world Y: [{parent_world_bbox.min_point[0, 1].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 1].item():.4f}]"
+    )
     print(f"  Loss: {loss.item():.6f}")
 
 

@@ -68,7 +68,7 @@ def create_loss_heatmap_2d(
                     positions[obj] = obj.get_initial_pose().position_xyz
 
             # Create state and compute loss
-            state = RelationSolverState(all_objects, positions)
+            state = RelationSolverState(all_objects, [positions])
             loss = solver._compute_total_loss(state)
             losses[i, j] = loss.item()
 
@@ -224,10 +224,10 @@ def run_visualization_demo():
         child1: (0.8, 0.5, 0.05),  # Random starting position
         child2: (1.2, 0.3, 0.05),  # Random starting position
     }
-    result = solver.solve(objects, initial_positions=initial_positions)
+    result = solver.solve(objects, initial_positions=[initial_positions])
 
-    print(f"\nFinal child1 position: {result[child1]}")
-    print(f"Final child2 position: {result[child2]}")
+    print(f"\nFinal child1 position: {result[0][child1]}")
+    print(f"Final child2 position: {result[0][child2]}")
 
     # Sample loss along X axis for child1 (relative to parent)
     x_positions = np.linspace(-0.5, 1.5, 200)
@@ -238,7 +238,7 @@ def run_visualization_demo():
             parent: parent_pos,
             child1: (x, parent_pos[1], parent_pos[2]),
         }
-        state = RelationSolverState(objects_child1, positions)
+        state = RelationSolverState(objects_child1, [positions])
         loss = solver._compute_total_loss(state)
         losses_x_child1.append(loss.item())
 
@@ -255,7 +255,7 @@ def run_visualization_demo():
             child1: child1_ideal_pos,
             child2: (x, parent_pos[1], parent_pos[2]),
         }
-        state = RelationSolverState(objects_child2, positions)
+        state = RelationSolverState(objects_child2, [positions])
         loss = solver._compute_total_loss(state)
         losses_x_child2.append(loss.item())
 
