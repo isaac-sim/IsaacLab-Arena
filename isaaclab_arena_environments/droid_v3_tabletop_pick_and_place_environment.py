@@ -39,6 +39,8 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         obj_1 = self.asset_registry.get_asset_by_name('tomato_soup_can')(scale=(0.7, 0.7, 0.6))
         obj_2 = self.asset_registry.get_asset_by_name('ketchup_bottle_hope_robolab')(scale=(0.7, 0.7, 0.6))
         obj_3 = self.asset_registry.get_asset_by_name('alphabet_soup_can_hope_robolab')(scale=(0.7, 0.7, 0.8))
+        obj_4 = self.asset_registry.get_asset_by_name('bowl_ycb_robolab')()
+        obj_5 = self.asset_registry.get_asset_by_name('red_container')(scale=(0.5, 0.5, 0.5))
 
         blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(1.5, 0.8, 1.0))
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
@@ -55,8 +57,17 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
         )
 
+        # Static objects need initial poses since they are anchors
+        obj_4.set_initial_pose(Pose(position_xyz=(0.67, 0.6, 0.8), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        obj_5.set_initial_pose(Pose(position_xyz=(0.67, -0.3, 0.8), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+
         office_table.add_relation(IsAnchor())
         blue_sorting_bin.add_relation(IsAnchor())
+        self._place_static_objects(
+            static_objects=[obj_4, obj_5],
+            table=office_table,
+            bin_asset=blue_sorting_bin,
+        )
         self._generate_object_layout(
             objects=[obj_1, obj_2, obj_3],
             table=office_table,
@@ -67,6 +78,7 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         self._table = office_table
         self._bin = blue_sorting_bin
         self._pick_objects = [obj_1, obj_2, obj_3]
+        self._static_objects = [obj_4, obj_5]
 
         # Shared destination for all objects
         destination_location = ObjectReference(
@@ -81,7 +93,7 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        assets = [office_table, ground_plane, obj_1, obj_2, obj_3, blue_sorting_bin, light]
+        assets = [office_table, ground_plane, obj_1, obj_2, obj_3, obj_4, obj_5, blue_sorting_bin, light]
 
 
         scene = Scene(assets=assets)
@@ -108,6 +120,67 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         return isaaclab_arena_environment
 
+    def randomize_initial_positions(self, env=None) -> None:
+        """Re-solve the init layout and update pick objects' positions.
+
+        Args:
+            env: If provided, directly writes new poses to the sim via
+                 write_root_pose_to_sim. Call this after env.reset().
+        """
+        from isaaclab_arena.relations.object_placer import ObjectPlacer
+        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+        from isaaclab_arena.relations.relations import IsAnchor
+
+        all_objects = [self._table, self._bin] + self._static_objects + self._pick_objects
+
+        saved = {id(obj): obj.relations[:] for obj in all_objects}
+        for obj in all_objects:
+            obj.relations = []
+
+        self._table.add_relation(IsAnchor())
+        self._bin.add_relation(IsAnchor())
+        for obj in self._static_objects:
+            obj.add_relation(IsAnchor())
+        self._generate_object_layout(
+            objects=self._pick_objects, table=self._table, bin_asset=self._bin,
+        )
+
+        # Solve without applying (we'll write to sim directly)
+        params = ObjectPlacerParams(apply_positions_to_objects=False)
+        result = ObjectPlacer(params=params).place(objects=all_objects)
+
+        # Write new poses directly to the sim via PhysX view
+        if env is not None:
+            import torch as _torch
+            from isaaclab_arena.utils.pose import Pose
+            for obj in self._pick_objects:
+                pos = result.positions[obj]
+                pose = Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+                asset = env.scene[obj.name]
+                # Build 7-dim tensor: [x, y, z, qx, qy, qz, qw] for PhysX
+                pose7 = pose.to_tensor(device=env.device)  # [x,y,z, qw,qx,qy,qz]
+                # Convert wxyz -> xyzw for PhysX
+                pos_xyz = pose7[:3] + env.scene.env_origins[0]
+                quat_wxyz = pose7[3:]
+                quat_xyzw = _torch.tensor(
+                    [quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]],
+                    device=env.device,
+                )
+                physx_pose = _torch.cat([pos_xyz, quat_xyzw]).unsqueeze(0)
+                physx_vel = _torch.zeros(1, 6, device=env.device)
+                indices = _torch.tensor([0], dtype=_torch.int32, device=env.device)
+                asset.root_physx_view.set_transforms(physx_pose, indices=indices)
+                asset.root_physx_view.set_velocities(physx_vel, indices=indices)
+                print(f"[INIT] {obj.name} -> {pos}")
+            # Step sim so poses take effect (must be in inference_mode for articulation tensors)
+            with _torch.inference_mode():
+                env.sim.step(render=False)
+                env.scene.update(dt=env.step_dt)
+
+        # Restore original relations
+        for obj in all_objects:
+            obj.relations = saved[id(obj)]
+
     def generate_target_positions(self) -> dict[str, tuple[float, float, float]]:
         """Generate a new random layout and return resolved world-frame positions.
 
@@ -122,7 +195,7 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
         from isaaclab_arena.relations.relations import IsAnchor
 
-        all_objects = [self._table, self._bin] + self._pick_objects
+        all_objects = [self._table, self._bin] + self._static_objects + self._pick_objects
 
         # Save original (init) relations, then clear
         saved = {id(obj): obj.relations[:] for obj in all_objects}
@@ -134,8 +207,11 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # Re-add anchors, generate fresh random layout
         self._table.add_relation(IsAnchor())
         self._bin.add_relation(IsAnchor())
+        for obj in self._static_objects:
+            obj.add_relation(IsAnchor())
         self._generate_object_layout(
             objects=self._pick_objects, table=self._table, bin_asset=self._bin,
+            static_objects=self._static_objects,
         )
 
         # Capture target relations before restoring
@@ -353,13 +429,13 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         return sorted(pick_names), float('inf')
 
     @staticmethod
-    def _generate_object_layout(objects, table, bin_asset):
-        """Randomly initialize object positions on the table relative to the bin.
+    def _generate_object_layout(objects, table, bin_asset, static_objects=None):
+        """Randomly initialize object positions on the table relative to the bin and static objects.
 
-        Topology (kept from v2):
+        Topology:
           - obj[0]: On table, NextTo bin (-Y side), lying on side (roll=90deg)
           - obj[1]: On table, NextTo obj[0] (-X side), random yaw
-          - obj[2]: On table, NextTo bin (+Y side), upright
+          - obj[2]: On table, NextTo static_1 (bowl) on a random side, upright
         Distances are randomized within safe IK ranges.
         """
         from isaaclab_arena.relations.relations import (
@@ -370,9 +446,12 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             RandomAroundSolution,
             RotateAroundSolution,
             Side,
+            Inside
         )
         all_sides = [Side.POSITIVE_X, Side.NEGATIVE_X, Side.POSITIVE_Y, Side.NEGATIVE_Y]
         obj_1, obj_2, obj_3 = objects[0], objects[1], objects[2]
+        static_1 = static_objects[0] if static_objects else bin_asset
+        static_2 = static_objects[1] if static_objects and len(static_objects) > 1 else bin_asset
 
         # obj_1: next to bin on -Y side, lying on its side
         obj_1.add_relation(On(table))
@@ -390,12 +469,46 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         ))
         obj_2.add_relation(RotateAroundSolution(yaw_rad=math.radians(random.randint(0, 360))))
 
-        # obj_3: next to bin on +Y side, upright
-        obj_3.add_relation(On(table))
-        obj_3.add_relation(NextTo(
-            bin_asset, side=random.choice(all_sides),
-            distance_m=random.uniform(0.05, 0.15),
+        # obj_3: inside static_1 (bowl) if available, otherwise next to bin
+        if static_objects:
+            obj_3.add_relation(Inside(static_1, clearance_m=0.02))
+        else:
+            obj_3.add_relation(On(table))
+            obj_3.add_relation(NextTo(
+                bin_asset, side=Side.NEGATIVE_Y,
+                distance_m=random.uniform(0.05, 0.15),
+            ))
+
+    @staticmethod
+    def _place_static_objects(static_objects, table, bin_asset):
+        """Place non-pickable static objects on the table.
+
+        Returns:
+            List of static objects with relations applied (for goal config generation).
+        """
+        from isaaclab_arena.relations.relations import (
+            IsAnchor,
+            NextTo,
+            On,
+            Side,
+            AtPosition,
+        )
+        static_1, static_2 = static_objects[0], static_objects[1]
+
+        # static_1 (bowl): on table, next to bin on +X side
+        static_1.add_relation(IsAnchor())
+        static_1.add_relation(On(table))
+        static_1.add_relation(NextTo(
+            bin_asset, side=Side.POSITIVE_X,
+            distance_m=random.uniform(0.10, 0.20),
         ))
+
+        # static_2 (red container): on table, next to bin on -X side
+        bowl_pose = static_1.get_initial_pose()
+        static_2.add_relation(IsAnchor())
+        static_2.add_relation(On(table))
+        static_2.add_relation(AtPosition(x=bowl_pose.position_xyz[0]+1, y=bowl_pose.position_xyz[1]))
+
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:

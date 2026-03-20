@@ -118,6 +118,7 @@ def create_environment_config(
     except Exception as e:
         omni.log.error(f"Failed to parse environment configuration: {e}")
         exit(1)
+    is_v3 = getattr(args_cli, "example_environment", "") == "droid_v3_tabletop_pick_and_place"
     success_term = None
     if hasattr(env_cfg.terminations, "success"):
         success_term = env_cfg.terminations.success
@@ -129,7 +130,7 @@ def create_environment_config(
     env_cfg.recorders: ActionStateRecorderManagerCfg = ActionStateRecorderManagerCfg()
     env_cfg.recorders.dataset_export_dir_path = output_dir
     env_cfg.recorders.dataset_filename = output_file_name
-    env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY
+    env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_ALL
     # Record 7 arm + 1 gripper joint targets for --use_joint_targets replay (avoids 6D vs 7 joint mismatch)
     env_cfg.recorders.record_post_step_joint_targets = RecorderTermCfg(
         class_type=_create_post_step_joint_targets_recorder()
@@ -137,7 +138,7 @@ def create_environment_config(
     env_cfg.recorders.record_post_step_eef_pose_target = RecorderTermCfg(
         class_type=_create_post_step_eef_pose_target_recorder()
     )
-    return env_cfg, env_name, success_term
+    return env_cfg, env_name, success_term, arena_builder, is_v3
 
 
 def main() -> None:
@@ -149,7 +150,9 @@ def main() -> None:
         from isaaclab.envs import DirectRLEnvCfg, ManagerBasedRLEnvCfg
         from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
         from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
+        import isaaclab.utils.math as math_utils
         from isaaclab_arena.scripts.curobo.curobo_pick_place_utils import (
+            DOWN_FACING_QUAT_WXYZ,
             GRIPPER_CLOSE_CMD,
             GRIPPER_OPEN_CMD,
             auto_pick_order,
@@ -164,10 +167,15 @@ def main() -> None:
             get_object_quat,
             make_planner_cfg,
             plan_and_execute,
+            pose_from_pos_quat,
+        )
+        from isaaclab_arena.scripts.curobo.ik_utils import (
+            check_ik_feasibility,
+            get_current_joint_config,
         )
 
         output_dir, output_file_name = setup_output_directories(args_cli)
-        env_cfg, env_name, _success_term = create_environment_config(args_cli, output_dir, output_file_name)
+        env_cfg, env_name, _success_term, arena_builder, is_v3 = create_environment_config(args_cli, output_dir, output_file_name)
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         env.reset()
 
@@ -175,6 +183,50 @@ def main() -> None:
         planner_cfg = make_planner_cfg(args_cli)
         planner = CuroboPlanner(env=env, robot=robot, config=planner_cfg, env_id=0)
         fix_planner_object_sync_frame(planner)
+
+        # V3: build IK cost function once (closure over stable references)
+        robot_pos_w = robot.data.root_pos_w[0, :3]
+        robot_quat_w = robot.data.root_quat_w[0, :4]
+        R_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+        IK_FAIL_PENALTY = 100.0
+        down_quat = DOWN_FACING_QUAT_WXYZ.to(env.device)
+        ik_pos_th = args_cli.ik_pos_threshold
+        ik_rot_th = args_cli.ik_rot_threshold
+
+        def _world_to_robot(pos_w_tuple):
+            xyz = torch.tensor(pos_w_tuple, device=env.device, dtype=torch.float32)
+            return (R_w2r @ (xyz - robot_pos_w).unsqueeze(-1)).squeeze(-1)
+
+        def _ik_cost_fn(name, init_pos_w, target_pos_w, prev_jc):
+            """Sequential IK penalty: evaluates grasp then place as a chain."""
+            if prev_jc is None:
+                prev_jc = get_current_joint_config(planner)
+
+            jc = prev_jc
+
+            grasp_xyz = _world_to_robot(init_pos_w)
+            grasp_xyz[2] += args_cli.grasp_z_offset
+            ok, pe, re, sol = check_ik_feasibility(
+                planner, pose_from_pos_quat(grasp_xyz, down_quat), seed_config=jc,
+                position_threshold=ik_pos_th, rotation_threshold=ik_rot_th,
+            )
+            if not ok:
+                print(f"[IK] {name} grasp INFEASIBLE (pos={pe:.4f}m, rot={re:.4f}rad)")
+                return 2 * IK_FAIL_PENALTY, prev_jc
+            jc = sol
+
+            place_xyz = _world_to_robot(target_pos_w)
+            place_xyz[2] += args_cli.place_z_offset
+            ok, pe, re, sol = check_ik_feasibility(
+                planner, pose_from_pos_quat(place_xyz, down_quat), seed_config=jc,
+                position_threshold=ik_pos_th, rotation_threshold=ik_rot_th,
+            )
+            if not ok:
+                print(f"[IK] {name} place INFEASIBLE (pos={pe:.4f}m, rot={re:.4f}rad)")
+                return IK_FAIL_PENALTY, prev_jc
+            jc = sol
+
+            return 0.0, jc
 
         goal_pose_visualizer = None
         ee_visualizer = None
@@ -193,28 +245,59 @@ def main() -> None:
                 setattr(ee_frame_marker, "scale", (0.05, 0.05, 0.05))
             ee_visualizer = VisualizationMarkers(ee_marker_cfg)
 
-        num_demos = args_cli.num_demos if args_cli.num_demos > 0 else float("inf")
+        num_demos = args_cli.num_demos if args_cli.num_demos > 0 else 1
+        current_attempt = 0
         current_recorded_demo_count = 0
 
         with contextlib.suppress(KeyboardInterrupt), torch.inference_mode():
-            while (num_demos == float("inf") or current_recorded_demo_count < num_demos) and ctx.app_launcher.app.is_running():
-                total_label = int(num_demos) if num_demos != float("inf") else "∞"
-                print(f"\n--- Demo {current_recorded_demo_count + 1}/{total_label} ---")
+            while current_attempt < num_demos and ctx.app_launcher.app.is_running():
+                current_attempt += 1
+                print(f"\n--- Attempt {current_attempt}/{num_demos} | Successful demos: {current_recorded_demo_count} ---")
                 env.sim.reset()
                 env.recorder_manager.reset()
                 env.reset()
+                if is_v3:
+                    with torch.inference_mode(False):
+                        arena_builder.example_env.randomize_initial_positions(env=env)
 
-                pick_order = auto_pick_order(env, getattr(args_cli, "pick_order", None))
-                if getattr(args_cli, "max_objects", None) is not None:
-                    pick_order = pick_order[: args_cli.max_objects]
+                # ── Plan pick order ───────────────────────────────────
+                if is_v3:
+                    # RelationSolver needs gradients; temporarily exit inference_mode
+                    with torch.inference_mode(False):
+                        target_positions = arena_builder.example_env.generate_target_positions()
+                    planner.update_world()
+
+                    pick_order, ik_penalty = arena_builder.example_env.plan_pick_order(
+                        verbose=getattr(args_cli, "debug_planner", False),
+                        ik_cost_fn=_ik_cost_fn,
+                    )
+                    if getattr(args_cli, "max_objects", None) is not None:
+                        pick_order = pick_order[: args_cli.max_objects]
+
+                    if ik_penalty > 0:
+                        print(f"[SKIP] Layout IK-infeasible (penalty={ik_penalty:.1f}), resetting")
+                        continue
+
+                    placement_slots = {}
+                    for obj_name in pick_order:
+                        world_pos = torch.tensor(target_positions[obj_name], device=env.device)
+                        placement_slots[obj_name] = (R_w2r @ (world_pos - robot_pos_w).unsqueeze(-1)).squeeze(-1)
+                else:
+                    pick_order = auto_pick_order(env, getattr(args_cli, "pick_order", None))
+                    if getattr(args_cli, "max_objects", None) is not None:
+                        pick_order = pick_order[: args_cli.max_objects]
+
+                    bin_pos = get_bin_interior_center(env, "blue_sorting_bin", env_id=0, verbose=False)
+                    slot_list = compute_placement_slots(
+                        bin_pos, len(pick_order), args_cli.bin_half_x, args_cli.bin_half_y, verbose=False
+                    )
+                    placement_slots = {name: slot_list[i] for i, name in enumerate(pick_order)}
+
                 if len(pick_order) == 0:
                     omni.log.warn("No pickable objects in scene; skipping episode.")
                     continue
 
-                bin_pos = get_bin_interior_center(env, "blue_sorting_bin", env_id=0, verbose=False)
-                placement_slots = compute_placement_slots(
-                    bin_pos, len(pick_order), args_cli.bin_half_x, args_cli.bin_half_y, verbose=False
-                )
+                print(f"Pick order: {pick_order}")
                 results = {}
 
                 for idx, object_name in enumerate(pick_order):
@@ -223,7 +306,7 @@ def main() -> None:
                     grasp_pose, place_pose = compute_grasp_and_place_poses(
                         object_pos,
                         object_quat,
-                        placement_slots[idx],
+                        placement_slots[object_name],
                         args_cli.grasp_orientation,
                         args_cli.grasp_z_offset,
                         args_cli.place_z_offset,
@@ -253,7 +336,8 @@ def main() -> None:
                     )
                     results[object_name] = {"grasp": grasp_success}
                     if not grasp_success:
-                        continue
+                        print(f"[SKIP] '{object_name}' grasp failed, aborting attempt")
+                        break
 
                     execute_gripper_action(
                         env, planner, GRIPPER_CLOSE_CMD,
@@ -277,7 +361,8 @@ def main() -> None:
                             env, planner, GRIPPER_OPEN_CMD,
                             steps=args_cli.gripper_settle_steps, env_id=0,
                         )
-                        continue
+                        print(f"[SKIP] '{object_name}' place failed, aborting attempt")
+                        break
 
                     execute_gripper_action(
                         env, planner, GRIPPER_OPEN_CMD,
@@ -304,23 +389,26 @@ def main() -> None:
                 all_success = all(
                     stages.get("grasp") and stages.get("place", False) for stages in results.values()
                 )
-                if all_success and results:
-                    env.recorder_manager.record_pre_reset([0], force_export_or_skip=False)
-                    env.recorder_manager.set_success_to_episodes(
-                        [0], torch.tensor([[True]], dtype=torch.bool, device=env.device)
-                    )
-                    env.recorder_manager.export_episodes([0])
-                    current_recorded_demo_count += 1
-                    print(f"Recorded {current_recorded_demo_count} successful demonstrations.")
-                else:
-                    print("Episode had failures; not exporting (EXPORT_SUCCEEDED_ONLY).")
+                env.recorder_manager.record_pre_reset([0], force_export_or_skip=False)
+                env.recorder_manager.set_success_to_episodes(
+                    [0], torch.tensor([[all_success]], dtype=torch.bool, device=env.device)
+                )
+                env.recorder_manager.export_episodes([0])
+                current_recorded_demo_count += 1
+                status = "SUCCESS" if all_success else "FAILED"
+                print(f"[{status}] Recorded demo {current_recorded_demo_count}/{num_demos}")
 
                 if env.sim.is_stopped():
                     break
 
         env.close()
-        print(f"Recording session completed with {current_recorded_demo_count} successful demonstrations")
-        print(f"Demonstrations saved to: {args_cli.dataset_file}")
+        print(f"\n{'=' * 80}")
+        print(f"RECORDING COMPLETE: {current_recorded_demo_count}/{current_attempt} attempts succeeded")
+        if current_recorded_demo_count > 0:
+            print(f"Demonstrations saved to: {args_cli.dataset_file}")
+        else:
+            print(f"No successful demonstrations recorded.")
+        print(f"{'=' * 80}")
 
 
 if __name__ == "__main__":

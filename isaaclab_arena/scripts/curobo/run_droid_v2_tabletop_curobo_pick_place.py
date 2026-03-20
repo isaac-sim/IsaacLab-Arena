@@ -256,8 +256,9 @@ def main() -> None:
             print(f"ATTEMPT {attempt} | Successful demos: {successes}/{num_demos}")
             print(f"{'#' * 80}")
 
-            if attempt > 1:
-                env.reset()
+            env.reset()
+            if is_v3:
+                arena_builder.example_env.randomize_initial_positions(env=env)
 
             # ── Plan pick order ───────────────────────────────────────────
             if is_v3:
