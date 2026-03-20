@@ -17,7 +17,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation
+    from isaaclab_arena.relations.relations import AtPosition, Inside, NextTo, On, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -302,6 +302,74 @@ class OnLossStrategy(RelationLossStrategy):
             print(f"    [On] Z: child_pos={child_pos[2].item():.4f}, target={target_z:.4f}, loss={z_loss.item():.6f}")
 
         total_loss = x_band_loss + y_band_loss + z_loss
+        return relation.relation_loss_weight * total_loss
+
+
+class InsideLossStrategy(RelationLossStrategy):
+    """Loss strategy for Inside relations.
+
+    Computes loss based on:
+    1. X point constraint to center child within parent's X extent
+    2. Y point constraint to center child within parent's Y extent
+    3. Z point constraint to position child at parent's interior bottom + clearance
+    """
+
+    def __init__(self, slope: float = 10.0, debug: bool = False):
+        """
+        Args:
+            slope: Gradient magnitude for linear loss (default: 10.0).
+            debug: If True, print detailed loss component breakdown.
+        """
+        self.slope = slope
+        self.debug = debug
+
+    def compute_loss(
+        self,
+        relation: "Inside",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for Inside relation.
+
+        Places child at parent's XY center, Z at parent's interior bottom.
+
+        Args:
+            relation: Inside relation with clearance_m attribute.
+            child_pos: Child object position tensor (x, y, z) in world coords.
+            child_bbox: Child object local bounding box.
+            parent_world_bbox: Parent bounding box in world coordinates.
+
+        Returns:
+            Weighted loss tensor.
+        """
+        # Target XY = center of parent
+        parent_center_x = (parent_world_bbox.min_point[0] + parent_world_bbox.max_point[0]) / 2.0
+        parent_center_y = (parent_world_bbox.min_point[1] + parent_world_bbox.max_point[1]) / 2.0
+
+        # 1. X point loss: center child in parent
+        x_loss = single_point_linear_loss(child_pos[0], parent_center_x, slope=self.slope)
+
+        # 2. Y point loss: center child in parent
+        y_loss = single_point_linear_loss(child_pos[1], parent_center_y, slope=self.slope)
+
+        # 3. Z point loss: child bottom at parent's interior bottom + clearance
+        # Interior bottom = parent min_z + clearance
+        target_z = parent_world_bbox.min_point[2] + relation.clearance_m - child_bbox.min_point[2]
+        z_loss = single_point_linear_loss(child_pos[2], target_z, slope=self.slope)
+
+        if self.debug:
+            print(
+                f"    [Inside] X: child_pos={child_pos[0].item():.4f}, target={parent_center_x:.4f},"
+                f" loss={x_loss.item():.6f}"
+            )
+            print(
+                f"    [Inside] Y: child_pos={child_pos[1].item():.4f}, target={parent_center_y:.4f},"
+                f" loss={y_loss.item():.6f}"
+            )
+            print(f"    [Inside] Z: child_pos={child_pos[2].item():.4f}, target={target_z:.4f}, loss={z_loss.item():.6f}")
+
+        total_loss = x_loss + y_loss + z_loss
         return relation.relation_loss_weight * total_loss
 
 
