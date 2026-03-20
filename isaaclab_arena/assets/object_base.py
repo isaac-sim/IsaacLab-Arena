@@ -17,6 +17,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.velocity import Velocity
 
 
 class ObjectType(Enum):
@@ -42,7 +43,7 @@ class ObjectBase(Asset, ABC):
         self.prim_path = prim_path
         self.object_type = object_type
         self.initial_pose: Pose | PoseRange | None = None
-        self.initial_velocity: tuple[float, float, float] | None = None
+        self.initial_velocity: Velocity | None = None
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
@@ -81,19 +82,22 @@ class ObjectBase(Asset, ABC):
             self.object_cfg.init_state.rot = initial_pose.rotation_wxyz
         self.event_cfg = self._init_event_cfg()
 
-    def set_initial_linear_velocity(self, velocity: tuple[float, float, float]) -> None:
-        """Set / override the initial linear velocity and rebuild derived configs.
+    def set_initial_velocity(self, velocity: Velocity) -> None:
+        """Set / override the initial velocity and rebuild derived configs.
 
-        The velocity is applied as the ``init_state.lin_vel`` on the underlying
-        config (``RigidObjectCfg`` or ``ArticulationCfg``) and is also restored
+        The velocity is applied as ``init_state.lin_vel`` and
+        ``init_state.ang_vel`` on the underlying config
+        (``RigidObjectCfg`` or ``ArticulationCfg``) and is also restored
         on every environment reset via the reset event.
 
         Args:
-            velocity: Linear velocity ``(vx, vy, vz)`` in the world frame.
+            velocity: A ``Velocity`` specifying linear and angular components.
         """
         self.initial_velocity = velocity
         if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "lin_vel"):
-            self.object_cfg.init_state.lin_vel = velocity
+            self.object_cfg.init_state.lin_vel = velocity.linear_xyz
+        if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "ang_vel"):
+            self.object_cfg.init_state.ang_vel = velocity.angular_xyz
         self.event_cfg = self._init_event_cfg()
 
     def _requires_reset_pose_event(self) -> bool:
