@@ -117,6 +117,34 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
+class Inside(Relation):
+    """Represents an 'inside' relationship between objects.
+
+    This relation specifies that a child object should be placed inside
+    the parent object (e.g., inside a bowl or container), with X/Y centered
+    within the parent's extent and Z positioned at the parent's interior
+    bottom surface.
+
+    Note: Loss computation is handled by InsideLossStrategy in relation_loss_strategies.py.
+    """
+
+    def __init__(
+        self,
+        parent: Object | ObjectReference,
+        relation_loss_weight: float = 1.0,
+        clearance_m: float = 0.01,
+    ):
+        """
+        Args:
+            parent: The parent container that this object should be placed inside.
+            relation_loss_weight: Weight for the relationship loss function.
+            clearance_m: Safety clearance above parent's interior bottom in meters (default: 1cm).
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
+        self.clearance_m = clearance_m
+
+
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 
