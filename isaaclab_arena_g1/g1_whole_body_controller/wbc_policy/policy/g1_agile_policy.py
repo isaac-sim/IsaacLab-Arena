@@ -6,7 +6,6 @@
 import numpy as np
 import pathlib
 import torch
-import urllib.request
 from typing import Any
 
 import onnxruntime as ort
@@ -23,12 +22,6 @@ class G1AgilePolicy(WBCPolicy):
     outputs target joint positions along with per-joint Kp/Kd gains for 14
     controlled joints (legs + waist_roll + waist_pitch).
     """
-
-    # URL to download the ONNX model if not found locally.
-    _MODEL_URL = (
-        "https://github.com/nvidia-isaac/WBC-AGILE/raw/main/"
-        "agile/data/policy/velocity_g1/unitree_g1_velocity_e2e.onnx"
-    )
 
     # Names of ONNX state inputs that receive feedback from the previous step's outputs.
     _STATE_KEYS = [
@@ -55,12 +48,13 @@ class G1AgilePolicy(WBCPolicy):
         self.robot_model = robot_model
         self.num_envs = num_envs
 
-        # Load ONNX model, downloading from GitHub if not present locally
+        # Load ONNX model (must be downloaded beforehand via docker/setup/download_wbc_models.sh)
         model_full_path = self.parent_dir / model_path
         if not model_full_path.exists():
-            model_full_path.parent.mkdir(parents=True, exist_ok=True)
-            print(f"Downloading AGILE ONNX model from {self._MODEL_URL} ...")
-            urllib.request.urlretrieve(self._MODEL_URL, str(model_full_path))
+            raise FileNotFoundError(
+                f"AGILE ONNX model not found at {model_full_path}. "
+                "Run docker/setup/download_wbc_models.sh to download it."
+            )
         self.session = ort.InferenceSession(str(model_full_path))
         self.output_names = [out.name for out in self.session.get_outputs()]
         print(f"Successfully loaded ONNX policy from {model_full_path}")
