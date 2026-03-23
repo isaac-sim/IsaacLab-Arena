@@ -17,6 +17,10 @@ procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena
 
 Match Dexsuite training layout: use ``--env_spacing 3`` (Arena CLI defaults to a larger spacing).
 
+The task subclasses :class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask` and uses the same
+look-at-lift-object viewer helper as other Arena lift examples (Isaac Lab's stock task uses a fixed
+viewer pose instead).
+
 Use ``--enable_cameras`` (and optionally ``--duo_cameras``) if the policy was trained with vision presets.
 
 **Note:** Checkpoints from the stock Isaac Lab task are usually trained with **PhysX**; this example uses **Newton**,
@@ -60,7 +64,7 @@ class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
         )
 
         scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
-        task = DexsuiteKukaAllegroLiftTask()
+        task = DexsuiteKukaAllegroLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
 
         dexsuite_rl_cfg_entry = (
             "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.agents."
