@@ -48,6 +48,8 @@ def get_recorded_metric_data(dataset_path: pathlib.Path, recorder_term_name: str
     Returns:
         A list of recorded metric data for each simulated episode.
     """
+    if not dataset_path.is_file():
+        return []
     recorded_metric_data_per_demo: list[np.ndarray] = []
     with h5py.File(dataset_path, "r") as f:
         demos = f["data"]
@@ -65,6 +67,8 @@ def get_num_episodes(dataset_path: pathlib.Path) -> int:
     Returns:
         The number of episodes in the dataset.
     """
+    if not dataset_path.is_file():
+        return 0
     with h5py.File(dataset_path, "r") as f:
         return len(f["data"])
 

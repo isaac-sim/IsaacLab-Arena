@@ -123,8 +123,9 @@ def rollout_policy(
 
     else:
 
-        # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
-        if hasattr(env.cfg, "metrics") and env.cfg.metrics is not None:
+        # Only compute metrics when at least one metric is registered. An empty list still configures a
+        # dataset path but policy_runner may never create the HDF5 (no recorders / no completed episodes).
+        if getattr(env.cfg, "metrics", None):
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
             metrics = compute_metrics(env)
