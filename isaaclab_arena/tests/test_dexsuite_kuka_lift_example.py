@@ -27,8 +27,11 @@ def test_dexsuite_procedural_assets_registered() -> None:
 
 def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     from isaaclab_arena.assets.asset_registry import AssetRegistry
-    from isaaclab_arena.metrics.dexsuite_lift_success_rate import DexsuiteLiftSuccessRateMetric
-    from isaaclab_arena.tasks.dexsuite_kuka_allegro_lift_task import DexsuiteKukaAllegroLiftTask
+    from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+    from isaaclab_arena.tasks.dexsuite_kuka_allegro_lift_task import (
+        ArenaDexsuiteKukaLiftTerminationsCfg,
+        DexsuiteKukaAllegroLiftTask,
+    )
     from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
 
     reg = AssetRegistry()
@@ -43,5 +46,8 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     assert task._rewards_cfg.success.params.get("rot_std") is None
     metrics = task.get_metrics()
     assert len(metrics) == 1
-    assert isinstance(metrics[0], DexsuiteLiftSuccessRateMetric)
-    assert metrics[0].recorder_term_name == "dexsuite_lift_success"
+    assert isinstance(metrics[0], SuccessRateMetric)
+    assert metrics[0].recorder_term_name == "success"
+    term = task._terminations_cfg  # noqa: SLF001
+    assert isinstance(term, ArenaDexsuiteKukaLiftTerminationsCfg)
+    assert hasattr(term, "success")
