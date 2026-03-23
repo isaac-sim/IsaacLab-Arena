@@ -28,6 +28,7 @@ Download the pre-recorded human demonstrations:
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_annotated.hdf5 \
        --repo-type dataset \
+       --revision arena_v0.1_lab_v2.3 \
        --local-dir $DATASET_DIR
 
 
