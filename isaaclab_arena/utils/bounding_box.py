@@ -9,57 +9,87 @@ This module provides functions for:
 - Computing bounding boxes from USD assets
 - Calculating placement poses based on semantic relationships (e.g., "on_top_of")
 - Supporting randomized placement with specified constraints
+- AxisAlignedBoundingBox with always-tensor storage supporting single (N=1) and batched (N>1) modes
 """
 
 import torch
-from dataclasses import dataclass
 
 from isaaclab_arena.utils.pose import Pose
 
 
-@dataclass
 class AxisAlignedBoundingBox:
-    """Axis-aligned bounding box storing local extents. Use get_corners_at(pos) for world-space corners."""
+    """Axis-aligned bounding box storing local extents. Use get_corners_at(pos) for world-space corners.
 
-    min_point: tuple[float, float, float]
-    """Local minimum extent (x, y, z) relative to object origin."""
+    Stores min/max extents as (N, 3) tensors where N is the number of environments.
+    Properties return tuples/floats when N=1 and tensors when N>1.
+    Constructor accepts tuples, 1D tensors, or (N, 3) tensors.
+    """
 
-    max_point: tuple[float, float, float]
-    """Local maximum extent (x, y, z) relative to object origin."""
+    def __init__(
+        self,
+        min_point: tuple[float, float, float] | torch.Tensor,
+        max_point: tuple[float, float, float] | torch.Tensor,
+    ):
+        self._min_point = self._to_batched_tensor(min_point)
+        self._max_point = self._to_batched_tensor(max_point)
+        assert self._min_point.shape == self._max_point.shape
+        assert self._min_point.shape[-1] == 3
 
-    def __post_init__(self):
-        assert isinstance(self.min_point, tuple)
-        assert isinstance(self.max_point, tuple)
-        assert len(self.min_point) == 3
-        assert len(self.max_point) == 3
+    @staticmethod
+    def _to_batched_tensor(v: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:
+        """Convert tuple, 1-D tensor, or (N, 3) tensor to (N, 3) float32 tensor."""
+        if isinstance(v, tuple):
+            return torch.tensor([v], dtype=torch.float32)
+        if v.dim() == 1:
+            return v.unsqueeze(0).float()
+        return v.float()
+
+    def _format_output(self, t: torch.Tensor):
+        """Return tuple when N=1, tensor when N>1."""
+        if self._min_point.shape[0] == 1:
+            return tuple(t[0].tolist())
+        return t
+
+    def _format_scalar(self, t: torch.Tensor):
+        """Return float when N=1, tensor when N>1."""
+        if self._min_point.shape[0] == 1:
+            return t.item()
+        return t
 
     @property
-    def size(self) -> tuple[float, float, float]:
+    def min_point(self) -> tuple[float, float, float] | torch.Tensor:
+        """Local minimum extent (x, y, z) relative to object origin."""
+        return self._format_output(self._min_point)
+
+    @property
+    def max_point(self) -> tuple[float, float, float] | torch.Tensor:
+        """Local maximum extent (x, y, z) relative to object origin."""
+        return self._format_output(self._max_point)
+
+    @property
+    def num_envs(self) -> int:
+        """Number of environments (leading dimension N)."""
+        return self._min_point.shape[0]
+
+    @property
+    def size(self) -> tuple[float, float, float] | torch.Tensor:
         """Returns the size (width, depth, height) of the bounding box."""
-        return (
-            self.max_point[0] - self.min_point[0],
-            self.max_point[1] - self.min_point[1],
-            self.max_point[2] - self.min_point[2],
-        )
+        return self._format_output(self._max_point - self._min_point)
 
     @property
-    def center(self) -> tuple[float, float, float]:
+    def center(self) -> tuple[float, float, float] | torch.Tensor:
         """Returns the center point of the bounding box."""
-        return (
-            (self.min_point[0] + self.max_point[0]) / 2.0,
-            (self.min_point[1] + self.max_point[1]) / 2.0,
-            (self.min_point[2] + self.max_point[2]) / 2.0,
-        )
+        return self._format_output((self._min_point + self._max_point) * 0.5)
 
     @property
-    def top_surface_z(self) -> float:
+    def top_surface_z(self) -> float | torch.Tensor:
         """Returns the z-coordinate of the top surface."""
-        return self.max_point[2]
+        return self._format_scalar(self._max_point[:, 2])
 
     @property
-    def bottom_surface_z(self) -> float:
+    def bottom_surface_z(self) -> float | torch.Tensor:
         """Returns the z-coordinate of the bottom surface."""
-        return self.min_point[2]
+        return self._format_scalar(self._min_point[:, 2])
 
     def get_corners_at(self, pos: torch.Tensor | None = None) -> torch.Tensor:
         """Get 8 corners of this bounding box, optionally offset by position.
@@ -69,25 +99,32 @@ class AxisAlignedBoundingBox:
                  If None, returns corners in local/object frame.
 
         Returns:
-            Tensor of shape (8, 3) with corners ordered: bottom 4, then top 4.
+            Tensor of shape (8, 3) for N=1 or (N, 8, 3) for N>1,
+            with corners ordered: bottom 4, then top 4.
         """
-        if pos is None:
-            # Local corners directly from min_point/max_point
-            min_pt, max_pt = self.min_point, self.max_point
-            return torch.tensor([
-                [min_pt[0], min_pt[1], min_pt[2]],  # Bottom-front-left
-                [max_pt[0], min_pt[1], min_pt[2]],  # Bottom-front-right
-                [max_pt[0], max_pt[1], min_pt[2]],  # Bottom-back-right
-                [min_pt[0], max_pt[1], min_pt[2]],  # Bottom-back-left
-                [min_pt[0], min_pt[1], max_pt[2]],  # Top-front-left
-                [max_pt[0], min_pt[1], max_pt[2]],  # Top-front-right
-                [max_pt[0], max_pt[1], max_pt[2]],  # Top-back-right
-                [min_pt[0], max_pt[1], max_pt[2]],  # Top-back-left
-            ])
-        else:
-            return self.get_corners_at(pos=None) + pos
+        mn, mx = self._min_point, self._max_point
+        corners = torch.stack(
+            [
+                torch.stack([mn[:, 0], mn[:, 1], mn[:, 2]], dim=1),
+                torch.stack([mx[:, 0], mn[:, 1], mn[:, 2]], dim=1),
+                torch.stack([mx[:, 0], mx[:, 1], mn[:, 2]], dim=1),
+                torch.stack([mn[:, 0], mx[:, 1], mn[:, 2]], dim=1),
+                torch.stack([mn[:, 0], mn[:, 1], mx[:, 2]], dim=1),
+                torch.stack([mx[:, 0], mn[:, 1], mx[:, 2]], dim=1),
+                torch.stack([mx[:, 0], mx[:, 1], mx[:, 2]], dim=1),
+                torch.stack([mn[:, 0], mx[:, 1], mx[:, 2]], dim=1),
+            ],
+            dim=1,
+        )
+        if pos is not None:
+            if pos.dim() == 1:
+                pos = pos.unsqueeze(0)
+            corners = corners + pos.unsqueeze(1)
+        if self._min_point.shape[0] == 1:
+            return corners.squeeze(0)
+        return corners
 
-    def scaled(self, scale: tuple[float, float, float]) -> "AxisAlignedBoundingBox":
+    def scaled(self, scale: tuple[float, float, float] | torch.Tensor) -> "AxisAlignedBoundingBox":
         """Return a new bounding box with scale applied.
 
         Args:
@@ -96,20 +133,10 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox with scaled dimensions.
         """
-        return AxisAlignedBoundingBox(
-            min_point=(
-                self.min_point[0] * scale[0],
-                self.min_point[1] * scale[1],
-                self.min_point[2] * scale[2],
-            ),
-            max_point=(
-                self.max_point[0] * scale[0],
-                self.max_point[1] * scale[1],
-                self.max_point[2] * scale[2],
-            ),
-        )
+        s = self._to_batched_tensor(scale)
+        return AxisAlignedBoundingBox(min_point=self._min_point * s, max_point=self._max_point * s)
 
-    def translated(self, offset: tuple[float, float, float]) -> "AxisAlignedBoundingBox":
+    def translated(self, offset: tuple[float, float, float] | torch.Tensor) -> "AxisAlignedBoundingBox":
         """Return a new bounding box translated by an offset.
 
         Args:
@@ -118,18 +145,8 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox with translated position.
         """
-        return AxisAlignedBoundingBox(
-            min_point=(
-                self.min_point[0] + offset[0],
-                self.min_point[1] + offset[1],
-                self.min_point[2] + offset[2],
-            ),
-            max_point=(
-                self.max_point[0] + offset[0],
-                self.max_point[1] + offset[1],
-                self.max_point[2] + offset[2],
-            ),
-        )
+        o = self._to_batched_tensor(offset)
+        return AxisAlignedBoundingBox(min_point=self._min_point + o, max_point=self._max_point + o)
 
     def centered(self) -> "AxisAlignedBoundingBox":
         """Return a new bounding box centered around the origin.
@@ -140,21 +157,10 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox centered at origin.
         """
-        c = self.center
-        return AxisAlignedBoundingBox(
-            min_point=(
-                self.min_point[0] - c[0],
-                self.min_point[1] - c[1],
-                self.min_point[2] - c[2],
-            ),
-            max_point=(
-                self.max_point[0] - c[0],
-                self.max_point[1] - c[1],
-                self.max_point[2] - c[2],
-            ),
-        )
+        c = (self._min_point + self._max_point) * 0.5
+        return AxisAlignedBoundingBox(min_point=self._min_point - c, max_point=self._max_point - c)
 
-    def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> bool:
+    def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> bool | torch.Tensor:
         """Check if two AABBs overlap in 3D.
 
         Args:
@@ -163,16 +169,19 @@ class AxisAlignedBoundingBox:
                 rejects placements where the gap is smaller than margin.
 
         Returns:
-            True if the volumes overlap (or are closer than margin).
+            bool when both are N=1, or (N,) bool tensor when batched.
         """
-        return (
-            self.max_point[0] + margin > other.min_point[0]
-            and other.max_point[0] + margin > self.min_point[0]
-            and self.max_point[1] + margin > other.min_point[1]
-            and other.max_point[1] + margin > self.min_point[1]
-            and self.max_point[2] + margin > other.min_point[2]
-            and other.max_point[2] + margin > self.min_point[2]
+        result = (
+            (self._max_point[:, 0] + margin > other._min_point[:, 0])
+            & (other._max_point[:, 0] + margin > self._min_point[:, 0])
+            & (self._max_point[:, 1] + margin > other._min_point[:, 1])
+            & (other._max_point[:, 1] + margin > self._min_point[:, 1])
+            & (self._max_point[:, 2] + margin > other._min_point[:, 2])
+            & (other._max_point[:, 2] + margin > self._min_point[:, 2])
         )
+        if result.numel() == 1:
+            return bool(result.item())
+        return result
 
     def rotated_90_around_z(self, quarters: int) -> "AxisAlignedBoundingBox":
         """Rotate AABB by quarters * 90° around Z axis.
@@ -185,29 +194,25 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox rotated around Z axis.
         """
-        min_x, min_y, min_z = self.min_point
-        max_x, max_y, max_z = self.max_point
-
         quarters = quarters % 4
+        min_x, min_y, min_z = self._min_point[:, 0], self._min_point[:, 1], self._min_point[:, 2]
+        max_x, max_y, max_z = self._max_point[:, 0], self._max_point[:, 1], self._max_point[:, 2]
         if quarters == 0:
-            return AxisAlignedBoundingBox(
-                min_point=(min_x, min_y, min_z),
-                max_point=(max_x, max_y, max_z),
-            )
+            return AxisAlignedBoundingBox(min_point=self._min_point.clone(), max_point=self._max_point.clone())
         elif quarters == 1:  # 90° CCW
             return AxisAlignedBoundingBox(
-                min_point=(-max_y, min_x, min_z),
-                max_point=(-min_y, max_x, max_z),
+                min_point=torch.stack([-max_y, min_x, min_z], dim=1),
+                max_point=torch.stack([-min_y, max_x, max_z], dim=1),
             )
         elif quarters == 2:  # 180°
             return AxisAlignedBoundingBox(
-                min_point=(-max_x, -max_y, min_z),
-                max_point=(-min_x, -min_y, max_z),
+                min_point=torch.stack([-max_x, -max_y, min_z], dim=1),
+                max_point=torch.stack([-min_x, -min_y, max_z], dim=1),
             )
         else:  # 270° CCW / -90° (quarters == 3)
             return AxisAlignedBoundingBox(
-                min_point=(min_y, -max_x, min_z),
-                max_point=(max_y, -min_x, max_z),
+                min_point=torch.stack([min_y, -max_x, min_z], dim=1),
+                max_point=torch.stack([max_y, -min_x, max_z], dim=1),
             )
 
 
