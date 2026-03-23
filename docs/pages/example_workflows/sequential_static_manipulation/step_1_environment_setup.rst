@@ -378,6 +378,7 @@ Replay the downloaded dataset to verify the environment setup:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge_annotated.hdf5" \

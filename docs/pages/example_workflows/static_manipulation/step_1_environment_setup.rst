@@ -152,6 +152,7 @@ Replay the downloaded dataset to verify the environment setup:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \
