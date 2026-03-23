@@ -27,8 +27,8 @@ def test_dexsuite_procedural_assets_registered() -> None:
 
 def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.metrics.dexsuite_lift_success_rate import DexsuiteLiftSuccessRateMetric
     from isaaclab_arena.tasks.dexsuite_kuka_allegro_lift_task import DexsuiteKukaAllegroLiftTask
-
     from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
 
     reg = AssetRegistry()
@@ -41,4 +41,7 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     assert task._rewards_cfg.orientation_tracking is None
     assert task._commands_cfg.object_pose.position_only is True
     assert task._rewards_cfg.success.params.get("rot_std") is None
-    assert task.get_metrics() == []
+    metrics = task.get_metrics()
+    assert len(metrics) == 1
+    assert isinstance(metrics[0], DexsuiteLiftSuccessRateMetric)
+    assert metrics[0].recorder_term_name == "dexsuite_lift_success"

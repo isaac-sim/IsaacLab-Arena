@@ -37,6 +37,7 @@ from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexs
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.metrics.dexsuite_lift_success_rate import DexsuiteLiftSuccessRateMetric
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
 
@@ -127,8 +128,9 @@ class DexsuiteKukaAllegroLiftTask(LiftObjectTask):
         return self._curriculum_cfg
 
     def get_metrics(self) -> list[MetricBase]:
-        # Dexsuite uses reward-term success, not a ``success`` termination; skip SuccessRate recorder.
-        return []
+        # Dexsuite success is sticky state on the ``success`` reward term, not a termination; see
+        # :class:`~isaaclab_arena.metrics.dexsuite_lift_success_rate.DexsuiteLiftSuccessRateMetric`.
+        return [DexsuiteLiftSuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         # Reuse LiftObjectTask's look-at-object framing (same offset as generic lift examples).
