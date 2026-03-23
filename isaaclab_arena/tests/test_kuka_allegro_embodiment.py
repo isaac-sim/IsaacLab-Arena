@@ -39,6 +39,8 @@ def test_embodiment_default_action_and_observation() -> None:
     assert emb.physics_preset == "physx"
     assert emb.enable_cameras is False
     assert emb.duo_cameras is False
+    assert emb.concatenate_observation_terms is True
+    assert emb.observation_config.policy.concatenate_terms is True
     assert emb.action_config.action.scale == 0.1
     assert emb.action_config.action.joint_names == [".*"]
     assert emb.action_config.action.asset_name == "robot"
