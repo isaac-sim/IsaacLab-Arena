@@ -96,8 +96,29 @@ def test_combine_configclasses_with_post_init():
     assert CombinedCfg().c == 4
 
 
+def test_combine_configclass_instances_preserves_default_factory_nested_config():
+    """Merged classes must not assign raw ``default_factory`` callables as field defaults (see ``get_field_info``)."""
+    from isaaclab.utils import configclass
+
+    from isaaclab_arena.utils.configclass import combine_configclass_instances
+
+    @configclass
+    class Inner:
+        x: int = 0
+
+    @configclass
+    class Outer:
+        inner: Inner = Inner()
+
+    merged = combine_configclass_instances("MergedOuter", Outer())
+    assert not callable(merged.inner)
+    assert type(merged.inner).__name__ == "Inner"
+    assert merged.inner.x == 0
+
+
 if __name__ == "__main__":
     test_combine_configclasses_with_multiple_inheritance()
     test_combine_configclasses_with_inheritance()
     test_combine_configclasses_with_post_init()
+    test_combine_configclass_instances_preserves_default_factory_nested_config()
 
