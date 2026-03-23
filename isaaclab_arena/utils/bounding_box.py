@@ -36,25 +36,25 @@ class AxisAlignedBoundingBox:
         assert self._min_point.shape[-1] == 3
 
     @staticmethod
-    def _to_batched_tensor(v: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:
+    def _to_batched_tensor(value: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:
         """Convert tuple, 1-D tensor, or (N, 3) tensor to (N, 3) float32 tensor."""
-        if isinstance(v, tuple):
-            return torch.tensor([v], dtype=torch.float32)
-        if v.dim() == 1:
-            return v.unsqueeze(0).float()
-        return v.float()
+        if isinstance(value, tuple):
+            return torch.tensor([value], dtype=torch.float32)
+        if value.dim() == 1:
+            return value.unsqueeze(0).float()
+        return value.float()
 
-    def _format_output(self, t: torch.Tensor):
+    def _format_output(self, tensor: torch.Tensor):
         """Return tuple when N=1, tensor when N>1."""
         if self._min_point.shape[0] == 1:
-            return tuple(t[0].tolist())
-        return t
+            return tuple(tensor[0].tolist())
+        return tensor
 
-    def _format_scalar(self, t: torch.Tensor):
+    def _format_scalar(self, tensor: torch.Tensor):
         """Return float when N=1, tensor when N>1."""
         if self._min_point.shape[0] == 1:
-            return t.item()
-        return t
+            return tensor.item()
+        return tensor
 
     @property
     def min_point(self) -> tuple[float, float, float] | torch.Tensor:
@@ -102,17 +102,17 @@ class AxisAlignedBoundingBox:
             Tensor of shape (8, 3) for N=1 or (N, 8, 3) for N>1,
             with corners ordered: bottom 4, then top 4.
         """
-        mn, mx = self._min_point, self._max_point
+        min_pt, max_pt = self._min_point, self._max_point
         corners = torch.stack(
             [
-                torch.stack([mn[:, 0], mn[:, 1], mn[:, 2]], dim=1),
-                torch.stack([mx[:, 0], mn[:, 1], mn[:, 2]], dim=1),
-                torch.stack([mx[:, 0], mx[:, 1], mn[:, 2]], dim=1),
-                torch.stack([mn[:, 0], mx[:, 1], mn[:, 2]], dim=1),
-                torch.stack([mn[:, 0], mn[:, 1], mx[:, 2]], dim=1),
-                torch.stack([mx[:, 0], mn[:, 1], mx[:, 2]], dim=1),
-                torch.stack([mx[:, 0], mx[:, 1], mx[:, 2]], dim=1),
-                torch.stack([mn[:, 0], mx[:, 1], mx[:, 2]], dim=1),
+                torch.stack([min_pt[:, 0], min_pt[:, 1], min_pt[:, 2]], dim=1),  # Bottom-front-left
+                torch.stack([max_pt[:, 0], min_pt[:, 1], min_pt[:, 2]], dim=1),  # Bottom-front-right
+                torch.stack([max_pt[:, 0], max_pt[:, 1], min_pt[:, 2]], dim=1),  # Bottom-back-right
+                torch.stack([min_pt[:, 0], max_pt[:, 1], min_pt[:, 2]], dim=1),  # Bottom-back-left
+                torch.stack([min_pt[:, 0], min_pt[:, 1], max_pt[:, 2]], dim=1),  # Top-front-left
+                torch.stack([max_pt[:, 0], min_pt[:, 1], max_pt[:, 2]], dim=1),  # Top-front-right
+                torch.stack([max_pt[:, 0], max_pt[:, 1], max_pt[:, 2]], dim=1),  # Top-back-right
+                torch.stack([min_pt[:, 0], max_pt[:, 1], max_pt[:, 2]], dim=1),  # Top-back-left
             ],
             dim=1,
         )
@@ -133,8 +133,8 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox with scaled dimensions.
         """
-        s = self._to_batched_tensor(scale)
-        return AxisAlignedBoundingBox(min_point=self._min_point * s, max_point=self._max_point * s)
+        scale = self._to_batched_tensor(scale)
+        return AxisAlignedBoundingBox(min_point=self._min_point * scale, max_point=self._max_point * scale)
 
     def translated(self, offset: tuple[float, float, float] | torch.Tensor) -> "AxisAlignedBoundingBox":
         """Return a new bounding box translated by an offset.
@@ -145,8 +145,8 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox with translated position.
         """
-        o = self._to_batched_tensor(offset)
-        return AxisAlignedBoundingBox(min_point=self._min_point + o, max_point=self._max_point + o)
+        offset = self._to_batched_tensor(offset)
+        return AxisAlignedBoundingBox(min_point=self._min_point + offset, max_point=self._max_point + offset)
 
     def centered(self) -> "AxisAlignedBoundingBox":
         """Return a new bounding box centered around the origin.
@@ -157,8 +157,8 @@ class AxisAlignedBoundingBox:
         Returns:
             New AxisAlignedBoundingBox centered at origin.
         """
-        c = (self._min_point + self._max_point) * 0.5
-        return AxisAlignedBoundingBox(min_point=self._min_point - c, max_point=self._max_point - c)
+        center = (self._min_point + self._max_point) * 0.5
+        return AxisAlignedBoundingBox(min_point=self._min_point - center, max_point=self._max_point - center)
 
     def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> bool | torch.Tensor:
         """Check if two AABBs overlap in 3D.
