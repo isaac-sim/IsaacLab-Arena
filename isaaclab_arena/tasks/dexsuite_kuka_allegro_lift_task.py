@@ -5,14 +5,23 @@
 
 """Dexsuite Kuka Allegro **lift** MDP: commands, rewards, success signal, terminations, curriculum.
 
-Mirrors :class:`isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg.DexsuiteKukaAllegroLiftEnvCfg`
-(Kuka-specific reward params + lift: no orientation reward / position-only goal / ``success`` without orientation).
+Extends :class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask` so the task holds the same
+``lift_object`` / ``background_scene`` :class:`~isaaclab_arena.assets.asset.Asset` references as
+other lift examples (viewer look-at, future IL/mimic hooks). The **MDP** still mirrors Isaac Lab
+:class:`~isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg.DexsuiteKukaAllegroLiftEnvCfg`
+(Dexsuite commands/rewards/terminations/curriculum), not Arena's generic
+:class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectRewardCfg` stack.
+
+After construction, parent's IL-style :attr:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask.termination_cfg`
+is replaced with Dexsuite :class:`TerminationsCfg`; :meth:`get_commands_cfg` / :meth:`get_rewards_cfg` /
+:meth:`get_curriculum_cfg` return Dexsuite configs.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
@@ -25,10 +34,11 @@ from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexs
     THUMB_SENSOR,
 )
 
+from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
 
 
 @configclass
@@ -81,22 +91,31 @@ def _build_dexsuite_kuka_lift_cfgs() -> tuple[Any, Any, Any, Any]:
     return commands, rewards, terminations, curriculum
 
 
-class DexsuiteKukaAllegroLiftTask(TaskBase):
-    """Lift task matching Isaac Lab ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` (state observations)."""
+class DexsuiteKukaAllegroLiftTask(LiftObjectTask):
+    """Lift task matching Isaac Lab ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` (state observations).
 
-    def __init__(self) -> None:
-        super().__init__(episode_length_s=6.0, task_description="Dexsuite Kuka Allegro lift (Arena, Newton-ready scene).")
+    Reuses :class:`LiftObjectTask` for ``lift_object`` / ``background_scene`` and the default
+    look-at-object viewer. MDP pieces come from Dexsuite (not :class:`LiftObjectTaskRL`).
+    """
+
+    def __init__(self, lift_object: Asset, background_scene: Asset) -> None:
+        # Goal fields from LiftObjectTask are unused for Dexsuite terminations but keep parent API consistent.
+        super().__init__(
+            lift_object=lift_object,
+            background_scene=background_scene,
+            episode_length_s=6.0,
+            goal_position_delta_xyz=(0.0, 0.0, 0.3),
+            goal_position_tolerance=0.05,
+        )
+        self.task_description = "Dexsuite Kuka Allegro lift (Arena, Newton-ready scene)."
+
         commands, rewards, terminations, curriculum = _build_dexsuite_kuka_lift_cfgs()
         self._commands_cfg = commands
         self._rewards_cfg = rewards
         self._terminations_cfg = terminations
         self._curriculum_cfg = curriculum
-        self._viewer_cfg = ViewerCfg(eye=(-2.25, 0.0, 0.75), lookat=(0.0, 0.0, 0.45), origin_type="env")
-
-    def get_scene_cfg(self) -> Any:
-        # Scene layout comes from Arena assets; ``replicate_physics`` is applied in the Kuka Dexsuite embodiment's
-        # :meth:`modify_env_cfg` (not on the embodiment scene cfg, to avoid merging clashes with InteractiveSceneCfg).
-        return None
+        # Replace parent's IL terminations with Dexsuite MDP terminations.
+        self.termination_cfg = self._terminations_cfg
 
     def get_commands_cfg(self) -> Any:
         return self._commands_cfg
@@ -104,21 +123,21 @@ class DexsuiteKukaAllegroLiftTask(TaskBase):
     def get_rewards_cfg(self) -> Any:
         return self._rewards_cfg
 
-    def get_termination_cfg(self) -> Any:
-        return self._terminations_cfg
-
     def get_curriculum_cfg(self) -> Any:
         return self._curriculum_cfg
-
-    def get_events_cfg(self) -> Any:
-        return None
 
     def get_metrics(self) -> list[MetricBase]:
         # Dexsuite uses reward-term success, not a ``success`` termination; skip SuccessRate recorder.
         return []
 
     def get_viewer_cfg(self) -> ViewerCfg:
-        return self._viewer_cfg
+        # Reuse LiftObjectTask's look-at-object framing (same offset as generic lift examples).
+        from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+
+        return get_viewer_cfg_look_at_object(
+            lookat_object=self.lift_object,
+            offset=np.array([-1.5, -1.5, 1.5]),
+        )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
         raise NotImplementedError("Dexsuite Kuka Allegro lift mimic is not configured in Arena yet.")

@@ -43,6 +43,9 @@ class DexsuiteManipTable(Object):
 
     name = "dexsuite_manip_table"
     tags = ["background", "dexsuite"]
+    # ``LiftObjectTask.make_il_termination_cfg`` reads this before Dexsuite tasks replace terminations.
+    # Matches Dexsuite ``object_out_of_bound`` z lower bound (see ``dexsuite_env_cfg.TerminationsCfg``).
+    object_min_z: float = 0.0
 
     def __init__(
         self,
