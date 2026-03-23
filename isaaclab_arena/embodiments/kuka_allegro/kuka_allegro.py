@@ -158,9 +158,11 @@ class KukaAllegroDexsuiteEmbodiment(EmbodimentBase):
         enable_cameras: bool = False,
         duo_cameras: bool = False,
         initial_pose: Pose | None = None,
-        concatenate_observation_terms: bool = False,
+        concatenate_observation_terms: bool = True,
         arm_mode: ArmMode | None = None,
     ):
+        # Default ``True``: Dexsuite ``PolicyCfg`` / ``ProprioObsCfg`` use ``concatenate_terms=True`` in Isaac Lab;
+        # RSL-RL MLPs require flat 1D-per-env vectors. ``False`` yields invalid shapes (e.g. ``torch.Size([1])``).
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.physics_preset = physics_preset
         self.duo_cameras = duo_cameras
