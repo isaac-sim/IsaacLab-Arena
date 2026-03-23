@@ -5,11 +5,11 @@
 
 """Tests for AxisAlignedBoundingBox with batch dimension support."""
 
-import pytest
 import torch
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+import pytest
 
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 # =============================================================================
 # Single-env backward-compatibility tests (properties return tuples / floats)
