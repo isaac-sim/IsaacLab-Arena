@@ -34,6 +34,7 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
          nvidia/Arena-G1-Loco-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_annotated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 To start the annotation process, run the following command:
@@ -73,6 +74,7 @@ This step can be skipped by downloading the pre-generated dataset from Hugging F
          nvidia/Arena-G1-Loco-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 Generate the dataset:

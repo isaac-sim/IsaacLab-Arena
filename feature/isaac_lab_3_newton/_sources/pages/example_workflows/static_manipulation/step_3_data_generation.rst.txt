@@ -45,7 +45,7 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_annotated.hdf5 \
          --repo-type dataset \
-         --revision refs/pr/2 \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 To start the annotation process run the following command:
@@ -90,6 +90,7 @@ This step can be skipped by downloading the pre-generated dataset from Hugging F
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 
