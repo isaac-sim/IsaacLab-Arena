@@ -284,9 +284,11 @@ class ObjectPlacer:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
                 # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
-                parent_top_z = parent_world.max_point[2]
+                parent_local_top_z: float = parent.get_bounding_box().max_point[2]
+                child_local_bottom_z: float = obj.get_bounding_box().min_point[2]
+                parent_top_z = parent_local_top_z + positions[parent][2]
                 clearance_m = rel.clearance_m
-                child_bottom_z = child_world.min_point[2]
+                child_bottom_z = child_local_bottom_z + positions[obj][2]
                 eps_z = self.params.on_relation_z_tolerance_m
                 if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
                     if self.params.verbose:
