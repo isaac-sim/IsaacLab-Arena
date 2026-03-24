@@ -35,6 +35,9 @@ class AxisAlignedBoundingBox:
         assert self._min_point.shape == self._max_point.shape
         assert self._min_point.shape[-1] == 3
 
+    def __repr__(self) -> str:
+        return f"AxisAlignedBoundingBox(min_point={self._min_point}, max_point={self._max_point})"
+
     @staticmethod
     def _to_batched_tensor(value: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:
         """Convert tuple, 1-D tensor, or (N, 3) tensor to (N, 3) float32 tensor."""
