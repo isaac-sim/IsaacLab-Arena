@@ -9,7 +9,6 @@ import torch
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-
 # =============================================================================
 # Single-env tests (N=1, properties return (1, 3) or (1,) tensors)
 # =============================================================================
