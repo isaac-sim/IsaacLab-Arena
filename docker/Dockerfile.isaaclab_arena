@@ -90,7 +90,10 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 # without touching system Python packages.
 # PIPX_BIN_DIR=/usr/local/bin puts hf on PATH for all users.
 RUN apt-get install -y pipx && \
-    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install "huggingface-hub[cli]"
+    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin \
+    pipx install \
+    "huggingface-hub[cli]" \
+    pre-commit
 
 ###############################
 # Install GR00T and CUDA 12.8 #
