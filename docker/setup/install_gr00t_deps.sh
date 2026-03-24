@@ -43,32 +43,39 @@ echo "[ISAACSIM] TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 echo "Installing system-level media libraries..."
 $SUDO apt-get update && $SUDO apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Install torch first (force reinstall all dependencies to avoid prebundle version conflicts)
-# Torch 2.7.0 requested by GR00T is installed in isaacsim, skip here.
-# Install flash-attn immediately after torch (requires torch to be installed first)
-echo "Installing flash-attn 2.7.4.post1..." && \
-# /isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1 && \
-/isaac-sim/python.sh -m pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.7.4%2Bcu128torch2.10-cp312-cp312-linux_x86_64.whl
-# Install GR00T package without dependencies. GR00T pyproject.toml specifies python 3.10, which conflicts with IsaacSim's python 3.11.
-# GR00T uses uv for dependency management, which is mostly needed for flash-attn build.
-echo "Installing Isaac-GR00T package (no deps)..." && \
-/isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/ && \
-# Install GR00T main dependencies manually
-echo "Installing GR00T main dependencies..."
-/isaac-sim/python.sh -m pip install --no-build-isolation --use-pep517 \
-    "pyarrow>=14,<18" \
-    "av==12.3.0" \
-    "aiortc==1.10.1" && \
-
-  # Install all other GR00T deps into a separate target so we do NOT overwrite Isaac Sim's
+# Install all other GR00T deps into a separate target so we do NOT overwrite Isaac Sim's
 # pre-bundled packages (numpy, pandas, opencv, onnx, gymnasium, etc. in pip_prebundle).
 # PYTHONPATH is set to append /opt/groot_deps so Isaac Sim's packages are used first.
-    # numpy==1.26.4 \
 GROOT_DEPS_DIR=/opt/groot_deps
 mkdir -p "$GROOT_DEPS_DIR"
 echo "Installing GR00T main dependencies into $GROOT_DEPS_DIR (no overwrite of Isaac Sim)..."
 
-/isaac-sim/python.sh -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 \
+# Install torch first (force reinstall all dependencies to avoid prebundle version conflicts)
+# Torch 2.7.0 requested by GR00T is installed in isaacsim, skip here.
+# Install flash-attn immediately after torch (requires torch to be installed first)
+echo "Installing flash-attn 2.7.4.post1..." && \
+
+# if python_cmd is /isaac-sim/python.sh, then use the following command to install flash-attn
+if [ "$PYTHON_CMD" == "/isaac-sim/python.sh" ]; then
+  $PYTHON_CMD -m pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.7.4%2Bcu128torch2.10-cp312-cp312-linux_x86_64.whl
+# Sever is using python 3.10 with torch 2.4
+else
+  $PYTHON_CMD -m pip install --no-build-isolation --use-pep517 flash-attn==2.7.4.post1
+  $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 numpy==1.26.4
+fi
+
+# Install GR00T package without dependencies. GR00T pyproject.toml specifies python 3.10, which conflicts with IsaacSim's python 3.12.
+# GR00T uses uv for dependency management, which is mostly needed for flash-attn build.
+echo "Installing Isaac-GR00T package (no deps)..." && \
+$PYTHON_CMD -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/ && \
+# Install GR00T main dependencies manually
+echo "Installing GR00T main dependencies..."
+$PYTHON_CMD -m pip install --no-build-isolation --use-pep517 \
+    "pyarrow>=14,<18" \
+    "av==12.3.0" \
+    "aiortc==1.10.1" && \
+
+$PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 \
     decord==0.6.0 \
     torchcodec==0.10.0 \
     lmdb==1.7.5 \
@@ -104,13 +111,19 @@ echo "Installing GR00T main dependencies into $GROOT_DEPS_DIR (no overwrite of I
     tyro && \
 
 # Add GR00T deps to sys.path *after* site-packages via .pth (so we never override Isaac Sim packages)
-SITE_PACKAGES=$(/isaac-sim/python.sh -c "import site; print(site.getsitepackages()[0])")
+SITE_PACKAGES=$($PYTHON_CMD -c "import site; print(site.getsitepackages()[0])")
 echo "$GROOT_DEPS_DIR" > "$SITE_PACKAGES/groot_deps.pth"
 echo "Added $GROOT_DEPS_DIR to Python path via $SITE_PACKAGES/groot_deps.pth"
 echo "export GROOT_DEPS_DIR=$GROOT_DEPS_DIR" >> /etc/bash.bashrc
 
-# Ensure pytorch torchrun script is in PATH
-echo "Ensuring pytorch torchrun script is in PATH..."
-echo "export PATH=/isaac-sim/kit/python/bin:\$PATH" >> /etc/bash.bashrc
+##########################
+# Environment finalization
+##########################
+
+if [[ "$USE_SERVER_ENV" -eq 0 ]]; then
+  # Ensure pytorch torchrun script is in PATH
+  echo "Ensuring pytorch torchrun script is in PATH..."
+  echo "export PATH=/isaac-sim/kit/python/bin:\$PATH" >> /etc/bash.bashrc
+fi
 
 echo "GR00T dependencies installation completed successfully"

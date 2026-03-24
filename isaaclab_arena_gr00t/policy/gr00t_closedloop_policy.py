@@ -12,11 +12,6 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
-# Prepend GR00T deps when loaded without re-exec (e.g. eval_runner, tests before conftest re-exec).
-_GROOT_DEPS_DIR = os.environ.get("GROOT_DEPS_DIR")
-if _GROOT_DEPS_DIR and _GROOT_DEPS_DIR not in sys.path:
-    sys.path.insert(0, _GROOT_DEPS_DIR)
-
 import gymnasium as gym
 import torch
 
