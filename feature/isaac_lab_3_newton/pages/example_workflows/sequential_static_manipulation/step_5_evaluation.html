@@ -697,46 +697,6 @@ success_rate                       0.9000
 the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
 This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.</p>
 </section>
-<section id="step-5-remote-policy-evaluation">
-<h2>Step 5: Remote Policy Evaluation<a class="headerlink" href="#step-5-remote-policy-evaluation" title="Link to this heading">#</a></h2>
-<p>The same task can also be evaluated using a remote policy running in a
-separate process, using the generic remote policy interface described
-in <a class="reference internal" href="../../concepts/concept_remote_policies_design.html"><span class="doc">Remote Policies Design</span></a>.</p>
-<p>Start the remote policy server (for example, a GR00T-based policy) in a
-separate terminal using the provided helper script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>docker/run_gr00t_server.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="c1"># include model directory mount via -m flag, e.g. -m /models/</span>
-<span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml
-</pre></div>
-</div>
-<p>Then, instead of running the closed-loop policy directly inside the
-Arena process, connect from the evaluation script using a client-side
-remote policy:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_kill_on_exit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="c1"># If you want to evaluate on a single object, you can specify it here</span>
-<span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
-<span class="w">  </span><span class="c1"># If you want to evaluate among multiple objects following heterogeneous evaluation, you can specify it here</span>
-<span class="w">  </span><span class="c1"># --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab</span>
-</pre></div>
-</div>
-<p>With this setup, the environment and evaluation run in the base container,
-and GR00T inference runs in a separate server process, connected via the
-remote policy interface. The client-side policy depends only on Isaac Lab
-Arena; the base container does not need GR00T or its Python dependencies.</p>
-</section>
 </section>
 
 
@@ -792,7 +752,6 @@ Arena; the base container does not need GR00T or its Python dependencies.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-environments-evaluation">Step 2: Run Parallel environments Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-multi-object-heterogeneous-evaluation">Step 3: Multi-object Heterogeneous Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-sequential-batch-evaluation">Step 4: Sequential Batch Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-remote-policy-evaluation">Step 5: Remote Policy Evaluation</a></li>
 </ul>
   </nav></div>
 
