@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Environment Setup and Validation &#8212; isaaclab_arena 0.1</title>
+    <title>Environment Setup and Validation &#8212; isaaclab_arena 0.2</title>
   
   
   
@@ -126,11 +126,11 @@
       
     
     
-    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 0.2</p>
   
 </a></div>
     
@@ -227,11 +227,11 @@
       
     
     
-    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.1 - Home"/>
-    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.1 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
   
   
-    <p class="title logo__title">isaaclab_arena 0.1</p>
+    <p class="title logo__title">isaaclab_arena 0.2</p>
   
 </a>
 
@@ -524,7 +524,7 @@ and validate that we can load it in Isaac Lab.</p>
               <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">MIMIC_DATAGEN_CONFIG_DEFAULTS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                   <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datagen_config</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
-      <span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.57469</span><span class="p">,</span> <span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">))</span>
+      <span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">,</span> <span class="mf">0.57469</span><span class="p">))</span>
       <span class="c1"># Get assets</span>
       <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
           <span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span> <span class="n">camera_offset</span><span class="o">=</span><span class="n">camera_offset</span>
@@ -552,7 +552,7 @@ and validate that we can load it in Isaac Lab.</p>
       <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
           <span class="n">Pose</span><span class="p">(</span>
               <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">3.943</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.995</span><span class="p">),</span>
-              <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
+              <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
           <span class="p">)</span>
       <span class="p">)</span>
 
@@ -637,7 +637,7 @@ and validate that we can load it in Isaac Lab.</p>
 <section id="step-by-step-breakdown">
 <h2>Step-by-Step Breakdown<a class="headerlink" href="#step-by-step-breakdown" title="Link to this heading">#</a></h2>
 <p><strong>1. Interact with the Asset and Device Registry</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.57469</span><span class="p">,</span> <span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">,</span> <span class="mf">0.57469</span><span class="p">))</span>
 <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span> <span class="n">camera_offset</span><span class="o">=</span><span class="n">camera_offset</span><span class="p">)</span>
 <span class="n">kitchen_background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;lightwheel_robocasa_kitchen&quot;</span><span class="p">)(</span><span class="n">style_id</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">kitchen_style</span><span class="p">)</span>
 <span class="n">kitchen_counter_top</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
@@ -666,7 +666,7 @@ See <a class="reference internal" href="../../concepts/concept_assets_design.htm
 <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
     <span class="n">Pose</span><span class="p">(</span>
         <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">3.943</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.995</span><span class="p">),</span>
-        <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
+        <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
     <span class="p">)</span>
 <span class="p">)</span>
 

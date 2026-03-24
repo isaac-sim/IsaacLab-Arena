@@ -55,7 +55,7 @@ above with a Franka robot and a cracker box object using the ``isaaclab_arena`` 
        embodiment = asset_registry.get_asset_by_name("franka")()
        cracker_box = asset_registry.get_asset_by_name("cracker_box")()
        cracker_box.set_initial_pose(
-           Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+           Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
        )
 
        # Step 2: Create a scene with the assets
