@@ -42,6 +42,7 @@ pre-generated dataset from Hugging Face as described below.
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.1_lab_v2.3 \
          --local-dir $DATASET_DIR
 
 
@@ -64,6 +65,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-GR1-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
+         --revision arena_v0.1_lab_v2.3 \
          --local-dir $DATASET_DIR/arena_gr1_manipulation_dataset_generated
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.

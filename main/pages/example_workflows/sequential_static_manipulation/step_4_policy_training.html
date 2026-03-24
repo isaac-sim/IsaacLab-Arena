@@ -284,8 +284,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/sequential_static_manipulation/step_4_policy_training.html" >feature/isaac_lab_3_newton</option>
             <option value="step_4_policy_training.html" selected>main</option>
+            <option value="../../../../demos/dli/pages/example_workflows/sequential_static_manipulation/step_4_policy_training.html" >demos/dli</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -452,6 +452,7 @@ hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</sp
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--include<span class="w"> </span><span class="s2">&quot;ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v2.3<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
@@ -474,6 +475,7 @@ hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</sp
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--include<span class="w"> </span><span class="s2">&quot;ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot/*&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v2.3<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
