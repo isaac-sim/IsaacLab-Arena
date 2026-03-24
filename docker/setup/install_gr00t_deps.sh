@@ -75,9 +75,21 @@ $PYTHON_CMD -m pip install --no-build-isolation --use-pep517 \
     "av==12.3.0" \
     "aiortc==1.10.1" && \
 
-$PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 \
+# Step 1: --no-deps ONLY for packages that depend on torch (would otherwise pull a second torch).
+echo "Installing torch-dependent packages (--no-deps to keep Isaac Sim's torch)..."
+$PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-deps --no-build-isolation \
     decord==0.6.0 \
     torchcodec==0.10.0 \
+    timm==1.0.14 \
+    kornia==0.7.4 \
+    accelerate==1.2.1 \
+    peft==0.17.0 \
+    diffusers==0.35.1 \
+    tianshou==0.5.1 && \
+
+# Step 2: Everything else — let pip resolve transitive deps normally.
+echo "Installing remaining GR00T dependencies (with deps)..."
+$PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 \
     lmdb==1.7.5 \
     albumentations==1.4.18 \
     blessings==1.7 \
@@ -86,7 +98,6 @@ $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use
     gymnasium==1.0.0 \
     h5py==3.12.1 \
     imageio==2.34.2 \
-    kornia==0.7.4 \
     matplotlib==3.10.1 \
     numpydantic==1.6.7 \
     omegaconf==2.3.0 \
@@ -95,15 +106,11 @@ $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use
     PyYAML==6.0.2 \
     ray==2.47.0 \
     Requests==2.32.3 \
-    tianshou==0.5.1 \
-    timm==1.0.14 \
     tqdm==4.67.1 \
+    "tokenizers>=0.21,<0.22" \
     transformers==4.51.3 \
-    diffusers==0.35.1 \
     wandb==0.23.0 \
     fastparquet==2024.11.0 \
-    accelerate==1.2.1 \
-    peft==0.17.0 \
     protobuf==3.20.3 \
     onnx==1.17.0 \
     pytest \
