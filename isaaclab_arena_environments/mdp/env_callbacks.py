@@ -42,8 +42,8 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
         The modified environment configuration.
     """
     from isaaclab.sim import SimulationCfg
-    from isaaclab_physx.physics.physx_manager_cfg import PhysxCfg
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
+    from isaaclab_physx.physics.physx_manager_cfg import PhysxCfg
 
     # Simulation settings optimized for assembly tasks
     env_cfg.sim = SimulationCfg(

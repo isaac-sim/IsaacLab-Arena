@@ -53,7 +53,7 @@ Start the session from the **XR** tab in the application window.
 Step 3: Connect from Meta Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For detail instrucitons please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
+For detail instructions please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
 
 A strong wireless connection is essential for a high-quality streaming experience. Refer to the `CloudXR Network Setup <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html>`_ guide for router configuration.
 

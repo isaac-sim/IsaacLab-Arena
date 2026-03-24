@@ -5,8 +5,8 @@
 
 import math
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum

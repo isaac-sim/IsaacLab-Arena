@@ -34,9 +34,7 @@ class TeleopDeviceBase(ABC):
         self.sim_device = sim_device
 
     @abstractmethod
-    def get_device_cfg(
-        self, pipeline_builder: Callable | None = None, embodiment: object | None = None
-    ):
+    def get_device_cfg(self, pipeline_builder: Callable | None = None, embodiment: object | None = None):
         raise NotImplementedError
 
 

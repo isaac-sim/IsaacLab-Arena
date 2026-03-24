@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 

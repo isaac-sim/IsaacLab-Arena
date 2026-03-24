@@ -5,8 +5,8 @@
 
 import numpy as np
 from dataclasses import MISSING
-import warp as wp
 
+import warp as wp
 from isaaclab.envs.manager_based_rl_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass

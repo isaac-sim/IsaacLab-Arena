@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 import torch
-import warp as wp
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as PoseUtils
+import warp as wp
 from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
@@ -33,7 +33,9 @@ def transform_pose_from_world_to_target_frame(
     ), f"Target frame {target_frame_name} not found in asset {asset_cfg.name}"
 
     target_link_pose_w = wp.to_torch(asset.data.body_link_state_w)[:, asset.data.body_names.index(target_link_name), :]
-    target_frame_pose_w = wp.to_torch(asset.data.body_link_state_w)[:, asset.data.body_names.index(target_frame_name), :]
+    target_frame_pose_w = wp.to_torch(asset.data.body_link_state_w)[
+        :, asset.data.body_names.index(target_frame_name), :
+    ]
 
     # Convert to pose matrix
     target_link_position_w = target_link_pose_w[:, :3]

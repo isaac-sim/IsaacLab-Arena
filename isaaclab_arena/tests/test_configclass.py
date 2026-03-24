@@ -100,4 +100,3 @@ if __name__ == "__main__":
     test_combine_configclasses_with_multiple_inheritance()
     test_combine_configclasses_with_inheritance()
     test_combine_configclasses_with_post_init()
-

@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-import warp as wp
 from abc import ABC, abstractmethod
 from enum import Enum
 
+import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
@@ -212,7 +212,9 @@ class ObjectBase(Asset, ABC):
         pose_t_xyz_q_xyzw[:, :3] += env.unwrapped.scene.env_origins[env_ids]
         # Set the pose and velocity
         asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids)
+        asset.write_root_velocity_to_sim(
+            torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
+        )
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"

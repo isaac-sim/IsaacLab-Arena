@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+
 import warp as wp
-from typing import Sequence
 from isaaclab.assets import Articulation
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg

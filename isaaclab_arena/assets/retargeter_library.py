@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
@@ -68,9 +67,7 @@ class G1WbcPinkIsaacTeleopRetargeter(RetargetterBase):
         pass
 
     def get_pipeline_builder(self, embodiment: object) -> Callable:
-        from isaaclab_arena.assets.g1_pink_locomanipulation_pipeline import (
-            _build_g1_pink_locomanipulation_pipeline,
-        )
+        from isaaclab_arena.assets.g1_pink_locomanipulation_pipeline import _build_g1_pink_locomanipulation_pipeline
 
         return _build_g1_pink_locomanipulation_pipeline
 

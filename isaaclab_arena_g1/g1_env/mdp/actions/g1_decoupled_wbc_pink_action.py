@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-import warp as wp
 from collections.abc import Sequence
 from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
-import isaaclab.utils.math as math_utils
+import warp as wp
 from isaaclab.assets.articulation import Articulation
 
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction

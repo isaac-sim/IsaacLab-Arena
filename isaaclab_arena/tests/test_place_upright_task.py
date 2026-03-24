@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import pytest
-
 import gymnasium as gym
 import torch
 import traceback

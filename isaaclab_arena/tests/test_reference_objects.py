@@ -5,7 +5,6 @@
 
 import numpy as np
 import pathlib
-import pytest
 import torch
 import tqdm
 import traceback

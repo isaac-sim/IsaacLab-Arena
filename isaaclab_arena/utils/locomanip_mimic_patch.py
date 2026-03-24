@@ -6,8 +6,8 @@
 import asyncio
 import copy
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.envs import SubTaskConstraintType
 from isaaclab.managers import TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg

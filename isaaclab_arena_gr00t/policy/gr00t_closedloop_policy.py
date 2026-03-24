@@ -7,13 +7,11 @@
 from __future__ import annotations
 
 import argparse
-import os
-import sys
-from dataclasses import dataclass, field
-from typing import Any
-
 import gymnasium as gym
 import torch
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.policy.gr00t_policy import Gr00tPolicy
@@ -21,12 +19,6 @@ from gr00t.policy.gr00t_policy import Gr00tPolicy
 from isaaclab_arena.policy.action_chunking import ActionChunkingState
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
-from isaaclab_arena_gr00t.utils.eagle_config_compat import apply_eagle_config_compat
-from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
-    NUM_BASE_HEIGHT_CMD,
-    NUM_NAVIGATE_CMD,
-    NUM_TORSO_ORIENTATION_RPY_CMD,
-)
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyArgs,
@@ -37,7 +29,12 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     load_gr00t_joint_configs,
     load_gr00t_policy_from_config,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+from isaaclab_arena_gr00t.utils.eagle_config_compat import apply_eagle_config_compat
+from isaaclab_arena_gr00t.utils.io_utils import (
+    create_config_from_yaml,
+    load_gr00t_modality_config_from_file,
+    load_robot_joints_config_from_yaml,
+)
 
 
 @dataclass

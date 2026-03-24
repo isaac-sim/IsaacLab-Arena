@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
@@ -30,5 +30,7 @@ def object_position_in_frame(
     root_frame: RigidObject = env.scene[root_frame_cfg.name]
     object: RigidObject = env.scene[object_cfg.name]
     object_pos_w = wp.to_torch(object.data.root_pos_w)[:, :3]
-    object_pos_b, _ = subtract_frame_transforms(wp.to_torch(root_frame.data.root_pos_w), wp.to_torch(root_frame.data.root_quat_w), object_pos_w)
+    object_pos_b, _ = subtract_frame_transforms(
+        wp.to_torch(root_frame.data.root_pos_w), wp.to_torch(root_frame.data.root_quat_w), object_pos_w
+    )
     return object_pos_b

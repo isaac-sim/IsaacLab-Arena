@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-import warp as wp
 from collections.abc import Sequence
 from dataclasses import MISSING
 
@@ -12,10 +11,9 @@ import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+import warp as wp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab_teleop import XrCfg
-from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 from isaaclab.envs import ManagerBasedRLMimicEnv  # noqa: F401
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -25,6 +23,8 @@ from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+from isaaclab_teleop import XrCfg
+from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 
 import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset

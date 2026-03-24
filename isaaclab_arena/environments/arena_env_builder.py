@@ -165,18 +165,15 @@ class ArenaEnvBuilder:
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
         isaac_teleop_cfg = None
-        teleop_device_cfg = None
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
-            device_cfg = device_registry.get_teleop_device_cfg(
-                self.arena_env.teleop_device, self.arena_env.embodiment
-            )
+            device_cfg = device_registry.get_teleop_device_cfg(self.arena_env.teleop_device, self.arena_env.embodiment)
             from isaaclab_teleop import IsaacTeleopCfg
 
             if isinstance(device_cfg, IsaacTeleopCfg):
                 isaac_teleop_cfg = device_cfg
             else:
-                teleop_device_cfg = device_cfg
+                pass
         metrics = task.get_metrics()
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 

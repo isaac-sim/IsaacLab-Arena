@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import traceback
-
 import gymnasium as gym
 import torch
+import traceback
+
 import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -17,6 +17,7 @@ HEADLESS = True
 TARGET_ORIENTATION_XYZW = (0.0, 0.0, 0.7071, 0.7071)
 TARGET_ORIENTATION_TOLERANCE_RAD = 0.2
 TARGET_Z_RANGE = (0.0, 0.5)
+
 
 def get_test_environment(num_envs: int):
     """Returns a scene which we use for these tests."""

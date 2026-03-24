@@ -1,7 +1,14 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers.
 # SPDX-License-Identifier: Apache-2.0
 
 """Eagle config compat: alias _attn_implementation_autoset and set flash_attention_2 on loaded configs."""
+
+import contextlib
 
 _APPLIED = False
 
@@ -18,10 +25,8 @@ def apply_eagle_config_compat() -> None:
 
     def _compat_getattribute(self, name: str):
         if name == "_attn_implementation_autoset":
-            try:
+            with contextlib.suppress(AttributeError):
                 return _orig_getattribute(self, "_attn_implementation_internal")
-            except AttributeError:
-                pass
         return _orig_getattribute(self, name)
 
     configuration_utils.PretrainedConfig.__getattribute__ = _compat_getattribute

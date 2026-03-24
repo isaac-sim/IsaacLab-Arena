@@ -7,7 +7,6 @@
 import torch
 from collections.abc import Sequence
 from dataclasses import MISSING
-from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -77,7 +76,6 @@ class FrankaEmbodiment(EmbodimentBase):
         self.camera_config = FrankaCameraCfg()
         self.camera_config._is_tiled_camera = is_tiled_camera
         self.camera_config._camera_offset = camera_offset
-
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose

@@ -5,7 +5,6 @@
 
 import os
 import sys
-
 import yaml
 
 import pytest
@@ -263,6 +262,4 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
 
 if __name__ == "__main__":
     # These tests require pytest fixtures, run with: pytest -sv isaaclab_arena_gr00t/tests/test_gr00t_closedloop_policy.py
-    import sys
-
     sys.exit("Run these tests with pytest, not directly.")

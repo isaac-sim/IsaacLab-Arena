@@ -6,6 +6,8 @@
 import os
 import torch
 import tqdm
+import traceback
+
 import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -74,12 +76,12 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                print(f"About to create zero actions")
+                print("About to create zero actions")
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                print(f"About to step the environment")
+                print("About to step the environment")
                 _, _, terminated, _, _ = env.step(actions)
                 # env.step(actions)
-                print(f"Environment stepped")
+                print("Environment stepped")
                 # Get the force on the pick up object.
                 forces_vec.append(wp.to_torch(sensor.data.net_forces_w))
                 force_matrix_vec.append(wp.to_torch(sensor.data.force_matrix_w))

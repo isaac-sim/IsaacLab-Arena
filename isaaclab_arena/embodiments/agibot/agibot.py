@@ -19,7 +19,6 @@ from isaaclab_assets.robots.agibot import AGIBOT_A2D_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.mdp import get_robot_joint_state
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import ee_frame_pose_in_base_frame
 
-from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import FrankaMimicEnv

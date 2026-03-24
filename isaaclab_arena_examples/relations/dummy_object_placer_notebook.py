@@ -257,9 +257,3 @@ table.add_relation(IsAnchor())
 dummy_object_1.add_relation(NoCollision(dummy_object_2))
 dummy_object_1.add_relation(NoCollision(dummy_object_3))
 dummy_object_2.add_relation(NoCollision(dummy_object_3))
-
-
-
-
-
-

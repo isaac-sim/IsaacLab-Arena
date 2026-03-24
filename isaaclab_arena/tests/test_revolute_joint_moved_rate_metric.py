@@ -6,6 +6,7 @@
 import math
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 

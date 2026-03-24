@@ -1,3 +1,8 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2026, The Isaac Lab Arena Project Developers.
 # All rights reserved.
 #
@@ -34,6 +39,7 @@ What each retargeter.connect() does
   Adds three 0s for the torso.
   The reorderer flattens and reorders them into a single 23D action vector.
 """
+
 
 def _build_g1_pink_locomanipulation_pipeline():
     """Build an IsaacTeleop retargeting pipeline for G1 WBC Pink locomanipulation.
@@ -135,12 +141,10 @@ def _build_g1_pink_locomanipulation_pipeline():
         dt=1.0 / 100.0,
     )
     locomotion = LocomotionRootCmdRetargeter(locomotion_cfg, name="locomotion")
-    connected_locomotion = locomotion.connect(
-        {
-            "controller_left": controllers.output(ControllersSource.LEFT),
-            "controller_right": controllers.output(ControllersSource.RIGHT),
-        }
-    )
+    connected_locomotion = locomotion.connect({
+        "controller_left": controllers.output(ControllersSource.LEFT),
+        "controller_right": controllers.output(ControllersSource.RIGHT),
+    })
 
     # -------------------------------------------------------------------------
     # TensorReorderer: 23D for G1 WBC Pink [20D above + torso_rpy(3) from ConstantRetargeter]
@@ -196,14 +200,12 @@ def _build_g1_pink_locomanipulation_pipeline():
     )
     # connect(): binds each retargeter output to the reorderer; flattens to 23D action.
     # torso_rpy comes from ConstantRetargeter(output_dims=3, value=0.0).
-    connected_reorderer = reorderer.connect(
-        {
-            "left_ee_pose": connected_left_se3.output("ee_pose"),
-            "right_ee_pose": connected_right_se3.output("ee_pose"),
-            "left_hand_joints": connected_left_trihand.output("hand_joints"),
-            "right_hand_joints": connected_right_trihand.output("hand_joints"),
-            "locomotion": connected_locomotion.output("root_command"),
-        }
-    )
+    connected_reorderer = reorderer.connect({
+        "left_ee_pose": connected_left_se3.output("ee_pose"),
+        "right_ee_pose": connected_right_se3.output("ee_pose"),
+        "left_hand_joints": connected_left_trihand.output("hand_joints"),
+        "right_hand_joints": connected_right_trihand.output("hand_joints"),
+        "locomotion": connected_locomotion.output("root_command"),
+    })
 
     return OutputCombiner({"action": connected_reorderer.output("output")})

@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import sys
 import argparse
 import gymnasium as gym
+import os
+import sys
 import torch
 import tqdm
 from importlib import import_module
@@ -22,6 +22,7 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
+
 def _ensure_groot_deps_in_path() -> None:
     """Re-exec once so PYTHONPATH has GROOT_DEPS_DIR first (GR00T deps before Isaac Sim)."""
     deps_dir = os.environ.get("GROOT_DEPS_DIR")
@@ -30,6 +31,7 @@ def _ensure_groot_deps_in_path() -> None:
     os.environ["PYTHONPATH"] = deps_dir + os.pathsep + os.environ.get("PYTHONPATH", "")
     os.environ["_GROOT_PYTHONPATH_APPLIED"] = "1"
     os.execv(sys.executable, [sys.executable] + sys.argv)
+
 
 def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
     """Get the policy class for the given policy type name.

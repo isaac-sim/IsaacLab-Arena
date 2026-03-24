@@ -7,9 +7,9 @@ import numpy as np
 import torch
 import tqdm
 import traceback
-import warp as wp
 
 import pytest
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
