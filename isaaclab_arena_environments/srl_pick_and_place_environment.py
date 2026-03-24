@@ -14,9 +14,9 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
+class SrlPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
-    name: str = "droid_pick_and_place_srl"
+    name: str = "srl_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
@@ -45,9 +45,10 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         destination_location.add_relation(On(table_reference))
 
         light = self.asset_registry.get_asset_by_name("light")(
-            spawner_cfg=sim_utils.DomeLightCfg(intensity=500.0),
+            spawner_cfg=sim_utils.DomeLightCfg(intensity=args_cli.light_intensity),
         )
-        light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
+        if args_cli.hdr is not None:
+            light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
 
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
@@ -79,6 +80,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
         parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--hdr", type=str, default="home_office_robolab")
+        parser.add_argument("--hdr", type=str, default=None)
+        parser.add_argument("--light_intensity", type=float, default=500.0)
         parser.add_argument("--pick_up_object", type=str, default="rubiks_cube_hot3d_robolab")
         parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")

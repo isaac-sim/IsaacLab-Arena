@@ -190,6 +190,7 @@ TABLE OF CONTENTS
    :caption: User's Guide
 
    pages/quickstart/installation
+   pages/quickstart/getting_started
    pages/quickstart/first_arena_env
    pages/quickstart/docker_containers
    pages/quickstart/jupyter_notebooks

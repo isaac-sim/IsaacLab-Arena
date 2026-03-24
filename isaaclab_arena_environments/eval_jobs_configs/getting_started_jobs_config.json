@@ -1,0 +1,56 @@
+{
+    "jobs": [
+        {
+            "name": "01_baseline",
+            "arena_env_args": {
+                "environment": "srl_pick_and_place",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "destination_location": "bowl_ycb_robolab",
+                "hdr": "home_office_robolab"
+            },
+            "num_steps": 50,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "02_swap_objects",
+            "arena_env_args": {
+                "environment": "srl_pick_and_place",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "mustard_bottle_hot3d_robolab",
+                "destination_location": "wooden_bowl_hot3d_robolab",
+                "hdr": "home_office_robolab"
+            },
+            "num_steps": 50,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "03_change_background_hdr",
+            "arena_env_args": {
+                "environment": "srl_pick_and_place",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "destination_location": "bowl_ycb_robolab",
+                "hdr": "billiard_hall_robolab"
+            },
+            "num_steps": 50,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "04_parallel_envs",
+            "arena_env_args": {
+                "environment": "srl_pick_and_place",
+                "embodiment": "droid_rel_joint_pos",
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "destination_location": "bowl_ycb_robolab",
+                "num_envs": 64
+            },
+            "num_steps": 50,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        }
+    ]
+}
