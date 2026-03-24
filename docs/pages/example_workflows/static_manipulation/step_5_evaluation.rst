@@ -114,6 +114,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
       .. code-block:: bash
 
          python isaaclab_arena/evaluation/policy_runner.py \
+           --visualizer kit \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
            --num_steps 2000 \
