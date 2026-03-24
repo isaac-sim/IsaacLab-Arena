@@ -1,81 +1,69 @@
 Getting Started
 ===============
 
-The fastest way to explore Arena is with the eval runner and a **zero-action policy** — no model
-weights required. This walks you through four short jobs that each demonstrate a core Arena concept:
-swapping objects, changing the background HDR, and running parallel environments.
+Arena lets you evaluate a robot policy across dozens of object, lighting, and scale variations
+from a single environment definition — no task logic changes, no duplicated configuration. You
+swap one argument and get a completely different scene.
 
-Run the Getting Started Config
--------------------------------
+The fastest way to see this is with the **policy runner** and a **zero-action policy** — a
+placeholder policy that sends zero commands to the robot every step. The robot stays still, but
+the environment loads, the scene renders, and you can verify that each variation works. No model
+weights needed.
+
+The four experiments below all use the same ``srl_pick_and_place`` environment. Each one changes
+exactly one argument from the baseline.
+
+
+Experiment: Baseline
+---------------------
+
+Your reference run — rubiks cube on the table, bowl as destination:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     --num_steps 50 \
+     srl_pick_and_place \
+     --embodiment droid_rel_joint_pos \
+     --pick_up_object rubiks_cube_hot3d_robolab \
+     --destination_location bowl_ycb_robolab \
+     --hdr home_office_robolab
 
-All four jobs run in the ``srl_pick_and_place`` environment. This illustrates a core Arena
-concept: you define **one** base environment and vary individual axes — object, lighting, scale —
-without touching any task logic or duplicating configuration. The same pattern is how Arena is
-used in practice: a single environment definition becomes the foundation for evaluating a policy
-across dozens of object, scene, and embodiment combinations.
-
-Each job changes exactly one thing from the baseline, making it easy to see what each field
-controls:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 35 45
-
-   * - Job
-     - What changes
-     - Key fields
-   * - ``01_baseline``
-     - Nothing — your reference run
-     - ``srl_pick_and_place`` + ``rubiks_cube`` → ``bowl``
-   * - ``02_swap_objects``
-     - Different pick-up object and destination
-     - ``pick_up_object``, ``destination_location``
-   * - ``03_change_background_hdr``
-     - Different background HDR environment map
-     - ``hdr``
-   * - ``04_parallel_envs``
-     - 4 environments running simultaneously
-     - ``num_envs``
-
-.. figure:: ../../images/franka_kitchen_pickup.gif
+.. figure:: ../../images/default_srl_pnp.png
    :width: 100%
-   :alt: Getting Started — baseline, swap objects, change HDR, parallel envs
+   :alt: Default srl_pick_and_place environment — rubiks cube and bowl on table
    :align: center
-
-   TODO(cvolk): Add all of the below into one gif
-
-**Expected outcome:** Because this uses a zero-action policy, the robot does not move and no
-objects are picked up. Each job will report a success rate of ``0.0``. This is expected — the
-purpose here is to verify your setup and explore how each field affects the environment. To get
-non-zero success rates, replace ``"policy_type": "zero_action"`` with a trained policy (see
-`Next Steps`_ below).
 
 
 Experiment: Swap Objects
 -------------------------
 
-Change ``pick_up_object`` and ``destination_location`` to any registered asset name.
+Change ``--pick_up_object`` and ``--destination_location`` to swap what is on the table.
 Some options to try:
 
 .. code-block:: text
 
-   pick_up_object:
+   --pick_up_object:
      rubiks_cube_hot3d_robolab     mustard_bottle_hot3d_robolab
      mug_hot3d_robolab             soup_can_hot3d_robolab
      ceramic_mug_hot3d_robolab     pitcher_hot3d_robolab
      mustard_ycb_robolab           sugar_box_ycb_robolab
      tomato_soup_can_ycb_robolab   mug_ycb_robolab
 
-   destination_location:
+   --destination_location:
      bowl_ycb_robolab              wooden_bowl_hot3d_robolab
 
-**Expected outcome:** The scene respawns with the new object on the table. Success rate remains
-``0.0`` — the robot does not move.
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     --num_steps 50 \
+     srl_pick_and_place \
+     --embodiment droid_rel_joint_pos \
+     --pick_up_object mustard_bottle_hot3d_robolab \
+     --destination_location wooden_bowl_hot3d_robolab \
+     --hdr home_office_robolab
 
 .. figure:: ../../images/swap_objects.gif
    :width: 100%
@@ -86,7 +74,7 @@ Some options to try:
 Experiment: Change Background HDR
 -----------------------------------
 
-Set ``hdr`` to any registered HDR environment map to change the background and ambient lighting:
+Set ``--hdr`` to any registered HDR environment map to change the background and ambient lighting:
 
 .. code-block:: text
 
@@ -96,15 +84,19 @@ Set ``hdr`` to any registered HDR environment map to change the background and a
    kiara_interior_robolab         brown_photostudio_robolab
    carpentry_shop_robolab
 
-You can also adjust the dome light intensity independently of the HDR map:
+You can also adjust the dome light intensity independently with ``--light_intensity``:
 
-.. code-block:: json
+.. code-block:: bash
 
-   "hdr": "empty_warehouse_robolab",
-   "light_intensity": 1000.0
-
-**Expected outcome:** The background and ambient light color change to match the selected HDR.
-Success rate remains ``0.0``.
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     --num_steps 50 \
+     srl_pick_and_place \
+     --embodiment droid_rel_joint_pos \
+     --pick_up_object rubiks_cube_hot3d_robolab \
+     --destination_location bowl_ycb_robolab \
+     --hdr billiard_hall_robolab \
+     --light_intensity 1000.0
 
 .. figure:: ../../images/swap_hdr.gif
    :width: 100%
@@ -115,22 +107,46 @@ Success rate remains ``0.0``.
 Experiment: Scale Up
 ---------------------
 
-Increase ``num_envs`` to run multiple environments in parallel:
+Add ``--num_envs`` to run many environments in parallel on the GPU:
 
-.. code-block:: json
+.. code-block:: bash
 
-   "num_envs": 64
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     --num_steps 50 \
+     --num_envs 64 \
+     srl_pick_and_place \
+     --embodiment droid_rel_joint_pos \
+     --pick_up_object rubiks_cube_hot3d_robolab \
+     --destination_location bowl_ycb_robolab
 
-All environments share the same assets and run simultaneously on the GPU. This is how Arena
-is used for large-scale policy evaluation.
-
-**Expected outcome:** Four environment instances appear side-by-side. Success rate remains
-``0.0`` across all environments.
+All 64 environments share the same assets and run simultaneously on the GPU. When you swap in a
+real policy, every one of those environments runs inference in parallel — giving you 64 evaluation
+episodes at the cost of one. This is how Arena makes it practical to measure policy robustness
+across hundreds of object and scene combinations in a single run.
 
 .. figure:: ../../images/scale_up.gif
    :width: 100%
    :alt: Running 64 parallel srl_pick_and_place environments
    :align: center
+
+
+Batch Evaluation
+-----------------
+
+The four experiments above run one variation at a time. In practice, Arena is used to evaluate
+a policy across hundreds of object, scene, and embodiment combinations in a single run. The
+``eval_runner.py`` script reads a JSON job config that lists any number of jobs — each with its
+own environment arguments, policy, and step count — and runs them sequentially within one Isaac
+Sim process, collecting success metrics for each:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/eval_runner.py \
+     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
+
+At the end of the run you get a per-job summary of success rates. See
+:ref:`sequential-batch-eval-runner` for full details on the job config format and available options.
 
 
 .. _Next Steps:
@@ -139,19 +155,21 @@ Next Steps
 ----------
 
 Once you have verified the setup, replace ``zero_action`` with a trained policy to get non-zero
-success rates. The same environment and job config work without modification:
+success rates:
 
-.. code-block:: json
+.. code-block:: bash
 
-   "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
-   "policy_config_dict": {
-       "policy_config_yaml_path": "path/to/config.yaml",
-       "policy_device": "cuda:0"
-   }
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
+     --num_steps 50 \
+     srl_pick_and_place \
+     --embodiment droid_abs_joint_pos \
+     --pick_up_object rubiks_cube_hot3d_robolab \
+     --destination_location bowl_ycb_robolab
 
 See :doc:`../../pages/policy_evaluation/index` for policy evaluation details, or refer to
-``isaaclab_arena_environments/eval_jobs_configs/gr00t_jobs_config.json`` for a complete GR00T
-example (requires ``./docker/run_docker.sh -g``).
+``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json`` for a
+complete GR00T eval_runner example (requires ``./docker/run_docker.sh -g``).
 
 For a deeper look at how environments are composed from scratch using the Python API, see
 :doc:`first_arena_env`.
