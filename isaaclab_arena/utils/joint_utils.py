@@ -81,14 +81,6 @@ def set_unnormalized_joint_position(
     # Move env_ids to the device
     env_ids = env_ids.to(env.device) if env_ids is not None else None
     # Write the data to the simulation
-    print(f"HERE")
-    print(f"position: {position}")
-    print(f"position shape: {position.shape}")
-    print(f"joint_ids: {joint_ids}")
-    print(f"joint_ids shape: {joint_ids.shape}")
-    print(f"env_ids: {env_ids}")
-    if env_ids is not None:
-        print(f"env_ids shape: {env_ids.shape}")
     articulation.write_joint_position_to_sim_index(
         position=position,
         joint_ids=joint_ids,
