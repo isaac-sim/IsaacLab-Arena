@@ -32,6 +32,7 @@ Note that this tutorial assumes that you've completed the
          nvidia/Arena-G1-Loco-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v2.3 \
          --local-dir $DATASET_DIR
 
 Step 1: Convert to LeRobot Format
@@ -55,6 +56,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-G1-Loco-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v2.3 \
          --local-dir $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.
