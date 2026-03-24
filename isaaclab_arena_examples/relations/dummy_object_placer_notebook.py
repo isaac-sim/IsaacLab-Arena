@@ -172,7 +172,7 @@ def run_dummy_no_collision_demo():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.8, 0.6, 0.4)),
     )
     table.add_relation(IsAnchor())
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     box_a = DummyObject(
         name="box_a",

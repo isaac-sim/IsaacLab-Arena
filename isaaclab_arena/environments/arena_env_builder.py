@@ -315,12 +315,14 @@ class ArenaEnvBuilder:
         )
         return name, cfg
 
-    def make_registered(self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None) -> ManagerBasedEnv:
-        env, _ = self.make_registered_and_return_cfg(env_cfg)
+    def make_registered(
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+    ) -> ManagerBasedEnv:
+        env, _ = self.make_registered_and_return_cfg(env_cfg, render_mode=render_mode)
         return env
 
     def make_registered_and_return_cfg(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
-        return gym.make(name, cfg=cfg).unwrapped, cfg
+        return gym.make(name, cfg=cfg, render_mode=render_mode), cfg

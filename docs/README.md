@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```
 
 
-## Build and view
+## Build and view (current branch/changes)
 
 ```bash
 make html

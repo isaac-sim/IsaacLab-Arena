@@ -110,11 +110,11 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Check all the assets made it into the scene.
     for asset_name in objects_in_registry_names:
-        assert asset_name in env.scene.keys(), f"Asset {asset_name} not found in scene"
+        assert asset_name in env.unwrapped.scene.keys(), f"Asset {asset_name} not found in scene"
 
     # Check all the assets have the correct pose.
     for asset_name in objects_in_registry_names:
-        assert asset_name in env.scene.keys(), f"Asset {asset_name} not found in scene"
+        assert asset_name in env.unwrapped.scene.keys(), f"Asset {asset_name} not found in scene"
 
     env.close()
 
@@ -252,7 +252,7 @@ def _test_multi_light_in_scene(simulation_app):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
-    all_prims_in_stage = get_all_prims(env.scene.stage)
+    all_prims_in_stage = get_all_prims(env.unwrapped.scene.stage)
     # Check that there is only one light in the stage
     # We dont add lights from anywhere else in this scene.
     light_prims = [prim for prim in all_prims_in_stage if prim.IsA(UsdLux.DomeLight)]

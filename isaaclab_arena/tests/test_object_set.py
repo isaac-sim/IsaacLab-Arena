@@ -12,6 +12,95 @@ HEADLESS = True
 NUM_ENVS = 10
 OBJECT_SET_1_PRIM_PATH = "/World/envs/env_.*/ObjectSet_1"
 OBJECT_SET_2_PRIM_PATH = "/World/envs/env_.*/ObjectSet_2"
+OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
+OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
+
+
+def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test", task=None):
+    """Build arena env with given scene and optional task, then reset. Returns env (caller must close)."""
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+
+    asset_registry = AssetRegistry()
+    embodiment = asset_registry.get_asset_by_name("franka")()
+    scene = Scene(assets=scene_assets)
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(
+        name=env_name,
+        embodiment=embodiment,
+        scene=scene,
+        task=task,
+        teleop_device=None,
+    )
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.num_envs = NUM_ENVS
+    args_cli.headless = HEADLESS
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env = env_builder.make_registered()
+    env.reset()
+    return env
+
+
+def _run_pick_and_place_object_set_test(
+    simulation_app,
+    obj_set,
+    object_set_prim_path,
+    path_contains,
+    initial_pose=None,
+):
+    """Build env with one object set and PickAndPlaceTask, run common assertions, close. path_contains: str or list[str] of length NUM_ENVS."""
+    from isaacsim.core.utils.stage import get_current_stage
+
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
+
+    asset_registry = AssetRegistry()
+    background = asset_registry.get_asset_by_name("kitchen")()
+    destination_location = ObjectReference(
+        name="destination_location",
+        prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
+        parent_asset=background,
+    )
+    if initial_pose is not None:
+        obj_set.set_initial_pose(initial_pose)
+    scene_assets = [background, obj_set]
+    task = PickAndPlaceTask(
+        pick_up_object=obj_set,
+        destination_location=destination_location,
+        background_scene=background,
+    )
+    env = _build_and_reset_env(
+        simulation_app,
+        scene_assets,
+        env_name="pick_and_place_object_set_test",
+        task=task,
+    )
+    try:
+        if isinstance(path_contains, str):
+            path_contains = [path_contains] * NUM_ENVS
+        for i in range(NUM_ENVS):
+            path = get_asset_usd_path_from_prim_path(
+                prim_path=object_set_prim_path.replace(".*", str(i)),
+                stage=get_current_stage(),
+            )
+            assert path is not None, "Path is None"
+            assert path_contains[i] in path, f"Path does not contain {path_contains[i]!r}: {path}"
+        if initial_pose is not None:
+            assert obj_set.get_initial_pose() is not None, "Initial pose is None"
+        assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
+        assert (
+            env.unwrapped.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+        ), "Contact sensor data is None"
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+    finally:
+        env.close()
 
 
 def _test_empty_object_set(simulation_app):
@@ -91,9 +180,9 @@ def _test_single_object_in_one_object_set(simulation_app):
             assert "cracker_box.usd" in path, "Path does not contain cracker_box.usd"
             assert obj_set.get_initial_pose() is not None, "Initial pose is None"
 
-        assert env.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
+        assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
         assert (
-            env.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+            env.unwrapped.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
         ), "Contact sensor data is None"
     except Exception as e:
         print(f"Error: {e}")
@@ -147,9 +236,9 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     env = env_builder.make_registered()
     env.reset()
 
-    assert env.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
+    assert env.unwrapped.scene[obj_set.name].data.root_pose_w is not None, "Root pose is None"
     assert (
-        env.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
+        env.unwrapped.scene.sensors["pick_up_object_contact_sensor"].data.force_matrix_w is not None
     ), "Contact sensor data is None"
 
     # replace * in OBJECT_SET_PRIM_PATH with env_index

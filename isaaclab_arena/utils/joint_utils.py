@@ -23,7 +23,7 @@ def unnormalize_value(value: float, min_value: float, max_value: float) -> float
 
 def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> int:
     """Get the index of a joint from the asset config."""
-    articulation = env.scene.articulations[asset_cfg.name]
+    articulation = env.unwrapped.scene.articulations[asset_cfg.name]
     assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
     joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
     return joint_index
@@ -31,7 +31,7 @@ def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityC
 
 def get_articulation_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> Articulation:
     """Get the articulation from the asset config."""
-    articulation = env.scene.articulations[asset_cfg.name]
+    articulation = env.unwrapped.scene.articulations[asset_cfg.name]
     return articulation
 
 
@@ -73,13 +73,11 @@ def set_unnormalized_joint_position(
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
     # Duplicate data for each environment
-    num_envs = env.num_envs if env_ids is None else len(env_ids)
-    position = torch.full((num_envs, 1), target_joint_position_unnormlized, device=env.device)
-    # joint_ids = torch.full((num_envs, 1), joint_index, dtype=torch.int32, device=env.device)
-    joint_ids = torch.tensor([joint_index], dtype=torch.int32, device=env.device)
-    # joint_ids = joint_index
+    num_envs = env.unwrapped.num_envs if env_ids is None else len(env_ids)
+    position = torch.full((num_envs, 1), target_joint_position_unnormlized, device=env.unwrapped.device)
+    joint_ids = torch.tensor([joint_index], dtype=torch.int32, device=env.unwrapped.device)
     # Move env_ids to the device
-    env_ids = env_ids.to(env.device) if env_ids is not None else None
+    env_ids = env_ids.to(env.unwrapped.device) if env_ids is not None else None
     # Write the data to the simulation
     articulation.write_joint_position_to_sim_index(
         position=position,

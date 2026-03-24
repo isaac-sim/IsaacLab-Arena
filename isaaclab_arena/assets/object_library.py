@@ -10,6 +10,7 @@ import isaaclab.sim as sim_utils
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
+from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
@@ -417,6 +418,62 @@ class GroundPlane(LibraryObject):
     ):
         self.spawner_cfg = spawner_cfg
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class Sphere(LibraryObject):
+    """
+    A sphere with rigid body physics (dynamic by default).
+    """
+
+    name = "sphere"
+    tags = ["object"]
+    object_type = ObjectType.SPAWNER
+    scale = (1.0, 1.0, 1.0)
+    default_spawner_cfg = sim_utils.SphereCfg(
+        radius=0.1,
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
+        collision_props=sim_utils.CollisionPropertiesCfg(),
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            solver_position_iteration_count=16,
+            solver_velocity_iteration_count=1,
+            max_angular_velocity=1000.0,
+            max_linear_velocity=1000.0,
+            max_depenetration_velocity=5.0,
+            disable_gravity=False,
+        ),
+        mass_props=sim_utils.MassPropertiesCfg(mass=0.25),
+    )
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+        spawner_cfg: sim_utils.SphereCfg = default_spawner_cfg,
+    ):
+        self.spawner_cfg = spawner_cfg
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            scale=scale,
+        )
+
+    def _generate_spawner_cfg(self) -> RigidObjectCfg:
+        object_cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=self.spawner_cfg,
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        if self.initial_velocity is not None:
+            object_cfg.init_state.lin_vel = self.initial_velocity.linear_xyz
+            object_cfg.init_state.ang_vel = self.initial_velocity.angular_xyz
+        return object_cfg
+
+    def _requires_reset_pose_event(self) -> bool:
+        return self.get_initial_pose() is not None and self.reset_pose
 
 
 @register_asset

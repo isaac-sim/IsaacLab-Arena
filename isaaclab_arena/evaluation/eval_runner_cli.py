@@ -14,6 +14,13 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default="isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json",
         help="Path to the eval jobs config file.",
     )
+    parser.add_argument("--video", action="store_true", default=False, help="Record videos for each eval job.")
+    parser.add_argument(
+        "--video_dir",
+        type=str,
+        default="/eval/videos",
+        help="Root directory for recorded videos. Each job gets a subdirectory.",
+    )
     parser.add_argument(
         "--continue_on_error",
         action="store_true",

@@ -125,7 +125,7 @@ Environment Integration
 
    # Set robot initial pose
    embodiment.set_initial_pose(
-       Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+       Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
    )
 
    # Environment composition

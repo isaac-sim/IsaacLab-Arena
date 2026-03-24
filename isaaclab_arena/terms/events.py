@@ -10,6 +10,7 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.velocity import Velocity
 
 
 def set_object_pose(
@@ -17,6 +18,7 @@ def set_object_pose(
     env_ids: torch.Tensor,
     asset_cfg: SceneEntityCfg,
     pose: Pose,
+    velocity: Velocity | None = None,
 ) -> None:
     if env_ids is None:
         return
@@ -28,7 +30,11 @@ def set_object_pose(
     pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
     # Set the pose and velocity
     asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
-    asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
+    if velocity is not None:
+        vel = velocity.to_tensor(device=env.device).unsqueeze(0).expand(num_envs, -1)
+        asset.write_root_velocity_to_sim(vel, env_ids=env_ids)
+    else:
+        asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
 
 
 def set_object_pose_per_env(

@@ -47,10 +47,10 @@ Environment Description
                blue_sorting_bin.set_initial_pose(
                    Pose(
                        position_xyz=(-0.2450, -1.6272, -0.2641),
-                       rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
+                       rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
                    )
                )
-               embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+               embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
                scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
                task = G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
@@ -101,7 +101,7 @@ See :doc:`../../concepts/concept_assets_design` for details on asset architectur
    blue_sorting_bin.set_initial_pose(
        Pose(
            position_xyz=(-0.2450, -1.6272, -0.2641),
-           rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
+           rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
        )
    )
 

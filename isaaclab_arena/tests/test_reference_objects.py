@@ -150,7 +150,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
                     open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
-                success = env.termination_manager.get_term("success")
+                success = env.unwrapped.termination_manager.get_term("success")
                 is_open = microwave.is_open(env, SceneEntityCfg(microwave.name))
                 terminated_list.append(terminated.item())
                 success_list.append(success.item())

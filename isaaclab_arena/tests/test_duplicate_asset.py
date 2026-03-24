@@ -94,8 +94,8 @@ def _test_duplicate_asset(simulation_app) -> bool:
             step_zeros_and_call(env, NUM_STEPS)
 
             # Check that both objects exist
-            assert dex_cube_1.name in env.scene.keys(), "Cube 1 object is None"
-            assert dex_cube_2.name in env.scene.keys(), "Cube 2 object is None"
+            assert dex_cube_1.name in env.unwrapped.scene.keys(), "Cube 1 object is None"
+            assert dex_cube_2.name in env.unwrapped.scene.keys(), "Cube 2 object is None"
 
             # Get positions (subtract env origin to get local positions)
             cube_1_pos = dex_cube_1.get_object_pose(env)[0, :3]
@@ -105,8 +105,8 @@ def _test_duplicate_asset(simulation_app) -> bool:
             print(f"Cube 2 position: {cube_2_pos}")
 
             # Verify positions are approximately correct (with some tolerance for physics)
-            expected_pos_1 = torch.tensor(position_1, device=env.device)
-            expected_pos_2 = torch.tensor(position_2, device=env.device)
+            expected_pos_1 = torch.tensor(position_1, device=env.unwrapped.device)
+            expected_pos_2 = torch.tensor(position_2, device=env.unwrapped.device)
 
             pos_diff_1 = torch.abs(cube_1_pos - expected_pos_1)
             pos_diff_2 = torch.abs(cube_2_pos - expected_pos_2)

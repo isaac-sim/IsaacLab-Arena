@@ -71,7 +71,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         velocities_vec = []
         condition_met_vec = []
         terminated_vec = []
-        sensor = env.scene.sensors["pick_up_object_contact_sensor"]
+        sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 print(f"About to create zero actions")
@@ -83,7 +83,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
                 # Get the force on the pick up object.
                 forces_vec.append(wp.to_torch(sensor.data.net_forces_w))
                 force_matrix_vec.append(wp.to_torch(sensor.data.force_matrix_w))
-                velocities_vec.append(wp.to_torch(env.scene[cracker_box.name].data.root_lin_vel_w))
+                velocities_vec.append(wp.to_torch(env.unwrapped.scene[cracker_box.name].data.root_lin_vel_w))
 
                 # Try the termination.
                 condition_met_vec.append(

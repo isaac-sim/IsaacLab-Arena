@@ -47,7 +47,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         enable_cameras = getattr(args_cli, "enable_cameras", False)
         camera_offset = Pose(
             position_xyz=(0.12515, 0.0, 0.06776),
-            rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108),
+            rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469),
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=enable_cameras,
@@ -57,7 +57,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(1.2, 0.0, 0.995),
-                rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
+                rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068),
             )
         )
 
