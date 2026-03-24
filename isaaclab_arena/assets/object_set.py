@@ -88,7 +88,7 @@ class RigidObjectSet(Object):
         Returns the bounding box with the greatest z-extent among all objects in the set.
         This is a heuristic to avoid objects spawning inside their support surfaces.
         """
-        return max(self.objects, key=lambda obj: obj.get_bounding_box().size[2]).get_bounding_box()
+        return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         # We override this function from the parent class because in some assets, the rigid body

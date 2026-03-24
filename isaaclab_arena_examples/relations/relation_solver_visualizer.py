@@ -92,12 +92,14 @@ class RelationSolverVisualizer:
         # Compute world-space corners: world = position + local offset
         # This matches how the loss strategies compute world extents
         x, y, z = position
-        x_min = x + bbox.min_point[0]
-        x_max = x + bbox.max_point[0]
-        y_min = y + bbox.min_point[1]
-        y_max = y + bbox.max_point[1]
-        z_min = z + bbox.min_point[2]
-        z_max = z + bbox.max_point[2]
+        local_min = bbox.min_point[0].tolist()
+        local_max = bbox.max_point[0].tolist()
+        x_min = x + local_min[0]
+        x_max = x + local_max[0]
+        y_min = y + local_min[1]
+        y_max = y + local_max[1]
+        z_min = z + local_min[2]
+        z_max = z + local_max[2]
 
         # 8 corners of the box (same ordering as get_corners_at)
         corners = [
@@ -350,12 +352,14 @@ class RelationSolverVisualizer:
         """
         # Compute world-space corners: world = position + local offset
         x, y, z = position
-        x_min = x + bbox.min_point[0]
-        x_max = x + bbox.max_point[0]
-        y_min = y + bbox.min_point[1]
-        y_max = y + bbox.max_point[1]
-        z_min = z + bbox.min_point[2]
-        z_max = z + bbox.max_point[2]
+        local_min = bbox.min_point[0].tolist()
+        local_max = bbox.max_point[0].tolist()
+        x_min = x + local_min[0]
+        x_max = x + local_max[0]
+        y_min = y + local_min[1]
+        y_max = y + local_max[1]
+        z_min = z + local_min[2]
+        z_max = z + local_max[2]
 
         corners = [
             [x_min, y_min, z_min],
@@ -416,7 +420,7 @@ class RelationSolverVisualizer:
             for idx, obj in enumerate(self.objects):
                 pos = positions[idx]
                 bbox = obj.get_bounding_box()
-                half_size = [s / 2 for s in bbox.size]
+                half_size = (bbox.size[0] / 2).tolist()
                 all_x.extend([pos[0] - half_size[0], pos[0] + half_size[0]])
                 all_y.extend([pos[1] - half_size[1], pos[1] + half_size[1]])
                 all_z.extend([pos[2] - half_size[2], pos[2] + half_size[2]])

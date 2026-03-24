@@ -197,7 +197,7 @@ def test_relation_solver_no_collision_produces_separated_positions():
     bbox_a = box_a.get_bounding_box().translated(pos_a)
     bbox_b = box_b.get_bounding_box().translated(pos_b)
 
-    assert not bbox_a.overlaps(bbox_b), f"Solver should separate boxes; box_a at {pos_a}, box_b at {pos_b}"
+    assert not bbox_a.overlaps(bbox_b).item(), f"Solver should separate boxes; box_a at {pos_a}, box_b at {pos_b}"
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():
