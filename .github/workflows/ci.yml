@@ -138,7 +138,7 @@ jobs:
             --ignore=isaaclab_arena/tests/test_sequential_task_mimic_data_generation.py \
             isaaclab_arena/tests/
 
-      - name: Run tests with cameras
+      - name: Run pytest excluding policy-related tests. Now we run all tests with cameras.
         run: /isaac-sim/python.sh -m pytest -sv -m with_cameras isaaclab_arena/tests/
 
 
