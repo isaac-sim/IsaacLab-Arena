@@ -154,22 +154,7 @@ At the end of the run you get a per-job summary of success rates. See
 Next Steps
 ----------
 
-Once you have verified the setup, replace ``zero_action`` with a trained policy to get non-zero
-success rates.
-
-The example below uses GR00T N1.6. It requires the GR00T container — launch it first with
-``./docker/run_docker.sh -g`` before running:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --num_steps 50 \
-     pick_and_place_maple_table \
-     --embodiment droid_abs_joint_pos \
-     --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_location bowl_ycb_robolab
-
-See :doc:`../../pages/policy_evaluation/index` for policy evaluation details, or refer to
-``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json`` for a
-complete GR00T eval_runner example.
+The experiments above use ``zero_action`` — the robot stays still and success rates are zero.
+To get non-zero results, swap in a real policy. See :doc:`../../pages/example_workflows/imitation_learning/index`
+for end-to-end examples, or :doc:`../../pages/policy_evaluation/index` for details on
+bringing your own policy.
