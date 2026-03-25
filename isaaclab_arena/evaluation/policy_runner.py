@@ -80,6 +80,10 @@ def rollout_policy(
 
         while True:
             with torch.inference_mode():
+
+                # if num_steps_completed % 50 == 0:
+                #     obs, _ = env.reset()
+
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
                 if terminated.any() or truncated.any():

@@ -17,6 +17,93 @@ import random
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
+def _make_randomize_pick_event(arena_env):
+    """Build a reset-event closure that re-randomizes pick-object positions.
+
+    The returned function has the standard Isaac Lab event signature
+    ``(env, env_ids)`` and captures *arena_env* via closure so that the
+    complex environment object never appears inside ``EventTermCfg.params``
+    (which would trigger infinite recursion in configclass validation).
+    """
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+
+    # Capture each object's original rotation from the relations assigned
+    # in get_env() (before any shuffle).  _generate_object_layout ties
+    # rotations to *slot index*, so after a shuffle the wrong rotation
+    # would be applied.  This dict lets us restore the per-object rotation.
+    original_rotations: dict[str, tuple[float, float, float, float]] = {}
+    for obj in arena_env._pick_objects:
+        rot = (1.0, 0.0, 0.0, 0.0)
+        for rel in obj.get_relations():
+            if isinstance(rel, RotateAroundSolution):
+                rot = rel.get_rotation_wxyz()
+                break
+        original_rotations[obj.name] = rot
+
+    def _randomize_pick_object_layout(env, env_ids):
+        if env_ids is None:
+            return
+
+        import torch
+
+        from isaaclab.managers import SceneEntityCfg
+        from isaaclab_arena.relations.object_placer import ObjectPlacer
+        from isaaclab_arena.relations.relations import IsAnchor
+        from isaaclab_arena.terms.events import set_object_pose
+        from isaaclab_arena.utils.pose import Pose
+
+        all_objects = (
+            [arena_env._table, arena_env._bin]
+            + arena_env._static_objects
+            + arena_env._pick_objects
+        )
+
+        random.shuffle(arena_env._pick_objects)
+        print(f"Shuffled pick objects layout: {[o.name for o in arena_env._pick_objects]}")
+
+        for cur_env in env_ids.tolist():
+            saved = {id(obj): obj.relations[:] for obj in all_objects}
+            for obj in all_objects:
+                obj.relations = []
+
+            arena_env._table.add_relation(IsAnchor())
+            arena_env._bin.add_relation(IsAnchor())
+            for obj in arena_env._static_objects:
+                obj.add_relation(IsAnchor())
+
+            arena_env._generate_object_layout(
+                objects=arena_env._pick_objects,
+                table=arena_env._table,
+                bin_asset=arena_env._bin,
+            )
+
+            # ObjectPlacer applies solved positions + slot-based rotations.
+            with torch.inference_mode(mode=False):
+                ObjectPlacer().place(objects=all_objects)
+
+            # Override slot-based rotations with each object's original rotation.
+            for obj in arena_env._pick_objects:
+                pose = obj.get_initial_pose()
+                obj.set_initial_pose(Pose(
+                    position_xyz=pose.position_xyz,
+                    rotation_wxyz=original_rotations[obj.name],
+                ))
+
+            # Write the solved poses into the sim for this environment.
+            cur_env_ids = torch.tensor([cur_env], device=env.device)
+            for obj in arena_env._pick_objects:
+                set_object_pose(
+                    env, cur_env_ids,
+                    asset_cfg=SceneEntityCfg(obj.name),
+                    pose=obj.get_initial_pose(),
+                )
+
+            for obj in all_objects:
+                obj.relations = saved[id(obj)]
+
+    return _randomize_pick_object_layout
+
+
 class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
     """DROID v3 environment with flattened USD and mimic joint constraints for the Robotiq 2F-85 gripper."""
 
@@ -110,6 +197,25 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             background_scene=office_table,
             episode_length_s=600.0,
         )
+
+        # Wire up reset events so env.reset() re-randomizes pick-object positions.
+        import isaaclab.envs.mdp as mdp_events
+        from isaaclab.managers import EventTermCfg
+        from isaaclab.utils import configclass
+
+        @configclass
+        class ResetEventCfg:
+            reset_all: EventTermCfg = EventTermCfg(
+                func=mdp_events.reset_scene_to_default,
+                mode="reset",
+                params={"reset_joint_targets": True},
+            )
+            randomize_pick_objects: EventTermCfg = EventTermCfg(
+                func=_make_randomize_pick_event(self),
+                mode="reset",
+            )
+
+        task.events_cfg = ResetEventCfg()
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
