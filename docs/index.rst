@@ -187,12 +187,17 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: User's Guide
+   :caption: Set Up
 
    pages/quickstart/installation
-   pages/quickstart/first_arena_env
-   pages/quickstart/getting_started
    pages/quickstart/docker_containers
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
+   pages/quickstart/first_arena_env
+   pages/quickstart/varying_your_environment
 
 .. toctree::
    :maxdepth: 1

@@ -1,5 +1,5 @@
-Getting Started
-===============
+Varying your Environment
+========================
 
 Arena lets you evaluate a robot policy across dozens of object, lighting, and scale variations
 from a single environment definition — no task logic changes, no duplicated configuration. You
