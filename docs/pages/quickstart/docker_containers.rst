@@ -4,35 +4,14 @@ Docker Containers
 This first version of Isaac Lab Arena is designed to run inside a Docker container.
 
 
-We provide two docker containers for Isaac Lab Arena:
+Isaac Lab Arena runs inside the **Base** container, which contains all Arena code and dependencies.
+Tagged as ``isaaclab_arena:latest``.
 
-- **Base**: Contains the Isaac Lab Arena code and all its dependencies. Tagged as ``isaaclab_arena:latest``.
-- **Base + GR00T**: Additionally includes GR00T and its dependencies. Tagged as ``isaaclab_arena:cuda_gr00t_gn16``.
+To start the container run:
 
-We include the two containers such that the user can choose between container with minimal
-dependencies (**Base**) or container with all dependencies (**Base + GR00T**).
+:docker_run_default:
 
-In order to start the containers run:
-
-.. tabs::
-
-    .. tab:: Base
-
-        :docker_run_default:
-
-    .. tab:: Base + GR00T
-
-        :docker_run_gr00t:
-
-
-
-The run docker will build the container and then enter in interactive mode.
-
-.. note::
-    The container with all dependencies (**Base + GR00T**) is significantly larger than the container with minimal dependencies (**Base**),
-    so it is recommended to use the **Base** container for development and the **Base + GR00T** container for GR00T policy post-training and evaluation.
-    If you are not sure which container to use, we recommend using the **Base** container.
-    If you want to use the **Base + GR00T** container for development, currently it is not supported to run on Blackwell GPUs, and DGX Spark.
+The container will build (if needed) and drop you into an interactive shell.
 
 Mounted Directories
 -------------------
