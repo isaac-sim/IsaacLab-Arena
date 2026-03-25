@@ -198,10 +198,8 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Example Workflows
 
-   pages/example_workflows/locomanipulation/index
-   pages/example_workflows/static_manipulation/index
-   pages/example_workflows/sequential_static_manipulation/index
-   pages/example_workflows/reinforcement_learning/index
+   pages/example_workflows/imitation_learning/index
+   pages/example_workflows/reinforcement_learning_workflows/index
 
 .. toctree::
    :maxdepth: 1
