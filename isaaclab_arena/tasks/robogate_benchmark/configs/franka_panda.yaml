@@ -1,0 +1,50 @@
+# Franka Panda embodiment configuration for RoboGate Benchmark
+# Default robot for pick-and-place validation.
+
+embodiment:
+  name: "franka"
+  asset_name: "franka"           # Isaac Lab-Arena asset registry key
+  type: "single_arm"
+  dof: 9                         # 7 arm + 2 gripper
+
+joint_limits:
+  arm: [2.8973, 1.7628, 2.8973, 3.0718, 2.8973, 3.7525, 2.8973]
+  gripper_open: 0.04
+  gripper_closed: 0.0
+
+home_position:
+  arm: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
+  gripper: [0.04, 0.04]
+
+end_effector:
+  frame_name: "right_gripper"
+  orientation_down: [0.0, 1.0, 0.0, 0.0]  # wxyz quaternion
+
+scene:
+  table:
+    position: [0.5, 0.0, 0.0]
+    size: 0.6
+  object_spawn:
+    x_range: [0.35, 0.65]
+    y_range: [-0.15, 0.15]
+    z: 0.32                      # TABLE_TOP_Z + 0.02
+  target:
+    position: [0.35, 0.30, 0.32]
+    success_distance: 0.08
+
+camera:
+  wrist:
+    position: [1.0, -0.6, 0.9]
+    target: [0.45, 0.1, 0.3]
+    resolution: [256, 256]
+
+controller:
+  scripted:
+    steps_per_phase: 50          # ~2.5s at 20Hz control
+    phases:
+      - APPROACH_ABOVE
+      - DESCEND
+      - GRASP
+      - LIFT
+      - MOVE_TO_TARGET
+      - RELEASE

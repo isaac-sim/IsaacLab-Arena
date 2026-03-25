@@ -1,0 +1,50 @@
+# UR5e embodiment configuration for RoboGate Benchmark
+# Alternative robot for pick-and-place validation.
+
+embodiment:
+  name: "ur5e"
+  asset_name: "ur5e"             # Isaac Lab-Arena asset registry key
+  type: "single_arm"
+  dof: 8                         # 6 arm + 2 gripper (Robotiq 2F-85)
+
+joint_limits:
+  arm: [6.2832, 6.2832, 3.1416, 6.2832, 6.2832, 6.2832]
+  gripper_open: 0.085
+  gripper_closed: 0.0
+
+home_position:
+  arm: [0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0]
+  gripper: [0.085, 0.085]
+
+end_effector:
+  frame_name: "tool0"
+  orientation_down: [0.0, 1.0, 0.0, 0.0]  # wxyz quaternion
+
+scene:
+  table:
+    position: [0.5, 0.0, 0.0]
+    size: 0.6
+  object_spawn:
+    x_range: [0.30, 0.60]
+    y_range: [-0.15, 0.15]
+    z: 0.32
+  target:
+    position: [0.35, 0.30, 0.32]
+    success_distance: 0.08
+
+camera:
+  wrist:
+    position: [0.8, -0.5, 0.9]
+    target: [0.45, 0.1, 0.3]
+    resolution: [256, 256]
+
+controller:
+  scripted:
+    steps_per_phase: 60          # UR5e moves slower than Franka
+    phases:
+      - APPROACH_ABOVE
+      - DESCEND
+      - GRASP
+      - LIFT
+      - MOVE_TO_TARGET
+      - RELEASE
