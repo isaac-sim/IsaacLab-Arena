@@ -9,7 +9,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import PlacementResult
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -30,6 +30,8 @@ class ObjectPlacer:
     4. Retrying if necessary
     5. Applying solved positions to objects
 
+    Supports single-env (num_envs=1) and batched (num_envs>1) placement.
+
     Note:
         On-relation initialization samples positions within the anchor's axis-aligned bounding
         box footprint. This works correctly for rectangular/box-shaped anchor objects. For
@@ -49,15 +51,18 @@ class ObjectPlacer:
     def place(
         self,
         objects: list[Object | ObjectReference],
-    ) -> PlacementResult:
+        num_envs: int = 1,
+    ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
 
         Args:
             objects: List of objects to place. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
+            num_envs: Number of environments. 1 for single-env; > 1 for batched
+                placement (one layout per env).
 
         Returns:
-            PlacementResult with success status, positions, loss, and attempt count.
+            PlacementResult when num_envs is 1; MultiEnvPlacementResult when num_envs > 1.
         """
         # Validate all objects have at least one relation
         for obj in objects:
@@ -87,48 +92,82 @@ class ObjectPlacer:
         generator: torch.Generator | None = None
         if self.params.placement_seed is not None:
             generator = torch.Generator()
-            generator.manual_seed(self.params.placement_seed)
 
-        # Placement loop with retries
-        best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
-        best_loss = float("inf")
-        success = False
+        # Placement loop with retries (per-env tracking)
+        best_valid_loss_per_env: list[float] = [float("inf")] * num_envs
+        best_valid_positions_per_env: list[dict | None] = [None] * num_envs
+        best_any_loss_per_env: list[float] = [float("inf")] * num_envs
+        best_any_positions_per_env: list[dict] = [dict() for _ in range(num_envs)]
 
         for attempt in range(self.params.max_placement_attempts):
-            # Generate starting positions (anchors from their poses, others from On relation)
-            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, generator)
+            # Generate starting positions per env (anchors from their poses, others from On relation)
+            initial_positions: list[dict] = []
+            for env_i in range(num_envs):
+                if generator is not None:
+                    generator.manual_seed(self.params.placement_seed + env_i + attempt * (num_envs + 1))
+                initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, generator))
 
-            # Solve
-            positions = self._solver.solve(objects, initial_positions)
-            loss = self._solver.last_loss_history[-1] if self._solver.last_loss_history else float("inf")
+            # solve() returns list[dict] when given list[dict] initial_positions
+            positions_per_env: list[dict] = self._solver.solve(objects, initial_positions)  # type: ignore[assignment]  # overload returns list[dict] for list input
+            per_env_loss = (
+                self._solver.last_loss_per_env.cpu().tolist()
+                if self._solver.last_loss_per_env is not None
+                else [float("inf")] * num_envs
+            )
+
+            # Check if placement is valid (per env); update best valid and best-by-loss fallback
+            for e in range(num_envs):
+                loss_e = per_env_loss[e] if e < len(per_env_loss) else float("inf")
+                valid = self._validate_placement(positions_per_env[e])
+                if valid and loss_e < best_valid_loss_per_env[e]:
+                    best_valid_loss_per_env[e] = loss_e
+                    best_valid_positions_per_env[e] = positions_per_env[e]
+                if loss_e < best_any_loss_per_env[e]:
+                    best_any_loss_per_env[e] = loss_e
+                    best_any_positions_per_env[e] = positions_per_env[e]
 
             if self.params.verbose:
-                print(f"Attempt {attempt + 1}/{self.params.max_placement_attempts}: loss = {loss:.6f}")
+                mean_loss = sum(per_env_loss) / num_envs
+                n_succeeded = sum(1 for p in best_valid_positions_per_env if p is not None)
+                print(
+                    f"Attempt {attempt + 1}/{self.params.max_placement_attempts}:"
+                    f" loss = {mean_loss:.6f}, envs validated = {n_succeeded}/{num_envs}"
+                )
 
-            # Check if placement is valid
-            if self._validate_placement(positions):
-                best_loss = loss
-                best_positions = positions
-                success = True
+            if all(best_valid_positions_per_env):
                 if self.params.verbose:
                     print(f"Success on attempt {attempt + 1}")
                 break
 
-            # Track best invalid result as fallback
-            if loss < best_loss:
-                best_loss = loss
-                best_positions = positions
+        # Per env: use best valid if any, else best-by-loss fallback
+        final_per_env: list[dict] = [
+            best_valid_positions_per_env[e] if best_valid_positions_per_env[e] is not None
+            else best_any_positions_per_env[e]
+            for e in range(num_envs)
+        ]
+
+        results_per_env = [
+            PlacementResult(
+                success=best_valid_positions_per_env[e] is not None,
+                positions=final_per_env[e],
+                final_loss=(
+                    best_valid_loss_per_env[e] if best_valid_positions_per_env[e] is not None
+                    else best_any_loss_per_env[e]
+                ),
+                attempts=attempt + 1,
+            )
+            for e in range(num_envs)
+        ]
 
         # Apply solved positions to objects
-        if self.params.apply_positions_to_objects:
-            self._apply_positions(best_positions, anchor_objects_set)
+        # TODO(@zhx06): Consider applying via event for consistency with multi_env.
+        if num_envs == 1 and self.params.apply_positions_to_objects:
+            self._apply_positions(final_per_env[0], anchor_objects_set)
 
-        return PlacementResult(
-            success=success,
-            positions=best_positions,
-            final_loss=best_loss,
-            attempts=attempt + 1,
-        )
+        if num_envs == 1:
+            return results_per_env[0]
+        # Multi-env: layouts applied at reset via placement event (builder builds event_cfg from result)
+        return MultiEnvPlacementResult(results=results_per_env)
 
     def _generate_initial_positions(
         self,

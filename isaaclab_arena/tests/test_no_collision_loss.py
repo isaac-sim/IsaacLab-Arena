@@ -217,3 +217,43 @@ def test_relation_solver_no_collision_same_inputs_reproducible():
 
     assert result1[box_a1] == result2[box_a2], "box_a positions should match"
     assert result1[box_b1] == result2[box_b2], "box_b positions should match"
+
+
+def test_no_collision_loss_multi_env_shape_and_values():
+    """Test that NoCollision with batched (N,3) input returns (N,) loss with correct per-env values."""
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")
+    relation = NoCollision(box_b, clearance_m=0.0)
+    strategy = NoCollisionLossStrategy(slope=10.0)
+
+    child_pos = torch.tensor([[0.0, 0.0, 0.0], [0.1, 0.1, 0.0]])
+    parent_world_bbox = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[1.0, 0.0, 0.0], [0.05, 0.05, 0.0]]),
+        max_point=torch.tensor([[1.2, 0.2, 0.2], [0.25, 0.25, 0.2]]),
+    )
+
+    loss = strategy.compute_loss(relation, child_pos, box_a.bounding_box, parent_world_bbox)
+    assert loss.shape == (2,)
+    assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-5)
+    assert loss[1] > 0.0
+
+
+def test_relation_solver_multi_env_returns_list_of_dicts():
+    """Test that solver returns list[dict] when given list[dict] input."""
+    table, box_a, box_b = _create_no_collision_scene()
+    objects = [table, box_a, box_b]
+    initial_positions = [
+        {table: (0.0, 0.0, 0.0), box_a: (0.2, 0.2, 0.11), box_b: (0.25, 0.25, 0.11)},
+        {table: (0.0, 0.0, 0.0), box_a: (0.3, 0.3, 0.11), box_b: (0.6, 0.6, 0.11)},
+    ]
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    solver = RelationSolver(params=solver_params)
+    result = solver.solve(objects=objects, initial_positions=initial_positions)
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    for d in result:
+        assert isinstance(d, dict)
+        assert box_a in d
+        assert box_b in d

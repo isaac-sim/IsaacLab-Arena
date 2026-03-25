@@ -29,7 +29,9 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relations import IsAnchor, NoCollision
+from isaaclab_arena.relations.placement_events import make_placement_event_cfg
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+from isaaclab_arena.relations.relations import IsAnchor, NoCollision, get_anchor_objects
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -117,9 +119,35 @@ class ArenaEnvBuilder:
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
         placement_seed = getattr(self.args, "placement_seed", None)
         placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
-        result = placer.place(objects=objects_with_relations)
+        num_envs = self.args.num_envs
+        result = placer.place(objects_with_relations, num_envs=num_envs)
+        if isinstance(result, MultiEnvPlacementResult) and result.results:
+            positions_all_envs_by_name = [
+                {obj.name: result.results[e].positions[obj] for obj in result.results[0].positions}
+                for e in range(len(result.results))
+            ]
+            object_names = [obj.name for obj in objects_with_relations]
+            anchor_names = [a.name for a in get_anchor_objects(objects_with_relations)]
+            self._placement_event_cfg = make_placement_event_cfg(
+                positions_all_envs_by_name,
+                object_names,
+                anchor_names,
+            )
+        else:
+            self._placement_event_cfg = None
 
-        if result.success:
+        # Log outcome
+        results_per_env = result.results if isinstance(result, MultiEnvPlacementResult) else None
+        if results_per_env is not None:
+            n_succeeded = sum(1 for r in results_per_env if r.success)
+            if n_succeeded == num_envs:
+                print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
+            else:
+                print(
+                    f"Relation solving: {n_succeeded}/{num_envs} env(s) passed validation after"
+                    f" {result.attempts} attempt(s)."
+                )
+        elif result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
             print(f"Warning: Relation solving not completed after {result.attempts} attempt(s)")
@@ -168,12 +196,15 @@ class ArenaEnvBuilder:
             embodiment.get_observation_cfg(),
             task.get_observation_cfg(),
         )
-        events_cfg = combine_configclass_instances(
-            "EventsCfg",
+        events_sources = [
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
-        )
+        ]
+        placement_event = getattr(self, "_placement_event_cfg", None)
+        if placement_event is not None:
+            events_sources.append(placement_event)
+        events_cfg = combine_configclass_instances("EventsCfg", *events_sources)
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),

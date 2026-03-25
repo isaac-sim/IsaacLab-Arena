@@ -134,3 +134,26 @@ def test_object_placer_different_seeds_produce_different_results():
             break
 
     assert any_different, "Different seeds should produce different results"
+
+
+def test_relation_solver_multi_env_batched_positions():
+    """Test that solver with list[dict] input returns list[dict] output."""
+    solver_params = RelationSolverParams(max_iters=50)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+
+    initial_positions = [
+        {desk: (0.0, 0.0, 0.0), box1: (0.2, 0.2, 0.11), box2: (0.5, 0.5, 0.11)},
+        {desk: (0.0, 0.0, 0.0), box1: (0.3, 0.3, 0.11), box2: (0.6, 0.6, 0.11)},
+    ]
+
+    solver = RelationSolver(params=solver_params)
+    result = solver.solve(objects=objects, initial_positions=initial_positions)
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    for d in result:
+        assert isinstance(d, dict)
+        for obj in objects:
+            assert obj in d
+            assert len(d[obj]) == 3
