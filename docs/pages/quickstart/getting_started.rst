@@ -10,7 +10,7 @@ placeholder policy that sends zero commands to the robot every step. The robot s
 the environment loads, the scene renders, and you can verify that each variation works. No model
 weights needed.
 
-The four experiments below all use the same ``srl_pick_and_place`` environment. Each one changes
+The four experiments below all use the same ``pick_and_place_maple_table`` environment. Each one changes
 exactly one argument from the baseline.
 
 
@@ -24,7 +24,7 @@ Your reference run — rubiks cube on the table, bowl as destination:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_steps 50 \
-     srl_pick_and_place \
+     pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
      --destination_location bowl_ycb_robolab \
@@ -32,7 +32,7 @@ Your reference run — rubiks cube on the table, bowl as destination:
 
 .. figure:: ../../images/default_srl_pnp.png
    :width: 100%
-   :alt: Default srl_pick_and_place environment — rubiks cube and bowl on table
+   :alt: Default pick_and_place_maple_table environment — rubiks cube and bowl on table
    :align: center
 
 
@@ -59,7 +59,7 @@ Some options to try:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_steps 50 \
-     srl_pick_and_place \
+     pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object mustard_bottle_hot3d_robolab \
      --destination_location wooden_bowl_hot3d_robolab \
@@ -67,7 +67,7 @@ Some options to try:
 
 .. figure:: ../../images/swap_objects.gif
    :width: 100%
-   :alt: Swapping pick-up objects in srl_pick_and_place
+   :alt: Swapping pick-up objects in pick_and_place_maple_table
    :align: center
 
 
@@ -91,7 +91,7 @@ You can also adjust the dome light intensity independently with ``--light_intens
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_steps 50 \
-     srl_pick_and_place \
+     pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
      --destination_location bowl_ycb_robolab \
@@ -100,7 +100,7 @@ You can also adjust the dome light intensity independently with ``--light_intens
 
 .. figure:: ../../images/swap_hdr.gif
    :width: 100%
-   :alt: Changing background HDR in srl_pick_and_place
+   :alt: Changing background HDR in pick_and_place_maple_table
    :align: center
 
 
@@ -115,7 +115,7 @@ Add ``--num_envs`` to run many environments in parallel on the GPU:
      --policy_type zero_action \
      --num_steps 50 \
      --num_envs 64 \
-     srl_pick_and_place \
+     pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
      --destination_location bowl_ycb_robolab
@@ -127,7 +127,7 @@ across hundreds of object and scene combinations in a single run.
 
 .. figure:: ../../images/scale_up.gif
    :width: 100%
-   :alt: Running 64 parallel srl_pick_and_place environments
+   :alt: Running 64 parallel pick_and_place_maple_table environments
    :align: center
 
 
@@ -162,7 +162,7 @@ success rates:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --num_steps 50 \
-     srl_pick_and_place \
+     pick_and_place_maple_table \
      --embodiment droid_abs_joint_pos \
      --pick_up_object rubiks_cube_hot3d_robolab \
      --destination_location bowl_ycb_robolab

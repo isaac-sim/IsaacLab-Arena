@@ -3,7 +3,7 @@
         {
             "name": "01_baseline",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -16,7 +16,7 @@
         {
             "name": "02_swap_objects",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mustard_bottle_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -29,7 +29,7 @@
         {
             "name": "03_change_background_hdr",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -42,7 +42,7 @@
         {
             "name": "04_parallel_envs",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",

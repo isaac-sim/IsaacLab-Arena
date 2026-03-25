@@ -3,7 +3,7 @@
         {
             "name": "swap_objects_rubiks_cube_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -17,7 +17,7 @@
         {
             "name": "swap_objects_rubiks_cube_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -31,7 +31,7 @@
         {
             "name": "swap_objects_mustard_bottle_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mustard_bottle_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -45,7 +45,7 @@
         {
             "name": "swap_objects_mustard_bottle_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mustard_bottle_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -59,7 +59,7 @@
         {
             "name": "swap_objects_mug_hot3d_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mug_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -73,7 +73,7 @@
         {
             "name": "swap_objects_mug_hot3d_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mug_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -87,7 +87,7 @@
         {
             "name": "swap_objects_soup_can_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "soup_can_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -101,7 +101,7 @@
         {
             "name": "swap_objects_soup_can_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "soup_can_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -115,7 +115,7 @@
         {
             "name": "swap_objects_ceramic_mug_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "ceramic_mug_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -129,7 +129,7 @@
         {
             "name": "swap_objects_ceramic_mug_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "ceramic_mug_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -143,7 +143,7 @@
         {
             "name": "swap_objects_pitcher_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "pitcher_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -157,7 +157,7 @@
         {
             "name": "swap_objects_pitcher_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "pitcher_hot3d_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -171,7 +171,7 @@
         {
             "name": "swap_objects_mustard_ycb_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mustard_ycb_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -185,7 +185,7 @@
         {
             "name": "swap_objects_mustard_ycb_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mustard_ycb_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -199,7 +199,7 @@
         {
             "name": "swap_objects_sugar_box_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "sugar_box_ycb_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -213,7 +213,7 @@
         {
             "name": "swap_objects_sugar_box_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "sugar_box_ycb_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -227,7 +227,7 @@
         {
             "name": "swap_objects_tomato_soup_can_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "tomato_soup_can_ycb_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -241,7 +241,7 @@
         {
             "name": "swap_objects_tomato_soup_can_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "tomato_soup_can_ycb_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",
@@ -255,7 +255,7 @@
         {
             "name": "swap_objects_mug_ycb_bowl_ycb",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mug_ycb_robolab",
                 "destination_location": "bowl_ycb_robolab",
@@ -269,7 +269,7 @@
         {
             "name": "swap_objects_mug_ycb_wooden_bowl",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "mug_ycb_robolab",
                 "destination_location": "wooden_bowl_hot3d_robolab",

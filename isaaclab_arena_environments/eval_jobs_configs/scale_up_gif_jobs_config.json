@@ -3,7 +3,7 @@
         {
             "name": "scale_up_4_envs",
             "arena_env_args": {
-                "environment": "srl_pick_and_place",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
                 "destination_location": "bowl_ycb_robolab",
