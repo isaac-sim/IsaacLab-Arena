@@ -173,7 +173,7 @@ def _run_policy_runner_with_action_chunking_client() -> None:
 # ======================================================================================
 
 
-@pytest.mark.skip(reason="Broken. Stalls intermittently.")
+@pytest.mark.with_subprocess
 def test_action_chunking_client_end_to_end_with_dummy_chunking_server(
     running_dummy_chunking_server: PolicyServer,
 ) -> None:

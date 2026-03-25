@@ -80,6 +80,7 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
     run_subprocess(args)
 
 
+@pytest.mark.with_subprocess
 @pytest.mark.skip(reason="Broken. Waiting for Isaac Lab 3.0 version of interop to be merged.")
 def test_rl_train_and_eval_lift_object():
     checkpoint_path = run_rl_train(
