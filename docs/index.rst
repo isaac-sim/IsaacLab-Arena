@@ -196,7 +196,7 @@ TABLE OF CONTENTS
    :caption: Getting Started
 
    pages/quickstart/first_arena_env
-   pages/quickstart/varying_your_environment
+   pages/quickstart/first_experiments
 
 .. toctree::
    :maxdepth: 1
