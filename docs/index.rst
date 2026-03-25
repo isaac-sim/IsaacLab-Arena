@@ -1,5 +1,5 @@
-``Isaac Lab Arena`` Documentation
-=================================
+Welcome to Isaac Lab Arena!
+===========================
 
 .. warning::
    This is the latest version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
