@@ -149,7 +149,8 @@ jobs:
 
       - name: Run subprocess-spawning tests (before persistent SimApp is created)
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m with_subprocess
+          /isaac-sim/python.sh -m pytest -sv -m with_subprocess \
+            isaaclab_arena/tests/
 
 
   test_policy:
