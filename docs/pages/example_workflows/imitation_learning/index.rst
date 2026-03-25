@@ -5,10 +5,22 @@ The following workflows demonstrate end-to-end imitation learning with Isaac Lab
 covering teleoperation data collection, data generation, policy post-training, and
 closed-loop evaluation.
 
+GR00T Container
+---------------
+
+Some steps in these workflows (policy post-training and evaluation) require the **Base + GR00T**
+container, which includes the `GR00T model <https://github.com/NVIDIA/Isaac-GR00T/>`_ dependencies
+in addition to the standard Arena Base container. To launch it:
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh -g
+
+Not every step requires this container — the workflow pages will tell you when to use it.
+
 .. note::
-   These workflows include optional fine-tuning of the `GR00T model <https://github.com/NVIDIA/Isaac-GR00T/>`_.
-   GR00T fine-tuning does not support Blackwell GPUs and requires large amounts of GPU memory.
-   Specific requirements are detailed in the respective workflow pages.
+   The Base + GR00T container does not support Blackwell GPUs and requires large amounts of GPU
+   memory.
 
 .. toctree::
    :maxdepth: 1
