@@ -25,9 +25,6 @@ in addition to the standard Arena Base container. To launch it:
 
 Not every step requires this container — the workflow pages will tell you when to use it.
 
-.. note::
-   The Base + GR00T container does not support Blackwell GPUs and requires large amounts of GPU
-   memory.
 
 .. toctree::
    :maxdepth: 1

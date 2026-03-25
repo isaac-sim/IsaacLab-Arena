@@ -53,8 +53,8 @@ A typical workflow is:
     # for example: cracker_box, ketchup_bottle_hope_robolab, ranch_dressing_hope_robolab, etc.
     --object ${OBJECT_NAME}
 
-This setup cleanly separates the Isaac Lab Arena simulation environment from the GR00T policy
-server environment.
+This setup sets the Isaac Lab Arena simulation environment to the specified environment and runs the GR00T policy in a separate container.
+The simulation environment and the policy model communicate via the remote policy interface.
 
 If you want to host other policy models as remote servers, you can follow the same pattern: create
 a dedicated server Dockerfile and launcher script (similar to ``docker/Dockerfile.gr00t_server``

@@ -211,7 +211,7 @@ TABLE OF CONTENTS
 
    pages/advanced/private_omniverse
    pages/advanced/assets_management
-   pages/advanced/groot_server_client
+   pages/advanced/gr00t_server_client
    pages/quickstart/jupyter_notebooks
 
 .. toctree::
