@@ -176,6 +176,7 @@ def _run_gr00t_closedloop_policy(
         return False
 
 
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
@@ -197,6 +198,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
     assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_single_env failed"
 
 
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
@@ -218,6 +220,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs failed"
 
 
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned_model_path, tmp_path):
     """Test eval_runner including a G00T closedloop policy and a zero action policy."""
 
