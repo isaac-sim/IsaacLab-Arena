@@ -11,12 +11,6 @@ The dependencies are installed automatically during the Docker build process.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
 `Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_.
 
-**GR00T fine-tuning:** Our example workflows include (optional) fine-tuning
-of the `GR00T model <https://github.com/NVIDIA/Isaac-GR00T/>`_.
-These workflows have additional requirements, notably that they do not support Blackwell GPUs, and
-require large amounts of GPU memory.
-Specific additional requirements for GR00T fine-tuning are detailed in the respective workflow pages.
-
 
 Installation via Docker
 -----------------------
