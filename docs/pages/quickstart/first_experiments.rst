@@ -155,7 +155,10 @@ Next Steps
 ----------
 
 Once you have verified the setup, replace ``zero_action`` with a trained policy to get non-zero
-success rates:
+success rates.
+
+The example below uses GR00T N1.6. It requires the GR00T container — launch it first with
+``./docker/run_docker.sh -g`` before running:
 
 .. code-block:: bash
 
@@ -169,4 +172,4 @@ success rates:
 
 See :doc:`../../pages/policy_evaluation/index` for policy evaluation details, or refer to
 ``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json`` for a
-complete GR00T eval_runner example (requires ``./docker/run_docker.sh -g``).
+complete GR00T eval_runner example.
