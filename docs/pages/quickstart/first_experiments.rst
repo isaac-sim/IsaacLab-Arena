@@ -145,6 +145,10 @@ Sim process, collecting success metrics for each:
    python isaaclab_arena/evaluation/eval_runner.py \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
 
+.. figure:: ../../images/iterate_getting_started_jobs_config.gif
+   :alt: Four evaluation jobs running sequentially: baseline, swapped objects, changed HDR, and 64 parallel environments
+   :align: center
+
 At the end of the run you get a per-job summary of success rates. See
 :ref:`sequential-batch-eval-runner` for full details on the job config format and available options.
 
