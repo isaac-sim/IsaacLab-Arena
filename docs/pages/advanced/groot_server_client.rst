@@ -3,7 +3,7 @@ Server-Client Mode With GR00T
 
 Arena supports running the simulation and the policy model in separate containers connected via a
 lightweight RPC protocol. This is useful when the policy environment has different dependencies or
-needs to run on a different machine.
+needs to run on a different machine. You can see more details in the :doc:`../concepts/concept_remote_policies_design` page.
 
 It requires two containers to run:
 
@@ -23,13 +23,35 @@ A typical workflow is:
 .. code-block:: bash
 
   bash docker/run_gr00t_server.sh \
+    # The models directory is the directory that contains the GR00T model checkpoint.
+    -m ${MODELS_DIR} \
     --host 127.0.0.1  \
     --port 5555 \
     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
-    --policy_config_yaml_path {policy_config_yaml_path} # e.g. isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
+    --policy_config_yaml_path ${POLICY_CONFIG_YAML_PATH} # e.g. isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
 
 3. Inside the Base container, run the evaluation script with a
-   client-side remote policy (refer to :doc:`../example_workflows/static_manipulation/step_5_evaluation` for full command lines).
+   client-side remote policy.
+
+.. code-block:: bash
+
+  python -m isaaclab_arena/evaluation/policy_runner.py \
+    --visualizer kit \
+    --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
+    --remote_host 127.0.0.1 \
+    --remote_port 5555 \
+    # for example: 2000
+    --num_steps ${NUM_STEPS} \
+    # for example: 10
+    --num_envs ${NUM_ENVS} \
+    --enable_cameras \
+    --remote_kill_on_exit \
+    # for example: gr1_open_microwave, put_item_in_fridge_and_close_door, etc.
+    ${ARENA_ENVIRONMENT_NAME} \
+    # for example: gr1_joint, g1_wbc_joint, etc.
+    --embodiment ${ROBOT_EMBODIMENT_NAME} \
+    # for example: cracker_box, ketchup_bottle_hope_robolab, ranch_dressing_hope_robolab, etc.
+    --object ${OBJECT_NAME}
 
 This setup cleanly separates the Isaac Lab Arena simulation environment from the GR00T policy
 server environment.
