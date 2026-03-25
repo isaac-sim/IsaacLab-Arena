@@ -170,6 +170,3 @@ success rates:
 See :doc:`../../pages/policy_evaluation/index` for policy evaluation details, or refer to
 ``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json`` for a
 complete GR00T eval_runner example (requires ``./docker/run_docker.sh -g``).
-
-For a deeper look at how environments are composed from scratch using the Python API, see
-:doc:`first_arena_env`.
