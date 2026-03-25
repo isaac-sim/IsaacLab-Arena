@@ -127,7 +127,7 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         obj_2 = self.asset_registry.get_asset_by_name('ketchup_bottle_hope_robolab')(scale=(0.7, 0.7, 0.6))
         obj_3 = self.asset_registry.get_asset_by_name('alphabet_soup_can_hope_robolab')(scale=(0.7, 0.7, 0.8))
         obj_4 = self.asset_registry.get_asset_by_name('bowl_ycb_robolab')()
-        obj_5 = self.asset_registry.get_asset_by_name('red_container')(scale=(0.5, 0.5, 0.5))
+        obj_5 = self.asset_registry.get_asset_by_name('red_container')(scale=(0.4, 0.4, 0.5))
 
         blue_sorting_bin = self.asset_registry.get_asset_by_name('blue_sorting_bin')(scale=(1.5, 0.8, 1.0))
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
@@ -598,22 +598,21 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
             On,
             Side,
             AtPosition,
+            RotateAroundSolution,
         )
         static_1, static_2 = static_objects[0], static_objects[1]
 
         # static_1 (bowl): on table, next to bin on +X side
-        static_1.add_relation(IsAnchor())
         static_1.add_relation(On(table))
         static_1.add_relation(NextTo(
-            bin_asset, side=Side.POSITIVE_X,
+            bin_asset, side=Side.POSITIVE_Y,
             distance_m=random.uniform(0.10, 0.20),
         ))
 
         # static_2 (red container): on table, next to bin on -X side
         bowl_pose = static_1.get_initial_pose()
-        static_2.add_relation(IsAnchor())
         static_2.add_relation(On(table))
-        static_2.add_relation(AtPosition(x=bowl_pose.position_xyz[0]+1, y=bowl_pose.position_xyz[1]))
+        static_2.add_relation(AtPosition(x=bowl_pose.position_xyz[0], y=bowl_pose.position_xyz[1]-0.8))
 
 
     @staticmethod
