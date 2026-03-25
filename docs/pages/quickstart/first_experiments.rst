@@ -156,5 +156,4 @@ Next Steps
 
 The experiments above use ``zero_action`` — the robot stays still and success rates are zero.
 To get non-zero results, swap in a real policy. See :doc:`../../pages/example_workflows/imitation_learning/index`
-for end-to-end examples, or :doc:`../../pages/policy_evaluation/index` for details on
-bringing your own policy.
+for end-to-end examples.
