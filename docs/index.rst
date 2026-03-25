@@ -193,7 +193,6 @@ TABLE OF CONTENTS
    pages/quickstart/first_arena_env
    pages/quickstart/getting_started
    pages/quickstart/docker_containers
-   pages/quickstart/jupyter_notebooks
 
 .. toctree::
    :maxdepth: 1
@@ -210,6 +209,8 @@ TABLE OF CONTENTS
 
    pages/advanced/private_omniverse
    pages/advanced/assets_management
+   pages/advanced/groot_server_client
+   pages/quickstart/jupyter_notebooks
 
 .. toctree::
    :maxdepth: 1
