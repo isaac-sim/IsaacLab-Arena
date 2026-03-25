@@ -140,6 +140,8 @@ jobs:
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
+    env:
+      GROOT_DEPS_DIR: /opt/groot_deps
     steps:
       # nvidia-smi
       - *nvidia_smi
