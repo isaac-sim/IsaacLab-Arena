@@ -31,11 +31,19 @@ installation options.
 
 2. **Launch the docker container:**
 
-
 :docker_run_default:
 
+The container will build (if needed) and drop you into an interactive shell.
 
-for more details see :doc:`docker_containers`.
+.. note::
+   The run docker script mounts the following directories from the host machine:
+
+   - **Datasets**: ``$HOME/datasets`` → ``/datasets``
+   - **Models**: ``$HOME/models`` → ``/models``
+   - **Evaluation**: ``$HOME/eval`` → ``/eval``
+
+   This avoids re-downloading datasets and models between container restarts.
+   Directories are configurable — see ``docker/run_docker.sh`` for the full list of arguments.
 
 3. **Optionally verify installation by running tests:**
 

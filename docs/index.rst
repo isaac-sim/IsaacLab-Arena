@@ -190,7 +190,6 @@ TABLE OF CONTENTS
    :caption: Set Up
 
    pages/quickstart/installation
-   pages/quickstart/docker_containers
 
 .. toctree::
    :maxdepth: 1
