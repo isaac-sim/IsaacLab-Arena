@@ -9,10 +9,6 @@ import torch
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-# =============================================================================
-# Single-env tests (N=1, properties return (1, 3) or (1,) tensors)
-# =============================================================================
-
 
 def test_bounding_box_single_env_properties():
     """Single env: properties return tensors with leading dim 1."""
@@ -65,11 +61,6 @@ def test_bounding_box_single_env_get_corners_at():
     assert corners.shape == (1, 8, 3)
     corners_offset = aabb.get_corners_at(pos=torch.tensor([10.0, 0.0, 0.0]))
     torch.testing.assert_close(corners_offset[0, 0], corners[0, 0] + torch.tensor([10.0, 0.0, 0.0]))
-
-
-# =============================================================================
-# Multi-env batch tests (N>1, properties return (N, 3) or (N,) tensors)
-# =============================================================================
 
 
 def test_bounding_box_multi_env_properties():
