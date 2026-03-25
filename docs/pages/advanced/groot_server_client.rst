@@ -14,19 +14,19 @@ A typical workflow is:
 
 1. Start the Base container for simulation and evaluation:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-    bash docker/run_docker.sh
+  bash docker/run_docker.sh
 
 2. In a second terminal, start the GR00T policy server container:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-    bash docker/run_gr00t_server.sh \
-      --host 127.0.0.1  \
-      --port 5555 \
-      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
-      --policy_config_yaml_path {policy_config_yaml_path} # e.g. isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
+  bash docker/run_gr00t_server.sh \
+    --host 127.0.0.1  \
+    --port 5555 \
+    --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
+    --policy_config_yaml_path {policy_config_yaml_path} # e.g. isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
 
 3. Inside the Base container, run the evaluation script with a
    client-side remote policy (refer to :doc:`../example_workflows/static_manipulation/step_5_evaluation` for full command lines).

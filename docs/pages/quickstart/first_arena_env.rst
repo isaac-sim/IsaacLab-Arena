@@ -1,7 +1,7 @@
 First Arena Environment
 =======================
 
-``pick_and_place_maple_table`` is a table-top pick-and-place environment where a robot picks up an
+Our first environment, ``pick_and_place_maple_table``, is a table-top pick-and-place environment where a robot picks up an
 object and places it into a destination container. This page walks through how the environment is
 defined, introducing the core Arena building blocks along the way.
 
@@ -10,7 +10,7 @@ defined, introducing the core Arena building blocks along the way.
    :alt: Default pick_and_place_maple_table environment
    :align: center
 
-   The default ``pick_and_place_maple_table`` scene: a DROID robot with a Rubik's cube and bowl on a maple table.
+   The ``pick_and_place_maple_table`` environment: a DROID robot with a Rubik's cube and bowl on a maple table.
 
 
 The Three Building Blocks
@@ -22,9 +22,9 @@ Arena builds every environment by composing three independent pieces:
 * **Embodiment** — the robot: its kinematics, observations, actions, and sensors.
 * **Task** — the objective: success criteria, termination conditions, and metrics.
 
-Each piece is swappable without touching the others. That is what makes it possible to pass
-``--pick_up_object mustard_bottle_hot3d_robolab`` on the command line and get a completely
-different scene — no task or embodiment code changes at all.
+Each piece is swappable without touching the others.
+For example, as we shall see, we can replace the Rubik's cube in ``pick_and_place_maple_table``
+with another object and get a new environment — no task or embodiment code changes at all.
 
 
 .. dropdown:: Full Source: ``pick_and_place_maple_table_environment.py``
@@ -111,7 +111,7 @@ that class (the trailing ``()``) instantiates it with default configuration.
 
 Notice that ``pick_up_object`` and ``destination_location`` come from ``args_cli`` rather than
 being hardcoded. This is the variation axis: swapping ``--pick_up_object`` on the command line
-changes which asset is fetched here, with zero code changes anywhere else.
+changes which asset is fetched here, resulting in a new environment, with zero code changes.
 
 See :doc:`../concepts/concept_assets_design` for details on the asset registry and how to register
 custom assets.
@@ -138,9 +138,9 @@ sub-prim within it. An ``ObjectReference`` gives that sub-prim a name Arena can 
 
 **Relations** describe how assets are placed relative to one another:
 
-- ``IsAnchor()`` marks ``table_reference`` as a stable anchor point — Arena uses it to place
-  other objects relative to it.
-- ``On(table_reference)`` tells Arena to spawn the object on top of the table surface.
+- ``IsAnchor()`` marks ``table_reference`` as a stable anchor point — Arena does not move this asset,
+  but rather place other objects relative to it.
+- ``On(table_reference)`` tells Arena to spawn the object (anywhere) on top of the table surface.
 
 Arena resolves these relations at environment-build time to compute concrete spawn poses.
 
@@ -158,7 +158,8 @@ Step 3: Configure Lighting
 
 ``light`` is a dome light asset whose intensity is controlled by ``--light_intensity``. Passing
 ``--hdr`` wraps the dome light with an HDR environment map, simultaneously changing the background
-panorama and the ambient lighting. This is how the :doc:`first_experiments` HDR experiment works.
+panorama and the ambient lighting. See :doc:`first_experiments` for an experiment where the HDR
+background is swapped out for a different ones.
 
 
 Step 4: Select the Embodiment
@@ -170,7 +171,7 @@ Step 4: Select the Embodiment
        enable_cameras=args_cli.enable_cameras,
    )
 
-The embodiment encapsulates everything robot-specific: the URDF, joint configuration, action
+The embodiment encapsulates everything robot-specific: the USD robot model, joint configuration, action
 space, observation space, and cameras. ``droid_abs_joint_pos`` is the DROID setup (Franka arm +
 Robotiq 2F-85 gripper) with absolute joint-position control.
 
@@ -204,13 +205,14 @@ Step 6: Define the Task
        episode_length_s=20.0,
    )
 
-The task defines what *success* means. ``PickAndPlaceTask`` declares two termination conditions:
+The task defines what *success* and *failure* mean. ``PickAndPlaceTask`` declares two termination conditions:
 
 - **success** — the pick-up object is resting on the destination (contact + low velocity).
-- **object_dropped** — the object falls below the table surface.
+- **failure (object dropped)** — the object falls below the table surface.
 
 It also attaches metrics (``SuccessRateMetric``, ``ObjectMovedRateMetric``) that ``eval_runner.py``
-collects at the end of each episode.
+collects at the end of each episode. These metrics will report the proportion of successful episodes,
+as well as the proportion of episodes in which the object was moved.
 
 See :doc:`../concepts/concept_tasks_design` for creating custom tasks.
 
@@ -227,13 +229,15 @@ Step 7: Assemble the Environment
        task=task,
    )
 
-``IsaacLabArenaEnvironment`` holds the three pieces together. At this point nothing has been
-compiled into Isaac Lab yet — this is a declarative description. The ``ArenaEnvBuilder`` (used
-internally by ``policy_runner.py``) compiles it into a ``ManagerBasedRLEnvCfg`` and registers it
-with Gymnasium.
+``IsaacLabArenaEnvironment`` holds the three pieces together.
+This is Arena's declarative description of the environment.
+Simple huh?
 
-See :doc:`../concepts/concept_environment_compilation` for how compilation works.
-
+Note that behind the scenes, the ``ArenaEnvBuilder`` compiles this description into a
+``ManagerBasedRLEnvCfg`` and registers it with Gymnasium.
+This compiled result can then be run in Isaac Lab.
+See :doc:`../concepts/concept_environment_compilation` for how compilation works,
+but these details are not important for how to use Arena.
 
 Variation via CLI Arguments
 ----------------------------
@@ -257,6 +261,6 @@ duplicating environment code.
 Next Steps
 ----------
 
-Now that you understand how the environment is built, see :doc:`first_experiments` to run it —
-evaluating a policy across object, lighting, and scale variations from the same environment
+Now that you understand how the environment is built, see :doc:`first_experiments` to run it and
+evaluate a policy across object, lighting, and scale variations from the same environment
 definition, with no code changes.

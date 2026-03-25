@@ -5,6 +5,13 @@ The following workflows demonstrate end-to-end imitation learning with Isaac Lab
 covering teleoperation data collection, data generation, policy post-training, and
 closed-loop evaluation.
 
+Currently, the following imitation learning workflow examples are provided:
+
+* :doc:`G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/index>`
+* :doc:`GR1 Open Microwave Door Task <../static_manipulation/index>`
+* :doc:`GR1 Sequential Pick & Place and Close Door Task <../sequential_static_manipulation/index>`
+
+
 GR00T Container
 ---------------
 

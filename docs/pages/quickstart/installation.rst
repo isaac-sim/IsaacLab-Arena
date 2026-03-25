@@ -36,14 +36,16 @@ installation options.
 The container will build (if needed) and drop you into an interactive shell.
 
 .. note::
-   The run docker script mounts the following directories from the host machine:
+   The run docker script mounts the following directories from the host machine if they exist:
 
    - **Datasets**: ``$HOME/datasets`` → ``/datasets``
    - **Models**: ``$HOME/models`` → ``/models``
    - **Evaluation**: ``$HOME/eval`` → ``/eval``
 
-   This avoids re-downloading datasets and models between container restarts.
-   Directories are configurable — see ``docker/run_docker.sh`` for the full list of arguments.
+   When mounted a user avoids re-downloading datasets and models between container restarts,
+   so our suggestion is to create these directories on the host machine before running the container.
+   Note that the path of the mounted directories are configurable — see ``docker/run_docker.sh``
+   for the full list of arguments.
 
 3. **Optionally verify installation by running tests:**
 
@@ -52,4 +54,5 @@ The container will build (if needed) and drop you into an interactive shell.
     pytest -sv -m with_cameras isaaclab_arena/tests/
     pytest -sv -m "not with_cameras" isaaclab_arena/tests/
 
-With ``isaaclab_arena`` installed and the docker running, you're ready to build your first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.
+With ``isaaclab_arena`` installed and the docker running, you're ready to build your
+first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.

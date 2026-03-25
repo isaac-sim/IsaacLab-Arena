@@ -1,9 +1,9 @@
 Running your First Experiments
 ==============================
 
-Arena lets you evaluate a robot policy across dozens of object, lighting, and scale variations
+Arena lets you evaluate a robot policy across variations of object, lighting, and embodiment
 from a single environment definition — no task logic changes, no duplicated configuration. You
-swap one argument and get a completely different scene.
+swap one argument and get a completely different environment.
 
 The fastest way to see this is with the **policy runner** and a **zero-action policy** — a
 placeholder policy that sends zero commands to the robot every step. The robot stays still, but
