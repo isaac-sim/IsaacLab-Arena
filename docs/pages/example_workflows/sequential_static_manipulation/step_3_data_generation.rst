@@ -46,6 +46,7 @@ To skip this step, you can download the pre-annotated dataset as described below
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v2.3 \
          --local-dir "$_tmp" && \
       mkdir -p "$DATASET_DIR" && \
       mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" "$DATASET_DIR/" && \
@@ -101,6 +102,7 @@ This step can be skipped by downloading the pre-generated dataset as described b
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v2.3 \
          --local-dir "$_tmp" && \
       mkdir -p "$DATASET_DIR" && \
       mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" "$DATASET_DIR/" && \
