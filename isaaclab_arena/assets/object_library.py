@@ -3,6 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
+import isaaclab.sim as sim_utils
+from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.affordances.openable import Openable
@@ -11,7 +15,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 class LibraryObject(Object):
     """
@@ -21,7 +25,7 @@ class LibraryObject(Object):
 
     name: str
     tags: list[str]
-    usd_path: str
+    usd_path: str | None = None
     object_type: ObjectType = ObjectType.RIGID
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
@@ -226,6 +230,69 @@ class BrownBox(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/brown_box/brown_box.usd"
     default_prim_path = "{ENV_REGEX_NS}/brown_box"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class GroundPlane(LibraryObject):
+    """
+    A ground plane.
+    """
+
+    name = "ground_plane"
+    tags = ["ground_plane"]
+    default_prim_path = "/World/GroundPlane"
+    object_type = ObjectType.SPAWNER
+    spawner_cfg = GroundPlaneCfg()
+
+    def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class DomeLight(LibraryObject):
+    """
+    A dome light.
+    """
+
+    name = "dome_light"
+    tags = ["light"]
+    default_prim_path = "/World/defaultDomeLight"
+    object_type = ObjectType.SPAWNER
+    spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
+
+    def __init__(self, prim_path: str | None = default_prim_path, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+@register_asset
+class IoBoard(LibraryObject):
+    """
+    An IO board.
+    """
+
+    name = "object"
+    tags = ["object"]
+    usd_path = str(Path(__file__).parent / "object_library" / "6a_io_board.usd")
+    default_prim_path = "{ENV_REGEX_NS}/io_board"
+    scale = (1.0, 1.0, 1.0)
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+@register_asset
+class PackingTable(LibraryObject):
+    """
+    A packing table.
+    """
+
+    name = "packing_table"
+    tags = ["table"]
+    object_type = ObjectType.BASE
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/PackingTable/packing_table.usd"
+    default_prim_path = "{ENV_REGEX_NS}/PackingTable"
     scale = (1.0, 1.0, 1.0)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):

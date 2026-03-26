@@ -5,7 +5,7 @@
 
 from contextlib import contextmanager
 
-from pxr import Usd, UsdPhysics
+from pxr import Usd, UsdLux, UsdPhysics
 
 
 def get_all_prims(
@@ -32,6 +32,24 @@ def get_all_prims(
         prims_list.append(child)
         get_all_prims(stage, child, prims_list)
     return prims_list
+
+
+def has_light(stage: Usd.Stage) -> bool:
+    """Check if the stage has a light"""
+    LIGHT_TYPES = (
+        UsdLux.SphereLight,
+        UsdLux.RectLight,
+        UsdLux.DomeLight,
+        UsdLux.DistantLight,
+        UsdLux.DiskLight,
+    )
+    has_light = False
+    all_prims = get_all_prims(stage)
+    for prim in all_prims:
+        if any(prim.IsA(t) for t in LIGHT_TYPES):
+            has_light = True
+            break
+    return has_light
 
 
 def is_articulation_root(prim: Usd.Prim) -> bool:

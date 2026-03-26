@@ -9,6 +9,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -26,7 +27,9 @@ class Object(ObjectBase):
         initial_pose: Pose | None = None,
         **kwargs,
     ):
-        assert name is not None and usd_path is not None
+        assert name is not None
+        if object_type is not ObjectType.SPAWNER:
+            assert usd_path is not None
         # Detect object type if not provided
         if object_type is None:
             object_type = detect_object_type(usd_path=usd_path)
@@ -75,9 +78,21 @@ class Object(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
+        with open_stage(self.usd_path) as stage:
+            if has_light(stage):
+                print("WARNING: Base object has lights, this may cause issues when using with multiple environments.")
         object_cfg = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/" + self.name,
             spawn=UsdFileCfg(usd_path=self.usd_path, scale=self.scale),
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
+
+    def _generate_spawner_cfg(self) -> AssetBaseCfg:
+        assert self.object_type == ObjectType.SPAWNER
+        object_cfg = AssetBaseCfg(
+            prim_path=self.prim_path,
+            spawn=self.spawner_cfg,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg

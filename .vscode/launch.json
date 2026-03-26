@@ -1,6 +1,10 @@
 {
     "version": "0.2.0",
     "configurations": [
+        
+
+
+
 
         {
             "name": "Attach to debugpy session",
@@ -16,6 +20,57 @@
                     "remoteRoot": "/workspaces/isaac_arena"
                 }
             ]
+        },
+        {
+            "name": "Python: Annotate Dataset",
+            "type": "python",
+            "request": "launch",
+            "args" : [
+            "--mimic",
+            "--input_file", "${workspaceFolder}/isaaclab_arena/datasets/dataset_v1.hdf5",
+            "--output_file", "${workspaceFolder}/isaaclab_arena/datasets/dataset_v1_annotated.hdf5",
+            "fii_pick_place"],
+            "program": "${workspaceFolder}/isaaclab_arena/scripts/annotate_demos.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate Dataset",
+            "type": "python",
+            "request": "launch",
+            "args" : [
+            "--mimic",
+            "--input_file", "${workspaceFolder}/isaaclab_arena/datasets/dataset_v1_annotated.hdf5",
+            "--output_file", "${workspaceFolder}/isaaclab_arena/datasets/dataset_v1_generated.hdf5",
+            "--generation_num_trials", "100",
+            "--device", "cpu",
+            "fii_pick_place"],
+            "program": "${workspaceFolder}/isaaclab_arena/scripts/generate_dataset.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Replay Dataset",
+            "type": "python",
+            "request": "launch",
+            "args" : [
+            "--dataset_file", "${workspaceFolder}/isaaclab_arena/datasets/dataset_v1_annotated.hdf5",
+            "--enable_pinocchio",
+            "fii_pick_place"],
+            "program": "${workspaceFolder}/isaaclab_arena/scripts/replay_demos.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate Dataset G1",
+            "type": "python",
+            "request": "launch",
+            "args" : ["--enable_cameras",
+            "--mimic",
+            "--input_file", "${workspaceFolder}/isaaclab_arena/datasets/arena_g1_loco_manipulation_dataset_annotated.hdf5",
+            "--output_file", "${workspaceFolder}/isaaclab_arena/datasets/arena_g1_loco_manipulation_dataset_generated.hdf5",
+            "--generation_num_trials", "100",
+            "--device", "cpu",
+            "galileo_g1_locomanip_pick_and_place", "--object", "brown_box", "--embodiment", "g1_wbc_pink"],
+            "program": "${workspaceFolder}/isaaclab_arena/scripts/generate_dataset.py",
+            "console": "integratedTerminal"
         }
     ]
 }

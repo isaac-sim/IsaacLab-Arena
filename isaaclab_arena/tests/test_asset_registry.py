@@ -26,6 +26,12 @@ def _test_default_assets_registered(simulation_app):
     num_assets = len(asset_registry.get_assets_by_tag("object"))
     print(f"Number of pick up object assets registered: {num_assets}")
     assert num_assets > 0
+    num_ground_plane_assets = len(asset_registry.get_assets_by_tag("ground_plane"))
+    print(f"Number of ground plane assets registered: {num_ground_plane_assets}")
+    assert num_ground_plane_assets > 0
+    num_light_assets = len(asset_registry.get_assets_by_tag("light"))
+    print(f"Number of light assets registered: {num_light_assets}")
+    assert num_light_assets > 0
     return True
 
 
@@ -70,6 +76,15 @@ def _test_all_assets_in_registry(simulation_app):
         asset.set_initial_pose(pose)
         objects_in_registry.append(asset)
         objects_in_registry_names.append(asset.name)
+    # Add lights
+    for asset_cls in asset_registry.get_assets_by_tag("light"):
+        asset = asset_cls()
+        objects_in_registry.append(asset)
+        objects_in_registry_names.append(asset.name)
+    # Add ground plane
+    ground_plane = asset_registry.get_asset_by_name("ground_plane")()
+    objects_in_registry.append(ground_plane)
+    objects_in_registry_names.append(ground_plane.name)
     assert len(objects_in_registry) > 0
 
     scene = Scene(assets=[background, *objects_in_registry])

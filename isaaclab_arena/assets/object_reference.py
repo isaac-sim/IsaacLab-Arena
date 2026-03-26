@@ -23,6 +23,8 @@ class ObjectReference(ObjectBase):
         super().__init__(**kwargs)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.parent_asset = parent_asset
+        # Check that the object reference is not a spawner.
+        assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
 
     def get_initial_pose(self) -> Pose:
