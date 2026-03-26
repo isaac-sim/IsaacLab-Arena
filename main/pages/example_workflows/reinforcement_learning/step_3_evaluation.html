@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/reinforcement_learning/step_3_evaluation.html" >feature/isaac_lab_3_newton</option>
             <option value="step_3_evaluation.html" selected>main</option>
+            <option value="../../../../demos/dli/pages/example_workflows/reinforcement_learning/step_3_evaluation.html" >demos/dli</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -464,8 +464,7 @@ or you can download a pre-trained one as described below.</p>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--checkpoint_path<span class="w"> </span>logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>lift_object<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--rl_training_mode<span class="w"> </span>False
+<span class="w">  </span>lift_object
 </pre></div>
 </div>
 <div class="admonition note">
@@ -474,8 +473,8 @@ or you can download a pre-trained one as described below.</p>
 <code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/lift_object_checkpoint/model_11999.pt</span></code></p>
 </div>
 <p>Policy-specific arguments (<code class="docutils literal notranslate"><span class="pre">--policy_type</span></code>, <code class="docutils literal notranslate"><span class="pre">--checkpoint_path</span></code>, etc.) must come <strong>before</strong> the
-environment name. Environment-specific arguments (<code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code>, <code class="docutils literal notranslate"><span class="pre">--object</span></code>, etc.) must
-come <strong>after</strong> it.</p>
+environment name. Environment-specific arguments (<code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, etc.) must come
+<strong>after</strong> it.</p>
 <p>At the end of the run, metrics are printed to the console:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.85, &#39;num_episodes&#39;: 12}
 </pre></div>
@@ -490,8 +489,7 @@ come <strong>after</strong> it.</p>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--checkpoint_path<span class="w"> </span>logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>lift_object<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--rl_training_mode<span class="w"> </span>False
+<span class="w">  </span>lift_object
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.83, &#39;num_episodes&#39;: 156}
@@ -513,17 +511,11 @@ come <strong>after</strong> it.</p>
 <span class="w">  </span><span class="nt">&quot;evaluations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_5999.pt&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;environment_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;rl_training_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;environment_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;rl_training_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
@@ -557,8 +549,9 @@ model_11999.pt | Success: 85% | Episodes: 156
 random seed, and hardware.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Always set <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span> <span class="pre">False</span></code> when evaluating. During training this flag is <code class="docutils literal notranslate"><span class="pre">True</span></code>
-to disable success termination; setting it to <code class="docutils literal notranslate"><span class="pre">False</span></code> re-enables it for proper evaluation.</p>
+<p>For evaluation, omit <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> (default): success termination stays enabled so
+metrics such as success rate are meaningful. For RSL-RL training, pass <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> to
+disable success termination.</p>
 </div>
 </section>
 </section>

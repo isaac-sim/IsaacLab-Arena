@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/reinforcement_learning/step_1_environment_setup.html" >feature/isaac_lab_3_newton</option>
             <option value="step_1_environment_setup.html" selected>main</option>
+            <option value="../../../../demos/dli/pages/example_workflows/reinforcement_learning/step_1_environment_setup.html" >demos/dli</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -539,7 +539,7 @@ The task includes:</p>
 <li><p><strong>Reward Terms</strong>: Dense rewards for reaching, grasping, lifting, and achieving target poses</p></li>
 <li><p><strong>Observation Space</strong>: Robot state (joint positions, velocities), object state (pose, velocity), and goal commands</p></li>
 <li><p><strong>Termination Conditions</strong>: Object dropped or timeout</p></li>
-<li><p><strong>Success Condition</strong>: Object reaches target position (only active during evaluation when <code class="docutils literal notranslate"><span class="pre">rl_training_mode=False</span></code>)</p></li>
+<li><p><strong>Success Condition</strong>: Object reaches target position (disabled by the <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> flag for training)</p></li>
 </ul>
 <p>See <a class="reference internal" href="../../concepts/concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for task creation details.</p>
 <p><strong>5. Create the IsaacLab Arena Environment</strong></p>
@@ -562,6 +562,7 @@ See <a class="reference internal" href="../../concepts/concept_environment_desig
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless
