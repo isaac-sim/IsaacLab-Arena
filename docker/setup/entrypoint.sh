@@ -21,7 +21,7 @@ userdel ubuntu || true
 useradd --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
         --gid "$DOCKER_RUN_GROUP_NAME" \
-        --groups sudo \
+        --groups sudo,isaac-sim \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME
@@ -43,6 +43,11 @@ chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME/.
 # Add the models, datasets, and eval folders if they don't exist
 mkdir -p /datasets /models /eval
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /datasets /models /eval
+
+# Create the _isaac_sim symlink if it doesn't exist
+if [ ! -e "$WORKDIR/submodules/IsaacLab/_isaac_sim" ]; then
+    ln -s /isaac-sim/ "$WORKDIR/submodules/IsaacLab/_isaac_sim"
+fi
 
 # Run the passed command or just start the shell as the created user
 if [ $# -ge 1 ]; then

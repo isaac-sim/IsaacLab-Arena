@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -18,6 +18,7 @@ from isaaclab.sensors import CameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
+from isaaclab_arena.utils.pose import PoseRange
 
 
 def make_camera_observation_cfg(
@@ -113,6 +114,13 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
         print(f"{lookat_object.name} has no initial pose set. Using default ViewerCfg.")
         return ViewerCfg()
 
-    lookat = initial_pose.position_xyz
-    camera_position = tuple(np.array(lookat) + offset)
+    if isinstance(initial_pose, PoseRange):
+        initial_pose = initial_pose.get_midpoint()
+
+    # TODO(cvolk): Add float coercion to Pose.__post_init__ so this conversion is unnecessary.
+    # Ensure we only pass primitive Python floats (not NumPy scalars) into ViewerCfg,
+    # since downstream config systems like Hydra/OmegaConf don't support np.float64.
+    lookat = tuple(float(x) for x in initial_pose.position_xyz)
+    camera_vec = np.array(lookat, dtype=float) + np.array(offset, dtype=float)
+    camera_position = tuple(float(x) for x in camera_vec.tolist())
     return ViewerCfg(eye=camera_position, lookat=lookat, origin_type="env")

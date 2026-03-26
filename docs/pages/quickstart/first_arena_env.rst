@@ -46,7 +46,6 @@ above with a Franka robot and a cracker box object using the ``isaaclab_arena`` 
        from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
        from isaaclab_arena.scene.scene import Scene
-       from isaaclab_arena.tasks.dummy_task import DummyTask
        from isaaclab_arena.utils.pose import Pose
 
        # Step 1: Initialize and get the assets from the registry
@@ -62,25 +61,20 @@ above with a Franka robot and a cracker box object using the ``isaaclab_arena`` 
        # Step 2: Create a scene with the assets
        scene = Scene(assets=[background, cracker_box])
 
-       # Step 3: Create a task
-       task = DummyTask()
-
-       # Step 4: Create the IsaacLab Arena environment
+       # Step 3: Create the IsaacLab Arena environment
        isaaclab_arena_environment = IsaacLabArenaEnvironment(
            name="my_first_arena_env",
            embodiment=embodiment,
            scene=scene,
-           task=task,
-           teleop_device=None,
        )
 
-       # Step 5: Build and compile the environment
+       # Step 4: Build and compile the environment
        args_cli = get_isaaclab_arena_cli_parser().parse_args([])
        env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
        env = env_builder.make_registered()
        env.reset()
 
-       # Step 6: Run the simulation with zero actions
+       # Step 5: Run the simulation with zero actions
        NUM_STEPS = 1000
        for _ in tqdm.tqdm(range(NUM_STEPS)):
            with torch.inference_mode():
@@ -114,15 +108,11 @@ See :doc:`../concepts/concept_assets_design` for details on asset architecture.
 
 See :doc:`../concepts/concept_scene_design` for scene composition details.
 
-**3. Create a Task**
+**3. Create a Task (Optional)**
 
-A task defines the objective, success criteria, and behavior logic for the environment. For this example, we use the ``DummyTask``.
+A task defines the objective, success criteria, and reward logic for the environment. For this simple example, we don't need a custom task - passing ``task=None`` (or omitting it entirely) uses a default empty task internally.
 
-.. code-block:: python
-
-    task = DummyTask()
-
-See :doc:`../concepts/concept_tasks_design` for task creation details.
+For creating custom tasks with rewards and terminations, see :doc:`../concepts/concept_tasks_design`.
 
 **4. Create the IsaacLab Arena Environment**
 
@@ -132,11 +122,9 @@ See :doc:`../concepts/concept_tasks_design` for task creation details.
         name="my_first_arena_env",
         embodiment=embodiment,
         scene=scene,
-        task=DummyTask(),
-        teleop_device=None,
     )
 
-This puts everything together into an ``IsaacLabArenaEnvironment`` object.
+This puts everything together into an ``IsaacLabArenaEnvironment`` object. Note that ``task`` is optional - if not provided, a default empty task is used internally.
 
 See :doc:`../concepts/concept_environment_design` for environment composition details.
 
@@ -144,7 +132,7 @@ See :doc:`../concepts/concept_environment_design` for environment composition de
 
 .. code-block:: python
 
-    args_cli = get_isaaclab_arenaena_cli_parser().parse_args([])
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = env_builder.make_registered()
     env.reset()

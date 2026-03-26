@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -20,12 +20,12 @@ def compute_metrics(env: ManagerBasedRLEnv) -> dict[str, float]:
     Returns:
         A dictionary of metrics. Maps metric name to metric value.
     """
-    assert hasattr(env.cfg, "metrics")
+    assert hasattr(env.unwrapped.cfg, "metrics")
     # Get the path where the recorded data is stored
     dataset_path = get_metric_recorder_dataset_path(env)
     # For each registered metric
     metrics_data = {}
-    for metric in env.cfg.metrics:
+    for metric in env.unwrapped.cfg.metrics:
         # Load the recorded data from disk for this metric
         recorded_metric_data = get_recorded_metric_data(dataset_path, metric.recorder_term_name)
         # Compute the metric value from the recorded data
@@ -80,10 +80,10 @@ def get_metric_recorder_dataset_path(env: ManagerBasedRLEnv) -> pathlib.Path:
     """
     # Check if the dataset file handler is HDF5DatasetFileHandler
     # Use class name comparison instead of direct equality to handle different import contexts
-    handler_class = env.cfg.recorders.dataset_file_handler_class_type
+    handler_class = env.unwrapped.cfg.recorders.dataset_file_handler_class_type
     assert (
         handler_class.__name__ == HDF5DatasetFileHandler.__name__
     ), f"Expected HDF5DatasetFileHandler, got {handler_class.__name__}"
-    return pathlib.Path(env.cfg.recorders.dataset_export_dir_path) / pathlib.Path(
-        env.cfg.recorders.dataset_filename + ".hdf5"
+    return pathlib.Path(env.unwrapped.cfg.recorders.dataset_export_dir_path) / pathlib.Path(
+        env.unwrapped.cfg.recorders.dataset_filename + ".hdf5"
     )

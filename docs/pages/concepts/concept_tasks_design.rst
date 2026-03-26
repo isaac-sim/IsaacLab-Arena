@@ -28,7 +28,7 @@ Tasks use the ``TaskBase`` abstract class:
            """Performance evaluation metrics."""
 
        @abstractmethod
-       def get_mimic_env_cfg(self, embodiment_name: str) -> Any:
+       def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
            """Demonstration generation configuration."""
 
 Tasks in Detail
@@ -49,7 +49,15 @@ Tasks in Detail
    - **PickAndPlaceTask**: Move objects between locations with contact-based success detection
    - **OpenDoorTask**: Affordance-based interaction with openable objects and thresholds
    - **G1LocomanipPickAndPlaceTask**: Combined locomotion and manipulation for humanoid robots
-   - **DummyTask**: Empty task template for custom objective development
+
+**RL Task Design**
+   RL tasks extend their IL counterparts by adding reinforcement learning components:
+
+   - **Inheritance**: RL tasks inherit from IL task base classes (e.g., ``LiftObjectTaskRL`` extends ``LiftObjectTask``)
+   - **Commands**: Introduce command managers that sample random target goals each episode
+   - **Rewards**: Define dense reward functions for desired behaviors (reaching, grasping, lifting, target achievement)
+   - **Observations**: Configure state observations to include object state, and goal commands
+   - **Success Function**: Override the success function to use the command manager goals for success detection. We just return false during training.
 
 
 Environment Integration
@@ -99,3 +107,27 @@ Usage Examples
    destination_bin = asset_registry.get_asset_by_name("sorting_bin")()
 
    task = G1LocomanipPickAndPlaceTask(pick_object, destination_bin, galileo_scene)
+
+Sequential Tasks
+----------------
+
+Tasks can be composed sequentially to form longer horizon, more complex tasks using the ``SequentialTaskBase`` class.
+``SequentialTaskBase`` takes a list of ``TaskBase`` instances and automatically composes them into a single task.
+The order of the tasks in the list determines the order in which subtasks must be completed.
+
+**Usage Example (Pick and Place Task and Close Door Task Composition)**
+
+.. code-block:: python
+
+    pick_object = asset_registry.get_asset_by_name("mustard_bottle")()
+    destination = ObjectReference("refrigerator_shelf", parent_asset=kitchen)
+    pick_and_place_task = PickAndPlaceTask(pick_object, destination, kitchen)
+
+    openable_object = OpenableObjectReference("refrigerator", parent_asset=kitchen, openable_joint_name="fridge_door_joint")
+    close_door_task = CloseDoorTask(openable_object, closedness_threshold=0.10)
+
+    sequential_task = SequentialTaskBase(subtasks=[pick_and_place_task, close_door_task])
+
+**Available Examples**
+
+- **PutAndCloseDoorTask**: Pick up and move an object to a destination location and then close a door (within **GR1PutAndCloseDoorEnvironment**).

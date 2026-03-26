@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -22,7 +22,6 @@ def _test_robot_initial_position(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -41,8 +40,6 @@ def _test_robot_initial_position(simulation_app):
         name="robot_initial_position",
         embodiment=embodiment,
         scene=scene,
-        task=DummyTask(),
-        teleop_device=None,
     )
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -59,16 +56,17 @@ def _test_robot_initial_position(simulation_app):
                 env.step(actions)
 
         # Check the robot ended up at the correct position.
-        robot_position = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        robot_position = env.unwrapped.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
         robot_position_error = np.linalg.norm(robot_position - np.array(robot_init_position))
         print(f"Robot position error: {robot_position_error}")
         assert robot_position_error < INITIAL_POSITION_EPS, "Robot ended up at the wrong position."
 
-        # Check the stand ended up at the correct position.
-        stand_position = env.scene["stand"].get_world_poses()[0].cpu().numpy()
-        stand_position_error = np.linalg.norm(stand_position - np.array(robot_init_position))
-        print(f"Stand position error: {stand_position_error}")
-        assert stand_position_error < INITIAL_POSITION_EPS, "Stand ended up at the wrong position."
+        # Check the stand ended up at the correct position (only if the embodiment has a separate stand entity).
+        if "stand" in env.unwrapped.scene.keys():
+            stand_position = env.unwrapped.scene["stand"].get_world_poses()[0].cpu().numpy()
+            stand_position_error = np.linalg.norm(stand_position - np.array(robot_init_position))
+            print(f"Stand position error: {stand_position_error}")
+            assert stand_position_error < INITIAL_POSITION_EPS, "Stand ended up at the wrong position."
 
     except Exception as e:
         print(f"Error: {e}")

@@ -1,10 +1,12 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.0.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.1.0
 
 FROM ${BASE_IMAGE}
 
+# Set user to root (Isaac Sim base image defaults to non-root user)
+USER root
+
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
 ARG INSTALL_GROOT=false
-ARG GROOT_DEPS_GROUP=base
 
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
@@ -23,9 +25,6 @@ RUN apt-get update && apt-get install -y \
   sudo \
   python3-pip
 
-# Update pip to the latest version
-RUN pip3 install --upgrade pip
-
 ################################
 # Install Isaac Lab
 ################################
@@ -37,14 +36,16 @@ ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
 # Symlink isaac sim to IsaacLab
 RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
-# Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
-RUN chmod 777 -R /isaac-sim/kit/
-# Upgrade Isaac Sim's pip to avoid version warnings and build issues
-RUN /isaac-sim/python.sh -m pip install --upgrade pip
 # Install IsaacLab dependencies
 RUN for DIR in ${WORKDIR}/submodules/IsaacLab/source/isaaclab*/; do /isaac-sim/python.sh -m pip install --no-deps -e "$DIR"; done
-# Pre-install flatdict with --no-build-isolation to work around pkg_resources missing in pip's isolated build env
-RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
+# Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
+RUN chmod 777 -R /isaac-sim/kit/
+# Make /isaac-sim directory traversable and readable by all users
+# This is needed when entrypoint switches to non-root user
+RUN chmod a+x /isaac-sim
+# NOTE(alexmillane, 2026-02-10): We started having issues with flatdict 4.0.1 installation
+# during IsaacLab install. We install here with build isolation which seems to fix the issue.
+RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
@@ -81,7 +82,7 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
 # HuggingFace for downloading datasets and models.
 # NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed in the IsaacSim version of python.
-RUN pip install huggingface-hub[cli]
+RUN pip install --break-system-packages huggingface-hub[cli]
 # Create alias for hf command to use the system-installed version
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
@@ -106,8 +107,6 @@ RUN chmod +x /tmp/install_gr00t_deps.sh
 # Install GR00T dependencies if requested
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
     /tmp/install_gr00t_deps.sh; \
-    # Fix damage to /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch
-    rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch \
   else \
     echo "Skipping GR00T installation"; \
   fi && \
@@ -119,10 +118,14 @@ COPY *.* ${WORKDIR}/
 COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
+COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
 COPY docs ${WORKDIR}/docs
 
 # Install IsaacLab Arena
 RUN /isaac-sim/python.sh -m pip install -e ${WORKDIR}/
+
+# Install tenacity for use with Plotly
+RUN /isaac-sim/python.sh -m pip install tenacity
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

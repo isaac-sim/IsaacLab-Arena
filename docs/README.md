@@ -1,36 +1,43 @@
-# `isaaclab_arena` Dox - Developer Guide
+# `isaaclab_arena` Docs - Developer Guide
 
-To build the `isaaclab_arena` docs locally follow the following instructions.
+The docs are built on the **host machine** (not inside Docker) using a dedicated Python 3.11 venv.
 
-Enter the `isaaclab_arena` docker.
+## Prerequisites
 
-```
-./docker/run_docker.sh
-```
+`python3.11` and `python3.11-venv` must be installed on the host:
 
-The version of sphinx that we use requires a newer version of python.
-Install a newer version of `python` and `venv`:
-
-```
-sudo apt-get install python3.11 python3.11-venv
+```bash
+sudo apt-get install -y python3.11 python3.11-venv
 ```
 
-> It looks like this actually overwrites the currently installed version of python
-> inside.
+## First-time setup
 
-Create a `venv` and install the dependencies
+From the repo root, create the venv and install dependencies:
 
-```
+```bash
+cd docs
 python3.11 -m venv venv_docs
 source venv_docs/bin/activate
-cd ./docs
-python3.11 -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-Make the docs
 
-```
+## Build and view (current branch/changes)
+
+```bash
+cd docs
 make html
+xdg-open _build/current/html/index.html
 ```
 
-To view the docs, navigationl to `isaaclab_arena/docs/_build/html/index.html`, and double-click.
+
+## Multi-version docs
+
+Builds docs for committed branches only (e.g. `main`, `release`). Local uncommitted changes are **not** reflected.
+
+```bash
+cd docs
+source venv_docs/bin/activate
+make multi-docs
+xdg-open _build/index.html
+```

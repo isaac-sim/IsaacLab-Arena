@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -10,8 +10,10 @@ from pxr import Usd
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
-from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import open_stage
+from isaaclab_arena.relations.relations import IsAnchor, RelationBase
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
@@ -19,13 +21,25 @@ class ObjectReference(ObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
     def __init__(self, parent_asset: Asset, **kwargs):
-        # Call the parent class constructor first as we need the parent asset and initial pose relative to the parent to be set.
         super().__init__(**kwargs)
-        self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.parent_asset = parent_asset
+        # Store parent's scale for bounding box calculations
+        self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
+        # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
+        self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
+        assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
+        self.event_cfg = self._init_event_cfg()
+        self._bounding_box: AxisAlignedBoundingBox | None = None
 
-    def get_initial_pose(self) -> Pose:
+    def get_initial_pose(self) -> Pose | PoseRange:
+        """Get the initial pose of this object reference.
+
+        If ``set_initial_pose`` was called, returns that override.
+        Otherwise derives the world-frame pose from the parent asset.
+        """
+        if self.initial_pose is not None:
+            return self.initial_pose
         if self.parent_asset.initial_pose is None:
             T_W_O = self.initial_pose_relative_to_parent
         else:
@@ -33,6 +47,55 @@ class ObjectReference(ObjectBase):
             T_W_P = self.parent_asset.initial_pose
             T_W_O = T_W_P.multiply(T_P_O)
         return T_W_O
+
+    def _get_initial_pose_as_pose(self) -> Pose:
+        pose = super()._get_initial_pose_as_pose()
+        assert pose is not None
+        return pose
+
+    def add_relation(self, relation: RelationBase) -> None:
+        """Add a relation to this object reference.
+
+        ObjectReference only supports IsAnchor relations because the placement
+        solver treats references as fixed points.
+
+        Args:
+            relation: Must be an IsAnchor relation.
+        """
+        assert isinstance(relation, IsAnchor), (
+            f"ObjectReference only supports IsAnchor relations, got {type(relation).__name__}. "
+            "The placement solver does not optimize ObjectReference positions."
+        )
+        self.relations.append(relation)
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box of the referenced prim (relative to prim transform).
+
+        The bounding box is relative to the prim's transform origin, consistent with
+        how Object.get_bounding_box() returns bbox relative to USD origin.
+
+        The bounding box is computed lazily and cached for subsequent calls.
+        """
+        if self._bounding_box is None:
+            with open_stage(self.parent_asset.usd_path) as parent_stage:
+                prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                    self.prim_path, self.parent_asset, parent_stage
+                )
+                raw_bbox = compute_local_bounding_box_from_prim(parent_stage, prim_path_in_usd)
+                # Apply parent's scale (no centering - solver is origin-agnostic)
+                self._bounding_box = raw_bbox.scaled(self._parent_scale)
+        return self._bounding_box
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox rotated and translated).
+
+        Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
+        An assertion error is raised for any other rotation.
+        """
+        # The following handles only Pose, not PoseRange.
+        pose = self._get_initial_pose_as_pose()
+        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_wxyz)
+        return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
@@ -48,7 +111,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
-        initial_pose = self.get_initial_pose()
+        initial_pose = self._get_initial_pose_as_pose()
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,
             init_state=RigidObjectCfg.InitialStateCfg(
@@ -60,7 +123,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_articulation_cfg(self) -> ArticulationCfg:
         assert self.object_type == ObjectType.ARTICULATION
-        initial_pose = self.get_initial_pose()
+        initial_pose = self._get_initial_pose_as_pose()
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
             actuators={},
@@ -73,7 +136,7 @@ class ObjectReference(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
-        initial_pose = self.get_initial_pose()
+        initial_pose = self._get_initial_pose_as_pose()
         object_cfg = AssetBaseCfg(
             prim_path=self.prim_path,
             init_state=AssetBaseCfg.InitialStateCfg(
@@ -84,15 +147,23 @@ class ObjectReference(ObjectBase):
         return object_cfg
 
     def _get_referenced_prim_pose_relative_to_parent(self, parent_asset: Asset) -> Pose:
+        """Get the prim's transform pose relative to the parent's default prim.
+
+        The position is scaled by the parent's scale factor.
+        """
         with open_stage(parent_asset.usd_path) as parent_stage:
-            # Remove the ENV_REGEX_NS prefix from the prim path (because this
-            # is added later by IsaacLab). In the original USD file, the prim path
-            # is the path after the ENV_REGEX_NS prefix.
             prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(self.prim_path, parent_asset, parent_stage)
             prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
-            return get_prim_pose_in_default_prim_frame(prim, parent_stage)
+            prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage)
+            # Apply parent's scale to the position
+            scaled_pos = (
+                prim_pose.position_xyz[0] * self._parent_scale[0],
+                prim_pose.position_xyz[1] * self._parent_scale[1],
+                prim_pose.position_xyz[2] * self._parent_scale[2],
+            )
+            return Pose(position_xyz=scaled_pos, rotation_wxyz=prim_pose.rotation_wxyz)
 
     def isaaclab_prim_path_to_original_prim_path(
         self, isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage
@@ -117,7 +188,10 @@ class ObjectReference(ObjectBase):
         assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
         original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
         # Check that the path starts with the asset name.
-        assert original_prim_path.startswith(parent_asset.name)
+        assert original_prim_path.startswith(parent_asset.name), (
+            f"Expected the prim path to start with the parent asset name {parent_asset.name}. Instead got"
+            f" {original_prim_path}"
+        )
         original_prim_path = original_prim_path.removeprefix(parent_asset.name)
         # Append the default prim path.
         original_prim_path = str(default_prim_path) + original_prim_path
@@ -127,10 +201,10 @@ class ObjectReference(ObjectBase):
 class OpenableObjectReference(ObjectReference, Openable):
     """An object which *refers* to an existing element in the scene and is openable."""
 
-    def __init__(self, openable_joint_name: str, openable_open_threshold: float = 0.5, **kwargs):
+    def __init__(self, openable_joint_name: str, openable_threshold: float = 0.5, **kwargs):
         super().__init__(
             openable_joint_name=openable_joint_name,
-            openable_open_threshold=openable_open_threshold,
+            openable_threshold=openable_threshold,
             object_type=ObjectType.ARTICULATION,
             **kwargs,
         )

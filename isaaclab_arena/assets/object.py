@@ -1,14 +1,21 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+import torch
+from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.relations.relations import RelationBase
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -24,9 +31,14 @@ class Object(ObjectBase):
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
+        relations: list[RelationBase] = [],
         **kwargs,
     ):
-        assert name is not None and usd_path is not None
+        # Pull out addons (and remove them from kwargs before passing to super)
+        spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
+        asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
+        if object_type is not ObjectType.SPAWNER:
+            assert usd_path is not None
         # Detect object type if not provided
         if object_type is None:
             object_type = detect_object_type(usd_path=usd_path)
@@ -34,17 +46,73 @@ class Object(ObjectBase):
         self.usd_path = usd_path
         self.scale = scale
         self.initial_pose = initial_pose
+        self.reset_pose = True
+        self.spawn_cfg_addon = spawn_cfg_addon
+        self.asset_cfg_addon = asset_cfg_addon
+        self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
+        self.event_cfg = self._init_event_cfg()
 
-    def set_initial_pose(self, pose: Pose) -> None:
-        self.initial_pose = pose
-        self.object_cfg = self._add_initial_pose_to_cfg(self.object_cfg)
+    def add_relation(self, relation: RelationBase) -> None:
+        """Add a relation to this object."""
+        self.relations.append(relation)
 
-    def get_initial_pose(self) -> Pose | None:
-        return self.initial_pose
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box (relative to object origin)."""
+        assert self.usd_path is not None
+        if self.bounding_box is None:
+            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
+        return self.bounding_box
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox rotated and translated).
+
+        Only 90° rotations around Z axis are supported. An assertion error is raised
+        for any other rotation. If initial_pose is a PoseRange (not a fixed Pose),
+        returns the local bounding box without transformation.
+        """
+        local_bbox = self.get_bounding_box()
+        if self.initial_pose is None or not isinstance(self.initial_pose, Pose):
+            return local_bbox
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
+        return local_bbox.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
+
+    def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
+        assert self.usd_path is not None
+        if self.bounding_box is None:
+            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
+        return self.bounding_box.get_corners_at(pos)
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
+
+    def disable_reset_pose(self) -> None:
+        self.reset_pose = False
+        self.event_cfg = self._init_event_cfg()
+
+    def enable_reset_pose(self) -> None:
+        self.reset_pose = True
+        self.event_cfg = self._init_event_cfg()
+
+    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+        # We override this function from the parent class because in some assets, the rigid body
+        # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
+        # and add the contact sensor to it.
+        # TODO(alexmillane, 2026.01.29): This capability to search for the correct place
+        # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
+        # For these objects we just (try to) add the contact sensor to the root prim.
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        if contact_against_prim_paths is None:
+            contact_against_prim_paths = []
+        rigid_body_relative_path = find_shallowest_rigid_body(self.usd_path, relative_to_root=True)
+        assert (
+            rigid_body_relative_path is not None
+        ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
+        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        return ContactSensorCfg(
+            prim_path=contact_sensor_prim_path,
+            filter_prim_paths_expr=contact_against_prim_paths,
+        )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
@@ -54,7 +122,9 @@ class Object(ObjectBase):
                 usd_path=self.usd_path,
                 scale=self.scale,
                 activate_contact_sensors=True,
+                **self.spawn_cfg_addon,
             ),
+            **self.asset_cfg_addon,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
@@ -67,7 +137,9 @@ class Object(ObjectBase):
                 usd_path=self.usd_path,
                 scale=self.scale,
                 activate_contact_sensors=True,
+                **self.spawn_cfg_addon,
             ),
+            **self.asset_cfg_addon,
             actuators={},
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
@@ -75,9 +147,27 @@ class Object(ObjectBase):
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
+        with open_stage(self.usd_path) as stage:
+            if has_light(stage):
+                print("WARNING: Base object has lights, this may cause issues when using with multiple environments.")
         object_cfg = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/" + self.name,
-            spawn=UsdFileCfg(usd_path=self.usd_path, scale=self.scale),
+            spawn=UsdFileCfg(
+                usd_path=self.usd_path,
+                scale=self.scale,
+                **self.spawn_cfg_addon,
+            ),
+            **self.asset_cfg_addon,
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        return object_cfg
+
+    def _generate_spawner_cfg(self) -> AssetBaseCfg:
+        assert self.object_type == ObjectType.SPAWNER
+        object_cfg = AssetBaseCfg(
+            prim_path=self.prim_path,
+            spawn=self.spawner_cfg,
+            **self.asset_cfg_addon,
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         return object_cfg
@@ -86,7 +176,11 @@ class Object(ObjectBase):
         self, object_cfg: RigidObjectCfg | ArticulationCfg | AssetBaseCfg
     ) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         # Optionally specify initial pose
-        if self.initial_pose is not None:
-            object_cfg.init_state.pos = self.initial_pose.position_xyz
-            object_cfg.init_state.rot = self.initial_pose.rotation_wxyz
+        initial_pose = self._get_initial_pose_as_pose()
+        if initial_pose is not None:
+            object_cfg.init_state.pos = initial_pose.position_xyz
+            object_cfg.init_state.rot = initial_pose.rotation_wxyz
         return object_cfg
+
+    def _requires_reset_pose_event(self) -> bool:
+        return super()._requires_reset_pose_event() and self.reset_pose

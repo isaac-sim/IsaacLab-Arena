@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -53,7 +53,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     if remove_reset_door_state_event:
         # NOTE(alexmillane, 2025-09-01): We remove the event to reset the door position,
         # to allow us to inspect the scene without having it reset.
-        cfg.events.reset_door_state = None
+        cfg.events.reset_openable_object_revolute_joint_percentage = None
     env = gym.make(name, cfg=cfg).unwrapped
     env.reset()
 

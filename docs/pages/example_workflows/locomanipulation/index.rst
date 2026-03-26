@@ -1,7 +1,7 @@
 G1 Loco-Manipulation Box Pick and Place Task
 ============================================
 
-This example demonstrates the complete workflow for the **G1 loco-manipulation box pick and place task** in Isaac Lab - Arena, covering environment setup and validation, data generation, policy post-training, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **G1 loco-manipulation box pick and place task** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection (OpenXR with Meta Quest 3), data generation, policy post-training, and closed-loop evaluation.
 
 .. image:: ../../../images/g1_galileo_arena_box_pnp_locomanip.gif
    :align: center
@@ -37,7 +37,7 @@ including lower body locomotion, squatting, and bimanual manipulation.
    * - **Manipulated Object(s)**
      - Brown box (rigid body)
    * - **Policy**
-     - GR00T N1.5 (vision-language-action foundation model)
+     - GR00T N1.6 (vision-language-action foundation model)
    * - **Post-training**
      - Imitation Learning
    * - **Dataset**
@@ -56,8 +56,8 @@ including lower body locomotion, squatting, and bimanual manipulation.
 Workflow
 --------
 
-This tutorial covers the pipeline between creating an environment, generating training data,
-fine-tuning a policy (GR00T N1.5), and evaluating the policy in closed-loop.
+This tutorial covers the pipeline between creating an environment, collecting teleoperation demonstrations, generating training data,
+fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
 A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).
@@ -90,9 +90,10 @@ Workflow Steps
 Follow the following steps to complete the workflow:
 
 - :doc:`step_1_environment_setup`
-- :doc:`step_2_data_generation`
-- :doc:`step_3_policy_training`
-- :doc:`step_4_evaluation`
+- :doc:`step_2_teleoperation`
+- :doc:`step_3_data_generation`
+- :doc:`step_4_policy_training`
+- :doc:`step_5_evaluation`
 
 
 .. toctree::
@@ -100,6 +101,7 @@ Follow the following steps to complete the workflow:
    :hidden:
 
    step_1_environment_setup
-   step_2_data_generation
-   step_3_policy_training
-   step_4_evaluation
+   step_2_teleoperation
+   step_3_data_generation
+   step_4_policy_training
+   step_5_evaluation

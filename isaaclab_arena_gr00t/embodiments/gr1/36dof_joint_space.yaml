@@ -1,0 +1,50 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# GR1 Robot Joint Configuration used in the action joint space
+# Maps joint names to joint indices for easy reference
+joints:
+  # arm joints
+  "left_shoulder_pitch_joint": 0
+  "right_shoulder_pitch_joint": 1
+  "left_shoulder_roll_joint": 2
+  "right_shoulder_roll_joint": 3
+  "left_shoulder_yaw_joint": 4
+  "right_shoulder_yaw_joint": 5
+  "left_elbow_pitch_joint": 6
+  "right_elbow_pitch_joint": 7
+  "left_wrist_yaw_joint": 8
+  "right_wrist_yaw_joint": 9
+  "left_wrist_roll_joint": 10
+  "right_wrist_roll_joint": 11
+  "left_wrist_pitch_joint": 12
+  "right_wrist_pitch_joint": 13
+
+  # hand joints
+  "L_index_proximal_joint": 14
+  "L_middle_proximal_joint": 15
+  "L_pinky_proximal_joint": 16
+  "L_ring_proximal_joint": 17
+  "L_thumb_proximal_yaw_joint": 18
+  "R_index_proximal_joint": 19
+  "R_middle_proximal_joint": 20
+  "R_pinky_proximal_joint": 21
+  "R_ring_proximal_joint": 22
+  "R_thumb_proximal_yaw_joint": 23
+  "L_index_intermediate_joint": 24
+  "L_middle_intermediate_joint": 25
+  "L_pinky_intermediate_joint": 26
+  "L_ring_intermediate_joint": 27
+  "L_thumb_proximal_pitch_joint": 28
+  "R_index_intermediate_joint": 29
+  "R_middle_intermediate_joint": 30
+  "R_pinky_intermediate_joint": 31
+  "R_ring_intermediate_joint": 32
+  "R_thumb_proximal_pitch_joint": 33
+  "L_thumb_distal_joint": 34
+  "R_thumb_distal_joint": 35
+
+# Additional metadata
+total_joints: 36

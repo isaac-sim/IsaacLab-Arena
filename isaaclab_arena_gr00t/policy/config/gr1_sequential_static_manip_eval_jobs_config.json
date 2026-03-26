@@ -1,0 +1,36 @@
+{
+  "jobs": [
+    {
+      "name": "gr1_put_jug_in_fridge_and_close_door",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "num_envs": 10,
+        "environment": "put_item_in_fridge_and_close_door",
+        "object": "jug",
+        "embodiment": "gr1_joint"
+      },
+      "num_steps": 500,
+      "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+      "policy_config_dict": {
+        "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
+        "policy_device": "cuda:0"
+      }
+    },
+    {
+      "name": "gr1_put_ranch_dressing_bottle_in_fridge_and_close_door",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "num_envs": 10,
+        "environment": "put_item_in_fridge_and_close_door",
+        "object": "ranch_dressing_hope_robolab",
+        "embodiment": "gr1_joint"
+      },
+      "num_steps": 500,
+      "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+      "policy_config_dict": {
+        "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml",
+        "policy_device": "cuda:0"
+      }
+    }
+  ]
+}

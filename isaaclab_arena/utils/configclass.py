@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -201,3 +201,71 @@ def combine_post_inits(*cls_list: type) -> Callable:
             post_init(self)
 
     return new_post_init
+
+
+def check_configclass_field_duplicates(*input_configclass_instances: Any) -> dict[str, list[str]]:
+    """Check for duplicate field names in a list of configclass instances.
+
+    Args:
+        input_configclass_instances: The configclass instances to check.
+
+    Returns:
+        A dictionary mapping duplicate field names to a list of configclass names
+        that contain the duplicate.
+    """
+    # Map field name -> list of configclass names that have it
+    field_sources: dict[str, list[str]] = {}
+
+    for cfg_instance in input_configclass_instances:
+        if cfg_instance is None:
+            continue
+        cfg_name = type(cfg_instance).__name__
+        for field in dataclasses.fields(cfg_instance):
+            if field.name not in field_sources:
+                field_sources[field.name] = []
+            field_sources[field.name].append(cfg_name)
+
+    duplicates = {name: sources for name, sources in field_sources.items() if len(sources) > 1}
+    return duplicates
+
+
+def transform_configclass_instance(
+    cfg_instance: Any,
+    transform: Callable[[list[tuple[str, type, Any]]], list[tuple[str, type, Any]]],
+) -> Any:
+    """Transform a configclass instance by applying a transformation to its fields.
+
+    The transformation callable takes a list of field tuples and returns
+    a transformed list. This enables generic manipulations like renaming,
+    filtering, or modifying fields.
+
+    Args:
+        cfg_instance: The configclass instance to transform.
+        transform: A callable that takes a list of field tuples and returns
+            a transformed list of field tuples.
+
+    Returns:
+        A new configclass instance with the transformed fields, or None if the
+        the transformation results in no fields.
+    """
+    if cfg_instance is None:
+        return None
+
+    fields = dataclasses.fields(cfg_instance)
+
+    # Build list of field tuples (name, type, value)
+    field_tuples = []
+    for field in fields:
+        value = getattr(cfg_instance, field.name)
+        field_tuples.append((field.name, field.type, value))
+
+    # Apply transformation
+    transformed_fields = transform(field_tuples)
+
+    if not transformed_fields:
+        return None
+
+    # Create a new configclass with transformed fields
+    field_values = {name: value for name, _, value in transformed_fields}
+    new_cfg_class = make_configclass(type(cfg_instance).__name__, transformed_fields)
+    return new_cfg_class(**field_values)

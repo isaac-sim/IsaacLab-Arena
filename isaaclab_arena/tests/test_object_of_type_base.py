@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -9,7 +9,7 @@ import tqdm
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 100
-HEADLESS = False
+HEADLESS = True
 MOVEMENT_EPS = 0.001
 
 
@@ -22,7 +22,6 @@ def _test_object_of_type_base(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.dummy_task import DummyTask
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -54,8 +53,6 @@ def _test_object_of_type_base(simulation_app):
         name="base_object_test",
         embodiment=embodiment,
         scene=scene,
-        task=DummyTask(),
-        teleop_device=None,
     )
 
     try:
@@ -74,7 +71,7 @@ def _test_object_of_type_base(simulation_app):
                 env.step(actions)
 
             # Check the the object is floating.
-            position_after_simulation, _ = env.scene["cone_no_physics"].get_world_poses()
+            position_after_simulation, _ = env.unwrapped.scene["cone_no_physics"].get_world_poses()
             movement = position_after_simulation.cpu() - position_before_simulation.cpu()
             assert torch.norm(movement).item() < MOVEMENT_EPS, "Object moved. Should not have physics."
 

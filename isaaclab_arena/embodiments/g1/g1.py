@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -14,6 +14,7 @@ import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.devices.openxr import XrCfg
+from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
 from isaaclab.envs import ManagerBasedRLMimicEnv  # noqa: F401
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -26,6 +27,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
@@ -39,9 +41,16 @@ class G1EmbodimentBase(EmbodimentBase):
     """Embodiment for the G1 robot."""
 
     name = "g1"
+    default_arm_mode = ArmMode.DUAL_ARM
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
-        super().__init__(enable_cameras, initial_pose)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
@@ -51,11 +60,13 @@ class G1EmbodimentBase(EmbodimentBase):
         self.mimic_env = G1MimicEnv
 
         # XR settings
-        # This unfortunately works wrt to global coordinates, so its ideal if the robot is at the origin.
-        # NOTE(xinjie.yao, 2025.09.09): Copied from GR1T2.py
+        # Anchor to the robot's pelvis for first-person view that follows the robot
         self.xr: XrCfg = XrCfg(
             anchor_pos=(0.0, 0.0, -1.0),
             anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+            anchor_prim_path="/World/envs/env_0/Robot/pelvis",
+            anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
+            fixed_anchor_height=True,
         )
 
 
@@ -84,6 +95,8 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
@@ -109,6 +122,9 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.action.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCPinkEventCfg()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
@@ -422,7 +438,6 @@ class G1WBCJointObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = False
 
-    # observation groups
     policy: PolicyCfg = PolicyCfg()
     wbc: WBCObsCfg = WBCObsCfg()
 
@@ -438,10 +453,6 @@ class G1WBCPinkObservationsCfg:
         actions = ObsTerm(func=mdp.last_action)
         robot_joint_pos = ObsTerm(
             func=base_mdp.joint_pos,
-            params={"asset_cfg": SceneEntityCfg("robot")},
-        )
-        robot_joint_vel = ObsTerm(
-            func=base_mdp.joint_vel,
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         right_wrist_pose_pelvis_frame = ObsTerm(
@@ -573,7 +584,6 @@ class G1WBCPinkObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = False
 
-    # observation groups
     policy: PolicyCfg = PolicyCfg()
     wbc: WBCObsCfg = WBCObsCfg()
     action: ActionLowerBodyCfg = ActionLowerBodyCfg()

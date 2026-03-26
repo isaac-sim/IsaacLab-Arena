@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -13,6 +13,7 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)
+    add_isaaclab_arena_cli_args(parser)
     add_external_environments_cli_args(parser)
     return parser
 
@@ -25,10 +26,9 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_lab_group.add_argument(
         "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
     )
-    isaac_lab_group.add_argument(
-        "--seed", type=int, default=None, help="Optional seed for the random number generator."
-    )
+    isaac_lab_group.add_argument("--seed", type=int, default=42, help="Optional seed for the random number generator.")
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
+    isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
     # NOTE(alexmillane, 2025.07.25): Unlike base isaaclab, we enable pinocchio by default.
     isaac_lab_group.add_argument(
         "--disable_pinocchio",
@@ -38,6 +38,26 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable Pinocchio.",
     )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+    isaac_lab_group.add_argument(
+        "--distributed",
+        action="store_true",
+        default=False,
+        help="Run distributed (one process per GPU). Use with torchrun; AppLauncher uses LOCAL_RANK for device.",
+    )
+
+
+def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Add Isaac Lab Arena specific command line arguments to the given parser."""
+    arena_group = parser.add_argument_group(
+        "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
+    )
+    arena_group.add_argument(
+        "--no-solve-relations",
+        action="store_false",
+        dest="solve_relations",
+        default=True,
+        help="Disable solving spatial relations in the environment.",
+    )
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:

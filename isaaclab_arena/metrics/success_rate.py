@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -15,10 +15,10 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 class SuccessRecorder(RecorderTerm):
     """Records whether an episode was successful just before the environment is reset."""
 
-    name = "success"
-
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
+        # Get name from config instead of class attribute
+        self.name = cfg.name
         # We track the first reset for each environment
         self.first_reset = True
 
@@ -35,12 +35,14 @@ class SuccessRecorder(RecorderTerm):
         assert "success" in self._env.termination_manager.active_terms
         success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)
         success_results |= self._env.termination_manager.get_term("success")[env_ids]
+
         return self.name, success_results
 
 
 @configclass
 class SuccessRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = SuccessRecorder
+    name: str = "success"
 
 
 class SuccessRateMetric(MetricBase):
@@ -51,11 +53,11 @@ class SuccessRateMetric(MetricBase):
     """
 
     name = "success_rate"
-    recorder_term_name = SuccessRecorder.name
+    recorder_term_name = "success"
 
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
         """Return the recorder term configuration for the success rate metric."""
-        return SuccessRecorderCfg()
+        return SuccessRecorderCfg(name=self.recorder_term_name)
 
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
         """Gets the average success rate from a list of recorded success flags.

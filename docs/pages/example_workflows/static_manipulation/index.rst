@@ -35,7 +35,7 @@ Task Overview
    * - **Objects**
      - Microwave (articulated object)
    * - **Policy**
-     - GR00T N1.5 (vision-language foundation model)
+     - GR00T N1.6 (vision-language foundation model)
    * - **Post-training**
      - Imitation Learning
    * - **Dataset**
@@ -54,7 +54,7 @@ Workflow
 --------
 
 This tutorial covers the pipeline between creating an environment, generating training data,
-fine-tuning a policy (GR00T N1.5), and evaluating the policy in closed-loop.
+fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
 A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).

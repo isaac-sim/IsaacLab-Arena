@@ -1,12 +1,14 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import torch
 
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
@@ -20,8 +22,8 @@ def object_on_destination(
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
 ) -> torch.Tensor:
-    object: RigidObject = env.scene[object_cfg.name]
-    sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
+    object: RigidObject = env.unwrapped.scene[object_cfg.name]
+    sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
     # and ``M`` is the number of filtered bodies.
@@ -38,6 +40,31 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+    return condition_met
+
+
+def objects_on_destinations(
+    env: ManagerBasedRLEnv,
+    object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
+    contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
+    force_threshold: float = 1.0,
+    velocity_threshold: float = 0.5,
+) -> torch.Tensor:
+    """Multi-object version of `object_on_destination`.
+
+    Returns True only when ALL objects in the list satisfy the destination condition.
+    See `object_on_destination` for details on the single-object logic.
+    """
+    condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
+    for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
+        single_condition = object_on_destination(
+            env=env,
+            object_cfg=object_cfg,
+            contact_sensor_cfg=contact_sensor_cfg,
+            force_threshold=force_threshold,
+            velocity_threshold=velocity_threshold,
+        )
+        condition_met = torch.logical_and(condition_met, single_condition)
     return condition_met
 
 
@@ -75,3 +102,153 @@ def objects_in_proximity(
     done = torch.logical_and(done, z_separation < max_z_separation)
 
     return done
+
+
+def lift_object_il_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    goal_position: tuple[float, float, float] | None = None,
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        goal_position: Fixed goal position [x, y, z] to use if command goal not available.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
+
+
+def lift_object_rl_success(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    rl_training: bool = False,
+    command_name: str = "object_pose",
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Dynamic success termination for lift object task.
+
+    Supports multiple modes:
+    - RL training: Always returns False (no early termination)
+    - RL evaluation: Uses goal from command manager
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        rl_training: If True, always returns False (disables success termination for RL training).
+        command_name: The name of the command that is used to control the object.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+    # During RL training, never terminate early
+    if rl_training:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_pos = object_instance.data.root_pos_w
+
+    # Try to get goal position from command manager
+    command = env.command_manager.get_command(command_name)
+    # compute the desired position in the world frame
+    goal_pos = command[:, :3]
+
+    # Check if object is within tolerance of goal
+    distance = torch.norm(object_pos - goal_pos, dim=1)
+    return distance < position_tolerance
+
+
+def goal_pose_task_termination(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    target_x_range: tuple[float, float] | None = None,
+    target_y_range: tuple[float, float] | None = None,
+    target_z_range: tuple[float, float] | None = None,
+    target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+    target_orientation_tolerance_rad: float = 0.1,
+) -> torch.Tensor:
+    """Terminate when the object's pose is within the thresholds (BBox + Orientation).
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        target_x_range: Success zone x-range [min, max] in meters.
+        target_y_range: Success zone y-range [min, max] in meters.
+        target_z_range: Success zone z-range [min, max] in meters.
+        target_orientation_wxyz: Target quaternion [w, x, y, z].
+        target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
+
+    Returns:
+        A boolean tensor of shape (num_envs, )
+    """
+    object_instance: RigidObject = env.scene[object_cfg.name]
+    object_root_pos_w = object_instance.data.root_pos_w
+    object_root_quat_w = object_instance.data.root_quat_w
+
+    device = env.device
+    num_envs = env.num_envs
+
+    has_any_threshold = any([
+        target_x_range is not None,
+        target_y_range is not None,
+        target_z_range is not None,
+        target_orientation_wxyz is not None,
+    ])
+
+    if not has_any_threshold:
+        return torch.zeros(num_envs, dtype=torch.bool, device=device)
+
+    success = torch.ones(num_envs, dtype=torch.bool, device=device)
+
+    # Position range checks
+    ranges = [target_x_range, target_y_range, target_z_range]
+    for idx, range_val in enumerate(ranges):
+        if range_val is not None:
+            range_min, range_max = range_val
+            in_range = (object_root_pos_w[:, idx] >= range_min) & (object_root_pos_w[:, idx] <= range_max)
+            success &= in_range
+
+    # Orientation check
+    if target_orientation_wxyz is not None:
+        target_quat = torch.tensor(target_orientation_wxyz, device=device, dtype=torch.float32).unsqueeze(0)
+
+        # Formula: |<q1, q2>| > cos(tolerance / 2)
+        quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
+        abs_dot = torch.abs(quat_dot)
+        min_cos = math.cos(target_orientation_tolerance_rad / 2.0)
+
+        ori_success = abs_dot >= min_cos
+        success &= ori_success
+
+    return success
+
+
+def root_height_below_minimum_multi_objects(
+    env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
+) -> torch.Tensor:
+    """Terminate when any asset's root height is below the minimum height.
+
+    Note:
+        This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
+    """
+    outs = [
+        root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
+        for asset_cfg in asset_cfg_list
+    ]
+    outs_tensor = torch.stack(outs, dim=0)  # [X, N]
+    terminated = outs_tensor.any(dim=0)  # [N], bool
+    return terminated

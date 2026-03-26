@@ -2,9 +2,8 @@
 =================================
 
 .. warning::
-   This is the release/0.1.1 version of Isaac Lab Arena. If you are looking for the latest development version,
-   please refer to the `main branch <https://isaac-sim.github.io/IsaacLab-Arena/main/index.html>`_.
-   This comes with the latest features but is not yet fully tested.
+   This is the latest version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
+   For the tested version, please refer to the `release/0.1.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.1.1/index.html>`_.
 
 ``Isaac Lab Arena`` is an extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 to simplify the creation of task/environment libraries.
@@ -176,7 +175,12 @@ This code is under an `open-source license <https://github.com/isaac-sim/IsaacLa
 
 Contributing
 ============
-For more details, please refer to the `Contributing Guidelines <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md>`_.
+NVIDIA Isaac Lab-Arena is an open-source framework, available on GitHub, that provides a collaborative system for
+large-scale robot policy evaluation and benchmarking in simulation, with the evaluation and task layers designed
+in close collaboration with `Lightwheel <https://lightwheel.ai/>`_.
+
+For more details on how to contribute to Isaac Lab Arena, please refer to the
+`Contributing Guidelines <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md>`_.
 
 TABLE OF CONTENTS
 =================
@@ -188,6 +192,7 @@ TABLE OF CONTENTS
    pages/quickstart/installation
    pages/quickstart/first_arena_env
    pages/quickstart/docker_containers
+   pages/quickstart/jupyter_notebooks
 
 .. toctree::
    :maxdepth: 1
@@ -195,12 +200,21 @@ TABLE OF CONTENTS
 
    pages/example_workflows/locomanipulation/index
    pages/example_workflows/static_manipulation/index
+   pages/example_workflows/sequential_static_manipulation/index
+   pages/example_workflows/reinforcement_learning/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Advanced
 
    pages/advanced/private_omniverse
+   pages/advanced/assets_management
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Policy Evaluation
+
+   pages/policy_evaluation/index
 
 .. toctree::
    :maxdepth: 1
@@ -217,6 +231,8 @@ TABLE OF CONTENTS
    pages/concepts/concept_assets_design
    pages/concepts/concept_affordances_design
    pages/concepts/concept_policy_design
+   pages/concepts/concept_remote_policies_design
+
 
 .. toctree::
    :maxdepth: 1

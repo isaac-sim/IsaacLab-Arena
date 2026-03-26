@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -31,11 +31,11 @@ def _test_affordance_base(simulation_app):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
 
-    _ = OpenableAsset(name="test_name", openable_joint_name="test_joint_name", openable_open_threshold=0.5)
+    _ = OpenableAsset(name="test_name", openable_joint_name="test_joint_name", openable_threshold=0.5)
 
     with pytest.raises(TypeError) as exception_info:
-        _ = OpenableNotAnAsset(blah="test_name", openable_joint_name="test_joint_name", openable_open_threshold=0.5)
-    assert "Can't instantiate abstract class" in str(exception_info.value)
+        _ = OpenableNotAnAsset(blah="test_name", openable_joint_name="test_joint_name", openable_threshold=0.5)
+    assert "must inherit from Asset" in str(exception_info.value)
 
     return True
 

@@ -1,16 +1,17 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
+
 import torch
 from collections.abc import Sequence
-from typing import Any
+from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
+import isaaclab.sim as sim_utils
 import isaaclab.utils.math as PoseUtils
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.assets.asset_base_cfg import AssetBaseCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions.actions_cfg import BinaryJointPositionActionCfg, DifferentialInverseKinematicsActionCfg
@@ -18,20 +19,31 @@ from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
+from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
-from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
+from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.utils.pose import Pose
+
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_wxyz=(-0.74896, 0.0, 0.0, -0.66262))
+
+
+# The reason to use our internal panda USD is to combine the panda and the stand within one USD.
+# This is not ideal but currently required by the ObjectPlacementSolver to handle the robot placement correctly.
+# TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
+_FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
+_FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
 
 
 @register_asset
@@ -39,44 +51,48 @@ class FrankaEmbodiment(EmbodimentBase):
     """Embodiment for the Franka robot."""
 
     name = "franka"
+    default_arm_mode = ArmMode.SINGLE_ARM
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
-        super().__init__(enable_cameras, initial_pose)
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        is_tiled_camera: bool = False,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = FrankaSceneCfg()
         self.action_config = FrankaActionsCfg()
         self.observation_config = FrankaObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = FrankaEventCfg()
+        if initial_joint_pose is not None:
+            self.set_initial_joint_pose(initial_joint_pose)
+        self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
+        self.camera_config = FrankaCameraCfg()
+        self.camera_config._is_tiled_camera = is_tiled_camera
+        self.camera_config._camera_offset = camera_offset
 
-    def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        # We override the default initial pose setting function in order to also set
-        # the initial pose of the stand.
-        scene_config = super()._update_scene_cfg_with_robot_initial_pose(scene_config, pose)
-        if scene_config is None or not hasattr(scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.stand.init_state.pos = pose.position_xyz
-        scene_config.stand.init_state.rot = pose.rotation_wxyz
-        return scene_config
+    def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
+        self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
+
+    def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        return "ee_frame"
+
+    def get_command_body_name(self) -> str:
+        return self.action_config.arm_action.body_name
 
 
 @configclass
 class FrankaSceneCfg:
     """Additions to the scene configuration coming from the Franka embodiment."""
 
-    # The robot
-    robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-
-    # The stand for the franka
-    # TODO(alexmillane, 2025-07-28): We probably want to make the stand an optional addition.
-    stand: AssetBaseCfg = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Robot_Stand",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[1.0, 0.0, 0.0, 0.0]),
-        spawn=UsdFileCfg(
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Mounts/Stand/stand_instanceable.usd",
-            scale=(1.2, 1.2, 1.7),
-            activate_contact_sensors=False,
-        ),
-    )
+    # The robot (combined USD includes both the panda and the stand)
+    robot: ArticulationCfg = _FRANKA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
@@ -137,6 +153,38 @@ class FrankaActionsCfg:
 
 
 @configclass
+class FrankaCameraCfg:
+    """Configuration for cameras."""
+
+    wrist_cam: CameraCfg | TiledCameraCfg = MISSING
+
+    def __post_init__(self):
+        is_tiled_camera = getattr(self, "_is_tiled_camera", False)
+        camera_offset = getattr(self, "_camera_offset", _DEFAULT_CAMERA_OFFSET)
+
+        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
+        OffsetClass = CameraClass.OffsetCfg
+
+        common_kwargs = dict(
+            prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
+            update_period=0.0,
+            height=84,
+            width=84,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=2.8, focus_distance=28, horizontal_aperture=5.376, vertical_aperture=3.024
+            ),
+        )
+        offset = OffsetClass(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_wxyz,
+            convention="ros",
+        )
+
+        self.wrist_cam = CameraClass(offset=offset, **common_kwargs)
+
+
+@configclass
 class FrankaObservationsCfg:
     """Observation specifications for the MDP."""
 
@@ -160,7 +208,7 @@ class FrankaObservationsCfg:
 
 @configclass
 class FrankaEventCfg:
-    """Configuration for Franek."""
+    """Configuration for Franka."""
 
     init_franka_arm_pose = EventTerm(
         func=franka_stack_events.set_default_joint_pose,
@@ -177,6 +225,16 @@ class FrankaEventCfg:
             "std": 0.02,
             "asset_cfg": SceneEntityCfg("robot"),
         },
+    )
+
+
+@configclass
+class FrankaRewardsCfg:
+    """Reward specifications for the MDP."""
+
+    action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
+    joint_vel = RewardTermCfg(
+        func=mdp_isaac_lab.joint_vel_l2, weight=-0.0001, params={"asset_cfg": SceneEntityCfg("robot")}
     )
 
 

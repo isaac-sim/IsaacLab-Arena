@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -9,6 +9,7 @@ from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.cameras import make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -19,10 +20,19 @@ class EmbodimentBase(Asset):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
+    default_arm_mode: ArmMode | None = None
 
-    def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+    ):
         self.enable_cameras = enable_cameras
         self.initial_pose = initial_pose
+        self.concatenate_observation_terms = concatenate_observation_terms
+        self.arm_mode = arm_mode or self.default_arm_mode
         # These should be filled by the subclass
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
@@ -101,3 +111,16 @@ class EmbodimentBase(Asset):
 
     def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         return env_cfg
+
+    def get_embodiment_name_in_scene(self) -> str:
+        return "robot"
+
+    def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
+        return ""
+
+    def get_command_body_name(self) -> str:
+        return ""
+
+    def get_arm_mode(self) -> ArmMode:
+        return self.arm_mode
