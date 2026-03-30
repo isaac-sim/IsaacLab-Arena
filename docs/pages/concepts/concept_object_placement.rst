@@ -71,13 +71,13 @@ Multiple relations on the same object are all satisfied simultaneously.
 Anchors
 -------
 
-Every scene must have at least one **anchor** — a fixed reference point that other objects
-are placed relative to. Anchors are marked with ``IsAnchor()`` and must have their pose set
-before solving.
+Every scene must have at least one **anchor** — an object whose position is fixed during
+optimization and serves as the reference frame for all other objects. Anchors are marked
+with ``IsAnchor()`` and are not moved by the solver.
 
-In practice, the anchor is typically an ``ObjectReference`` pointing to a specific surface
-within a background asset (such as a tabletop or counter). Its pose is derived automatically
-from the USD scene:
+Any object in the scene can be an anchor. A common case is using an ``ObjectReference``
+that points to a specific surface within a background asset, such as a tabletop or counter,
+whose pose is derived automatically from the USD scene:
 
 .. code-block:: python
 
