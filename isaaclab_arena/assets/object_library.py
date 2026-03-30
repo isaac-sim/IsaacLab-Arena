@@ -803,7 +803,7 @@ class RedCube(LibraryObject):
     name = "red_cube"
     tags = ["object"]
 
-    usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"
 
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/RedCube"
