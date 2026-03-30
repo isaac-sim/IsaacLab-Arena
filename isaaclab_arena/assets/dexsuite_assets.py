@@ -14,7 +14,6 @@ from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
-
 # Kinematic table from Isaac Lab Dexsuite (``dexsuite_env_cfg.TABLE_SPAWN_CFG``).
 _DEXSUITE_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
     size=(0.8, 1.5, 0.04),

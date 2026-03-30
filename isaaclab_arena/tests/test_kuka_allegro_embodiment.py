@@ -7,7 +7,9 @@
 
 import pytest
 
-pytest.importorskip("isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg")
+pytest.importorskip(
+    "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
+)
 
 from isaaclab_arena.assets.asset_registry import AssetRegistry
 from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import (

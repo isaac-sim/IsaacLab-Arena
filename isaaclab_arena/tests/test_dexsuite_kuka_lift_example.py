@@ -7,7 +7,9 @@
 
 import pytest
 
-pytest.importorskip("isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg")
+pytest.importorskip(
+    "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
+)
 
 
 def test_kuka_allegro_dexsuite_lift_example_in_cli_registry() -> None:

@@ -22,17 +22,16 @@ envs typically keep rolling until time-out).
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import torch
+from typing import Any
+
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils import configclass
-
 from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
 from isaaclab_tasks.manager_based.manipulation.dexsuite import mdp as dexsuite_mdp
 from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg import (
