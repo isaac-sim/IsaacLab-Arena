@@ -21,13 +21,13 @@ or you can download a pre-trained one as described below.
    .. code-block:: bash
 
       hf download \
-         nvidia/IsaacLab-Arena-Lift-Object-RL \
-         model_11999.pt \
+         nvidia/Arena-Franka-Lift-Object-RL-Task \
+         model_9999.pt \
          --local-dir $MODELS_DIR/lift_object_checkpoint
 
    After downloading, the checkpoint is at:
 
-   ``$MODELS_DIR/lift_object_checkpoint/model_11999.pt``
+   ``$MODELS_DIR/lift_object_checkpoint/model_9999.pt``
 
    Replace checkpoint paths in the examples below with this path.
 
@@ -51,14 +51,14 @@ Method 1: Single Environment Evaluation
      --visualizer kit \
      --policy_type rsl_rl \
      --num_steps 1000 \
-     --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
+     --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_9999.pt \
      lift_object \
      --rl_training_mode False
 
 .. note::
 
-   If you downloaded the pre-trained model from Hugging Face, replace the checkpoint path with:
-   ``$MODELS_DIR/lift_object_checkpoint/model_11999.pt``
+   If you train the model yourself, the checkpoint path is typically in the ``logs/rsl_rl/generic_experiment/`` directory.
+   Replace the checkpoint path with the path to your own checkpoint.
 
 Policy-specific arguments (``--policy_type``, ``--checkpoint_path``, etc.) must come **before** the
 environment name. Environment-specific arguments (``--rl_training_mode``, ``--object``, etc.) must
@@ -82,7 +82,7 @@ For more statistically significant results, run across many environments in para
      --policy_type rsl_rl \
      --num_steps 5000 \
      --num_envs 64 \
-     --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
+     --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_9999.pt \
      --headless \
      lift_object \
      --rl_training_mode False
@@ -112,14 +112,14 @@ Create a file ``eval_config.json``:
      },
      "evaluations": [
        {
-         "checkpoint_path": "logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_5999.pt",
+         "checkpoint_path": "/datasets/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_5000.pt",
          "environment": "lift_object",
          "environment_args": {
            "rl_training_mode": false
          }
        },
        {
-         "checkpoint_path": "logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt",
+         "checkpoint_path": "/datasets/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_9999.pt",
          "environment": "lift_object",
          "environment_args": {
            "rl_training_mode": false
@@ -136,16 +136,16 @@ Create a file ``eval_config.json``:
 
 .. code-block:: text
 
-   Evaluating checkpoint 1/2: model_5999.pt
+   Evaluating checkpoint 1/2: model_5000.pt
    Metrics: {'success_rate': 0.72, 'num_episodes': 152}
 
-   Evaluating checkpoint 2/2: model_11999.pt
+   Evaluating checkpoint 2/2: model_9999.pt
    Metrics: {'success_rate': 0.85, 'num_episodes': 156}
 
    Summary:
    ========================================
-   model_5999.pt  | Success: 72% | Episodes: 152
-   model_11999.pt | Success: 85% | Episodes: 156
+   model_5000.pt  | Success: 72% | Episodes: 152
+   model_9999.pt | Success: 85% | Episodes: 156
 
 
 Understanding the Metrics
