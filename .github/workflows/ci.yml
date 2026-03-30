@@ -90,6 +90,8 @@ jobs:
         with:
           extra_args: --all-files --verbose
         env:
+          # Avoid "dubious ownership" errors on restored cache dirs — use a
+          # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
   test:
