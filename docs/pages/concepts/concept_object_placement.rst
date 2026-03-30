@@ -104,7 +104,7 @@ Relations are attached to objects via ``add_relation()``:
    from isaaclab_arena.relations.relations import IsAnchor, On, AtPosition
 
    table_reference.add_relation(IsAnchor())
-   cracker_box.add_relation(On(table_reference, clearance_m=0.02))
+   cracker_box.add_relation(On(table_reference))
    cracker_box.add_relation(AtPosition(x=0.4, y=0.0))
 
 Multiple relations on the same object are all satisfied simultaneously.
@@ -150,7 +150,7 @@ with an optional clearance gap:
 
    from isaaclab_arena.relations.relations import On
 
-   cracker_box.add_relation(On(table_reference, clearance_m=0.02))
+   cracker_box.add_relation(On(table_reference))
 
 Parameters:
 
@@ -192,7 +192,7 @@ unconstrained axes are determined by other relations (for example, ``On`` contro
 
    from isaaclab_arena.relations.relations import AtPosition
 
-   cracker_box.add_relation(On(table_reference, clearance_m=0.02))
+   cracker_box.add_relation(On(table_reference))
    cracker_box.add_relation(AtPosition(x=0.4, y=0.0))  # z left free for On to control
 
 Parameters:
@@ -236,7 +236,7 @@ within bounds:
 
 .. code-block:: python
 
-   obj.add_relation(On(table_reference, clearance_m=0.02))
+   obj.add_relation(On(table_reference))
    obj.add_relation(AtPosition(x=0.5, y=0.0))
    obj.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.05))
 
@@ -305,11 +305,11 @@ and add them to the scene:
 
    # Define placeable objects
    cracker_box = asset_registry.get_asset_by_name("cracker_box")()
-   cracker_box.add_relation(On(table_reference, clearance_m=0.02))
+   cracker_box.add_relation(On(table_reference))
    cracker_box.add_relation(AtPosition(x=0.0, y=0.0))
 
    mug = asset_registry.get_asset_by_name("mug")()
-   mug.add_relation(On(table_reference, clearance_m=0.02))
+   mug.add_relation(On(table_reference))
 
    # Build scene and environment
    scene = Scene(assets=[table_background, table_reference, cracker_box, mug, light])
@@ -336,8 +336,8 @@ The most common pattern: an anchor marks a surface, and one or more objects are 
 
    table_reference.add_relation(IsAnchor())
 
-   pick_object.add_relation(On(table_reference, clearance_m=0.02))
-   destination.add_relation(On(table_reference, clearance_m=0.02))
+   pick_object.add_relation(On(table_reference))
+   destination.add_relation(On(table_reference))
 
 **Precise XY placement**
 
@@ -345,7 +345,7 @@ Combine ``On`` with ``AtPosition`` when you need the object at a known world loc
 
 .. code-block:: python
 
-   pick_object.add_relation(On(counter_top, clearance_m=0.02))
+   pick_object.add_relation(On(counter_top))
    pick_object.add_relation(AtPosition(x=0.4, y=0.0))
 
 **Multiple objects arranged side-by-side**
