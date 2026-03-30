@@ -106,7 +106,10 @@ class ArenaEnvBuilder:
         if result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
-            print(f"Relation solving not completed after {result.attempts} attempt(s)")
+            raise RuntimeError(
+                f"Relation solving failed after {result.attempts} attempt(s). "
+                "Increase max_placement_attempts in ObjectPlacerParams or simplify the scene constraints."
+            )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
