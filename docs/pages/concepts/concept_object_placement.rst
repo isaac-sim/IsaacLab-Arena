@@ -91,11 +91,10 @@ layout to the new sizes and footprints.
 Core Concepts
 -------------
 
-The placement system has three layers:
-
-1. **Relations**: Declarative constraints attached to objects (e.g. "this box must be on that table")
-2. **ObjectPlacer**: Runs the solver and validates the result, retrying if placement fails
-3. **ArenaEnvBuilder integration**: Automatically invokes the placer during environment setup
+The three core concepts you work with directly are **Anchors**, **Spatial Relations**, and
+**Placement Modifiers**. Under the hood, ``ArenaEnvBuilder`` collects these from your scene,
+runs the solver, and applies the results automatically — you rarely need to interact with the
+solver directly.
 
 Relations are attached to objects via ``add_relation()``:
 
@@ -109,34 +108,8 @@ Relations are attached to objects via ``add_relation()``:
 
 Multiple relations on the same object are all satisfied simultaneously.
 
-Anchors
--------
-
-Every scene must have at least one **anchor** — an object whose position is fixed during
-optimization and serves as the reference frame for all other objects. Anchors are marked
-with ``IsAnchor()`` and are not moved by the solver.
-
-Any object in the scene can be an anchor. A common case is using an ``ObjectReference``
-that points to a specific surface within a background asset, such as a tabletop or counter,
-whose pose is derived automatically from the USD scene:
-
-.. code-block:: python
-
-   from isaaclab_arena.assets.object_reference import ObjectReference
-   from isaaclab_arena.relations.relations import IsAnchor
-
-   table_reference = ObjectReference(
-       name="table",
-       prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_top_01",
-       parent_asset=table_background,
-   )
-   table_reference.add_relation(IsAnchor())
-
-You can have multiple independent anchors in a scene — for example, a table and a separate
-counter. Objects are then placed relative to whichever anchor they reference.
-
 Spatial Relations
------------------
+~~~~~~~~~~~~~~~~~
 
 Spatial relations constrain where an object may be relative to a parent object or world position.
 
@@ -200,8 +173,34 @@ Parameters:
 - ``x``, ``y``, ``z``: Target world coordinates (any can be ``None`` to leave unconstrained)
 - ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
 
+Anchors
+~~~~~~~
+
+Every scene must have at least one **anchor** — an object whose position is fixed during
+optimization and serves as the reference frame for all other objects. Anchors are marked
+with ``IsAnchor()`` and are not moved by the solver.
+
+Any object in the scene can be an anchor. A common case is using an ``ObjectReference``
+that points to a specific surface within a background asset, such as a tabletop or counter,
+whose pose is derived automatically from the USD scene:
+
+.. code-block:: python
+
+   from isaaclab_arena.assets.object_reference import ObjectReference
+   from isaaclab_arena.relations.relations import IsAnchor
+
+   table_reference = ObjectReference(
+       name="table",
+       prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_top_01",
+       parent_asset=table_background,
+   )
+   table_reference.add_relation(IsAnchor())
+
+You can have multiple independent anchors in a scene — for example, a table and a separate
+counter. Objects are then placed relative to whichever anchor they reference.
+
 Placement Modifiers
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 Placement modifiers are attached alongside spatial relations and affect how the solved position
 is applied to the object. They are not processed by the solver itself.
