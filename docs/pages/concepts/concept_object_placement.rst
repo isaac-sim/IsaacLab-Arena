@@ -62,6 +62,7 @@ relation and the solver places them all without collisions:
      --num_steps 100 \
      pick_and_place_maple_table \
      --embodiment droid_rel_joint_pos \
+     --hdr home_office_robolab \
      --additional_table_objects cracker_box mug tomato_soup_can
 
 Swap any of those names for other registered objects to see the solver automatically adapt the
