@@ -5,7 +5,7 @@ This workflow covers post-training an example policy using the generated dataset
 here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 

@@ -1,7 +1,7 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
