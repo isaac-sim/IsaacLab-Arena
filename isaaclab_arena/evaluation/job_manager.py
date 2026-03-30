@@ -126,8 +126,8 @@ class Job:
 
         args_list = []
 
-        # Priority arguments that should come first
-        priority_keys = ["num_envs", "enable_cameras"]
+        # Priority arguments that should come first (global args that must precede the subcommand)
+        priority_keys = ["num_envs", "env_spacing", "enable_cameras", "placement_seed"]
 
         # Process priority arguments first (--num_envs, --enable_cameras)
         for key in priority_keys:

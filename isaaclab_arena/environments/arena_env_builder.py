@@ -26,6 +26,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -98,7 +99,8 @@ class ArenaEnvBuilder:
         self._add_pairwise_no_collision(objects_with_relations)
 
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
-        placer = ObjectPlacer()
+        placement_seed = getattr(self.args, "placement_seed", None)
+        placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
         result = placer.place(objects=objects_with_relations)
 
         if result.success:
