@@ -5,28 +5,28 @@ The Motivation
 --------------
 
 The traditional approach to placing objects in a simulation environment is to set each object's
-pose manually. Suppose you want to place a cracker box on a table, with a mug sitting next to it.
+pose manually. Suppose you want to place a microwave on a table, with a cracker box sitting next to it.
 You look up the table surface height, measure the object dimensions, and compute the coordinates by hand:
 
 .. code-block:: python
 
-   # Table surface is at z = 0.77 m in world frame.
+   # Table surface is at z = 0.42 m in world frame.
+   # Microwave is 0.50 m wide (x) and 0.30 m tall (z).
    # Cracker box is 0.064 m wide (x) and 0.212 m tall (z).
-   # Mug is 0.086 m wide (x) and 0.116 m tall (z).
 
    CLEARANCE = 0.01  # m
 
-   cracker_box_z = 0.77 + 0.212 / 2 + CLEARANCE          # = 0.986
-   cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, cracker_box_z)))
+   microwave_z = 0.42 + 0.30 / 2 + CLEARANCE             # = 0.58
+   microwave.set_initial_pose(Pose(position_xyz=(0.0, 0.0, microwave_z)))
 
-   mug_x = 0.4 + 0.064 / 2 + CLEARANCE + 0.086 / 2       # = 0.475
-   mug_z = 0.77 + 0.116 / 2 + CLEARANCE                  # = 0.838
-   mug.set_initial_pose(Pose(position_xyz=(mug_x, 0.0, mug_z)))
+   cracker_box_x = 0.0 + 0.50 / 2 + CLEARANCE + 0.064 / 2   # = 0.292
+   cracker_box_z = 0.42 + 0.212 / 2 + CLEARANCE              # = 0.536
+   cracker_box.set_initial_pose(Pose(position_xyz=(cracker_box_x, 0.0, cracker_box_z)))
 
-This works, but it is brittle. If you swap the cracker box for a mustard bottle (which is wider and taller),
-every downstream coordinate that depended on its size must be recalculated. If you use a different table,
-the surface height changes and all Z values are wrong. If you add a third object next to the mug, you
-need to chain another calculation on top of the previous ones.
+This works, but it is brittle. If you swap the microwave for a larger appliance, every downstream
+coordinate that depended on its size must be recalculated. If you use a different table, the surface
+height changes and all Z values are wrong. If you add an apple next to the cracker box, you need to
+chain yet another calculation on top of the previous ones.
 
 The relations system eliminates this problem. Instead of computing coordinates, you declare *constraints*:
 
@@ -34,18 +34,20 @@ The relations system eliminates this problem. Instead of computing coordinates, 
 
    from isaaclab_arena.relations.relations import IsAnchor, On, NextTo, Side
 
-   table_reference.add_relation(IsAnchor())
+   packing_table.add_relation(IsAnchor())
 
-   cracker_box.add_relation(On(table_reference, clearance_m=0.01))
-   cracker_box.add_relation(AtPosition(x=0.4, y=0.0))
+   microwave.add_relation(On(packing_table))
 
-   mug.add_relation(On(table_reference, clearance_m=0.01))
-   mug.add_relation(NextTo(cracker_box, side=Side.POSITIVE_X, distance_m=0.01))
+   cracker_box.add_relation(On(packing_table))
+   cracker_box.add_relation(NextTo(microwave, side=Side.POSITIVE_X, distance_m=0.01))
+
+   apple.add_relation(On(packing_table))
+   apple.add_relation(NextTo(cracker_box, side=Side.POSITIVE_X, distance_m=0.01))
 
 A constraint solver reads the actual bounding boxes of each object and computes positions that satisfy all
-the constraints together. Swap the cracker box for any other object and the solver re-derives everything
-automatically — the mug will still end up next to it at the right height, regardless of the new object's
-dimensions.
+the constraints together. Swap the microwave for any other object and the solver re-derives everything
+automatically — the cracker box and apple will still end up next to it at the right height, regardless
+of the new object's dimensions.
 
 .. figure:: ../../images/relations_highlevel.png
    :width: 100%
