@@ -91,7 +91,7 @@ layout to the new sizes and footprints.
 Core Concepts
 -------------
 
-The three core concepts you work with directly are **Anchors**, **Spatial Relations**, and
+The three core concepts you work with directly are **Spatial Relations**, **Anchors**, and
 **Placement Modifiers**. Under the hood, ``ArenaEnvBuilder`` collects these from your scene,
 runs the solver, and applies the results automatically — you rarely need to interact with the
 solver directly.
