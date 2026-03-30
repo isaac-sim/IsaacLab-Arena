@@ -89,6 +89,8 @@ jobs:
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: --all-files --verbose
+        env:
+          PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
   test:
     name: Run tests
