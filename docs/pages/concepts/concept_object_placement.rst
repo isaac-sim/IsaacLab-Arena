@@ -68,12 +68,14 @@ relation and the solver places them all without collisions:
 Swap any of those names for other registered objects to see the solver automatically adapt the
 layout to the new sizes and footprints.
 
-.. figure:: ../../images/swap_objects.gif
+.. figure:: ../../images/object_placement_variety.gif
    :width: 100%
    :alt: Object placement example with multiple objects on a table
    :align: center
 
-   Multiple objects placed on the maple table using the relations solver.
+   Five sequential runs on the maple table environment, each adding more objects (0 to 5 extra).
+   The solver automatically computes a valid, collision-free layout for each configuration —
+   no manual pose adjustments needed when the object set changes.
 
 Core Concepts
 -------------
