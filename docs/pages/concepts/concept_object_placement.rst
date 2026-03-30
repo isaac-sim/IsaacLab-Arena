@@ -142,28 +142,6 @@ Parameters:
 - ``cross_position_ratio`` (default ``0.0``): Alignment along the perpendicular axis, in ``[-1, 1]``
 - ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
 
-**NoCollision**
-
-Ensures two objects do not overlap. The solver penalizes the volume of overlap between
-their bounding boxes:
-
-.. code-block:: python
-
-   from isaaclab_arena.relations.relations import NoCollision
-
-   box_a.add_relation(NoCollision(box_b, clearance_m=0.01))
-
-You only need to add the constraint on one side — the pair is counted once.
-
-In most cases, you do not need to add ``NoCollision`` manually. When using ``ArenaEnvBuilder``,
-pairwise ``NoCollision`` constraints are automatically added between all non-anchor objects.
-
-Parameters:
-
-- ``parent``: The other object to avoid
-- ``clearance_m`` (default ``0.01``): Minimum separation between bounding boxes, in meters
-- ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
-
 **AtPosition**
 
 Pins an object to specific world-frame coordinates. You can constrain any subset of axes —
@@ -231,7 +209,6 @@ Each relation type contributes a differentiable loss component:
 
 - **On**: Band loss on X/Y (child footprint within parent), point loss on Z (child bottom at parent top)
 - **NextTo**: Half-plane loss (correct side), band loss (perpendicular alignment), distance loss (target gap)
-- **NoCollision**: Volume-based loss (penalizes bounding-box overlap)
 - **AtPosition**: Point loss on each constrained axis
 
 Losses use linear ReLU-style functions (zero inside the valid region, linearly growing outside),
