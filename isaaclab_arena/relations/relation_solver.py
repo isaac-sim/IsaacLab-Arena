@@ -237,7 +237,7 @@ class RelationSolver:
         # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
-        state = RelationSolverState(objects, [final_positions])
+        state = RelationSolverState(objects, final_positions)
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 

@@ -137,13 +137,13 @@ class NoCollision(Relation):
         self,
         parent: Object | ObjectReference,
         relation_loss_weight: float = 1.0,
-        clearance_m: float = 0.02,
+        clearance_m: float = 0.01,
     ):
         """
         Args:
             parent: The other object that this object must not collide with.
             relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Minimum clearance between bounding boxes in meters (default: 2cm).
+            clearance_m: Minimum clearance between bounding boxes in meters (default: 1cm).
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"

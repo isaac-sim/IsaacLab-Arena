@@ -9,6 +9,7 @@
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
@@ -134,6 +135,27 @@ def test_object_placer_different_seeds_produce_different_results():
             break
 
     assert any_different, "Different seeds should produce different results"
+
+
+def test_object_placer_multi_env_returns_multi_env_result():
+    """Test that ObjectPlacer.place with num_envs>1 returns MultiEnvPlacementResult."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params)
+    )
+    result = placer.place(objects, num_envs=num_envs)
+
+    assert isinstance(result, MultiEnvPlacementResult)
+    assert len(result.results) == num_envs
+    for r in result.results:
+        assert isinstance(r, PlacementResult)
+        assert box1 in r.positions
+        assert box2 in r.positions
+        assert len(r.positions[box1]) == 3
+        assert len(r.positions[box2]) == 3
 
 
 def test_relation_solver_multi_env_batched_positions():

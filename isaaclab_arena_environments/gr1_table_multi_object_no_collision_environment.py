@@ -21,11 +21,13 @@ DEFAULT_TABLE_OBJECTS = [
     "cracker_box",
     "sugar_box",
     "tomato_soup_can",
-    "mug",
     "dex_cube",
     "power_drill",
     "red_container",
-]  # 7 objects on table (On + pairwise NoCollision).
+]
+# NOTE: The gradient-based solver does not guarantee collision-free placement for all
+# objects. Better initialization strategies and constraining unchanged pose dimensions
+# are needed in the near future.
 
 
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):

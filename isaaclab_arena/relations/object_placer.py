@@ -341,11 +341,25 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Check that no two objects overlap in 3D (axis-aligned bbox with margin)."""
+        """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
+
+        Pairs linked by an On relation are skipped (validated separately by
+        _validate_on_relations).
+        """
+        # Build set of On-related pairs to skip (child, parent) and (parent, child).
+        on_pairs: set[tuple] = set()
+        for obj in positions:
+            for rel in obj.get_relations():
+                if isinstance(rel, On) and rel.parent in positions:
+                    on_pairs.add((id(obj), id(rel.parent)))
+                    on_pairs.add((id(rel.parent), id(obj)))
+
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
+                if (id(a), id(b)) in on_pairs:
+                    continue
 
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
