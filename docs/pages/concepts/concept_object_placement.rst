@@ -47,6 +47,24 @@ the constraints together. Swap the cracker box for any other object and the solv
 automatically — the mug will still end up next to it at the right height, regardless of the new object's
 dimensions.
 
+Try It Out
+----------
+
+The ``pick_and_place_maple_table`` environment is a good place to experiment with object placement.
+By default it places one pick-up object and one destination on the table. You can add any number of
+extra objects via ``--additional_table_objects`` — each one receives an ``On(table_reference)``
+relation and the solver places them all without collisions:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type zero_action \
+     pick_and_place_maple_table \
+     --additional_table_objects cracker_box mug tomato_soup_can
+
+Swap any of those names for other registered objects to see the solver automatically adapt the
+layout to the new sizes and footprints.
+
 Core Concepts
 -------------
 
@@ -345,24 +363,6 @@ Scenes with multiple fixed reference surfaces use one ``IsAnchor`` per surface:
 
    mug.add_relation(On(table))
    bowl.add_relation(On(counter))
-
-Try It Out
-----------
-
-The ``pick_and_place_maple_table`` environment is a good place to experiment with object placement.
-By default it places one pick-up object and one destination on the table. You can add any number of
-extra objects via ``--additional_table_objects`` — each one receives an ``On(table_reference)``
-relation and the solver places them all without collisions:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type zero_action \
-     pick_and_place_maple_table \
-     --additional_table_objects cracker_box mug tomato_soup_can
-
-Swap any of those names for other registered objects to see the solver automatically adapt the
-layout to the new sizes and footprints.
 
 Configuration
 -------------
