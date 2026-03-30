@@ -67,7 +67,7 @@ relation and the solver places them all without collisions:
 Swap any of those names for other registered objects to see the solver automatically adapt the
 layout to the new sizes and footprints.
 
-.. figure:: ../../images/object_placement_example.png
+.. figure:: ../../images/swap_objects.gif
    :width: 100%
    :alt: Object placement example with multiple objects on a table
    :align: center
