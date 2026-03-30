@@ -61,6 +61,7 @@ relation and the solver places them all without collisions:
      --policy_type zero_action \
      --num_steps 100 \
      pick_and_place_maple_table \
+     --embodiment droid_rel_joint_pos \
      --additional_table_objects cracker_box mug tomato_soup_can
 
 Swap any of those names for other registered objects to see the solver automatically adapt the
