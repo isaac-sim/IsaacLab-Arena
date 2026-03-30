@@ -1,11 +1,11 @@
-``Isaac Lab Arena`` Documentation
-=================================
+Welcome to Isaac Lab Arena!
+===========================
 
 .. warning::
    This is the latest version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
    For the tested version, please refer to the `release/0.1.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.1.1/index.html>`_.
 
-``Isaac Lab Arena`` is an extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
+``Isaac Lab Arena`` extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 to simplify the creation of task/environment libraries.
 
 
@@ -187,21 +187,23 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: User's Guide
+   :caption: Set Up
 
    pages/quickstart/installation
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
    pages/quickstart/first_arena_env
-   pages/quickstart/docker_containers
-   pages/quickstart/jupyter_notebooks
+   pages/quickstart/first_experiments
 
 .. toctree::
    :maxdepth: 1
    :caption: Example Workflows
 
-   pages/example_workflows/locomanipulation/index
-   pages/example_workflows/static_manipulation/index
-   pages/example_workflows/sequential_static_manipulation/index
-   pages/example_workflows/reinforcement_learning/index
+   pages/example_workflows/imitation_learning/index
+   pages/example_workflows/reinforcement_learning_workflows/index
 
 .. toctree::
    :maxdepth: 1
@@ -209,6 +211,8 @@ TABLE OF CONTENTS
 
    pages/advanced/private_omniverse
    pages/advanced/assets_management
+   pages/advanced/gr00t_server_client
+   pages/quickstart/jupyter_notebooks
 
 .. toctree::
    :maxdepth: 1

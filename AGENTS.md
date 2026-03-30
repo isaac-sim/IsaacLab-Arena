@@ -19,7 +19,7 @@ The repo root is mounted at `/workspaces/isaaclab_arena` inside the container. T
 docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && <command>"
 ```
 
-**Important:** Use `/isaac-sim/python.sh` as the Python interpreter inside the container (not `python` or `python3`).
+**Important:** Inside the container, `python` is aliased to `/isaac-sim/python.sh`, so both forms work. Prefer `/isaac-sim/python.sh` for explicitness (e.g. in `docker exec` commands run from outside the container, where the alias is not active).
 
 ```bash
 # Example: run kitchen_pick_and_place with zero_action policy
