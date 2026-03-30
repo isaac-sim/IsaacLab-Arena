@@ -22,7 +22,7 @@ class ObjectPlacerParams:
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
 
-    max_placement_attempts: int = 5
+    max_placement_attempts: int = 10
     """Maximum number of placement attempts (random init + solve + validate) before failure."""
 
     apply_positions_to_objects: bool = True
