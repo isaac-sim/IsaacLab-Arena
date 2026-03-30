@@ -59,6 +59,7 @@ relation and the solver places them all without collisions:
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
+     --num_steps 100 \
      pick_and_place_maple_table \
      --additional_table_objects cracker_box mug tomato_soup_can
 
