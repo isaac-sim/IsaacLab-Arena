@@ -141,8 +141,11 @@ class ObjectPlacer:
 
         # Per env: use best valid if any, else best-by-loss fallback
         final_per_env: list[dict] = [
-            best_valid_positions_per_env[e] if best_valid_positions_per_env[e] is not None
-            else best_any_positions_per_env[e]
+            (
+                best_valid_positions_per_env[e]
+                if best_valid_positions_per_env[e] is not None
+                else best_any_positions_per_env[e]
+            )
             for e in range(num_envs)
         ]
 
@@ -151,7 +154,8 @@ class ObjectPlacer:
                 success=best_valid_positions_per_env[e] is not None,
                 positions=final_per_env[e],
                 final_loss=(
-                    best_valid_loss_per_env[e] if best_valid_positions_per_env[e] is not None
+                    best_valid_loss_per_env[e]
+                    if best_valid_positions_per_env[e] is not None
                     else best_any_loss_per_env[e]
                 ),
                 attempts=attempt + 1,

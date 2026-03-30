@@ -77,8 +77,7 @@ class RelationSolverState:
         self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
         if self._optimizable_indices:
             opt_tensors = [
-                torch.stack([positions_per_env[e][i] for e in range(self._num_envs)])
-                for i in self._optimizable_indices
+                torch.stack([positions_per_env[e][i] for e in range(self._num_envs)]) for i in self._optimizable_indices
             ]
             self._optimizable_positions = torch.stack(opt_tensors, dim=1)  # (N, num_opt, 3)
             self._optimizable_positions.requires_grad = True

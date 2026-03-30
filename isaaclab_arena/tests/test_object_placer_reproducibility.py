@@ -143,9 +143,7 @@ def test_object_placer_multi_env_returns_multi_env_result():
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     desk, box1, box2 = _create_test_objects()
     objects = [desk, box1, box2]
-    placer = ObjectPlacer(
-        params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params)
-    )
+    placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
     result = placer.place(objects, num_envs=num_envs)
 
     assert isinstance(result, MultiEnvPlacementResult)
