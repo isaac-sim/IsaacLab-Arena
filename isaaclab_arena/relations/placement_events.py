@@ -18,18 +18,16 @@ from isaaclab_arena.terms.events import set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose
 
 
-def _resolve_env_ids(env: ManagerBasedEnv, env_ids) -> list[int] | None:
-    """Normalize env_ids from the event manager to a list of env indices."""
-    if env_ids is None:
-        return None
+def _env_ids_to_list(env: ManagerBasedEnv, env_ids: torch.Tensor | slice) -> list[int]:
+    """Convert env_ids (``torch.Tensor`` or ``slice(None)``) to a plain list of int indices.
+
+    Args:
+        env: The environment instance (used to determine num_envs for slice).
+        env_ids: Environment indices from the Isaac Lab event manager.
+    """
     if isinstance(env_ids, slice):
-        if env_ids == slice(None):
-            return list(range(env.num_envs))
-        start, stop, step = env_ids.indices(env.num_envs)
-        return list(range(start, stop, step))
-    if hasattr(env_ids, "tolist"):
-        return env_ids.tolist()
-    return list(env_ids)
+        return list(range(env.num_envs))
+    return env_ids.tolist()
 
 
 @configclass
@@ -67,10 +65,10 @@ def set_object_pose_per_env_from_layouts(
     anchor_names: list[str] | None = None,
 ) -> None:
     """Set each object's root pose per env from layout dicts; anchors first."""
-    resolved = _resolve_env_ids(env, env_ids)
-    if not resolved:
+    env_id_list = _env_ids_to_list(env, env_ids)
+    if not env_id_list:
         return
-    env_ids_t = torch.tensor(resolved, device=env.device)
+    env_ids_t = torch.tensor(env_id_list, device=env.device)
     anchor_set = set(anchor_names or [])
     ordered_names = [n for n in object_names if n in anchor_set]
     ordered_names += [n for n in object_names if n not in anchor_set]
