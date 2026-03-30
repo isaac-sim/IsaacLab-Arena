@@ -179,7 +179,25 @@ is randomized within a box around the solution at each environment reset:
 
 At each reset, the object spawns at a random position uniformly sampled within
 ``[solved_x ± x_half_m, solved_y ± y_half_m, solved_z ± z_half_m]``.
-This produces episode-to-episode variation while keeping the placement valid.
+
+The solver only validates the center of this range — the solved position itself.
+No placement checking is performed at reset time, so positions near the edges of the
+range may be physically invalid (e.g. the object partially off the surface, or
+overlapping a neighbour).
+
+The safest approach is to combine ``RandomAroundSolution`` with ``AtPosition``.
+Because ``AtPosition`` pins the object to a known world coordinate, you can reason
+about the available margin purely from the surface geometry and the object's bounding
+box — no need to inspect solver output. For example, if a surface spans ``x ∈ [0.0, 1.0]``
+and you place the object at ``x = 0.5`` with a footprint of ``0.1 m``, there is
+``0.5 - 0.05 = 0.45 m`` of margin on each side, so ``x_half_m = 0.1`` is safely
+within bounds:
+
+.. code-block:: python
+
+   obj.add_relation(On(table_reference, clearance_m=0.02))
+   obj.add_relation(AtPosition(x=0.5, y=0.0))
+   obj.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.05))
 
 Parameters: ``x_half_m``, ``y_half_m``, ``z_half_m`` — half-extents in meters (default ``0.0``);
 ``roll_half_rad``, ``pitch_half_rad``, ``yaw_half_rad`` — half-extents in radians (default ``0.0``).
