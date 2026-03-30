@@ -47,6 +47,15 @@ the constraints together. Swap the cracker box for any other object and the solv
 automatically — the mug will still end up next to it at the right height, regardless of the new object's
 dimensions.
 
+.. figure:: ../../images/relations_highlevel.png
+   :width: 100%
+   :alt: High-level visualization of spatial relations between objects on a table
+   :align: center
+
+   Example relations: a microwave and a cracker box both with ``On(packing_table)``,
+   and an apple with ``NextTo(microwave)``. The solver reads these constraints and
+   computes a valid, collision-free layout automatically.
+
 Try It Out
 ----------
 
