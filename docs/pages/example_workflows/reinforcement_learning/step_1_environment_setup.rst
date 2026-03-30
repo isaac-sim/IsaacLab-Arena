@@ -131,7 +131,7 @@ The task includes:
 - **Reward Terms**: Dense rewards for reaching, grasping, lifting, and achieving target poses
 - **Observation Space**: Robot state (joint positions, velocities), object state (pose, velocity), and goal commands
 - **Termination Conditions**: Object dropped or timeout
-- **Success Condition**: Object reaches target position (only active during evaluation when ``rl_training_mode=False``)
+- **Success Condition**: Object reaches target position (disabled by the ``--rl_training_mode`` flag for training)
 
 See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
@@ -162,6 +162,7 @@ To validate the environment loads correctly, run one training iteration and chec
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
+     --rl_training_mode \
      --num_envs 64 \
      --max_iterations 1 \
      --headless
