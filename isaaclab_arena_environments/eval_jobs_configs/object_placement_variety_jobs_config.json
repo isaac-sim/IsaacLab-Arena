@@ -7,7 +7,7 @@
                 "embodiment": "droid_rel_joint_pos",
                 "hdr": "home_office_robolab"
             },
-            "num_steps": 100,
+            "num_steps": 50,
             "policy_type": "zero_action",
             "policy_config_dict": {}
         },
@@ -19,7 +19,7 @@
                 "hdr": "home_office_robolab",
                 "additional_table_objects": ["cracker_box"]
             },
-            "num_steps": 100,
+            "num_steps": 50,
             "policy_type": "zero_action",
             "policy_config_dict": {}
         },
@@ -31,7 +31,7 @@
                 "hdr": "home_office_robolab",
                 "additional_table_objects": ["cracker_box", "mug"]
             },
-            "num_steps": 100,
+            "num_steps": 50,
             "policy_type": "zero_action",
             "policy_config_dict": {}
         },
@@ -43,7 +43,7 @@
                 "hdr": "home_office_robolab",
                 "additional_table_objects": ["cracker_box", "mug", "sugar_box"]
             },
-            "num_steps": 100,
+            "num_steps": 50,
             "policy_type": "zero_action",
             "policy_config_dict": {}
         },
@@ -55,7 +55,7 @@
                 "hdr": "home_office_robolab",
                 "additional_table_objects": ["cracker_box", "mug", "sugar_box", "tomato_soup_can", "mustard_bottle"]
             },
-            "num_steps": 100,
+            "num_steps": 50,
             "policy_type": "zero_action",
             "policy_config_dict": {}
         }
