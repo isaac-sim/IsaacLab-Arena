@@ -22,7 +22,6 @@ or you can download a pre-trained one as described below.
 
       hf download \
          nvidia/Arena-Franka-Lift-Object-RL-Task \
-         model_9999.pt \
          --local-dir $MODELS_DIR/lift_object_checkpoint
 
    After downloading, the checkpoint is at:
@@ -127,6 +126,11 @@ Create a file ``eval_config.json``:
        }
      ]
    }
+
+.. note::
+
+   If you train the model yourself, the checkpoint path is typically in the ``/datasets/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/`` directory.
+   Replace the checkpoint path with the path to your own checkpoint.
 
 **2. Run**
 
