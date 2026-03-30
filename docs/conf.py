@@ -79,7 +79,6 @@ todo_include_todos = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
