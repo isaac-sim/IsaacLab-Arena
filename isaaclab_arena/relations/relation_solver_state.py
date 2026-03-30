@@ -67,7 +67,13 @@ class RelationSolverState:
 
         # Separate anchor positions from optimizable positions
         self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
-        # Anchors are fixed (same position in all envs), so env 0 is representative.
+        # Anchors must be identical across envs (they are fixed reference points).
+        for idx in self._anchor_indices:
+            for e in range(1, self._num_envs):
+                assert torch.allclose(positions_per_env[0][idx], positions_per_env[e][idx]), (
+                    f"Anchor '{objects[idx].name}' has different positions across envs "
+                    f"(env 0: {positions_per_env[0][idx].tolist()}, env {e}: {positions_per_env[e][idx].tolist()})"
+                )
         self._anchor_positions: dict[int, torch.Tensor] = {
             idx: positions_per_env[0][idx].clone() for idx in self._anchor_indices
         }

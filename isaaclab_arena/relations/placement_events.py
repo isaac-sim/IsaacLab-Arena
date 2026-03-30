@@ -65,6 +65,9 @@ def set_object_pose_per_env_from_layouts(
     anchor_names: list[str] | None = None,
 ) -> None:
     """Set each object's root pose per env from layout dicts; anchors first."""
+    assert (
+        len(positions_all_envs_by_name) == env.num_envs
+    ), f"Expected {env.num_envs} layout dicts, got {len(positions_all_envs_by_name)}"
     env_id_list = _env_ids_to_list(env, env_ids)
     if not env_id_list:
         return

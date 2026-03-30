@@ -391,7 +391,7 @@ class ObjectPlacer:
     def _apply_positions(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
-        anchor_objects: Object | ObjectReference,
+        anchor_objects: set[Object | ObjectReference],
     ) -> None:
         """Apply solved positions to objects (skipping anchors).
 
