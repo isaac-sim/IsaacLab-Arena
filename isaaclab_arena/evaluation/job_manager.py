@@ -135,6 +135,8 @@ class Job:
                 value = args_dict[key]
                 if isinstance(value, bool) and value:
                     args_list += [f"--{key}"]
+                elif isinstance(value, list):
+                    args_list += [f"--{key}"] + [str(v) for v in value]
                 elif not isinstance(value, bool) and value is not None:
                     args_list += [f"--{key}", str(value)]
 
@@ -148,6 +150,8 @@ class Job:
 
             if isinstance(value, bool) and value:
                 args_list += [f"--{key}"]
+            elif isinstance(value, list):
+                args_list += [f"--{key}"] + [str(v) for v in value]
             elif not isinstance(value, bool) and value is not None:
                 args_list += [f"--{key}", str(value)]
 

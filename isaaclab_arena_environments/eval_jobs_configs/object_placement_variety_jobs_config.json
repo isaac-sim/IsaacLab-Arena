@@ -1,0 +1,63 @@
+{
+    "jobs": [
+        {
+            "name": "01_no_extra_objects",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "home_office_robolab"
+            },
+            "num_steps": 100,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "02_one_extra_object",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "home_office_robolab",
+                "additional_table_objects": ["cracker_box"]
+            },
+            "num_steps": 100,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "03_two_extra_objects",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "home_office_robolab",
+                "additional_table_objects": ["cracker_box", "mug"]
+            },
+            "num_steps": 100,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "04_three_extra_objects",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "home_office_robolab",
+                "additional_table_objects": ["cracker_box", "mug", "sugar_box"]
+            },
+            "num_steps": 100,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "05_five_extra_objects",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "hdr": "home_office_robolab",
+                "additional_table_objects": ["cracker_box", "mug", "sugar_box", "tomato_soup_can", "mustard_bottle"]
+            },
+            "num_steps": 100,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        }
+    ]
+}
