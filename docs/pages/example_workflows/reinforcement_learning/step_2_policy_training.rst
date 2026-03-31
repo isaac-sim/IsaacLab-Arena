@@ -1,7 +1,7 @@
 Policy Training
 ---------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -17,6 +17,7 @@ builds the environment, and registers it with gym so IsaacLab's script can find 
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
+     --rl_training_mode \
      --num_envs 512 \
      --max_iterations 12000
 
@@ -53,6 +54,7 @@ For example, to train with relu activation and a higher learning rate:
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
+     --rl_training_mode \
      --num_envs 512 \
      --max_iterations 12000 \
      agent.policy.activation=relu \
@@ -109,6 +111,7 @@ Add ``--distributed`` to spread environments across all available GPUs:
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
+     --rl_training_mode \
      --num_envs 512 \
      --max_iterations 12000 \
      --headless \

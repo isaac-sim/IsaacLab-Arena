@@ -5,7 +5,7 @@ This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena G1 Loco Manipulation Task environment.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 

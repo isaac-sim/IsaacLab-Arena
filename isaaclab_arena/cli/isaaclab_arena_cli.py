@@ -50,6 +50,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         default=True,
         help="Disable solving spatial relations in the environment.",
     )
+    arena_group.add_argument(
+        "--placement_seed",
+        type=int,
+        default=None,
+        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
+    )
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:

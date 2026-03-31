@@ -26,6 +26,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -98,13 +99,14 @@ class ArenaEnvBuilder:
         self._add_pairwise_no_collision(objects_with_relations)
 
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
-        placer = ObjectPlacer()
+        placement_seed = getattr(self.args, "placement_seed", None)
+        placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
         result = placer.place(objects=objects_with_relations)
 
         if result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
-            print(f"Relation solving not completed after {result.attempts} attempt(s)")
+            print(f"Warning: Relation solving not completed after {result.attempts} attempt(s)")
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""

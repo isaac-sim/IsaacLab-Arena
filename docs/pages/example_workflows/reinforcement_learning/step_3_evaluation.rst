@@ -1,7 +1,7 @@
 Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -52,8 +52,7 @@ Method 1: Single Environment Evaluation
      --policy_type rsl_rl \
      --num_steps 1000 \
      --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
-     lift_object \
-     --rl_training_mode False
+     lift_object
 
 .. note::
 
@@ -61,8 +60,8 @@ Method 1: Single Environment Evaluation
    ``$MODELS_DIR/lift_object_checkpoint/model_11999.pt``
 
 Policy-specific arguments (``--policy_type``, ``--checkpoint_path``, etc.) must come **before** the
-environment name. Environment-specific arguments (``--rl_training_mode``, ``--object``, etc.) must
-come **after** it.
+environment name. Environment-specific arguments (``--object``, ``--embodiment``, etc.) must come
+**after** it.
 
 At the end of the run, metrics are printed to the console:
 
@@ -84,8 +83,7 @@ For more statistically significant results, run across many environments in para
      --num_envs 64 \
      --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
      --headless \
-     lift_object \
-     --rl_training_mode False
+     lift_object
 
 .. code-block:: text
 
@@ -113,17 +111,11 @@ Create a file ``eval_config.json``:
      "evaluations": [
        {
          "checkpoint_path": "logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_5999.pt",
-         "environment": "lift_object",
-         "environment_args": {
-           "rl_training_mode": false
-         }
+         "environment": "lift_object"
        },
        {
          "checkpoint_path": "logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt",
-         "environment": "lift_object",
-         "environment_args": {
-           "rl_training_mode": false
-         }
+         "environment": "lift_object"
        }
      ]
    }
@@ -161,5 +153,6 @@ random seed, and hardware.
 
 .. note::
 
-   Always set ``--rl_training_mode False`` when evaluating. During training this flag is ``True``
-   to disable success termination; setting it to ``False`` re-enables it for proper evaluation.
+   For evaluation, omit ``--rl_training_mode`` (default): success termination stays enabled so
+   metrics such as success rate are meaningful. For RSL-RL training, pass ``--rl_training_mode`` to
+   disable success termination.

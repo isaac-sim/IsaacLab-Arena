@@ -79,4 +79,8 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument("--embodiment", type=str, default="franka")
-        parser.add_argument("--rl_training_mode", type=bool, default=True)
+        parser.add_argument(
+            "--rl_training_mode",
+            action="store_true",
+            help="Disable success termination (use when training with RSL-RL). Omit for evaluation.",
+        )

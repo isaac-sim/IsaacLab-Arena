@@ -14,9 +14,9 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
-class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
+class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
 
-    name: str = "droid_pick_and_place_srl"
+    name: str = "pick_and_place_maple_table"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
@@ -29,8 +29,12 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
+        # Step 1: Retrieve assets from the registry
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.pick_up_object)()
+        destination_location = self.asset_registry.get_asset_by_name(args_cli.destination_location)()
 
+        # Step 2: Describe spatial relationships
         table_reference = ObjectReference(
             name="table",
             prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
@@ -39,21 +43,33 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
         )
         table_reference.add_relation(IsAnchor())
 
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.pick_up_object)()
         pick_up_object.add_relation(On(table_reference))
-        destination_location = self.asset_registry.get_asset_by_name(args_cli.destination_location)()
         destination_location.add_relation(On(table_reference))
 
-        light = self.asset_registry.get_asset_by_name("light")(
-            spawner_cfg=sim_utils.DomeLightCfg(intensity=500.0),
-        )
-        light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
+        additional_table_objects = [
+            self.asset_registry.get_asset_by_name(name)() for name in args_cli.additional_table_objects
+        ]
+        for obj in additional_table_objects:
+            obj.add_relation(On(table_reference))
 
+        # Step 3: Configure lighting
+        light = self.asset_registry.get_asset_by_name("light")(
+            spawner_cfg=sim_utils.DomeLightCfg(intensity=args_cli.light_intensity),
+        )
+        if args_cli.hdr is not None:
+            light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
+
+        # Step 4: Select the embodiment
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
         )
 
-        scene = Scene(assets=[background, light, pick_up_object, destination_location, table_reference])
+        # Step 5: Compose the scene
+        scene = Scene(
+            assets=[background, light, pick_up_object, destination_location, table_reference, *additional_table_objects]
+        )
+
+        # Step 6: Define the task
         task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,
@@ -66,6 +82,7 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
             env_cfg.viewer = ViewerCfg(eye=(1.5, 0.0, 1.0), lookat=(0.2, 0.0, 0.0))
             return env_cfg
 
+        # Step 7: Assemble the environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -79,6 +96,14 @@ class DroidPickAndPlaceSRLEnvironment(ExampleEnvironmentBase):
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
         parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--hdr", type=str, default="home_office_robolab")
+        parser.add_argument("--hdr", type=str, default=None)
+        parser.add_argument("--light_intensity", type=float, default=500.0)
         parser.add_argument("--pick_up_object", type=str, default="rubiks_cube_hot3d_robolab")
         parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")
+        parser.add_argument(
+            "--additional_table_objects",
+            nargs="*",
+            type=str,
+            default=[],
+            help="Extra objects to place on the table alongside the pick-up object",
+        )
