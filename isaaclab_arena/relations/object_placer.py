@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 from typing import TYPE_CHECKING
 
@@ -13,7 +15,7 @@ from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, P
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -23,11 +25,12 @@ if TYPE_CHECKING:
 class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
-    Encapsulates the workflow of:
-    1. Random initialization of object positions
-    2. Running the RelationSolver
-    3. Validating the result
-    4. Retrying if necessary
+    Generates a pool of candidate layouts in a single batched solver call,
+    validates each candidate, and selects the best ones:
+    1. Random initialization of object positions for all candidates
+    2. Running the RelationSolver on the full candidate pool
+    3. Validating and ranking candidates by (validity, loss)
+    4. Selecting the best num_envs results
     5. Applying solved positions to objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
@@ -52,6 +55,7 @@ class ObjectPlacer:
         self,
         objects: list[Object | ObjectReference],
         num_envs: int = 1,
+        result_per_env: bool = True,
     ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
 
@@ -60,9 +64,13 @@ class ObjectPlacer:
                 marked with IsAnchor() which serves as a fixed reference.
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
+            result_per_env: When True (default), each environment gets a distinct
+                layout. When False, a single best layout is solved and applied
+                identically to all environments (useful for deterministic evaluation).
 
         Returns:
-            PlacementResult when num_envs is 1; MultiEnvPlacementResult when num_envs > 1.
+            PlacementResult when a single layout is produced (num_envs=1 or
+            result_per_env=False); MultiEnvPlacementResult otherwise.
         """
         # Validate all objects have at least one relation
         for obj in objects:
@@ -93,84 +101,61 @@ class ObjectPlacer:
         if self.params.placement_seed is not None:
             generator = torch.Generator()
 
-        # Placement loop with retries (per-env tracking)
-        best_valid_loss_per_env: list[float] = [float("inf")] * num_envs
-        best_valid_positions_per_env: list[dict | None] = [None] * num_envs
-        best_any_loss_per_env: list[float] = [float("inf")] * num_envs
-        best_any_positions_per_env: list[dict] = [dict() for _ in range(num_envs)]
+        # When result_per_env is True, each env needs its own layout, so we
+        # generate max_placement_attempts * num_envs candidates and pick the
+        # best num_envs. When False, we only need one layout applied to all envs.
+        num_results = num_envs if result_per_env else 1
+        num_candidates = self.params.max_placement_attempts * num_results
 
-        for attempt in range(self.params.max_placement_attempts):
-            # Generate starting positions per env (anchors from their poses, others from On relation)
-            initial_positions: list[dict] = []
-            for env_i in range(num_envs):
-                if generator is not None:
-                    generator.manual_seed(self.params.placement_seed + env_i + attempt * (num_envs + 1))
-                initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, generator))
+        initial_positions: list[dict] = []
+        for candidate_idx in range(num_candidates):
+            if generator is not None:
+                generator.manual_seed(self.params.placement_seed + candidate_idx)
+            initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, generator))
 
-            # solve() returns list[dict] when given list[dict] initial_positions
-            positions_per_env: list[dict] = self._solver.solve(objects, initial_positions)  # type: ignore[assignment]  # overload returns list[dict] for list input
-            per_env_loss = (
-                self._solver.last_loss_per_env.cpu().tolist()
-                if self._solver.last_loss_per_env is not None
-                else [float("inf")] * num_envs
+        all_positions: list[dict] = self._solver.solve(objects, initial_positions)  # type: ignore[assignment]  # overload returns list[dict] for list input
+        all_losses = (
+            self._solver.last_loss_per_env.cpu().tolist()
+            if self._solver.last_loss_per_env is not None
+            else [float("inf")] * num_candidates
+        )
+
+        all_candidates: list[tuple[float, dict, bool]] = []
+        for idx in range(num_candidates):
+            loss = all_losses[idx] if idx < len(all_losses) else float("inf")
+            is_valid = self._validate_placement(all_positions[idx])
+            all_candidates.append((loss, all_positions[idx], is_valid))
+
+        # Sort: valid solutions first (by loss), then invalid (by loss)
+        all_candidates.sort(key=lambda c: (not c[2], c[0]))
+        selected = all_candidates[:num_results]
+
+        n_valid = sum(1 for c in selected if c[2])
+        if self.params.verbose:
+            total_valid = sum(1 for c in all_candidates if c[2])
+            finite_losses = [c[0] for c in all_candidates if math.isfinite(c[0])]
+            mean_loss = sum(finite_losses) / len(finite_losses) if finite_losses else float("inf")
+            print(
+                f"Solved {num_candidates} candidates in one batch: mean loss = {mean_loss:.6f},"
+                f" {total_valid} valid, selected best {num_results} ({n_valid} valid)"
             )
 
-            # Check if placement is valid (per env); update best valid and best-by-loss fallback
-            for e in range(num_envs):
-                loss_e = per_env_loss[e] if e < len(per_env_loss) else float("inf")
-                valid = self._validate_placement(positions_per_env[e])
-                if valid and loss_e < best_valid_loss_per_env[e]:
-                    best_valid_loss_per_env[e] = loss_e
-                    best_valid_positions_per_env[e] = positions_per_env[e]
-                if loss_e < best_any_loss_per_env[e]:
-                    best_any_loss_per_env[e] = loss_e
-                    best_any_positions_per_env[e] = positions_per_env[e]
-
-            if self.params.verbose:
-                mean_loss = sum(per_env_loss) / num_envs
-                n_succeeded = sum(1 for p in best_valid_positions_per_env if p is not None)
-                print(
-                    f"Attempt {attempt + 1}/{self.params.max_placement_attempts}:"
-                    f" loss = {mean_loss:.6f}, envs validated = {n_succeeded}/{num_envs}"
-                )
-
-            if all(best_valid_positions_per_env):
-                if self.params.verbose:
-                    print(f"Success on attempt {attempt + 1}")
-                break
-
-        # Per env: use best valid if any, else best-by-loss fallback
-        final_per_env: list[dict] = [
-            (
-                best_valid_positions_per_env[e]
-                if best_valid_positions_per_env[e] is not None
-                else best_any_positions_per_env[e]
-            )
-            for e in range(num_envs)
-        ]
-
+        final_per_env: list[dict] = [c[1] for c in selected]
         results_per_env = [
             PlacementResult(
-                success=best_valid_positions_per_env[e] is not None,
-                positions=final_per_env[e],
-                final_loss=(
-                    best_valid_loss_per_env[e]
-                    if best_valid_positions_per_env[e] is not None
-                    else best_any_loss_per_env[e]
-                ),
-                attempts=attempt + 1,
+                success=c[2],
+                positions=c[1],
+                final_loss=c[0],
+                attempts=self.params.max_placement_attempts,
             )
-            for e in range(num_envs)
+            for c in selected
         ]
 
-        # Apply solved positions to objects
-        # TODO(@zhx06): Consider applying via event for consistency with multi_env.
-        if num_envs == 1 and self.params.apply_positions_to_objects:
-            self._apply_positions(final_per_env[0], anchor_objects_set)
+        if self.params.apply_positions_to_objects:
+            self._apply_positions(final_per_env, anchor_objects_set)
 
-        if num_envs == 1:
+        if num_results == 1:
             return results_per_env[0]
-        # Multi-env: layouts applied at reset via placement event (builder builds event_cfg from result)
         return MultiEnvPlacementResult(results=results_per_env)
 
     def _generate_initial_positions(
@@ -390,29 +375,38 @@ class ObjectPlacer:
 
     def _apply_positions(
         self,
-        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+        positions_per_env: list[dict[Object | ObjectReference, tuple[float, float, float]]],
         anchor_objects: set[Object | ObjectReference],
     ) -> None:
         """Apply solved positions to objects (skipping anchors).
 
-        If RandomAroundSolution marker is present, sets a PoseRange (for reset-time randomization).
-        Rotation is taken from RotateAroundSolution marker if present, otherwise keep the identity rotation.
+        Handles both single-env and multi-env placement:
+        - Single-env: sets a fixed Pose or PoseRange (with RandomAroundSolution).
+        - Multi-env: sets a PosePerEnv with one Pose per environment.
+
+        Rotation is taken from RotateAroundSolution marker if present, otherwise identity.
         """
-        for obj, pos in positions.items():
+        num_envs = len(positions_per_env)
+        for obj in positions_per_env[0]:
             if obj in anchor_objects:
                 continue
 
-            random_marker = self._get_random_around_solution(obj)
             rotate_marker = self._get_rotate_around_solution(obj)
             rotation_xyzw = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
 
-            if random_marker is not None:
-                # We need to set a PoseRange for the randomization to be picked up on reset.
-                # Set a PoseRange with the explicit rotation from RotateAroundSolution if present
-                obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
+            if num_envs == 1:
+                pos = positions_per_env[0][obj]
+                random_marker = self._get_random_around_solution(obj)
+                if random_marker is not None:
+                    obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
+                else:
+                    obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
             else:
-                # Without randomization, we can set a fixed Pose.
-                obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+                poses = [
+                    Pose(position_xyz=positions_per_env[env_idx][obj], rotation_xyzw=rotation_xyzw)
+                    for env_idx in range(num_envs)
+                ]
+                obj.set_initial_pose(PosePerEnv(poses=poses))
 
     def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
         """Get RandomAroundSolution marker from object if present.

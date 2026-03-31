@@ -14,7 +14,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 
 def _create_test_objects():
@@ -193,3 +193,54 @@ def test_relation_solver_multi_env_batched_positions():
         for obj in objects:
             assert obj in d
             assert len(d[obj]) == 3
+
+
+def test_object_placer_result_per_env_false_returns_single_result():
+    """Test that place(num_envs>1, result_per_env=False) returns PlacementResult."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
+    result = placer.place(objects, num_envs=num_envs, result_per_env=False)
+
+    assert isinstance(result, PlacementResult), "result_per_env=False should return PlacementResult"
+    assert not isinstance(result, MultiEnvPlacementResult)
+    assert box1 in result.positions
+    assert box2 in result.positions
+    assert len(result.positions[box1]) == 3
+    assert len(result.positions[box2]) == 3
+
+
+def test_object_placer_result_per_env_false_applies_pose_not_pose_per_env():
+    """Test that result_per_env=False sets a single Pose (not PosePerEnv) on each object."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=True)
+    )
+    placer.place(objects, num_envs=num_envs, result_per_env=False)
+
+    for obj in [box1, box2]:
+        pose = obj.get_initial_pose()
+        assert isinstance(pose, Pose), f"{obj.name} should have a Pose, got {type(pose).__name__}"
+        assert not isinstance(pose, PosePerEnv)
+
+
+def test_object_placer_result_per_env_true_applies_pose_per_env():
+    """Test that result_per_env=True (default) sets PosePerEnv on each object when num_envs>1."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=True)
+    )
+    placer.place(objects, num_envs=num_envs, result_per_env=True)
+
+    for obj in [box1, box2]:
+        pose = obj.get_initial_pose()
+        assert isinstance(pose, PosePerEnv), f"{obj.name} should have PosePerEnv, got {type(pose).__name__}"
+        assert len(pose.poses) == num_envs
