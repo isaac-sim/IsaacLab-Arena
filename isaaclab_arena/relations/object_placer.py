@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import math
-
 import torch
 from typing import TYPE_CHECKING
 
@@ -25,12 +24,11 @@ if TYPE_CHECKING:
 class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
-    Generates a pool of candidate layouts in a single batched solver call,
-    validates each candidate, and selects the best ones:
-    1. Random initialization of object positions for all candidates
-    2. Running the RelationSolver on the full candidate pool
-    3. Validating and ranking candidates by (validity, loss)
-    4. Selecting the best num_envs results
+    Encapsulates the workflow of:
+    1. Random initialization of object positions
+    2. Running the RelationSolver
+    3. Validating the result
+    4. Retrying if necessary
     5. Applying solved positions to objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
