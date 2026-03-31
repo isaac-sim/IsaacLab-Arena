@@ -234,6 +234,7 @@ TABLE OF CONTENTS
    pages/concepts/concept_environment_compilation
    pages/concepts/concept_assets_design
    pages/concepts/concept_affordances_design
+   pages/concepts/concept_object_placement
    pages/concepts/concept_policy_design
    pages/concepts/concept_remote_policies_design
 

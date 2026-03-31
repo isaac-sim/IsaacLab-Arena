@@ -46,6 +46,12 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         pick_up_object.add_relation(On(table_reference))
         destination_location.add_relation(On(table_reference))
 
+        additional_table_objects = [
+            self.asset_registry.get_asset_by_name(name)() for name in args_cli.additional_table_objects
+        ]
+        for obj in additional_table_objects:
+            obj.add_relation(On(table_reference))
+
         # Step 3: Configure lighting
         light = self.asset_registry.get_asset_by_name("light")(
             spawner_cfg=sim_utils.DomeLightCfg(intensity=args_cli.light_intensity),
@@ -59,7 +65,9 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         )
 
         # Step 5: Compose the scene
-        scene = Scene(assets=[background, light, pick_up_object, destination_location, table_reference])
+        scene = Scene(
+            assets=[background, light, pick_up_object, destination_location, table_reference, *additional_table_objects]
+        )
 
         # Step 6: Define the task
         task = PickAndPlaceTask(
@@ -92,3 +100,10 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         parser.add_argument("--light_intensity", type=float, default=500.0)
         parser.add_argument("--pick_up_object", type=str, default="rubiks_cube_hot3d_robolab")
         parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")
+        parser.add_argument(
+            "--additional_table_objects",
+            nargs="*",
+            type=str,
+            default=[],
+            help="Extra objects to place on the table alongside the pick-up object",
+        )
