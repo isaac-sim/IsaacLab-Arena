@@ -149,7 +149,13 @@ def main():
                         print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
                         env = RecordVideo(env, **video_kwargs)
 
-                    metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=job.num_episodes)
+                    metrics = rollout_policy(
+                        env,
+                        policy,
+                        num_steps=job.num_steps,
+                        num_episodes=job.num_episodes,
+                        language_instruction=job.language_instruction,
+                    )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 

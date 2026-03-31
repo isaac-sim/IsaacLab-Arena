@@ -59,6 +59,7 @@ def rollout_policy(
     policy: "PolicyBase",
     num_steps: int | None,
     num_episodes: int | None,
+    language_instruction: str | None = None,
 ) -> dict[str, Any]:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
@@ -67,9 +68,10 @@ def rollout_policy(
     try:
         obs, _ = env.reset()
         policy.reset()
-        # set task description (could be None) from the task being evaluated
-        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
-        policy.set_task_description(env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description())
+        # Determine language instruction: job-level override takes precedence over the task's own
+        # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
+        task_description = language_instruction or env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description()
+        policy.set_task_description(task_description)
 
         # Setup progress bar based on num_steps or num_episodes
         if num_steps is not None:
