@@ -151,3 +151,7 @@ Sim process, collecting success metrics for each:
 
 At the end of the run you get a per-job summary of success rates. See
 :ref:`sequential-batch-eval-runner` for full details on the job config format and available options.
+
+All of the above used a zero-action policy — the robot stays still and success rates are zero.
+The next page swaps in a real pre-trained model and runs it in closed loop:
+:doc:`running_a_real_policy`.

@@ -25,7 +25,9 @@ Two things change relative to the zero-action baseline:
 - ``--enable_cameras`` turns on the robot's cameras, which GR00T requires for observations
 
 GR00T also requires absolute joint positions, so use ``--embodiment droid_abs_joint_pos``
-instead of ``droid_rel_joint_pos``:
+instead of ``droid_rel_joint_pos``. The command uses ``--num_episodes`` rather than
+``--num_steps`` so the run terminates on task completion rather than after a fixed number
+of simulation steps:
 
 .. code-block:: bash
 
@@ -55,7 +57,7 @@ To measure success rates across multiple objects in one run:
    python isaaclab_arena/evaluation/eval_runner.py \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
 
-This runs seven object variations sequentially and reports a per-job success rate, all within a
+This runs six object variations sequentially and reports a per-job success rate, all within a
 single Isaac Sim process.
 
 .. figure:: ../../../images/gr00t_droid_mem.gif
@@ -64,7 +66,7 @@ single Isaac Sim process.
    :align: center
 
    25 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment, varying background,
-   lighting, and destination object across the grid.
+   lighting, and pick-up object across the grid.
 
 
 .. _Next Steps:
