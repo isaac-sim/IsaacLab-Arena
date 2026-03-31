@@ -48,7 +48,7 @@ pick-and-place succeeded. You can swap ``--pick_up_object`` and ``--hdr`` exactl
 zero-action experiments — the policy adapts to each new object and lighting condition without
 any further configuration.
 
-**Batch evaluation across object variations**
+**Multi-job evaluation across object variations**
 
 To measure success rates across multiple objects in one run:
 
