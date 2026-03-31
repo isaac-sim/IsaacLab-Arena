@@ -74,7 +74,7 @@ from isaaclab.utils import configclass
 from isaaclab_mimic.datagen.generation import env_loop, setup_async_generation
 from isaaclab_mimic.datagen.utils import setup_output_paths
 
-# import logger
+# start logger
 logger = logging.getLogger(__name__)
 
 

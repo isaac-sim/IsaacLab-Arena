@@ -9,11 +9,14 @@ import torch
 
 import pytest
 
+from isaaclab_arena.assets.dummy_object import DummyObject
+from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy
+from isaaclab_arena.relations.relations import NextTo, On, Side
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
 
 def _create_table():
     """Create a table-like object at origin."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     return DummyObject(
         name="table",
@@ -23,8 +26,6 @@ def _create_table():
 
 def _create_box():
     """Create a small box object."""
-    from isaaclab_arena.assets.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     return DummyObject(
         name="box",
@@ -39,8 +40,6 @@ def _create_box():
 
 def test_on_loss_strategy_zero_loss_when_perfectly_placed():
     """Test that On loss is zero when child is perfectly placed on parent."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()
@@ -55,8 +54,6 @@ def test_on_loss_strategy_zero_loss_when_perfectly_placed():
 
 def test_on_loss_strategy_penalizes_child_outside_x_bounds():
     """Test that On loss penalizes child outside parent's X bounds."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()
@@ -71,8 +68,6 @@ def test_on_loss_strategy_penalizes_child_outside_x_bounds():
 
 def test_on_loss_strategy_penalizes_child_outside_y_bounds():
     """Test that On loss penalizes child outside parent's Y bounds."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()
@@ -87,8 +82,6 @@ def test_on_loss_strategy_penalizes_child_outside_y_bounds():
 
 def test_on_loss_strategy_penalizes_wrong_z_height():
     """Test that On loss penalizes incorrect Z height."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()
@@ -103,8 +96,6 @@ def test_on_loss_strategy_penalizes_wrong_z_height():
 
 def test_on_loss_strategy_respects_clearance():
     """Test that On loss accounts for clearance parameter."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()
@@ -120,8 +111,6 @@ def test_on_loss_strategy_respects_clearance():
 
 def test_on_loss_strategy_respects_relation_weight():
     """Test that On loss is scaled by relation_loss_weight."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()
@@ -139,8 +128,6 @@ def test_on_loss_strategy_respects_relation_weight():
 
 def test_on_loss_strategy_constrains_entire_footprint():
     """Test that On loss constrains entire child footprint within parent."""
-    from isaaclab_arena.relations.relation_loss_strategies import OnLossStrategy
-    from isaaclab_arena.relations.relations import On
 
     table = _create_table()
     box = _create_box()  # 0.2m wide
@@ -160,8 +147,6 @@ def test_on_loss_strategy_constrains_entire_footprint():
 
 def test_next_to_loss_strategy_zero_loss_when_perfectly_placed():
     """Test that NextTo loss is zero when child is perfectly placed."""
-    from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy
-    from isaaclab_arena.relations.relations import NextTo, Side
 
     parent_obj = _create_table()
     child_obj = _create_box()
@@ -176,8 +161,6 @@ def test_next_to_loss_strategy_zero_loss_when_perfectly_placed():
 
 def test_next_to_loss_strategy_penalizes_wrong_side():
     """Test that NextTo loss penalizes child on wrong side of parent."""
-    from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy
-    from isaaclab_arena.relations.relations import NextTo, Side
 
     parent_obj = _create_table()
     child_obj = _create_box()
@@ -192,8 +175,6 @@ def test_next_to_loss_strategy_penalizes_wrong_side():
 
 def test_next_to_loss_strategy_penalizes_outside_y_band():
     """Test that NextTo loss penalizes child outside parent's Y extent."""
-    from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy
-    from isaaclab_arena.relations.relations import NextTo, Side
 
     parent_obj = _create_table()
     child_obj = _create_box()
@@ -208,8 +189,6 @@ def test_next_to_loss_strategy_penalizes_outside_y_band():
 
 def test_next_to_loss_strategy_penalizes_wrong_distance():
     """Test that NextTo loss penalizes incorrect distance from parent."""
-    from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy
-    from isaaclab_arena.relations.relations import NextTo, Side
 
     parent_obj = _create_table()
     child_obj = _create_box()
@@ -224,8 +203,6 @@ def test_next_to_loss_strategy_penalizes_wrong_distance():
 
 def test_next_to_loss_strategy_respects_relation_weight():
     """Test that NextTo loss is scaled by relation_loss_weight."""
-    from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy
-    from isaaclab_arena.relations.relations import NextTo, Side
 
     parent_obj = _create_table()
     child_obj = _create_box()
@@ -243,7 +220,6 @@ def test_next_to_loss_strategy_respects_relation_weight():
 
 def test_next_to_zero_distance_raises():
     """Test that NextTo raises assertion for zero distance (touching not allowed)."""
-    from isaaclab_arena.relations.relations import NextTo, Side
 
     parent_obj = _create_table()
 

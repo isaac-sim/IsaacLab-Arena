@@ -209,5 +209,5 @@ def test_place_upright_mug_condition():
 
 if __name__ == "__main__":
     test_place_upright_mug_single()
-    # test_place_upright_mug_multi()
-    # test_place_upright_mug_condition()
+    test_place_upright_mug_multi()
+    test_place_upright_mug_condition()
