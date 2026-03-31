@@ -28,7 +28,7 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
-from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
+from isaaclab_assets.robots.franka import FRANKA_PANDA_CFG, FRANKA_PANDA_HIGH_PD_CFG
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
@@ -48,6 +48,13 @@ _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw
 # TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
 _FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
 _FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+
+# Standard-PD Franka for joint-position control, matching IsaacLab's FrankaCubeLiftEnvCfg.
+# Uses FRANKA_PANDA_CFG (gravity on, stiffness=80, damping=4) instead of HIGH_PD.
+_FRANKA_JOINT_POS_CFG = FRANKA_PANDA_CFG.copy()
+_FRANKA_JOINT_POS_CFG.spawn.usd_path = (
+    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+)
 
 
 @register_asset
@@ -177,9 +184,16 @@ class FrankaJointPosActionsCfg:
 
 @register_asset
 class FrankaJointPosEmbodiment(FrankaEmbodiment):
-    """Franka embodiment using joint-position control (top-down grasping friendly)."""
+    """Franka embodiment using joint-position control, matching IsaacLab's Isaac-Lift-Cube-Franka-v0.
+
+    Uses FRANKA_PANDA_CFG (standard PD gains, gravity enabled) instead of
+    FRANKA_PANDA_HIGH_PD_CFG used by the base FrankaEmbodiment.
+    """
 
     name = "franka_joint_pos"
+
+    # IsaacLab's FRANKA_PANDA_CFG default joint pose
+    _ISAACLAB_DEFAULT_JOINT_POSE = [0.0, -0.569, 0.0, -2.810, 0.0, 3.037, 0.741, 0.04, 0.04]
 
     def __init__(
         self,
@@ -203,6 +217,9 @@ class FrankaJointPosEmbodiment(FrankaEmbodiment):
         self.action_config = FrankaJointPosActionsCfg()
         self.observation_config = FrankaJointPosObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.scene_config.robot = _FRANKA_JOINT_POS_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        if initial_joint_pose is None:
+            self.set_initial_joint_pose(self._ISAACLAB_DEFAULT_JOINT_POSE)
 
     def get_command_body_name(self) -> str:
         return "panda_hand"
