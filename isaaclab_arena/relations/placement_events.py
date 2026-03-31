@@ -89,5 +89,6 @@ def set_object_pose_per_env_from_layouts(
                 x, y, z = xyz
                 pose_list.append(Pose(position_xyz=(x, y, z), rotation_wxyz=identity_quat_wxyz))
             else:
+                print(f"Warning: object '{name}' missing from layout dict for env {e}; defaulting to origin")
                 pose_list.append(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=identity_quat_wxyz))
         set_object_pose_per_env(env, env_ids_t, SceneEntityCfg(name), pose_list)

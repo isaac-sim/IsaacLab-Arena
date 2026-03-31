@@ -123,8 +123,7 @@ class ArenaEnvBuilder:
         result = placer.place(objects_with_relations, num_envs=num_envs)
         if isinstance(result, MultiEnvPlacementResult) and result.results:
             positions_all_envs_by_name = [
-                {obj.name: result.results[e].positions[obj] for obj in result.results[0].positions}
-                for e in range(len(result.results))
+                {obj.name: pos for obj, pos in r.positions.items()} for r in result.results
             ]
             object_names = [obj.name for obj in objects_with_relations]
             anchor_names = [a.name for a in get_anchor_objects(objects_with_relations)]

@@ -89,7 +89,7 @@ class RelationSolver:
                         child_bbox=obj.get_bounding_box(),
                     )
                     if debug:
-                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.sum())
+                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
                     # Build parent world bbox: anchors have a known fixed pose,
@@ -108,7 +108,7 @@ class RelationSolver:
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
-                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.sum())
+                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.mean())
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 

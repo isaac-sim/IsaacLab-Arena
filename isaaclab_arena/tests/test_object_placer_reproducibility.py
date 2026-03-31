@@ -156,6 +156,22 @@ def test_object_placer_multi_env_returns_multi_env_result():
         assert len(r.positions[box2]) == 3
 
 
+def test_object_placer_multi_env_produces_different_positions():
+    """Test that multi-env placement produces different positions across environments."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
+    result = placer.place(objects, num_envs=num_envs)
+
+    assert isinstance(result, MultiEnvPlacementResult)
+    # At least one pair of envs should have different positions for a non-anchor object.
+    positions_box1 = [result.results[e].positions[box1] for e in range(num_envs)]
+    any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
+    assert any_different, "Multi-env placement should produce different positions across environments"
+
+
 def test_relation_solver_multi_env_batched_positions():
     """Test that solver with list[dict] input returns list[dict] output."""
     solver_params = RelationSolverParams(max_iters=50)
