@@ -58,6 +58,14 @@ To measure success rates across multiple objects in one run:
 This runs seven object variations sequentially and reports a per-job success rate, all within a
 single Isaac Sim process.
 
+.. figure:: ../../../images/gr00t_droid_mem.gif
+   :width: 100%
+   :alt: 5x5 grid of GR00T N1.6 DROID runs across different backgrounds, lighting, and destination objects
+   :align: center
+
+   25 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment, varying background,
+   lighting, and destination object across the grid.
+
 
 .. _Next Steps:
 
