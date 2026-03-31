@@ -201,6 +201,8 @@ class FrankaJointPosEmbodiment(FrankaEmbodiment):
             is_tiled_camera=is_tiled_camera,
         )
         self.action_config = FrankaJointPosActionsCfg()
+        self.observation_config = FrankaJointPosObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
 
     def get_command_body_name(self) -> str:
         return "panda_hand"
@@ -252,6 +254,30 @@ class FrankaObservationsCfg:
         eef_pos = ObsTerm(func=ee_frame_pos)
         eef_quat = ObsTerm(func=ee_frame_quat)
         gripper_pos = ObsTerm(func=gripper_pos)
+
+        def __post_init__(self):
+            self.enable_corruption = False
+            self.concatenate_terms = False
+
+    policy: PolicyCfg = PolicyCfg()
+
+
+@configclass
+class FrankaJointPosObservationsCfg:
+    """Observation config for FrankaJointPosEmbodiment matching IsaacLab's FrankaCubeLiftEnvCfg.
+
+    Contains only ``joint_pos`` and ``joint_vel`` in the ``policy`` group.
+    The remaining observations (``object_position``, ``target_object_position``,
+    ``last_action``) are provided by the task's ``task_obs`` group so that the
+    concatenated tensor (via ``obs_groups``) reproduces IsaacLab's 36-dim layout::
+
+        [joint_pos(9), joint_vel(9), object_pos(3), goal(7), last_action(8)]
+    """
+
+    @configclass
+    class PolicyCfg(ObsGroup):
+        joint_pos = ObsTerm(func=mdp_isaac_lab.joint_pos_rel)
+        joint_vel = ObsTerm(func=mdp_isaac_lab.joint_vel_rel)
 
         def __post_init__(self):
             self.enable_corruption = False
