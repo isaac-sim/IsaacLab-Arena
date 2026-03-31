@@ -14,7 +14,11 @@ import isaaclab.utils.math as PoseUtils
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
-from isaaclab.envs.mdp.actions.actions_cfg import BinaryJointPositionActionCfg, DifferentialInverseKinematicsActionCfg
+from isaaclab.envs.mdp.actions.actions_cfg import (
+    BinaryJointPositionActionCfg,
+    DifferentialInverseKinematicsActionCfg,
+    JointPositionActionCfg,
+)
 from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -150,6 +154,56 @@ class FrankaActionsCfg:
         open_command_expr={"panda_finger_.*": 0.04},
         close_command_expr={"panda_finger_.*": 0.0},
     )
+
+
+@configclass
+class FrankaJointPosActionsCfg:
+    """Joint-position action specification matching IsaacLab's FrankaCubeLiftEnvCfg."""
+
+    arm_action: ActionTermCfg = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_joint.*"],
+        scale=0.5,
+        use_default_offset=True,
+    )
+
+    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_finger.*"],
+        open_command_expr={"panda_finger_.*": 0.04},
+        close_command_expr={"panda_finger_.*": 0.0},
+    )
+
+
+@register_asset
+class FrankaJointPosEmbodiment(FrankaEmbodiment):
+    """Franka embodiment using joint-position control (top-down grasping friendly)."""
+
+    name = "franka_joint_pos"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        is_tiled_camera: bool = False,
+    ):
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            camera_offset=camera_offset,
+            is_tiled_camera=is_tiled_camera,
+        )
+        self.action_config = FrankaJointPosActionsCfg()
+
+    def get_command_body_name(self) -> str:
+        return "panda_hand"
 
 
 @configclass
