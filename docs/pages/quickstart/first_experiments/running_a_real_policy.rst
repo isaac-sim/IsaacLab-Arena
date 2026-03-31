@@ -50,7 +50,7 @@ any further configuration.
 
 **Multi-job evaluation across object variations**
 
-To measure success rates across multiple objects in one run:
+To measure success rates across variations of the environment in one run:
 
 .. code-block:: bash
 
