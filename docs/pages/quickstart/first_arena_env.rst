@@ -268,21 +268,5 @@ definition, with no code changes.
 Using IsaacLab-Arena in Your Own Repository
 -------------------------------------------
 
-.. note::
-
-   The recommended way to consume IsaacLab-Arena from an external project is to include it as an
-   **unmodified git submodule** and extend it purely through its registration API — without editing
-   any file inside the Arena source tree.  Concretely:
-
-   - Add ``IsaacLab-Arena`` as a submodule of your repository and install it from source in your
-     Dockerfile (alongside your own package).
-   - Define custom environments by subclassing ``ExampleEnvironmentBase`` in your own package,
-     then inject them into the Arena CLI registry (``ExampleEnvironments[MyEnv.name] = MyEnv``)
-     in your entry script.
-   - Register custom assets, backgrounds, and embodiments with the ``@register_asset`` decorator
-     in your own package; the singleton registry picks them up automatically on import.
-
-   This is the currently recommended integration pattern until IsaacLab-Arena is available as a
-   published pip package, at which point the submodule and Docker installation steps will be
-   replaced by a simple ``pip install``.  The environment and asset extension patterns above will
-   remain unchanged.
+See :doc:`arena_in_your_repo` for the recommended pattern of consuming Arena as an unmodified
+submodule from an external project.
