@@ -131,6 +131,13 @@ Parameters:
 - ``clearance_m`` (default ``0.01``): Extra gap above the parent's top surface, in meters
 - ``relation_loss_weight`` (default ``1.0``): Weight in the solver's loss function
 
+.. note::
+
+   ``On`` positions the child at the top of the parent's **axis-aligned bounding box**, not
+   its physical surface. For concave objects such as bowls, the bounding box top is at the
+   rim, so the child may end up inside the bowl rather than resting on it. Avoid using
+   ``On`` with concave objects as the parent.
+
 **NextTo**
 
 Places a child object adjacent to a parent object at a specified distance along a given axis:
