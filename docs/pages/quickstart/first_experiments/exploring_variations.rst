@@ -1,5 +1,5 @@
-Running your First Experiments
-==============================
+Exploring Environment Variations
+=================================
 
 Arena lets you evaluate a robot policy across variations of object, lighting, and embodiment
 from a single environment definition — no task logic changes, no duplicated configuration. You
@@ -30,7 +30,7 @@ Your reference run — rubiks cube on the table, bowl as destination:
      --destination_location bowl_ycb_robolab \
      --hdr home_office_robolab
 
-.. figure:: ../../images/default_srl_pnp.png
+.. figure:: ../../../images/default_srl_pnp.png
    :width: 100%
    :alt: Default pick_and_place_maple_table environment — rubiks cube and bowl on table
    :align: center
@@ -65,7 +65,7 @@ Some options to try:
      --destination_location wooden_bowl_hot3d_robolab \
      --hdr home_office_robolab
 
-.. figure:: ../../images/swap_objects.gif
+.. figure:: ../../../images/swap_objects.gif
    :width: 100%
    :alt: Swapping pick-up objects in pick_and_place_maple_table
    :align: center
@@ -98,7 +98,7 @@ You can also adjust the dome light intensity independently with ``--light_intens
      --hdr billiard_hall_robolab \
      --light_intensity 1000.0
 
-.. figure:: ../../images/swap_hdr.gif
+.. figure:: ../../../images/swap_hdr.gif
    :width: 100%
    :alt: Changing background HDR in pick_and_place_maple_table
    :align: center
@@ -125,7 +125,7 @@ real policy, every one of those environments runs inference in parallel — givi
 episodes at the cost of one. This is how Arena makes it practical to measure policy robustness
 across hundreds of object and scene combinations in a single run.
 
-.. figure:: ../../images/scale_up.gif
+.. figure:: ../../../images/scale_up.gif
    :width: 100%
    :alt: Running 64 parallel pick_and_place_maple_table environments
    :align: center
@@ -145,80 +145,9 @@ Sim process, collecting success metrics for each:
    python isaaclab_arena/evaluation/eval_runner.py \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
 
-.. figure:: ../../images/iterate_getting_started_jobs_config.gif
+.. figure:: ../../../images/iterate_getting_started_jobs_config.gif
    :alt: Four evaluation jobs running sequentially: baseline, swapped objects, changed HDR, and 64 parallel environments
    :align: center
 
 At the end of the run you get a per-job summary of success rates. See
 :ref:`sequential-batch-eval-runner` for full details on the job config format and available options.
-
-
-Running GR00T N1.6 (a Real Policy)
-------------------------------------
-
-The experiments above use ``zero_action`` — the robot stays still and success rates are zero.
-To see an actual model in action, swap in `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T/>`_,
-a pre-trained DROID manipulation foundation model. No fine-tuning or separate model download is
-required — the weights fetch automatically from
-`HuggingFace <https://huggingface.co/nvidia/GR00T-N1.6-DROID>`_ on first use.
-
-**Prerequisite: GR00T container**
-
-GR00T requires extra dependencies not included in the base Arena container. Rebuild and restart
-with the ``-g`` flag:
-
-.. code-block:: bash
-
-   ./docker/run_docker.sh -g
-
-**Run GR00T closed-loop**
-
-Two things change relative to the zero-action baseline:
-
-- ``--policy_type`` points to the GR00T closed-loop policy class and ``--policy_config_yaml_path``
-  provides its config (model ID, action chunk length, camera names, etc.)
-- ``--enable_cameras`` turns on the robot's cameras, which GR00T requires for observations
-
-GR00T also requires absolute joint positions, so use ``--embodiment droid_abs_joint_pos``
-instead of ``droid_rel_joint_pos``:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
-     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
-     --enable_cameras \
-     --num_episodes 3 \
-     pick_and_place_maple_table \
-     --embodiment droid_abs_joint_pos \
-     --pick_up_object rubiks_cube_hot3d_robolab \
-     --destination_location bowl_ycb_robolab \
-     --hdr home_office_robolab
-
-The first run fetches the ``nvidia/GR00T-N1.6-DROID`` weights from HuggingFace and caches them
-locally; subsequent runs start immediately. After each episode Arena prints whether the
-pick-and-place succeeded. You can swap ``--pick_up_object`` and ``--hdr`` exactly as in the
-zero-action experiments — the policy adapts to each new object and lighting condition without
-any further configuration.
-
-**Batch evaluation across object variations**
-
-To measure success rates across multiple objects in one run:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/eval_runner.py \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
-
-This runs seven object variations sequentially and reports a per-job success rate, all within a
-single Isaac Sim process.
-
-
-.. _Next Steps:
-
-Next Steps
-----------
-
-To go beyond the pre-trained GR00T N1.6 foundation model — for example, fine-tuning on your own
-teleoperation data — see :doc:`../../pages/example_workflows/imitation_learning/index` for
-end-to-end imitation learning workflows.
