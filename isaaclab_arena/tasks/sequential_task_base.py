@@ -111,8 +111,9 @@ class SequentialTaskBase(TaskBase):
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
         desired_subtask_success_state: list[bool] | None = None,
+        task_description: str | None = None,
     ):
-        super().__init__(episode_length_s)
+        super().__init__(episode_length_s, task_description)
         assert len(subtasks) > 0, "SequentialTaskBase requires at least one subtask"
         self.subtasks = subtasks
 

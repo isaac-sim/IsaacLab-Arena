@@ -60,9 +60,13 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                 self,
                 subtasks: list[TaskBase],
                 episode_length_s: float | None = None,
+                task_description: str | None = None,
             ):
                 super().__init__(
-                    subtasks=subtasks, episode_length_s=episode_length_s, desired_subtask_success_state=[True, True]
+                    subtasks=subtasks,
+                    episode_length_s=episode_length_s,
+                    desired_subtask_success_state=[True, True],
+                    task_description=task_description,
                 )
 
             def get_viewer_cfg(self):
@@ -179,7 +183,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
 
         # Create sequential task
-        sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task], episode_length_s=10.0)
+        sequential_task = PutAndCloseDoorTask(
+            subtasks=[pick_and_place_task, close_door_task],
+            episode_length_s=10.0,
+            task_description=f"Place the {pickup_object.name} in the refrigerator and close the door.",
+        )
 
         # Create and return environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
