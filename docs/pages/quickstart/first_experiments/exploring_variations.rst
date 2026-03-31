@@ -138,7 +138,8 @@ The four experiments above run one variation at a time. In practice, Arena is us
 a policy across hundreds of object, scene, and embodiment combinations in a single run. The
 ``eval_runner.py`` script reads a JSON job config that lists any number of jobs — each with its
 own environment arguments, policy, and step count — and runs them sequentially within one Isaac
-Sim process, collecting success metrics for each:
+Sim process, collecting success metrics for each. ``getting_started_jobs_config.json`` bundles
+the four experiments above into a single config:
 
 .. code-block:: bash
 
