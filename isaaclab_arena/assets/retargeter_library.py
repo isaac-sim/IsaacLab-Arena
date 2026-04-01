@@ -67,7 +67,7 @@ class G1WbcPinkIsaacTeleopRetargeter(RetargetterBase):
         pass
 
     def get_pipeline_builder(self, embodiment: object) -> Callable:
-        from isaaclab_arena.assets.g1_pink_locomanipulation_pipeline import _build_g1_pink_locomanipulation_pipeline
+        from isaaclab_arena_g1.teleop.g1_pink_locomanipulation_pipeline import _build_g1_pink_locomanipulation_pipeline
 
         return _build_g1_pink_locomanipulation_pipeline
 

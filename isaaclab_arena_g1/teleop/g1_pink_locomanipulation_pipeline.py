@@ -3,11 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright (c) 2026, The Isaac Lab Arena Project Developers.
-# All rights reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-
 """Custom IsaacTeleop pipeline for G1 WBC Pink: 23D output (20D + 3 torso zeros).
 
 What each retargeter.connect() does
