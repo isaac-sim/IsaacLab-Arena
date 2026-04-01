@@ -61,13 +61,13 @@ To measure success rates across several variations of the environment in a singl
 This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
 
-.. figure:: ../../../images/gr00t_droid_mem.gif
+.. figure:: ../../../images/gr00t_droid_3x3_grid.gif
    :width: 100%
-   :alt: 5x5 grid of GR00T N1.6 DROID runs across different backgrounds, lighting, and destination objects
+   :alt: 3x3 grid of GR00T N1.6 DROID runs across different objects, backgrounds, and destinations
    :align: center
 
-   25 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment, varying background,
-   lighting, and pick-up object across the grid.
+   9 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment — each cell varies the
+   pick-up object, background HDR, and destination.
 
 
 .. _Next Steps:
