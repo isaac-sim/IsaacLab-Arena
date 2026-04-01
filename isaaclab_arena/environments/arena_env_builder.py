@@ -9,11 +9,13 @@ import argparse
 import datetime
 import gymnasium as gym
 
+from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
+from isaaclab_teleop import IsaacTeleopCfg
 
 from isaaclab_arena.assets.asset_registry import DeviceRegistry
 from isaaclab_arena.assets.object import Object
@@ -167,15 +169,14 @@ class ArenaEnvBuilder:
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
         isaac_teleop_cfg = None
+        teleop_devices_cfg = None
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
             device_cfg = device_registry.get_teleop_device_cfg(self.arena_env.teleop_device, self.arena_env.embodiment)
-            from isaaclab_teleop import IsaacTeleopCfg
-
             if isinstance(device_cfg, IsaacTeleopCfg):
                 isaac_teleop_cfg = device_cfg
-            else:
-                pass
+            elif isinstance(device_cfg, DeviceCfg):
+                teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
@@ -229,6 +230,7 @@ class ArenaEnvBuilder:
                 commands=commands_cfg,
                 xr=xr_cfg,
                 isaac_teleop=isaac_teleop_cfg,
+                teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics,
                 isaaclab_arena_env=isaaclab_arena_env,
@@ -251,6 +253,7 @@ class ArenaEnvBuilder:
                 commands=commands_cfg,
                 xr=xr_cfg,
                 isaac_teleop=isaac_teleop_cfg,
+                teleop_devices=teleop_devices_cfg,
                 # Mimic stuff
                 datagen_config=task_mimic_env_cfg.datagen_config,
                 subtask_configs=task_mimic_env_cfg.subtask_configs,

@@ -47,9 +47,9 @@ class OpenXRCfg(TeleopDeviceBase):
 
     def get_device_cfg(
         self, pipeline_builder: Callable | None = None, embodiment: object | None = None
-    ) -> IsaacTeleopCfg | None:
+    ) -> IsaacTeleopCfg:
         if pipeline_builder is None:
-            return None
+            raise ValueError("OpenXRCfg requires a pipeline_builder (got None)")
         xr_cfg = embodiment.get_xr_cfg() if embodiment is not None else XrCfg()
         target_frame_prim_path = embodiment.get_teleop_target_frame_prim_path()
         return IsaacTeleopCfg(
