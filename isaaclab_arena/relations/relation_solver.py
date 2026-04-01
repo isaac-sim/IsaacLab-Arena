@@ -14,8 +14,7 @@ from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 class RelationSolver:
@@ -119,27 +118,20 @@ class RelationSolver:
 
     def solve(
         self,
-        objects: list[Object | ObjectReference],
-        initial_positions: (
-            dict[Object | ObjectReference, tuple[float, float, float]]
-            | list[dict[Object | ObjectReference, tuple[float, float, float]]]
-        ),
-    ) -> (
-        dict[Object | ObjectReference, tuple[float, float, float]]
-        | list[dict[Object | ObjectReference, tuple[float, float, float]]]
-    ):
+        objects: list[ObjectBase],
+        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
+    ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object or ObjectReference instances. Must include at least one object
+            objects: List of ObjectBase instances. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
-            initial_positions: A single dict (backward compat, single-env) or a list
-                of dicts (one per env for batched).
+            initial_positions: List of dicts (one per env). Use a single-element list
+                for single-env placement.
 
         Returns:
-            Single dict when input is a dict, or list of dicts when input is a list.
+            List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
-        single_input = isinstance(initial_positions, dict)
         state = RelationSolverState(objects, initial_positions)
 
         if self.params.verbose:
@@ -155,8 +147,7 @@ class RelationSolver:
                 print("No optimizable objects, skipping solver.")
             self._last_loss_history = [0.0]
             self._last_position_history = [state.get_all_positions_snapshot()]
-            final = state.get_final_positions()
-            return final[0] if single_input else final
+            return state.get_final_positions()
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
@@ -199,8 +190,7 @@ class RelationSolver:
         self._last_loss_history = loss_history
         self._last_position_history = position_history
 
-        final = state.get_final_positions()
-        return final[0] if single_input else final
+        return state.get_final_positions()
 
     @property
     def last_loss_history(self) -> list[float]:
@@ -217,7 +207,7 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[Object | ObjectReference]) -> None:
+    def debug_losses(self, objects: list[ObjectBase]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
@@ -237,13 +227,13 @@ class RelationSolver:
         # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
-        state = RelationSolverState(objects, final_positions)
+        state = RelationSolverState(objects, [final_positions])
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 
 
 def _print_relation_debug(
-    obj: Object | ObjectReference,
+    obj: ObjectBase,
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,
@@ -289,7 +279,7 @@ def _print_relation_debug(
 
 
 def _print_unary_relation_debug(
-    obj: Object,
+    obj: ObjectBase,
     relation: AtPosition,
     child_pos: torch.Tensor,
     loss: torch.Tensor,

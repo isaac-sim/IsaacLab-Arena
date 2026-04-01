@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 @dataclass
@@ -19,7 +19,7 @@ class PlacementResult:
     success: bool
     """Whether placement passed validation checks."""
 
-    positions: dict[Object, tuple[float, float, float]]
+    positions: dict[ObjectBase, tuple[float, float, float]]
     """Final positions for each object."""
 
     final_loss: float

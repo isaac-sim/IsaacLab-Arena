@@ -190,7 +190,7 @@ def test_relation_solver_no_collision_produces_separated_positions():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     solver = RelationSolver(params=solver_params)
-    result = solver.solve(objects=objects, initial_positions=initial_positions)
+    result = solver.solve(objects=objects, initial_positions=[initial_positions])[0]
 
     pos_a = result[box_a]
     pos_b = result[box_b]
@@ -208,12 +208,12 @@ def test_relation_solver_no_collision_same_inputs_reproducible():
 
     solver_params = RelationSolverParams(max_iters=50)
     solver1 = RelationSolver(params=solver_params)
-    result1 = solver1.solve(objects=[table1, box_a1, box_b1], initial_positions=initial_positions1)
+    result1 = solver1.solve(objects=[table1, box_a1, box_b1], initial_positions=[initial_positions1])[0]
 
     table2, box_a2, box_b2 = _create_no_collision_scene()
     initial_positions2 = {table2: initial[0], box_a2: initial[1], box_b2: initial[2]}
     solver2 = RelationSolver(params=solver_params)
-    result2 = solver2.solve(objects=[table2, box_a2, box_b2], initial_positions=initial_positions2)
+    result2 = solver2.solve(objects=[table2, box_a2, box_b2], initial_positions=[initial_positions2])[0]
 
     assert result1[box_a1] == result2[box_a2], "box_a positions should match"
     assert result1[box_b1] == result2[box_b2], "box_b positions should match"

@@ -182,12 +182,12 @@ class ArenaEnvBuilder:
             embodiment.get_observation_cfg(),
             task.get_observation_cfg(),
         )
-        events_sources = [
+        events_cfg = combine_configclass_instances(
+            "EventsCfg",
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
-        ]
-        events_cfg = combine_configclass_instances("EventsCfg", *events_sources)
+        )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),

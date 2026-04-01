@@ -67,14 +67,14 @@ def test_relation_solver_same_inputs_produces_identical_result():
     initial_positions1 = {desk1: desk_pos, box1_run1: fixed_box1_pos, box2_run1: fixed_box2_pos}
 
     solver1 = RelationSolver(params=solver_params)
-    result1 = solver1.solve(objects=[desk1, box1_run1, box2_run1], initial_positions=initial_positions1)
+    result1 = solver1.solve(objects=[desk1, box1_run1, box2_run1], initial_positions=[initial_positions1])[0]
 
     # Run 2 (fresh objects, same initial positions)
     desk2, box1_run2, box2_run2 = _create_test_objects()
     initial_positions2 = {desk2: desk_pos, box1_run2: fixed_box1_pos, box2_run2: fixed_box2_pos}
 
     solver2 = RelationSolver(params=solver_params)
-    result2 = solver2.solve(objects=[desk2, box1_run2, box2_run2], initial_positions=initial_positions2)
+    result2 = solver2.solve(objects=[desk2, box1_run2, box2_run2], initial_positions=[initial_positions2])[0]
 
     # Compare by name (different object instances)
     for obj1 in result1:

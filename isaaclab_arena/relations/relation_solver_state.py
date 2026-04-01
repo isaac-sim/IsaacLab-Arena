@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.relations import get_anchor_objects
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 class RelationSolverState:
@@ -28,32 +27,27 @@ class RelationSolverState:
 
     def __init__(
         self,
-        objects: list[Object | ObjectReference],
-        initial_positions: (
-            dict[Object | ObjectReference, tuple[float, float, float]]
-            | list[dict[Object | ObjectReference, tuple[float, float, float]]]
-        ),
+        objects: list[ObjectBase],
+        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
     ):
         """Initialize optimization state.
 
         Args:
-            objects: List of all Object or ObjectReference instances to track. Must include at least one
+            objects: List of all ObjectBase instances to track. Must include at least one
                 object marked with IsAnchor() which serves as a fixed reference.
-            initial_positions: A single dict (backward compat, treated as single-env) or a list
-                of dicts (one per env). Length 1 = single-env, length > 1 = batched.
+            initial_positions: List of dicts (one per env). Length 1 = single-env,
+                length > 1 = batched.
         """
-        if isinstance(initial_positions, dict):
-            initial_positions = [initial_positions]
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, "No anchor object found in objects list."
 
         self._all_objects = objects
-        self._anchor_objects: set[Object] = set(anchor_objects)
+        self._anchor_objects: set[ObjectBase] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
 
         # Build object-to-index mapping
-        self._obj_to_idx: dict[Object | ObjectReference, int] = {obj: i for i, obj in enumerate(objects)}
+        self._obj_to_idx: dict[ObjectBase, int] = {obj: i for i, obj in enumerate(objects)}
 
         # Extract positions from each env's dict
         self._num_envs = len(initial_positions)
@@ -104,16 +98,16 @@ class RelationSolverState:
         return self._optimizable_positions
 
     @property
-    def optimizable_objects(self) -> list[Object]:
+    def optimizable_objects(self) -> list[ObjectBase]:
         """List of optimizable objects (excludes anchors)."""
         return self._optimizable_objects
 
     @property
-    def anchor_objects(self) -> set[Object]:
+    def anchor_objects(self) -> set[ObjectBase]:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects
 
-    def get_position(self, obj: Object | ObjectReference) -> torch.Tensor:
+    def get_position(self, obj: ObjectBase) -> torch.Tensor:
         """Get current position for an object.
 
         Args:
@@ -142,7 +136,7 @@ class RelationSolverState:
         """
         return [tuple(self.get_position(obj)[0].detach().tolist()) for obj in self._all_objects]
 
-    def get_final_positions(self) -> list[dict[Object | ObjectReference, tuple[float, float, float]]]:
+    def get_final_positions(self) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Get final positions as a list of dicts, one per env.
 
         Returns:
@@ -150,7 +144,7 @@ class RelationSolverState:
         """
         out = []
         for e in range(self._num_envs):
-            d: dict[Object | ObjectReference, tuple[float, float, float]] = {}
+            d: dict[ObjectBase, tuple[float, float, float]] = {}
             for obj in self._all_objects:
                 pos = self.get_position(obj)[e].detach().tolist()
                 d[obj] = (pos[0], pos[1], pos[2])

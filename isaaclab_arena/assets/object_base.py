@@ -17,6 +17,7 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 
@@ -56,6 +57,16 @@ class ObjectBase(Asset, ABC):
         (e.g. a parent asset), falling back to ``self.initial_pose``.
         """
         return self.initial_pose
+
+    @abstractmethod
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box (relative to object origin)."""
+        ...
+
+    @abstractmethod
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox rotated and translated)."""
+        ...
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
