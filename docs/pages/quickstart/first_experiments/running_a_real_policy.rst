@@ -1,9 +1,10 @@
 Running a Real Policy
 ======================
 
-The zero-action experiments keep the robot still and success rates at zero. To see an actual
-model in action, swap in `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T/>`_, a pre-trained
-DROID manipulation foundation model. No fine-tuning or separate model download is required —
+The zero-action experiments keep the robot still and success rates at zero.
+In this section we will see an actual
+model in action, `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T/>`_, a pre-trained
+robotic foundation model. No fine-tuning or separate model download is required —
 the weights fetch automatically from
 `HuggingFace <https://huggingface.co/nvidia/GR00T-N1.6-DROID>`_ on first use.
 
@@ -25,7 +26,7 @@ Two things change relative to the zero-action baseline:
 - ``--enable_cameras`` turns on the robot's cameras, which GR00T requires for observations
 
 GR00T also requires absolute joint positions, so use ``--embodiment droid_abs_joint_pos``
-instead of ``droid_rel_joint_pos``. The command uses ``--num_episodes`` rather than
+instead of ``--embodiment droid_rel_joint_pos``. The command uses ``--num_episodes`` rather than
 ``--num_steps`` so the run terminates on task completion rather than after a fixed number
 of simulation steps:
 
@@ -43,22 +44,22 @@ of simulation steps:
      --hdr home_office_robolab
 
 The first run fetches the ``nvidia/GR00T-N1.6-DROID`` weights from HuggingFace and caches them
-locally; subsequent runs start immediately. After each episode Arena prints whether the
+locally; this can take some time. Subsequent runs start immediately. After each episode Arena prints whether the
 pick-and-place succeeded. You can swap ``--pick_up_object`` and ``--hdr`` exactly as in the
-zero-action experiments — the policy adapts to each new object and lighting condition without
-any further configuration.
+zero-action experiments. This functionality can be used to test how the policy adapts to each new
+object and lighting condition, as we shall see in the next section.
 
 **Multi-job evaluation across object variations**
 
-To measure success rates across variations of the environment in one run:
+To measure success rates across several variations of the environment in a single command:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
 
-This runs six object variations sequentially and reports a per-job success rate, all within a
-single Isaac Sim process.
+This runs six object variations sequentially and reports a per-variation success rate.
+Each evaluation is run without restarting Isaac Sim to save on the startup time.
 
 .. figure:: ../../../images/gr00t_droid_mem.gif
    :width: 100%
