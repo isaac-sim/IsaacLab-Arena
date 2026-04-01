@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../feature/isaac_lab_3_newton/pages/concepts/concept_teleop_devices_design.html" >feature/isaac_lab_3_newton</option>
             <option value="concept_teleop_devices_design.html" selected>main</option>
+            <option value="../../../feature/isaac_lab_3_newton/pages/concepts/concept_teleop_devices_design.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../release/0.1.0/pages/concepts/concept_teleop_devices_design.html" >release/0.1.0</option>
             <option value="../../../release/0.1.1/pages/concepts/concept_teleop_devices_design.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Teleop Devices Design</a></li>
@@ -442,18 +443,34 @@ We define this wrapper to allow for easy registration and discovery of teleop de
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_teleop_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embodiment</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return Isaac Lab DevicesCfg for the specific device.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pipeline_builder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">embodiment</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an Isaac Lab device config for the specific device.&quot;&quot;&quot;</span>
 
 <span class="nd">@register_device</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">KeyboardTeleopDevice</span><span class="p">(</span><span class="n">TeleopDeviceBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">KeyboardCfg</span><span class="p">(</span><span class="n">TeleopDeviceBase</span><span class="p">):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;keyboard&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_teleop_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embodiment</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">DevicesCfg</span><span class="p">(</span><span class="n">devices</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;keyboard&quot;</span><span class="p">:</span> <span class="n">Se3KeyboardCfg</span><span class="p">(</span><span class="o">...</span><span class="p">)})</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pipeline_builder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">embodiment</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Se3KeyboardCfg</span><span class="p">(</span><span class="n">pos_sensitivity</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">rot_sensitivity</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Devices are automatically discovered through decorator-based registration and provide Isaac Lab-compatible configurations.</p>
+<p>For XR teleoperation, the <code class="docutils literal notranslate"><span class="pre">OpenXRCfg</span></code> device produces an <code class="docutils literal notranslate"><span class="pre">IsaacTeleopCfg</span></code> that
+references a <strong>pipeline builder</strong> – a callable that constructs an <code class="docutils literal notranslate"><span class="pre">isaacteleop</span></code>
+retargeting pipeline graph. This pipeline converts XR tracking data (hand poses,
+controller inputs) into robot action tensors. <code class="docutils literal notranslate"><span class="pre">OpenXRCfg.get_device_cfg</span></code> raises
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if no pipeline builder is provided.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_device</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OpenXRCfg</span><span class="p">(</span><span class="n">TeleopDeviceBase</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;openxr&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_device_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pipeline_builder</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">embodiment</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacTeleopCfg</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">IsaacTeleopCfg</span><span class="p">(</span>
+            <span class="n">pipeline_builder</span><span class="o">=</span><span class="n">pipeline_builder</span><span class="p">,</span>
+            <span class="n">xr_cfg</span><span class="o">=</span><span class="n">embodiment</span><span class="o">.</span><span class="n">get_xr_cfg</span><span class="p">(),</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="teleop-devices-in-detail">
 <h2>Teleop Devices in Detail<a class="headerlink" href="#teleop-devices-in-detail" title="Link to this heading">#</a></h2>
@@ -462,13 +479,16 @@ We define this wrapper to allow for easy registration and discovery of teleop de
 <ul class="simple">
 <li><p><strong>Keyboard</strong>: WASD-style SE3 manipulation with configurable sensitivity parameters</p></li>
 <li><p><strong>SpaceMouse</strong>: 6DOF precise spatial control for manipulation tasks</p></li>
-<li><p><strong>Hand Tracking</strong>: OpenXR-based hand tracking with GR1T2 retargeting for humanoid control</p></li>
+<li><p><strong>XR Hand Tracking</strong>: Isaac Teleop pipeline-based hand tracking for humanoid control,
+using <code class="docutils literal notranslate"><span class="pre">isaacteleop</span></code> retargeters (Se3AbsRetargeter, DexHandRetargeter, etc.) to map
+XR hand poses to robot joint commands</p></li>
 </ul>
 </dd>
 <dt><strong>Registration and Discovery</strong></dt><dd><p>Decorator-based system for automatic device management:</p>
 <ul class="simple">
 <li><p><strong>&#64;register_device</strong>: Automatic registration during module import</p></li>
 <li><p><strong>Device Registry</strong>: Central discovery mechanism for available devices</p></li>
+<li><p><strong>&#64;register_retargeter</strong>: Associates a pipeline builder with a (device, embodiment) pair</p></li>
 </ul>
 </dd>
 </dl>
@@ -484,29 +504,32 @@ We define this wrapper to allow for easy registration and discovery of teleop de
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span>  <span class="c1"># Optional human control interface</span>
+    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>  <span class="c1"># Optional human control interface</span>
 <span class="p">)</span>
 
 <span class="c1"># Automatic device configuration and integration</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>  <span class="c1"># Handles device setup internally</span>
 </pre></div>
 </div>
+<p>For XR devices, the environment builder sets <code class="docutils literal notranslate"><span class="pre">isaac_teleop</span></code> on the env config
+(an <code class="docutils literal notranslate"><span class="pre">IsaacTeleopCfg</span></code>). For keyboard/spacemouse devices, standard Isaac Lab
+device configs are used.</p>
 </section>
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Keyboard Teleoperation</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic keyboard control</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span>kitchen_pick_and_place
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--visualizer<span class="w"> </span>kit<span class="w"> </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span>kitchen_pick_and_place
 </pre></div>
 </div>
 <p><strong>SpaceMouse Control</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Precise manipulation with SpaceMouse</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--sensitivity<span class="w"> </span><span class="m">2</span>.0
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--visualizer<span class="w"> </span>kit--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--sensitivity<span class="w"> </span><span class="m">2</span>.0
 </pre></div>
 </div>
 <p><strong>Hand Tracking</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># VR hand tracking for humanoid control</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--teleop_device<span class="w"> </span>avp_handtracking<span class="w"> </span>gr1_open_microwave
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># XR hand tracking for humanoid control (requires CloudXR runtime via Isaac Teleop)</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--visualizer<span class="w"> </span>kit<span class="w"> </span>--teleop_device<span class="w"> </span>openxr<span class="w"> </span>gr1_open_microwave
 </pre></div>
 </div>
 </section>

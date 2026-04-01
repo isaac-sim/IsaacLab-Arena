@@ -48,6 +48,7 @@ Method 1: Single Environment Evaluation
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type rsl_rl \
      --num_steps 1000 \
      --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \

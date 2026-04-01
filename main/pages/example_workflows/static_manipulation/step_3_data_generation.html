@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/static_manipulation/step_3_data_generation.html" >feature/isaac_lab_3_newton</option>
             <option value="step_3_data_generation.html" selected>main</option>
+            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/static_manipulation/step_3_data_generation.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../../release/0.1.0/pages/example_workflows/static_manipulation/step_3_data_generation.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/pages/example_workflows/static_manipulation/step_3_data_generation.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -470,13 +471,14 @@ such that the annotation step can be skipped.</p>
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>arena_gr1_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v2.3<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v3.0<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
 </pre></div>
 </div>
 </div>
 </details><p>To start the annotation process run the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/annotate_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
@@ -505,7 +507,7 @@ such that the data generation step can be skipped.</p>
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v2.3<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v3.0<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$DATASET_DIR</span>
 </pre></div>
 </div>
@@ -534,6 +536,7 @@ to visualize data generation.</p>
 through the robot, in order to check (visually) if the robot is able to perform the task successfully.
 To do so, run the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>

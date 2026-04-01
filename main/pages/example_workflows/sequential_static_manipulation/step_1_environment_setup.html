@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/sequential_static_manipulation/step_1_environment_setup.html" >feature/isaac_lab_3_newton</option>
             <option value="step_1_environment_setup.html" selected>main</option>
+            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/sequential_static_manipulation/step_1_environment_setup.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -538,7 +539,7 @@ and validate that we can load it in Isaac Lab.</p>
               <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">MIMIC_DATAGEN_CONFIG_DEFAULTS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                   <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datagen_config</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
-      <span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.57469</span><span class="p">,</span> <span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">))</span>
+      <span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">,</span> <span class="mf">0.57469</span><span class="p">))</span>
       <span class="c1"># Get assets</span>
       <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
           <span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span> <span class="n">camera_offset</span><span class="o">=</span><span class="n">camera_offset</span>
@@ -566,7 +567,7 @@ and validate that we can load it in Isaac Lab.</p>
       <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
           <span class="n">Pose</span><span class="p">(</span>
               <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">3.943</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.995</span><span class="p">),</span>
-              <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
+              <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
           <span class="p">)</span>
       <span class="p">)</span>
 
@@ -651,7 +652,7 @@ and validate that we can load it in Isaac Lab.</p>
 <section id="step-by-step-breakdown">
 <h2>Step-by-Step Breakdown<a class="headerlink" href="#step-by-step-breakdown" title="Link to this heading">#</a></h2>
 <p><strong>1. Interact with the Asset and Device Registry</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.57469</span><span class="p">,</span> <span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">camera_offset</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.12515</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.06776</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.11204</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.17712</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.79108</span><span class="p">,</span> <span class="mf">0.57469</span><span class="p">))</span>
 <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span> <span class="n">camera_offset</span><span class="o">=</span><span class="n">camera_offset</span><span class="p">)</span>
 <span class="n">kitchen_background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;lightwheel_robocasa_kitchen&quot;</span><span class="p">)(</span><span class="n">style_id</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">kitchen_style</span><span class="p">)</span>
 <span class="n">kitchen_counter_top</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
@@ -680,7 +681,7 @@ See <a class="reference internal" href="../../concepts/concept_assets_design.htm
 <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
     <span class="n">Pose</span><span class="p">(</span>
         <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">3.943</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.995</span><span class="p">),</span>
-        <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
+        <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
     <span class="p">)</span>
 <span class="p">)</span>
 
@@ -773,7 +774,7 @@ hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</sp
 <span class="w">   </span>nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--repo-type<span class="w"> </span>dataset<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v2.3<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--revision<span class="w"> </span>arena_v0.2_lab_v3.0<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$_tmp</span><span class="s2">/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATASET_DIR</span><span class="s2">/&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
@@ -786,6 +787,7 @@ rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</sp
 <h2>Step 2: Validate the Environment by Replaying the Dataset<a class="headerlink" href="#step-2-validate-the-environment-by-replaying-the-dataset" title="Link to this heading">#</a></h2>
 <p>Replay the downloaded dataset to verify the environment setup:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/ranch_bottle_into_fridge_annotated.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>

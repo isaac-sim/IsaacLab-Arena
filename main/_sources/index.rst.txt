@@ -228,6 +228,7 @@ TABLE OF CONTENTS
    pages/concepts/concept_environment_design
    pages/concepts/concept_embodiment_design
    pages/concepts/concept_tasks_design
+   pages/concepts/concept_sequential_tasks_design
    pages/concepts/concept_scene_design
    pages/concepts/concept_metrics_design
    pages/concepts/concept_teleop_devices_design

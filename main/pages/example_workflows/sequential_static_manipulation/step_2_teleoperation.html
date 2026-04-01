@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/sequential_static_manipulation/step_2_teleoperation.html" >feature/isaac_lab_3_newton</option>
             <option value="step_2_teleoperation.html" selected>main</option>
+            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/sequential_static_manipulation/step_2_teleoperation.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -439,55 +440,77 @@
                   
   <section id="teleoperation-data-collection">
 <h1>Teleoperation Data Collection<a class="headerlink" href="#teleoperation-data-collection" title="Link to this heading">#</a></h1>
-<p>This workflow covers collecting demonstrations using Isaac Lab Teleop with an Apple Vision Pro.</p>
-<p>This workflow requires two containers to run:</p>
-<ul class="simple">
-<li><p><strong>Nvidia CloudXR Runtime</strong>: For connection with the Apple Vision Pro.</p></li>
-<li><p><strong>Arena Docker container</strong>: For running the Isaac Lab simulation.</p></li>
-</ul>
-<p>This will be described below.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>For this workflow you will need an Apple Vision Pro.
-In <code class="docutils literal notranslate"><span class="pre">v0.2</span></code> we will support further teleoperation devices.</p>
-</div>
-<section id="step-1-install-isaac-xr-teleop-app-on-vision-pro">
-<h2>Step 1: Install Isaac XR Teleop App on Vision Pro<a class="headerlink" href="#step-1-install-isaac-xr-teleop-app-on-vision-pro" title="Link to this heading">#</a></h2>
-<p>Follow the <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/v2.1.0/source/how-to/cloudxr_teleoperation.html#build-and-install-the-isaac-xr-teleop-sample-client-app-for-apple-vision-pro">Isaac Lab CloudXR documentation</a>
-to build and install the app on your Apple Vision Pro.</p>
-</section>
-<section id="step-2-start-cloudxr-runtime-container">
-<h2>Step 2: Start CloudXR Runtime Container<a class="headerlink" href="#step-2-start-cloudxr-runtime-container" title="Link to this heading">#</a></h2>
-<p>In a terminal, outside the Isaac Lab - Arena Docker container, start the CloudXR runtime:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/IsaacLab
-mkdir<span class="w"> </span>-p<span class="w"> </span>openxr
-
-docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span>--name<span class="w"> </span>cloudxr-runtime<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--user<span class="w"> </span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span>:<span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--gpus<span class="o">=</span>all<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-e<span class="w"> </span><span class="s2">&quot;ACCEPT_EULA=Y&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--mount<span class="w"> </span><span class="nv">type</span><span class="o">=</span>bind,src<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/openxr,dst<span class="o">=</span>/openxr<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">48010</span>:48010<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">47998</span>:47998/udp<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">47999</span>:47999/udp<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">48000</span>:48000/udp<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">48005</span>:48005/udp<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">48008</span>:48008/udp<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">48012</span>:48012/udp<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>nvcr.io/nvidia/cloudxr-runtime:5.0.0
+<p>This workflow covers collecting demonstrations using Isaac Teleop with an XR device, supported by <a class="reference external" href="https://github.com/NVIDIA/IsaacTeleop">Nvidia IsaacTeleop</a>.</p>
+<section id="step-1-start-the-cloudxr-runtime">
+<h2>Step 1: Start the CloudXR Runtime<a class="headerlink" href="#step-1-start-the-cloudxr-runtime" title="Link to this heading">#</a></h2>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Meta Quest 3 / Pico 4 Ultra</label><div class="sd-tab-content docutils">
+<p>On the host machine, configure the firewall to allow CloudXR traffic.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">49100</span>/tcp<span class="w">   </span><span class="c1"># Signaling</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47998</span>/udp<span class="w">   </span><span class="c1"># Media stream</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48322</span>/tcp<span class="w">   </span><span class="c1"># Proxy (HTTPS mode only)</span>
 </pre></div>
 </div>
+<p>Start the CloudXR runtime from the Arena Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Create a CloudXR config to enable hand tracking:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;NV_DEVICE_PROFILE=auto-native&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>handtracking.env
+</pre></div>
+</div>
+<p>Start the CloudXR runtime with the customized config file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaacteleop.cloudxr<span class="w"> </span>--cloudxr-env-config<span class="o">=</span>handtracking.env
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Apple Vision Pro</label><div class="sd-tab-content docutils">
+<p>On the host machine, configure the firewall to allow CloudXR traffic.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Signaling (use one based on connection mode)</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48010</span>/tcp<span class="w">   </span><span class="c1"># Standard mode</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48322</span>/tcp<span class="w">   </span><span class="c1"># Secure mode</span>
+<span class="c1"># Video</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47998</span>/udp
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48005</span>/udp
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48008</span>/udp
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48012</span>/udp
+<span class="c1"># Input</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47999</span>/udp
+<span class="c1"># Audio</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48000</span>/udp
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48002</span>/udp
+</pre></div>
+</div>
+<p>Start the CloudXR runtime from the Arena Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+<p>Create a customized config file with the following content:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s\n&#39;</span><span class="w"> </span><span class="s1">&#39;NV_DEVICE_PROFILE=auto-native&#39;</span><span class="w"> </span><span class="s1">&#39;NV_CXR_ENABLE_PUSH_DEVICES=0&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>avp.env
+</pre></div>
+</div>
+<p>Start the CloudXR runtime with the customized config file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaacteleop.cloudxr<span class="w"> </span>--cloudxr-env-config<span class="o">=</span>avp.env
+</pre></div>
+</div>
+</div>
+</div>
 </section>
-<section id="step-3-start-recording">
-<h2>Step 3: Start Recording<a class="headerlink" href="#step-3-start-recording" title="Link to this heading">#</a></h2>
-<p>To start the recording session, open another terminal, start the Arena Docker container
-if not already running:</p>
+<section id="step-2-start-recording">
+<h2>Step 2: Start Recording<a class="headerlink" href="#step-2-start-recording" title="Link to this heading">#</a></h2>
+<p>In another terminal, start the Arena Docker container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
 <p>Run the recording script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/.cloudxr/run/cloudxr.env
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_demos<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
@@ -498,30 +521,71 @@ if not already running:</p>
 </pre></div>
 </div>
 </section>
-<section id="step-4-connect-vision-pro-and-record">
-<h2>Step 4: Connect Vision Pro and Record<a class="headerlink" href="#step-4-connect-vision-pro-and-record" title="Link to this heading">#</a></h2>
-<p>Follow these steps to record teleoperation demonstrations:</p>
+<section id="step-3-connect-xr-device-and-record">
+<h2>Step 3: Connect XR Device and Record<a class="headerlink" href="#step-3-connect-xr-device-and-record" title="Link to this heading">#</a></h2>
+<p>For detailed instructions, refer to <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime">Connect an XR Device</a>.</p>
+<p>A strong wireless connection is essential for a high-quality streaming experience. Refer to the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html">CloudXR Network Setup</a> guide for router configuration.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Meta Quest 3 / Pico 4 Ultra</label><div class="sd-tab-content docutils">
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Enable hand tracking on your Quest 3 headset for the first time:</p>
 <ol class="arabic simple">
-<li><p>Launch the Isaac XR Teleop app on the Apple Vision Pro</p></li>
-<li><p>Enter your workstation’s IP address in the app window.</p></li>
+<li><p>Press the Meta button on your right controller to open the universal menu.</p></li>
+<li><p>Select the clock on the left side of the universal menu to open Quick Settings.</p></li>
+<li><p>Select Settings.</p></li>
+<li><p>Select Movement tracking.</p></li>
+<li><p>Select the toggle next to Hand and Body Tracking to turn this feature on.</p></li>
+</ol>
+</div>
+<ol class="arabic simple">
+<li><p>Open the browser on your headset and navigate to <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/client">https://nvidia.github.io/IsaacTeleop/client</a>.</p></li>
+<li><p>Enter the IP address of your Isaac Lab host machine in the <strong>Server IP</strong> field.</p></li>
+<li><p>Click the <strong>Click https://&lt;ip&gt;:48322/ to accept cert</strong> link that appears on the page.
+Accept the certificate in the new page that opens, then navigate back to the
+CloudXR.js client page.</p></li>
+<li><p>Click Connect to begin teleoperation.</p></li>
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Before proceeding with teleoperation and pressing the “Connect” button:
-Move the CloudXr Controls Application window closer and to your left by pinching the bar at the bottom of the window.
-Without doing this, close objects will occlude the window making it harder to interact with the controls.</p>
+<p>Once you press <strong>Connect</strong> in the web browser, you should see the following control panel. Press <strong>Play</strong> to start teleoperation.</p>
+<p>If the control panel is not visible (for example, behind a solid wall in the simulated environment), you can put the headset on
+before clicking <strong>Start XR</strong> in the Isaac Lab Arena application, and drag the control panel to a better location.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../../_images/react-isaac-sample-controls-start.jpg"><img alt="IsaacSim view" src="../../../_images/react-isaac-sample-controls-start.jpg" style="width: 40%;" />
+</a>
+</figure>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Apple Vision Pro</label><div class="sd-tab-content docutils">
+<ol class="arabic simple">
+<li><p>Connect your XR device to the CloudXR runtime. From Apple Vision Pro, launch the
+Isaac XR Teleop app.</p></li>
+<li><p>Enter your workstation’s IP address and connect.</p></li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Before proceeding with teleoperation and pressing <strong>Connect</strong>, move the CloudXR Controls Application window
+closer and to your left by pinching the bar at the bottom of the window.
+Without doing this, nearby objects will occlude the window, making it harder to interact with the controls.</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/cloud_xr_sessions_control_panel.png"><img alt="CloudXR control panel" src="../../../_images/cloud_xr_sessions_control_panel.png" style="width: 40%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">CloudXR control panel - move this window to your left to avoid occlusion by close objects.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">CloudXR control panel—move this window to your left to avoid occlusion by nearby objects.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </div>
 <ol class="arabic simple" start="3">
-<li><p>Press the “Connect” button</p></li>
-<li><p>Wait for connection (you should see the simulation in VR)</p></li>
+<li><p>Press the <strong>Connect</strong> button.</p></li>
+<li><p>Wait for the connection (you should see the simulation in VR).</p></li>
 </ol>
+</div>
+</div>
 <figure class="align-center" id="id2">
 <a class="reference internal image-reference" href="../../../_images/gr1_sequential_static_manipulation_env_vr_view.png"><img alt="IsaacSim view" src="../../../_images/gr1_sequential_static_manipulation_env_vr_view.png" style="width: 40%;" />
 </a>
@@ -529,10 +593,13 @@ Without doing this, close objects will occlude the window making it harder to in
 <p><span class="caption-text">First person view after connecting to the simulation.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<ol class="arabic simple" start="5">
-<li><p>Complete the task by picking up the object, placing it into the lower shelf of the refrigerator, and closing the door.
-- Your hands control the robots’s hands.
-- Your fingers control the robots’s fingers.</p></li>
+<ol class="arabic simple">
+<li><p>Complete the task by picking up the object, placing it into the lower shelf of the refrigerator, and closing the door.</p>
+<ul class="simple">
+<li><p>Your hands control the robot’s hands.</p></li>
+<li><p>Your fingers control the robot’s fingers.</p></li>
+</ul>
+</li>
 <li><p>On task completion the environment will automatically reset.</p></li>
 <li><p>You’ll need to repeat task completion <code class="docutils literal notranslate"><span class="pre">num_demos</span></code> times (set to 10 above).</p></li>
 </ol>
@@ -600,10 +667,9 @@ at <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/ran
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-install-isaac-xr-teleop-app-on-vision-pro">Step 1: Install Isaac XR Teleop App on Vision Pro</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-cloudxr-runtime-container">Step 2: Start CloudXR Runtime Container</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-start-recording">Step 3: Start Recording</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-connect-vision-pro-and-record">Step 4: Connect Vision Pro and Record</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-cloudxr-runtime">Step 1: Start the CloudXR Runtime</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-recording">Step 2: Start Recording</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-connect-xr-device-and-record">Step 3: Connect XR Device and Record</a></li>
 </ul>
   </nav></div>
 

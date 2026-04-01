@@ -53,7 +53,7 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Scene Design" href="concept_scene_design.html" />
+    <link rel="next" title="Sequential Tasks Design" href="concept_sequential_tasks_design.html" />
     <link rel="prev" title="Embodiment Design" href="concept_embodiment_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../feature/isaac_lab_3_newton/pages/concepts/concept_tasks_design.html" >feature/isaac_lab_3_newton</option>
             <option value="concept_tasks_design.html" selected>main</option>
+            <option value="../../../feature/isaac_lab_3_newton/pages/concepts/concept_tasks_design.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../release/0.1.0/pages/concepts/concept_tasks_design.html" >release/0.1.0</option>
             <option value="../../../release/0.1.1/pages/concepts/concept_tasks_design.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -535,24 +536,8 @@
 </section>
 <section id="sequential-tasks">
 <h2>Sequential Tasks<a class="headerlink" href="#sequential-tasks" title="Link to this heading">#</a></h2>
-<p>Tasks can be composed sequentially to form longer horizon, more complex tasks using the <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> class.
-<code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> takes a list of <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances and automatically composes them into a single task.
-The order of the tasks in the list determines the order in which subtasks must be completed.</p>
-<p><strong>Usage Example (Pick and Place Task and Close Door Task Composition)</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
-<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator_shelf&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
-<span class="n">pick_and_place_task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
-
-<span class="n">openable_object</span> <span class="o">=</span> <span class="n">OpenableObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">&quot;fridge_door_joint&quot;</span><span class="p">)</span>
-<span class="n">close_door_task</span> <span class="o">=</span> <span class="n">CloseDoorTask</span><span class="p">(</span><span class="n">openable_object</span><span class="p">,</span> <span class="n">closedness_threshold</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
-
-<span class="n">sequential_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span><span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">])</span>
-</pre></div>
-</div>
-<p><strong>Available Examples</strong></p>
-<ul class="simple">
-<li><p><strong>PutAndCloseDoorTask</strong>: Pick up and move an object to a destination location and then close a door (within <strong>GR1PutAndCloseDoorEnvironment</strong>).</p></li>
-</ul>
+<p>Tasks can be composed sequentially to form longer horizon, more complex tasks.
+See <a class="reference internal" href="concept_sequential_tasks_design.html"><span class="doc">Sequential Tasks Design</span></a> for more details.</p>
 </section>
 </section>
 
@@ -576,11 +561,11 @@ The order of the tasks in the list determines the order in which subtasks must b
       </div>
     </a>
     <a class="right-next"
-       href="concept_scene_design.html"
+       href="concept_sequential_tasks_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Scene Design</p>
+        <p class="prev-next-title">Sequential Tasks Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

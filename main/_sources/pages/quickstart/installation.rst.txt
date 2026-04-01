@@ -51,8 +51,9 @@ The container will build (if needed) and drop you into an interactive shell.
 
 .. code-block:: bash
 
-    pytest -sv -m with_cameras isaaclab_arena/tests/
-    pytest -sv -m "not with_cameras" isaaclab_arena/tests/
+    pytest -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests/
+    pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests/
+    pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed and the docker running, you're ready to build your
 first IsaacLab-Arena Environment. See :doc:`first_arena_env` to get started.

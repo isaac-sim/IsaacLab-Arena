@@ -284,8 +284,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/locomanipulation/step_5_evaluation.html" >feature/isaac_lab_3_newton</option>
             <option value="step_5_evaluation.html" selected>main</option>
+            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/locomanipulation/step_5_evaluation.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -369,6 +369,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -497,6 +498,7 @@ This step requires the Hugging Face CLI, which can be installed by following the
 </div>
 </details><p>Test the policy in a single environment with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1500</span><span class="w"> </span><span class="se">\</span>
@@ -577,44 +579,6 @@ GR00T N1.6 policy is trained on upper body joint positions and lower body WBC po
 If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cuda</span></code> flag.</p>
 </div>
 </section>
-<section id="step-3-remote-policy-evaluation">
-<h2>Step 3: Remote policy evaluation<a class="headerlink" href="#step-3-remote-policy-evaluation" title="Link to this heading">#</a></h2>
-<p>The same GR00T policy can also be evaluated as a <em>remote policy</em>
-running in a separate process, using the generic remote policy interface
-and the remote policy design described in
-<a class="reference internal" href="../../concepts/concept_remote_policies_design.html"><span class="doc">Remote Policies Design</span></a>.</p>
-<p>Start the GR00T policy server in a separate terminal using the helper
-script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>docker/run_gr00t_server.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="c1"># include model directory mount via -m flag, e.g. -m /models/</span>
-<span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_device<span class="w"> </span>cuda
-</pre></div>
-</div>
-<p>Then, instead of running the closed-loop policy directly inside the
-Arena process, connect from the evaluation script using a client-side
-remote policy:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1500</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_kill_on_exit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>brown_box<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>g1_wbc_joint
-</pre></div>
-</div>
-<p>With this setup, the environment and evaluation run in the base container,
-and GR00T inference runs in a separate server process, connected via the
-remote policy interface. The client-side policy depends only on Isaac Lab
-Arena; the base container does not need GR00T or its Python dependencies.</p>
-</section>
 </section>
 
 
@@ -668,7 +632,6 @@ Arena; the base container does not need GR00T or its Python dependencies.</p>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-run-single-environment-evaluation">Step 1: Run Single Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-environments-evaluation">Step 2: Run Parallel Environments Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-remote-policy-evaluation">Step 3: Remote policy evaluation</a></li>
 </ul>
   </nav></div>
 

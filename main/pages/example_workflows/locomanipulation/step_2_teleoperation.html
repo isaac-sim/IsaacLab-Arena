@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/locomanipulation/step_2_teleoperation.html" >feature/isaac_lab_3_newton</option>
             <option value="step_2_teleoperation.html" selected>main</option>
+            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/locomanipulation/step_2_teleoperation.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -439,45 +440,22 @@
                   
   <section id="teleoperation-data-collection">
 <h1>Teleoperation Data Collection<a class="headerlink" href="#teleoperation-data-collection" title="Link to this heading">#</a></h1>
-<p>This workflow covers collecting demonstrations for the G1 loco-manipulation task using <strong>Meta Quest 3</strong> supported by <strong>NVIDIA CloudXR</strong>.</p>
-<p>This workflow requires several components to run:</p>
-<ul class="simple">
-<li><p><strong>NVIDIA CloudXR Runtime</strong>: Runs in a Docker container on your workstation and streams the Isaac Lab simulation to a compatible XR device. See the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_runtime/index.html">CloudXR Runtime documentation</a>.</p></li>
-<li><p><strong>Arena Docker container</strong>: Runs the Isaac Lab simulation and recording.</p></li>
-<li><p><strong>CloudXR.js WebServer</strong>: Meta Quest 3 and Pico 4 Ultra connect to Isaac Lab via the CloudXR.js WebXR client. See <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/usr_guide/cloudxr_js/index.html">CloudXR.js (Early Access)</a>.</p></li>
-</ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>You must join the <strong>NVIDIA CloudXR Early Access Program</strong> to obtain the CloudXR runtime and client:</p>
-<ul class="simple">
-<li><p><strong>CloudXR Early Access</strong>: <a class="reference external" href="https://developer.nvidia.com/cloudxr-sdk-early-access-program/join">Join the NVIDIA CloudXR SDK Early Access Program</a></p></li>
-</ul>
-<p>Follow the steps in the confirmation email to get access to the CloudXR runtime container and client resources.</p>
-</div>
-<section id="step-1-start-the-cloudxr-runtime-container">
-<h2>Step 1: Start the CloudXR Runtime Container<a class="headerlink" href="#step-1-start-the-cloudxr-runtime-container" title="Link to this heading">#</a></h2>
-<ol class="arabic">
-<li><p>Download the <strong>CloudXR Runtime Container</strong> from NVIDIA NGC. Version <strong>6.0.1</strong> is tested.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>login<span class="w"> </span>nvcr.io
-docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/cloudxr-runtime-early-access:6.0.1-webrtc
+<p>This workflow covers collecting demonstrations for the G1 loco-manipulation task using <strong>Meta Quest 3</strong> supported by <a class="reference external" href="https://github.com/NVIDIA/IsaacTeleop">Nvidia IsaacTeleop</a>.</p>
+<section id="step-1-start-the-cloudxr-runtime">
+<h2>Step 1: Start the CloudXR Runtime<a class="headerlink" href="#step-1-start-the-cloudxr-runtime" title="Link to this heading">#</a></h2>
+<p>On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">49100</span>/tcp<span class="w">   </span><span class="c1"># Signaling</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47998</span>/udp<span class="w">   </span><span class="c1"># Media stream</span>
+sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48322</span>/tcp<span class="w">   </span><span class="c1"># Proxy (HTTPS mode only)</span>
 </pre></div>
 </div>
-</li>
-<li><p>In a new terminal, start the CloudXR runtime container:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>submodules/IsaacLab
-mkdir<span class="w"> </span>-p<span class="w"> </span>openxr
-
-docker<span class="w"> </span>run<span class="w"> </span>-dit<span class="w"> </span>--rm<span class="w"> </span>--name<span class="w"> </span>cloudxr-runtime<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--user<span class="w"> </span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span>:<span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--gpus<span class="o">=</span>all<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-e<span class="w"> </span><span class="s2">&quot;ACCEPT_EULA=Y&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--mount<span class="w"> </span><span class="nv">type</span><span class="o">=</span>bind,src<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/openxr,dst<span class="o">=</span>/openxr<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--network<span class="w"> </span>host<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>nvcr.io/nvidia/cloudxr-runtime-early-access:6.0.1-webrtc
+<p>Start the CloudXR runtime from the Arena Docker container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-</li>
-</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaacteleop.cloudxr
+</pre></div>
+</div>
 </section>
 <section id="step-2-start-arena-teleop">
 <h2>Step 2: Start Arena Teleop<a class="headerlink" href="#step-2-start-arena-teleop" title="Link to this heading">#</a></h2>
@@ -485,64 +463,34 @@ docker<span class="w"> </span>run<span class="w"> </span>-dit<span class="w"> </
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/.cloudxr/run/cloudxr.env
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--teleop_device<span class="w"> </span>openxr
 </pre></div>
 </div>
-<p>Start the AR/XR session from the <strong>AR</strong> tab in the application window.</p>
+<p>Start the session from the <strong>XR</strong> tab in the application window.</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/locomanip_arena_server.png"><img alt="Arena teleop with XR running (stereoscopic view and OpenXR settings)" src="../../../_images/locomanip_arena_server.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the AR tab (right).</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
-<section id="step-3-build-and-run-the-cloudxr-js-webserver">
-<h2>Step 3: Build and Run the CloudXR.js WebServer<a class="headerlink" href="#step-3-build-and-run-the-cloudxr-js-webserver" title="Link to this heading">#</a></h2>
-<ol class="arabic">
-<li><p>Download the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/resources/cloudxr-js-early-access?version=6.0.1-beta">CloudXR.js with samples</a>, unzip and follow the included guide.</p></li>
-<li><p>Start the CloudXR.js WebServer:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>cloudxr-js-early-access_6.0.1-beta/release
-docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>cloudxr-isaac-sample<span class="w"> </span>--build-arg<span class="w"> </span><span class="nv">EXAMPLE_NAME</span><span class="o">=</span>isaac<span class="w"> </span>.
-docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>cloudxr-isaac-sample<span class="w"> </span>-p<span class="w"> </span><span class="m">8080</span>:80<span class="w"> </span>-p<span class="w"> </span><span class="m">8443</span>:443<span class="w"> </span>cloudxr-isaac-sample
-</pre></div>
-</div>
-<p>You can test from a local browser at <code class="docutils literal notranslate"><span class="pre">http://localhost:8080/</span></code> before connecting the Quest.</p>
-</li>
-</ol>
-<figure class="align-center" id="id2">
-<a class="reference internal image-reference" href="../../../_images/locomanip_cloudxr_js.png"><img alt="CloudXR.js Isaac Lab Teleop Client (connection and debug settings)" src="../../../_images/locomanip_cloudxr_js.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">CloudXR.js Isaac Lab Teleop Client. Configure server IP and port, then press <strong>Connect</strong>. Adjust stream resolution and reference space in Debug Settings if needed.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
-</figcaption>
-</figure>
-</section>
-<section id="step-4-setup-and-connect-from-meta-quest-3">
-<h2>Step 4: Setup and Connect from Meta Quest 3<a class="headerlink" href="#step-4-setup-and-connect-from-meta-quest-3" title="Link to this heading">#</a></h2>
-<ol class="arabic">
-<li><p>On the host machine, update the firewall to allow traffic on these ports:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">49100</span>/tcp
-sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47998</span>/udp
-</pre></div>
-</div>
-</li>
-<li><p><strong>Network</strong>: Use a router with Wi-Fi 6 (5 GHz band). Connect the server via Ethernet and the Quest to the same router’s Wi-Fi. See the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html">CloudXR Network Setup</a> guide.</p></li>
-<li><p><strong>Quest configuration</strong>: On the Quest headset, configure insecure origins for HTTP mode (one-time setup):</p>
-<ul class="simple">
-<li><p>Open the Meta Quest 3 browser and go to <code class="docutils literal notranslate"><span class="pre">chrome://flags</span></code>.</p></li>
-<li><p>Search for <code class="docutils literal notranslate"><span class="pre">insecure</span></code>, find <code class="docutils literal notranslate"><span class="pre">unsafely-treat-insecure-origin-as-secure</span></code>, and set it to <strong>Enabled</strong>.</p></li>
-<li><p>In the text field, enter your Arena host URL: <code class="docutils literal notranslate"><span class="pre">http://&lt;server-ip&gt;:8080</span></code>.</p></li>
-<li><p>Tap outside the text field; a <strong>Relaunch</strong> button appears. Tap <strong>Relaunch</strong> to apply.</p></li>
-<li><p>After relaunch, return to <code class="docutils literal notranslate"><span class="pre">chrome://flags</span></code> and confirm the flag is still enabled and the URL is saved.</p></li>
-</ul>
-</li>
-<li><p><strong>Connect</strong>: On the Quest, open the browser and go to <code class="docutils literal notranslate"><span class="pre">http://&lt;server-ip&gt;:8080</span></code>. In Settings, enter the server IP, then press <strong>Connect</strong>. You should see the simulation and be able to teleoperate.</p>
-<p>The browser will prompt for WebXR permissions the first time. Select <strong>Allow</strong>; the immersive session starts after permission is granted.</p>
-</li>
+<section id="step-3-connect-from-meta-quest-3">
+<h2>Step 3: Connect from Meta Quest 3<a class="headerlink" href="#step-3-connect-from-meta-quest-3" title="Link to this heading">#</a></h2>
+<p>For detail instructions please refer to <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime">Connect an XR Device</a>:</p>
+<p>A strong wireless connection is essential for a high-quality streaming experience. Refer to the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html">CloudXR Network Setup</a> guide for router configuration.</p>
+<ol class="arabic simple">
+<li><p>Open the browser on your headset and navigate to <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/client">https://nvidia.github.io/IsaacTeleop/client</a>.</p></li>
+<li><p>Enter the IP address of your Isaac Lab host machine in the <strong>Server IP</strong> field.</p></li>
+<li><p>Click the <strong>Click https://&lt;ip&gt;:48322/ to accept cert</strong> link that appears on the page.
+Accept the certificate in the new page that opens, then navigate back to the
+CloudXR.js client page.</p></li>
+<li><p>Click Connect to begin teleoperation.</p></li>
 <li><p><strong>Teleoperation Controls</strong>:</p></li>
 </ol>
 <ul class="simple">
@@ -550,9 +498,20 @@ sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </s
 <li><p><strong>Right joystick</strong>: Squat (down), rotate torso (left/right).</p></li>
 <li><p><strong>Controllers</strong>: Move end-effector (EE) targets for the arms.</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the simulation runs at too low FPS and makes the teleoperation feel laggy, you can try to reduce the XR resolution from the XR tab / Advanced Settings / Render Resolution.</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../../../_images/xr_resolution.png"><img alt="XR resolution panel" src="../../../_images/xr_resolution.png" style="width: 40%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Reducing render resolution from 1 (default) to 0.2.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</div>
 </section>
-<section id="step-5-record-with-quest-3">
-<h2>Step 5: Record with Quest 3<a class="headerlink" href="#step-5-record-with-quest-3" title="Link to this heading">#</a></h2>
+<section id="step-4-record-with-quest-3">
+<h2>Step 4: Record with Quest 3<a class="headerlink" href="#step-4-record-with-quest-3" title="Link to this heading">#</a></h2>
 <ol class="arabic">
 <li><p><strong>Recording</strong>: When ready to collect data, run the recording script from the Arena container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATASET_DIR</span><span class="o">=</span>/datasets/isaaclab_arena/locomanipulation_tutorial
@@ -560,8 +519,8 @@ mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$DATASET
 
 <span class="c1"># Record demonstrations with OpenXR teleop</span>
 python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_locomanipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_demos<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
@@ -589,14 +548,14 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 <a class="reference internal image-reference" href="../../../_images/g1_galileo_arena_box_pnp_locomanip.gif"><img alt="../../../_images/g1_galileo_arena_box_pnp_locomanip.gif" class="align-center" src="../../../_images/g1_galileo_arena_box_pnp_locomanip.gif" style="height: 400px;" />
 </a>
 </section>
-<section id="step-6-replay-recorded-demos-optional">
-<h2>Step 6: Replay Recorded Demos (Optional)<a class="headerlink" href="#step-6-replay-recorded-demos-optional" title="Link to this heading">#</a></h2>
+<section id="step-5-replay-recorded-demos-optional">
+<h2>Step 5: Replay Recorded Demos (Optional)<a class="headerlink" href="#step-5-replay-recorded-demos-optional" title="Link to this heading">#</a></h2>
 <p>To replay the recorded demos:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay from the recorded HDF5 dataset</span>
 python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_locomanipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_pinocchio<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_locomanip_pick_and_place
 </pre></div>
 </div>
@@ -652,12 +611,11 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_d
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-cloudxr-runtime-container">Step 1: Start the CloudXR Runtime Container</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-cloudxr-runtime">Step 1: Start the CloudXR Runtime</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-arena-teleop">Step 2: Start Arena Teleop</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-build-and-run-the-cloudxr-js-webserver">Step 3: Build and Run the CloudXR.js WebServer</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-setup-and-connect-from-meta-quest-3">Step 4: Setup and Connect from Meta Quest 3</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-record-with-quest-3">Step 5: Record with Quest 3</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-6-replay-recorded-demos-optional">Step 6: Replay Recorded Demos (Optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-connect-from-meta-quest-3">Step 3: Connect from Meta Quest 3</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-record-with-quest-3">Step 4: Record with Quest 3</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-replay-recorded-demos-optional">Step 5: Replay Recorded Demos (Optional)</a></li>
 </ul>
   </nav></div>
 

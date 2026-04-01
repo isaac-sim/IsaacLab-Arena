@@ -282,8 +282,8 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/static_manipulation/step_1_environment_setup.html" >feature/isaac_lab_3_newton</option>
             <option value="step_1_environment_setup.html" selected>main</option>
+            <option value="../../../../feature/isaac_lab_3_newton/pages/example_workflows/static_manipulation/step_1_environment_setup.html" >feature/isaac_lab_3_newton</option>
             <option value="../../../../release/0.1.0/pages/example_workflows/static_manipulation/step_1_environment_setup.html" >release/0.1.0</option>
             <option value="../../../../release/0.1.1/pages/example_workflows/static_manipulation/step_1_environment_setup.html" >release/0.1.1</option>
           </select>
@@ -367,6 +367,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_scene_design.html">Scene Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_teleop_devices_design.html">Teleop Devices Design</a></li>
@@ -466,14 +467,14 @@ and validate that we can load it in Isaac Lab.</p>
         <span class="n">assets</span> <span class="o">=</span> <span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">microwave</span><span class="p">]</span>
 
         <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
-        <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)))</span>
+        <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)))</span>
 
         <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
 
         <span class="c1"># Put the microwave on the packing table.</span>
         <span class="n">microwave_pose</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span>
             <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.00586</span><span class="p">,</span> <span class="mf">0.22773</span><span class="p">),</span>
-            <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7071068</span><span class="p">),</span>
+            <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="n">microwave</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">microwave_pose</span><span class="p">)</span>
 
@@ -511,7 +512,7 @@ See <a class="reference internal" href="../../concepts/concept_assets_design.htm
 <p><strong>2. Position the Objects</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave_pose</span> <span class="o">=</span> <span class="n">Pose</span><span class="p">(</span>
     <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.00586</span><span class="p">,</span> <span class="mf">0.22773</span><span class="p">),</span>
-    <span class="n">rotation_wxyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7071068</span><span class="p">),</span>
+    <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7071068</span><span class="p">,</span> <span class="mf">0.7071068</span><span class="p">),</span>
 <span class="p">)</span>
 <span class="n">microwave</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">microwave_pose</span><span class="p">)</span>
 </pre></div>
@@ -562,6 +563,7 @@ We download a pre-recorded dataset from Hugging Face.</p>
 <h2>Step 2: Validate the Environment by Replaying the Dataset<a class="headerlink" href="#step-2-validate-the-environment-by-replaying-the-dataset" title="Link to this heading">#</a></h2>
 <p>Replay the downloaded dataset to verify the environment setup:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DATASET_DIR</span><span class="si">}</span><span class="s2">/arena_gr1_manipulation_dataset_generated.hdf5&quot;</span><span class="w"> </span><span class="se">\</span>
