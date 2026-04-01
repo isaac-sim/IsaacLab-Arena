@@ -1,0 +1,924 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Object Placement &#8212; isaaclab_arena 0.2</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/concept_object_placement';</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Policy Design" href="concept_policy_design.html" />
+    <link rel="prev" title="Affordances Design" href="concept_affordances_design.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="concept_object_placement.html" selected>feature/isaac_lab_3_newton</option>
+            <option value="../../../../main/pages/concepts/concept_object_placement.html" >main</option>
+            <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_experiments.html">Running your First Experiments</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/imitation_learning/index.html">Imitation Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/gr00t_server_client.html">Server-Client Mode With GR00T</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Policy Evaluation</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../policy_evaluation/index.html">Policy Evaluation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../policy_evaluation/evaluation_types.html">Evaluation Types</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Object Placement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_remote_policies_design.html">Remote Policies Design</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../references/release_notes.html">Release Notes</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Object Placement</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="object-placement">
+<h1>Object Placement<a class="headerlink" href="#object-placement" title="Link to this heading">#</a></h1>
+<section id="the-motivation">
+<h2>The Motivation<a class="headerlink" href="#the-motivation" title="Link to this heading">#</a></h2>
+<p>The traditional approach to placing objects in a simulation environment is to set each object’s
+pose manually. Suppose you want to place a microwave on a table, with a cracker box sitting next to it.
+You look up the table surface height, measure the object dimensions, and compute the coordinates by hand:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Table surface is at z = 0.42 m in world frame.</span>
+<span class="c1"># Microwave is 0.50 m wide (x) and 0.30 m tall (z).</span>
+<span class="c1"># Cracker box is 0.064 m wide (x) and 0.212 m tall (z).</span>
+
+<span class="n">CLEARANCE</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># m</span>
+
+<span class="n">microwave_z</span> <span class="o">=</span> <span class="mf">0.42</span> <span class="o">+</span> <span class="mf">0.30</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">CLEARANCE</span>             <span class="c1"># = 0.58</span>
+<span class="n">microwave</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">microwave_z</span><span class="p">)))</span>
+
+<span class="n">cracker_box_x</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="o">+</span> <span class="mf">0.50</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">CLEARANCE</span> <span class="o">+</span> <span class="mf">0.064</span> <span class="o">/</span> <span class="mi">2</span>   <span class="c1"># = 0.292</span>
+<span class="n">cracker_box_z</span> <span class="o">=</span> <span class="mf">0.42</span> <span class="o">+</span> <span class="mf">0.212</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">CLEARANCE</span>              <span class="c1"># = 0.536</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="n">cracker_box_x</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">cracker_box_z</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p>This works, but it is brittle. If you swap the microwave for a larger appliance, every downstream
+coordinate that depended on its size must be recalculated. If you use a different table, the surface
+height changes and all Z values are wrong. If you add an apple next to the cracker box, you need to
+chain yet another calculation on top of the previous ones.</p>
+<p>The relations system eliminates this problem. Instead of computing coordinates, you declare <em>constraints</em>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span><span class="p">,</span> <span class="n">NextTo</span><span class="p">,</span> <span class="n">Side</span>
+
+<span class="n">packing_table</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+
+<span class="n">microwave</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">packing_table</span><span class="p">))</span>
+
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">packing_table</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">NextTo</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">POSITIVE_X</span><span class="p">,</span> <span class="n">distance_m</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span>
+
+<span class="n">apple</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">packing_table</span><span class="p">))</span>
+<span class="n">apple</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">NextTo</span><span class="p">(</span><span class="n">cracker_box</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">POSITIVE_X</span><span class="p">,</span> <span class="n">distance_m</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>A constraint solver reads the actual bounding boxes of each object and computes positions that satisfy all
+the constraints together. Swap the microwave for any other object and the solver re-derives everything
+automatically — the cracker box and apple will still end up next to it at the right height, regardless
+of the new object’s dimensions.</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/relations_highlevel.png"><img alt="High-level visualization of spatial relations between objects on a table" src="../../_images/relations_highlevel.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Example relations: a microwave and a cracker box both with <code class="docutils literal notranslate"><span class="pre">On(packing_table)</span></code>,
+and an apple with <code class="docutils literal notranslate"><span class="pre">NextTo(microwave)</span></code>. The solver reads these constraints and
+computes a valid, collision-free layout automatically.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="try-it-out">
+<h2>Try It Out<a class="headerlink" href="#try-it-out" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code> environment is a good place to experiment with object placement.
+By default it places one pick-up object and one destination on the table. You can add any number of
+extra objects via <code class="docutils literal notranslate"><span class="pre">--additional_table_objects</span></code> — each one receives an <code class="docutils literal notranslate"><span class="pre">On(table_reference)</span></code>
+relation and the solver places them all without collisions:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>droid_rel_joint_pos<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--hdr<span class="w"> </span>home_office_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--additional_table_objects<span class="w"> </span>cracker_box<span class="w"> </span>mug<span class="w"> </span>tomato_soup_can
+</pre></div>
+</div>
+<p>Swap any of those names for other registered objects to see the solver automatically adapt the
+layout to the new sizes and footprints.</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../../_images/object_placement_variety.gif"><img alt="Object placement example with multiple objects on a table" src="../../_images/object_placement_variety.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Five sequential runs on the maple table environment, each adding more objects (0 to 5 extra).
+The solver automatically computes a valid, collision-free layout for each configuration —
+no manual pose adjustments needed when the object set changes.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="core-concepts">
+<h2>Core Concepts<a class="headerlink" href="#core-concepts" title="Link to this heading">#</a></h2>
+<p>The three core concepts you work with directly are <strong>Spatial Relations</strong>, <strong>Anchors</strong>, and
+<strong>Placement Modifiers</strong>. Under the hood, <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> collects these from your scene,
+runs the solver, and applies the results automatically — you rarely need to interact with the
+solver directly.</p>
+<p>Relations are attached to objects via <code class="docutils literal notranslate"><span class="pre">add_relation()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span><span class="p">,</span> <span class="n">AtPosition</span>
+
+<span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Multiple relations on the same object are all satisfied simultaneously.</p>
+<section id="spatial-relations">
+<h3>Spatial Relations<a class="headerlink" href="#spatial-relations" title="Link to this heading">#</a></h3>
+<p>Spatial relations constrain where an object may be relative to a parent object or world position.</p>
+<p><strong>On</strong></p>
+<p>Places a child object on top of a parent object. The child’s footprint must lie within the
+parent’s horizontal extents, and the child’s bottom surface rests at the top of the parent
+with an optional clearance gap:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">On</span>
+
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">parent</span></code>: The reference object to place on top of</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.01</span></code>): Extra gap above the parent’s top surface, in meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">relation_loss_weight</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>): Weight in the solver’s loss function</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">On</span></code> positions the child at the top of the parent’s <strong>axis-aligned bounding box</strong>, not
+its physical surface. For concave objects such as bowls, the bounding box top is at the
+rim, so the child may end up inside the bowl rather than resting on it. Avoid using
+<code class="docutils literal notranslate"><span class="pre">On</span></code> with concave objects as the parent.</p>
+</div>
+<p><strong>NextTo</strong></p>
+<p>Places a child object adjacent to a parent object at a specified distance along a given axis:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">NextTo</span><span class="p">,</span> <span class="n">Side</span>
+
+<span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">NextTo</span><span class="p">(</span><span class="n">cracker_box</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">POSITIVE_X</span><span class="p">,</span> <span class="n">distance_m</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Side</span></code> enum selects the direction: <code class="docutils literal notranslate"><span class="pre">POSITIVE_X</span></code>, <code class="docutils literal notranslate"><span class="pre">NEGATIVE_X</span></code>, <code class="docutils literal notranslate"><span class="pre">POSITIVE_Y</span></code>, or <code class="docutils literal notranslate"><span class="pre">NEGATIVE_Y</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">cross_position_ratio</span></code> parameter (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>) controls alignment along the perpendicular axis:
+<code class="docutils literal notranslate"><span class="pre">-1.0</span></code> aligns with the parent’s near edge, <code class="docutils literal notranslate"><span class="pre">0.0</span></code> centers the child, and <code class="docutils literal notranslate"><span class="pre">1.0</span></code> aligns with
+the parent’s far edge.</p>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">parent</span></code>: The reference object to place next to</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">side</span></code>: Which side to place on (<code class="docutils literal notranslate"><span class="pre">Side</span></code> enum)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">distance_m</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.05</span></code>): Distance from the parent’s edge, in meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cross_position_ratio</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>): Alignment along the perpendicular axis, in <code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">relation_loss_weight</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>): Weight in the solver’s loss function</p></li>
+</ul>
+<p><strong>AtPosition</strong></p>
+<p>Pins an object to specific world-frame coordinates. You can constrain any subset of axes —
+unconstrained axes are determined by other relations (for example, <code class="docutils literal notranslate"><span class="pre">On</span></code> controls the Z axis):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">AtPosition</span>
+
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>  <span class="c1"># z left free for On to control</span>
+</pre></div>
+</div>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>: Target world coordinates (any can be <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave unconstrained)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">relation_loss_weight</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>): Weight in the solver’s loss function</p></li>
+</ul>
+</section>
+<section id="anchors">
+<h3>Anchors<a class="headerlink" href="#anchors" title="Link to this heading">#</a></h3>
+<p>Every scene must have at least one <strong>anchor</strong> — an object whose position is fixed during
+optimization and serves as the reference frame for all other objects. Anchors are marked
+with <code class="docutils literal notranslate"><span class="pre">IsAnchor()</span></code> and are not moved by the solver.</p>
+<p>Any object in the scene can be an anchor. A common case is using an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code>
+that points to a specific surface within a background asset, such as a tabletop or counter,
+whose pose is derived automatically from the USD scene:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span>
+
+<span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/office_table/Geometry/sm_tabletop_a01_top_01&quot;</span><span class="p">,</span>
+    <span class="n">parent_asset</span><span class="o">=</span><span class="n">table_background</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>You can have multiple independent anchors in a scene — for example, a table and a separate
+counter. Objects are then placed relative to whichever anchor they reference.</p>
+</section>
+<section id="placement-modifiers">
+<h3>Placement Modifiers<a class="headerlink" href="#placement-modifiers" title="Link to this heading">#</a></h3>
+<p>Placement modifiers are attached alongside spatial relations and affect how the solved position
+is applied to the object. They are not processed by the solver itself.</p>
+<p><strong>RandomAroundSolution</strong></p>
+<p>After solving, converts the fixed solved pose into a <code class="docutils literal notranslate"><span class="pre">PoseRange</span></code> so the object’s position
+is randomized within a box around the solution at each environment reset:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">On</span><span class="p">,</span> <span class="n">RandomAroundSolution</span>
+
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">RandomAroundSolution</span><span class="p">(</span><span class="n">x_half_m</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">y_half_m</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>At each reset, the object spawns at a random position uniformly sampled within
+<code class="docutils literal notranslate"><span class="pre">[solved_x</span> <span class="pre">±</span> <span class="pre">x_half_m,</span> <span class="pre">solved_y</span> <span class="pre">±</span> <span class="pre">y_half_m,</span> <span class="pre">solved_z</span> <span class="pre">±</span> <span class="pre">z_half_m]</span></code>.</p>
+<p>The solver only validates the center of this range — the solved position itself.
+No placement checking is performed at reset time, so positions near the edges of the
+range may be physically invalid (e.g. the object partially off the surface, or
+overlapping a neighbour).</p>
+<p>The safest approach is to combine <code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code> with <code class="docutils literal notranslate"><span class="pre">AtPosition</span></code>.
+Because <code class="docutils literal notranslate"><span class="pre">AtPosition</span></code> pins the object to a known world coordinate, you can reason
+about the available margin purely from the surface geometry and the object’s bounding
+box — no need to inspect solver output. For example, if a surface spans <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">∈</span> <span class="pre">[0.0,</span> <span class="pre">1.0]</span></code>
+and you place the object at <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">=</span> <span class="pre">0.5</span></code> with a footprint of <code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">m</span></code>, there is
+<code class="docutils literal notranslate"><span class="pre">0.5</span> <span class="pre">-</span> <span class="pre">0.05</span> <span class="pre">=</span> <span class="pre">0.45</span> <span class="pre">m</span></code> of margin on each side, so <code class="docutils literal notranslate"><span class="pre">x_half_m</span> <span class="pre">=</span> <span class="pre">0.1</span></code> is safely
+within bounds:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">obj</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
+<span class="n">obj</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">RandomAroundSolution</span><span class="p">(</span><span class="n">x_half_m</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">y_half_m</span><span class="o">=</span><span class="mf">0.05</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Parameters: <code class="docutils literal notranslate"><span class="pre">x_half_m</span></code>, <code class="docutils literal notranslate"><span class="pre">y_half_m</span></code>, <code class="docutils literal notranslate"><span class="pre">z_half_m</span></code> — half-extents in meters (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>);
+<code class="docutils literal notranslate"><span class="pre">roll_half_rad</span></code>, <code class="docutils literal notranslate"><span class="pre">pitch_half_rad</span></code>, <code class="docutils literal notranslate"><span class="pre">yaw_half_rad</span></code> — half-extents in radians (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>).</p>
+<p><strong>RotateAroundSolution</strong></p>
+<p>Applies an explicit rotation (in Euler angles) on top of the solver’s solution:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">On</span><span class="p">,</span> <span class="n">RotateAroundSolution</span>
+
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">RotateAroundSolution</span><span class="p">(</span><span class="n">yaw_rad</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span><span class="p">))</span>  <span class="c1"># 45° rotation</span>
+</pre></div>
+</div>
+<p>When combined with <code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code>, the rotation is applied to the PoseRange center.</p>
+<p>Parameters: <code class="docutils literal notranslate"><span class="pre">roll_rad</span></code>, <code class="docutils literal notranslate"><span class="pre">pitch_rad</span></code>, <code class="docutils literal notranslate"><span class="pre">yaw_rad</span></code> — rotation in radians (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>).</p>
+</section>
+</section>
+<section id="how-the-solver-works">
+<h2>How the Solver Works<a class="headerlink" href="#how-the-solver-works" title="Link to this heading">#</a></h2>
+<p>The solver (<code class="docutils literal notranslate"><span class="pre">RelationSolver</span></code>) treats the X, Y, Z position of each non-anchor object as
+learnable parameters and minimizes a total loss derived from all attached spatial relations.
+Each relation type contributes a differentiable loss component:</p>
+<ul class="simple">
+<li><p><strong>On</strong>: Band loss on X/Y (child footprint within parent), point loss on Z (child bottom at parent top)</p></li>
+<li><p><strong>NextTo</strong>: Half-plane loss (correct side), band loss (perpendicular alignment), distance loss (target gap)</p></li>
+<li><p><strong>AtPosition</strong>: Point loss on each constrained axis</p></li>
+</ul>
+<p>Losses use linear ReLU-style functions (zero inside the valid region, linearly growing outside),
+which provide constant gradients that work well with the Adam optimizer.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> wraps the solver with retry logic and geometric validation:</p>
+<ol class="arabic simple">
+<li><p>Random initial positions are generated within a bounding box centered on the anchor</p></li>
+<li><p>The solver runs up to <code class="docutils literal notranslate"><span class="pre">max_iters</span></code> gradient steps (default 600)</p></li>
+<li><p>The result is validated: no pair of objects may overlap, and all <code class="docutils literal notranslate"><span class="pre">On</span></code> constraints must be satisfied</p></li>
+<li><p>If validation fails, the process repeats up to <code class="docutils literal notranslate"><span class="pre">max_placement_attempts</span></code> times (default 5)</p></li>
+</ol>
+</section>
+<section id="arenaenvbuilder-integration">
+<h2>ArenaEnvBuilder Integration<a class="headerlink" href="#arenaenvbuilder-integration" title="Link to this heading">#</a></h2>
+<p>When you build an environment with <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>, object placement runs automatically.
+You do not need to call <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> directly — just attach relations to your objects
+and add them to the scene:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span><span class="p">,</span> <span class="n">AtPosition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_env_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvBuilder</span>
+
+<span class="c1"># Define anchor</span>
+<span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
+    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/office_table/Geometry/sm_tabletop_a01_top_01&quot;</span><span class="p">,</span>
+    <span class="n">parent_asset</span><span class="o">=</span><span class="n">table_background</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+
+<span class="c1"># Define placeable objects</span>
+<span class="n">cracker_box</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
+
+<span class="n">mug</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mug&quot;</span><span class="p">)()</span>
+<span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+
+<span class="c1"># Build scene and environment</span>
+<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">table_background</span><span class="p">,</span> <span class="n">table_reference</span><span class="p">,</span> <span class="n">cracker_box</span><span class="p">,</span> <span class="n">mug</span><span class="p">,</span> <span class="n">light</span><span class="p">])</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;demo&quot;</span><span class="p">,</span> <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<span class="n">gym_env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The builder automatically:</p>
+<ul class="simple">
+<li><p>Collects all objects with at least one relation from the scene</p></li>
+<li><p>Adds pairwise <code class="docutils literal notranslate"><span class="pre">NoCollision</span></code> constraints between all non-anchor objects (if not already present)</p></li>
+<li><p>Creates an <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> and runs placement</p></li>
+<li><p>Sets the solved poses on the objects before handing them to Isaac Lab</p></li>
+</ul>
+</section>
+<section id="usage-patterns">
+<h2>Usage Patterns<a class="headerlink" href="#usage-patterns" title="Link to this heading">#</a></h2>
+<p><strong>Single object on a surface</strong></p>
+<p>The most common pattern: an anchor marks a surface, and one or more objects are placed on it.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+
+<span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">destination</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Precise XY placement</strong></p>
+<p>Combine <code class="docutils literal notranslate"><span class="pre">On</span></code> with <code class="docutils literal notranslate"><span class="pre">AtPosition</span></code> when you need the object at a known world location:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">counter_top</span><span class="p">))</span>
+<span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Multiple objects arranged side-by-side</strong></p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> to arrange objects in a row:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">cracker_box</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
+
+<span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">NextTo</span><span class="p">(</span><span class="n">cracker_box</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">POSITIVE_X</span><span class="p">,</span> <span class="n">distance_m</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+
+<span class="n">tomato_soup_can</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+<span class="n">tomato_soup_can</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">NextTo</span><span class="p">(</span><span class="n">cracker_box</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">NEGATIVE_X</span><span class="p">,</span> <span class="n">distance_m</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Episode-level randomization</strong></p>
+<p>Add <code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code> to vary object positions across resets while respecting the spatial
+constraints established by the solver:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">counter_top</span><span class="p">))</span>
+<span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">AtPosition</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">4.05</span><span class="p">,</span> <span class="n">y</span><span class="o">=-</span><span class="mf">0.58</span><span class="p">))</span>
+<span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">RotateAroundSolution</span><span class="p">(</span><span class="n">yaw_rad</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">pick_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">RandomAroundSolution</span><span class="p">(</span><span class="n">x_half_m</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">y_half_m</span><span class="o">=</span><span class="mf">0.05</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Multiple anchors</strong></p>
+<p>Scenes with multiple fixed reference surfaces use one <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> per surface:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">table</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+<span class="n">counter</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+
+<span class="n">mug</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table</span><span class="p">))</span>
+<span class="n">bowl</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> controls the placer’s behavior:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.object_placer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectPlacer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.object_placer_params</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectPlacerParams</span>
+
+<span class="n">placer</span> <span class="o">=</span> <span class="n">ObjectPlacer</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="n">ObjectPlacerParams</span><span class="p">(</span>
+    <span class="n">max_placement_attempts</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">min_separation_m</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+    <span class="n">placement_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">))</span>
+</pre></div>
+</div>
+<p>Key parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">max_placement_attempts</span></code> (default <code class="docutils literal notranslate"><span class="pre">5</span></code>): Number of solver restarts before giving up</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_separation_m</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>): Extra separation enforced during overlap validation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> (default <code class="docutils literal notranslate"><span class="pre">None</span></code>): Random seed for reproducible placements</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">init_bounds_size</span></code> (default <code class="docutils literal notranslate"><span class="pre">(4.0,</span> <span class="pre">4.0,</span> <span class="pre">2.0)</span></code>): Size in meters of the region used for
+random initialization, centered on the anchor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_relation_z_tolerance_m</span></code> (default <code class="docutils literal notranslate"><span class="pre">5e-3</span></code>): Tolerance for Z validation of <code class="docutils literal notranslate"><span class="pre">On</span></code> relations</p></li>
+</ul>
+<p>The underlying solver can also be tuned via <code class="docutils literal notranslate"><span class="pre">RelationSolverParams</span></code> nested inside <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relation_solver_params</span><span class="w"> </span><span class="kn">import</span> <span class="n">RelationSolverParams</span>
+
+<span class="n">placer</span> <span class="o">=</span> <span class="n">ObjectPlacer</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="n">ObjectPlacerParams</span><span class="p">(</span>
+    <span class="n">solver_params</span><span class="o">=</span><span class="n">RelationSolverParams</span><span class="p">(</span>
+        <span class="n">max_iters</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+        <span class="n">lr</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span>
+        <span class="n">convergence_threshold</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">))</span>
+</pre></div>
+</div>
+<p>Key solver parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">max_iters</span></code> (default <code class="docutils literal notranslate"><span class="pre">600</span></code>): Maximum optimization iterations per attempt</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lr</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.01</span></code>): Adam optimizer learning rate</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">convergence_threshold</span></code> (default <code class="docutils literal notranslate"><span class="pre">1e-4</span></code>): Stop early when loss falls below this value</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="concept_affordances_design.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Affordances Design</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="concept_policy_design.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Policy Design</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-motivation">The Motivation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#try-it-out">Try It Out</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-concepts">Core Concepts</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-relations">Spatial Relations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anchors">Anchors</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#placement-modifiers">Placement Modifiers</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-solver-works">How the Solver Works</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#arenaenvbuilder-integration">ArenaEnvBuilder Integration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-patterns">Usage Patterns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration">Configuration</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
