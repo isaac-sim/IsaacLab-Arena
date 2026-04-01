@@ -1,7 +1,7 @@
 Assets Design
 =============
 
-Task me back to :doc:`index`
+Take me back to :doc:`index`
 
 Assets are the building blocks of simulation environments - robots, objects, backgrounds, and scene elements.
 The asset system provides a registry system for managing these components.

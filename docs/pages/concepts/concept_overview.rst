@@ -47,7 +47,7 @@ to building a library of environment *parts*.
 In this section of the documentation, we will describe the design of each of these sub-pieces:
 Scene, Embodiment, and Task.
 
-* :doc:`scene/concept_scene_design`
+* :doc:`scene/index`
 
 .. In the core of the workflow, we have three main components, **Scene**, **Embodiment**, and **Task**. We compile most of the managers of the
 .. manager-based RL environment from these three components. We strongly incline towards keeping these components as independent as possible. This

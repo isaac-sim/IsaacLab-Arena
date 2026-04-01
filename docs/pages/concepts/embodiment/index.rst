@@ -170,3 +170,13 @@ Usage Examples
        scene=scene,
        task=task
    )
+
+More details
+------------
+
+The rest of this section will describe further details of the embodiment component.
+
+.. toctree::
+   :maxdepth: 1
+
+   concept_teleop_devices_design

@@ -116,7 +116,7 @@ currently set manually to create an achievable task.
     scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
 
 Now we bring everything together into a IsaacLab-Arena scene.
-See :doc:`../../concepts/scene/concept_scene_design` for scene composition details.
+See :doc:`../../concepts/scene/index` for scene composition details.
 
 **4. Create the Locomanip Pick and Place Task**
 
@@ -129,7 +129,7 @@ environment: pick up the specified object and place it in the blue sorting bin.
 
 The task knows about the key objects involved (what to pick, where to place it, and the environment context) and will
 provide rewards, compute observations, and determine when the episode should end.
-See :doc:`../../concepts/task/concept_tasks_design` for task creation details.
+See :doc:`../../concepts/task/index` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 

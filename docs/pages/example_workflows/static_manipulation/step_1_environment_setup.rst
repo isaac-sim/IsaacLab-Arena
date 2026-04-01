@@ -100,7 +100,7 @@ currently set manually to create an achievable task. In this case, we place the 
     scene = Scene(assets=assets)
 
 Now we bring everything together into an IsaacLab-Arena scene.
-See :doc:`../../concepts/scene/concept_scene_design` for scene composition details.
+See :doc:`../../concepts/scene/index` for scene composition details.
 
 **4. Create the Open Door Task**
 
@@ -109,7 +109,7 @@ See :doc:`../../concepts/scene/concept_scene_design` for scene composition detai
     task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
 
 The ``OpenDoorTask`` encapsulates the goal of this environment: open the microwave door.
-See :doc:`../../concepts/task/concept_tasks_design` for task creation details.
+See :doc:`../../concepts/task/index` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
