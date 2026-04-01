@@ -24,6 +24,7 @@ Two things change relative to the zero-action baseline:
 - ``--policy_type`` points to the GR00T closed-loop policy class and ``--policy_config_yaml_path``
   provides its config (model ID, action chunk length, camera names, etc.)
 - ``--enable_cameras`` turns on the robot's cameras, which GR00T requires for observations
+- ``--language_instruction`` sets the natural-language instruction sent to the model
 
 GR00T also requires absolute joint positions, so use ``--embodiment droid_abs_joint_pos``
 instead of ``--embodiment droid_rel_joint_pos``. The command uses ``--num_episodes`` rather than
@@ -35,6 +36,7 @@ of simulation steps:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
+     --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
      --enable_cameras \
      --num_episodes 3 \
      pick_and_place_maple_table \
