@@ -3,15 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Re-exec pytest with PYTHONPATH so GR00T deps load first (set GROOT_DEPS_DIR when running GR00T tests).
-import os
 import sys
 
-_groot_deps = os.environ.get("GROOT_DEPS_DIR")
-if _groot_deps and os.environ.get("_GROOT_PYTHONPATH_APPLIED") != "1":
-    os.environ["PYTHONPATH"] = _groot_deps + os.pathsep + os.environ.get("PYTHONPATH", "")
-    os.environ["_GROOT_PYTHONPATH_APPLIED"] = "1"
-    os.execv(sys.executable, [sys.executable, "-m", "pytest"] + sys.argv[1:])
+from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
+
+# TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
+ensure_groot_deps_in_path(reexec_argv=["-m", "pytest"] + sys.argv[1:])
 
 # Isaac Sim exits with 0 on shutdown; stash session and set tests_failed so subprocess.py can report failure.
 import isaaclab_arena.tests.conftest as arena_conftest
