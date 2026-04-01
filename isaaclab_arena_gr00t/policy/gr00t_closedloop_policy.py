@@ -145,6 +145,11 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """Set the language instruction of the task being evaluated."""
         if task_description is None:
             task_description = self.policy_config.language_instruction
+        if not task_description:
+            raise ValueError(
+                "No language instruction provided. Set 'language_instruction' in the job config, "
+                "pass --language_instruction on the CLI, or define 'task_description' on the task class."
+            )
         self.task_description = task_description
         return self.task_description
 

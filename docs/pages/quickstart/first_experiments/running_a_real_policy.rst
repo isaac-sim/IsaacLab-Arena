@@ -19,7 +19,7 @@ with the ``-g`` flag:
 
 **Run GR00T closed-loop**
 
-Two things change relative to the zero-action baseline:
+Three things change relative to the zero-action baseline:
 
 - ``--policy_type`` points to the GR00T closed-loop policy class and ``--policy_config_yaml_path``
   provides its config (model ID, action chunk length, camera names, etc.)
