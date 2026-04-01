@@ -58,7 +58,7 @@ To measure success rates across several variations of the environment in a singl
    python isaaclab_arena/evaluation/eval_runner.py \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
 
-This runs six object variations sequentially and reports a per-variation success rate.
+This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
 
 .. figure:: ../../../images/gr00t_droid_mem.gif
