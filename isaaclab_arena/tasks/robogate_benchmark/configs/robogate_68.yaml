@@ -1,0 +1,90 @@
+# RoboGate 68-Scenario Adversarial Benchmark Configuration
+# https://github.com/liveplex-cpu/robogate
+#
+# 4 categories × 16 variants = 68 scenarios
+# Designed for pick-and-place policy validation before deployment.
+
+benchmark:
+  name: "robogate_68"
+  version: "1.0.0"
+  task: "pick_and_place"
+  description: "Adversarial failure discovery for safe robot policy deployment"
+
+scenarios:
+  nominal:
+    count: 20
+    variants:
+      - standard_objects
+      - standard_lighting
+      - centered_placement
+
+  edge_cases:
+    count: 15
+    variants:
+      - small_objects
+      - heavy_objects
+      - edge_placement
+      - occluded_objects
+      - transparent_objects
+
+  adversarial:
+    count: 10
+    variants:
+      - low_lighting
+      - cluttered_scene
+      - slippery_surface
+      - moving_disturbance
+
+  domain_randomization:
+    lighting_variations: 10
+    object_color_variations: 5
+    position_jitter: 5
+    camera_noise: 3
+
+metrics:
+  - id: grasp_success_rate
+    name: "grasp success rate"
+    type: ratio
+    unit: "%"
+
+  - id: cycle_time
+    name: "cycle time"
+    type: duration
+    unit: "seconds"
+
+  - id: collision_count
+    name: "collision count"
+    type: count
+    unit: "count"
+
+  - id: drop_rate
+    name: "drop rate"
+    type: ratio
+    unit: "%"
+
+  - id: grasp_miss_rate
+    name: "grasp miss rate"
+    type: ratio
+    unit: "%"
+
+pass_criteria:
+  grasp_success_rate: ">= 0.92"
+  collision_count: "== 0"
+  drop_rate: "<= 0.03"
+  cycle_time: "<= baseline * 1.1"
+  grasp_miss_rate: "<= baseline * 1.2"
+
+confidence_weights:
+  grasp_success_rate: 0.30
+  cycle_time: 0.20
+  collision_count: 0.25
+  edge_case_performance: 0.15
+  baseline_delta: 0.10
+
+episode:
+  max_steps: 300
+  physics_dt: 0.01667    # 60 Hz
+  control_dt: 0.05       # 20 Hz
+  max_time_s: 15.0
+
+seed: 42

@@ -1,0 +1,85 @@
+{
+  "metadata": {
+    "benchmark": "robogate",
+    "version": "1.0.0",
+    "mode": "isaac_sim",
+    "embodiment": "franka",
+    "policy": "scripted_pick_place",
+    "timestamp": "2026-03-19T14:32:00Z",
+    "total_scenarios": 68,
+    "total_time_s": 245.3,
+    "description": "Baseline: IK-based scripted controller on Franka Panda"
+  },
+  "summary": {
+    "total": 68,
+    "passed": 68,
+    "failed": 0,
+    "success_rate": 1.0,
+    "confidence_score": 76,
+    "verdict": "PASS"
+  },
+  "metrics": {
+    "grasp_success_rate": 1.0,
+    "cycle_time": 6.7,
+    "collision_count": 0,
+    "drop_rate": 0.0,
+    "grasp_miss_rate": 0.0
+  },
+  "scenario_summary": {
+    "nominal": {
+      "total": 20,
+      "passed": 20,
+      "failed": 0,
+      "success_rate": 1.0
+    },
+    "edge_cases": {
+      "total": 15,
+      "passed": 15,
+      "failed": 0,
+      "success_rate": 1.0
+    },
+    "adversarial": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "success_rate": 1.0
+    },
+    "domain_randomization": {
+      "total": 23,
+      "passed": 23,
+      "failed": 0,
+      "success_rate": 1.0
+    }
+  },
+  "confidence": {
+    "score": 76,
+    "verdict": "PASS",
+    "components": {
+      "grasp_success_rate": 100.0,
+      "cycle_time": 50.0,
+      "collision_count": 100.0,
+      "edge_case_performance": 100.0,
+      "baseline_delta": 50.0
+    },
+    "weights": {
+      "grasp_success_rate": 0.30,
+      "cycle_time": 0.20,
+      "collision_count": 0.25,
+      "edge_case_performance": 0.15,
+      "baseline_delta": 0.10
+    }
+  },
+  "failure_evidence": [],
+  "vla_comparison": {
+    "octo_small": {
+      "success_rate": 0.0,
+      "confidence_score": 1,
+      "total_scenarios": 68,
+      "failure_types": {
+        "grasp_miss": 54,
+        "collision": 14
+      },
+      "note": "Real evaluation via ZMQ two-process pipeline (Isaac Sim + mss camera)"
+    }
+  }
+}
