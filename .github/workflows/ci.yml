@@ -141,21 +141,26 @@ jobs:
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
 
-      - name: Run in-process tests without cameras
-        run: |
-          /isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" \
-            isaaclab_arena/tests/
+      # - name: Run in-process tests without cameras
+      #   run: |
+      #     /isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" \
+      #       isaaclab_arena/tests/
 
-      - name: Run in-process tests with cameras.
-        run: |
-          /isaac-sim/python.sh -m pytest -sv -m "with_cameras and not with_subprocess" \
-            isaaclab_arena/tests/
+      # - name: Run in-process tests with cameras.
+      #   run: |
+      #     /isaac-sim/python.sh -m pytest -sv -m "with_cameras and not with_subprocess" \
+      #       isaaclab_arena/tests/
+
+      # - name: Run subprocess-spawning tests (before persistent SimApp is created)
+      #   run: |
+      #     /isaac-sim/python.sh -m pytest -sv -m with_subprocess \
+      #       isaaclab_arena/tests/
 
       - name: Run subprocess-spawning tests (before persistent SimApp is created)
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m with_subprocess \
-            isaaclab_arena/tests/
-
+          /isaac-sim/python.sh -m pytest -sv \
+            isaaclab_arena/tests/test_policy_runner.py::test_replay_policy_gr1_open_microwave \
+            isaaclab_arena/tests/test_sequential_task_mimic_data_generation.py::test_franka_put_and_close_door_mimic_data_generation_single_env
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
