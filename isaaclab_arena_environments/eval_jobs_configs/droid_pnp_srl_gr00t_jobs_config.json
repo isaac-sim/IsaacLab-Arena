@@ -9,6 +9,7 @@
                 "hdr": "billiard_hall_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -25,6 +26,7 @@
                 "destination_location": "bowl_ycb_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -42,6 +44,7 @@
                 "hdr": "home_office_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the blue block and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -59,6 +62,7 @@
                 "hdr": "empty_warehouse_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the soup can and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -76,6 +80,7 @@
                 "hdr": "aerodynamics_workshop_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the orange and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -93,6 +98,7 @@
                 "hdr": "wooden_lounge_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the lemon and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -110,6 +116,7 @@
                 "hdr": "garage_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the tomato sauce can and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
