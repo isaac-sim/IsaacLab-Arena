@@ -99,9 +99,9 @@ class ObjectPlacer:
         if self.params.placement_seed is not None:
             generator = torch.Generator()
 
-        # When result_per_env is True, each env needs its own layout, so we
-        # generate max_placement_attempts * num_envs candidates and pick the
-        # best num_envs. When False, we only need one layout applied to all envs.
+        # Pool-based placement: generate all candidates in one batched call,
+        # then pick the best num_results (environments are homogeneous so any
+        # valid solution can serve any environment).
         num_results = num_envs if result_per_env else 1
         num_candidates = self.params.max_placement_attempts * num_results
 
