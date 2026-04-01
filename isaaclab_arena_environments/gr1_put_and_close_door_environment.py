@@ -161,7 +161,6 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         )
         scene = Scene(
             assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
-            # assets=[pickup_object]
         )
 
         # Create pick and place task

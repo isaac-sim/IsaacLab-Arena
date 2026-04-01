@@ -108,16 +108,16 @@ class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
         return None
 
 
-# @register_retargeter
-# class AgibotKeyboardRetargeter(RetargetterBase):
-#     device = "keyboard"
-#     embodiment = "agibot"
+@register_retargeter
+class AgibotKeyboardRetargeter(RetargetterBase):
+    device = "keyboard"
+    embodiment = "agibot"
 
-#     def __init__(self):
-#         pass
+    def __init__(self):
+        pass
 
-#     def get_pipeline_builder(self, embodiment: object) -> Callable | None:
-#         return None
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        return None
 
 
 @register_retargeter

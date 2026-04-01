@@ -4,10 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-def test_combine_configclasses_with_multiple_inheritance():
-    from isaaclab.utils import configclass
+from isaaclab.utils import configclass
 
-    from isaaclab_arena.utils.configclass import combine_configclasses
+from isaaclab_arena.utils.configclass import combine_configclasses
+
+
+def test_combine_configclasses_with_multiple_inheritance():
 
     # Side A - A class with a base class
     @configclass
@@ -37,9 +39,6 @@ def test_combine_configclasses_with_multiple_inheritance():
 
 
 def test_combine_configclasses_with_inheritance():
-    from isaaclab.utils import configclass
-
-    from isaaclab_arena.utils.configclass import combine_configclasses
 
     # Side A - A class with a base class
     @configclass
@@ -67,9 +66,6 @@ def test_combine_configclasses_with_inheritance():
 
 
 def test_combine_configclasses_with_post_init():
-    from isaaclab.utils import configclass
-
-    from isaaclab_arena.utils.configclass import combine_configclasses
 
     # Side A - A class with a base class
     @configclass

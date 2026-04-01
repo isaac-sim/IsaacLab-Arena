@@ -46,9 +46,7 @@ RUN chmod a+x /isaac-sim
 RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_visualizers
 RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_teleop
 
-# # Pre-install flatdict with --no-build-isolation to work around pkg_resources missing in pip's isolated build env
-# RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
-# # Install isaaclab
+# Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
@@ -88,7 +86,6 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 # HuggingFace CLI for downloading datasets and models.
 # Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
 # without touching system Python packages.
-# PIPX_BIN_DIR=/usr/local/bin puts hf on PATH for all users.
 RUN apt-get install -y pipx && \
     PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin \
     pipx install \

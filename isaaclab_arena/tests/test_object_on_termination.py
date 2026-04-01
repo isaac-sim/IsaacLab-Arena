@@ -76,12 +76,8 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                print("About to create zero actions")
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                print("About to step the environment")
                 _, _, terminated, _, _ = env.step(actions)
-                # env.step(actions)
-                print("Environment stepped")
                 # Get the force on the pick up object.
                 forces_vec.append(wp.to_torch(sensor.data.net_forces_w))
                 force_matrix_vec.append(wp.to_torch(sensor.data.force_matrix_w))
