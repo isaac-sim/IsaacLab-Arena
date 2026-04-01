@@ -7,7 +7,7 @@ multiple jobs in one process, and a **server–client** setup for remote policie
 section summarizes when to use each and how they work. Each section below links
 to the relevant concept docs: :doc:`Policy Design <../concepts/concept_policy_design>`,
 :doc:`Environment Design <../concepts/concept_environment_design>`,
-:doc:`Metrics Design <../concepts/concept_metrics_design>`, and
+:doc:`Metrics Design <../concepts/task/concept_metrics_design>`, and
 :doc:`Remote Policies Design <../concepts/concept_remote_policies_design>`.
 
 Summary
@@ -140,7 +140,7 @@ by hand. Persistence of the simulation application is maintained between jobs.
 
 **Design context:** For how environments are composed and how metrics are
 defined and computed, see :doc:`Environment Design <../concepts/concept_environment_design>`
-and :doc:`Metrics Design <../concepts/concept_metrics_design>`. Policies used per job
+and :doc:`Metrics Design <../concepts/task/concept_metrics_design>`. Policies used per job
 follow :doc:`Policy Design <../concepts/concept_policy_design>`.
 
 **Features:**

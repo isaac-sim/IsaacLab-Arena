@@ -245,7 +245,7 @@ Here, we're selecting the components needed for our sequential static manipulati
 The GR1 embodiment, the kitchen environment as our background, the object to pick and place,
 and a light to illuminate the scene.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
-See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
+See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
 
 
 **2. Position the Embodiment and Objects**
@@ -321,7 +321,7 @@ the relational object placement APIs. The object is placed within a randomzation
     sequential_task = PutAndCloseDoorTask(subtasks=[pick_and_place_task, close_door_task])
 
 The sequential task is composed of two atomic subtasks: the pick and place task and the close door task.
-See :doc:`../../concepts/concept_tasks_design` for task creation details.
+See :doc:`../../concepts/task/concept_tasks_design` for task creation details.
 
 
 **4. Compose the Scene**
@@ -331,7 +331,7 @@ See :doc:`../../concepts/concept_tasks_design` for task creation details.
     scene = Scene(assets=[kitchen_background, pickup_object, light, refrigerator, refrigerator_shelf])
 
 Now we bring everything together into an IsaacLab-Arena scene.
-See :doc:`../../concepts/concept_scene_design` for scene composition details.
+See :doc:`../../concepts/scene/concept_scene_design` for scene composition details.
 
 
 **5. Create the IsaacLab Arena Environment**

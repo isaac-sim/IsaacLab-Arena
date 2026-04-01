@@ -226,18 +226,20 @@ TABLE OF CONTENTS
 
    pages/concepts/concept_overview
    pages/concepts/concept_environment_design
-   pages/concepts/concept_embodiment_design
-   pages/concepts/concept_tasks_design
+   pages/concepts/scene/index
+   pages/concepts/embodiment/concept_embodiment_design
+   pages/concepts/embodiment/concept_teleop_devices_design
+   pages/concepts/task/concept_tasks_design
+   pages/concepts/task/concept_metrics_design
    pages/concepts/concept_sequential_tasks_design
-   pages/concepts/concept_scene_design
-   pages/concepts/concept_metrics_design
-   pages/concepts/concept_teleop_devices_design
    pages/concepts/concept_environment_compilation
-   pages/concepts/concept_assets_design
-   pages/concepts/concept_affordances_design
    pages/concepts/concept_object_placement
    pages/concepts/concept_policy_design
    pages/concepts/concept_remote_policies_design
+
+   .. pages/concepts/scene/concept_scene_design
+   .. pages/concepts/scene/concept_assets_design
+   .. pages/concepts/scene/concept_affordances_design
 
 
 .. toctree::

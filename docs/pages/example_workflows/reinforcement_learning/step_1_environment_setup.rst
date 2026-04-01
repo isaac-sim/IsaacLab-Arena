@@ -109,7 +109,7 @@ is positioned below to provide physical support.
     scene = Scene(assets=assets)
 
 Now we bring everything together into an IsaacLab-Arena scene.
-See :doc:`../../concepts/concept_scene_design` for scene composition details.
+See :doc:`../../concepts/scene/concept_scene_design` for scene composition details.
 
 **4. Create the Lift Object RL Task**
 
@@ -133,7 +133,7 @@ The task includes:
 - **Termination Conditions**: Object dropped or timeout
 - **Success Condition**: Object reaches target position (disabled by the ``--rl_training_mode`` flag for training)
 
-See :doc:`../../concepts/concept_tasks_design` for task creation details.
+See :doc:`../../concepts/task/concept_tasks_design` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
