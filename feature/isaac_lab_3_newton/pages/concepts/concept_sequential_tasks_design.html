@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Metrics Design &#8212; isaaclab_arena 0.2</title>
+    <title>Sequential Tasks Design &#8212; isaaclab_arena 0.2</title>
   
   
   
@@ -49,12 +49,12 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/concept_metrics_design';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/concept_sequential_tasks_design';</script>
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Teleop Devices Design" href="concept_teleop_devices_design.html" />
-    <link rel="prev" title="Scene Design" href="concept_scene_design.html" />
+    <link rel="next" title="Scene Design" href="concept_scene_design.html" />
+    <link rel="prev" title="Tasks Design" href="concept_tasks_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -192,10 +192,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -282,10 +278,10 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="concept_metrics_design.html" selected>feature/isaac_lab_3_newton</option>
-            <option value="../../../../main/pages/concepts/concept_metrics_design.html" >main</option>
-            <option value="../../../../release/0.1.0/pages/concepts/concept_metrics_design.html" >release/0.1.0</option>
-            <option value="../../../../release/0.1.1/pages/concepts/concept_metrics_design.html" >release/0.1.1</option>
+            <option value="concept_sequential_tasks_design.html" selected>feature/isaac_lab_3_newton</option>
+            <option value="../../../../main/index.html" >main</option>
+            <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
         </li>
       </ul>
@@ -367,9 +363,9 @@
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Sequential Tasks Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Metrics Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
@@ -415,7 +411,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Metrics Design</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Sequential Tasks Design</span></li>
   </ul>
 </nav>
 </div>
@@ -432,105 +428,26 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="metrics-design">
-<h1>Metrics Design<a class="headerlink" href="#metrics-design" title="Link to this heading">#</a></h1>
-<p>Metrics evaluate robot performance and task completion. The system integrates with Isaac Lab’s recorder manager to capture simulation data and compute performance indicators.</p>
-<section id="core-architecture">
-<h2>Core Architecture<a class="headerlink" href="#core-architecture" title="Link to this heading">#</a></h2>
-<p>Metrics use two-component architecture separating data collection from metric computation:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MetricBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">recorder_term_name</span><span class="p">:</span> <span class="nb">str</span>
+  <section id="sequential-tasks-design">
+<h1>Sequential Tasks Design<a class="headerlink" href="#sequential-tasks-design" title="Link to this heading">#</a></h1>
+<p>Tasks can be composed sequentially to form longer horizon, more complex tasks using the <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> class.
+<code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> takes a list of <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances and automatically composes them into a single task.
+The order of the tasks in the list determines the order in which subtasks must be completed.</p>
+<p><strong>Usage Example (Pick and Place Task and Close Door Task Composition)</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pick_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;mustard_bottle&quot;</span><span class="p">)()</span>
+<span class="n">destination</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator_shelf&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">)</span>
+<span class="n">pick_and_place_task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
 
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_recorder_term_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecorderTermCfg</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define what data to record.&quot;&quot;&quot;</span>
+<span class="n">openable_object</span> <span class="o">=</span> <span class="n">OpenableObjectReference</span><span class="p">(</span><span class="s2">&quot;refrigerator&quot;</span><span class="p">,</span> <span class="n">parent_asset</span><span class="o">=</span><span class="n">kitchen</span><span class="p">,</span> <span class="n">openable_joint_name</span><span class="o">=</span><span class="s2">&quot;fridge_door_joint&quot;</span><span class="p">)</span>
+<span class="n">close_door_task</span> <span class="o">=</span> <span class="n">CloseDoorTask</span><span class="p">(</span><span class="n">openable_object</span><span class="p">,</span> <span class="n">closedness_threshold</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
 
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">compute_metric_from_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recorded_metric_data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute final metric from recorded data.&quot;&quot;&quot;</span>
+<span class="n">sequential_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span><span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">])</span>
 </pre></div>
 </div>
-<p>Each metric has a <strong>RecorderTerm</strong> that collects data and a <strong>MetricBase</strong> implementation that processes recorded data into performance indicators.</p>
-</section>
-<section id="metrics-in-detail">
-<h2>Metrics in Detail<a class="headerlink" href="#metrics-in-detail" title="Link to this heading">#</a></h2>
-<dl>
-<dt><strong>Data Collection Pipeline</strong></dt><dd><p>Two-phase approach to performance evaluation:</p>
+<p><strong>Available Examples</strong></p>
 <ul class="simple">
-<li><p><strong>RecorderTerm Components</strong>: Real-time data collection during simulation with configurable triggers</p></li>
-<li><p><strong>Recording Modes</strong>: Pre-reset, post-step, event-triggered, and continuous monitoring patterns</p></li>
-<li><p><strong>Storage Format</strong>: HDF5 format with episode organization and parallel environment support</p></li>
-<li><p><strong>Data Extraction</strong>: Access simulation state and extract relevant measurements</p></li>
+<li><p><strong>PutAndCloseDoorTask</strong>: Pick up and move an object to a destination location and then close a door (within <strong>GR1PutAndCloseDoorEnvironment</strong>).</p></li>
 </ul>
-</dd>
-<dt><strong>Available Metrics</strong></dt><dd><p>Built-in metrics for common evaluation scenarios:</p>
-<ul class="simple">
-<li><p><strong>Success Rate Metric</strong>: Binary task completion tracking across episodes</p></li>
-<li><p><strong>Door Moved Rate Metric</strong>: Interaction progress with openable objects via joint positions</p></li>
-<li><p><strong>Object Moved Rate Metric</strong>: Manipulation assessment through object velocity tracking</p></li>
-<li><p><strong>Custom Metrics</strong>: Extensible framework for task-specific performance indicators</p></li>
-</ul>
-</dd>
-<dt><strong>Integration Pattern</strong></dt><dd><p>Metrics integrate through task definitions:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">OpenDoorTask</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">[</span>
-            <span class="n">SuccessRateMetric</span><span class="p">(),</span>
-            <span class="n">DoorMovedRateMetric</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">openable_object</span><span class="p">,</span> <span class="n">reset_openness</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">reset_openness</span><span class="p">)</span>
-        <span class="p">]</span>
-</pre></div>
-</div>
-</dd>
-<dt><strong>Computation Workflow</strong></dt><dd><p>Standardized evaluation process:</p>
-<ul class="simple">
-<li><p><strong>Data Recording</strong>: Capture relevant simulation data throughout execution</p></li>
-<li><p><strong>Episode Completion</strong>: Organize and store data when episodes terminate</p></li>
-<li><p><strong>Metric Computation</strong>: Post-simulation processing of recorded data</p></li>
-<li><p><strong>Result Aggregation</strong>: Combine multiple metrics into evaluation reports</p></li>
-</ul>
-</dd>
-</dl>
-</section>
-<section id="environment-integration">
-<h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Metric collection during environment execution</span>
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">arena_environment</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
-<span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>  <span class="c1"># Metrics auto-configured from task</span>
-
-<span class="c1"># Execute episodes with automatic recording</span>
-<span class="k">for</span> <span class="n">episode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
-    <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-    <span class="n">done</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="k">while</span> <span class="ow">not</span> <span class="n">done</span><span class="p">:</span>
-        <span class="n">actions</span> <span class="o">=</span> <span class="n">policy</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
-        <span class="n">obs</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
-        <span class="n">done</span> <span class="o">=</span> <span class="n">terminated</span> <span class="ow">or</span> <span class="n">truncated</span>
-
-<span class="c1"># Compute final performance indicators</span>
-<span class="n">metrics_results</span> <span class="o">=</span> <span class="n">compute_metrics</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<p><strong>Task-Specific Metrics</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Pick and place evaluation</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
-<span class="n">metrics</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>  <span class="c1"># [SuccessRateMetric(), ObjectMovedRateMetric()]</span>
-
-<span class="c1"># Door opening evaluation</span>
-<span class="n">task</span> <span class="o">=</span> <span class="n">OpenDoorTask</span><span class="p">(</span><span class="n">microwave</span><span class="p">,</span> <span class="n">openness_threshold</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
-<span class="n">metrics</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>  <span class="c1"># [SuccessRateMetric(), DoorMovedRateMetric()]</span>
-</pre></div>
-</div>
-<p><strong>Results Analysis</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Performance evaluation across environments</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Success Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;success_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Object Moved Rate: </span><span class="si">{</span><span class="n">metrics_results</span><span class="p">[</span><span class="s1">&#39;object_moved_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
 </section>
 
 
@@ -544,20 +461,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="concept_scene_design.html"
+       href="concept_tasks_design.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Scene Design</p>
+        <p class="prev-next-title">Tasks Design</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_teleop_devices_design.html"
+       href="concept_scene_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Teleop Devices Design</p>
+        <p class="prev-next-title">Scene Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -568,28 +485,9 @@
             
             
 
-
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+<div class="bd-sidebar-secondary"></div>
 
 
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-architecture">Core Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics-in-detail">Metrics in Detail</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-integration">Environment Integration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
 
