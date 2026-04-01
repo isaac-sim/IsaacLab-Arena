@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class _Candidate:
-    """A single placement candidate produced by the solver."""
+class PlacementCandidate:
+    """A single solver result, ranked and selected in ObjectPlacer.place()."""
 
     loss: float
     """Loss value returned by the solver."""
@@ -129,35 +129,35 @@ class ObjectPlacer:
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
 
-        all_candidates: list[_Candidate] = []
+        all_candidates: list[PlacementCandidate] = []
         for idx in range(num_candidates):
             loss = all_losses[idx]
             is_valid = self._validate_placement(all_positions[idx])
-            all_candidates.append(_Candidate(loss, all_positions[idx], is_valid))
+            all_candidates.append(PlacementCandidate(loss, all_positions[idx], is_valid))
 
         # Sort: valid solutions first (by loss), then invalid (by loss)
-        all_candidates.sort(key=lambda c: (not c.is_valid, c.loss))
+        all_candidates.sort(key=lambda candidate: (not candidate.is_valid, candidate.loss))
         selected = all_candidates[:num_results]
 
-        n_valid = sum(1 for c in selected if c.is_valid)
+        n_valid = sum(1 for candidate in selected if candidate.is_valid)
         if self.params.verbose:
-            total_valid = sum(1 for c in all_candidates if c.is_valid)
-            finite_losses = [c.loss for c in all_candidates if math.isfinite(c.loss)]
+            total_valid = sum(1 for candidate in all_candidates if candidate.is_valid)
+            finite_losses = [candidate.loss for candidate in all_candidates if math.isfinite(candidate.loss)]
             mean_loss = sum(finite_losses) / len(finite_losses) if finite_losses else float("inf")
             print(
                 f"Solved {num_candidates} candidates in one batch: mean loss = {mean_loss:.6f},"
                 f" {total_valid} valid, selected best {num_results} ({n_valid} valid)"
             )
 
-        final_per_env: list[dict] = [c.positions for c in selected]
+        final_per_env: list[dict] = [candidate.positions for candidate in selected]
         results_per_env = [
             PlacementResult(
-                success=c.is_valid,
-                positions=c.positions,
-                final_loss=c.loss,
+                success=candidate.is_valid,
+                positions=candidate.positions,
+                final_loss=candidate.loss,
                 attempts=self.params.max_placement_attempts,
             )
-            for c in selected
+            for candidate in selected
         ]
 
         if self.params.apply_positions_to_objects:
