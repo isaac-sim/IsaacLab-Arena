@@ -30,7 +30,8 @@ Devices are automatically discovered through decorator-based registration and pr
 For XR teleoperation, the ``OpenXRCfg`` device produces an ``IsaacTeleopCfg`` that
 references a **pipeline builder** -- a callable that constructs an ``isaacteleop``
 retargeting pipeline graph. This pipeline converts XR tracking data (hand poses,
-controller inputs) into robot action tensors.
+controller inputs) into robot action tensors. ``OpenXRCfg.get_device_cfg`` raises
+``ValueError`` if no pipeline builder is provided.
 
 .. code-block:: python
 
@@ -38,7 +39,7 @@ controller inputs) into robot action tensors.
    class OpenXRCfg(TeleopDeviceBase):
        name = "openxr"
 
-       def get_device_cfg(self, pipeline_builder=None, embodiment=None):
+       def get_device_cfg(self, pipeline_builder=None, embodiment=None) -> IsaacTeleopCfg:
            return IsaacTeleopCfg(
                pipeline_builder=pipeline_builder,
                xr_cfg=embodiment.get_xr_cfg(),
@@ -77,7 +78,7 @@ Environment Integration
        embodiment=embodiment,
        scene=scene,
        task=task,
-       teleop_device=teleop_device  # Optional human control interface
+       teleop_device=teleop_device,  # Optional human control interface
    )
 
    # Automatic device configuration and integration
@@ -95,18 +96,18 @@ Usage Examples
 .. code-block:: bash
 
    # Basic keyboard control
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --teleop_device keyboard kitchen_pick_and_place
+   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit --teleop_device keyboard kitchen_pick_and_place
 
 **SpaceMouse Control**
 
 .. code-block:: bash
 
    # Precise manipulation with SpaceMouse
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --teleop_device spacemouse kitchen_pick_and_place --sensitivity 2.0
+   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit--teleop_device spacemouse kitchen_pick_and_place --sensitivity 2.0
 
 **Hand Tracking**
 
 .. code-block:: bash
 
    # XR hand tracking for humanoid control (requires CloudXR runtime via Isaac Teleop)
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --teleop_device avp_handtracking gr1_open_microwave
+   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit --teleop_device openxr gr1_open_microwave
