@@ -49,6 +49,9 @@ if [ ! -e "$WORKDIR/submodules/IsaacLab/_isaac_sim" ]; then
     ln -s /isaac-sim/ "$WORKDIR/submodules/IsaacLab/_isaac_sim"
 fi
 
+# Export GROOT_DEPS_DIR when GR00T was installed (INSTALL_GROOT=true)
+[ -f /etc/profile.d/groot_deps.sh ] && set -a && source /etc/profile.d/groot_deps.sh && set +a
+
 # Run the passed command or just start the shell as the created user
 if [ $# -ge 1 ]; then
     echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/aliasess.bashrc

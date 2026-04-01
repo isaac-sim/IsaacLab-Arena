@@ -6,6 +6,9 @@
 import os
 import torch
 import tqdm
+import traceback
+
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -43,11 +46,12 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     cracker_box.set_initial_pose(
         Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
-            rotation_wxyz=(1, 0, 0, 0),
+            rotation_xyzw=(0, 0, 0, 1),
         )
     )
 
     scene = Scene(assets=[background, cracker_box, destination_location])
+    # scene = Scene(assets=[background, cracker_box])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
@@ -75,9 +79,9 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 # Get the force on the pick up object.
-                forces_vec.append(sensor.data.net_forces_w.clone())
-                force_matrix_vec.append(sensor.data.force_matrix_w.clone())
-                velocities_vec.append(env.unwrapped.scene[cracker_box.name].data.root_lin_vel_w.clone())
+                forces_vec.append(wp.to_torch(sensor.data.net_forces_w))
+                force_matrix_vec.append(wp.to_torch(sensor.data.force_matrix_w))
+                velocities_vec.append(wp.to_torch(env.unwrapped.scene[cracker_box.name].data.root_lin_vel_w))
 
                 # Try the termination.
                 condition_met_vec.append(
@@ -91,6 +95,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

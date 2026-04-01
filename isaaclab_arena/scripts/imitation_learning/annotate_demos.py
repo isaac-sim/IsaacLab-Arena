@@ -36,13 +36,6 @@ parser.add_argument(
     help="File name of the annotated output dataset file.",
 )
 parser.add_argument("--auto", action="store_true", default=False, help="Automatically annotate subtasks.")
-parser.add_argument(
-    "--enable_pinocchio",
-    action="store_true",
-    default=False,
-    help="Enable Pinocchio.",
-)
-
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -50,11 +43,6 @@ add_example_environments_cli_args(parser)
 
 # parse the arguments
 args_cli = parser.parse_args()
-
-if args_cli.enable_pinocchio:
-    # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and not the one installed by Isaac Sim
-    # pinocchio is required by the Pink IK controllers and the GR1T2 retargeter
-    import pinocchio  # noqa: F401
 
 # launch the simulator
 app_launcher = AppLauncher(args_cli)
@@ -69,9 +57,6 @@ import torch
 import isaaclab_mimic.envs  # noqa: F401
 
 # Imports have to follow simulation startup.
-
-if args_cli.enable_pinocchio:
-    import isaaclab_mimic.envs.pinocchio_envs  # noqa: F401
 
 # Only enables inputs if this script is NOT headless mode
 if not args_cli.headless and not os.environ.get("HEADLESS", 0):

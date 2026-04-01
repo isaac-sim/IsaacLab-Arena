@@ -10,8 +10,10 @@ import argparse
 import gymnasium as gym
 import torch
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
+from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena.policy.action_chunking import ActionChunkingState
@@ -27,7 +29,12 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     load_gr00t_joint_configs,
     load_gr00t_policy_from_config,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+from isaaclab_arena_gr00t.utils.eagle_config_compat import apply_eagle_config_compat
+from isaaclab_arena_gr00t.utils.io_utils import (
+    create_config_from_yaml,
+    load_gr00t_modality_config_from_file,
+    load_robot_joints_config_from_yaml,
+)
 
 
 @dataclass
@@ -137,9 +144,32 @@ class Gr00tClosedloopPolicy(PolicyBase):
         )
         return parser
 
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
+    def load_policy_joints_config(self, policy_config_path: Path) -> dict[str, Any]:
+        """Load the GR00T policy joint config from the data config."""
+        return load_robot_joints_config_from_yaml(policy_config_path)
+
+    def load_sim_state_joints_config(self, state_config_path: Path) -> dict[str, Any]:
+        """Load the simulation state joint config from the data config."""
+        return load_robot_joints_config_from_yaml(state_config_path)
+
+    def load_sim_action_joints_config(self, action_config_path: Path) -> dict[str, Any]:
+        """Load the simulation action joint config from the data config."""
+        return load_robot_joints_config_from_yaml(action_config_path)
+
+    def load_policy(self) -> Gr00tPolicy:
+        """Load the dataset, whose iterator will be used as the policy."""
+        assert Path(
+            self.policy_config.model_path
+        ).exists(), f"Dataset path {self.policy_config.dataset_path} does not exist"
+
+        apply_eagle_config_compat()
+
+        return Gr00tPolicy(
+            model_path=self.policy_config.model_path,
+            embodiment_tag=EmbodimentTag[self.policy_config.embodiment_tag],
+            device=self.device,
+            strict=True,
+        )
 
     def set_task_description(self, task_description: str | None) -> str:
         """Set the language instruction of the task being evaluated."""

@@ -6,6 +6,9 @@
 import numpy as np
 import torch
 import tqdm
+import traceback
+
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -32,8 +35,8 @@ def _test_robot_initial_position(simulation_app):
 
     robot_init_position = (-0.2, 0.0, 0.0)
 
-    cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    embodiment.set_initial_pose(Pose(position_xyz=robot_init_position, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    embodiment.set_initial_pose(Pose(position_xyz=robot_init_position, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     scene = Scene(assets=[background, cracker_box])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -56,7 +59,7 @@ def _test_robot_initial_position(simulation_app):
                 env.step(actions)
 
         # Check the robot ended up at the correct position.
-        robot_position = env.unwrapped.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        robot_position = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, :3].cpu().numpy()
         robot_position_error = np.linalg.norm(robot_position - np.array(robot_init_position))
         print(f"Robot position error: {robot_position_error}")
         assert robot_position_error < INITIAL_POSITION_EPS, "Robot ended up at the wrong position."
@@ -70,6 +73,7 @@ def _test_robot_initial_position(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

@@ -22,6 +22,8 @@ RUN chmod +x /tmp/install_gr00t_deps.sh && \
     rm -f /tmp/install_gr00t_deps.sh
 
 RUN pip install --no-cache-dir --upgrade "opencv-python-headless==4.8.0.74"
+# GN1.6 uses termcolor 3.2.0
+RUN pip install --no-cache-dir termcolor==3.2.0
 
 COPY isaaclab_arena/remote_policy ${WORKDIR}/isaaclab_arena/remote_policy
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
@@ -30,5 +32,7 @@ COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 RUN pip install --no-cache-dir pyzmq msgpack
 
 ENV PYTHONPATH=${WORKDIR}
+# So gr00t_remote_policy loads transformers/tokenizers from GR00T deps (e.g. tokenizers 0.21.x) not system site-packages.
+ENV GROOT_DEPS_DIR=/opt/groot_deps
 
 ENTRYPOINT ["python", "-u", "-m", "isaaclab_arena.remote_policy.remote_policy_server_runner"]

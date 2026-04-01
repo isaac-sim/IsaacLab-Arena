@@ -5,6 +5,9 @@
 
 import torch
 import tqdm
+import traceback
+
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -62,8 +65,8 @@ def _test_set_object_pose_per_env_event(simulation_app):
     # - from: constant per env,
     # - to: per env pose
     pose_list = [
-        Pose(position_xyz=(0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
-        Pose(position_xyz=(0.4, 0.4, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
+        Pose(position_xyz=(0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        Pose(position_xyz=(0.4, 0.4, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     ]
     env_cfg.events.reset_pick_up_object_pose = EventTermCfg(
         func=set_object_pose_per_env,
@@ -102,6 +105,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -140,7 +144,7 @@ def _test_object_moves_with_initial_velocity(simulation_app):
     sphere = asset_registry.get_asset_by_name("sphere")(spawner_cfg=no_gravity_cfg)
 
     initial_velocity = Velocity(linear_xyz=(-0.5, 0.0, 0.0))  # There is a wall in +x
-    sphere.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.5), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    sphere.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.5), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     sphere.set_initial_velocity(initial_velocity)
 
     scene = Scene(assets=[sphere])
@@ -156,7 +160,7 @@ def _test_object_moves_with_initial_velocity(simulation_app):
     env.reset()
 
     try:
-        initial_position = env.unwrapped.scene[sphere.name].data.root_pose_w[0, :3].clone()
+        initial_position = wp.to_torch(env.unwrapped.scene[sphere.name].data.root_pose_w)[0, :3].clone()
         initial_position[:3] -= env.unwrapped.scene.env_origins[0]
 
         for _ in tqdm.tqdm(range(NUM_STEPS)):
@@ -164,8 +168,12 @@ def _test_object_moves_with_initial_velocity(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        final_position = env.unwrapped.scene[sphere.name].data.root_pose_w[0, :3].clone()
+        final_position = wp.to_torch(env.unwrapped.scene[sphere.name].data.root_pose_w)[0, :3].clone()
         final_position[:3] -= env.unwrapped.scene.env_origins[0]
+
+        print(f"Initial position: {initial_position}")
+        print(f"Final position: {final_position}")
+
         displacement = final_position - initial_position
         assert (
             displacement[0].item() < -OBJECT_VELOCITY_MIN_DISPLACEMENT  # - x because initial velocity is in -x
@@ -173,6 +181,9 @@ def _test_object_moves_with_initial_velocity(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+
+        traceback.print_exc()
         return False
 
     finally:

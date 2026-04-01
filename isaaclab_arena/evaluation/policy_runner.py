@@ -16,6 +16,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
@@ -84,6 +85,7 @@ def rollout_policy(
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
+
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
                     print(
@@ -114,6 +116,7 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
+
         # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
@@ -214,4 +217,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
+    ensure_groot_deps_in_path()
     main()

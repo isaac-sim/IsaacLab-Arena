@@ -68,7 +68,7 @@ def run_isaac_sim_no_collision_demo(
     tabletop_reference.add_relation(IsAnchor())
 
     # Same initial pose for all three so they start overlapping; solver runs after reset.
-    same_pose = Pose(position_xyz=(0.0, 0.0, 0.77), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    same_pose = Pose(position_xyz=(0.0, 0.0, 0.77), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     cracker_box.add_relation(On(tabletop_reference, clearance_m=0.02))

@@ -6,8 +6,15 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 from dataclasses import dataclass
 from typing import Any
+
+# Same as local (Isaac Sim): GR00T deps appended via .pth; do not prepend so system packages (numpy, cv2, tokenizers 0.21) are used first.
+_GROOT_DEPS_DIR = os.environ.get("GROOT_DEPS_DIR")
+if _GROOT_DEPS_DIR and _GROOT_DEPS_DIR not in sys.path:
+    sys.path.append(_GROOT_DEPS_DIR)
 
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 

@@ -6,8 +6,6 @@
 import torch
 from dataclasses import dataclass
 
-from isaaclab.utils.math import matrix_from_quat, quat_from_euler_xyz, quat_from_matrix
-
 
 @dataclass
 class Pose:
@@ -22,23 +20,23 @@ class Pose:
     position_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
     """Translation vector from frame A to frame B."""
 
-    rotation_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    """Quaternion from frame A to frame B. Order is (w, x, y, z)."""
+    rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
+    """Quaternion from frame A to frame B. Order is (x, y, z, w)."""
 
     def __post_init__(self):
         assert isinstance(self.position_xyz, tuple)
-        assert isinstance(self.rotation_wxyz, tuple)
+        assert isinstance(self.rotation_xyzw, tuple)
         assert len(self.position_xyz) == 3
-        assert len(self.rotation_wxyz) == 4
+        assert len(self.rotation_xyzw) == 4
 
     @staticmethod
     def identity() -> "Pose":
-        return Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+        return Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     def to_tensor(self, device: torch.device) -> torch.Tensor:
         """Convert the pose to a tensor.
 
-        The returned tensor has shape (1, 7), and is of the order (x, y, z, qw, qx, qy, qz).
+        The returned tensor has shape (1, 7), and is of the order (x, y, z, qx, qy, qz, qw).
 
         Args:
             device: The device to convert the tensor to.
@@ -47,7 +45,7 @@ class Pose:
             The pose as a tensor of shape (1, 7).
         """
         position_tensor = torch.tensor(self.position_xyz, device=device)
-        rotation_tensor = torch.tensor(self.rotation_wxyz, device=device)
+        rotation_tensor = torch.tensor(self.rotation_xyzw, device=device)
         return torch.cat([position_tensor, rotation_tensor])
 
     def multiply(self, other: "Pose") -> "Pose":
@@ -64,14 +62,16 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     Returns:
         The pose taking points from A to C.
     """
-    R_B_A = matrix_from_quat(torch.tensor(T_B_A.rotation_wxyz))
-    R_C_B = matrix_from_quat(torch.tensor(T_C_B.rotation_wxyz))
+    from isaaclab.utils.math import matrix_from_quat, quat_from_matrix
+
+    R_B_A = matrix_from_quat(torch.tensor(T_B_A.rotation_xyzw))
+    R_C_B = matrix_from_quat(torch.tensor(T_C_B.rotation_xyzw))
     # Compose the rotations
     R_C_A = R_C_B @ R_B_A
     q_C_A = quat_from_matrix(R_C_A)
     # Compose the translations
     t_C_A = R_C_B @ torch.tensor(T_B_A.position_xyz) + torch.tensor(T_C_B.position_xyz)
-    return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_wxyz=tuple(q_C_A.tolist()))
+    return Pose(position_xyz=tuple(t_C_A.tolist()), rotation_xyzw=tuple(q_C_A.tolist()))
 
 
 @dataclass
@@ -101,6 +101,8 @@ class PoseRange:
         }
 
     def get_midpoint(self) -> Pose:
+        from isaaclab.utils.math import quat_from_euler_xyz
+
         roll = torch.tensor((self.rpy_min[0] + self.rpy_max[0]) / 2)
         pitch = torch.tensor((self.rpy_min[1] + self.rpy_max[1]) / 2)
         yaw = torch.tensor((self.rpy_min[2] + self.rpy_max[2]) / 2)
@@ -112,5 +114,5 @@ class PoseRange:
         ])
         return Pose(
             position_xyz=tuple(position_xyz.tolist()),
-            rotation_wxyz=tuple(quat.tolist()),
+            rotation_xyzw=tuple(quat.tolist()),
         )

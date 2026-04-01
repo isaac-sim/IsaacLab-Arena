@@ -211,14 +211,14 @@ class AxisAlignedBoundingBox:
             )
 
 
-def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
+def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
     """Convert a quaternion to 90° rotation quarters around Z axis.
 
     Only supports rotations that are multiples of 90° around the Z axis.
     Raises AssertionError for any other rotation.
 
     Args:
-        rotation_wxyz: Quaternion as (w, x, y, z).
+        rotation_xyzw: Quaternion as (x, y, z, w).
         tol_deg: Tolerance in degrees for how close the angle must be to a 90° multiple.
 
     Returns:
@@ -229,7 +229,7 @@ def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, fl
     """
     import math
 
-    w, x, y, z = rotation_wxyz
+    x, y, z, w = rotation_xyzw
 
     # Must be a pure Z rotation (x and y components must be ~0)
     assert (
@@ -271,7 +271,6 @@ def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int 
     # random_position = min + (max - min) * rand
     random_position = min_point + (max_point - min_point) * torch.rand(3)
 
-    # Create pose with random position and identity rotation (w=1, x=0, y=0, z=0)
-    pose = Pose(position_xyz=tuple(random_position.tolist()), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    pose = Pose(position_xyz=tuple(random_position.tolist()), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     return pose

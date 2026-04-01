@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import sys
 import yaml
 
 import pytest
@@ -63,7 +65,10 @@ def gr00t_finetuned_model_path(tmp_path_factory):
     args.append("--color_jitter_params")
     # Tyro expects key-value pairs as separate arguments
     args.extend(["brightness", "0.3", "contrast", "0.4", "saturation", "0.5", "hue", "0.08"])
-    run_subprocess(args)
+    env = os.environ.copy()
+    if os.environ.get("GROOT_DEPS_DIR"):
+        env["PYTHONPATH"] = os.environ["GROOT_DEPS_DIR"] + os.pathsep + env.get("PYTHONPATH", "")
+    run_subprocess(args, env=env)
 
     return model_dir / "checkpoint-10"
 
@@ -171,6 +176,7 @@ def _run_gr00t_closedloop_policy(
         return False
 
 
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
@@ -192,6 +198,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_single_env(gr00t_finetuned_
     assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_single_env failed"
 
 
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_model_path, tmp_path):
     # Write a new temporary config file with the finetuned model path.
     default_config_file = (
@@ -213,6 +220,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs failed"
 
 
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned_model_path, tmp_path):
     """Test eval_runner including a G00T closedloop policy and a zero action policy."""
 
@@ -257,6 +265,4 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
 
 if __name__ == "__main__":
     # These tests require pytest fixtures, run with: pytest -sv isaaclab_arena_gr00t/tests/test_gr00t_closedloop_policy.py
-    import sys
-
     sys.exit("Run these tests with pytest, not directly.")

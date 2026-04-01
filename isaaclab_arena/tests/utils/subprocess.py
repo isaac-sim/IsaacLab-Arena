@@ -7,6 +7,7 @@ import atexit
 import os
 import subprocess
 import sys
+import traceback
 from collections.abc import Callable
 
 from isaaclab.app import AppLauncher
@@ -16,12 +17,23 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.tests.conftest import PYTEST_SESSION
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
 
+# NOTE(alexmillane): Isaac Sim makes testing complicated. During shutdown Isaac Sim will
+# terminate the surrounding pytest process with exit code 0, regardless
+# of whether the tests passed or failed.
+# To work around this, we track the failure state of the tests in two ways:
+# 1. We stash the pytest session object and set a flag when a test fails.
+# 2. We set a flag when a test fails.
+# These flags are checked in prior to closing the simulation app in _close_persistent(),
+# and we manually exit the process with the exit code 1 if tests have failed.
+
 _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
+_AT_LEAST_ONE_TEST_FAILED = False
 
 
 def run_subprocess(cmd, env=None):
     print(f"Running command: {cmd}")
+    global _AT_LEAST_ONE_TEST_FAILED
     try:
         result = subprocess.run(
             cmd,
@@ -37,6 +49,7 @@ def run_subprocess(cmd, env=None):
         print(f"Command completed with return code: {result.returncode}")
     except subprocess.CalledProcessError as e:
         sys.stderr.write(f"Command failed with return code {e.returncode}: {e}\n")
+        _AT_LEAST_ONE_TEST_FAILED = True
         raise e
 
 
@@ -56,18 +69,13 @@ class _IsolatedArgv:
         sys.argv = self._old
 
 
-# Isaac Sim makes testing complicated. During shutdown Isaac Sim will
-# terminate the surrounding pytest process with exit code 0, regardless
-# of whether the tests passed or failed.
-# To work around this, we stash the session object and set a flag
-# when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
-# prior to closing the simulation app, in order to generate the correct exit code.
-
-
 def _close_persistent():
     global _PERSISTENT_SIM_APP_LAUNCHER
+    global _AT_LEAST_ONE_TEST_FAILED
     if _PERSISTENT_SIM_APP_LAUNCHER is not None:
-        if PYTEST_SESSION.tests_failed:
+        tests_failed = PYTEST_SESSION.tests_failed or _AT_LEAST_ONE_TEST_FAILED
+        print(f"Closing persistent simulation app. Tests failed: {tests_failed}")
+        if tests_failed:
             # If any test failed, exit the process with exit code 1
             # to prevent Isaac Sim from terminating the pytest process with exit code 0.
             sys.stdout.flush()
@@ -77,9 +85,7 @@ def _close_persistent():
             _PERSISTENT_SIM_APP_LAUNCHER.app.close()
 
 
-def get_persistent_simulation_app(
-    headless: bool, enable_cameras: bool = False, enable_pinocchio: bool = True
-) -> SimulationApp:
+def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) -> SimulationApp:
     """Create once, reuse forever (until process exit)."""
     global _PERSISTENT_SIM_APP_LAUNCHER, _PERSISTENT_INIT_ARGS
     # Create a new simulation app if it doesn't exist
@@ -88,7 +94,8 @@ def get_persistent_simulation_app(
         simulation_app_args = parser.parse_args([])
         simulation_app_args.headless = headless
         simulation_app_args.enable_cameras = enable_cameras
-        simulation_app_args.enable_pinocchio = enable_pinocchio
+        if not headless:
+            simulation_app_args.visualizer = ["kit"]
         with _IsolatedArgv([]):
 
             app_launcher = get_app_launcher(simulation_app_args)
@@ -112,7 +119,6 @@ def run_simulation_app_function(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
-    enable_pinocchio: bool = True,
     **kwargs,
 ) -> bool:
     """Run a simulation app in a separate process.
@@ -132,14 +138,15 @@ def run_simulation_app_function(
     # Get a persistent simulation app
     global _AT_LEAST_ONE_TEST_FAILED
     try:
-        simulation_app = get_persistent_simulation_app(
-            headless=headless, enable_cameras=enable_cameras, enable_pinocchio=enable_pinocchio
-        )
+        simulation_app = get_persistent_simulation_app(headless=headless, enable_cameras=enable_cameras)
         test_result = bool(function(simulation_app, **kwargs))
+        if not test_result:
+            _AT_LEAST_ONE_TEST_FAILED = True
         return test_result
     except Exception as e:
         print(f"Exception occurred while running the function (persistent mode): {e}")
+        traceback.print_exc()
         return False
     finally:
         # **Always** clean up the SimulationContext/timeline between tests
-        teardown_simulation_app(suppress_exceptions=True, make_new_stage=True)
+        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)

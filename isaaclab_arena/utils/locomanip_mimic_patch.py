@@ -7,6 +7,7 @@ import asyncio
 import copy
 import torch
 
+import warp as wp
 from isaaclab.envs import SubTaskConstraintType
 from isaaclab.managers import TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
@@ -299,7 +300,7 @@ def patch_generate():  # noqa: C901
 
                 # Update visualization if motion planner is available
                 if motion_planner and motion_planner.visualize_spheres:
-                    current_joints = self.env.scene["robot"].data.joint_pos[env_id]
+                    current_joints = wp.to_torch(self.env.scene["robot"].data.joint_pos)[env_id]
                     motion_planner._update_visualization_at_joint_positions(current_joints)
 
                 eef_waypoint_dict[eef_name] = waypoint

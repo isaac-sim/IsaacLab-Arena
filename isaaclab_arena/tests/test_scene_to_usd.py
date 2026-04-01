@@ -26,9 +26,9 @@ def _test_scene_to_usd(simulation_app, output_path: pathlib.Path) -> bool:
     kitchen = asset_registry.get_asset_by_name("kitchen")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
-    kitchen_initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
+    kitchen_initial_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_xyzw=(0, 0, -0.70711, 0.70711))
     kitchen.set_initial_pose(kitchen_initial_pose)
-    cracker_box_initial_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    cracker_box_initial_pose = Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     cracker_box.set_initial_pose(cracker_box_initial_pose)
 
     # Composed scene
@@ -50,8 +50,8 @@ def _test_scene_to_usd(simulation_app, output_path: pathlib.Path) -> bool:
     }
 
     # Function to convert a pxr.Gf.Quatf to a numpy array
-    def to_numpy_q_wxyz(q_wxyz: Gf.Quatf) -> np.ndarray:
-        return np.array([q_wxyz.GetReal(), *q_wxyz.GetImaginary()])
+    def to_numpy_q_xyzw(q: Gf.Quatf) -> np.ndarray:
+        return np.array([*q.GetImaginary(), q.GetReal()])
 
     # Loop over all the prims and check that the scene was saved correctly
     assert len(root_prim.GetChildren()) == len(test_prim_names)
@@ -62,11 +62,11 @@ def _test_scene_to_usd(simulation_app, output_path: pathlib.Path) -> bool:
         prim_position = prim.GetAttribute("xformOp:translate").Get()
         prim_orientation = prim.GetAttribute("xformOp:orient").Get()
         assert np.linalg.norm(prim_position - test_prim_poses[prim_name].position_xyz) < EPS
-        assert np.linalg.norm(to_numpy_q_wxyz(prim_orientation) - test_prim_poses[prim_name].rotation_wxyz) < EPS
+        assert np.linalg.norm(to_numpy_q_xyzw(prim_orientation) - test_prim_poses[prim_name].rotation_xyzw) < EPS
         print(f"Prim {prim_name} position: {prim_position}")
-        print(f"Prim {prim_name} orientation: {to_numpy_q_wxyz(prim_orientation)}")
+        print(f"Prim {prim_name} orientation: {to_numpy_q_xyzw(prim_orientation)}")
         print(f"Prim {prim_name} expected position: {test_prim_poses[prim_name].position_xyz}")
-        print(f"Prim {prim_name} expected orientation: {test_prim_poses[prim_name].rotation_wxyz}")
+        print(f"Prim {prim_name} expected orientation: {test_prim_poses[prim_name].rotation_xyzw}")
 
     return True
 

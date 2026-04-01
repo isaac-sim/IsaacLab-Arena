@@ -93,6 +93,9 @@ class EmbodimentBase(Asset):
     def get_xr_cfg(self) -> Any:
         return self.xr
 
+    def get_teleop_target_frame_prim_path(self) -> str | None:
+        """Optional USD prim path for rebasing teleop poses (e.g. robot base link). Returns None if not set."""
+
     def get_camera_cfg(self) -> Any:
         return self.camera_config
 
@@ -100,7 +103,7 @@ class EmbodimentBase(Asset):
         if scene_config is None or not hasattr(scene_config, "robot"):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
         scene_config.robot.init_state.pos = pose.position_xyz
-        scene_config.robot.init_state.rot = pose.rotation_wxyz
+        scene_config.robot.init_state.rot = pose.rotation_xyzw
         return scene_config
 
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
