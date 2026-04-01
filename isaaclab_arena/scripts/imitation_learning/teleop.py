@@ -49,6 +49,7 @@ import isaaclab_tasks  # noqa: F401
 import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
+from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
 from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
@@ -155,7 +156,7 @@ def main() -> None:
         # Always active for other devices
         teleoperation_active = True
 
-    # Create teleop device from config if present, otherwise create manually
+    # Create teleop device: IsaacTeleop (XR) > env_cfg.teleop_devices > hardcoded fallback
     teleop_interface = None
     try:
         if hasattr(env_cfg, "isaac_teleop") and isinstance(env_cfg.isaac_teleop, IsaacTeleopCfg):
@@ -164,9 +165,12 @@ def main() -> None:
                 sim_device=str(env.device),
                 callbacks=teleoperation_callbacks,
             )
+        elif hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
+            teleop_interface = create_teleop_device(
+                args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
+            )
         else:
             omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
-            # Create fallback teleop device
             sensitivity = args_cli.sensitivity
             if args_cli.teleop_device.lower() == "keyboard":
                 teleop_interface = Se3Keyboard(
