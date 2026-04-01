@@ -69,6 +69,50 @@ Each evaluation is run without restarting Isaac Sim to save on the startup time.
    9 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment — each cell varies the
    pick-up object, background HDR, and destination.
 
+At the end of the run you will see a job summary table followed by a metrics report:
+
+.. code-block:: text
+
+   +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
+   |                Job Name               |   Status  | Policy  | Num Envs | Num Steps | Num Episodes |
+   +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
+   |   droid_pnp_srl_gr00t_billiard_hall   | completed | Gr00t.. |    1     |    None   |      3       |
+   |     droid_pnp_srl_gr00t_blue_block    | completed | Gr00t.. |    1     |    None   |      3       |
+   | droid_pnp_srl_gr00t_alphabet_soup_can | completed | Gr00t.. |    1     |    None   |      3       |
+   |       droid_pnp_srl_gr00t_orange      | completed | Gr00t.. |    1     |    None   |      3       |
+   |       droid_pnp_srl_gr00t_lemon       | completed | Gr00t.. |    1     |    None   |      3       |
+   |  droid_pnp_srl_gr00t_tomato_sauce_can | completed | Gr00t.. |    1     |    None   |      3       |
+   |   droid_pnp_srl_gr00t_mustard_bottle  | completed | Gr00t.. |    1     |    None   |      3       |
+   |     droid_pnp_srl_gr00t_sugar_box     | completed | Gr00t.. |    1     |    None   |      3       |
+   |        droid_pnp_srl_gr00t_mug        | completed | Gr00t.. |    1     |    None   |      3       |
+   +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
+
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   droid_pnp_srl_gr00t_alphabet_soup_can:
+     num_episodes                            3
+     object_moved_rate                  0.0000
+     success_rate                       0.0000
+
+   droid_pnp_srl_gr00t_lemon:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       0.6667
+
+   droid_pnp_srl_gr00t_billiard_hall:
+     num_episodes                            3
+     object_moved_rate                  0.3333
+     success_rate                       0.0000
+
+   droid_pnp_srl_gr00t_blue_block:
+     num_episodes                            3
+     object_moved_rate                  0.0000
+     success_rate                       0.0000
+
+   ...
+
 
 .. _Next Steps:
 
