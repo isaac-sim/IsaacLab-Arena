@@ -222,6 +222,7 @@ class LiftObjectTaskRL(LiftObjectTask):
             func=lift_object_rl_success,
             params={
                 "object_cfg": SceneEntityCfg(self.lift_object.name),
+                "robot_cfg": SceneEntityCfg(self.embodiment.get_embodiment_name_in_scene()),
                 "rl_training": self.rl_training_mode,
                 "command_name": "object_pose",
                 "position_tolerance": self.goal_position_tolerance,
