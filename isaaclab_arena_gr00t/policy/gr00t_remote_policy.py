@@ -184,6 +184,11 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
     def set_task_description(self, task_description: str | None) -> dict[str, Any]:
         if task_description is None:
             task_description = self.policy_config.language_instruction
+        if not task_description:
+            raise ValueError(
+                "No language instruction provided. Set 'language_instruction' in the job config, "
+                "pass --language_instruction on the CLI, or define 'task_description' on the task class."
+            )
         self._task_description = task_description
         return {"status": "ok"}
 
