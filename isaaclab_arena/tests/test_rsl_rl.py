@@ -36,6 +36,8 @@ def run_rl_train(
         train_script,
         "--external_callback",
         "isaaclab_arena.environments.isaaclab_interop.environment_registration_callback",
+        "--visualizer",
+        "none",
         "--task",
         example_environment,
         "--num_envs",
