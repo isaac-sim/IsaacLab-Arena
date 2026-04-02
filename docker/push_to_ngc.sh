@@ -2,7 +2,7 @@
 set -e
 
 ISAACLAB_ARENA_IMAGE_NAME='isaaclab_arena'
-TAG_NAME=lab3
+TAG_NAME=latest
 CONTAINER_ID=""
 PUSH_TO_NGC=false
 INSTALL_GROOT="false"
@@ -18,7 +18,7 @@ while getopts ":t:gn:vn:pn:Rn:hn:" OPTION; do
             ;;
         g)
             INSTALL_GROOT="true"
-            TAG_NAME='lab3_cuda_gr00t_gn16'
+            TAG_NAME='cuda_gr00t_gn16'
             echo "INSTALL_GROOT is ${INSTALL_GROOT}."
             ;;
         v)

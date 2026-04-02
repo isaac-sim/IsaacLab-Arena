@@ -158,7 +158,7 @@ Step 3: Configure Lighting
 
 ``light`` is a dome light asset whose intensity is controlled by ``--light_intensity``. Passing
 ``--hdr`` wraps the dome light with an HDR environment map, simultaneously changing the background
-panorama and the ambient lighting. See :doc:`first_experiments` for an experiment where the HDR
+panorama and the ambient lighting. See :doc:`first_experiments/index` for an experiment where the HDR
 background is swapped out for a different ones.
 
 
@@ -261,6 +261,6 @@ duplicating environment code.
 Next Steps
 ----------
 
-Now that you understand how the environment is built, see :doc:`first_experiments` to run it and
+Now that you understand how the environment is built, see :doc:`first_experiments/index` to run it and
 evaluate a policy across object, lighting, and scale variations from the same environment
 definition, with no code changes.

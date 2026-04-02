@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 DOCKER_IMAGE_NAME='isaaclab_arena'
-DOCKER_VERSION_TAG='lab3'
+DOCKER_VERSION_TAG='latest'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -47,7 +47,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             ;;
         g)
             INSTALL_GROOT="true"
-            DOCKER_VERSION_TAG='cuda_gr00t_gn16_lab3'
+            DOCKER_VERSION_TAG='cuda_gr00t_gn16'
             ;;
         h)
             script_name=$(basename "$0")
