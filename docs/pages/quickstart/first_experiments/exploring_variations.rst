@@ -131,8 +131,8 @@ across hundreds of object and scene combinations in a single run.
    :align: center
 
 
-Multi-Job Evaluation
----------------------
+Sequential Batch Evaluation
+---------------------------
 
 The four experiments above run one variation at a time. In practice, Arena is used to evaluate
 a policy across hundreds of object, scene, and embodiment combinations in a single run. The
