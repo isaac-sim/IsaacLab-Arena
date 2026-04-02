@@ -6,7 +6,8 @@
 """Arena example: Dexsuite Kuka Allegro **lift** with **Newton** physics.
 
 Matches the MDP of Isaac Lab ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` (state observations, joint actions):
-procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena.embodiments.kuka_allegro.kuka_allegro.KukaAllegroEmbodiment` with ``physics_preset="newton"``.
+procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena.embodiments.kuka_allegro.kuka_allegro.KukaAllegroEmbodiment`
+with Newton physics configured via the environment callback.
 
 **Play a checkpoint trained in Isaac Lab** (same PPO runner / obs groups)::
 
@@ -52,9 +53,7 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
-        embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")(
-            physics_preset="newton",
-        )
+        embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")()
 
         scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
         task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
@@ -68,13 +67,14 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg import (
                 KukaAllegroPhysicsCfg,
             )
+            from isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg import EventCfg
 
-            physics_cfg = KukaAllegroPhysicsCfg()
-            env_cfg.sim.physics = getattr(physics_cfg, embodiment.physics_preset, physics_cfg.default)
+            env_cfg.sim.physics = KukaAllegroPhysicsCfg().newton
             env_cfg.sim.dt = 1 / 120
             env_cfg.decimation = 2
             env_cfg.episode_length_s = 6.0
             env_cfg.is_finite_horizon = False
+            env_cfg.events = EventCfg()
             if hasattr(env_cfg, "scene") and env_cfg.scene is not None:
                 env_cfg.scene.replicate_physics = True
             return env_cfg

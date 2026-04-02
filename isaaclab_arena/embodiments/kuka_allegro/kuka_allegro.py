@@ -5,16 +5,13 @@
 
 """Kuka + Allegro embodiment for dexterous manipulation.
 
-Robot, fingertip contact sensors, relative joint actions, state observations,
-PhysX vs Newton event presets.
+Robot, fingertip contact sensors, relative joint actions, state observations.
 
 Scene geometry (object, table, ground, lights) is supplied by the Arena :class:`~isaaclab_arena.scene.scene.Scene`;
 this embodiment only adds the robot and sensors.
 """
 
 from __future__ import annotations
-
-from typing import Any, Literal
 
 from isaaclab.assets import ArticulationCfg
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -81,40 +78,15 @@ class KukaAllegroEmbodiment(EmbodimentBase):
 
     def __init__(
         self,
-        physics_preset: Literal["physx", "newton"] = "physx",
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = True,
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(False, initial_pose, concatenate_observation_terms, arm_mode)
-        self.physics_preset = physics_preset
 
         self.scene_config = KukaAllegroSceneCfg()
         self.action_config = kuka_dexsuite_cfg.KukaAllegroRelJointPosActionCfg()
         self.observation_config = KukaAllegroStateObservationCfg()
-        self._apply_concatenate_observation_terms(self.observation_config)
-
-        _event_presets = kuka_dexsuite_cfg.KukaAllegroEventCfg()
-        if physics_preset == "newton":
-            self.event_config = getattr(_event_presets, "newton", None)
-            if self.event_config is None:
-                self.event_config = dexsuite.EventCfg()
-        else:
-            self.event_config = _event_presets.default
-
-        self.reward_config = None
-        self.command_config = None
-        self.termination_cfg = None
-        self.curriculum_config = None
-        self.mimic_env = None
-        self.camera_config = None
-
-    def _apply_concatenate_observation_terms(self, obs_cfg: Any) -> None:
-        for field_name in ("policy", "proprio", "perception"):
-            if hasattr(obs_cfg, field_name):
-                grp = getattr(obs_cfg, field_name)
-                if hasattr(grp, "concatenate_terms"):
-                    grp.concatenate_terms = self.concatenate_observation_terms
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "palm_link"

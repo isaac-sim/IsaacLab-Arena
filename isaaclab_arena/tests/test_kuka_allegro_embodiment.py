@@ -34,7 +34,6 @@ def test_scene_cfg_has_robot_and_fingertip_contact_sensors() -> None:
 
 def test_embodiment_default_action_and_observation() -> None:
     emb = KukaAllegroEmbodiment()
-    assert emb.physics_preset == "physx"
     assert emb.concatenate_observation_terms is True
     assert emb.observation_config.policy.concatenate_terms is True
     assert emb.action_config.action.scale == 0.1
@@ -42,9 +41,4 @@ def test_embodiment_default_action_and_observation() -> None:
     assert emb.action_config.action.asset_name == "robot"
     assert hasattr(emb.observation_config, "proprio")
     assert hasattr(emb.observation_config.proprio, "contact")
-
-
-def test_embodiment_physx_vs_newton_events() -> None:
-    physx_emb = KukaAllegroEmbodiment(physics_preset="physx")
-    newton_emb = KukaAllegroEmbodiment(physics_preset="newton")
-    assert physx_emb.event_config is not newton_emb.event_config
+    assert emb.event_config is None
