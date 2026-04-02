@@ -21,8 +21,6 @@ The task subclasses :class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTas
 look-at-lift-object viewer helper as other Arena lift examples (Isaac Lab's stock task uses a fixed
 viewer pose instead).
 
-Use ``--enable_cameras`` (and optionally ``--duo_cameras``) if the policy was trained with vision presets.
-
 **Note:** Checkpoints from the stock Isaac Lab task are usually trained with **PhysX**; this example uses **Newton**,
 so replay quality may differ unless you train or fine-tune with Newton as well.
 """
@@ -54,13 +52,8 @@ class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
-        enable_cameras = getattr(args_cli, "enable_cameras", False)
-        duo_cameras = getattr(args_cli, "duo_cameras", False)
-
         embodiment = self.asset_registry.get_asset_by_name("kuka_allegro_dexsuite")(
             physics_preset="newton",
-            enable_cameras=enable_cameras,
-            duo_cameras=duo_cameras,
         )
 
         scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
@@ -83,9 +76,4 @@ class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--duo_cameras",
-            action="store_true",
-            default=False,
-            help="Use base+wrist cameras (Dexsuite duo layout). Match the checkpoint training preset.",
-        )
+        pass

@@ -7,11 +7,11 @@
 
 Aligned with
 :class:`isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg.KukaAllegroMixinCfg`:
-robot, fingertip contact sensors, relative joint actions, state or tiled-camera observations,
+robot, fingertip contact sensors, relative joint actions, state observations,
 PhysX vs Newton event presets, and Dexsuite simulation rates.
 
 Scene geometry (object, table, ground, lights) is supplied by the Arena :class:`~isaaclab_arena.scene.scene.Scene`;
-this embodiment only adds the robot and sensors (and optional cameras).
+this embodiment only adds the robot and sensors.
 """
 
 from __future__ import annotations
@@ -19,21 +19,14 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from isaaclab.assets import ArticulationCfg
-from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import ContactSensorCfg, TiledCameraCfg
+from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.noise import UniformNoiseCfg as Unoise
 from isaaclab_assets.robots import KUKA_ALLEGRO_CFG
 from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
 from isaaclab_tasks.manager_based.manipulation.dexsuite import mdp as dexsuite_mdp
 from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro import (
     dexsuite_kuka_allegro_env_cfg as kuka_dexsuite_cfg,
-)
-from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.camera_cfg import (
-    BaseTiledCameraCfg,
-    WristTiledCameraCfg,
 )
 
 from isaaclab_arena.assets.register import register_asset
@@ -69,44 +62,6 @@ class ArenaDexsuiteKukaStateObservationCfg(dexsuite.ObservationsCfg):
 
 
 @configclass
-class ArenaDexsuiteKukaSingleCameraObservationsCfg(ArenaDexsuiteKukaStateObservationCfg):
-    """Single-camera observations matching ``camera_cfg.SingleCameraObservationsCfg``."""
-
-    @configclass
-    class BaseImageObsCfg(ObsGroup):
-        object_observation_b = ObsTerm(
-            func=dexsuite_mdp.vision_camera,
-            noise=Unoise(n_min=-0.0, n_max=0.0),
-            clip=(-1.0, 1.0),
-            params={"sensor_cfg": SceneEntityCfg("base_camera")},
-        )
-
-    base_image: BaseImageObsCfg = BaseImageObsCfg()
-
-    def __post_init__(self) -> None:
-        ArenaDexsuiteKukaStateObservationCfg.__post_init__(self)
-        for group in self.__dataclass_fields__.values():
-            obs_group = getattr(self, group.name)
-            obs_group.history_length = None
-
-
-@configclass
-class ArenaDexsuiteKukaDuoCameraObservationsCfg(ArenaDexsuiteKukaSingleCameraObservationsCfg):
-    """Duo-camera observations matching ``camera_cfg.DuoCameraObservationsCfg``."""
-
-    @configclass
-    class WristImageObsCfg(ObsGroup):
-        wrist_observation = ObsTerm(
-            func=dexsuite_mdp.vision_camera,
-            noise=Unoise(n_min=-0.0, n_max=0.0),
-            clip=(-1.0, 1.0),
-            params={"sensor_cfg": SceneEntityCfg("wrist_camera")},
-        )
-
-    wrist_image: WristImageObsCfg = WristImageObsCfg()
-
-
-@configclass
 class DexsuiteKukaAllegroEmbodimentSceneCfg:
     """Robot and fingertip contact sensors (Dexsuite naming).
 
@@ -136,17 +91,9 @@ class DexsuiteKukaAllegroEmbodimentSceneCfg:
     )
 
 
-@configclass
-class KukaAllegroDexsuiteCameraSceneCfg:
-    """Tiled base camera and optional wrist camera (Dexsuite layouts)."""
-
-    base_camera: TiledCameraCfg = BaseTiledCameraCfg()
-    wrist_camera: TiledCameraCfg | None = None
-
-
 @register_asset
 class KukaAllegroDexsuiteEmbodiment(EmbodimentBase):
-    """Kuka Allegro for Dexsuite tasks: joint-space actions, contact-rich proprioception, optional RGB cameras."""
+    """Kuka Allegro for Dexsuite tasks: joint-space actions, contact-rich proprioception."""
 
     name = "kuka_allegro_dexsuite"
     default_arm_mode = ArmMode.SINGLE_ARM
@@ -154,21 +101,18 @@ class KukaAllegroDexsuiteEmbodiment(EmbodimentBase):
     def __init__(
         self,
         physics_preset: Literal["physx", "newton"] = "physx",
-        enable_cameras: bool = False,
-        duo_cameras: bool = False,
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = True,
         arm_mode: ArmMode | None = None,
     ):
         # Default ``True``: Dexsuite ``PolicyCfg`` / ``ProprioObsCfg`` use ``concatenate_terms=True`` in Isaac Lab;
         # RSL-RL MLPs require flat 1D-per-env vectors. ``False`` yields invalid shapes (e.g. ``torch.Size([1])``).
-        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(False, initial_pose, concatenate_observation_terms, arm_mode)
         self.physics_preset = physics_preset
-        self.duo_cameras = duo_cameras
 
         self.scene_config = DexsuiteKukaAllegroEmbodimentSceneCfg()
         self.action_config = kuka_dexsuite_cfg.KukaAllegroRelJointPosActionCfg()
-        self.observation_config = self._make_observation_cfg()
+        self.observation_config = ArenaDexsuiteKukaStateObservationCfg()
         self._apply_concatenate_observation_terms(self.observation_config)
 
         # ``PresetCfg`` subclasses (e.g. ``KukaAllegroEventCfg``) store presets as *instance* fields, not
@@ -188,23 +132,10 @@ class KukaAllegroDexsuiteEmbodiment(EmbodimentBase):
         self.termination_cfg = None
         self.curriculum_config = None
         self.mimic_env = None
-
-        if enable_cameras:
-            self.camera_config = KukaAllegroDexsuiteCameraSceneCfg()
-            if duo_cameras:
-                self.camera_config.wrist_camera = WristTiledCameraCfg()
-        else:
-            self.camera_config = None
-
-    def _make_observation_cfg(self) -> Any:
-        if self.enable_cameras:
-            if self.duo_cameras:
-                return ArenaDexsuiteKukaDuoCameraObservationsCfg()
-            return ArenaDexsuiteKukaSingleCameraObservationsCfg()
-        return ArenaDexsuiteKukaStateObservationCfg()
+        self.camera_config = None
 
     def _apply_concatenate_observation_terms(self, obs_cfg: Any) -> None:
-        for field_name in ("policy", "proprio", "perception", "base_image", "wrist_image"):
+        for field_name in ("policy", "proprio", "perception"):
             if hasattr(obs_cfg, field_name):
                 grp = getattr(obs_cfg, field_name)
                 if hasattr(grp, "concatenate_terms"):
