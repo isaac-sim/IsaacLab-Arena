@@ -95,8 +95,8 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
     assert abs(y - center_y) < 1e-6
 
 
-def test_no_on_relation_initializes_within_anchor_world_bbox():
-    """Object origin with no On relation is initialized randomly within the first anchor's world bbox."""
+def test_no_on_relation_initializes_at_anchor_center():
+    """Object with no On relation is initialized at the first anchor's center; solver handles placement."""
     desk = _make_desk()
     box = DummyObject(
         name="box",
@@ -109,10 +109,11 @@ def test_no_on_relation_initializes_within_anchor_world_bbox():
 
     x, y, z = positions[box]
     desk_world = desk.get_world_bounding_box()
+    center = desk_world.center
 
-    assert desk_world.min_point[0] <= x <= desk_world.max_point[0]
-    assert desk_world.min_point[1] <= y <= desk_world.max_point[1]
-    assert desk_world.min_point[2] <= z <= desk_world.max_point[2]
+    assert abs(x - center[0]) < 1e-6
+    assert abs(y - center[1]) < 1e-6
+    assert abs(z - center[2]) < 1e-6
 
 
 def test_on_non_anchor_parent_with_anchor_grandparent_uses_proxy():

@@ -132,9 +132,9 @@ class ObjectPlacer:
     ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
-        Anchors keep their current initial_pose. Non-anchors with an On relation are
-        initialized within the parent's footprint at the parent's top surface. All others
-        fall back to a random position within the first anchor's world bounding box.
+        Anchors keep their initial_pose. Objects with an On relation are initialized within
+        the parent's footprint at the correct Z height. All other objects start at the first
+        anchor's center; the solver handles their placement from there.
 
         Args:
             generator: Optional RNG generator for reproducible sampling. When None,
@@ -144,60 +144,56 @@ class ObjectPlacer:
             Dictionary mapping all objects to their starting positions.
         """
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
-        fallback_bbox = first_anchor.get_world_bounding_box()
+        anchor_bbox = first_anchor.get_world_bounding_box()
 
         positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
+            elif any(isinstance(r, On) for r in obj.get_relations()):
+                positions[obj] = self._compute_on_guided_position(obj, anchor_objects, anchor_bbox, generator)
             else:
-                positions[obj] = self._compute_on_init_position(obj, anchor_objects, fallback_bbox, generator)
+                positions[obj] = anchor_bbox.center  # no spatial guidance; solver handles placement
         return positions
 
     def _get_on_parent_world_bbox(
         self,
         parent: Object | ObjectReference,
         anchor_objects: set[Object | ObjectReference],
-        fallback_bbox: AxisAlignedBoundingBox,
+        anchor_bbox: AxisAlignedBoundingBox,
     ) -> AxisAlignedBoundingBox:
         """Resolve the world bbox of an On relation's parent for initialization purposes.
 
         If the parent is an anchor, return its world bbox directly.
         If the parent is a non-anchor with its own On(anchor) relation, use the anchor's
         world bbox as a proxy. Only one level of indirection is resolved; deeper chains
-        fall back to fallback_bbox. Otherwise fall back to the provided fallback bbox.
+        fall back to anchor_bbox. Otherwise fall back to anchor_bbox.
         """
         if parent in anchor_objects:
             return parent.get_world_bounding_box()
         for rel in parent.get_relations():
             if isinstance(rel, On) and rel.parent in anchor_objects:
                 return rel.parent.get_world_bounding_box()
-        return fallback_bbox
+        return anchor_bbox
 
-    def _compute_on_init_position(
+    def _compute_on_guided_position(
         self,
         obj: Object | ObjectReference,
         anchor_objects: set[Object | ObjectReference],
-        fallback_bbox: AxisAlignedBoundingBox,
+        anchor_bbox: AxisAlignedBoundingBox,
         generator: torch.Generator | None = None,
     ) -> tuple[float, float, float]:
-        """Compute an initial position for a non-anchor object.
+        """Compute an initial position for an object with an On relation.
 
-        Objects with an On relation are placed within the parent's X/Y footprint at the
-        correct Z height. Objects with no On relation are placed randomly within fallback_bbox.
+        Places the object within the parent's X/Y footprint at the correct Z height,
+        so the solver starts from a valid region.
 
         Args:
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
         """
-        on_relation = next((r for r in obj.get_relations() if isinstance(r, On)), None)
-        if on_relation is None:
-            min_pt = torch.tensor(fallback_bbox.min_point)
-            max_pt = torch.tensor(fallback_bbox.max_point)
-            pos = min_pt + (max_pt - min_pt) * torch.rand(3, generator=generator)
-            return (float(pos[0]), float(pos[1]), float(pos[2]))
-
-        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, fallback_bbox)
+        on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
+        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox)
         child_bbox = obj.get_bounding_box()
 
         # X: sample child origin so child's full X extent stays within parent
