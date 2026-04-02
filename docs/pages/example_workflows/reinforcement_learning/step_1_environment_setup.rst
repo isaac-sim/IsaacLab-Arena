@@ -161,7 +161,6 @@ To validate the environment loads correctly, run one training iteration and chec
 
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-     --visualizer kit \
      --task lift_object \
      --rl_training_mode \
      --num_envs 64 \

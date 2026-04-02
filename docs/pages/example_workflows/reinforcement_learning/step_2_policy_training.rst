@@ -16,7 +16,6 @@ builds the environment, and registers it with gym so IsaacLab's script can find 
 
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-     --visualizer kit \
      --task lift_object \
      --rl_training_mode \
      --num_envs 512 \
@@ -24,7 +23,7 @@ builds the environment, and registers it with gym so IsaacLab's script can find 
 
 .. tip::
 
-   Use ``--visualizer none`` to suppress the GUI when running on a headless server.
+   Add ``--visualizer kit`` to open the GUI and watch training live.
 
 Checkpoints are written to ``logs/rsl_rl/generic_experiment/<timestamp>/``.
 The agent configuration is saved alongside as ``params/agent.yaml``,
@@ -54,7 +53,6 @@ For example, to train with relu activation and a higher learning rate:
 
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-     --visualizer kit \
      --task lift_object \
      --rl_training_mode \
      --num_envs 512 \
@@ -112,7 +110,6 @@ Add ``--distributed`` to spread environments across all available GPUs:
 
    python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-     --visualizer none \
      --task lift_object \
      --rl_training_mode \
      --num_envs 512 \
