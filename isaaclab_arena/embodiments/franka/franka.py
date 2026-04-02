@@ -52,15 +52,15 @@ _FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot
 # Standard-PD Franka for joint-position control, matching IsaacLab's FrankaCubeLiftEnvCfg.
 # Uses FRANKA_PANDA_CFG (gravity on, stiffness=80, damping=4) instead of HIGH_PD.
 _FRANKA_JOINT_POS_CFG = FRANKA_PANDA_CFG.copy()
-_FRANKA_JOINT_POS_CFG.spawn.usd_path = (
-    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
-)
+_FRANKA_JOINT_POS_CFG.spawn.usd_path = _FRANKA_CFG.spawn.usd_path
 
 
 @register_asset
 class FrankaEmbodiment(EmbodimentBase):
     """Embodiment for the Franka robot."""
 
+    # TODO(qianl, 2026.04.02): Rename to franka_ik, add a base class where action_cfg is missing,
+    # and refactor child classes for both franka_joint_pos and franka_ik.
     name = "franka"
     default_arm_mode = ArmMode.SINGLE_ARM
 
