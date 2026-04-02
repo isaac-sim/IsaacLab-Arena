@@ -8,6 +8,7 @@
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -169,3 +170,25 @@ def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
     assert desk_world.min_point[1] <= y <= desk_world.max_point[1]
     # Z: desk.max_z (fallback) + clearance (0.0) - mug.min_z (0.0) = 0.1
     assert abs(z - (desk_world.max_point[2] + 0.0 - mug.get_bounding_box().min_point[2])) < 1e-6
+
+
+def test_on_init_reproducible_with_placement_seed():
+    """Same placement_seed produces identical On-guided init positions across independent runs."""
+    solver_params = RelationSolverParams(max_iters=0, save_position_history=False, verbose=False)
+    params = ObjectPlacerParams(placement_seed=42, apply_positions_to_objects=False, solver_params=solver_params)
+
+    def _run():
+        desk = _make_desk()
+        box = DummyObject(
+            name="box",
+            bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        )
+        box.add_relation(On(desk, clearance_m=0.01))
+        return ObjectPlacer(params=params).place([desk, box])
+
+    result1 = _run()
+    result2 = _run()
+
+    pos1 = next(pos for obj, pos in result1.positions.items() if obj.name == "box")
+    pos2 = next(pos for obj, pos in result2.positions.items() if obj.name == "box")
+    assert pos1 == pos2, f"Expected identical positions with same seed, got {pos1} vs {pos2}"
