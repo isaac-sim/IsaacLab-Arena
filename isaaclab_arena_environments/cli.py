@@ -9,6 +9,7 @@ from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
+from isaaclab_arena_environments.dexsuite_lift_environment import DexsuiteLiftEnvironment
 from isaaclab_arena_environments.franka_put_and_close_door_environment import FrankaPutAndCloseDoorEnvironment
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
@@ -21,7 +22,6 @@ from isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment
 )
 from isaaclab_arena_environments.gr1_turn_stand_mixer_knob_environment import Gr1TurnStandMixerKnobEnvironment
 from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
-from isaaclab_arena_environments.kuka_allegro_dexsuite_lift_environment import KukaAllegroDexsuiteLiftEnvironment
 from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
@@ -45,7 +45,7 @@ ExampleEnvironments = {
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
     CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
-    KukaAllegroDexsuiteLiftEnvironment.name: KukaAllegroDexsuiteLiftEnvironment,
+    DexsuiteLiftEnvironment.name: DexsuiteLiftEnvironment,
     LiftObjectEnvironment.name: LiftObjectEnvironment,
     TableTopPlaceUprightEnvironment.name: TableTopPlaceUprightEnvironment,
     Gr1TurnStandMixerKnobEnvironment.name: Gr1TurnStandMixerKnobEnvironment,

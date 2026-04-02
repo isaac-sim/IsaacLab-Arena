@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -11,7 +11,7 @@ procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena
 **Play a checkpoint trained in Isaac Lab** (same PPO runner / obs groups)::
 
     ./isaaclab.sh -p isaaclab_arena/scripts/reinforcement_learning/play.py \\
-      kuka_allegro_dexsuite_lift \\
+      dexsuite_lift \\
       --num_envs 1 --env_spacing 3 \\
       --checkpoint /path/to/logs/rsl_rl/dexsuite_kuka_allegro/<run>/model_<iter>.pt
 
@@ -34,10 +34,10 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # NOTE: Same pattern as other example envs — avoid heavy imports before AppLauncher.
 
 
-class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
+class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
     """Dexsuite Kuka Allegro lift task; Newton backend; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``."""
 
-    name: str = "kuka_allegro_dexsuite_lift"
+    name: str = "dexsuite_lift"
 
     def get_env(self, args_cli: argparse.Namespace):
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
@@ -52,7 +52,7 @@ class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
-        embodiment = self.asset_registry.get_asset_by_name("kuka_allegro_dexsuite")(
+        embodiment = self.asset_registry.get_asset_by_name("kuka_allegro")(
             physics_preset="newton",
         )
 

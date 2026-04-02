@@ -21,8 +21,8 @@ from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import (
 
 def test_kuka_allegro_dexsuite_registered_in_asset_registry() -> None:
     reg = AssetRegistry()
-    assert reg.is_registered("kuka_allegro_dexsuite")
-    cls = reg.get_asset_by_name("kuka_allegro_dexsuite")
+    assert reg.is_registered("kuka_allegro")
+    cls = reg.get_asset_by_name("kuka_allegro")
     assert cls is KukaAllegroDexsuiteEmbodiment
 
 

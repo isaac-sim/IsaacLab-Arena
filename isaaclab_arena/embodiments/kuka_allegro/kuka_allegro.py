@@ -95,7 +95,7 @@ class DexsuiteKukaAllegroEmbodimentSceneCfg:
 class KukaAllegroDexsuiteEmbodiment(EmbodimentBase):
     """Kuka Allegro for Dexsuite tasks: joint-space actions, contact-rich proprioception."""
 
-    name = "kuka_allegro_dexsuite"
+    name = "kuka_allegro"
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(

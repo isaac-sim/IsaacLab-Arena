@@ -12,11 +12,11 @@ pytest.importorskip(
 )
 
 
-def test_kuka_allegro_dexsuite_lift_example_in_cli_registry() -> None:
+def test_dexsuite_lift_example_in_cli_registry() -> None:
     from isaaclab_arena_environments.cli import ExampleEnvironments
 
-    assert "kuka_allegro_dexsuite_lift" in ExampleEnvironments
-    assert ExampleEnvironments["kuka_allegro_dexsuite_lift"].name == "kuka_allegro_dexsuite_lift"
+    assert "dexsuite_lift" in ExampleEnvironments
+    assert ExampleEnvironments["dexsuite_lift"].name == "dexsuite_lift"
 
 
 def test_dexsuite_procedural_assets_registered() -> None:
