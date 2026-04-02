@@ -6,8 +6,8 @@ The recommended way to consume IsaacLab-Arena from an external project is to inc
 any file inside the Arena source tree.
 
 This is the currently recommended integration pattern until IsaacLab-Arena is available as a
-published pip package, at which point the submodule and Docker installation steps will be
-replaced by a simple ``pip install``. The environment and asset extension patterns below will
+published pip package, at which point the submodule will be replaced by a simple
+``pip install isaaclab_arena``. The environment and asset extension patterns below will
 remain unchanged.
 
 
@@ -29,8 +29,7 @@ A typical external repository looks like this:
    │   └── scripts/
    │       └── run_datagen.py       ← entry script
    ├── docker/
-   │   ├── Dockerfile
-   │   └── install_isaaclab_arena.sh
+   │   └── Dockerfile
    └── .gitmodules
 
 Add the submodule with:
@@ -43,18 +42,30 @@ Add the submodule with:
 Dockerfile
 ----------
 
-Copy the submodule into the image and install Arena before your own package:
+Your base image must already have **Isaac Sim** and **Isaac Lab** installed (e.g.
+``nvcr.io/nvidia/isaac-sim:6.0.0``).
+
+Copy the submodule into the image and install Arena
+before your own package run ``pip install -e``.
 
 .. code-block:: dockerfile
 
-   ARG ARENA_WORKDIR=/opt/arena
-   COPY submodules/IsaacLab-Arena ${ARENA_WORKDIR}
-   COPY docker/install_isaaclab_arena.sh /install_isaaclab_arena.sh
-   RUN /install_isaaclab_arena.sh
+   # Base image must have Isaac Sim
+   # e.g. FROM nvcr.io/nvidia/isaac-sim:6.0.0
+
+   # Image must have Isaac Lab installed
+   # e.g. RUN /isaaclab/isaaclab.sh -i
+
+   COPY submodules/IsaacLab-Arena /opt/arena
+   RUN /isaac-sim/python.sh -m pip install -e /opt/arena
 
    # Install your package after Arena is in place
    COPY my_package /workspace/my_package
-   RUN pip install -e /workspace/my_package
+   RUN /isaac-sim/python.sh -m pip install -e /workspace/my_package
+
+See Arena's own `Dockerfile
+<https://github.com/isaac-sim/IsaacLab-Arena/blob/main/docker/Dockerfile.isaaclab_arena>`_
+for a complete reference, including Isaac Lab installation and optional GR00T dependencies.
 
 
 Defining a Custom Environment
