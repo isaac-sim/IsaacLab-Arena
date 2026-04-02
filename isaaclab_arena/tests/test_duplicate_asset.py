@@ -18,7 +18,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -52,7 +52,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
 
     scene = Scene(assets=[background, light, dex_cube_1, dex_cube_2])
 
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),

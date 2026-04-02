@@ -27,7 +27,7 @@ from isaaclab_arena.utils.pose import Pose
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
-embodiment = asset_registry.get_asset_by_name("franka")()
+embodiment = asset_registry.get_asset_by_name("franka_ik")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 

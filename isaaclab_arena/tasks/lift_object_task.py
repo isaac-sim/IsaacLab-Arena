@@ -246,22 +246,16 @@ class LiftObjectTaskRL(LiftObjectTask):
 
 @configclass
 class LiftObjectObservationsCfg:
-    """Task observations for the Lift Object task.
-
-    The ``task_obs`` group is ordered to match IsaacLab's
-    ``FrankaCubeLiftEnvCfg`` policy observations so that a checkpoint trained
-    with ``Isaac-Lift-Cube-Franka-v0`` can be loaded directly.  Combined with
-    ``FrankaJointPosObservationsCfg`` (``policy`` group: ``joint_pos`` +
-    ``joint_vel``) the full 36-dim observation is::
-
-        [joint_pos(9), joint_vel(9), object_pos(3), goal(7), last_action(8)]
-    """
+    """Observation specifications for the Lift Object task."""
 
     task_obs: ObsGroup = MISSING
 
     def __init__(self, lift_object: Asset, robot_name: str):
         @configclass
         class TaskObsCfg(ObsGroup):
+            target_object_position = ObsTerm(
+                func=mdp_isaac_lab.generated_commands, params={"command_name": "object_pose"}
+            )
             object_position = ObsTerm(
                 func=observations.object_position_in_frame,
                 params={
@@ -269,10 +263,6 @@ class LiftObjectObservationsCfg:
                     "object_cfg": SceneEntityCfg(lift_object.name),
                 },
             )
-            target_object_position = ObsTerm(
-                func=mdp_isaac_lab.generated_commands, params={"command_name": "object_pose"}
-            )
-            actions = ObsTerm(func=mdp_isaac_lab.last_action)
 
             def __post_init__(self):
                 self.enable_corruption = False

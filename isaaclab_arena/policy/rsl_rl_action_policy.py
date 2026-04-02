@@ -61,7 +61,7 @@ class RslRlActionPolicy(PolicyBase):
                 "checkpoint_path": "logs/rsl_rl/lift_object/2026-01-28_17-26-10/model_1000.pt",
                 "device": "cuda:0"
               },
-              "arena_env_args": ["lift_object", "--embodiment", "franka"]
+              "arena_env_args": ["lift_object", "--embodiment", "franka_ik"]
             }
           ]
         }

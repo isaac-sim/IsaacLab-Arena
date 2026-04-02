@@ -100,7 +100,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
 
 .. code-block:: python
 
-   embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+   embodiment = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
    background = asset_registry.get_asset_by_name("kitchen")()
    tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
    destination_location = ObjectReference(
