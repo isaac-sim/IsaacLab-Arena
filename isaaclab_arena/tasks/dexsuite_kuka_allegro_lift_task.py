@@ -3,21 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dexsuite Kuka Allegro **lift** MDP: commands, rewards, success signal, terminations, curriculum.
+"""Dexsuite Kuka Allegro **lift** task for Arena evaluation.
 
 Extends :class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask` so the task holds the same
 ``lift_object`` / ``background_scene`` :class:`~isaaclab_arena.assets.asset.Asset` references as
-other lift examples (viewer look-at, future IL/mimic hooks). The **MDP** still mirrors Isaac Lab
-:class:`~isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg.DexsuiteKukaAllegroLiftEnvCfg`
-(Dexsuite commands/rewards/terminations/curriculum), not Arena's generic
-:class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectRewardCfg` stack.
+other lift examples (viewer look-at, future IL/mimic hooks).
 
-After construction, parent's IL-style :attr:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask.termination_cfg`
-is replaced with Dexsuite terminations **plus** a ``success`` termination using
-:func:`~isaaclab_arena.tasks.terminations.lift_object_rl_success` (position-based, consistent with
-other Arena lift tasks), so :class:`~isaaclab_arena.metrics.success_rate.SuccessRateMetric` works.
-That success termination **ends the episode when success is first achieved** (vanilla Dexsuite Isaac
-envs typically keep rolling until time-out).
+Rewards are omitted (evaluation-only); terminations come from Dexsuite plus a position-based
+``success`` termination via :func:`~isaaclab_arena.tasks.terminations.lift_object_rl_success`
+so :class:`~isaaclab_arena.metrics.success_rate.SuccessRateMetric` works.
 """
 
 from __future__ import annotations
@@ -26,16 +20,9 @@ import numpy as np
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import RewardTermCfg as RewTerm
-from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils import configclass
 from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
-from isaaclab_tasks.manager_based.manipulation.dexsuite import mdp as dexsuite_mdp
-from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg import (
-    FINGER_SENSORS,
-    THUMB_SENSOR,
-)
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -44,54 +31,14 @@ from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
 from isaaclab_arena.tasks.terminations import lift_object_rl_success
 
 
-@configclass
-class ArenaDexsuiteKukaReorientRewardCfg(dexsuite.RewardsCfg):
-    """Same as ``KukaAllegroReorientRewardCfg`` but merge-safe: no ``super()`` in ``__post_init__``."""
-
-    good_finger_contact = RewTerm(
-        func=dexsuite_mdp.contacts,
-        weight=0.5,
-        params={"threshold": 0.1, "thumb_name": THUMB_SENSOR, "finger_names": FINGER_SENSORS},
-    )
-
-    contact_count = RewTerm(
-        func=dexsuite_mdp.contact_count,
-        weight=1.0,
-        params={
-            "threshold": 0.01,
-            "sensor_names": FINGER_SENSORS + [THUMB_SENSOR],
-        },
-    )
-
-    def __post_init__(self) -> None:
-        dexsuite.RewardsCfg.__post_init__(self)
-        self.fingers_to_object.params["asset_cfg"] = SceneEntityCfg("robot", body_names=["palm_link", ".*_tip"])
-        self.fingers_to_object.params["thumb_name"] = THUMB_SENSOR
-        self.fingers_to_object.params["finger_names"] = FINGER_SENSORS
-        self.position_tracking.params["thumb_name"] = THUMB_SENSOR
-        self.position_tracking.params["finger_names"] = FINGER_SENSORS
-        if self.orientation_tracking:
-            self.orientation_tracking.params["thumb_name"] = THUMB_SENSOR
-            self.orientation_tracking.params["finger_names"] = FINGER_SENSORS
-        self.success.params["thumb_name"] = THUMB_SENSOR
-        self.success.params["finger_names"] = FINGER_SENSORS
-
-
-def _build_dexsuite_kuka_lift_cfgs() -> tuple[Any, Any, Any, Any]:
-    from isaaclab_tasks.manager_based.manipulation.dexsuite.adr_curriculum import CurriculumCfg
+def _build_dexsuite_kuka_lift_cfgs() -> tuple[Any, Any]:
     from isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg import CommandsCfg
 
     commands = CommandsCfg()
-    rewards = ArenaDexsuiteKukaReorientRewardCfg()
-    terminations = ArenaDexsuiteKukaLiftTerminationsCfg()
-    curriculum = CurriculumCfg()
-
-    # ``DexsuiteLiftEnvCfg.__post_init__``
-    rewards.orientation_tracking = None
     commands.object_pose.position_only = True
-    rewards.success.params["rot_std"] = None
+    terminations = ArenaDexsuiteKukaLiftTerminationsCfg()
 
-    return commands, rewards, terminations, curriculum
+    return commands, terminations
 
 
 @configclass
@@ -126,22 +73,13 @@ class DexsuiteKukaAllegroLiftTask(LiftObjectTask):
         )
         self.task_description = "Dexsuite Kuka Allegro lift (Arena, Newton-ready scene)."
 
-        commands, rewards, terminations, curriculum = _build_dexsuite_kuka_lift_cfgs()
+        commands, terminations = _build_dexsuite_kuka_lift_cfgs()
         self._commands_cfg = commands
-        self._rewards_cfg = rewards
         self._terminations_cfg = terminations
-        self._curriculum_cfg = curriculum
-        # Replace parent's IL terminations with Dexsuite MDP terminations.
         self.termination_cfg = self._terminations_cfg
 
     def get_commands_cfg(self) -> Any:
         return self._commands_cfg
-
-    def get_rewards_cfg(self) -> Any:
-        return self._rewards_cfg
-
-    def get_curriculum_cfg(self) -> Any:
-        return self._curriculum_cfg
 
     def get_viewer_cfg(self) -> ViewerCfg:
         # Reuse LiftObjectTask's look-at-object framing (same offset as generic lift examples).
