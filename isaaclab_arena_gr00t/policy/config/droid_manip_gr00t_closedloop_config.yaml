@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 model_path: nvidia/GR00T-N1.6-DROID
-language_instruction: "Move the gripper to the cracker box on the table."
 # Action horizon is the number of actions predicted by the policy per inference rollout, defined in the modality_config_path.
 action_horizon: 32
 embodiment_tag: OXE_DROID
