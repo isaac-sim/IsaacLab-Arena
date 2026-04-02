@@ -12,7 +12,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -76,11 +76,12 @@ class ObjectPlacer:
 
         anchor_objects_set = set(anchor_objects)
 
-        # Save RNG state and set seed if provided (for reproducibility without affecting Isaac Sim)
-        rng_state = None
+        # Create a local RNG generator from the seed so placement is reproducible without
+        # affecting the global torch RNG state (e.g. Isaac Sim's internal random streams).
+        generator: torch.Generator | None = None
         if self.params.placement_seed is not None:
-            rng_state = torch.get_rng_state()
-            torch.manual_seed(self.params.placement_seed)
+            generator = torch.Generator()
+            generator.manual_seed(self.params.placement_seed)
 
         # Placement loop with retries
         best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
@@ -89,7 +90,7 @@ class ObjectPlacer:
 
         for attempt in range(self.params.max_placement_attempts):
             # Generate starting positions (anchors from their poses, others from On relation)
-            initial_positions = self._generate_initial_positions(objects, anchor_objects_set)
+            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, generator)
 
             # Solve
             positions = self._solver.solve(objects, initial_positions)
@@ -116,10 +117,6 @@ class ObjectPlacer:
         if self.params.apply_positions_to_objects:
             self._apply_positions(best_positions, anchor_objects_set)
 
-        # Restore RNG state if we changed it
-        if rng_state is not None:
-            torch.set_rng_state(rng_state)
-
         return PlacementResult(
             success=success,
             positions=best_positions,
@@ -131,12 +128,17 @@ class ObjectPlacer:
         self,
         objects: list[Object | ObjectReference],
         anchor_objects: set[Object | ObjectReference],
+        generator: torch.Generator | None = None,
     ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchors keep their current initial_pose. Non-anchors with an On relation are
         initialized within the parent's footprint at the parent's top surface. All others
         fall back to a random position within the first anchor's world bounding box.
+
+        Args:
+            generator: Optional RNG generator for reproducible sampling. When None,
+                uses PyTorch's global RNG.
 
         Returns:
             Dictionary mapping all objects to their starting positions.
@@ -149,7 +151,7 @@ class ObjectPlacer:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
             else:
-                positions[obj] = self._compute_on_init_position(obj, anchor_objects, fallback_bbox)
+                positions[obj] = self._compute_on_init_position(obj, anchor_objects, fallback_bbox, generator)
         return positions
 
     def _get_on_parent_world_bbox(
@@ -177,15 +179,23 @@ class ObjectPlacer:
         obj: Object | ObjectReference,
         anchor_objects: set[Object | ObjectReference],
         fallback_bbox: AxisAlignedBoundingBox,
+        generator: torch.Generator | None = None,
     ) -> tuple[float, float, float]:
         """Compute an initial position for a non-anchor object.
 
         Objects with an On relation are placed within the parent's X/Y footprint at the
         correct Z height. Objects with no On relation are placed randomly within fallback_bbox.
+
+        Args:
+            generator: Optional RNG generator for reproducible sampling. When None,
+                uses PyTorch's global RNG.
         """
         on_relation = next((r for r in obj.get_relations() if isinstance(r, On)), None)
         if on_relation is None:
-            return get_random_pose_within_bounding_box(fallback_bbox).position_xyz
+            min_pt = torch.tensor(fallback_bbox.min_point)
+            max_pt = torch.tensor(fallback_bbox.max_point)
+            pos = min_pt + (max_pt - min_pt) * torch.rand(3, generator=generator)
+            return (float(pos[0]), float(pos[1]), float(pos[2]))
 
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, fallback_bbox)
         child_bbox = obj.get_bounding_box()
@@ -196,7 +206,7 @@ class ObjectPlacer:
         if x_min >= x_max:
             x = (parent_bbox.min_point[0] + parent_bbox.max_point[0]) / 2.0
         else:
-            x = float(x_min + (x_max - x_min) * torch.rand(1).item())
+            x = float(x_min + (x_max - x_min) * torch.rand(1, generator=generator).item())
 
         # Y: same
         y_min = parent_bbox.min_point[1] - child_bbox.min_point[1]
@@ -204,7 +214,7 @@ class ObjectPlacer:
         if y_min >= y_max:
             y = (parent_bbox.min_point[1] + parent_bbox.max_point[1]) / 2.0
         else:
-            y = float(y_min + (y_max - y_min) * torch.rand(1).item())
+            y = float(y_min + (y_max - y_min) * torch.rand(1, generator=generator).item())
 
         # Z: place child's bottom face at parent top + clearance
         z = parent_bbox.max_point[2] + on_relation.clearance_m - child_bbox.min_point[2]
