@@ -45,7 +45,7 @@ class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.dexsuite_kuka_allegro_lift_task import DexsuiteKukaAllegroLiftTask
+        from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
 
         dexsuite_table = self.asset_registry.get_asset_by_name("dexsuite_manip_table")()
         manip_object = self.asset_registry.get_asset_by_name("dexsuite_lift_object")()
@@ -57,7 +57,7 @@ class KukaAllegroDexsuiteLiftEnvironment(ExampleEnvironmentBase):
         )
 
         scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
-        task = DexsuiteKukaAllegroLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
+        task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
 
         dexsuite_rl_cfg_entry = (
             "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.agents."
