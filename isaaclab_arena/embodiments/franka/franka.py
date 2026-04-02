@@ -46,13 +46,13 @@ _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw
 # The reason to use our internal panda USD is to combine the panda and the stand within one USD.
 # This is not ideal but currently required by the ObjectPlacementSolver to handle the robot placement correctly.
 # TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
-_FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-_FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+_FRANKA_IK_REL_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
+_FRANKA_IK_REL_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
 
 # Standard-PD Franka for joint-position control, matching IsaacLab's FrankaCubeLiftEnvCfg.
 # Uses FRANKA_PANDA_CFG (gravity on, stiffness=80, damping=4) instead of HIGH_PD.
 _FRANKA_JOINT_POS_CFG = FRANKA_PANDA_CFG.copy()
-_FRANKA_JOINT_POS_CFG.spawn.usd_path = _FRANKA_CFG.spawn.usd_path
+_FRANKA_JOINT_POS_CFG.spawn.usd_path = _FRANKA_IK_REL_CFG.spawn.usd_path
 
 
 @register_asset
@@ -103,7 +103,7 @@ class FrankaSceneCfg:
     """Additions to the scene configuration coming from the Franka embodiment."""
 
     # The robot (combined USD includes both the panda and the stand)
-    robot: ArticulationCfg = _FRANKA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg = _FRANKA_IK_REL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
