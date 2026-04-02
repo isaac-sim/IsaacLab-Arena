@@ -13,9 +13,9 @@ other lift examples (viewer look-at, future IL/mimic hooks). The **MDP** still m
 :class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectRewardCfg` stack.
 
 After construction, parent's IL-style :attr:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask.termination_cfg`
-is replaced with Dexsuite terminations **plus** a ``success`` termination tied to
-:class:`~isaaclab_tasks.manager_based.manipulation.dexsuite.mdp.rewards.success_reward` (``succeeded``),
-so :class:`~isaaclab_arena.metrics.success_rate.SuccessRateMetric` works like other Arena lift tasks.
+is replaced with Dexsuite terminations **plus** a ``success`` termination using
+:func:`~isaaclab_arena.tasks.terminations.lift_object_rl_success` (position-based, consistent with
+other Arena lift tasks), so :class:`~isaaclab_arena.metrics.success_rate.SuccessRateMetric` works.
 That success termination **ends the episode when success is first achieved** (vanilla Dexsuite Isaac
 envs typically keep rolling until time-out).
 """
@@ -23,10 +23,8 @@ envs typically keep rolling until time-out).
 from __future__ import annotations
 
 import numpy as np
-import torch
 from typing import Any
 
-from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
@@ -43,28 +41,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
-
-
-def success_reward_succeeded(env: ManagerBasedRLEnv) -> torch.Tensor:
-    """Per-env termination from Dexsuite ``success`` reward term's sticky ``succeeded`` flag.
-
-    Stock Isaac Dexsuite lift does not use this as a termination. Arena adds it so
-    :class:`~isaaclab_arena.metrics.success_rate.SuccessRateMetric` can use the standard ``success``
-    termination channel. With ``time_out=False``, the episode **resets when success is first achieved**
-    (vanilla Dexsuite may continue until time-out).
-
-    Args:
-        env: Manager-based RL environment (reward manager must expose a ``success`` term).
-
-    Returns:
-        Boolean tensor of shape ``(num_envs,)``.
-    """
-    if "success" not in env.reward_manager.active_terms:
-        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-    func = env.reward_manager.get_term_cfg("success").func
-    if not hasattr(func, "succeeded"):
-        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-    return func.succeeded.clone()
+from isaaclab_arena.tasks.terminations import lift_object_rl_success
 
 
 @configclass
@@ -121,7 +98,14 @@ def _build_dexsuite_kuka_lift_cfgs() -> tuple[Any, Any, Any, Any]:
 class ArenaDexsuiteKukaLiftTerminationsCfg(dexsuite.TerminationsCfg):
     """Dexsuite terminations + ``success`` for :class:`~isaaclab_arena.metrics.success_rate.SuccessRateMetric`."""
 
-    success = DoneTerm(func=success_reward_succeeded, time_out=False)
+    success = DoneTerm(
+        func=lift_object_rl_success,
+        time_out=False,
+        params={
+            "command_name": "object_pose",
+            "position_tolerance": 0.05,
+        },
+    )
 
 
 class DexsuiteKukaAllegroLiftTask(LiftObjectTask):
