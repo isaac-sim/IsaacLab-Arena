@@ -26,7 +26,7 @@ Three things change relative to the zero-action baseline:
 - ``--enable_cameras`` turns on the robot's cameras, which GR00T requires for observations
 - ``--language_instruction`` sets the natural-language instruction sent to the model
 
-GR00T also requires absolute joint positions, so use ``--embodiment droid_abs_joint_pos``
+GR00T N1.6-DROID's default modality config uses absolute joint positions, so use ``--embodiment droid_abs_joint_pos``
 instead of ``--embodiment droid_rel_joint_pos``. The command uses ``--num_episodes`` rather than
 ``--num_steps`` so the run terminates on task completion rather than after a fixed number
 of simulation steps:
