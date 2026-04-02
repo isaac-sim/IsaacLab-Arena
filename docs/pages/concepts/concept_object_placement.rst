@@ -415,8 +415,6 @@ Key parameters:
 - ``max_placement_attempts`` (default ``5``): Number of solver restarts before giving up
 - ``min_separation_m`` (default ``0.0``): Extra separation enforced during overlap validation
 - ``placement_seed`` (default ``None``): Random seed for reproducible placements
-- ``init_bounds_size`` (default ``(4.0, 4.0, 2.0)``): Size in meters of the region used for
-  random initialization, centered on the anchor
 - ``on_relation_z_tolerance_m`` (default ``5e-3``): Tolerance for Z validation of ``On`` relations
 
 The underlying solver can also be tuned via ``RelationSolverParams`` nested inside ``ObjectPlacerParams``:
