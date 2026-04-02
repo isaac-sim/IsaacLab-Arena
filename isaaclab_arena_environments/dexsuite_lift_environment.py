@@ -64,6 +64,24 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             "rsl_rl_ppo_cfg:DexsuiteKukaAllegroPPORunnerCfg"
         )
 
+        def _apply_dexsuite_cfg(env_cfg):
+            from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg import (
+                KukaAllegroPhysicsCfg,
+            )
+
+            physics_cfg = KukaAllegroPhysicsCfg()
+            env_cfg.sim.physics = getattr(physics_cfg, embodiment.physics_preset, physics_cfg.default)
+            env_cfg.sim.dt = 1 / 120
+            env_cfg.decimation = 2
+            env_cfg.episode_length_s = 6.0
+            env_cfg.is_finite_horizon = False
+            if hasattr(env_cfg, "scene") and env_cfg.scene is not None:
+                env_cfg.scene.replicate_physics = True
+            if hasattr(env_cfg, "commands"):
+                env_cfg.commands.object_pose.resampling_time_range = (2.0, 3.0)
+                env_cfg.commands.object_pose.position_only = True
+            return env_cfg
+
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
@@ -72,6 +90,7 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             teleop_device=None,
             rl_framework=RLFramework.RSL_RL,
             rl_policy_cfg=dexsuite_rl_cfg_entry,
+            env_cfg_callback=_apply_dexsuite_cfg,
         )
 
     @staticmethod

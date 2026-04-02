@@ -32,7 +32,6 @@ from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro impo
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.pose import Pose
 
 FINGERTIP_LIST = kuka_dexsuite_cfg.FINGERTIP_LIST
@@ -140,16 +139,6 @@ class KukaAllegroDexsuiteEmbodiment(EmbodimentBase):
                 grp = getattr(obs_cfg, field_name)
                 if hasattr(grp, "concatenate_terms"):
                     grp.concatenate_terms = self.concatenate_observation_terms
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        physics_cfg = kuka_dexsuite_cfg.KukaAllegroPhysicsCfg()
-        env_cfg.sim.physics = getattr(physics_cfg, self.physics_preset, physics_cfg.default)
-        env_cfg.sim.dt = 1 / 120
-        env_cfg.decimation = 2
-        # Dexsuite uses replicated physics; Arena's builder defaults InteractiveSceneCfg to False.
-        if hasattr(env_cfg, "scene") and env_cfg.scene is not None:
-            env_cfg.scene.replicate_physics = True
-        return env_cfg
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "palm_link"
