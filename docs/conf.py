@@ -79,7 +79,7 @@ todo_include_todos = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
+    "numpy": ("http://numpy.org/doc/stable/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -126,7 +126,7 @@ html_css_files = ["custom.css"]
 
 # Versioning
 smv_remote_whitelist = r"^.*$"
-smv_branch_whitelist = r"^(demos/dli|main|release/.*)$"
+smv_branch_whitelist = r"^(main|release/.*)$"
 smv_tag_whitelist = r"^v.*$"
 html_sidebars = {"**": ["versioning.html", "sidebar-nav-bs"]}
 # Todos

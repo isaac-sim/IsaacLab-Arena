@@ -35,7 +35,7 @@ def _create_table() -> DummyObject:
 def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]:
     """Create table + two boxes with On(table) and NoCollision between boxes (for solver tests)."""
     table = _create_table()
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")

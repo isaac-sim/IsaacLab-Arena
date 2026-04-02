@@ -19,7 +19,6 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
     name: str = "kitchen_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -60,7 +59,6 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             name="destination_location",
             prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
             parent_asset=background,
-            object_type=ObjectType.RIGID,
         )
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()

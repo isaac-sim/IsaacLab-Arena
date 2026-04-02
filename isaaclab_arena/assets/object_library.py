@@ -468,7 +468,8 @@ class Sphere(LibraryObject):
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
         if self.initial_velocity is not None:
-            object_cfg.init_state.lin_vel = self.initial_velocity
+            object_cfg.init_state.lin_vel = self.initial_velocity.linear_xyz
+            object_cfg.init_state.ang_vel = self.initial_velocity.angular_xyz
         return object_cfg
 
     def _requires_reset_pose_event(self) -> bool:
@@ -802,12 +803,7 @@ class RedCube(LibraryObject):
     name = "red_cube"
     tags = ["object"]
 
-    # TODO(lanceli, 2026.02.04): There is a known bug where rigid body attributes can only bind to the root layer.
-    # As a workaround, the original assets from ISAAC_NUCLEUS_DIR have been adjusted and uploaded to ISAAC_NUCLEUS_STAGING_DIR.
-    # Once this bug is resolved, the original assets can be used instead.
-
-    # usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd" # not support, rigid body attribute need to be bind to root xform.
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"
 
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/RedCube"
@@ -831,12 +827,7 @@ class GreenCube(LibraryObject):
     name = "green_cube"
     tags = ["object"]
 
-    # TODO(lanceli, 2026.02.04): There is a known bug where rigid body attributes can only bind to the root layer.
-    # As a workaround, the original assets from ISAAC_NUCLEUS_DIR have been adjusted and uploaded to ISAAC_NUCLEUS_STAGING_DIR.
-    # Once this bug is resolved, the original assets can be used instead.
-
-    # usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd" # not support, rigid body attribute need to be bind to root xform.
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd"
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/GreenCube"
     scale = (0.02, 0.02, 0.02)

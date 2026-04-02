@@ -1,5 +1,5 @@
-Running your First Experiments
-==============================
+Exploring Environment Variations
+=================================
 
 Arena lets you evaluate a robot policy across variations of object, lighting, and embodiment
 from a single environment definition — no task logic changes, no duplicated configuration. You
@@ -30,7 +30,7 @@ Your reference run — rubiks cube on the table, bowl as destination:
      --destination_location bowl_ycb_robolab \
      --hdr home_office_robolab
 
-.. figure:: ../../images/default_srl_pnp.png
+.. figure:: ../../../images/default_srl_pnp.png
    :width: 100%
    :alt: Default pick_and_place_maple_table environment — rubiks cube and bowl on table
    :align: center
@@ -65,7 +65,7 @@ Some options to try:
      --destination_location wooden_bowl_hot3d_robolab \
      --hdr home_office_robolab
 
-.. figure:: ../../images/swap_objects.gif
+.. figure:: ../../../images/swap_objects.gif
    :width: 100%
    :alt: Swapping pick-up objects in pick_and_place_maple_table
    :align: center
@@ -98,7 +98,7 @@ You can also adjust the dome light intensity independently with ``--light_intens
      --hdr billiard_hall_robolab \
      --light_intensity 1000.0
 
-.. figure:: ../../images/swap_hdr.gif
+.. figure:: ../../../images/swap_hdr.gif
    :width: 100%
    :alt: Changing background HDR in pick_and_place_maple_table
    :align: center
@@ -125,39 +125,34 @@ real policy, every one of those environments runs inference in parallel — givi
 episodes at the cost of one. This is how Arena makes it practical to measure policy robustness
 across hundreds of object and scene combinations in a single run.
 
-.. figure:: ../../images/scale_up.gif
+.. figure:: ../../../images/scale_up.gif
    :width: 100%
    :alt: Running 64 parallel pick_and_place_maple_table environments
    :align: center
 
 
-Batch Evaluation
------------------
+Sequential Batch Evaluation
+---------------------------
 
 The four experiments above run one variation at a time. In practice, Arena is used to evaluate
 a policy across hundreds of object, scene, and embodiment combinations in a single run. The
 ``eval_runner.py`` script reads a JSON job config that lists any number of jobs — each with its
 own environment arguments, policy, and step count — and runs them sequentially within one Isaac
-Sim process, collecting success metrics for each:
+Sim process, collecting success metrics for each. ``getting_started_jobs_config.json`` bundles
+the four experiments above into a single config:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
 
-.. figure:: ../../images/iterate_getting_started_jobs_config.gif
+.. figure:: ../../../images/iterate_getting_started_jobs_config.gif
    :alt: Four evaluation jobs running sequentially: baseline, swapped objects, changed HDR, and 64 parallel environments
    :align: center
 
 At the end of the run you get a per-job summary of success rates. See
 :ref:`sequential-batch-eval-runner` for full details on the job config format and available options.
 
-
-.. _Next Steps:
-
-Next Steps
-----------
-
-The experiments above use ``zero_action`` — the robot stays still and success rates are zero.
-To get non-zero results, swap in a real policy. See :doc:`../../pages/example_workflows/imitation_learning/index`
-for end-to-end examples.
+All of the above used a zero-action policy — the robot stays still and success rates are zero.
+The next page swaps in a real pre-trained model and runs it in closed loop:
+:doc:`running_a_real_policy`.

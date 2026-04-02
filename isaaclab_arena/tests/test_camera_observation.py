@@ -35,7 +35,7 @@ def _test_camera_observation(simulation_app) -> bool:
     cracker_box.set_initial_pose(
         Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.0),
-            rotation_wxyz=(1, 0, 0, 0),
+            rotation_xyzw=(0, 0, 0, 1),
         )
     )
 
@@ -51,7 +51,6 @@ def _test_camera_observation(simulation_app) -> bool:
     builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = builder.make_registered()
     env.reset()
-
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

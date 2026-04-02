@@ -20,7 +20,7 @@ def _test_object_initial_pose_update(simulation_app):
     rigid_object.object_cfg.debug_vis = False
 
     # Now lets add an initial pose to the object.
-    new_initial_pose = Pose(position_xyz=(5.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    new_initial_pose = Pose(position_xyz=(5.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     rigid_object.set_initial_pose(new_initial_pose)
 
     # Now lets check that the initial pose has been updated and that the debug visualization is still disabled.

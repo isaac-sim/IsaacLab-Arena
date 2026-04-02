@@ -55,7 +55,7 @@ def run_dummy_object_placer_demo():
 
     # Mark desk as the anchor for relation solving (not subject to optimization)
     desk.add_relation(IsAnchor())
-    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     # Center box is on the desk
     center_box.add_relation(On(desk, clearance_m=0.01))
@@ -127,8 +127,8 @@ def run_dummy_multi_anchor_demo():
     )
 
     # Anchor objects (fixed positions)
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
-    chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    chair.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
     chair.add_relation(IsAnchor())
 
@@ -172,7 +172,7 @@ def run_dummy_no_collision_demo():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.8, 0.6, 0.4)),
     )
     table.add_relation(IsAnchor())
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     box_a = DummyObject(
         name="box_a",

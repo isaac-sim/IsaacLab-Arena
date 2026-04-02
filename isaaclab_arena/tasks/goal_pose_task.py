@@ -29,7 +29,7 @@ class GoalPoseTask(TaskBase):
         target_x_range: tuple[float, float] | None = None,
         target_y_range: tuple[float, float] | None = None,
         target_z_range: tuple[float, float] | None = None,
-        target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+        target_orientation_xyzw: tuple[float, float, float, float] | None = None,
         target_orientation_tolerance_rad: float | None = None,
     ):
         """
@@ -39,7 +39,7 @@ class GoalPoseTask(TaskBase):
             target_x_range: Success zone x-range [min, max] in meters.
             target_y_range: Success zone y-range [min, max] in meters.
             target_z_range: Success zone z-range [min, max] in meters.
-            target_orientation_wxyz: Target quaternion [w, x, y, z].
+            target_orientation_xyzw: Target quaternion [x, y, z, w].
             target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
         """
         super().__init__(episode_length_s=episode_length_s)
@@ -51,7 +51,7 @@ class GoalPoseTask(TaskBase):
             target_x_range=target_x_range,
             target_y_range=target_y_range,
             target_z_range=target_z_range,
-            target_orientation_wxyz=target_orientation_wxyz,
+            target_orientation_xyzw=target_orientation_xyzw,
             target_orientation_tolerance_rad=target_orientation_tolerance_rad,
         )
 
@@ -66,7 +66,7 @@ class GoalPoseTask(TaskBase):
         target_x_range: tuple[float, float] | None = None,
         target_y_range: tuple[float, float] | None = None,
         target_z_range: tuple[float, float] | None = None,
-        target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+        target_orientation_xyzw: tuple[float, float, float, float] | None = None,
         target_orientation_tolerance_rad: float | None = None,
     ):
         params: dict = {"object_cfg": SceneEntityCfg(self.object.name)}
@@ -76,8 +76,8 @@ class GoalPoseTask(TaskBase):
             params["target_y_range"] = target_y_range
         if target_z_range is not None:
             params["target_z_range"] = target_z_range
-        if target_orientation_wxyz is not None:
-            params["target_orientation_wxyz"] = target_orientation_wxyz
+        if target_orientation_xyzw is not None:
+            params["target_orientation_xyzw"] = target_orientation_xyzw
         if target_orientation_tolerance_rad is not None:
             params["target_orientation_tolerance_rad"] = target_orientation_tolerance_rad
 

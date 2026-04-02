@@ -46,7 +46,7 @@ To skip this step, you can download the pre-annotated dataset as described below
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
          --repo-type dataset \
-         --revision arena_v0.2_lab_v2.3 \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir "$_tmp" && \
       mkdir -p "$DATASET_DIR" && \
       mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" "$DATASET_DIR/" && \
@@ -57,6 +57,7 @@ To start the annotation process run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+     --visualizer kit \
      --device cpu \
      --input_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
      --output_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
@@ -102,7 +103,7 @@ This step can be skipped by downloading the pre-generated dataset as described b
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
          --repo-type dataset \
-         --revision arena_v0.2_lab_v2.3 \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir "$_tmp" && \
       mkdir -p "$DATASET_DIR" && \
       mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" "$DATASET_DIR/" && \
@@ -141,6 +142,7 @@ To do so, run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \

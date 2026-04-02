@@ -7,6 +7,7 @@ import torch
 from abc import ABC, abstractmethod
 from enum import Enum
 
+import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
@@ -79,7 +80,7 @@ class ObjectBase(Asset, ABC):
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:
             self.object_cfg.init_state.pos = initial_pose.position_xyz
-            self.object_cfg.init_state.rot = initial_pose.rotation_wxyz
+            self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
         self.event_cfg = self._init_event_cfg()
 
     def set_initial_velocity(self, velocity: Velocity) -> None:
@@ -184,7 +185,7 @@ class ObjectBase(Asset, ABC):
         # We require that the asset has been added to the scene under its name.
         assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = env.unwrapped.scene[self.name].data.root_pose_w.clone()
+            object_pose = wp.to_torch(env.unwrapped.scene[self.name].data.root_pose_w).clone()
         elif self.object_type == ObjectType.BASE:
             object_pose = torch.cat(env.unwrapped.scene[self.name].get_world_poses(), dim=-1)
         else:
@@ -207,11 +208,13 @@ class ObjectBase(Asset, ABC):
         asset = env.unwrapped.scene[self.name]
         num_envs = len(env_ids)
         # Convert the pose to the env frame
-        pose_t_xyz_q_wxyz = pose.to_tensor(device=env.unwrapped.device).repeat(num_envs, 1)
-        pose_t_xyz_q_wxyz[:, :3] += env.unwrapped.scene.env_origins[env_ids]
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.unwrapped.device).repeat(num_envs, 1)
+        pose_t_xyz_q_xyzw[:, :3] += env.unwrapped.scene.env_origins[env_ids]
         # Set the pose and velocity
-        asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.unwrapped.device), env_ids=env_ids)
+        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
+        asset.write_root_velocity_to_sim(
+            torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
+        )
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"

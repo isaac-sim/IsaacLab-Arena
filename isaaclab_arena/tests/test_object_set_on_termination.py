@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -52,7 +53,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     object_set.set_initial_pose(
         Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
-            rotation_wxyz=(1, 0, 0, 0),
+            rotation_xyzw=(0, 0, 0, 1),
         )
     )
 
@@ -89,6 +90,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

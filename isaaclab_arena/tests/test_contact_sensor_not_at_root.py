@@ -5,6 +5,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -40,7 +41,7 @@ def get_test_environment(num_envs: int):
     sweet_potato = asset_registry.get_asset_by_name("sweet_potato")(
         initial_pose=Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -96,6 +97,7 @@ def _test_contact_sensor_not_at_root(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

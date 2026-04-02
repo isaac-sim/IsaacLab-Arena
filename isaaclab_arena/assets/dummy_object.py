@@ -49,7 +49,7 @@ class DummyObject:
         """
         if self.initial_pose is None:
             return self.bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_wxyz)
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_xyzw)
         return self.bounding_box.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:

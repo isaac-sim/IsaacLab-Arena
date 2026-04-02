@@ -11,7 +11,6 @@ from __future__ import annotations
 """Example notebook demonstrating ObjectPlacer with real Isaac Sim objects."""
 
 # NOTE: When running as a notebook, first run this cell to launch the simulation app:
-import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
 
 print("Launching simulation app once in notebook")

@@ -3,13 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Isaac Sim makes testing complicated. During shutdown Isaac Sim will
-# terminate the surrounding pytest process with exit code 0, regardless
-# of whether the tests passed or failed.
-# To work around this, we stash the session object and set a flag
-# when a test fails. This flag is checked in isaaclab_arena.tests.utils.subprocess.py
-# prior to closing the simulation app, in order to generate the correct exit code.
+import sys
 
+from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
+
+# TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
+ensure_groot_deps_in_path(reexec_argv=["-m", "pytest"] + sys.argv[1:])
+
+# Isaac Sim exits with 0 on shutdown; stash session and set tests_failed so subprocess.py can report failure.
 import isaaclab_arena.tests.conftest as arena_conftest
 
 

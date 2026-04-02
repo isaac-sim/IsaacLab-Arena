@@ -174,11 +174,8 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     prim_xform.ClearXformOpOrder()
     if asset.initial_pose is not None:
         t = Gf.Vec3d(asset.initial_pose.position_xyz) if trans_double else Gf.Vec3f(asset.initial_pose.position_xyz)
-        r = (
-            Gf.Quatd(*asset.initial_pose.rotation_wxyz)
-            if orient_double
-            else Gf.Quatf(*asset.initial_pose.rotation_wxyz)
-        )
+        rot = asset.initial_pose.rotation_xyzw
+        r = Gf.Quatd(rot[3], *rot[:3]) if orient_double else Gf.Quatf(rot[3], *rot[:3])
         t_precision = UsdGeom.XformOp.PrecisionDouble if trans_double else UsdGeom.XformOp.PrecisionFloat
         r_precision = UsdGeom.XformOp.PrecisionDouble if orient_double else UsdGeom.XformOp.PrecisionFloat
         prim_xform.AddTranslateOp(precision=t_precision).Set(t)

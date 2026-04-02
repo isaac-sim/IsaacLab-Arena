@@ -4,27 +4,12 @@
             "name": "droid_pnp_srl_gr00t_billiard_hall",
             "arena_env_args": {
                 "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_abs_joint_pos",
                 "hdr": "billiard_hall_robolab"
             },
             "num_episodes": 3,
-            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
-            "policy_config_dict": {
-                "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
-                "policy_device": "cuda:0"
-            }
-        },
-        {
-            "name": "droid_pnp_srl_gr00t_billiard_hall_wooden_bowl",
-            "arena_env_args": {
-                "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
-                "embodiment": "droid_abs_joint_pos",
-                "hdr": "billiard_hall_robolab",
-                "destination_location": "bowl_ycb_robolab"
-            },
-            "num_episodes": 3,
+            "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -35,12 +20,14 @@
             "name": "droid_pnp_srl_gr00t_blue_block",
             "arena_env_args": {
                 "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_abs_joint_pos",
                 "pick_up_object": "blue_block_basic_robolab",
-                "destination_location": "bowl_ycb_robolab"
+                "destination_location": "wooden_bowl_hot3d_robolab",
+                "hdr": "home_office_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the blue block and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -51,12 +38,14 @@
             "name": "droid_pnp_srl_gr00t_alphabet_soup_can",
             "arena_env_args": {
                 "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_abs_joint_pos",
                 "pick_up_object": "alphabet_soup_can_hope_robolab",
-                "destination_location": "bowl_ycb_robolab"
+                "destination_location": "bowl_ycb_robolab",
+                "hdr": "empty_warehouse_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the soup can and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -67,12 +56,14 @@
             "name": "droid_pnp_srl_gr00t_orange",
             "arena_env_args": {
                 "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_abs_joint_pos",
                 "pick_up_object": "orange_01_fruits_veggies_robolab",
-                "destination_location": "bowl_ycb_robolab"
+                "destination_location": "wooden_bowl_hot3d_robolab",
+                "hdr": "aerodynamics_workshop_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the orange and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -83,12 +74,14 @@
             "name": "droid_pnp_srl_gr00t_lemon",
             "arena_env_args": {
                 "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_abs_joint_pos",
                 "pick_up_object": "lemon_01_fruits_veggies_robolab",
-                "destination_location": "bowl_ycb_robolab"
+                "destination_location": "bowl_ycb_robolab",
+                "hdr": "wooden_lounge_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the lemon and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
@@ -99,12 +92,68 @@
             "name": "droid_pnp_srl_gr00t_tomato_sauce_can",
             "arena_env_args": {
                 "enable_cameras": true,
-                "environment": "droid_pick_and_place_srl",
+                "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_abs_joint_pos",
                 "pick_up_object": "tomato_sauce_can_hot3d_robolab",
-                "destination_location": "bowl_ycb_robolab"
+                "destination_location": "wooden_bowl_hot3d_robolab",
+                "hdr": "garage_robolab"
             },
             "num_episodes": 3,
+            "language_instruction": "Pick up the tomato sauce can and place it in the bowl.",
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_config_dict": {
+                "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
+                "policy_device": "cuda:0"
+            }
+        },
+        {
+            "name": "droid_pnp_srl_gr00t_mustard_bottle",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_abs_joint_pos",
+                "pick_up_object": "mustard_bottle_hot3d_robolab",
+                "destination_location": "wooden_bowl_hot3d_robolab",
+                "hdr": "kiara_interior_robolab"
+            },
+            "num_episodes": 3,
+            "language_instruction": "Pick up the mustard bottle and place it in the bowl.",
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_config_dict": {
+                "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
+                "policy_device": "cuda:0"
+            }
+        },
+        {
+            "name": "droid_pnp_srl_gr00t_sugar_box",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_abs_joint_pos",
+                "pick_up_object": "sugar_box_ycb_robolab",
+                "destination_location": "bowl_ycb_robolab",
+                "hdr": "brown_photostudio_robolab"
+            },
+            "num_episodes": 3,
+            "language_instruction": "Pick up the sugar box and place it in the bowl.",
+            "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
+            "policy_config_dict": {
+                "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
+                "policy_device": "cuda:0"
+            }
+        },
+        {
+            "name": "droid_pnp_srl_gr00t_mug",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_abs_joint_pos",
+                "pick_up_object": "mug_ycb_robolab",
+                "destination_location": "wooden_bowl_hot3d_robolab",
+                "hdr": "carpentry_shop_robolab"
+            },
+            "num_episodes": 3,
+            "language_instruction": "Pick up the mug and place it in the bowl.",
             "policy_type": "isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy",
             "policy_config_dict": {
                 "policy_config_yaml_path": "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",

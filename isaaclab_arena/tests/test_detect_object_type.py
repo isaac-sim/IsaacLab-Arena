@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 import pytest
 
@@ -140,6 +141,7 @@ def _test_auto_object_type(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

@@ -50,13 +50,6 @@ parser.add_argument(
     default=10,
     help="Number of continuous steps with task success for concluding a demo as successful. Default is 10.",
 )
-parser.add_argument(
-    "--enable_pinocchio",
-    action="store_true",
-    default=False,
-    help="Enable Pinocchio.",
-)
-
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -66,11 +59,6 @@ add_example_environments_cli_args(parser)
 args_cli = parser.parse_args()
 
 app_launcher_args = vars(args_cli)
-
-if args_cli.enable_pinocchio:
-    # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and not the one installed by Isaac Sim
-    # pinocchio is required by the Pink IK controllers and the GR1T2 retargeter
-    import pinocchio  # noqa: F401
 
 # TODO(cvolk): XR mode is inferred from teleop device name via string matching.
 # Ideally, AppLauncher or the device config would auto-detect XR requirements.
@@ -86,32 +74,28 @@ simulation_app = app_launcher.app
 
 # Third-party imports
 import gymnasium as gym
-import logging
 import os
 import time
 import torch
-
-import isaaclab_mimic.envs  # noqa: F401
-import omni.ui as ui
-from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
-from isaaclab.devices.openxr import remove_camera_configs
-from isaaclab.devices.teleop_device_factory import create_teleop_device
-
-logger = logging.getLogger(__name__)
-from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
-
-# Imports have to follow simulation startup.
-
-if args_cli.enable_pinocchio:
-    import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
-
 from collections.abc import Callable
 
+import isaaclab_mimic.envs  # noqa: F401
 import isaaclab_tasks  # noqa: F401
+import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
+
+# Omniverse logger
+import omni.log
+import omni.ui as ui
+from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
+from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.envs import DirectRLEnvCfg, ManagerBasedRLEnvCfg
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 from isaaclab.envs.ui import EmptyWindow
 from isaaclab.managers import DatasetExportMode
+from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
+from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
+
+# Imports have to follow simulation startup.
 
 
 class RateLimiter:
@@ -196,7 +180,7 @@ def create_environment_config(
         env_name, env_cfg = arena_builder.build_registered()
 
     except Exception as e:
-        logger.error(f"Failed to parse environment configuration: {e}")
+        omni.log.error(f"Failed to parse environment configuration: {e}")
         exit(1)
 
     # extract success checking function to invoke in the main loop
@@ -205,7 +189,7 @@ def create_environment_config(
         success_term = env_cfg.terminations.success
         env_cfg.terminations.success = None
     else:
-        logger.warning(
+        omni.log.warn(
             "No success termination term was found in the environment."
             " Will not be able to mark recorded demos as successful."
         )
@@ -246,7 +230,7 @@ def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name:
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         return env
     except Exception as e:
-        logger.error(f"Failed to create environment: {e}")
+        omni.log.error(f"Failed to create environment: {e}")
         exit(1)
 
 
@@ -268,31 +252,34 @@ def setup_teleop_device(callbacks: dict[str, Callable]) -> object:
     """
     teleop_interface = None
     try:
-        if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
+        if hasattr(env_cfg, "isaac_teleop") and isinstance(env_cfg.isaac_teleop, IsaacTeleopCfg):
+            teleop_interface = create_isaac_teleop_device(
+                env_cfg.isaac_teleop,
+                sim_device=env_cfg.sim.device,
+                callbacks=callbacks,
+            )
+        elif hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
             teleop_interface = create_teleop_device(args_cli.teleop_device, env_cfg.teleop_devices.devices, callbacks)
         else:
-            logger.warning(
-                f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default."
-            )
-            # Create fallback teleop device
+            omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
             if args_cli.teleop_device.lower() == "keyboard":
                 teleop_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.2, rot_sensitivity=0.5))
             elif args_cli.teleop_device.lower() == "spacemouse":
                 teleop_interface = Se3SpaceMouse(Se3SpaceMouseCfg(pos_sensitivity=0.2, rot_sensitivity=0.5))
             else:
-                logger.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                logger.error("Supported devices: keyboard, spacemouse, avp_handtracking")
+                omni.log.error(f"Unsupported teleop device: {args_cli.teleop_device}")
+                omni.log.error("Supported devices: keyboard, spacemouse, avp_handtracking")
                 exit(1)
 
             # Add callbacks to fallback device
             for key, callback in callbacks.items():
                 teleop_interface.add_callback(key, callback)
     except Exception as e:
-        logger.error(f"Failed to create teleop device: {e}")
+        omni.log.error(f"Failed to create teleop device: {e}")
         exit(1)
 
     if teleop_interface is None:
-        logger.error("Failed to create teleop interface")
+        omni.log.error("Failed to create teleop interface")
         exit(1)
 
     return teleop_interface
@@ -435,72 +422,96 @@ def run_simulation_loop(
 
     teleop_interface = setup_teleop_device(teleoperation_callbacks)
     teleop_interface.add_callback("R", reset_recording_instance)
-
-    # Reset before starting
-    env.sim.reset()
-    env.reset()
-    teleop_interface.reset()
+    use_isaac_teleop = args_cli.xr
 
     label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
     instruction_display = setup_ui(label_text, env)
 
-    subtasks = {}
+    def inner_loop():
+        """Inner loop function with access to nonlocal variables."""
+        nonlocal current_recorded_demo_count, success_step_count, should_reset_recording_instance
+        nonlocal running_recording_instance, label_text
 
-    with contextlib.suppress(KeyboardInterrupt) and torch.inference_mode():
-        while simulation_app.is_running():
-            # Get keyboard command
-            action = teleop_interface.advance()
+        # Reset before starting
+        env.sim.reset()
+        env.reset()
+        teleop_interface.reset()
 
-            # Expand to batch dimension
-            actions = action.repeat(env.num_envs, 1)
-            # Hack for G1 Pink WBC to transferm EE into robot base coordinates
-            action_manager = getattr(env, "action_manager", None)
-            if action_manager is not None:
-                for term_name in action_manager.active_terms:
-                    term = action_manager.get_term(term_name)
-                    if hasattr(term, "preprocess_actions"):
-                        actions = term.preprocess_actions(actions)
+        subtasks = {}
+        stack_name = "IsaacTeleop" if use_isaac_teleop else "native"
+        print(f"{stack_name} recording started.")
 
-            # Perform action on environment
-            if running_recording_instance:
-                # Compute actions based on environment
-                obv = env.step(actions)
-                if subtasks is not None:
-                    if subtasks == {}:
-                        subtasks = obv[0].get("subtask_terms")
-                    elif subtasks:
-                        show_subtask_instructions(instruction_display, subtasks, obv, env.cfg)
-            else:
-                env.sim.render()
+        with contextlib.suppress(KeyboardInterrupt), torch.inference_mode():
+            while simulation_app.is_running():
+                # Get teleop command (may be None while waiting for session start)
+                action = teleop_interface.advance()
+                if action is None:
+                    env.sim.render()
+                    continue
+                # Expand to batch dimension
+                actions = action.repeat(env.num_envs, 1)
 
-            # Check for success condition
-            success_step_count, success_reset_needed = process_success_condition(env, success_term, success_step_count)
-            if success_reset_needed:
-                should_reset_recording_instance = True
+                # Perform action on environment
+                if running_recording_instance:
+                    # Compute actions based on environment
+                    obv = env.step(actions)
+                    if subtasks is not None:
+                        if subtasks == {}:
+                            subtasks = obv[0].get("subtask_terms")
+                        elif subtasks:
+                            show_subtask_instructions(instruction_display, subtasks, obv, env.cfg)
+                else:
+                    env.sim.render()
 
-            # Update demo count if it has changed
-            if env.recorder_manager.exported_successful_episode_count > current_recorded_demo_count:
-                current_recorded_demo_count = env.recorder_manager.exported_successful_episode_count
-                label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
-                print(label_text)
+                # Check for success condition
+                success_step_count_new, success_reset_needed = process_success_condition(
+                    env, success_term, success_step_count
+                )
+                success_step_count = success_step_count_new
+                if success_reset_needed:
+                    should_reset_recording_instance = True
 
-            # Handle reset if requested
-            if should_reset_recording_instance:
-                success_step_count = handle_reset(env, success_step_count, instruction_display, label_text)
-                should_reset_recording_instance = False
+                # Update demo count if it has changed
+                if env.recorder_manager.exported_successful_episode_count > current_recorded_demo_count:
+                    current_recorded_demo_count = env.recorder_manager.exported_successful_episode_count
+                    label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
+                    print(label_text)
 
-            # Check if we've reached the desired number of demos
-            if args_cli.num_demos > 0 and env.recorder_manager.exported_successful_episode_count >= args_cli.num_demos:
-                print(f"All {args_cli.num_demos} demonstrations recorded. Exiting the app.")
-                break
+                # Check if we've reached the desired number of demos
+                if (
+                    args_cli.num_demos > 0
+                    and env.recorder_manager.exported_successful_episode_count >= args_cli.num_demos
+                ):
+                    label_text = f"All {current_recorded_demo_count} demonstrations recorded.\nExiting the app."
+                    instruction_display.show_demo(label_text)
+                    print(label_text)
+                    target_time = time.time() + 0.8
+                    while time.time() < target_time:
+                        if rate_limiter:
+                            rate_limiter.sleep(env)
+                        else:
+                            env.sim.render()
+                    break
 
-            # Check if simulation is stopped
-            if env.sim.is_stopped():
-                break
+                # Handle reset if requested
+                if should_reset_recording_instance:
+                    success_step_count = handle_reset(env, success_step_count, instruction_display, label_text)
+                    should_reset_recording_instance = False
 
-            # Rate limiting
-            if rate_limiter:
-                rate_limiter.sleep(env)
+                # Check if simulation is stopped
+                if env.sim.is_stopped():
+                    break
+
+                # Rate limiting
+                if rate_limiter:
+                    rate_limiter.sleep(env)
+
+    # Run the loop with or without context manager based on stack
+    if use_isaac_teleop:
+        with teleop_interface:
+            inner_loop()
+    else:
+        inner_loop()
 
     return current_recorded_demo_count
 
@@ -521,6 +532,10 @@ def main() -> None:
     # if handtracking is selected, rate limiting is achieved via OpenXR
     if args_cli.xr:
         rate_limiter = None
+        from isaaclab.ui.xr_widgets import TeleopVisualizationManager, XRVisualization
+
+        # Assign the teleop visualization manager to the visualization system
+        XRVisualization.assign_manager(TeleopVisualizationManager)
     else:
         rate_limiter = RateLimiter(args_cli.step_hz)
 

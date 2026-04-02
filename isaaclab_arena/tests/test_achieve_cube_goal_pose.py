@@ -5,11 +5,18 @@
 
 import gymnasium as gym
 import torch
+import traceback
+
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
 HEADLESS = True
+
+TARGET_ORIENTATION_XYZW = (0.0, 0.0, 0.7071, 0.7071)
+TARGET_ORIENTATION_TOLERANCE_RAD = 0.2
+TARGET_Z_RANGE = (0.0, 0.5)
 
 
 def get_test_environment(num_envs: int):
@@ -36,7 +43,7 @@ def get_test_environment(num_envs: int):
     dex_cube.set_initial_pose(
         Pose(
             position_xyz=(0.1, 0.0, 0.05),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -45,16 +52,16 @@ def get_test_environment(num_envs: int):
     # Define success thresholds: z in [0.0, 0.5] and yaw 90 degrees
     task = GoalPoseTask(
         dex_cube,
-        target_z_range=(0.0, 0.5),
-        target_orientation_wxyz=(0.7071, 0.0, 0.0, 0.7071),  # yaw 90 degrees
-        target_orientation_tolerance_rad=0.2,
+        target_z_range=TARGET_Z_RANGE,
+        target_orientation_xyzw=TARGET_ORIENTATION_XYZW,
+        target_orientation_tolerance_rad=TARGET_ORIENTATION_TOLERANCE_RAD,
     )
 
     embodiment = FrankaEmbodiment()
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -95,6 +102,7 @@ def _test_achieve_cube_goal_pose_initial_state(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -121,7 +129,7 @@ def _test_achieve_cube_goal_pose_success(simulation_app) -> bool:
             # - Position: z > 0.2 (in success zone)
             # - Orientation: yaw 90 degrees (0.7071, 0, 0, 0.7071)
             target_pos = torch.tensor([[0.3, 0.0, 0.05]], device=env.device)  # z=0.5 is in [0.2, 1.0]
-            target_quat = torch.tensor([[0.7071, 0.0, 0.0, 0.7071]], device=env.device)  # yaw 90 degrees
+            target_quat = torch.tensor([TARGET_ORIENTATION_XYZW], device=env.device)  # yaw 90 degrees
 
             # Step the environment to let the physics settle
             for _ in range(NUM_STEPS):
@@ -144,6 +152,7 @@ def _test_achieve_cube_goal_pose_success(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -171,11 +180,11 @@ def _test_achieve_cube_goal_pose_multiple_envs(simulation_app) -> bool:
             step_zeros_and_call(env, 1)
 
             # Move only the first env's cube to target pose
-            current_poses = cube_object.data.root_state_w.clone()
+            current_poses = wp.to_torch(cube_object.data.root_state_w).clone()
 
             # Set first env to success pose
             target_pos_0 = env.scene.env_origins[0] + torch.tensor([0.1, 0.0, 0.5], device=env.device)
-            target_quat = torch.tensor([0.7071, 0.0, 0.0, 0.7071], device=env.device)
+            target_quat = torch.tensor([TARGET_ORIENTATION_XYZW], device=env.device)
 
             new_poses = current_poses.clone()
             new_poses[0, :3] = target_pos_0
@@ -193,7 +202,7 @@ def _test_achieve_cube_goal_pose_multiple_envs(simulation_app) -> bool:
             assert not terminated[1].item(), "Second env should not be successful"
 
             # Now move second env to success pose too
-            current_poses = cube_object.data.root_state_w.clone()
+            current_poses = wp.to_torch(cube_object.data.root_state_w).clone()
             target_pos_1 = env.scene.env_origins[1] + torch.tensor([0.1, 0.0, 0.5], device=env.device)
 
             new_poses = current_poses.clone()
@@ -216,6 +225,7 @@ def _test_achieve_cube_goal_pose_multiple_envs(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

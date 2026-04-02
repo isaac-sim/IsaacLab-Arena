@@ -45,34 +45,34 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+        background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0, 0, 0.707, 0.707)))
 
         # Set initial poses for all 4 gears
         gear_base.set_initial_pose(
             Pose(
                 position_xyz=(0.6, 0.0, 0.0),  # Gear base position
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
         medium_gear.set_initial_pose(
             Pose(
                 position_xyz=(0.5, 0.2, 0.0),  # Medium gear to be assembled
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
         small_gear.set_initial_pose(
             Pose(
                 position_xyz=(0.6, 0.0, 0.0),  # Small reference gear
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
         large_gear.set_initial_pose(
             Pose(
                 position_xyz=(0.6, 0.0, 0.0),  # Large reference gear
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 

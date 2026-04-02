@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import traceback
+
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
@@ -65,6 +67,7 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     return True
@@ -134,6 +137,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     return True

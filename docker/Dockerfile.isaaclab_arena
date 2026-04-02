@@ -1,8 +1,7 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:5.1.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.0.0-dev2
 
 FROM ${BASE_IMAGE}
 
-# Set user to root (Isaac Sim base image defaults to non-root user)
 USER root
 
 # GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
@@ -43,11 +42,15 @@ RUN chmod 777 -R /isaac-sim/kit/
 # Make /isaac-sim directory traversable and readable by all users
 # This is needed when entrypoint switches to non-root user
 RUN chmod a+x /isaac-sim
-# NOTE(alexmillane, 2026-02-10): We started having issues with flatdict 4.0.1 installation
-# during IsaacLab install. We install here with build isolation which seems to fix the issue.
-RUN /isaac-sim/python.sh -m pip install flatdict==4.0.1 --no-build-isolation
+# Ensure isaaclab_visualizers is installed so --visualizer kit works.
+RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_visualizers
+RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_teleop
+
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
+
+# Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
+RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.0 --extra-index-url https://pypi.nvidia.com
 
 # Patch for osqp in IsaacLab. Downgrade qpsolvers
 # TODO(alexmillane): Watch the thread here: https://nvidia.slack.com/archives/C06HLQ6CB41/p1764680205807019
@@ -80,11 +83,14 @@ RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
 # Lightwheel server
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
-# HuggingFace for downloading datasets and models.
-# NOTE(alexmillane, 2025-10-28): For some reason the CLI has issues when installed in the IsaacSim version of python.
-RUN pip install --break-system-packages huggingface-hub[cli]
-# Create alias for hf command to use the system-installed version
-RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
+# HuggingFace CLI for downloading datasets and models.
+# Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
+# without touching system Python packages.
+RUN apt-get install -y pipx && \
+    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin \
+    pipx install \
+    "huggingface-hub[cli]" \
+    pre-commit
 
 ###############################
 # Install GR00T and CUDA 12.8 #
@@ -104,14 +110,12 @@ COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 # Copy GR00T dependencies installation script
 COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
 RUN chmod +x /tmp/install_gr00t_deps.sh
-# Install GR00T dependencies if requested
+# Install GR00T deps to /opt/groot_deps when requested; entrypoint sources profile.d to set GROOT_DEPS_DIR
 RUN if [ "$INSTALL_GROOT" = "true" ]; then \
-    /tmp/install_gr00t_deps.sh; \
+    /tmp/install_gr00t_deps.sh && echo 'export GROOT_DEPS_DIR=/opt/groot_deps' > /etc/profile.d/groot_deps.sh; \
   else \
-    echo "Skipping GR00T installation"; \
-  fi && \
-  # Clean up installation scripts
-  rm -f /tmp/install_gr00t_deps.sh
+    echo "Skipping GR00T installation" && rm -f /etc/profile.d/groot_deps.sh; \
+  fi && rm -f /tmp/install_gr00t_deps.sh
 
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/

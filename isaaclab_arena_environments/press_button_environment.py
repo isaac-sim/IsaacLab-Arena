@@ -37,7 +37,7 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
             teleop_device = None
 
         # Put the coffee_machine on the packing table.
-        press_object_pose = Pose(position_xyz=(0.7, 0.4, 0.19), rotation_wxyz=(0.7071, 0.0, 0.0, -0.7071))
+        press_object_pose = Pose(position_xyz=(0.7, 0.4, 0.19), rotation_xyzw=(0.0, 0.0, -0.7071, 0.7071))
         press_object.set_initial_pose(press_object_pose)
 
         # Compose the scene
