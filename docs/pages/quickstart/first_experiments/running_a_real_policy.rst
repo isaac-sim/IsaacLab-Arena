@@ -115,6 +115,10 @@ At the end of the run you will see a job summary table followed by a metrics rep
 
    ...
 
+Clearly, the low success rates in this table indicate that zero-shot deployment of robotic foundation
+models is still a challenging problem. Recent results `[robolab] <https://gitlab-master.nvidia.com/xuningy/robolab/-/blob/main/docs/analysis.md>`_
+show that bleeding-edge Vision Language Action (VLA) models are starting to achieve more reasonable results.
+
 
 .. _Next Steps:
 
