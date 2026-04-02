@@ -82,19 +82,14 @@ class ObjectPlacer:
             rng_state = torch.get_rng_state()
             torch.manual_seed(self.params.placement_seed)
 
-        # Determine bounds for random position initialization from the first anchor object
-        # TODO(cvolk): The user should not need to know about the bounds to set.
-        # Implement an initialization strategy that infers from the Relations(s).
-        init_bounds = self._get_init_bounds(anchor_objects[0])
-
         # Placement loop with retries
         best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         best_loss = float("inf")
         success = False
 
         for attempt in range(self.params.max_placement_attempts):
-            # Generate starting positions (anchors from their poses, others random)
-            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, init_bounds)
+            # Generate starting positions (anchors from their poses, others from On relation)
+            initial_positions = self._generate_initial_positions(objects, anchor_objects_set)
 
             # Solve
             positions = self._solver.solve(objects, initial_positions)
@@ -132,58 +127,89 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
-        """Get bounds for random position initialization.
-
-        If init_bounds is provided in params, use it.
-        Otherwise, create bounds of init_bounds_size centered on anchor's bounding box.
-        """
-        if self.params.init_bounds is not None:
-            return self.params.init_bounds
-
-        # Create bounds centered on anchor's world bounding box center
-        anchor_bbox = anchor_object.get_world_bounding_box()
-        center = anchor_bbox.center
-        half_size = (
-            self.params.init_bounds_size[0] / 2,
-            self.params.init_bounds_size[1] / 2,
-            self.params.init_bounds_size[2] / 2,
-        )
-
-        return AxisAlignedBoundingBox(
-            min_point=(
-                center[0] - half_size[0],
-                center[1] - half_size[1],
-                center[2] - half_size[2],
-            ),
-            max_point=(
-                center[0] + half_size[0],
-                center[1] + half_size[1],
-                center[2] + half_size[2],
-            ),
-        )
-
     def _generate_initial_positions(
         self,
         objects: list[Object | ObjectReference],
-        anchor_objects: Object | ObjectReference,
-        init_bounds: AxisAlignedBoundingBox,
+        anchor_objects: set[Object | ObjectReference],
     ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
-        Anchors keep their current initial_pose, others get random positions.
+        Anchors keep their current initial_pose. Non-anchors with an On relation are
+        initialized within the parent's footprint at the parent's top surface. All others
+        fall back to a random position within the first anchor's world bounding box.
 
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
+        first_anchor = next(obj for obj in objects if obj in anchor_objects)
+        fallback_bbox = first_anchor.get_world_bounding_box()
+
         positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
             else:
-                random_pose = get_random_pose_within_bounding_box(init_bounds)
-                positions[obj] = random_pose.position_xyz
+                positions[obj] = self._compute_on_init_position(obj, anchor_objects, fallback_bbox)
         return positions
+
+    def _get_on_parent_world_bbox(
+        self,
+        parent: Object | ObjectReference,
+        anchor_objects: set[Object | ObjectReference],
+        fallback_bbox: AxisAlignedBoundingBox,
+    ) -> AxisAlignedBoundingBox:
+        """Resolve the world bbox of an On relation's parent for initialization purposes.
+
+        If the parent is an anchor, return its world bbox directly.
+        If the parent is a non-anchor with its own On(anchor) relation, use the anchor's
+        world bbox as a proxy. Only one level of indirection is resolved; deeper chains
+        fall back to fallback_bbox. Otherwise fall back to the provided fallback bbox.
+        """
+        if parent in anchor_objects:
+            return parent.get_world_bounding_box()
+        for rel in parent.get_relations():
+            if isinstance(rel, On) and rel.parent in anchor_objects:
+                return rel.parent.get_world_bounding_box()
+        return fallback_bbox
+
+    def _compute_on_init_position(
+        self,
+        obj: Object | ObjectReference,
+        anchor_objects: set[Object | ObjectReference],
+        fallback_bbox: AxisAlignedBoundingBox,
+    ) -> tuple[float, float, float]:
+        """Compute an initial position for a non-anchor object.
+
+        Objects with an On relation are placed within the parent's X/Y footprint at the
+        correct Z height. Objects with no On relation are placed randomly within fallback_bbox.
+        """
+        on_relation = next((r for r in obj.get_relations() if isinstance(r, On)), None)
+        if on_relation is None:
+            return get_random_pose_within_bounding_box(fallback_bbox).position_xyz
+
+        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, fallback_bbox)
+        child_bbox = obj.get_bounding_box()
+
+        # X: sample child origin so child's full X extent stays within parent
+        x_min = parent_bbox.min_point[0] - child_bbox.min_point[0]
+        x_max = parent_bbox.max_point[0] - child_bbox.max_point[0]
+        if x_min >= x_max:
+            x = (parent_bbox.min_point[0] + parent_bbox.max_point[0]) / 2.0
+        else:
+            x = float(x_min + (x_max - x_min) * torch.rand(1).item())
+
+        # Y: same
+        y_min = parent_bbox.min_point[1] - child_bbox.min_point[1]
+        y_max = parent_bbox.max_point[1] - child_bbox.max_point[1]
+        if y_min >= y_max:
+            y = (parent_bbox.min_point[1] + parent_bbox.max_point[1]) / 2.0
+        else:
+            y = float(y_min + (y_max - y_min) * torch.rand(1).item())
+
+        # Z: place child's bottom face at parent top + clearance
+        z = parent_bbox.max_point[2] + on_relation.clearance_m - child_bbox.min_point[2]
+
+        return (x, y, z)
 
     def _validate_on_relations(
         self,
