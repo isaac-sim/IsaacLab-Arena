@@ -158,7 +158,7 @@ jobs:
 
       - name: Run RL test
         run: |
-          /isaac-sim/python.sh isaaclab_arena/tests/test_rsl_rl.py
+          /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/test_rsl_rl.py
 
 
   test_policy:
