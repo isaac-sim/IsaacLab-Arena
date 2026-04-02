@@ -6,7 +6,7 @@
 """Arena example: Dexsuite Kuka Allegro **lift** with **Newton** physics.
 
 Matches the MDP of Isaac Lab ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` (state observations, joint actions):
-procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena.embodiments.kuka_allegro.kuka_allegro.KukaAllegroDexsuiteEmbodiment` with ``physics_preset="newton"``.
+procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena.embodiments.kuka_allegro.kuka_allegro.KukaAllegroEmbodiment` with ``physics_preset="newton"``.
 
 **Play a checkpoint trained in Isaac Lab** (same PPO runner / obs groups)::
 
@@ -77,9 +77,6 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             env_cfg.is_finite_horizon = False
             if hasattr(env_cfg, "scene") and env_cfg.scene is not None:
                 env_cfg.scene.replicate_physics = True
-            if hasattr(env_cfg, "commands"):
-                env_cfg.commands.object_pose.resampling_time_range = (2.0, 3.0)
-                env_cfg.commands.object_pose.position_only = True
             return env_cfg
 
         return IsaacLabArenaEnvironment(

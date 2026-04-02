@@ -16,9 +16,7 @@ from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.observations import observations
@@ -398,33 +396,16 @@ class DexsuiteLiftTask(LiftObjectTask):
 
         from isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg import CommandsCfg
 
-        self._commands_cfg = CommandsCfg()
-        self._commands_cfg.object_pose.position_only = True
-        self._terminations_cfg = DexsuiteLiftTerminationsCfg()
-        self.termination_cfg = self._terminations_cfg
+        self.commands_cfg = CommandsCfg()
+        self.commands_cfg.object_pose.position_only = True
+        self.commands_cfg.object_pose.resampling_time_range = (2.0, 3.0)
+        self.termination_cfg = DexsuiteLiftTerminationsCfg()
 
     def get_commands_cfg(self) -> Any:
-        return self._commands_cfg
+        return self.commands_cfg
 
     def get_rewards_cfg(self) -> Any:
         return None
 
     def get_curriculum_cfg(self) -> Any:
         return None
-
-    def get_viewer_cfg(self) -> ViewerCfg:
-        return get_viewer_cfg_look_at_object(
-            lookat_object=self.lift_object,
-            offset=np.array([-1.5, -1.5, 1.5]),
-        )
-
-    def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
-        raise NotImplementedError("Dexsuite Kuka Allegro lift mimic is not configured in Arena yet.")
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        env_cfg.decimation = 2
-        env_cfg.commands.object_pose.resampling_time_range = (2.0, 3.0)
-        env_cfg.commands.object_pose.position_only = True
-        env_cfg.episode_length_s = 6.0
-        env_cfg.is_finite_horizon = False
-        return env_cfg
