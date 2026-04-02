@@ -183,5 +183,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
     ensure_groot_deps_in_path()
     main()
