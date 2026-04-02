@@ -34,6 +34,7 @@ of simulation steps:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
      --language_instruction "Pick up the Rubik's cube and place it in the bowl." \

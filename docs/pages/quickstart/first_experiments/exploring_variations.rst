@@ -22,6 +22,7 @@ Your reference run — rubiks cube on the table, bowl as destination:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type zero_action \
      --num_steps 50 \
      pick_and_place_maple_table \
@@ -57,6 +58,7 @@ Some options to try:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type zero_action \
      --num_steps 50 \
      pick_and_place_maple_table \
@@ -89,6 +91,7 @@ You can also adjust the dome light intensity independently with ``--light_intens
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type zero_action \
      --num_steps 50 \
      pick_and_place_maple_table \
@@ -112,6 +115,7 @@ Add ``--num_envs`` to run many environments in parallel on the GPU:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type zero_action \
      --num_steps 50 \
      --num_envs 64 \
