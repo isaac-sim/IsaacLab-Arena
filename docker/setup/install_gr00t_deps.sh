@@ -113,9 +113,10 @@ $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use
     fastparquet==2024.11.0 \
     protobuf==3.20.3 \
     onnx==1.17.0 \
+    deepspeed==0.17.6 \
     pytest \
     hydra-core \
-    tyro && \
+    tyro
 
 # Add GR00T deps to sys.path *after* site-packages via .pth (so we never override Isaac Sim packages)
 SITE_PACKAGES=$($PYTHON_CMD -c "import site; print(site.getsitepackages()[0])")
