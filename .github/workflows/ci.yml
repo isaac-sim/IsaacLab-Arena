@@ -101,7 +101,7 @@ jobs:
     needs: [pre_commit]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:lab_3_interop
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
