@@ -126,7 +126,7 @@ html_css_files = ["custom.css"]
 
 # Versioning
 smv_remote_whitelist = r"^.*$"
-smv_branch_whitelist = r"^(main|release/.*|feature/isaac_lab_3_newton)$"
+smv_branch_whitelist = r"^(main|release/.*)$"
 smv_tag_whitelist = r"^v.*$"
 html_sidebars = {"**": ["versioning.html", "sidebar-nav-bs"]}
 # Todos
