@@ -218,6 +218,7 @@ object with:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
+     --visualizer kit \
      --eval_jobs_config path/to/eval_jobs_config.json \
      --num_steps 1000
 

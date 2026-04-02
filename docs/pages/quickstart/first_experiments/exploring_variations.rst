@@ -148,6 +148,7 @@ the four experiments above into a single config:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
+     --visualizer kit \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
 
 .. figure:: ../../../images/iterate_getting_started_jobs_config.gif

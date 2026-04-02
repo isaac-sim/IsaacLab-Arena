@@ -124,7 +124,9 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/eval_runner.py \
+     --visualizer kit \
+     --eval_jobs_config eval_config.json
 
 .. code-block:: text
 
