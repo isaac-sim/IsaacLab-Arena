@@ -1887,20 +1887,8 @@ class TableMapleRobolab(LibraryObject):
 _PROCEDURAL_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
     size=(0.8, 1.5, 0.04),
     rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
-    collision_props=sim_utils.CollisionPropertiesCfg(),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
     visible=False,
-)
-
-_PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
-    size=(0.05, 0.1, 0.1),
-    physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
-    rigid_props=sim_utils.RigidBodyPropertiesCfg(
-        solver_position_iteration_count=16,
-        solver_velocity_iteration_count=0,
-        disable_gravity=False,
-    ),
-    collision_props=sim_utils.CollisionPropertiesCfg(),
-    mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
 )
 
 
@@ -1935,6 +1923,19 @@ class ProceduralTable(Object):
             **self.asset_cfg_addon,
         )
         return self._add_initial_pose_to_cfg(cfg)
+
+
+_PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.05, 0.1, 0.1),
+    physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        solver_position_iteration_count=16,
+        solver_velocity_iteration_count=0,
+        disable_gravity=False,
+    ),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+)
 
 
 @register_asset
