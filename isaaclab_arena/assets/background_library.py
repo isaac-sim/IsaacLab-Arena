@@ -188,3 +188,106 @@ class OfficeTable(LibraryBackground):
 
     def __init__(self):
         super().__init__()
+
+
+# ======================================================================
+# RoboLab fixtures (tables, kitchens, stands, bins)
+# object_min_z values are estimated — adjust after visual inspection
+# ======================================================================
+
+ROBOLAB_FIXTURES_DIR = (
+    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures"
+)
+
+
+@register_asset
+class OakTableRobolab(LibraryBackground):
+    name = "oak_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/table_oak.usd"
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+
+@register_asset
+class BambooTableRobolab(LibraryBackground):
+    name = "bamboo_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/table_bamboo.usd"
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+
+@register_asset
+class BlackTableRobolab(LibraryBackground):
+    name = "black_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/table_black.usd"
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+
+@register_asset
+class FrankaTableRobolab(LibraryBackground):
+    name = "franka_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/franka_table.usd"
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+
+@register_asset
+class KitchenIslandRobolab(LibraryBackground):
+    name = "kitchen_island_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/kitchen_island.usd"
+    object_min_z = -0.2
+
+
+@register_asset
+class KitchenLShapedRobolab(LibraryBackground):
+    name = "kitchen_l_shaped_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/kitchen_l_shaped.usd"
+    object_min_z = -0.2
+
+
+@register_asset
+class KitchenPeninsulaRobolab(LibraryBackground):
+    name = "kitchen_peninsula_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/kitchen_peninsula.usd"
+    object_min_z = -0.2
+
+
+@register_asset
+class KitchenSingleWallRobolab(LibraryBackground):
+    name = "kitchen_single_wall_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/kitchen_single_wall.usd"
+    object_min_z = -0.2
+
+
+@register_asset
+class KitchenUShapedRobolab(LibraryBackground):
+    name = "kitchen_u_shaped_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/kitchen_u_shaped.usd"
+    object_min_z = -0.2
+
+
+@register_asset
+class GreyBinRobolab(LibraryBackground):
+    name = "grey_bin_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/grey_bin.usd"
+    object_min_z = -0.05
+    spawn_cfg_addon = {"activate_contact_sensors": True}
+
+
+@register_asset
+class StandRobolab(LibraryBackground):
+    name = "stand_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ROBOLAB_FIXTURES_DIR}/stand.usd"
+    object_min_z = -0.05

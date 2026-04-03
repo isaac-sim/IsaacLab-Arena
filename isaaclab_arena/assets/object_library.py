@@ -268,25 +268,25 @@ class StandMixer(LibraryObject, Turnable):
         )
 
 
-@register_asset
-class OfficeTable(LibraryObject):
-    """
-    A basic office table.
-    """
+# @register_asset
+# class OfficeTable(LibraryObject):
+#     """
+#     A basic office table.
+#     """
 
-    name = "office_table"
-    tags = ["object"]
-    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
-    scale = (1.0, 1.0, 0.7)
+#     name = "office_table"
+#     tags = ["object"]
+#     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+#     scale = (1.0, 1.0, 0.7)
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+#     def __init__(
+#         self,
+#         instance_name: str | None = None,
+#         prim_path: str | None = None,
+#         initial_pose: Pose | None = None,
+#         scale: tuple[float, float, float] | None = None,
+#     ):
+#         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
