@@ -77,6 +77,11 @@ def _make_randomize_pick_event(arena_env):
                 bin_asset=arena_env._bin,
             )
 
+            # Capture the randomized init relations before they get restored.
+            arena_env._current_init_relations = {
+                obj.name: obj.relations[:] for obj in arena_env._pick_objects
+            }
+
             # ObjectPlacer applies solved positions + slot-based rotations.
             with torch.inference_mode(mode=False):
                 ObjectPlacer().place(objects=all_objects)
@@ -226,66 +231,6 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         return isaaclab_arena_environment
 
-    def randomize_initial_positions(self, env=None) -> None:
-        """Re-solve the init layout and update pick objects' positions.
-
-        Args:
-            env: If provided, directly writes new poses to the sim via
-                 write_root_pose_to_sim. Call this after env.reset().
-        """
-        from isaaclab_arena.relations.object_placer import ObjectPlacer
-        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-        from isaaclab_arena.relations.relations import IsAnchor
-
-        all_objects = [self._table, self._bin] + self._static_objects + self._pick_objects
-
-        saved = {id(obj): obj.relations[:] for obj in all_objects}
-        for obj in all_objects:
-            obj.relations = []
-
-        self._table.add_relation(IsAnchor())
-        self._bin.add_relation(IsAnchor())
-        for obj in self._static_objects:
-            obj.add_relation(IsAnchor())
-        self._generate_object_layout(
-            objects=self._pick_objects, table=self._table, bin_asset=self._bin,
-        )
-
-        # Solve without applying (we'll write to sim directly)
-        params = ObjectPlacerParams(apply_positions_to_objects=False)
-        result = ObjectPlacer(params=params).place(objects=all_objects)
-
-        # Write new poses directly to the sim via PhysX view
-        if env is not None:
-            import torch as _torch
-            from isaaclab_arena.utils.pose import Pose
-            for obj in self._pick_objects:
-                pos = result.positions[obj]
-                pose = Pose(position_xyz=pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
-                asset = env.scene[obj.name]
-                # Build 7-dim tensor: [x, y, z, qx, qy, qz, qw] for PhysX
-                pose7 = pose.to_tensor(device=env.device)  # [x,y,z, qw,qx,qy,qz]
-                # Convert wxyz -> xyzw for PhysX
-                pos_xyz = pose7[:3] + env.scene.env_origins[0]
-                quat_wxyz = pose7[3:]
-                quat_xyzw = _torch.tensor(
-                    [quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]],
-                    device=env.device,
-                )
-                physx_pose = _torch.cat([pos_xyz, quat_xyzw]).unsqueeze(0)
-                physx_vel = _torch.zeros(1, 6, device=env.device)
-                indices = _torch.tensor([0], dtype=_torch.int32, device=env.device)
-                asset.root_physx_view.set_transforms(physx_pose, indices=indices)
-                asset.root_physx_view.set_velocities(physx_vel, indices=indices)
-                print(f"[INIT] {obj.name} -> {pos}")
-            # Step sim so poses take effect (must be in inference_mode for articulation tensors)
-            with _torch.inference_mode():
-                env.sim.step(render=False)
-                env.scene.update(dt=env.step_dt)
-
-        # Restore original relations
-        for obj in all_objects:
-            obj.relations = saved[id(obj)]
 
     def generate_target_positions(self) -> dict[str, tuple[float, float, float]]:
         """Generate a new random layout and return resolved world-frame positions.
@@ -303,9 +248,13 @@ class DroidV3TabletopPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         all_objects = [self._table, self._bin] + self._static_objects + self._pick_objects
 
-        # Save original (init) relations, then clear
+        # Save original relations for restoration, then clear
         saved = {id(obj): obj.relations[:] for obj in all_objects}
-        self._init_relations = {obj.name: saved[id(obj)][:] for obj in self._pick_objects}
+        # Use the randomized init relations captured by the reset event,
+        # falling back to current relations if no reset has occurred yet.
+        self._init_relations = getattr(self, '_current_init_relations', None) or {
+            obj.name: saved[id(obj)][:] for obj in self._pick_objects
+        }
 
         for obj in all_objects:
             obj.relations = []

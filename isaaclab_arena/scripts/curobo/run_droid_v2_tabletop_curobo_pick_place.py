@@ -257,9 +257,6 @@ def main() -> None:
             print(f"{'#' * 80}")
 
             env.reset()
-            if is_v3:
-                arena_builder.example_env.randomize_initial_positions(env=env)
-
             # ── Plan pick order ───────────────────────────────────────────
             if is_v3:
                 target_positions = arena_builder.example_env.generate_target_positions()
