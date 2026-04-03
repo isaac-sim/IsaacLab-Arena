@@ -23,7 +23,7 @@ builds the environment, and registers it with gym so IsaacLab's script can find 
 
 .. tip::
 
-   Add ``--headless`` to suppress the GUI when running on a headless server.
+   Add ``--visualizer kit`` to open the GUI and watch training live.
 
 Checkpoints are written to ``logs/rsl_rl/generic_experiment/<timestamp>/``.
 The agent configuration is saved alongside as ``params/agent.yaml``,
@@ -114,7 +114,6 @@ Add ``--distributed`` to spread environments across all available GPUs:
      --rl_training_mode \
      --num_envs 512 \
      --max_iterations 12000 \
-     --headless \
      --distributed
 
 
