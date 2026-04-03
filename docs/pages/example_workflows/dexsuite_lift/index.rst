@@ -37,7 +37,7 @@ body states, object point cloud, and 5-step observation history.
    * - **Scene**
      - Dexsuite kinematic table with ground plane and lighting
    * - **Objects**
-     - Procedural lift cuboid (``dexsuite_lift_object``)
+     - Procedural lift cuboid (``procedural_cube``)
    * - **Policy**
      - RSL-RL PPO (``DexsuiteKukaAllegroPPORunnerCfg``)
    * - **Training Method**

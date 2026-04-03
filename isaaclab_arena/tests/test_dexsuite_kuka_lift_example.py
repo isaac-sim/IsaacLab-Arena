@@ -19,12 +19,12 @@ def test_dexsuite_lift_example_in_cli_registry() -> None:
     assert ExampleEnvironments["dexsuite_lift"].name == "dexsuite_lift"
 
 
-def test_dexsuite_procedural_assets_registered() -> None:
+def test_procedural_assets_registered() -> None:
     from isaaclab_arena.assets.asset_registry import AssetRegistry
 
     reg = AssetRegistry()
-    assert reg.is_registered("dexsuite_manip_table")
-    assert reg.is_registered("dexsuite_lift_object")
+    assert reg.is_registered("procedural_table")
+    assert reg.is_registered("procedural_cube")
 
 
 def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
@@ -33,8 +33,8 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, DexsuiteLiftTerminationsCfg, LiftObjectTask
 
     reg = AssetRegistry()
-    lift = reg.get_asset_by_name("dexsuite_lift_object")()
-    table = reg.get_asset_by_name("dexsuite_manip_table")()
+    lift = reg.get_asset_by_name("procedural_cube")()
+    table = reg.get_asset_by_name("procedural_table")()
     task = DexsuiteLiftTask(lift_object=lift, background_scene=table)
     assert isinstance(task, LiftObjectTask)
     assert task.lift_object is lift

@@ -221,7 +221,6 @@ def ensure_assets_registered():
         # Import modules to trigger asset registration via decorators
         import isaaclab_arena.assets.background_library  # noqa: F401
         import isaaclab_arena.assets.device_library  # noqa: F401
-        import isaaclab_arena.assets.dexsuite_assets  # noqa: F401
         import isaaclab_arena.assets.hdr_image_library  # noqa: F401
         import isaaclab_arena.assets.object_library  # noqa: F401
         import isaaclab_arena.assets.retargeter_library  # noqa: F401

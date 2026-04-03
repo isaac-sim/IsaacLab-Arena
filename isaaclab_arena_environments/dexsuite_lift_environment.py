@@ -48,8 +48,8 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
 
-        dexsuite_table = self.asset_registry.get_asset_by_name("dexsuite_manip_table")()
-        manip_object = self.asset_registry.get_asset_by_name("dexsuite_lift_object")()
+        dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+        manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
