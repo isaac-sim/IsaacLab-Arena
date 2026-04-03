@@ -33,7 +33,7 @@ Creating an Environment Example
 .. code-block:: python
 
    # Component creation
-   embodiment = asset_registry.get_asset_by_name("franka")()
+   embodiment = asset_registry.get_asset_by_name("franka_ik")()
    background = asset_registry.get_asset_by_name("kitchen")()
    pick_object = asset_registry.get_asset_by_name("cracker_box")()
    pick_object.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1)))

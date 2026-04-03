@@ -545,7 +545,7 @@ capabilities of the selected embodiment.</p>
 <section id="environment-integration">
 <h2>Environment Integration<a class="headerlink" href="#environment-integration" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Embodiment creation with camera support</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik&quot;</span><span class="p">)(</span>
     <span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 
@@ -568,7 +568,7 @@ capabilities of the selected embodiment.</p>
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Manipulation Robot</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">franka</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">franka</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">background</span><span class="p">)</span>
 </pre></div>
 </div>

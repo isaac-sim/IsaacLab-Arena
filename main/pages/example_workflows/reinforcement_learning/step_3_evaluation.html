@@ -458,13 +458,12 @@ or you can download a pre-trained one as described below.</p>
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-trained Model (skip preceding steps)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>nvidia/IsaacLab-Arena-Lift-Object-RL<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>model_11999.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/Arena-Franka-Lift-Object-RL-Task<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/lift_object_checkpoint
 </pre></div>
 </div>
 <p class="sd-card-text">After downloading, the checkpoint is at:</p>
-<p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/lift_object_checkpoint/model_11999.pt</span></code></p>
+<p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/lift_object_checkpoint/model_1999.pt</span></code></p>
 <p class="sd-card-text">Replace checkpoint paths in the examples below with this path.</p>
 </div>
 </details><section id="evaluation-methods">
@@ -481,21 +480,21 @@ or you can download a pre-trained one as described below.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span>logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/lift_object_checkpoint/model_1999.pt<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>lift_object
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you downloaded the pre-trained model from Hugging Face, replace the checkpoint path with:
-<code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/lift_object_checkpoint/model_11999.pt</span></code></p>
+<p>If you train the model yourself, the checkpoint path is typically in the <code class="docutils literal notranslate"><span class="pre">logs/rsl_rl/generic_experiment/</span></code> directory.
+Replace the checkpoint path with the path to your own checkpoint.</p>
 </div>
 <p>Policy-specific arguments (<code class="docutils literal notranslate"><span class="pre">--policy_type</span></code>, <code class="docutils literal notranslate"><span class="pre">--checkpoint_path</span></code>, etc.) must come <strong>before</strong> the
 environment name. Environment-specific arguments (<code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, etc.) must come
 <strong>after</strong> it.</p>
 <p>At the end of the run, metrics are printed to the console:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.85, &#39;num_episodes&#39;: 12}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.81, &#39;num_episodes&#39;: 12}
 </pre></div>
 </div>
 </section>
@@ -504,37 +503,52 @@ environment name. Environment-specific arguments (<code class="docutils literal 
 <p>For more statistically significant results, run across many environments in parallel:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span>logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--env_spacing<span class="w"> </span><span class="m">2</span>.5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/lift_object_checkpoint/model_1999.pt<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>lift_object
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.83, &#39;num_episodes&#39;: 156}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {&#39;success_rate&#39;: 0.72, &#39;num_episodes&#39;: 1024}
 </pre></div>
 </div>
+<a class="reference internal image-reference" href="../../../_images/lift_object_rl_parallel.gif"><img alt="../../../_images/lift_object_rl_parallel.gif" class="align-center" src="../../../_images/lift_object_rl_parallel.gif" style="height: 400px;" />
+</a>
 </section>
 <section id="method-3-batch-evaluation">
 <h2>Method 3: Batch Evaluation<a class="headerlink" href="#method-3-batch-evaluation" title="Link to this heading">#</a></h2>
-<p>To evaluate multiple checkpoints in sequence, use <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> with a JSON config.</p>
+<p>To evaluate multiple checkpoints in sequence, use <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> with a JSON config.
+Here we evaluate the models you trained yourself.
+The checkpoint path should be replaced with the timestamp of your training run in the <code class="docutils literal notranslate"><span class="pre">logs/rsl_rl/generic_experiment/</span></code> directory.</p>
 <p><strong>1. Create an evaluation config</strong></p>
 <p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_config.json</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;policy_runner_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;headless&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;evaluations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_5999.pt&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object_model_1000&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;num_episodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1000.pt&quot;</span>
+<span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object_model_1999&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rsl_rl&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;num_episodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lift_object&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;num_envs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;checkpoint_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;logs/rsl_rl/generic_experiment/&lt;timestamp&gt;/model_1999.pt&quot;</span>
+<span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
@@ -544,16 +558,18 @@ environment name. Environment-specific arguments (<code class="docutils literal 
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Evaluating checkpoint 1/2: model_5999.pt
-Metrics: {&#39;success_rate&#39;: 0.72, &#39;num_episodes&#39;: 152}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
+METRICS SUMMARY
+======================================================================
 
-Evaluating checkpoint 2/2: model_11999.pt
-Metrics: {&#39;success_rate&#39;: 0.85, &#39;num_episodes&#39;: 156}
+lift_object_model_1000:
+num_episodes                         1024
+success_rate                       0.6526
 
-Summary:
-========================================
-model_5999.pt  | Success: 72% | Episodes: 152
-model_11999.pt | Success: 85% | Episodes: 156
+lift_object_model_1999:
+num_episodes                         1024
+success_rate                       0.7408
+======================================================================
 </pre></div>
 </div>
 </section>

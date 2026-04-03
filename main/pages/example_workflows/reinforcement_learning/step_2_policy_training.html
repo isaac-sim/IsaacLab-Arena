@@ -456,8 +456,8 @@ builds the environment, and registers it with gym so IsaacLab’s script can fin
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">12000</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">2000</span>
 </pre></div>
 </div>
 <div class="admonition tip">
@@ -487,8 +487,8 @@ agent.save_interval<span class="o">=</span><span class="m">500</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">12000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>agent.policy.activation<span class="o">=</span>relu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>agent.algorithm.learning_rate<span class="o">=</span><span class="m">0</span>.001
 </pre></div>
@@ -536,15 +536,15 @@ agent.save_interval<span class="o">=</span><span class="m">500</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">12000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">4096</span><span class="se">\</span>
+<span class="w">  </span>--max_iterations<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--distributed
 </pre></div>
 </div>
 </section>
 <section id="expected-results">
 <h2>Expected Results<a class="headerlink" href="#expected-results" title="Link to this heading">#</a></h2>
-<p>After 12,000 iterations (~6 hours on a single GPU with 512 environments), the trained
+<p>After 2,000 iterations (~40 minutes on a single GPU with 4096 environments), the trained
 policy should reliably grasp and lift objects to commanded target positions.</p>
 <a class="reference internal image-reference" href="../../../_images/lift_object_rl_task.gif"><img alt="../../../_images/lift_object_rl_task.gif" class="align-center" src="../../../_images/lift_object_rl_task.gif" style="height: 400px;" />
 </a>
