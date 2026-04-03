@@ -41,15 +41,29 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
     name: str = "dexsuite_lift"
 
     def get_env(self, args_cli: argparse.Namespace):
+        import math
+
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+        dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
+
         manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+        manip_object.set_initial_pose(
+            PoseRange(
+                position_xyz_min=(-0.75, -0.1, 0.35),
+                position_xyz_max=(-0.35, 0.3, 0.75),
+                rpy_min=(-math.pi, -math.pi, -math.pi),
+                rpy_max=(math.pi, math.pi, math.pi),
+            )
+        )
+
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 

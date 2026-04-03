@@ -1920,16 +1920,12 @@ class ProceduralTable(Object):
     ):
         resolved_name = instance_name if instance_name is not None else "table"
         resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/table"
-        pose = initial_pose or Pose(
-            position_xyz=(-0.55, 0.0, 0.235),
-            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
-        )
         super().__init__(
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
             usd_path="",
-            initial_pose=pose,
+            initial_pose=initial_pose,
         )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
@@ -1956,16 +1952,12 @@ class ProceduralCube(Object):
     ):
         resolved_name = instance_name if instance_name is not None else "object"
         resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/Object"
-        pose = initial_pose or Pose(
-            position_xyz=(-0.55, 0.1, 0.35),
-            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
-        )
         super().__init__(
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
             usd_path="",
-            initial_pose=pose,
+            initial_pose=initial_pose,
         )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
