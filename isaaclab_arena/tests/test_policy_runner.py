@@ -69,7 +69,7 @@ def test_zero_action_policy_kitchen_pick_and_place():
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
     example_environment = "kitchen_pick_and_place"
-    embodiments = ["franka", "gr1_pink", "gr1_joint"]
+    embodiments = ["franka_ik", "gr1_pink", "gr1_joint"]
     object_names = ["cracker_box", "tomato_soup_can"]
     for embodiment in embodiments:
         for object_name in object_names:

@@ -92,7 +92,7 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             default=None,
             help="Multiple objects to spawn across environments. Mutually exclusive with --object.",
         )
-        parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--embodiment", type=str, default="franka_ik")
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)

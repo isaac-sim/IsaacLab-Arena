@@ -23,7 +23,7 @@ class RLPolicyCfg(RslRlOnPolicyRunnerCfg):
     experiment_name: str = "generic_experiment"
     obs_groups = field(
         default_factory=lambda: {
-            "policy": ["policy", "task_obs"],
+            "actor": ["policy", "task_obs"],
             "critic": ["policy", "task_obs"],
         }
     )

@@ -222,6 +222,7 @@ class LiftObjectTaskRL(LiftObjectTask):
             func=lift_object_rl_success,
             params={
                 "object_cfg": SceneEntityCfg(self.lift_object.name),
+                "robot_cfg": SceneEntityCfg(self.embodiment.get_embodiment_name_in_scene()),
                 "rl_training": self.rl_training_mode,
                 "command_name": "object_pose",
                 "position_tolerance": self.goal_position_tolerance,
@@ -252,14 +253,15 @@ class LiftObjectObservationsCfg:
     def __init__(self, lift_object: Asset, robot_name: str):
         @configclass
         class TaskObsCfg(ObsGroup):
-            """Observations for the Lift Object task."""
-
             target_object_position = ObsTerm(
                 func=mdp_isaac_lab.generated_commands, params={"command_name": "object_pose"}
             )
             object_position = ObsTerm(
                 func=observations.object_position_in_frame,
-                params={"root_frame_cfg": SceneEntityCfg(robot_name), "object_cfg": SceneEntityCfg(lift_object.name)},
+                params={
+                    "root_frame_cfg": SceneEntityCfg(robot_name),
+                    "object_cfg": SceneEntityCfg(lift_object.name),
+                },
             )
 
             def __post_init__(self):

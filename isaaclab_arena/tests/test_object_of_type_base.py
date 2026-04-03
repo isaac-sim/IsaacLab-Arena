@@ -43,7 +43,7 @@ def _test_object_of_type_base(simulation_app):
 
     # Scene
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cone = ConeNoPhysics()
 
     # Put the thing in the center of the room floating.
