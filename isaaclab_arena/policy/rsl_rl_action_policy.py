@@ -19,6 +19,28 @@ from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 
 
+class _RslRlInferenceEnvWrapper(RslRlVecEnvWrapper):
+    """``RslRlVecEnvWrapper`` that skips ``env.reset()`` during ``__init__``.
+
+    The base wrapper calls ``env.reset()`` because the RSL-RL training
+    runner never calls reset itself.  For inference inside
+    ``policy_runner.py`` the rollout loop already resets the env, so the
+    extra reset records a phantom episode in the ``RecorderManager`` and
+    inflates ``num_episodes`` by one.
+    """
+
+    def __init__(self, env: gym.Env, clip_actions: float | None = None):
+        _original_reset = env.reset
+        # return cached obs to env.reset() method to avoid triggering a record method in RecorderManager.
+        env.reset = lambda *a, **kw: (env.unwrapped.obs_buf, {})
+        try:
+            # reset becomes a no-op
+            super().__init__(env, clip_actions=clip_actions)
+        finally:
+            # restore the original reset method
+            env.reset = _original_reset
+
+
 @dataclass
 class RslRlActionPolicyConfig:
     """Configuration dataclass for RSL-RL action policy."""
@@ -93,7 +115,7 @@ class RslRlActionPolicy(PolicyBase):
         clip_actions = agent_cfg_dict.get("clip_actions")
         class_name = agent_cfg_dict.get("class_name", "OnPolicyRunner")
 
-        wrapped_env = RslRlVecEnvWrapper(env, clip_actions=clip_actions)
+        wrapped_env = _RslRlInferenceEnvWrapper(env, clip_actions=clip_actions)
 
         if class_name == "OnPolicyRunner":
             self._runner = OnPolicyRunner(wrapped_env, agent_cfg_dict, log_dir=None, device=self.config.device)
