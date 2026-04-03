@@ -1,14 +1,28 @@
 Dexsuite Kuka Allegro Lift Task (Newton)
 =========================================
 
-This example demonstrates **dexterous object lifting** with the Kuka Allegro hand using
-**Newton physics** in Isaac Lab Arena. Training is performed in Isaac Lab with PhysX, and
-the resulting checkpoint is evaluated in Arena under Newton — a more physically accurate
-solver suitable for contact-rich manipulation.
+This example is an **experimental showcase for the Isaac Lab 3.0 Newton physics
+backend**, demonstrating dexterous object lifting with the Kuka Allegro hand.
+Training is performed in Isaac Lab and the resulting checkpoint is evaluated in
+Arena — both using Newton (MuJoCo-Warp solver) for physically accurate contact
+modelling during dexterous manipulation.
 
 .. image:: ../../../images/dexsuite_lift_task.gif
    :align: center
    :height: 400px
+
+.. important::
+
+   **Newton Physics — Experimental**
+
+   All Arena environments can switch to Newton physics by passing
+   ``--presets newton`` on the command line (mirrors Isaac Lab's
+   ``presets=newton`` Hydra override).  However, **Newton support is
+   experimental** — only the ``dexsuite_lift`` example has been verified to
+   work with Newton under the current simulation settings.  Other
+   environments may require additional tuning of solver parameters and physics parameters
+   to run correctly using Newton physics.
+
 
 Task Overview
 -------------
@@ -35,38 +49,37 @@ body states, object point cloud, and 5-step observation history.
    * - **Embodiment**
      - Kuka LBR iiwa + Allegro Hand (7 DOF arm + 16 DOF hand)
    * - **Scene**
-     - Dexsuite kinematic table with ground plane and lighting
+     - Procedural table (static background) with ground plane and lighting
    * - **Objects**
      - Procedural lift cuboid (``procedural_cube``)
    * - **Policy**
      - RSL-RL PPO (``DexsuiteKukaAllegroPPORunnerCfg``)
    * - **Training Method**
-     - Reinforcement Learning (on-policy PPO) — trained in **Isaac Lab** with Newton
-   * - **Evaluation Physics**
-     - **Newton** (MuJoCo-Warp solver)
+     - Reinforcement Learning (on-policy PPO) — trained in **Isaac Lab**
+   * - **Physics Backend**
+     - PhysX (default) or Newton (``--presets newton``)
    * - **Simulation Rate**
-     - 120 Hz physics, 60 Hz control (decimation = 2)
+     - 200 Hz physics, 50 Hz control (decimation = 4)
    * - **Episode Length**
      - 6 seconds
    * - **Closed-loop**
-     - Yes (60 Hz control)
+     - Yes (50 Hz control)
    * - **Command Space**
      - Target position [x, y, z], position-only, resampled every 2–3 s
 
 .. note::
 
-   **Newton physics** uses the MuJoCo-Warp solver, which is more physically accurate for
-   contact-rich tasks than PhysX. The Arena environment callback automatically configures
-   the Newton backend, reset-mode domain randomization events (gravity scheduling, object/robot
-   reset), and simulation parameters. PhysX startup events (material/friction/mass randomization)
-   are disabled under Newton.
+   The physics backend defaults to **PhysX**. Pass ``--presets newton`` to
+   ``policy_runner.py`` (Arena) or ``presets=newton`` to ``train.py`` (Isaac Lab)
+   to switch to **Newton** (MuJoCo-Warp solver), which provides more physically
+   accurate contacts for dexterous manipulation at the cost of slower simulation.
 
 
 Workflow
 --------
 
-This tutorial covers training in Isaac Lab with Newton physics and evaluating the resulting
-checkpoint in Arena (also Newton).
+This tutorial covers training in Isaac Lab and evaluating the resulting
+checkpoint in Arena.
 
 Prerequisites
 ^^^^^^^^^^^^^

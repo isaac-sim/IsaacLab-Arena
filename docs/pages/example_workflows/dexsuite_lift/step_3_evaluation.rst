@@ -1,5 +1,5 @@
-Evaluation in Arena (Newton Physics)
--------------------------------------
+Evaluation in Arena
+--------------------
 
 **Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
@@ -7,14 +7,14 @@ Evaluation in Arena (Newton Physics)
 
 Once inside the container, set the models directory:
 
-.. code:: bash
+.. code-block:: bash
 
-    export MODELS_DIR=models/isaaclab_arena/dexsuite_lift
-    mkdir -p $MODELS_DIR
+   export MODELS_DIR=models/isaaclab_arena/dexsuite_lift
+   mkdir -p $MODELS_DIR
 
-This step evaluates a checkpoint using Arena's ``dexsuite_lift`` environment running
-under **Newton** physics. You can use either a locally trained checkpoint or download
-a pre-trained one from Hugging Face.
+This step evaluates a checkpoint using Arena's ``dexsuite_lift`` environment.
+Pass ``--presets newton`` to use Newton physics (recommended when the checkpoint
+was trained with Newton).
 
 .. dropdown:: Download Pre-trained Model (skip training)
    :animate: fade-in
@@ -22,8 +22,8 @@ a pre-trained one from Hugging Face.
    .. code-block:: bash
 
       hf download \
-         nvidia/Arena-Dexsuite-Lift-RL-Newton-Task \
-         --local-dir $MODELS_DIR
+        nvidia/Arena-Dexsuite-Lift-RL-Newton-Task \
+        --local-dir $MODELS_DIR
 
    After downloading, the checkpoint is at:
 
@@ -31,7 +31,8 @@ a pre-trained one from Hugging Face.
 
 .. note::
 
-   If you trained locally (see :doc:`step_2_policy_training`), your checkpoints are at:
+   If you trained locally (see :doc:`step_2_policy_training`), your checkpoints
+   are at:
 
    ``logs/rsl_rl/dexsuite_kuka_allegro/<timestamp>/model_<iter>.pt``
 
@@ -45,21 +46,39 @@ Single Environment Evaluation
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --visualizer newton \
+     --presets newton \
      --policy_type rsl_rl \
      --num_steps 800 \
      --checkpoint_path $MODELS_DIR/model_14999.pt \
      dexsuite_lift
-
-.. note::
-
-   - Use ``--visualizer newton`` to launch the Newton (MuJoCo) visualizer.
-   - Use ``--env_spacing 3`` to match the Dexsuite training layout.
 
 At the end of the run, metrics are printed to the console:
 
 .. code-block:: text
 
    Metrics: {'success_rate': 0.75, 'num_episodes': 12}
+
+
+.. image:: ../../../images/dexsuite_lift_task.gif
+   :align: center
+   :height: 400px
+
+
+.. tip::
+
+   You can also evaluate a Newton-trained model using PhysX:
+
+   .. code-block:: bash
+
+      python isaaclab_arena/evaluation/policy_runner.py \
+        --visualizer kit \
+        --policy_type rsl_rl \
+        --num_steps 800 \
+        --checkpoint_path $MODELS_DIR/model_14999.pt \
+        dexsuite_lift
+
+   However, the model behaviour may differ significantly when training and
+   evaluation use different physics backends.
 
 
 Parallel Environment Evaluation
@@ -70,6 +89,7 @@ For statistically significant results, run across many environments in parallel:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --presets newton \
      --policy_type rsl_rl \
      --num_steps 5000 \
      --num_envs 64 \
@@ -85,7 +105,8 @@ For statistically significant results, run across many environments in parallel:
 Batch Evaluation
 ^^^^^^^^^^^^^^^^
 
-To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a JSON config.
+To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a
+JSON config.
 
 **1. Create an evaluation config**
 
@@ -95,6 +116,7 @@ Create a file ``eval_config.json``:
 
    {
      "policy_runner_args": {
+       "presets": "newton",
        "policy_type": "rsl_rl",
        "num_steps": 5000,
        "num_envs": 64,
@@ -124,8 +146,6 @@ Understanding the Metrics
 
 The ``dexsuite_lift`` task reports:
 
-- ``success_rate``: fraction of episodes where the object reached the target position
-  within 5 cm tolerance.
-- ``min_goal_distance``: minimum distance (metres) between the object and goal during
-  each episode, aggregated as mean / min / max across all episodes.
+- ``success_rate``: fraction of episodes where the object reached the target
+  position within 5 cm tolerance.
 - ``num_episodes``: total number of completed episodes.

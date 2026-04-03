@@ -10,7 +10,10 @@ Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``dexsuite_lift`` Arena environment wraps the Isaac Lab
-``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` MDP for evaluation under **Newton** physics.
+``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` MDP for evaluation.
+The physics backend defaults to PhysX and can be switched to Newton by passing
+``--presets newton`` on the command line.
+
 The environment is defined in
 ``isaaclab_arena_environments/dexsuite_lift_environment.py``:
 
@@ -24,15 +27,29 @@ The environment is defined in
           name: str = "dexsuite_lift"
 
           def get_env(self, args_cli: argparse.Namespace):
+              import math
+
               import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
 
               from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
               from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
               from isaaclab_arena.scene.scene import Scene
               from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
+              from isaaclab_arena.utils.pose import Pose, PoseRange
 
               dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+              dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
+
               manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+              manip_object.set_initial_pose(
+                  PoseRange(
+                      position_xyz_min=(-0.75, -0.1, 0.35),
+                      position_xyz_max=(-0.35, 0.3, 0.75),
+                      rpy_min=(-math.pi, -math.pi, -math.pi),
+                      rpy_max=(math.pi, math.pi, math.pi),
+                  )
+              )
+
               ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
               light = self.asset_registry.get_asset_by_name("light")()
 
@@ -46,22 +63,6 @@ The environment is defined in
                   "rsl_rl_ppo_cfg:DexsuiteKukaAllegroPPORunnerCfg"
               )
 
-              def _apply_dexsuite_cfg(env_cfg):
-                  from isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg import (
-                      KukaAllegroPhysicsCfg,
-                  )
-                  from isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg import EventCfg
-
-                  env_cfg.sim.physics = KukaAllegroPhysicsCfg().newton
-                  env_cfg.sim.dt = 1 / 120
-                  env_cfg.decimation = 2
-                  env_cfg.episode_length_s = 6.0
-                  env_cfg.is_finite_horizon = False
-                  env_cfg.events = EventCfg()
-                  if hasattr(env_cfg, "scene") and env_cfg.scene is not None:
-                      env_cfg.scene.replicate_physics = True
-                  return env_cfg
-
               return IsaacLabArenaEnvironment(
                   name=self.name,
                   embodiment=embodiment,
@@ -70,8 +71,14 @@ The environment is defined in
                   teleop_device=None,
                   rl_framework=RLFramework.RSL_RL,
                   rl_policy_cfg=dexsuite_rl_cfg_entry,
-                  env_cfg_callback=_apply_dexsuite_cfg,
               )
+
+.. note::
+
+   The environment does not contain a physics-specific callback.
+   Physics backend selection is handled globally by the ``--presets`` CLI flag
+   (e.g. ``--presets newton``), which is applied by ``ArenaEnvBuilder``
+   after all environment-specific configuration.
 
 
 Step-by-Step Breakdown
@@ -95,6 +102,8 @@ The ``KukaAllegroEmbodiment`` provides:
     fingertip contact forces.
   - ``perception``: object point cloud (64 points, flattened).
 
+- **Events**: Joint-position randomization on reset (±0.5 rad offset from default).
+
 **2. Scene and Task**
 
 .. code-block:: python
@@ -106,32 +115,48 @@ The ``KukaAllegroEmbodiment`` provides:
 It provides the ``object_pose`` command (position-only, resampled every 2–3 s),
 a success termination at 5 cm position tolerance, and a time-out termination.
 
-**3. Newton Physics via Environment Callback**
+**3. Physics Backend Selection**
 
-.. code-block:: python
+The physics backend is selected via the common ``--presets`` CLI flag, handled
+by ``ArenaEnvBuilder``:
 
-   env_cfg.sim.physics = KukaAllegroPhysicsCfg().newton
-   env_cfg.events = EventCfg()
+- **Default (PhysX)**: no extra flag needed.
+- **Newton**: pass ``--presets newton`` to ``policy_runner.py``.
 
-The ``_apply_dexsuite_cfg`` callback switches the physics backend to **Newton**,
-sets simulation rates (120 Hz physics, decimation 2 = 60 Hz control), and installs
-reset-mode events (gravity scheduling, object/robot randomization). PhysX-only startup
-events are excluded.
+When ``--presets newton`` is set, the builder automatically:
+
+1. Applies the ``ArenaPhysicsCfg().newton`` configuration (MuJoCo-Warp solver
+   with tuned parameters for dexterous manipulation).
+2. Enables ``scene.replicate_physics = True`` (required by Newton).
 
 
 Validation: Run Zero-Action Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Verify the environment loads correctly under Newton with a zero-action policy:
+Verify the environment loads correctly with a zero-action policy:
 
 .. code-block:: bash
 
+   # PhysX (default):
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type zero_action \
      --num_steps 100 \
+     dexsuite_lift
+
+   # Newton:
+   python isaaclab_arena/evaluation/policy_runner.py \
      --visualizer newton \
+     --presets newton \
+     --policy_type zero_action \
+     --num_steps 100 \
      dexsuite_lift
 
 You should see the Kuka Allegro hand in the scene with the cuboid on the table.
-The robot will remain stationary (zero actions), confirming that the Newton physics
-backend and scene load without errors.
+
+.. tip::
+
+   ``--visualizer newton`` uses the MuJoCo viewer; ``--visualizer kit`` uses
+   the Kit viewer. The visualizer setting is independent of the physics backend.
+   For example, ``--visualizer kit --presets newton`` runs Newton physics with
+   the Kit viewer.
