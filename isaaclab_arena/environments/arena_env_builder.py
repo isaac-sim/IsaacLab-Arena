@@ -279,7 +279,9 @@ class ArenaEnvBuilder:
 
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
 
-            # Newton requires replicate_physics for shared physics representations.
+            # Set replicate_physics for shared physics representations.
+            # For Newton, wihotut this flag, the simulation initialization
+            # takes a very long time for large number of parallel environments.
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
 
