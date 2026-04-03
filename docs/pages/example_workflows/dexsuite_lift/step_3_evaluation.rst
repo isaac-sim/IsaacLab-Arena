@@ -22,7 +22,7 @@ a pre-trained one from Hugging Face.
    .. code-block:: bash
 
       hf download \
-         nvidia/IsaacLab-Arena-Dexsuite-Lift-RL \
+         nvidia/Arena-Dexsuite-Lift-RL-Newton-Task \
          --local-dir $MODELS_DIR
 
    After downloading, the checkpoint is at:
@@ -102,7 +102,7 @@ Create a file ``eval_config.json``:
      },
      "evaluations": [
        {
-         "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_7499.pt",
+         "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_7500.pt",
          "environment": "dexsuite_lift"
        },
        {
