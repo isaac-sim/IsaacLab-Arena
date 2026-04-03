@@ -13,7 +13,9 @@ this embodiment only adds the robot and sensors.
 
 from __future__ import annotations
 
+import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.assets import ArticulationCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils import configclass
@@ -69,6 +71,20 @@ class KukaAllegroSceneCfg:
     )
 
 
+@configclass
+class KukaAllegroEventCfg:
+    """Reset event: randomize joint positions on episode reset."""
+
+    reset_robot_joints: EventTermCfg = EventTermCfg(
+        func=mdp_isaac_lab.reset_joints_by_offset,
+        mode="reset",
+        params={
+            "position_range": [-0.50, 0.50],
+            "velocity_range": [0.0, 0.0],
+        },
+    )
+
+
 @register_asset
 class KukaAllegroEmbodiment(EmbodimentBase):
     """Kuka Allegro: joint-space actions, contact-rich proprioception."""
@@ -87,6 +103,7 @@ class KukaAllegroEmbodiment(EmbodimentBase):
         self.scene_config = KukaAllegroSceneCfg()
         self.action_config = kuka_dexsuite_cfg.KukaAllegroRelJointPosActionCfg()
         self.observation_config = KukaAllegroStateObservationCfg()
+        self.event_config = KukaAllegroEventCfg()
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "palm_link"

@@ -9,7 +9,7 @@ from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import CommandTermCfg
+from isaaclab.managers import CommandTermCfg, EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
@@ -377,11 +377,32 @@ class DexsuiteLiftTerminationsCfg(dexsuite.TerminationsCfg):
     )
 
 
-class DexsuiteLiftTask(LiftObjectTask):
-    """Dexsuite Kuka Allegro lift task for Arena evaluation.
+@configclass
+class DexsuiteLiftEventsCfg:
+    """Reset events for the Dexsuite lift task: object pose randomization."""
 
-    Reuses :class:`LiftObjectTask` for ``lift_object`` / ``background_scene`` and the
-    look-at-object viewer.  Rewards and curriculum are omitted (evaluation-only).
+    reset_object: EventTermCfg = EventTermCfg(
+        func=mdp_isaac_lab.reset_root_state_uniform,
+        mode="reset",
+        params={
+            "pose_range": {
+                "x": [-0.2, 0.2],
+                "y": [-0.2, 0.2],
+                "z": [0.0, 0.4],
+                "roll": [-3.14, 3.14],
+                "pitch": [-3.14, 3.14],
+                "yaw": [-3.14, 3.14],
+            },
+            "velocity_range": {"x": [0.0, 0.0], "y": [0.0, 0.0], "z": [0.0, 0.0]},
+            "asset_cfg": SceneEntityCfg("object"),
+        },
+    )
+
+
+class DexsuiteLiftTask(LiftObjectTask):
+    """Dexsuite lift task for Arena evaluation.
+
+    Rewards and curriculum are omitted (evaluation-only).
     """
 
     def __init__(self, lift_object: Asset, background_scene: Asset) -> None:
@@ -398,6 +419,7 @@ class DexsuiteLiftTask(LiftObjectTask):
         self.commands_cfg.object_pose.position_only = True
         self.commands_cfg.object_pose.resampling_time_range = (2.0, 3.0)
         self.termination_cfg = DexsuiteLiftTerminationsCfg()
+        self.events_cfg = DexsuiteLiftEventsCfg()
 
     def get_commands_cfg(self) -> Any:
         return self.commands_cfg
