@@ -3,35 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Arena example: Dexsuite Kuka Allegro **lift** task.
-
-Matches the MDP of Isaac Lab ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` (state observations, joint actions):
-procedural lift cuboid + Dexsuite-style kinematic table, :class:`~isaaclab_arena.embodiments.kuka_allegro.kuka_allegro.KukaAllegroEmbodiment`.
-
-The physics backend is selectable via the common ``--presets`` CLI flag
-(same concept as Isaac Lab's ``presets=newton`` Hydra override).
-
-**Play a checkpoint trained in Isaac Lab** (same PPO runner / obs groups)::
-
-    ./isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py \\
-      --policy_type rsl_rl_action \\
-      dexsuite_lift \\
-      --num_envs 1 --env_spacing 3 \\
-      --checkpoint /path/to/logs/rsl_rl/dexsuite_kuka_allegro/<run>/model_<iter>.pt
-
-    # Use Newton physics:
-    ./isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py \\
-      --presets newton --policy_type rsl_rl_action \\
-      dexsuite_lift \\
-      --num_envs 1 --env_spacing 3 \\
-      --checkpoint /path/to/model.pt
-
-Match Dexsuite training layout: use ``--env_spacing 3`` (Arena CLI defaults to a larger spacing).
-
-The task subclasses :class:`~isaaclab_arena.tasks.lift_object_task.LiftObjectTask` and uses the same
-look-at-lift-object viewer helper as other Arena lift examples (Isaac Lab's stock task uses a fixed
-viewer pose instead).
-"""
 
 from __future__ import annotations
 
@@ -43,7 +14,10 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 
 class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
-    """Dexsuite Kuka Allegro lift task; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``."""
+    """
+    Dexsuite Kuka Allegro lift task; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``.
+    The robot picks up a cube and lifts it to a target position.
+    """
 
     name: str = "dexsuite_lift"
 
