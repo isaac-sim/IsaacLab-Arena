@@ -65,7 +65,6 @@ class FrankaEmbodimentBase(EmbodimentBase):
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
-    _FRANKA_DEFAULT_JOINT_POSE = [0.0, -0.569, 0.0, -2.810, 0.0, 3.037, 0.741, 0.04, 0.04]
 
     def __init__(
         self,
@@ -81,8 +80,6 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.event_config = FrankaEventCfg()
         if initial_joint_pose is not None:
             self.set_initial_joint_pose(initial_joint_pose)
-        else:
-            self.set_initial_joint_pose(self._FRANKA_DEFAULT_JOINT_POSE)
         self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
         self.camera_config = FrankaCameraCfg()
