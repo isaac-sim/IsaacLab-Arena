@@ -271,6 +271,18 @@ class ArenaEnvBuilder:
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
+        # Apply the --presets CLI flag (e.g. --presets newton).
+        # This runs after the callback so the user's CLI choice is the final authority.
+        presets = getattr(self.args, "presets", None)
+        if presets is not None:
+            from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+
+            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
+
+            # Newton requires replicate_physics for shared physics representations.
+            if presets == "newton":
+                env_cfg.scene.replicate_physics = True
+
         return env_cfg
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
