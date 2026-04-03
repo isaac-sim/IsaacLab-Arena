@@ -70,10 +70,6 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             from isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg import EventCfg
 
             env_cfg.sim.physics = KukaAllegroPhysicsCfg().newton
-            env_cfg.sim.dt = 1 / 120
-            env_cfg.decimation = 2
-            env_cfg.episode_length_s = 6.0
-            env_cfg.is_finite_horizon = False
             env_cfg.events = EventCfg()
             if hasattr(env_cfg, "scene") and env_cfg.scene is not None:
                 env_cfg.scene.replicate_physics = True
