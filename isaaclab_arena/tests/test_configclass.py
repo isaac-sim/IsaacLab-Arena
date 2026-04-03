@@ -30,11 +30,11 @@ def test_combine_configclasses_with_multiple_inheritance():
 
     # Combine the two classes
     CombinedCfg = combine_configclasses("CombinedCfg", FooCfg, BarCfg, bases=(FooCfgBase,))
-    assert CombinedCfg().d() == 4
-    assert CombinedCfg().c() == 3
-    assert CombinedCfg().b() == 2
-    assert CombinedCfg().a() == 4
-    assert CombinedCfg().e() == 5
+    assert CombinedCfg().d == 4
+    assert CombinedCfg().c == 3
+    assert CombinedCfg().b == 2
+    assert CombinedCfg().a == 4
+    assert CombinedCfg().e == 5
     assert isinstance(CombinedCfg(), FooCfgBase)
 
 
@@ -58,10 +58,10 @@ def test_combine_configclasses_with_inheritance():
 
     # Combine the two classes
     CombinedCfg = combine_configclasses("CombinedCfg", FooCfg, BarCfg, bases=(FooCfgBase,))
-    assert CombinedCfg().d() == 4
-    assert CombinedCfg().c() == 3
-    assert CombinedCfg().b() == 2
-    assert CombinedCfg().a() == 4
+    assert CombinedCfg().d == 4
+    assert CombinedCfg().c == 3
+    assert CombinedCfg().b == 2
+    assert CombinedCfg().a == 4
     assert isinstance(CombinedCfg(), FooCfgBase)
 
 
@@ -74,8 +74,8 @@ def test_combine_configclasses_with_post_init():
         b: int = 2
 
         def __post_init__(self):
-            self.a = self.a() + 1
-            self.b = self.b() + 1
+            self.a = self.a + 1
+            self.b = self.b + 1
 
     # Side B - A class without a base class
     @configclass
@@ -83,7 +83,7 @@ def test_combine_configclasses_with_post_init():
         c: int = 3
 
         def __post_init__(self):
-            self.c = self.c() + 1
+            self.c = self.c + 1
 
     # Combine the two classes
     CombinedCfg = combine_configclasses("CombinedCfg", FooCfg, BarCfg)

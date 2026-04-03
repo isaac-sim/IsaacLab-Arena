@@ -31,20 +31,22 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
     from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, DexsuiteLiftTerminationsCfg, LiftObjectTask
+    from isaaclab_arena.utils.pose import Pose, PoseRange
 
     reg = AssetRegistry()
     lift = reg.get_asset_by_name("procedural_cube")()
+    lift.set_initial_pose(PoseRange(position_xyz_min=(-0.75, -0.1, 0.35), position_xyz_max=(-0.35, 0.3, 0.75)))
     table = reg.get_asset_by_name("procedural_table")()
+    table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
     task = DexsuiteLiftTask(lift_object=lift, background_scene=table)
     assert isinstance(task, LiftObjectTask)
     assert task.lift_object is lift
     assert task.get_scene_cfg() is None
     assert task.get_rewards_cfg() is None
-    assert task._commands_cfg.object_pose.position_only is True
+    assert task.commands_cfg.object_pose.position_only is True
     metrics = task.get_metrics()
     assert len(metrics) == 1
     assert isinstance(metrics[0], SuccessRateMetric)
     assert metrics[0].recorder_term_name == "success"
-    term = task._terminations_cfg  # noqa: SLF001
-    assert isinstance(term, DexsuiteLiftTerminationsCfg)
-    assert hasattr(term, "success")
+    assert isinstance(task.termination_cfg, DexsuiteLiftTerminationsCfg)
+    assert hasattr(task.termination_cfg, "success")

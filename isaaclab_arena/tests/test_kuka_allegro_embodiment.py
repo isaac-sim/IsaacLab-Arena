@@ -41,4 +41,12 @@ def test_embodiment_default_action_and_observation() -> None:
     assert emb.action_config.action.asset_name == "robot"
     assert hasattr(emb.observation_config, "proprio")
     assert hasattr(emb.observation_config.proprio, "contact")
-    assert emb.event_config is None
+
+
+def test_embodiment_has_reset_event() -> None:
+    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEventCfg
+
+    emb = KukaAllegroEmbodiment()
+    assert isinstance(emb.event_config, KukaAllegroEventCfg)
+    assert hasattr(emb.event_config, "reset_robot_joints")
+    assert emb.event_config.reset_robot_joints.mode == "reset"
