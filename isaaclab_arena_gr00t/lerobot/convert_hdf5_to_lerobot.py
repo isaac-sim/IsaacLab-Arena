@@ -533,9 +533,9 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
         if config.video_name_lerobot not in video_paths.keys():
             video_paths[config.video_name_lerobot] = new_video_path
 
-        assert config.pov_cam_name_sim in trajectory["camera_obs"]
+        assert config.pov_cam_name_sim in trajectory, f"trajectoy.keys() = {trajectory.keys()}"
 
-        frames = np.array(trajectory["camera_obs"][config.pov_cam_name_sim])
+        frames = np.array(trajectory[config.pov_cam_name_sim])
         # remove last frame due to how Lab reports observations
         frames = frames[:-1]
         assert len(frames) == length

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 model_path: nvidia/GR00T-N1.6-DROID
-language_instruction: "Move the gripper to the cracker box on the table."
+language_instruction: "Pick and Place three objects into the bin"
 # Action horizon is the number of actions predicted by the policy per inference rollout, defined in the modality_config_path.
 action_horizon: 32
 embodiment_tag: OXE_DROID
@@ -20,7 +20,7 @@ state_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/13dof_joint_spa
 action_chunk_length: 32
 task_mode_name: droid_manipulation
 
-pov_cam_name_sim: ["external_camera_rgb", "wrist_camera_rgb"]
+pov_cam_name_sim: ["external_cam_obs"]
 
 original_image_size: [720, 1280, 3]
 target_image_size: [180, 320, 3]

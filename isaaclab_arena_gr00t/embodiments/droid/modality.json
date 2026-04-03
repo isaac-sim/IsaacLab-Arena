@@ -1,0 +1,36 @@
+{
+    "state": {
+        "joint_position": {
+            "start": 0,
+            "end": 7,
+            "original_key": "observation.state"
+        },
+        "gripper_position": {
+            "start": 7,
+            "end": 8,
+            "original_key": "observation.state"
+        }
+    },
+    "action": {
+        "joint_position": {
+            "start": 0,
+            "end": 7,
+            "original_key": "joint_targets"
+        },
+        "gripper_position": {
+            "start": 7,
+            "end": 8,
+            "original_key": "joint_targets"
+        }
+    },
+    "video": {
+        "ego_view": {
+            "original_key": "observation.images.ego_view"
+        }
+    },
+    "annotation": {
+        "human.task_description": {
+            "original_key": "task_index"
+        }
+    }
+}
