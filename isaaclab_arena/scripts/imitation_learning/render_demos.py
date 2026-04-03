@@ -97,6 +97,43 @@ def _create_pre_step_external_camera_observations_recorder():
     return PreStepExternalCameraRecorder
 
 
+def _create_post_step_joint_targets_recorder():
+    """RecorderTerm that records 7 arm + 1 gripper joint targets for replay (--use_joint_targets)."""
+    from isaaclab.managers.recorder_manager import RecorderTerm
+
+    class PostStepJointTargetsRecorder(RecorderTerm):
+        def record_post_step(self):
+            robot = self._env.scene["robot"]
+            joint_ids = []
+            for name in self._env.action_manager.active_terms:
+                t = self._env.action_manager.get_term(name)
+                jids = getattr(t, "_joint_ids", None)
+                if jids is None:
+                    continue
+                if isinstance(jids, slice):
+                    joint_ids.extend(range(robot.num_joints))
+                else:
+                    joint_ids.extend(list(jids))
+            return "joint_targets", robot.data.joint_pos_target[:, joint_ids].clone()
+
+    return PostStepJointTargetsRecorder
+
+
+def _create_post_step_eef_pose_target_recorder():
+    """RecorderTerm that records the EEF pose target for replay."""
+    from isaaclab.managers.recorder_manager import RecorderTerm
+
+    class PostStepEefPoseTargetRecorder(RecorderTerm):
+        def record_post_step(self):
+            robot = self._env.scene["robot"]
+            eef_idx = robot.data.body_names.index("base_link")
+            eef_pos = robot.data.body_pos_w[:, eef_idx, :].clone()
+            eef_quat = robot.data.body_quat_w[:, eef_idx, :].clone()
+            return "eef_pose_target", torch.cat((eef_pos, eef_quat), dim=1)
+
+    return PostStepEefPoseTargetRecorder
+
+
 def _create_render_env_config(args_cli, output_dir: str, output_file_name: str):
     """Build env config with recorders for output_dataset (state, actions, external_camera_obs)."""
     from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
@@ -113,6 +150,12 @@ def _create_render_env_config(args_cli, output_dir: str, output_file_name: str):
     class RenderRecorderManagerCfg(ActionStateRecorderManagerCfg):
         record_pre_step_external_camera_obs = RecorderTermCfg(
             class_type=_create_pre_step_external_camera_observations_recorder()
+        )
+        record_post_step_joint_targets = RecorderTermCfg(
+            class_type=_create_post_step_joint_targets_recorder()
+        )
+        record_post_step_eef_pose_target = RecorderTermCfg(
+            class_type=_create_post_step_eef_pose_target_recorder()
         )
 
     env_cfg.recorders = RenderRecorderManagerCfg()

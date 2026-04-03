@@ -256,9 +256,6 @@ def main() -> None:
                 env.sim.reset()
                 env.recorder_manager.reset()
                 env.reset()
-                if is_v3:
-                    with torch.inference_mode(False):
-                        arena_builder.example_env.randomize_initial_positions(env=env)
 
                 # ── Plan pick order ───────────────────────────────────
                 if is_v3:
