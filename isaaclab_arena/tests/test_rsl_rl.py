@@ -79,6 +79,7 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
     run_subprocess(args)
 
 
+# TODO(xinjie.yao, 2026.04.01): Add a test case for num_episodes once it's enabled
 @pytest.mark.with_subprocess
 def test_rl_train_and_eval_lift_object():
     checkpoint_path = run_rl_train(
