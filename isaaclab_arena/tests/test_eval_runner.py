@@ -146,7 +146,7 @@ def test_eval_runner_different_embodiments(tmp_path):
             "arena_env_args": {
                 "environment": "kitchen_pick_and_place",
                 "object": "tomato_soup_can",
-                "embodiment": "franka",
+                "embodiment": "franka_ik",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
@@ -176,7 +176,7 @@ def test_eval_runner_enable_cameras(tmp_path):
             "arena_env_args": {
                 "environment": "kitchen_pick_and_place",
                 "object": "cracker_box",
-                "embodiment": "franka",
+                "embodiment": "franka_ik",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
@@ -188,7 +188,7 @@ def test_eval_runner_enable_cameras(tmp_path):
                 "enable_cameras": True,
                 "environment": "kitchen_pick_and_place",
                 "object": "cracker_box",
-                "embodiment": "franka",
+                "embodiment": "franka_ik",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",

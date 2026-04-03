@@ -104,7 +104,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         """Add CLI arguments for gear mesh environment."""
         parser.add_argument("--background", type=str, default="table", help="Background scene (table)")
-        parser.add_argument("--embodiment", type=str, default="franka", help="Robot embodiment")
+        parser.add_argument("--embodiment", type=str, default="franka_ik", help="Robot embodiment")
         parser.add_argument(
             "--teleop_device", type=str, default=None, help="Teleoperation device (e.g., keyboard, spacemouse)"
         )

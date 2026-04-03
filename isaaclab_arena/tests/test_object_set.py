@@ -25,7 +25,7 @@ def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test
     from isaaclab_arena.scene.scene import Scene
 
     asset_registry = AssetRegistry()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     scene = Scene(assets=scene_assets)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name=env_name,
@@ -142,7 +142,7 @@ def _test_single_object_in_one_object_set(simulation_app):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     destination_location = ObjectReference(
         name="destination_location",
@@ -208,7 +208,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     sugar_box = asset_registry.get_asset_by_name("sugar_box")()
     destination_location = ObjectReference(
@@ -280,7 +280,7 @@ def _test_multi_object_sets(simulation_app):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     sugar_box = asset_registry.get_asset_by_name("sugar_box")()
     mustard_bottle = asset_registry.get_asset_by_name("mustard_bottle")()

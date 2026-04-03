@@ -71,7 +71,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -91,7 +91,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     # - drawer (destination location)
     # - microwave (openable object)
     background = background_from_usd_path(name="kitchen", usd_path=tmp_path, initial_pose=background_pose)
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
         prim_path="{ENV_REGEX_NS}/kitchen/cracker_box",

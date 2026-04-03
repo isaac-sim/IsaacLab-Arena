@@ -36,7 +36,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        if args_cli.embodiment == "franka":
+        if args_cli.embodiment == "franka_ik":
             embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
                 enable_cameras=args_cli.enable_cameras
             )
@@ -140,5 +140,5 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             help="destination list (example: --destinations red_container green_container)",
         )
         parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--embodiment", type=str, default="franka_ik")
         parser.add_argument("--teleop_device", type=str, default=None)
