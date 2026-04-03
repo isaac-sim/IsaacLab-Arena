@@ -23,7 +23,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -61,7 +61,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="object_set_termination_test",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
         task=PickAndPlaceTask(object_set, destination_location, background),
     )

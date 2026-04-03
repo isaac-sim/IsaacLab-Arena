@@ -96,7 +96,7 @@ def _test_auto_object_type(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
 
     try:
         # Try out an auto object.

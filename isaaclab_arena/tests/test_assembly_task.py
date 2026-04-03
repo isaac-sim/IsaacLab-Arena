@@ -20,7 +20,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -47,7 +47,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
 
     # Create embodiment
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     scene = Scene(assets=[background, peg, hole, light])
@@ -90,7 +90,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -123,7 +123,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
 
     # Create embodiment
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     scene = Scene(assets=[background, gear_base, medium_gear, small_gear, large_gear, light])

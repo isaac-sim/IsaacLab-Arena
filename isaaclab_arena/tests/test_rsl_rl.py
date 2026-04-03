@@ -84,12 +84,12 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
 def test_rl_train_and_eval_lift_object():
     checkpoint_path = run_rl_train(
         example_environment="lift_object",
-        embodiment="franka",
+        embodiment="franka_ik",
         object_name="dex_cube",
     )
     run_policy_runner(
         checkpoint_path=checkpoint_path,
         example_environment="lift_object",
-        embodiment="franka",
+        embodiment="franka_ik",
         object_name="dex_cube",
     )

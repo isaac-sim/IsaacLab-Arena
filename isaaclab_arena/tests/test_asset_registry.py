@@ -48,7 +48,7 @@ def _test_all_assets_in_registry(simulation_app):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -90,7 +90,7 @@ def _test_all_assets_in_registry(simulation_app):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="dummy_task",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
     )
 
@@ -169,7 +169,7 @@ def _test_hdr_image_spawn(simulation_app):
     works in a live simulation, so a single HDR is sufficient.
     """
     from isaaclab_arena.assets.asset_registry import AssetRegistry, HDRImageRegistry
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -189,7 +189,7 @@ def _test_hdr_image_spawn(simulation_app):
     scene = Scene(assets=[light, ground_plane])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="hdr_spawn_test",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
     )
 
@@ -224,7 +224,7 @@ def _test_multi_light_in_scene(simulation_app):
     from pxr import UsdLux
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -238,7 +238,7 @@ def _test_multi_light_in_scene(simulation_app):
     scene = Scene(assets=[light, light_duplicate, ground_plane, ground_plane_duplicate])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="dummy_task",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
     )
     # Compile the environment.
