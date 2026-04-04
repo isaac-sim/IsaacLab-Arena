@@ -26,7 +26,7 @@ download_model() {
 
     mkdir -p "$(dirname "$dest")"
     echo "Downloading $(basename "$dest") from ${url} ..."
-    curl -L -o "$dest" "$url"
+    curl -fL -o "$dest" "$url"
 
     actual_sha256=$(sha256sum "$dest" | awk '{print $1}')
     if [ "$actual_sha256" != "$expected_sha256" ]; then

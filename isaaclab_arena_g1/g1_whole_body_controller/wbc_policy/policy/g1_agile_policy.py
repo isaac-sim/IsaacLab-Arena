@@ -32,13 +32,13 @@ class G1AgilePolicy(WBCPolicy):
             model_path: Path to the ONNX model file (relative to wbc_policy dir).
             num_envs: Number of environments.
         """
-        self.parent_dir = pathlib.Path(__file__).parent.parent
-        self.config = load_config(str(self.parent_dir / config_path))
+        parent_dir = pathlib.Path(__file__).parent.parent
+        self.config = load_config(str(parent_dir / config_path))
         self.robot_model = robot_model
         self.num_envs = num_envs
 
         # Load ONNX model (must be downloaded beforehand via docker/setup/download_wbc_models.sh)
-        model_full_path = self.parent_dir / model_path
+        model_full_path = parent_dir / model_path
         if not model_full_path.exists():
             raise FileNotFoundError(
                 f"AGILE ONNX model not found at {model_full_path}. "
@@ -87,14 +87,16 @@ class G1AgilePolicy(WBCPolicy):
 
     def _make_zero_state(self) -> dict[str, np.ndarray]:
         """Create a zeroed feedback state dict for one environment."""
+        num_actions = self.config["num_actions"]
+        # History length (5) and angular velocity dims (3) are intrinsic to the ONNX model architecture.
         return {
-            "last_actions": np.zeros((1, 14), dtype=np.float32),
+            "last_actions": np.zeros((1, num_actions), dtype=np.float32),
             "base_ang_vel_history": np.zeros((1, 5, 3), dtype=np.float32),
             "projected_gravity_history": np.zeros((1, 5, 3), dtype=np.float32),
             "velocity_commands_history": np.zeros((1, 5, 3), dtype=np.float32),
-            "controlled_joint_pos_history": np.zeros((1, 5, 14), dtype=np.float32),
-            "controlled_joint_vel_history": np.zeros((1, 5, 14), dtype=np.float32),
-            "actions_history": np.zeros((1, 5, 14), dtype=np.float32),
+            "controlled_joint_pos_history": np.zeros((1, 5, num_actions), dtype=np.float32),
+            "controlled_joint_vel_history": np.zeros((1, 5, num_actions), dtype=np.float32),
+            "actions_history": np.zeros((1, 5, num_actions), dtype=np.float32),
         }
 
     def reset(self, env_ids: torch.Tensor):
@@ -106,7 +108,7 @@ class G1AgilePolicy(WBCPolicy):
         for env_id in env_ids:
             idx = int(env_id)
             self.states[idx] = self._make_zero_state()
-        self.cmd = np.tile(self.config["cmd_init"], (self.num_envs, 1))
+            self.cmd[idx] = self.config["cmd_init"]
 
     def set_observation(self, observation: dict[str, Any]):
         """Store the current observation for the next get_action call.
@@ -131,7 +133,7 @@ class G1AgilePolicy(WBCPolicy):
         if "navigate_cmd" in goal:
             self.cmd = goal["navigate_cmd"]
 
-    def get_action(self) -> dict[str, Any]:
+    def get_action(self, time: float | None = None) -> dict[str, Any]:
         """Compute and return the next action based on current observation.
 
         Returns:
