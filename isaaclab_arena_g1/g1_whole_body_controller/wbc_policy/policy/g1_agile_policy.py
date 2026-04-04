@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -22,17 +22,6 @@ class G1AgilePolicy(WBCPolicy):
     outputs target joint positions along with per-joint Kp/Kd gains for 14
     controlled joints (legs + waist_roll + waist_pitch).
     """
-
-    # Names of ONNX state inputs that receive feedback from the previous step's outputs.
-    _STATE_KEYS = [
-        "last_actions",
-        "base_ang_vel_history",
-        "projected_gravity_history",
-        "velocity_commands_history",
-        "controlled_joint_pos_history",
-        "controlled_joint_vel_history",
-        "actions_history",
-    ]
 
     def __init__(self, robot_model, config_path: str, model_path: str, num_envs: int = 1):
         """Initialize G1AgilePolicy.
@@ -178,7 +167,6 @@ class G1AgilePolicy(WBCPolicy):
 
             # Map 14 agile output joints to the 15-joint lower_body array.
             # waist_yaw (not controlled by agile) stays at 0.0.
-            assert self.use_policy_action
             if self.use_policy_action:
                 for agile_idx, lb_idx in enumerate(self.agile_output_to_lower_body):
                     body_action[env_idx, lb_idx] = action_joint_pos[0, agile_idx]

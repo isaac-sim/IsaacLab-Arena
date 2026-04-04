@@ -6,10 +6,10 @@
 from isaaclab_arena_g1.g1_env.robot_model import RobotModel
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.config.configs import BaseConfig
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_agile_policy import G1AgilePolicy
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_decoupled_whole_body_policy import (
     G1DecoupledWholeBodyPolicy,
 )
-from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_agile_policy import G1AgilePolicy
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.g1_homie_policy import G1HomiePolicyV2
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.identity_policy import IdentityPolicy
 
@@ -49,7 +49,8 @@ def get_wbc_policy(robot_type: str, robot_model: RobotModel, wbc_config: BaseCon
             )
         else:
             raise ValueError(
-                f"Invalid lower body policy type: {lower_body_policy_type}, Supported lower body policy types: homie_v2, agile"
+                f"Invalid lower body policy type: {lower_body_policy_type}, Supported lower body policy types:"
+                " homie_v2, agile"
             )
 
         wbc_policy = G1DecoupledWholeBodyPolicy(

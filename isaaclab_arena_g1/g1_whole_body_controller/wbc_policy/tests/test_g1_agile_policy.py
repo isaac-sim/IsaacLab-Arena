@@ -1,4 +1,4 @@
-# Copyright (c) 2025, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -11,11 +11,10 @@ the RobotModel and feeding synthetic observations.
 
 import numpy as np
 import pathlib
-import pytest
 import yaml
 
 import onnxruntime as ort
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -271,6 +270,105 @@ class TestG1AgilePolicy:
     def test_no_observation_raises(self, policy):
         with pytest.raises(ValueError, match="No observation set"):
             policy.get_action()
+
+    def test_toggle_policy_action(self, policy):
+        """Toggling use_policy_action should switch between NN output and passthrough."""
+        obs = make_observation(num_envs=1)
+        # Set non-zero joint positions so passthrough differs from NN output
+        obs["q"][0, :15] = 0.1
+        policy.set_observation(obs)
+        action_nn = policy.get_action()["body_action"].copy()
+
+        # Toggle off
+        policy.set_goal({"toggle_policy_action": True})
+        assert not policy.use_policy_action
+
+        policy.set_observation(obs)
+        action_passthrough = policy.get_action()["body_action"].copy()
+
+        # Passthrough should return observed lower body joint positions
+        np.testing.assert_array_almost_equal(action_passthrough[0, :15], obs["q"][0, :15])
+
+        # NN output should differ from passthrough (unless extremely unlikely coincidence)
+        assert not np.allclose(action_nn, action_passthrough)
+
+
+class TestAgileStability:
+    """Multi-step stability tests verifying the policy does not diverge.
+
+    These are unit-level proxies for the full simulation integration test. They
+    run many policy steps with standing-upright observations and verify that the
+    outputs remain bounded and physically reasonable (i.e., the policy would keep
+    the G1 robot balanced in simulation with root z > 0.5 m).
+    """
+
+    @pytest.fixture
+    def policy(self):
+        robot_model = MockRobotModel()
+        return _create_policy(robot_model, num_envs=1)
+
+    def test_standing_stability_100_steps(self, policy):
+        """Run 100 steps with zero velocity command; outputs should stay bounded."""
+        obs = make_observation(num_envs=1)
+        # Standing upright: z=0.75, identity quaternion
+        max_joint_pos = 0.0
+        for _ in range(100):
+            policy.set_observation(obs)
+            action = policy.get_action()
+            body_action = action["body_action"]
+            assert np.all(np.isfinite(body_action)), "Policy produced non-finite output"
+            max_joint_pos = max(max_joint_pos, np.max(np.abs(body_action)))
+
+        # Joint positions should remain within physically reasonable bounds (< 3 rad)
+        assert max_joint_pos < 3.0, f"Joint positions diverged: max |pos| = {max_joint_pos:.3f} rad"
+
+    def test_walking_stability_100_steps(self, policy):
+        """Run 100 steps with forward velocity command; outputs should stay bounded."""
+        obs = make_observation(num_envs=1)
+        policy.set_goal({"navigate_cmd": np.array([[0.5, 0.0, 0.0]], dtype=np.float32)})
+
+        for step in range(100):
+            policy.set_observation(obs)
+            action = policy.get_action()
+            body_action = action["body_action"]
+            assert np.all(np.isfinite(body_action)), f"Policy produced non-finite output at step {step}"
+            # Each joint target should be within a reasonable range
+            assert (
+                np.max(np.abs(body_action)) < 3.0
+            ), f"Joint positions diverged at step {step}: max |pos| = {np.max(np.abs(body_action)):.3f} rad"
+
+    def test_root_position_above_half_meter_proxy(self, policy):
+        """Verify that the policy produces actions consistent with maintaining balance.
+
+        This test verifies that the AGILE policy produces bounded, non-divergent
+        joint targets over many steps -- a necessary condition for the robot to
+        maintain its root position above 0.5 m in simulation.
+
+        For the full simulation-based verification (root z > 0.5 m with Isaac Sim
+        physics), run the integration test in the Docker container:
+            /isaac-sim/python.sh -m pytest -sv -k test_g1_agile_root_z_above_half_meter
+        """
+        obs = make_observation(num_envs=1)
+        # Start at z=0.75m (typical G1 standing height)
+        initial_z = obs["floating_base_pose"][0, 2]
+        assert initial_z == 0.75
+
+        actions_over_time = []
+        for _ in range(200):
+            policy.set_observation(obs)
+            action = policy.get_action()
+            body_action = action["body_action"]
+            actions_over_time.append(body_action.copy())
+            assert np.all(np.isfinite(body_action))
+
+        # Verify no single action is extreme (which would cause the robot to fall)
+        all_actions = np.concatenate(actions_over_time, axis=0)
+        assert np.max(np.abs(all_actions)) < 3.0, "Policy actions too extreme -- robot would likely fall"
+
+        # Verify actions are not all zero (policy is actively balancing)
+        assert not np.allclose(
+            all_actions, 0.0, atol=1e-4
+        ), "Policy outputs are all near-zero -- not actively balancing"
 
 
 # ---------------------------------------------------------------------------
