@@ -560,7 +560,9 @@ The checkpoint path should be replaced with the timestamp of your training run i
 </pre></div>
 </div>
 <p><strong>2. Run</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--eval_jobs_config<span class="w"> </span>eval_config.json
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================

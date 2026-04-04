@@ -470,6 +470,7 @@ instead of <code class="docutils literal notranslate"><span class="pre">--embodi
 <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code> so the run terminates on task completion rather than after a fixed number
 of simulation steps:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--language_instruction<span class="w"> </span><span class="s2">&quot;Pick up the Rubik&#39;s cube and place it in the bowl.&quot;</span><span class="w"> </span><span class="se">\</span>
@@ -490,6 +491,7 @@ object and lighting condition, as we shall see in the next section.</p>
 <p><strong>Sequential batch evaluation across object variations</strong></p>
 <p>To measure success rates across several variations of the environment in a single command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
 </pre></div>
 </div>

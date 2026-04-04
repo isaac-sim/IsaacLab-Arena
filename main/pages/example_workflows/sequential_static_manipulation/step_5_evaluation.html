@@ -685,7 +685,9 @@ The evaluation batch can be specified in a config file, with examples shown belo
 </div>
 </div>
 </details><p>Run the batch evaluation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 </pre></div>
 </div>
 <p>This will automatically evaluate the policy with the given configuration and output the metrics.
