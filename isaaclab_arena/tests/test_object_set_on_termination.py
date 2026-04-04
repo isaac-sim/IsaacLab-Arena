@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -22,7 +23,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -52,7 +53,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     object_set.set_initial_pose(
         Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
-            rotation_wxyz=(1, 0, 0, 0),
+            rotation_xyzw=(0, 0, 0, 1),
         )
     )
 
@@ -60,7 +61,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="object_set_termination_test",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
         task=PickAndPlaceTask(object_set, destination_location, background),
     )
@@ -89,6 +90,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

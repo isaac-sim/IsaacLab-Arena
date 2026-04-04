@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
 from isaaclab_arena.utils.pose import Pose
 
@@ -103,17 +103,19 @@ class ObjectPlacer:
             if self.params.verbose:
                 print(f"Attempt {attempt + 1}/{self.params.max_placement_attempts}: loss = {loss:.6f}")
 
-            # Track best result
-            if loss < best_loss:
-                best_loss = loss
-                best_positions = positions
-
             # Check if placement is valid
             if self._validate_placement(positions):
+                best_loss = loss
+                best_positions = positions
                 success = True
                 if self.params.verbose:
                     print(f"Success on attempt {attempt + 1}")
                 break
+
+            # Track best invalid result as fallback
+            if loss < best_loss:
+                best_loss = loss
+                best_positions = positions
 
         # Apply solved positions to objects
         if self.params.apply_positions_to_objects:
@@ -183,23 +185,78 @@ class ObjectPlacer:
                 positions[obj] = random_pose.position_xyz
         return positions
 
+    def _validate_on_relations(
+        self,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> bool:
+        """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
+
+        1. X: child's footprint entirely within parent's X extent.
+        2. Y: child's footprint entirely within parent's Y extent.
+        3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
+        """
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, On):
+                    continue
+                parent = rel.parent
+                if parent not in positions:
+                    continue
+                child_world = obj.get_bounding_box().translated(positions[obj])
+                parent_world = parent.get_bounding_box().translated(positions[parent])
+                # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
+                if (
+                    child_world.min_point[0] < parent_world.min_point[0]
+                    or child_world.max_point[0] > parent_world.max_point[0]
+                    or child_world.min_point[1] < parent_world.min_point[1]
+                    or child_world.max_point[1] > parent_world.max_point[1]
+                ):
+                    if self.params.verbose:
+                        print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                    return False
+                # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
+                parent_top_z = parent_world.max_point[2]
+                clearance_m = rel.clearance_m
+                child_bottom_z = child_world.min_point[2]
+                eps_z = self.params.on_relation_z_tolerance_m
+                if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
+                    if self.params.verbose:
+                        print(f"  On relation: '{obj.name}' Z outside band (retrying)")
+                    return False
+        return True
+
+    def _validate_no_overlap(
+        self,
+        positions: dict[Object | ObjectReference, tuple[float, float, float]],
+    ) -> bool:
+        """Check that no two objects overlap in 3D (axis-aligned bbox with margin)."""
+        objects = list(positions.keys())
+        for i in range(len(objects)):
+            for j in range(i + 1, len(objects)):
+                a, b = objects[i], objects[j]
+
+                a_world = a.get_bounding_box().translated(positions[a])
+                b_world = b.get_bounding_box().translated(positions[b])
+
+                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
+                    if self.params.verbose:
+                        print(f"  Overlap between '{a.name}' and '{b.name}'")
+                    return False
+        return True
+
     def _validate_placement(
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Validate that the placement is geometrically valid.
+        """Validate that no two objects overlap in 3D and On relations are satisfied.
 
         Args:
-            positions: Dictionary mapping objects to their positions.
+            positions: Dictionary mapping objects to their solved (x, y, z) positions.
 
         Returns:
-            True if placement is valid, False otherwise.
+            True if no overlaps exist and On relations hold, False otherwise.
         """
-        # TODO(cvolk): Implement geometric checks like:
-        # - Collision detection between objects
-        # - Boundary checks (objects within workspace)
-        print("WARNING: Placement validation not yet implemented. Skipping geometric checks (collision, boundary).")
-        return True
+        return self._validate_no_overlap(positions) and self._validate_on_relations(positions)
 
     def _apply_positions(
         self,
@@ -217,15 +274,15 @@ class ObjectPlacer:
 
             random_marker = self._get_random_around_solution(obj)
             rotate_marker = self._get_rotate_around_solution(obj)
-            rotation_wxyz = rotate_marker.get_rotation_wxyz() if rotate_marker else (1.0, 0.0, 0.0, 0.0)
+            rotation_xyzw = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
 
             if random_marker is not None:
                 # We need to set a PoseRange for the randomization to be picked up on reset.
                 # Set a PoseRange with the explicit rotation from RotateAroundSolution if present
-                obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_wxyz=rotation_wxyz))
+                obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
             else:
                 # Without randomization, we can set a fixed Pose.
-                obj.set_initial_pose(Pose(position_xyz=pos, rotation_wxyz=rotation_wxyz))
+                obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
 
     def _get_random_around_solution(self, obj: Object | ObjectReference) -> RandomAroundSolution | None:
         """Get RandomAroundSolution marker from object if present.

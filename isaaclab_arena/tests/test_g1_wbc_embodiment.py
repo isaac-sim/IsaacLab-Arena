@@ -6,8 +6,10 @@
 import numpy as np
 import torch
 import tqdm
+import traceback
 
 import pytest
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -15,30 +17,31 @@ NUM_STEPS = 10
 HEADLESS = True
 ENABLE_CAMERAS = True
 STANDING_POSITION_XY_EPS = 1e-1
+# Wrist quaternions in xyzw (identity-like: x, y, z, w)
 WBC_PINK_IDLE_ACTION = [
-    0.0,
-    0.0,
+    0.0,  # left_hand_state
+    0.0,  # right_hand_state
     0.201,
     0.145,
-    0.101,
-    1.000,
+    0.101,  # left_wrist_pos
     0.010,
     -0.008,
     -0.011,
+    1.000,  # left_wrist_quat (xyzw)
     0.201,
     -0.145,
-    0.101,
-    1.000,
+    0.101,  # right_wrist_pos
     -0.010,
     -0.008,
     -0.011,
+    1.000,  # right_wrist_quat (xyzw)
     0.0,
     0.0,
+    0.0,  # navigate_cmd
+    0.75,  # base_height_cmd
     0.0,
-    0.75,
     0.0,
-    0.0,
-    0.0,
+    0.0,  # torso_orientation_rpy_cmd
 ]
 
 
@@ -63,7 +66,7 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
         embodiment = G1WBCJointEmbodiment(enable_cameras=ENABLE_CAMERAS)
     # NOTE(xinjieyao, 2025.09.22): Set initial pose such that robot will not drop to the ground, causing WBC unstable.
     robot_init_base_pose = np.array([0, 0, 0])
-    embodiment.set_initial_pose(Pose(position_xyz=tuple(robot_init_base_pose), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    embodiment.set_initial_pose(Pose(position_xyz=tuple(robot_init_base_pose), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="g1_standing_test",
@@ -83,9 +86,9 @@ def step_standing_actions_call(env, num_steps, robot_init_base_pose, function=No
     for _ in tqdm.tqdm(range(num_steps)):
         with torch.inference_mode():
             if pink_ik_enabled:
-                actions = torch.tensor(WBC_PINK_IDLE_ACTION, device=env.device).unsqueeze(0)
+                actions = torch.tensor(WBC_PINK_IDLE_ACTION, device=env.unwrapped.device).unsqueeze(0)
             else:
-                actions = torch.zeros(env.action_space.shape, device=env.device)
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             # NOTE(xinjieyao, 2025.09.22): Set base height to 0.75m to avoid robot squatting to match 0-height command.
             actions[:, -4] = 0.75
             _, _, _, _, _ = env.step(actions)
@@ -102,7 +105,7 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
 
     def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
         # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        robot_base_pose = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
         robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
         assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."
@@ -113,6 +116,7 @@ def _test_wbc_joint_standing_idle_actions(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -139,8 +143,8 @@ def _test_wbc_pink_standing_idle_actions(simulation_app) -> bool:
     env, robot_init_base_pose = get_test_environment(num_envs=1, pink_ik_enabled=True)
 
     def assert_standing_idle(env: ManagerBasedEnv, robot_init_base_pose: np.ndarray):
-        # get robot base pose after actions call
-        robot_base_pose = env.scene["robot"].data.root_link_pose_w[0, :3].cpu().numpy()
+        # get robot base pose after actions call (use wp.to_torch like joint test; root_link_pose_w is a Warp array)
+        robot_base_pose = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, :3].cpu().numpy()
         # check if robot base pose is close to initial base pose
         robot_xy_error = np.linalg.norm(robot_base_pose[:2] - robot_init_base_pose[:2])
         assert robot_xy_error < STANDING_POSITION_XY_EPS, "Robot moved away from initial position."

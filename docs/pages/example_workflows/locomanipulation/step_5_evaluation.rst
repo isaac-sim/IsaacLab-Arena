@@ -5,7 +5,7 @@ This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena G1 Loco Manipulation Task environment.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 
@@ -17,7 +17,7 @@ Once inside the container, set the dataset and models directories.
     export MODELS_DIR=/models/isaaclab_arena/locomanipulation_tutorial
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_3_policy_training>` or downloaded the
+:doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
 pre-trained model checkpoint below:
 
 .. dropdown:: Download Pre-trained Model (skip preceding steps)
@@ -71,6 +71,7 @@ Test the policy in a single environment with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
      --num_steps 1500 \

@@ -22,7 +22,7 @@ class ObjectPlacerParams:
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
 
-    max_placement_attempts: int = 5
+    max_placement_attempts: int = 10
     """Maximum number of placement attempts (random init + solve + validate) before failure."""
 
     apply_positions_to_objects: bool = True
@@ -33,3 +33,12 @@ class ObjectPlacerParams:
 
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
+
+    min_separation_m: float = 0.0
+    """Minimum separation (meters) required between object bounding boxes.
+    Set to 0.0 to only reject actual overlaps. A small positive value (e.g. 0.005)
+    adds a safety margin between objects."""
+
+    on_relation_z_tolerance_m: float = 5e-3
+    """Tolerance (meters) for On-relation Z validation. Valid Z band is extended to
+    (parent_top - tolerance, parent_top + clearance_m + tolerance]. Default 5e-3 accommodates solver residual."""

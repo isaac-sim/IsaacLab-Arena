@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -17,7 +18,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -36,7 +37,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     dex_cube_1.set_initial_pose(
         Pose(
             position_xyz=position_1,
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -45,17 +46,17 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     dex_cube_2.set_initial_pose(
         Pose(
             position_xyz=position_2,
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
     scene = Scene(assets=[background, light, dex_cube_1, dex_cube_2])
 
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -94,8 +95,8 @@ def _test_duplicate_asset(simulation_app) -> bool:
             step_zeros_and_call(env, NUM_STEPS)
 
             # Check that both objects exist
-            assert dex_cube_1.name in env.scene.keys(), "Cube 1 object is None"
-            assert dex_cube_2.name in env.scene.keys(), "Cube 2 object is None"
+            assert dex_cube_1.name in env.unwrapped.scene.keys(), "Cube 1 object is None"
+            assert dex_cube_2.name in env.unwrapped.scene.keys(), "Cube 2 object is None"
 
             # Get positions (subtract env origin to get local positions)
             cube_1_pos = dex_cube_1.get_object_pose(env)[0, :3]
@@ -105,8 +106,8 @@ def _test_duplicate_asset(simulation_app) -> bool:
             print(f"Cube 2 position: {cube_2_pos}")
 
             # Verify positions are approximately correct (with some tolerance for physics)
-            expected_pos_1 = torch.tensor(position_1, device=env.device)
-            expected_pos_2 = torch.tensor(position_2, device=env.device)
+            expected_pos_1 = torch.tensor(position_1, device=env.unwrapped.device)
+            expected_pos_2 = torch.tensor(position_2, device=env.unwrapped.device)
 
             pos_diff_1 = torch.abs(cube_1_pos - expected_pos_1)
             pos_diff_2 = torch.abs(cube_2_pos - expected_pos_2)
@@ -118,6 +119,7 @@ def _test_duplicate_asset(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

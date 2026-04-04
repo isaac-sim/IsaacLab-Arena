@@ -119,13 +119,13 @@ Environment Integration
 .. code-block:: python
 
    # Embodiment creation with camera support
-   embodiment = asset_registry.get_asset_by_name("franka")(
+   embodiment = asset_registry.get_asset_by_name("franka_ik")(
        enable_cameras=True
    )
 
    # Set robot initial pose
    embodiment.set_initial_pose(
-       Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+       Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
    )
 
    # Environment composition
@@ -144,7 +144,7 @@ Usage Examples
 
 .. code-block:: python
 
-   franka = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+   franka = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
    task = PickAndPlaceTask(pick_object, destination, background)
 
 **Humanoid Control Modes**

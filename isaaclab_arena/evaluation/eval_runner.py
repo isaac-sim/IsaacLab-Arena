@@ -8,6 +8,7 @@ import dataclasses
 import json
 import os
 import traceback
+from gymnasium.wrappers import RecordVideo
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -18,12 +19,13 @@ from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str], job_name: str):
+def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
 
     reload_arena_modules()
 
@@ -38,7 +40,7 @@ def load_env(arena_env_args: list[str], job_name: str):
     if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
-    env = arena_builder.make_registered(env_cfg)
+    env = arena_builder.make_registered(env_cfg, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
     return env
 
@@ -113,12 +115,16 @@ def main():
 
         job_manager.print_jobs_info()
 
+        if args_cli.video:
+            os.makedirs(args_cli.video_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
+
         for job in job_manager:
             if job is not None:
                 env = None
                 try:
-                    # Modules reloading first, otherwise 2 instances of same class are created (e.g. Enum)
-                    env = load_env(job.arena_env_args, job.name)
+                    render_mode = "rgb_array" if args_cli.video else None
+                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
 
                     policy = get_policy_from_job(job)
 
@@ -129,7 +135,28 @@ def main():
                             job.num_steps = policy.length()
                         else:
                             job.num_steps = args_cli.num_steps
-                    metrics = rollout_policy(env, policy, num_steps=job.num_steps, num_episodes=job.num_episodes)
+
+                    if args_cli.video:
+                        if job.num_steps is not None:
+                            video_length = job.num_steps
+                        else:
+                            video_length = job.num_episodes * env.unwrapped.max_episode_length
+                        video_kwargs = {
+                            "video_folder": os.path.join(args_cli.video_dir, job.name),
+                            "step_trigger": lambda step: step == 0,
+                            "video_length": video_length,
+                            "disable_logger": True,
+                        }
+                        print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
+                        env = RecordVideo(env, **video_kwargs)
+
+                    metrics = rollout_policy(
+                        env,
+                        policy,
+                        num_steps=job.num_steps,
+                        num_episodes=job.num_episodes,
+                        language_instruction=job.language_instruction,
+                    )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
@@ -138,10 +165,11 @@ def main():
                         metrics_logger.append_job_metrics(job.name, metrics)
 
                 except Exception as e:
-                    # continue with the next job even if one fails
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
                     print(f"Job {job.name} failed with error: {e}")
                     print(f"Traceback: {traceback.format_exc()}")
+                    if not args_cli.continue_on_error:
+                        raise
 
                 finally:
                     # Only stop env if it was successfully created
@@ -155,4 +183,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
+    ensure_groot_deps_in_path()
     main()

@@ -10,7 +10,7 @@ If you do not want to do the preceding step of recording demonstrations, you can
 the pre-recorded datasets and jump to :ref:`sequential_step_1_annotate_demonstrations`.
 
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -41,17 +41,23 @@ To skip this step, you can download the pre-annotated dataset as described below
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --revision arena_v0.2_lab_v3.0 \
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 To start the annotation process run the following command:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+     --visualizer kit \
      --device cpu \
      --input_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
      --output_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
@@ -92,11 +98,16 @@ This step can be skipped by downloading the pre-generated dataset as described b
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --revision arena_v0.2_lab_v3.0 \
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 Generate the dataset:
 
@@ -131,6 +142,7 @@ To do so, run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \

@@ -14,6 +14,8 @@ from isaaclab.app import AppLauncher
 print("Launching simulation app once in notebook")
 simulation_app = AppLauncher()
 
+# %%
+
 from isaaclab_arena.assets.asset_registry import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -25,7 +27,7 @@ from isaaclab_arena.utils.pose import Pose
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
-embodiment = asset_registry.get_asset_by_name("franka")()
+embodiment = asset_registry.get_asset_by_name("franka_ik")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
@@ -54,5 +56,15 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
+
+# %%
+
+
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
+from isaaclab_arena.utils.reload_modules import reload_arena_modules
+
+# Run this to tear down the simulation app, for rebuilding the environment, without requiring a restart.
+reload_arena_modules()
+teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
 
 # %%

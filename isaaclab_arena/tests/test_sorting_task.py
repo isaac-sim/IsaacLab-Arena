@@ -5,6 +5,9 @@
 
 import gymnasium as gym
 import torch
+import traceback
+
+import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -17,7 +20,7 @@ def get_test_environment(num_envs: int):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -41,13 +44,13 @@ def get_test_environment(num_envs: int):
     red_cube.set_initial_pose(
         Pose(
             position_xyz=(0.0, 0.3, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
     green_cube.set_initial_pose(
         Pose(
             position_xyz=(0.0, -0.3, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -55,13 +58,13 @@ def get_test_environment(num_envs: int):
     red_container.set_initial_pose(
         Pose(
             position_xyz=(0.0, 0.1, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
     green_container.set_initial_pose(
         Pose(
             position_xyz=(0.0, -0.1, 0.1),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -76,11 +79,11 @@ def get_test_environment(num_envs: int):
     # Use a low force threshold for testing
     task.termination_cfg.success.params["force_threshold"] = 0.1
 
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(-0.4, 0.0, 0.0),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -120,6 +123,7 @@ def _test_sorting_task_initial_state(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -146,8 +150,8 @@ def _test_sorting_task_success(simulation_app) -> bool:
             green_container_object: RigidObject = env.scene[green_container.name]
 
             # Get container positions to place cubes inside them
-            red_container_pos = red_container_object.data.root_pos_w[0]
-            green_container_pos = green_container_object.data.root_pos_w[0]
+            red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)[0]
+            green_container_pos = wp.to_torch(green_container_object.data.root_pos_w)[0]
 
             target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
 
@@ -181,6 +185,7 @@ def _test_sorting_task_success(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -205,7 +210,7 @@ def _test_sorting_task_partial_success(simulation_app) -> bool:
             red_container_object: RigidObject = env.scene[red_container.name]
 
             # Get container position
-            red_container_pos = red_container_object.data.root_pos_w[0]
+            red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)[0]
 
             target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
 
@@ -229,6 +234,7 @@ def _test_sorting_task_partial_success(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -261,12 +267,12 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
             # Now move second env cubes to success positions too
             # Note: env 0 may have been reset after success, so we need to set both envs
-            red_cube_state = red_cube_object.data.root_state_w.clone()
-            green_cube_state = green_cube_object.data.root_state_w.clone()
+            red_cube_state = wp.to_torch(red_cube_object.data.root_state_w).clone()
+            green_cube_state = wp.to_torch(green_cube_object.data.root_state_w).clone()
 
             # Re-fetch container positions (they should be stable)
-            red_container_pos = red_container_object.data.root_pos_w
-            green_container_pos = green_container_object.data.root_pos_w
+            red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)
+            green_container_pos = wp.to_torch(green_container_object.data.root_pos_w)
 
             # Set BOTH env cubes to positions above containers (env 0 may have been reset)
             red_cube_state[0, :3] = red_container_pos[0].clone()
@@ -307,6 +313,7 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

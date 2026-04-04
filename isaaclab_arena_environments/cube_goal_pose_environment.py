@@ -35,14 +35,14 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
         object.set_initial_pose(
             Pose(
                 position_xyz=(0.1, 0.0, 0.2),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(-0.4, 0.0, 0.0),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
         # order: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7, panda_finger_joint1, panda_finger_joint2]
@@ -63,7 +63,7 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
         task = GoalPoseTask(
             object,
             target_z_range=(0.2, 1),
-            target_orientation_wxyz=(0.7071, 0.0, 0.0, 0.7071),  # yaw 90 degrees
+            target_orientation_xyzw=(0.0, 0.0, 0.7071, 0.7071),  # yaw 90 degrees
             target_orientation_tolerance_rad=0.2,
         )
 
@@ -80,5 +80,5 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="dex_cube")
         parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--embodiment", type=str, default="franka_ik")
         parser.add_argument("--teleop_device", type=str, default=None)

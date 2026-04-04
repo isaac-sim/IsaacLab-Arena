@@ -17,71 +17,82 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-
-from isaaclab.devices.openxr.retargeters import GR1T2RetargeterCfg
-from isaaclab.devices.retargeter_base import RetargeterCfg
+from collections.abc import Callable
 
 from isaaclab_arena.assets.register import register_retargeter
 
 
 class RetargetterBase(ABC):
+    """Base class for teleop retargeter entries in the Arena registry.
+
+    Subclasses associate a (device, embodiment) pair with a pipeline builder
+    function compatible with ``IsaacTeleopCfg.pipeline_builder``.
+    """
+
     device: str
     embodiment: str
 
     @abstractmethod
-    def get_retargeter_cfg(
-        self, embodiment: object, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg:
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        """Return an isaacteleop pipeline builder callable, or None if not applicable."""
         raise NotImplementedError
 
 
 @register_retargeter
-class GR1T2PinkOpenXRRetargeter(RetargetterBase):
+class GR1T2PinkIsaacTeleopRetargeter(RetargetterBase):
+    """Isaac Teleop pipeline builder for GR1T2 with Pink IK and dex hand retargeting."""
 
     device = "openxr"
     embodiment = "gr1_pink"
-    num_open_xr_hand_joints = 52
 
     def __init__(self):
         pass
 
-    def get_retargeter_cfg(
-        self, gr1t2_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg:
-        return GR1T2RetargeterCfg(
-            enable_visualization=enable_visualization,
-            # number of joints in both hands
-            num_open_xr_hand_joints=self.num_open_xr_hand_joints,
-            sim_device=sim_device,
-            hand_joint_names=gr1t2_embodiment.get_action_cfg().upper_body_ik.hand_joint_names,
+    def get_pipeline_builder(self, embodiment: object) -> Callable:
+        from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import (
+            _build_gr1t2_pickplace_pipeline,
         )
+
+        return lambda: _build_gr1t2_pickplace_pipeline()[0]
+
+
+@register_retargeter
+class G1WbcPinkIsaacTeleopRetargeter(RetargetterBase):
+    """Isaac Teleop pipeline builder for G1 WBC Pink (locomanipulation: wrist + TriHand + locomotion)."""
+
+    device = "openxr"
+    embodiment = "g1_wbc_pink"
+
+    def __init__(self):
+        pass
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable:
+        from isaaclab_arena_g1.teleop.g1_pink_locomanipulation_pipeline import _build_g1_pink_locomanipulation_pipeline
+
+        return _build_g1_pink_locomanipulation_pipeline
 
 
 @register_retargeter
 class FrankaKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
-    embodiment = "franka"
+    embodiment = "franka_ik"
 
     def __init__(self):
         pass
 
-    def get_retargeter_cfg(
-        self, franka_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None
 
 
 @register_retargeter
 class FrankaSpaceMouseRetargeter(RetargetterBase):
     device = "spacemouse"
-    embodiment = "franka"
+    embodiment = "franka_ik"
 
     def __init__(self):
         pass
 
-    def get_retargeter_cfg(
-        self, franka_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None
 
 
@@ -93,9 +104,7 @@ class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
     def __init__(self):
         pass
 
-    def get_retargeter_cfg(
-        self, droid_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None
 
 
@@ -107,9 +116,7 @@ class AgibotKeyboardRetargeter(RetargetterBase):
     def __init__(self):
         pass
 
-    def get_retargeter_cfg(
-        self, agibot_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None
 
 
@@ -121,7 +128,5 @@ class GalbotKeyboardRetargeter(RetargetterBase):
     def __init__(self):
         pass
 
-    def get_retargeter_cfg(
-        self, galbot_embodiment, sim_device: str, enable_visualization: bool = False
-    ) -> RetargeterCfg | None:
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None

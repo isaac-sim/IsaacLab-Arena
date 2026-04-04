@@ -5,7 +5,7 @@ This workflow covers post-training an example policy using the generated dataset
 here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 
@@ -35,6 +35,7 @@ pre-generated dataset from Hugging Face as described below.
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 
@@ -57,6 +58,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-GR1-Manipulation-Task \
          --include lerobot/* \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR/arena_gr1_manipulation_dataset_generated
 
    If you download this dataset, you can skip the conversion step below and continue to the next step.

@@ -23,13 +23,6 @@ from isaaclab_arena_environments.cli import add_example_environments_cli_args, g
 # add argparse arguments
 parser = get_isaaclab_arena_cli_parser()
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
-parser.add_argument(
-    "--enable_pinocchio",
-    action="store_true",
-    default=False,
-    help="Enable Pinocchio.",
-)
-
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -40,15 +33,8 @@ args_cli = parser.parse_args()
 
 app_launcher_args = vars(args_cli)
 
-if args_cli.enable_pinocchio:
-    # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and
-    # not the one installed by Isaac Sim pinocchio is required by the Pink IK controllers and the
-    # GR1T2 retargeter
-    import pinocchio  # noqa: F401
-
-    # Keep this on if we use pinocchio as we will use AVP for the humanoid
-    if "handtracking" in args_cli.teleop_device.lower():
-        app_launcher_args["xr"] = True
+if "openxr" in args_cli.teleop_device.lower():
+    app_launcher_args["xr"] = True
 
 # launch omniverse app
 app_launcher = AppLauncher(app_launcher_args)
@@ -60,15 +46,13 @@ simulation_app = app_launcher.app
 import torch
 
 import isaaclab_tasks  # noqa: F401
+import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
-from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
-
-if args_cli.enable_pinocchio:
-    import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
+from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
 
 
 def main() -> None:
@@ -86,7 +70,7 @@ def main() -> None:
     env_name, env_cfg = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
-    if "Lift" in args_cli.task:
+    if "Lift" in args_cli.example_environment:
         # set the resampling time range to large number to avoid resampling
         env_cfg.commands.object_pose.resampling_time_range = (1.0e9, 1.0e9)
         # add termination condition for reaching the goal otherwise the environment won't reset
@@ -102,10 +86,10 @@ def main() -> None:
         # create environment
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
-        if "Reach" in args_cli.task:
+        if "Reach" in args_cli.example_environment:
             omni.log.warn(
-                f"The environment '{args_cli.task}' does not support gripper control. The device command will be"
-                " ignored."
+                f"The environment '{args_cli.example_environment}' does not support gripper control. The device command"
+                " will be ignored."
             )
     except Exception as e:
         omni.log.error(f"Failed to create environment: {e}")
@@ -172,16 +156,21 @@ def main() -> None:
         # Always active for other devices
         teleoperation_active = True
 
-    # Create teleop device from config if present, otherwise create manually
+    # Create teleop device: IsaacTeleop (XR) > env_cfg.teleop_devices > hardcoded fallback
     teleop_interface = None
     try:
-        if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
+        if hasattr(env_cfg, "isaac_teleop") and isinstance(env_cfg.isaac_teleop, IsaacTeleopCfg):
+            teleop_interface = create_isaac_teleop_device(
+                env_cfg.isaac_teleop,
+                sim_device=str(env.device),
+                callbacks=teleoperation_callbacks,
+            )
+        elif hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
             teleop_interface = create_teleop_device(
                 args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
             )
         else:
             omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
-            # Create fallback teleop device
             sensitivity = args_cli.sensitivity
             if args_cli.teleop_device.lower() == "keyboard":
                 teleop_interface = Se3Keyboard(
@@ -222,38 +211,42 @@ def main() -> None:
 
     print(f"Using teleop device: {teleop_interface}")
 
-    # reset environment
-    env.reset()
-    teleop_interface.reset()
+    # IsaacTeleop (OpenXR) requires the device to be used as a context manager so
+    # TeleopSessionLifecycle.start() is called before advance().
+    use_isaac_teleop = hasattr(teleop_interface, "__enter__") and hasattr(teleop_interface, "__exit__")
 
-    print("Teleoperation started. Press 'R' to reset the environment.")
+    def run_teleop_loop() -> None:
+        nonlocal should_reset_recording_instance
+        env.reset()
+        teleop_interface.reset()
+        print("Teleoperation started. Press 'R' to reset the environment.")
+        while simulation_app.is_running():
+            try:
+                with torch.inference_mode():
+                    action = teleop_interface.advance()
+                    # action is None when IsaacTeleop session hasn't started yet (e.g. waiting for "Start AR")
+                    if action is None:
+                        env.sim.render()
+                    elif teleoperation_active:
+                        actions = action.repeat(env.num_envs, 1)
+                        env.step(actions)
+                    else:
+                        env.sim.render()
+                    if should_reset_recording_instance:
+                        env.reset()
+                        teleop_interface.reset()
+                        should_reset_recording_instance = False
+                        print("Environment reset complete")
+            except Exception as e:
+                omni.log.error(f"Error during simulation step: {e}")
+                break
 
-    # simulate environment
-    while simulation_app.is_running():
-        try:
-            # run everything in inference mode
-            with torch.inference_mode():
-                # get device command
-                action = teleop_interface.advance()
+    if use_isaac_teleop:
+        with teleop_interface:
+            run_teleop_loop()
+    else:
+        run_teleop_loop()
 
-                # Only apply teleop commands when active
-                if teleoperation_active:
-                    # process actions
-                    actions = action.repeat(env.num_envs, 1)
-                    # apply actions
-                    env.step(actions)
-                else:
-                    env.sim.render()
-
-                if should_reset_recording_instance:
-                    env.reset()
-                    should_reset_recording_instance = False
-                    print("Environment reset complete")
-        except Exception as e:
-            omni.log.error(f"Error during simulation step: {e}")
-            break
-
-    # close the simulator
     env.close()
     print("Environment closed")
 

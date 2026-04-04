@@ -14,7 +14,11 @@ import isaaclab.utils.math as PoseUtils
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
-from isaaclab.envs.mdp.actions.actions_cfg import BinaryJointPositionActionCfg, DifferentialInverseKinematicsActionCfg
+from isaaclab.envs.mdp.actions.actions_cfg import (
+    BinaryJointPositionActionCfg,
+    DifferentialInverseKinematicsActionCfg,
+    JointPositionActionCfg,
+)
 from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -24,7 +28,7 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
-from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
+from isaaclab_assets.robots.franka import FRANKA_PANDA_CFG, FRANKA_PANDA_HIGH_PD_CFG
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
@@ -36,21 +40,30 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.utils.pose import Pose
 
-_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_wxyz=(-0.74896, 0.0, 0.0, -0.66262))
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, -0.66262, -0.74896))
 
 
 # The reason to use our internal panda USD is to combine the panda and the stand within one USD.
 # This is not ideal but currently required by the ObjectPlacementSolver to handle the robot placement correctly.
 # TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
-_FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-_FRANKA_CFG.spawn.usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+_FRANKA_IK_REL_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
+_FRANKA_IK_REL_CFG.spawn.usd_path = (
+    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
+)
+
+# Standard-PD Franka for joint-position control.
+# Uses FRANKA_PANDA_CFG (gravity on, stiffness=80, damping=4) instead of HIGH_PD.
+_FRANKA_JOINT_POS_CFG = FRANKA_PANDA_CFG.copy()
+_FRANKA_JOINT_POS_CFG.spawn.usd_path = _FRANKA_IK_REL_CFG.spawn.usd_path
 
 
-@register_asset
-class FrankaEmbodiment(EmbodimentBase):
-    """Embodiment for the Franka robot."""
+class FrankaEmbodimentBase(EmbodimentBase):
+    """Shared Franka scene shell, observations, events, rewards, mimic env, and camera.
 
-    name = "franka"
+    Subclasses set :attr:`action_config` and assign :attr:`scene_config.robot` (see
+    :class:`FrankaSceneCfg`).
+    """
+
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
@@ -64,10 +77,6 @@ class FrankaEmbodiment(EmbodimentBase):
         is_tiled_camera: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
-        self.scene_config = FrankaSceneCfg()
-        self.action_config = FrankaActionsCfg()
-        self.observation_config = FrankaObservationsCfg()
-        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = FrankaEventCfg()
         if initial_joint_pose is not None:
             self.set_initial_joint_pose(initial_joint_pose)
@@ -76,6 +85,9 @@ class FrankaEmbodiment(EmbodimentBase):
         self.camera_config = FrankaCameraCfg()
         self.camera_config._is_tiled_camera = is_tiled_camera
         self.camera_config._camera_offset = camera_offset
+        self.scene_config = FrankaSceneCfg()
+        self.observation_config = FrankaObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose
@@ -83,16 +95,120 @@ class FrankaEmbodiment(EmbodimentBase):
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "ee_frame"
 
+
+@register_asset
+class FrankaIKEmbodiment(FrankaEmbodimentBase):
+    """Franka with differential IK (relative) arm control and high-PD defaults."""
+
+    name = "franka_ik"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        is_tiled_camera: bool = False,
+    ):
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            camera_offset=camera_offset,
+            is_tiled_camera=is_tiled_camera,
+        )
+        self.scene_config.robot = _FRANKA_IK_REL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.action_config = FrankaIKActionCfg()
+
     def get_command_body_name(self) -> str:
         return self.action_config.arm_action.body_name
+
+
+@configclass
+class FrankaIKActionCfg:
+    """Action specifications for the MDP."""
+
+    arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
+        asset_name="robot",
+        joint_names=["panda_joint.*"],
+        body_name="panda_hand",
+        controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
+        scale=0.5,
+        body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
+    )
+
+    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_finger.*"],
+        open_command_expr={"panda_finger_.*": 0.04},
+        close_command_expr={"panda_finger_.*": 0.0},
+    )
+
+
+@register_asset
+class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
+    """Franka embodiment using joint-position control, matching IsaacLab's Isaac-Lift-Cube-Franka-v0.
+
+    Uses FRANKA_PANDA_CFG (standard PD gains, gravity enabled) instead of
+    FRANKA_PANDA_HIGH_PD_CFG used by :class:`FrankaIKEmbodiment`.
+    """
+
+    name = "franka_joint_pos"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
+        is_tiled_camera: bool = False,
+    ):
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            camera_offset=camera_offset,
+            is_tiled_camera=is_tiled_camera,
+        )
+        self.action_config = FrankaJointPosActionsCfg()
+        self.scene_config.robot = _FRANKA_JOINT_POS_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+    def get_command_body_name(self) -> str:
+        return "panda_hand"
+
+
+@configclass
+class FrankaJointPosActionsCfg:
+    """Joint-position action specification matching IsaacLab's FrankaCubeLiftEnvCfg."""
+
+    arm_action: ActionTermCfg = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_joint.*"],
+        scale=0.5,
+        use_default_offset=True,
+    )
+
+    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
+        asset_name="robot",
+        joint_names=["panda_finger.*"],
+        open_command_expr={"panda_finger_.*": 0.04},
+        close_command_expr={"panda_finger_.*": 0.0},
+    )
 
 
 @configclass
 class FrankaSceneCfg:
     """Additions to the scene configuration coming from the Franka embodiment."""
 
-    # The robot (combined USD includes both the panda and the stand)
-    robot: ArticulationCfg = _FRANKA_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg | None = None
 
     # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
@@ -132,27 +248,6 @@ class FrankaSceneCfg:
 
 
 @configclass
-class FrankaActionsCfg:
-    """Action specifications for the MDP."""
-
-    arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
-        asset_name="robot",
-        joint_names=["panda_joint.*"],
-        body_name="panda_hand",
-        controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
-        scale=0.5,
-        body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
-    )
-
-    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
-        asset_name="robot",
-        joint_names=["panda_finger.*"],
-        open_command_expr={"panda_finger_.*": 0.04},
-        close_command_expr={"panda_finger_.*": 0.0},
-    )
-
-
-@configclass
 class FrankaCameraCfg:
     """Configuration for cameras."""
 
@@ -177,7 +272,7 @@ class FrankaCameraCfg:
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_wxyz,
+            rot=camera_offset.rotation_xyzw,
             convention="ros",
         )
 

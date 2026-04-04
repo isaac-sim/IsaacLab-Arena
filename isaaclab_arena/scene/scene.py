@@ -14,6 +14,7 @@ from pxr import Gf, Usd, UsdGeom
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
@@ -53,7 +54,15 @@ class Scene:
         self.assets[asset.name] = asset
 
     def add_assets(self, assets: list[Asset | RigidObjectSet]):
+        all_assets = set(assets)
         for asset in assets:
+            if isinstance(asset, ObjectReference):
+                assert asset.parent_asset in all_assets, (
+                    f"ObjectReference '{asset.name}' refers to parent asset '{asset.parent_asset.name}' "
+                    "which is not included in the scene."
+                )
+        sorted_assets = sorted(assets, key=lambda a: isinstance(a, ObjectReference))
+        for asset in sorted_assets:
             self.add_asset(asset)
 
     def get_scene_cfg(self) -> Any:
@@ -174,11 +183,8 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     prim_xform.ClearXformOpOrder()
     if asset.initial_pose is not None:
         t = Gf.Vec3d(asset.initial_pose.position_xyz) if trans_double else Gf.Vec3f(asset.initial_pose.position_xyz)
-        r = (
-            Gf.Quatd(*asset.initial_pose.rotation_wxyz)
-            if orient_double
-            else Gf.Quatf(*asset.initial_pose.rotation_wxyz)
-        )
+        rot = asset.initial_pose.rotation_xyzw
+        r = Gf.Quatd(rot[3], *rot[:3]) if orient_double else Gf.Quatf(rot[3], *rot[:3])
         t_precision = UsdGeom.XformOp.PrecisionDouble if trans_double else UsdGeom.XformOp.PrecisionFloat
         r_precision = UsdGeom.XformOp.PrecisionDouble if orient_double else UsdGeom.XformOp.PrecisionFloat
         prim_xform.AddTranslateOp(precision=t_precision).Set(t)

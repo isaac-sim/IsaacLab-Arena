@@ -12,7 +12,7 @@ you can download the pre-generated dataset either in
 below.
 
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -45,14 +45,15 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_annotated.hdf5 \
          --repo-type dataset \
-         --revision refs/pr/2 \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 To start the annotation process run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/annotate_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+     --visualizer kit \
      --device cpu \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
@@ -89,6 +90,7 @@ This step can be skipped by downloading the pre-generated dataset from Hugging F
          nvidia/Arena-GR1-Manipulation-Task \
          arena_gr1_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 
@@ -96,7 +98,7 @@ Generate the dataset:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/generate_dataset.py \
+   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py \
      --device cpu \
      --generation_num_trials 50 \
      --num_envs 10 \
@@ -122,7 +124,8 @@ To do so, run the following command:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import math
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -33,18 +34,18 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             PoseRange(
                 position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
                 position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
-                rpy_min=(0.0, 0.0, 0.0),
-                rpy_max=(0.0, 0.0, 0.0),
+                rpy_min=(math.pi, 0.0, math.pi),
+                rpy_max=(math.pi, 0.0, math.pi),
             )
         )
 
         blue_sorting_bin.set_initial_pose(
             Pose(
                 position_xyz=(-0.2450, -1.6272, -0.2641),
-                rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
+                rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
             )
         )
-        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
         if (
             args_cli.embodiment == "g1_wbc_pink"

@@ -6,6 +6,7 @@
 import math
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -38,10 +39,10 @@ def _test_revolute_joint_moved_rate(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     microwave = asset_registry.get_asset_by_name("microwave")()
 
-    microwave.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.2), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    microwave.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     scene = Scene(assets=[background, microwave])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -87,6 +88,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

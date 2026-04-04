@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from scipy.spatial.transform import Rotation as R
 from typing import TYPE_CHECKING
 
+import warp as wp
 from isaaclab.assets.articulation import Articulation
 
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action import G1DecoupledWBCJointAction
@@ -193,9 +194,9 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
             action = [left_hand_state: dim=1, 0 for open, 1 for close,
                       right_hand_state: dim=1, 0 for open, 1 for close,
                       left_arm_pos: dim=3, xyz position,
-                      left_arm_quat: dim=4, wxyz quaternion,
+                      left_arm_quat: dim=4, xyzw quaternion,
                       right_arm_pos: dim=3, xyz position,
-                      right_arm_quat: dim=4, wxyz quaternion,
+                      right_arm_quat: dim=4, xyzw quaternion,
                       navigate_cmd: dim=3, xyz velocity,
                       base_height_cmd: dim=1, height,
                       torso_orientation_rpy_cmd: dim=3, rpy]
@@ -219,9 +220,6 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
 
         # Convert from pos/quat to 4x4 transform matrix
-        # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
-        left_arm_quat = np.roll(left_arm_quat, -1)
-        right_arm_quat = np.roll(right_arm_quat, -1)
         left_rotmat = R.from_quat(left_arm_quat).as_matrix()
         right_rotmat = R.from_quat(right_arm_quat).as_matrix()
 
@@ -287,8 +285,8 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
 
                     target_xy = torch.tensor(target_xy_heading[:2])
                     target_heading = torch.tensor(target_xy_heading[2])
-                    current_xy = self._asset.data.root_link_pos_w
-                    current_heading = self._asset.data.heading_w
+                    current_xy = wp.to_torch(self._asset.data.root_link_pos_w)
+                    current_heading = wp.to_torch(self._asset.data.heading_w)
 
                     check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
                     check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(

@@ -6,6 +6,7 @@
 import collections
 import json
 import numpy as np
+import torch
 import yaml
 from dataclasses import fields
 from pathlib import Path
@@ -13,6 +14,28 @@ from typing import Any, TypeVar, Union
 
 # Generic type variable for configuration classes
 ConfigType = TypeVar("ConfigType")
+
+
+def to_numpy(value: Any) -> np.ndarray:
+    """Convert tensor or array-like to numpy; pass through if already numpy."""
+    if isinstance(value, np.ndarray):
+        return value
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().numpy()
+    return np.asarray(value)
+
+
+def to_tensor(value: Any, device: str | torch.device | None = None) -> torch.Tensor:
+    """Convert numpy or array-like to torch float tensor; pass through if already tensor. Optionally move to device."""
+    if isinstance(value, torch.Tensor):
+        out = value.float() if value.dtype != torch.float32 else value
+    elif isinstance(value, np.ndarray):
+        out = torch.from_numpy(value).float()
+    else:
+        out = torch.from_numpy(np.asarray(value)).float()
+    if device is not None:
+        out = out.to(device)
+    return out
 
 
 def dump_jsonl(data, file_path):

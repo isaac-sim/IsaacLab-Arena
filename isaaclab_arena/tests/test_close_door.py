@@ -5,6 +5,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -17,7 +18,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -35,7 +36,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     microwave.set_initial_pose(
         Pose(
             position_xyz=(0.6, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+            rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
         )
     )
 
@@ -43,7 +44,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="close_door",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
         task=CloseDoorTask(microwave),
     )
@@ -224,8 +225,6 @@ def _test_close_door_with_reset(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
-
         traceback.print_exc()
         return False
 

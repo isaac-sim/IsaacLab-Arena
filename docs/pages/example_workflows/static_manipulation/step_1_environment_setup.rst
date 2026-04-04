@@ -1,12 +1,12 @@
 Environment Setup and Validation
 --------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -35,14 +35,14 @@ Environment Description
               assets = [background, microwave]
 
               embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-              embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+              embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
               teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
 
               # Put the microwave on the packing table.
               microwave_pose = Pose(
                   position_xyz=(0.4, -0.00586, 0.22773),
-                  rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+                  rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
               )
               microwave.set_initial_pose(microwave_pose)
 
@@ -85,7 +85,7 @@ See :doc:`../../concepts/concept_assets_design` for details on asset architectur
 
    microwave_pose = Pose(
        position_xyz=(0.4, -0.00586, 0.22773),
-       rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+       rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
    )
    microwave.set_initial_pose(microwave_pose)
 
@@ -141,6 +141,7 @@ We download a pre-recorded dataset from Hugging Face.
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \
        --repo-type dataset \
+       --revision arena_v0.2_lab_v2.3 \
        --local-dir $DATASET_DIR
 
 
@@ -151,7 +152,8 @@ Replay the downloaded dataset to verify the environment setup:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/replay_demos.py \
+   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \

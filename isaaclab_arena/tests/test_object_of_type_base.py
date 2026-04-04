@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -42,11 +43,11 @@ def _test_object_of_type_base(simulation_app):
 
     # Scene
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cone = ConeNoPhysics()
 
     # Put the thing in the center of the room floating.
-    cone.set_initial_pose(Pose(position_xyz=(-1.6, 0.0, 1.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    cone.set_initial_pose(Pose(position_xyz=(-1.6, 0.0, 1.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     scene = Scene(assets=[background, cone])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -71,12 +72,13 @@ def _test_object_of_type_base(simulation_app):
                 env.step(actions)
 
             # Check the the object is floating.
-            position_after_simulation, _ = env.scene["cone_no_physics"].get_world_poses()
+            position_after_simulation, _ = env.unwrapped.scene["cone_no_physics"].get_world_poses()
             movement = position_after_simulation.cpu() - position_before_simulation.cpu()
             assert torch.norm(movement).item() < MOVEMENT_EPS, "Object moved. Should not have physics."
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

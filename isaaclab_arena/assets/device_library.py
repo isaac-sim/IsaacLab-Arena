@@ -17,11 +17,11 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from isaaclab.devices.keyboard import Se3KeyboardCfg
-from isaaclab.devices.openxr import OpenXRDeviceCfg
-from isaaclab.devices.retargeter_base import RetargeterCfg
 from isaaclab.devices.spacemouse import Se3SpaceMouseCfg
+from isaaclab_teleop import IsaacTeleopCfg, XrCfg
 
 from isaaclab_arena.assets.register import register_device
 
@@ -34,7 +34,7 @@ class TeleopDeviceBase(ABC):
         self.sim_device = sim_device
 
     @abstractmethod
-    def get_device_cfg(self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None):
+    def get_device_cfg(self, pipeline_builder: Callable | None = None, embodiment: object | None = None):
         raise NotImplementedError
 
 
@@ -46,12 +46,17 @@ class OpenXRCfg(TeleopDeviceBase):
         super().__init__(sim_device=sim_device)
 
     def get_device_cfg(
-        self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None
-    ) -> OpenXRDeviceCfg:
-        return OpenXRDeviceCfg(
-            retargeters=retargeters,
+        self, pipeline_builder: Callable | None = None, embodiment: object | None = None
+    ) -> IsaacTeleopCfg:
+        if pipeline_builder is None:
+            raise ValueError("OpenXRCfg requires a pipeline_builder (got None)")
+        xr_cfg = embodiment.get_xr_cfg() if embodiment is not None else XrCfg()
+        target_frame_prim_path = embodiment.get_teleop_target_frame_prim_path()
+        return IsaacTeleopCfg(
+            pipeline_builder=pipeline_builder,
             sim_device=self.sim_device,
-            xr_cfg=embodiment.get_xr_cfg(),
+            xr_cfg=xr_cfg,
+            target_frame_prim_path=target_frame_prim_path,
         )
 
 
@@ -65,11 +70,9 @@ class KeyboardCfg(TeleopDeviceBase):
         self.rot_sensitivity = rot_sensitivity
 
     def get_device_cfg(
-        self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None
+        self, pipeline_builder: Callable | None = None, embodiment: object | None = None
     ) -> Se3KeyboardCfg:
         return Se3KeyboardCfg(
-            retargeters=retargeters,
-            sim_device=self.sim_device,
             pos_sensitivity=self.pos_sensitivity,
             rot_sensitivity=self.rot_sensitivity,
         )
@@ -85,11 +88,9 @@ class SpaceMouseCfg(TeleopDeviceBase):
         self.rot_sensitivity = rot_sensitivity
 
     def get_device_cfg(
-        self, retargeters: list[RetargeterCfg] | None = None, embodiment: object | None = None
+        self, pipeline_builder: Callable | None = None, embodiment: object | None = None
     ) -> Se3SpaceMouseCfg:
         return Se3SpaceMouseCfg(
-            retargeters=retargeters,
-            sim_device=self.sim_device,
             pos_sensitivity=self.pos_sensitivity,
             rot_sensitivity=self.rot_sensitivity,
         )

@@ -154,6 +154,26 @@ class AxisAlignedBoundingBox:
             ),
         )
 
+    def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> bool:
+        """Check if two AABBs overlap in 3D.
+
+        Args:
+            other: The other bounding box to test against.
+            margin: Minimum required separation in meters. A positive value
+                rejects placements where the gap is smaller than margin.
+
+        Returns:
+            True if the volumes overlap (or are closer than margin).
+        """
+        return (
+            self.max_point[0] + margin > other.min_point[0]
+            and other.max_point[0] + margin > self.min_point[0]
+            and self.max_point[1] + margin > other.min_point[1]
+            and other.max_point[1] + margin > self.min_point[1]
+            and self.max_point[2] + margin > other.min_point[2]
+            and other.max_point[2] + margin > self.min_point[2]
+        )
+
     def rotated_90_around_z(self, quarters: int) -> "AxisAlignedBoundingBox":
         """Rotate AABB by quarters * 90° around Z axis.
 
@@ -191,14 +211,14 @@ class AxisAlignedBoundingBox:
             )
 
 
-def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
+def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
     """Convert a quaternion to 90° rotation quarters around Z axis.
 
     Only supports rotations that are multiples of 90° around the Z axis.
     Raises AssertionError for any other rotation.
 
     Args:
-        rotation_wxyz: Quaternion as (w, x, y, z).
+        rotation_xyzw: Quaternion as (x, y, z, w).
         tol_deg: Tolerance in degrees for how close the angle must be to a 90° multiple.
 
     Returns:
@@ -209,7 +229,7 @@ def quaternion_to_90_deg_z_quarters(rotation_wxyz: tuple[float, float, float, fl
     """
     import math
 
-    w, x, y, z = rotation_wxyz
+    x, y, z, w = rotation_xyzw
 
     # Must be a pure Z rotation (x and y components must be ~0)
     assert (
@@ -251,7 +271,6 @@ def get_random_pose_within_bounding_box(bbox: AxisAlignedBoundingBox, seed: int 
     # random_position = min + (max - min) * rand
     random_position = min_point + (max_point - min_point) * torch.rand(3)
 
-    # Create pose with random position and identity rotation (w=1, x=0, y=0, z=0)
-    pose = Pose(position_xyz=tuple(random_position.tolist()), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+    pose = Pose(position_xyz=tuple(random_position.tolist()), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     return pose

@@ -31,7 +31,7 @@ import sys
 # from setup import ISAACLAB_ARENA_VERSION_NUMBER
 
 # TODO(alexmillane, 2025-10-03): Get this programmatically, as above.
-ISAACLAB_ARENA_VERSION_NUMBER = "0.1"
+ISAACLAB_ARENA_VERSION_NUMBER = "0.2"
 
 
 # Modify PYTHONPATH so we can import the helpers module.
@@ -79,7 +79,7 @@ todo_include_todos = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
+    "numpy": ("http://numpy.org/doc/stable/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -107,6 +107,7 @@ html_theme_options = {
     "pygments_dark_style": "monokai",
     "footer_links": {},
     "github_url": "https://github.com/isaac-sim/IsaacLab-Arena",
+    "show_nav_level": 2,
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
     #     {

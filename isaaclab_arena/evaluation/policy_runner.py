@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import gymnasium as gym
 import torch
 import tqdm
 from importlib import import_module
@@ -16,6 +15,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
@@ -59,15 +59,19 @@ def rollout_policy(
     policy: "PolicyBase",
     num_steps: int | None,
     num_episodes: int | None,
+    language_instruction: str | None = None,
 ) -> dict[str, Any]:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
+    pbar = None
     try:
         obs, _ = env.reset()
         policy.reset()
-        # set task description (could be None) from the task being evaluated
-        policy.set_task_description(env.cfg.isaaclab_arena_env.task.get_task_description())
+        # Determine language instruction: CLI/job-level override takes precedence over the task's own
+        # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
+        task_description = language_instruction or env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description()
+        policy.set_task_description(task_description)
 
         # Setup progress bar based on num_steps or num_episodes
         if num_steps is not None:
@@ -108,16 +112,19 @@ def rollout_policy(
         pbar.close()
 
     except Exception as e:
-        pbar.close()
+        if pbar is not None:
+            pbar.close()
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
-        # only compute metrics if env has metrics registered
-        if hasattr(env.cfg, "metrics"):
+
+        # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
+        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
+        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
 
-            metrics = compute_metrics(env)
+            metrics = compute_metrics(env.unwrapped)
             return metrics
         return None
 
@@ -161,9 +168,7 @@ def main():
 
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
-        name, cfg = arena_builder.build_registered()
-
-        env = gym.make(name, cfg=cfg).unwrapped
+        env, cfg = arena_builder.make_registered_and_return_cfg()
 
         # Per-rank seed when distributed so each process has a different seed
         seed = args_cli.seed
@@ -193,14 +198,24 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
+        metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
 
         if metrics is not None:
             # Each rank prints its own metrics as it can be different due to random seed
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
 
+        # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
+        # Do NOT rely on a __del__ destructor in policy for this, since destructors are
+        # triggered implicitly and their execution time (or even whether they run)
+        # is not guaranteed, which makes resource cleanup unreliable.
+        if policy.is_remote:
+            policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
+
+        # Close the environment.
         env.close()
 
 
 if __name__ == "__main__":
+    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
+    ensure_groot_deps_in_path()
     main()

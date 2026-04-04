@@ -4,7 +4,7 @@ Closed-Loop Policy Inference and Evaluation
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 
@@ -70,6 +70,7 @@ Test the policy in a single environment with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --visualizer kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
@@ -99,7 +100,7 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
          Metrics: {'success_rate': 1.0, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 19}
 
 
-Step 2: Run Parallel environments Evaluation
+Step 2: Run Parallel Environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
@@ -113,6 +114,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
       .. code-block:: bash
 
          python isaaclab_arena/evaluation/policy_runner.py \
+           --visualizer kit \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml \
            --num_steps 2000 \

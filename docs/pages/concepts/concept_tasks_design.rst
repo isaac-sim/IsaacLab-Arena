@@ -107,3 +107,9 @@ Usage Examples
    destination_bin = asset_registry.get_asset_by_name("sorting_bin")()
 
    task = G1LocomanipPickAndPlaceTask(pick_object, destination_bin, galileo_scene)
+
+Sequential Tasks
+----------------
+
+Tasks can be composed sequentially to form longer horizon, more complex tasks.
+See :doc:`./concept_sequential_tasks_design` for more details.

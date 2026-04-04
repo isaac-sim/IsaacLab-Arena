@@ -28,7 +28,7 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
 
     pose = get_prim_pose_in_default_prim_frame(prim, stage)
     print(f"Position relative to default prim: {pose.position_xyz}")
-    print(f"Orientation (quaternion wxyz) relative to default prim: {pose.rotation_wxyz}")
+    print(f"Orientation (quaternion xyzw) relative to default prim: {pose.rotation_xyzw}")
 
     # This number is read out of the GUI from the test scene.
     pos_np_gt = np.array((2.899114282976978, -0.3971232408755399, 1.0062618326241144))

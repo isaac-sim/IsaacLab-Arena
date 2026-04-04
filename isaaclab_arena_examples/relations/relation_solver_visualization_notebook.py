@@ -155,18 +155,18 @@ def run_visualization_demo():
 
     # Create parent object
     parent = DummyObject(name="parent", bounding_box=parent_bbox)
-    parent.set_initial_pose(Pose(position_xyz=parent_pos, rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    parent.set_initial_pose(Pose(position_xyz=parent_pos, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     parent.add_relation(IsAnchor())
 
     # Create first child - placed to the RIGHT of parent
     child1 = DummyObject(name="child1", bounding_box=child_bbox)
     child1.add_relation(NextTo(parent, side=Side.POSITIVE_X, distance_m=distance_m))
-    child1.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
+    child1.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.05), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))  # Initial guess
 
     # Create second child - placed to the RIGHT of child1 (chained placement)
     child2 = DummyObject(name="child2", bounding_box=child_bbox)
     child2.add_relation(NextTo(child1, side=Side.POSITIVE_X, distance_m=distance_m))
-    child2.set_initial_pose(Pose(position_xyz=(0.8, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))  # Initial guess
+    child2.set_initial_pose(Pose(position_xyz=(0.8, 0.0, 0.05), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))  # Initial guess
 
     # Create solver
     solver = RelationSolver(params=RelationSolverParams(verbose=False))
@@ -193,7 +193,7 @@ def run_visualization_demo():
     # Note: child2's relation parent is child1, so we need child1 at a fixed position
     # and include parent in objects list since child1 has a relation to parent
     child1.set_initial_pose(
-        Pose(position_xyz=(0.45, 0.0, 0.05), rotation_wxyz=(1.0, 0.0, 0.0, 0.0))
+        Pose(position_xyz=(0.45, 0.0, 0.05), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     )  # Ideal position for child1
     X, Y, losses_child2 = create_loss_heatmap_2d(
         solver=solver,

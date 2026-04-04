@@ -21,7 +21,7 @@ userdel ubuntu || true
 useradd --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
         --gid "$DOCKER_RUN_GROUP_NAME" \
-        --groups sudo \
+        --groups sudo,isaac-sim \
         --shell /bin/bash \
         $DOCKER_RUN_USER_NAME
 chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /home/$DOCKER_RUN_USER_NAME
@@ -48,6 +48,9 @@ chown $DOCKER_RUN_USER_NAME:$DOCKER_RUN_GROUP_NAME /datasets /models /eval
 if [ ! -e "$WORKDIR/submodules/IsaacLab/_isaac_sim" ]; then
     ln -s /isaac-sim/ "$WORKDIR/submodules/IsaacLab/_isaac_sim"
 fi
+
+# Export GROOT_DEPS_DIR when GR00T was installed (INSTALL_GROOT=true)
+[ -f /etc/profile.d/groot_deps.sh ] && set -a && source /etc/profile.d/groot_deps.sh && set +a
 
 # Run the passed command or just start the shell as the created user
 if [ $# -ge 1 ]; then

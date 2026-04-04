@@ -1,12 +1,12 @@
 Environment Setup and Validation
 --------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -107,7 +107,7 @@ Environment Description
                     for key, value in MIMIC_DATAGEN_CONFIG_DEFAULTS.items():
                         setattr(self.datagen_config, key, value)
 
-            camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
+            camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
             # Get assets
             embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
                 enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
@@ -135,7 +135,7 @@ Environment Description
             embodiment.set_initial_pose(
                 Pose(
                     position_xyz=(3.943, -1.0, 0.995),
-                    rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
+                    rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068),
                 )
             )
 
@@ -223,7 +223,7 @@ Step-by-Step Breakdown
 
 .. code-block:: python
 
-    camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.57469, 0.11204, -0.17712, -0.79108))
+    camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
     embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset)
     kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(style_id=args_cli.kitchen_style)
     kitchen_counter_top = ObjectReference(
@@ -256,7 +256,7 @@ See :doc:`../../concepts/concept_assets_design` for details on asset architectur
     embodiment.set_initial_pose(
         Pose(
             position_xyz=(3.943, -1.0, 0.995),
-            rotation_wxyz=(0.7071068, 0.0, 0.0, 0.7071068),
+            rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068),
         )
     )
 
@@ -359,11 +359,16 @@ can be fed to the robot to control its actions.
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5 \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --revision arena_v0.2_lab_v3.0 \
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 
 Step 2: Validate the Environment by Replaying the Dataset
@@ -374,9 +379,10 @@ Replay the downloaded dataset to verify the environment setup:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
-     --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge/ranch_bottle_into_fridge_annotated.hdf5" \
+     --dataset_file "${DATASET_DIR}/ranch_bottle_into_fridge_annotated.hdf5" \
      put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
      --embodiment gr1_pink

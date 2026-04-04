@@ -8,6 +8,7 @@ import torch
 from typing import Literal
 
 import isaaclab.utils.math as math_utils
+import warp as wp
 from isaaclab.assets import RigidObject
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
@@ -55,7 +56,7 @@ class Placeable(AffordanceBase):
         if orientation_threshold is None:
             orientation_threshold = self.orientation_threshold
         object_entity: RigidObject = env.scene[asset_cfg.name]
-        object_quat = object_entity.data.root_quat_w
+        object_quat = wp.to_torch(object_entity.data.root_quat_w)
 
         upright_axis_world = get_object_axis_in_world_frame(object_quat, self.upright_axis_name)
 
@@ -170,12 +171,12 @@ def set_normalized_object_pose(
     """
     object_entity: RigidObject = env.scene[asset_cfg.name]
     device = env.device
-    dtype = object_entity.data.root_quat_w.dtype
+    dtype = wp.to_torch(object_entity.data.root_quat_w).dtype
 
     if env_ids is not None:
         env_ids = env_ids.to(env.device)
     else:
-        env_ids = torch.arange(object_entity.data.root_quat_w.shape[0], device=env.device)
+        env_ids = torch.arange(wp.to_torch(object_entity.data.root_quat_w).shape[0], device=env.device)
 
     # Validate upright_percentage shape if it's a tensor
     if isinstance(upright_percentage, torch.Tensor):
@@ -186,8 +187,8 @@ def set_normalized_object_pose(
                 f"but got {upright_percentage.numel()} elements"
             )
 
-    object_quat = object_entity.data.root_quat_w[env_ids]
-    object_pos = object_entity.data.root_pos_w[env_ids]
+    object_quat = wp.to_torch(object_entity.data.root_quat_w)[env_ids]
+    object_pos = wp.to_torch(object_entity.data.root_pos_w)[env_ids]
 
     target_quat = _compute_target_quaternions(
         object_quat=object_quat,

@@ -5,7 +5,7 @@ This workflow covers post-training an example policy using the generated dataset
 here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 
@@ -30,11 +30,16 @@ pre-generated dataset from Hugging Face as described below.
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
-         ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5 \
+         --include "ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" \
          --repo-type dataset \
-         --local-dir $DATASET_DIR
+         --revision arena_v0.2_lab_v3.0 \
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
 
 Step 1: Convert to LeRobot Format
@@ -52,12 +57,18 @@ Note that this conversion step can be skipped by downloading the pre-converted L
 
    .. code-block:: bash
 
+      _tmp="$DATASET_DIR/_hf_download" && \
       hf download \
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          --include "ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot/*" \
          --repo-type dataset \
-         --local-dir $DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot
+         --revision arena_v0.2_lab_v3.0 \
+         --local-dir "$_tmp" && \
+      mkdir -p "$DATASET_DIR" && \
+      mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100" "$DATASET_DIR/" && \
+      rm -rf "$_tmp"
 
+   This places the LeRobot data at ``$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot``.
    If you download this dataset, you can skip the conversion step below and continue to the next step.
 
 
@@ -139,7 +150,6 @@ We provide three post-training options:
          --tune_visual \
          --tune_projector \
          --tune_diffusion_model \
-         --no-resume \
          --dataloader_num_workers=16 \
          --use-wandb \
          --embodiment_tag=GR1 \
