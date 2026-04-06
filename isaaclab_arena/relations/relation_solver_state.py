@@ -29,6 +29,7 @@ class RelationSolverState:
         self,
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        device: torch.device | None = None,
     ):
         """Initialize optimization state.
 
@@ -37,6 +38,7 @@ class RelationSolverState:
                 object marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Length 1 = single-env,
                 length > 1 = batched.
+            device: Torch device for all tensors. Defaults to CPU.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -49,39 +51,47 @@ class RelationSolverState:
         # Build object-to-index mapping
         self._obj_to_idx: dict[ObjectBase, int] = {obj: i for i, obj in enumerate(objects)}
 
-        # Extract positions from each env's dict
+        self._device = device or torch.device("cpu")
         self._num_envs = len(initial_positions)
-        positions_per_env = []
+
+        # Validate that every dict contains all objects before building the tensor.
         for d in initial_positions:
-            positions = []
             for obj in objects:
                 assert obj in d, f"Missing initial position for {obj.name}"
-                positions.append(torch.tensor(d[obj], dtype=torch.float32))
-            positions_per_env.append(positions)
+
+        # Build all positions as a single (N, num_objects, 3) tensor in one call.
+        pos_nested = [[d[obj] for obj in objects] for d in initial_positions]
+        all_positions = torch.tensor(pos_nested, dtype=torch.float32, device=self._device)
 
         # Separate anchor positions from optimizable positions
         self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
         # Anchors must be identical across envs (they are fixed reference points).
         for idx in self._anchor_indices:
-            for e in range(1, self._num_envs):
-                assert torch.allclose(positions_per_env[0][idx], positions_per_env[e][idx]), (
+            for env_idx in range(1, self._num_envs):
+                assert torch.allclose(all_positions[0, idx], all_positions[env_idx, idx]), (
                     f"Anchor '{objects[idx].name}' has different positions across envs "
-                    f"(env 0: {positions_per_env[0][idx].tolist()}, env {e}: {positions_per_env[e][idx].tolist()})"
+                    f"(env 0: {all_positions[0, idx].tolist()}, env {env_idx}: {all_positions[env_idx, idx].tolist()})"
                 )
         self._anchor_positions: dict[int, torch.Tensor] = {
-            idx: positions_per_env[0][idx].clone() for idx in self._anchor_indices
+            idx: all_positions[0, idx].clone() for idx in self._anchor_indices
         }
 
-        # Build optimizable positions tensor (excludes all anchors)
-        # Always stored as (N, num_opt, 3) where N = num_envs
+        # Pre-build anchor positions as (1, num_objects, 3) for fast _reconstruct_all_positions.
+        self._anchor_pos_tensor = torch.zeros(1, len(objects), 3, dtype=torch.float32, device=self._device)
+        for idx, pos in self._anchor_positions.items():
+            self._anchor_pos_tensor[0, idx, :] = pos
+
+        # Build optimizable positions tensor by slicing from the full tensor.
         self._optimizable_indices = [i for i in range(len(objects)) if i not in self._anchor_indices]
+        self._global_to_opt_idx: dict[int, int] = {
+            global_idx: opt_idx for opt_idx, global_idx in enumerate(self._optimizable_indices)
+        }
         if self._optimizable_indices:
-            opt_tensors = [
-                torch.stack([positions_per_env[e][i] for e in range(self._num_envs)]) for i in self._optimizable_indices
-            ]
-            self._optimizable_positions = torch.stack(opt_tensors, dim=1)  # (N, num_opt, 3)
+            self._opt_idx_tensor = torch.tensor(self._optimizable_indices, dtype=torch.long, device=self._device)
+            self._optimizable_positions = all_positions[:, self._opt_idx_tensor, :].clone()
             self._optimizable_positions.requires_grad = True
         else:
+            self._opt_idx_tensor = None
             self._optimizable_positions = None
 
     @property
@@ -125,7 +135,7 @@ class RelationSolverState:
             return self._anchor_positions[idx].unsqueeze(0).expand(self._num_envs, 3)
         if self._optimizable_positions is None:
             raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
-        opt_idx = self._optimizable_indices.index(idx)
+        opt_idx = self._global_to_opt_idx[idx]
         return self._optimizable_positions[:, opt_idx, :]
 
     def get_all_positions_snapshot(self) -> list[tuple[float, float, float]]:
@@ -142,11 +152,17 @@ class RelationSolverState:
         Returns:
             List of dictionaries with object instances as keys and (x, y, z) tuples as values.
         """
-        out = []
-        for e in range(self._num_envs):
-            d: dict[ObjectBase, tuple[float, float, float]] = {}
-            for obj in self._all_objects:
-                pos = self.get_position(obj)[e].detach().tolist()
-                d[obj] = (pos[0], pos[1], pos[2])
-            out.append(d)
-        return out
+        # Reconstruct the full (N, num_objects, 3) tensor and transfer to CPU in one call.
+        full = self._reconstruct_all_positions()
+        pos_list = full.detach().cpu().tolist()
+        return [
+            {obj: tuple(pos_list[env_idx][obj_idx]) for obj_idx, obj in enumerate(self._all_objects)}
+            for env_idx in range(self._num_envs)
+        ]
+
+    def _reconstruct_all_positions(self) -> torch.Tensor:
+        """Reconstruct a full (N, num_objects, 3) tensor from anchor and optimizable parts."""
+        full = self._anchor_pos_tensor.expand(self._num_envs, -1, -1).clone()
+        if self._optimizable_positions is not None:
+            full[:, self._opt_idx_tensor, :] = self._optimizable_positions
+        return full

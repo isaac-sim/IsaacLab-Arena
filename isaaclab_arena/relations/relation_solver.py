@@ -85,24 +85,22 @@ class RelationSolver:
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box(),
+                        child_bbox=obj.get_bounding_box().to(device),
                     )
                     if debug:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
-                    # Build parent world bbox: anchors have a known fixed pose,
-                    # optimizable parents use the current solver position + local bbox.
                     parent = relation.parent
                     if parent in state.anchor_objects:
-                        parent_world_bbox = parent.get_world_bounding_box()
+                        parent_world_bbox = parent.get_world_bounding_box().to(device)
                     else:
                         parent_pos = state.get_position(parent)
-                        parent_world_bbox = parent.get_bounding_box().translated(parent_pos)
+                        parent_world_bbox = parent.get_bounding_box().to(device).translated(parent_pos)
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box(),
+                        child_bbox=obj.get_bounding_box().to(device),
                         parent_world_bbox=parent_world_bbox,
                     )
                     if debug:
@@ -132,7 +130,8 @@ class RelationSolver:
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
-        state = RelationSolverState(objects, initial_positions)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        state = RelationSolverState(objects, initial_positions, device=device)
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]

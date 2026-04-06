@@ -124,6 +124,10 @@ class AxisAlignedBoundingBox:
         scale = self._to_batched_tensor(scale)
         return AxisAlignedBoundingBox(min_point=self._min_point * scale, max_point=self._max_point * scale)
 
+    def to(self, device: torch.device) -> "AxisAlignedBoundingBox":
+        """Return a new bounding box with tensors on *device*."""
+        return AxisAlignedBoundingBox(min_point=self._min_point.to(device), max_point=self._max_point.to(device))
+
     def translated(self, offset: tuple[float, float, float] | torch.Tensor) -> "AxisAlignedBoundingBox":
         """Return a new bounding box translated by an offset.
 
