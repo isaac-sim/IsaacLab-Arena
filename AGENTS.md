@@ -29,7 +29,7 @@ docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && \
   --num_steps 10 \
   kitchen_pick_and_place \
   --object cracker_box \
-  --embodiment franka"
+  --embodiment franka_ik"
 ```
 
 ## Common Commands

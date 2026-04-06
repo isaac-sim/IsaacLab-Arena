@@ -75,7 +75,7 @@ class G1WbcPinkIsaacTeleopRetargeter(RetargetterBase):
 @register_retargeter
 class FrankaKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
-    embodiment = "franka"
+    embodiment = "franka_ik"
 
     def __init__(self):
         pass
@@ -87,7 +87,7 @@ class FrankaKeyboardRetargeter(RetargetterBase):
 @register_retargeter
 class FrankaSpaceMouseRetargeter(RetargetterBase):
     device = "spacemouse"
-    embodiment = "franka"
+    embodiment = "franka_ik"
 
     def __init__(self):
         pass

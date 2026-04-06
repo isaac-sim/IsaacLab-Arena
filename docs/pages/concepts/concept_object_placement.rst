@@ -198,7 +198,7 @@ whose pose is derived automatically from the USD scene:
 
    table_reference = ObjectReference(
        name="table",
-       prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_top_01",
+       prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
        parent_asset=table_background,
    )
    table_reference.add_relation(IsAnchor())
@@ -304,7 +304,7 @@ and add them to the scene:
    # Define anchor
    table_reference = ObjectReference(
        name="table",
-       prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_top_01",
+       prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
        parent_asset=table_background,
    )
    table_reference.add_relation(IsAnchor())

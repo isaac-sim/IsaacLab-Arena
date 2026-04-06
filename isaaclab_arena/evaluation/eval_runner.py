@@ -19,6 +19,7 @@ from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
@@ -182,4 +183,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
+    ensure_groot_deps_in_path()
     main()

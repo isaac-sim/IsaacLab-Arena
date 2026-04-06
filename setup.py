@@ -8,6 +8,20 @@ from setuptools import find_packages, setup
 
 ISAACLAB_ARENA_VERSION_NUMBER = "1.0.0"
 
+RUNTIME_DEPS = [
+    "typing_extensions",
+    "onnxruntime",
+    "vuer[all]",
+    "lightwheel-sdk",
+    "pytest",
+]
+
+DEV_DEPS = [
+    "jupyter",
+    "debugpy",
+    "tenacity",
+]
+
 setup(
     name="isaaclab_arena",
     version=ISAACLAB_ARENA_VERSION_NUMBER,
@@ -22,5 +36,9 @@ setup(
         ]
     ),
     python_requires=">=3.10",
+    install_requires=RUNTIME_DEPS,
+    extras_require={
+        "dev": DEV_DEPS,
+    },
     zip_safe=False,
 )

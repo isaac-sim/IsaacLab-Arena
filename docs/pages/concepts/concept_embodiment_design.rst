@@ -119,7 +119,7 @@ Environment Integration
 .. code-block:: python
 
    # Embodiment creation with camera support
-   embodiment = asset_registry.get_asset_by_name("franka")(
+   embodiment = asset_registry.get_asset_by_name("franka_ik")(
        enable_cameras=True
    )
 
@@ -144,7 +144,7 @@ Usage Examples
 
 .. code-block:: python
 
-   franka = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+   franka = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
    task = PickAndPlaceTask(pick_object, destination, background)
 
 **Humanoid Control Modes**

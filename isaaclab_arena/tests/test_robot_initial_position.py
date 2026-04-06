@@ -30,7 +30,7 @@ def _test_robot_initial_position(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
     robot_init_position = (-0.2, 0.0, 0.0)

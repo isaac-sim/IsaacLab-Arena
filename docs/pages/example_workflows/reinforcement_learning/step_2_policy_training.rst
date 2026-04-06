@@ -18,12 +18,12 @@ builds the environment, and registers it with gym so IsaacLab's script can find 
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
-     --num_envs 512 \
-     --max_iterations 12000
+     --num_envs 4096 \
+     --max_iterations 2000
 
 .. tip::
 
-   Add ``--headless`` to suppress the GUI when running on a headless server.
+   Add ``--visualizer kit`` to open the GUI and watch training live.
 
 Checkpoints are written to ``logs/rsl_rl/generic_experiment/<timestamp>/``.
 The agent configuration is saved alongside as ``params/agent.yaml``,
@@ -55,8 +55,8 @@ For example, to train with relu activation and a higher learning rate:
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
-     --num_envs 512 \
-     --max_iterations 12000 \
+     --num_envs 4096 \
+     --max_iterations 2000 \
      agent.policy.activation=relu \
      agent.algorithm.learning_rate=0.001
 
@@ -112,16 +112,15 @@ Add ``--distributed`` to spread environments across all available GPUs:
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
-     --num_envs 512 \
-     --max_iterations 12000 \
-     --headless \
+     --num_envs 4096\
+     --max_iterations 2000 \
      --distributed
 
 
 Expected Results
 ^^^^^^^^^^^^^^^^
 
-After 12,000 iterations (~6 hours on a single GPU with 512 environments), the trained
+After 2,000 iterations (~40 minutes on a single GPU with 4096 environments), the trained
 policy should reliably grasp and lift objects to commanded target positions.
 
 .. image:: ../../../images/lift_object_rl_task.gif
