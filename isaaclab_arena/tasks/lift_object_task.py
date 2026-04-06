@@ -5,6 +5,7 @@
 
 import numpy as np
 from dataclasses import MISSING
+from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -13,6 +14,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
+from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -351,3 +353,56 @@ class LiftObjectRewardCfg:
             },
             weight=5.0,
         )
+
+
+# ---------------------------------------------------------------------------
+# Dexsuite Kuka Allegro lift (evaluation-only, no rewards/curriculum)
+# ---------------------------------------------------------------------------
+
+
+@configclass
+class DexsuiteLiftTerminationsCfg(dexsuite.TerminationsCfg):
+    """Dexsuite base terminations + position-based ``success``.
+
+    Inherits ``time_out``, ``object_out_of_bound``, and ``abnormal_robot`` from
+    :class:`isaaclab_tasks.manager_based.manipulation.dexsuite.dexsuite_env_cfg.TerminationsCfg`.
+    """
+
+    success: TerminationTermCfg = TerminationTermCfg(
+        func=lift_object_rl_success,
+        params={
+            "command_name": "object_pose",
+            "position_tolerance": 0.05,
+        },
+    )
+
+
+class DexsuiteLiftTask(LiftObjectTask):
+    """Dexsuite lift task for Arena evaluation.
+
+    Rewards and curriculum are omitted (evaluation-only).
+    """
+
+    def __init__(self, lift_object: Asset, background_scene: Asset) -> None:
+        super().__init__(
+            lift_object=lift_object,
+            background_scene=background_scene,
+            episode_length_s=6.0,
+            goal_position_delta_xyz=(0.0, 0.0, 0.3),
+            goal_position_tolerance=0.05,
+        )
+        self.task_description = "Dexsuite lift (Arena, Newton-ready scene)."
+
+        self.commands_cfg = dexsuite.CommandsCfg()
+        self.commands_cfg.object_pose.position_only = True
+        self.commands_cfg.object_pose.resampling_time_range = (2.0, 3.0)
+        self.termination_cfg = DexsuiteLiftTerminationsCfg()
+
+    def get_commands_cfg(self) -> Any:
+        return self.commands_cfg
+
+    def get_rewards_cfg(self) -> Any:
+        return None
+
+    def get_curriculum_cfg(self) -> Any:
+        return None
