@@ -160,7 +160,8 @@ IsaacLab-Arena/
 
 | Isaac Lab Arena | Isaac Lab | Isaac Sim | Python |
 |-----------------|-----------|-----------|--------|
-| `main` branch   | 2.3.2     | 5.1.0     | ≥ 3.10 |
+| `main` branch   | 2.3.0     | 5.1.0     | ≥ 3.10 |
+| `feature/arena_v0.2_on_lab_2.3`   | 3.0.0     | 6.0.0     | ≥ 3.12 |
 | `release/0.1.1` | 2.3.0     | 5.0.0     | ≥ 3.10 |
 
 ## ⚠️ Project Status
@@ -178,18 +179,25 @@ Isaac Lab Arena is in **alpha** (`v0.2.x`). This is important to understand:
 
 ## Ecosystem
 
-Isaac Lab Arena is part of a growing ecosystem of tools and benchmarks:
+Isaac Lab Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building industrial and academic benchmarks on the unified Isaac Lab Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
 
+### Published Benchmarks
 
-NVIDIA and partners are building Industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
-- **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)**  — high fidelity industrial benchmarks.
-- **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)**  — 138+ open-source tasks, 50 datasets per task, 7+ robots.
+- **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)** — High-fidelity industrial benchmarks.
+- **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — 138+ open-source tasks, 50 datasets per task, 7+ robots.
 - **[Lightwheel LIBERO Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — Adapted LIBERO benchmarks.
-- **[RoboTwin 2.0](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena)**  — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
+- **[RoboTwin 2.0](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena)** — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
 - **[LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)** — Share and discover Arena environments on Hugging Face.
 
-
 NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more benchmarks are coming soon.
+
+### Publishing Your Own Benchmark
+
+We encourage the community to build and publish benchmarks on Isaac Lab Arena. The recommended workflow:
+
+1. **Maintain your benchmark in your own repository.** Create a branch or package that integrates with Isaac Lab Arena (e.g. an `IsaacLab-Arena` branch). See [RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) for a reference example.
+2. **Reference your benchmark in publications.** When publishing on Arxiv or elsewhere, cite your benchmark by name and link to your repository.
+3. **List it here.** Open a PR to add your benchmark to the [Published Benchmarks](#published-benchmarks) list above. This README serves as the single source of truth for the Arena benchmark ecosystem.
 
 
 ## Contributing
