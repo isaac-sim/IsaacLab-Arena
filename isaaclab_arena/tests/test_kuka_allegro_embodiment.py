@@ -7,22 +7,28 @@
 
 import pytest
 
-pytest.importorskip(
-    "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
-)
 
-from isaaclab_arena.assets.asset_registry import AssetRegistry
-from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment, KukaAllegroSceneCfg
-
-
+@pytest.mark.with_newton
 def test_kuka_allegro_registered_in_asset_registry() -> None:
+    pytest.importorskip(
+        "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
+    )
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment
+
     reg = AssetRegistry()
     assert reg.is_registered("kuka_allegro")
     cls = reg.get_asset_by_name("kuka_allegro")
     assert cls is KukaAllegroEmbodiment
 
 
+@pytest.mark.with_newton
 def test_scene_cfg_has_robot_and_fingertip_contact_sensors() -> None:
+    pytest.importorskip(
+        "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
+    )
+    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroSceneCfg
+
     cfg = KukaAllegroSceneCfg()
     assert cfg.robot is not None
     for link in ("index_link_3", "middle_link_3", "ring_link_3", "thumb_link_3"):
@@ -32,7 +38,13 @@ def test_scene_cfg_has_robot_and_fingertip_contact_sensors() -> None:
         assert "{ENV_REGEX_NS}/Object" in sensor.filter_prim_paths_expr
 
 
+@pytest.mark.with_newton
 def test_embodiment_default_action_and_observation() -> None:
+    pytest.importorskip(
+        "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
+    )
+    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment
+
     emb = KukaAllegroEmbodiment()
     assert emb.concatenate_observation_terms is True
     assert emb.observation_config.policy.concatenate_terms is True
@@ -43,8 +55,13 @@ def test_embodiment_default_action_and_observation() -> None:
     assert hasattr(emb.observation_config.proprio, "contact")
 
 
+@pytest.mark.with_newton
 def test_embodiment_has_reset_event() -> None:
-    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEventCfg
+    pytest.importorskip(
+        "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
+    )
+
+    from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment, KukaAllegroEventCfg
 
     emb = KukaAllegroEmbodiment()
     assert isinstance(emb.event_config, KukaAllegroEventCfg)
