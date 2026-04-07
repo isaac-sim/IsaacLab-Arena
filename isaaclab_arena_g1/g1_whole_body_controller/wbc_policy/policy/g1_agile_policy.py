@@ -8,12 +8,12 @@ import pathlib
 import torch
 from typing import Any
 
-import onnxruntime as ort
 from isaaclab.utils.assets import retrieve_file_path
 
 from isaaclab_arena_g1.g1_env.robot_model import RobotModel
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.homie_utils import load_config
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.onnx_utils import OnnxInferenceSession
 
 # ONNX feedback state keys and their per-environment shapes (excluding batch dim).
 _STATE_KEYS_AND_SHAPES: dict[str, tuple[int, ...]] = {
@@ -56,9 +56,7 @@ class G1AgilePolicy(WBCPolicy):
         # (absolute for S3 cache, relative for local files), then join with parent_dir.
         model_local_path = retrieve_file_path(model_path, force_download=True)
         model_full_path = parent_dir / model_local_path
-        self.session = ort.InferenceSession(str(model_full_path))
-        self.output_names = [out.name for out in self.session.get_outputs()]
-        print(f"Successfully loaded ONNX policy from {model_full_path}")
+        self.session = OnnxInferenceSession(str(model_full_path))
 
         # Build joint index mappings between WBC order and agile ONNX order
         self._build_joint_mappings()
@@ -147,8 +145,7 @@ class G1AgilePolicy(WBCPolicy):
         }
 
         # Run batched inference
-        outputs = self.session.run(self.output_names, ort_inputs)
-        result = dict(zip(self.output_names, outputs))
+        result = self.session.run(ort_inputs)
 
         # Update feedback state for next step
         for key in _STATE_KEYS_AND_SHAPES:
