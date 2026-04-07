@@ -205,22 +205,22 @@ class ObjectPlacer:
         child_bbox = obj.get_bounding_box()
 
         x = self._sample_axis_position(
-            parent_bbox.min_point[0],
-            parent_bbox.max_point[0],
-            child_bbox.min_point[0],
-            child_bbox.max_point[0],
+            parent_bbox.min_point[0, 0],
+            parent_bbox.max_point[0, 0],
+            child_bbox.min_point[0, 0],
+            child_bbox.max_point[0, 0],
             generator,
         )
         y = self._sample_axis_position(
-            parent_bbox.min_point[1],
-            parent_bbox.max_point[1],
-            child_bbox.min_point[1],
-            child_bbox.max_point[1],
+            parent_bbox.min_point[0, 1],
+            parent_bbox.max_point[0, 1],
+            child_bbox.min_point[0, 1],
+            child_bbox.max_point[0, 1],
             generator,
         )
 
         # Z: place child's bottom face at parent top + clearance
-        z = parent_bbox.max_point[2] + on_relation.clearance_m - child_bbox.min_point[2]
+        z = parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2]
 
         return (x, y, z)
 
