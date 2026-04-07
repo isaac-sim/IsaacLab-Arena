@@ -6,11 +6,11 @@
 """Simple example externally-defined environment.
 
 This demonstrates how to define an external environment that can be loaded
-into Isaac Lab Arena via the ``--environment`` CLI flag::
+into Isaac Lab Arena via the ``--external_environment_class_path`` CLI flag::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 10 \\
-        --environment isaac_lab_examples.external_environments.basic:ExternalFrankaTableEnvironment \\
+        --external_environment_class_path isaac_lab_examples.external_environments.basic:ExternalFrankaTableEnvironment \\
         franka_table
 """
 

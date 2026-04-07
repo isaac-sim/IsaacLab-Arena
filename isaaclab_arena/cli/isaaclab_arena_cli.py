@@ -74,7 +74,7 @@ def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
         "External Environments Arguments", "Arguments specific to external environments"
     )
     external_environments_group.add_argument(
-        "--environment",
+        "--external_environment_class_path",
         type=str,
         default=None,
         help="Name of the external environment to run",

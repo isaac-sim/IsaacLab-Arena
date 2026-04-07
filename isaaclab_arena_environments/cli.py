@@ -80,7 +80,7 @@ def parse_and_return_external_environment_from_string(environment_path: str) -> 
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     # Parse the parser once here to add the external environments to the example environments
     args, unknown = args_parser.parse_known_args()
-    environment = getattr(args, "environment", None)
+    environment = getattr(args, "external_environment_class_path", None)
     if environment is not None:
         # Update the ExampleEnvironments dictionary with the new external environment
         print(f"Adding external environment: {environment}")

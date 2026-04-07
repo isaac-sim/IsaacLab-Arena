@@ -31,7 +31,7 @@ def run_policy_runner_with_external_environment(
     else:
         args.append("--visualizer")
         args.append("kit")
-    args.append("--environment")
+    args.append("--external_environment_class_path")
     args.append(environment_import_path)
     args.append(example_environment)
     if object_name is not None:

@@ -141,11 +141,11 @@ externally-defined environment like this:
    python isaaclab_arena/examples/policy_runner.py \
      --policy_type zero_action \
      --num_steps 50 \
-     --environment my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
      franka_table \
      --object tomato_soup_can
 
-So the flag ``environment`` is used to specify the (fully qualified) path to the
+So the flag ``external_environment_class_path`` is used to specify the (fully qualified) path to the
 external environment module and class. The environment name is then specified as the
 first non flag argument to the policy runner, and any additional arguments are passed to the
 environment's ``add_cli_args()`` method.
@@ -165,7 +165,7 @@ environment's ``add_cli_args()`` method.
           --visualizer kit \
           --policy_type zero_action \
           --num_steps 50 \
-          --environment isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \
+          --external_environment_class_path isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \
           franka_table \
           --object tomato_soup_can
 
