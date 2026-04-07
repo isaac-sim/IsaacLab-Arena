@@ -140,5 +140,5 @@ The rest of this section will describe further details of the task component.
 .. toctree::
    :maxdepth: 1
 
-   concept_sequential_tasks_design
+   ../concept_sequential_tasks_design
    concept_metrics_design
