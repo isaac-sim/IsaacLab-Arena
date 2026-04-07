@@ -1,6 +1,6 @@
 <div align="center">
 
-# Isaac Lab Arena
+# Isaac Lab-Arena
 
 ### Composable Environment Creation and Policy Evaluation for Robotics Simulation
 
@@ -20,7 +20,7 @@
 
 > [!WARNING]
 > **Alpha Software — Not an Early Access or General Availability Release.**
-> Isaac Lab Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
+> Isaac Lab-Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
 > [!NOTE]
 > Changes on `main` contains an in development version of v0.2.0.
@@ -42,7 +42,7 @@ Instead of hand-writing and maintaining a separate configuration for every combi
 
 The `ArenaEnvBuilder` composes these primitives into a standard `ManagerBasedRLEnvCfg` that runs natively in Isaac Lab.
 
-## Why Isaac Lab Arena?
+## Why Isaac Lab-Arena?
 
 With the rise of generalist robot policies (e.g., [GR00T N](https://developer.nvidia.com/isaac/gr00t), [pi0](https://www.physicalintelligence.company/), [SmolVLA](https://huggingface.co/docs/lerobot/smolvla)), there is an urgent need to evaluate these policies across many diverse tasks and environments. Traditional approaches suffer from:
 
@@ -158,7 +158,7 @@ IsaacLab-Arena/
 
 ## Version Compatibility
 
-| Isaac Lab Arena | Isaac Lab | Isaac Sim | Python |
+| Isaac Lab-Arena | Isaac Lab | Isaac Sim | Python |
 |-----------------|-----------|-----------|--------|
 | `main` branch   | 3.0.0     | 6.0.0     | ≥ 3.12 |
 | `feature/arena_v0.2_on_lab_2.3`   | 2.3.0     | 5.1.0     | ≥ 3.10 |
@@ -166,7 +166,7 @@ IsaacLab-Arena/
 
 ## ⚠️ Project Status
 
-Isaac Lab Arena is in **alpha** (`v0.2.x`). This is important to understand:
+Isaac Lab-Arena is in **alpha** (`v0.2.x`). This is important to understand:
 
 | What This Means | Details |
 |-----------------|---------|
@@ -179,7 +179,7 @@ Isaac Lab Arena is in **alpha** (`v0.2.x`). This is important to understand:
 
 ## Ecosystem
 
-Isaac Lab Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building industrial and academic benchmarks on the unified Isaac Lab Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
+Isaac Lab-Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
 
 ### Published Benchmarks
 
@@ -234,7 +234,7 @@ If you use Isaac Lab-Arena in your research, please cite:
 ```bibtex
 @misc{isaaclab-arena2025,
     title   = {Isaac Lab-Arena: Composable Environment Creation and Policy Evaluation for Robotics},
-    author  = {{NVIDIA Isaac Lab Arena Contributors}},
+    author  = {{NVIDIA Isaac Lab-Arena Contributors}},
     year    = {2025},
     url     = {https://github.com/isaac-sim/IsaacLab-Arena}
 }
