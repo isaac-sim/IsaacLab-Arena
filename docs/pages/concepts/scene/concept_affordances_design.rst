@@ -1,108 +1,46 @@
-Affordances Design
-===================
+Affordances
+===========
 
-Affordances define what interactions objects can perform - opening doors, pressing buttons, manipulating objects.
-They provide standardized interfaces that integrate with assets and tasks.
+An affordance is an interaction that an object makes available to the robot —
+opening a door, pressing a button, turning a knob.
+By attaching affordances to objects, Arena gives tasks a standard interface
+to interact with them, regardless of the specific object.
 
-Core Architecture
------------------
+.. figure:: ../../../images/affordances_objects.png
+   :width: 100%
+   :alt: Examples of Pressable and Openable objects
+   :align: center
 
-Affordances use the ``AffordanceBase`` abstract class and mixin pattern:
+   Two examples of affordances. A drill and coffee machine are **Pressable**
+   (``is_pressed()``, ``press()``); a microwave and cardboard box are **Openable**
+   (``is_open()``, ``close()``).
 
-.. code-block:: python
+How an object gets an affordance
+---------------------------------
 
-   class AffordanceBase(ABC):
-       @property
-       @abstractmethod
-       def name(self) -> str:
-           pass
-
-   class Openable(AffordanceBase):
-       def open(self, env, env_ids, percentage=1.0):
-           """Set opening percentage via joint control."""
-
-       def is_open(self, env, threshold=None):
-           """Query current open state."""
-
-Affordances are mixin classes that combine with objects through multiple inheritance, operating on articulated objects via joint control.
-
-Affordances in Detail
----------------------
-
-**Openable Affordance**
-   Provides opening and closing functionality for articulated objects:
-
-   - **State Methods**: ``is_open()``, ``get_openness()`` for querying current state
-   - **Control Methods**: ``open()``, ``close()`` for direct state manipulation
-   - **Parameters**: ``openable_joint_name``, ``openable_open_threshold``
-   - **Implementation**: Normalized joint position control (0.0-1.0 range)
-
-**Pressable Affordance**
-   Enables pressing and releasing functionality for button-like objects:
-
-   - **State Methods**: ``is_pressed()`` for current button state
-   - **Control Methods**: ``press()``, ``unpress()`` for state changes
-   - **Parameters**: ``pressable_joint_name``, ``pressable_pressed_threshold``
-   - **Implementation**: Threshold-based binary state determination
-
-**Object Integration Pattern**
-   Affordances combine with assets through multiple inheritance:
-
-   .. code-block:: python
-
-      @register_asset
-      class Microwave(LibraryObject, Openable):
-          name = "microwave"
-          object_type = ObjectType.ARTICULATION
-          openable_joint_name = "microjoint"
-          openable_open_threshold = 0.5
-
-**Task Integration**
-   Affordances provide termination conditions and event handling for tasks:
-
-   - **Termination**: Use ``is_open()`` for success criteria in ``OpenDoorTask``
-   - **Events**: Reset object states with affordance methods during episode resets
-   - **Metrics**: Track interaction progress through state queries
-
-Environment Integration
------------------------
+Affordances are added to an object through multiple inheritance.
+The microwave inherits from both ``LibraryObject`` and ``Openable``,
+and declares the joint name that the affordance controls:
 
 .. code-block:: python
 
-   # Create affordance-enabled object
-   microwave = asset_registry.get_asset_by_name("microwave")()
+   @register_asset
+   class Microwave(LibraryObject, Openable):
+       name = "microwave"
+       tags = ["object", "openable"]
+       object_type = ObjectType.ARTICULATION
 
-   # Use in task definition
-   task = OpenDoorTask(
-       openable_object=microwave,
-       openness_threshold=0.8,
-       reset_openness=0.2
-   )
+       # Openable affordance parameters
+       openable_joint_name = "microjoint"
+       openable_threshold = 0.5  # open if joint > threshold, closed otherwise
 
-   # Environment composition
-   environment = IsaacLabArenaEnvironment(
-       name="microwave_opening",
-       embodiment=embodiment,
-       scene=scene,
-       task=task
-   )
+The ``Openable`` mixin implements ``is_open()`` and ``close()`` using the joint
+name provided — no further setup needed.
 
-Usage Examples
---------------
+Why this matters
+----------------
 
-**Microwave Opening Task**
-
-.. code-block:: python
-
-   microwave = asset_registry.get_asset_by_name("microwave")()
-   task = OpenDoorTask(microwave, openness_threshold=0.8)
-
-**Runtime State Querying**
-
-.. code-block:: python
-
-   # Check object state during simulation
-   if microwave.is_open(env, threshold=0.7):
-       print("Microwave is open enough")
-
-   current_openness = microwave.get_openness(env)
+Because tasks are written against the affordance interface rather than a specific object,
+the same task works with any object that has the right affordance.
+``OpenDoorTask`` works with the microwave, a fridge, a cabinet — any ``Openable``.
+This is what makes tasks modular and reusable across different scenes.
