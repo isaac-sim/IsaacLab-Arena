@@ -75,7 +75,7 @@ for a complete reference, including Isaac Lab installation and optional GR00T de
 Defining a Custom, Externally-Defined Environment
 -------------------------------------------------
 
-This section how to write a new environment, outside of the Isaac Lab - Arena source tree.
+This section describes how to write a new environment, outside of the Isaac Lab - Arena source tree.
 
 To write your own environment, subclass ``ExampleEnvironmentBase``, set a unique ``name``,
 and implement ``get_env()`` and ``add_cli_args()``.
@@ -133,12 +133,12 @@ Below is an example of a custom environment that places a single object on a tab
            parser.add_argument("--object", type=str, default="cracker_box")
 
 External environments can be used in Isaac Lab Arena workflows by using a particular
-CLI syntax. For example, for the a zero-action policy can be run with an
+CLI syntax. For example, a zero-action policy can be run with an
 externally-defined environment like this:
 
 .. code-block:: bash
 
-   python isaaclab_arena/examples/policy_runner.py \
+   python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_steps 50 \
      --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
