@@ -149,7 +149,7 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 Finally, we assemble all the pieces into a complete, runnable RL environment. The ``IsaacLabArenaEnvironment``
 connects the embodiment (the robot), the scene (the world), and the task (the objective and rewards).
-See :doc:`../../concepts/concept_environment_design` for environment composition details.
+See :doc:`../../concepts/concept_overview` for environment composition details.
 
 
 Validation: Run Random Policy

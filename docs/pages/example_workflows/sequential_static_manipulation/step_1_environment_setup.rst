@@ -348,7 +348,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
 top-level container that connects the embodiment (the robot), the scene (the world), and the task (the objective).
-See :doc:`../../concepts/concept_environment_design` for environment composition details.
+See :doc:`../../concepts/concept_overview` for environment composition details.
 
 
 Step 1: Download a Test Dataset
