@@ -29,6 +29,12 @@ class ObjectPlacer:
     3. Validating the result
     4. Retrying if necessary
     5. Applying solved positions to objects
+
+    Note:
+        On-relation initialization samples positions within the anchor's axis-aligned bounding
+        box footprint. This works correctly for rectangular/box-shaped anchor objects. For
+        non-rectangular surfaces (e.g. L-shaped counters, curved or hollow objects), the sampled
+        position may fall outside the actual surface.
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
@@ -168,6 +174,8 @@ class ObjectPlacer:
         If the parent is a non-anchor with its own On(anchor) relation, use the anchor's
         world bbox as a proxy. Only one level of indirection is resolved; deeper chains
         fall back to anchor_bbox. Otherwise fall back to anchor_bbox.
+
+        TODO(cvolk): Support full On-relation chains (e.g. spoon -> On(bowl) -> On(plate) -> On(table)).
         """
         if parent in anchor_objects:
             return parent.get_world_bounding_box()
@@ -196,26 +204,55 @@ class ObjectPlacer:
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox)
         child_bbox = obj.get_bounding_box()
 
-        # X: sample child origin so child's full X extent stays within parent
-        x_min = parent_bbox.min_point[0] - child_bbox.min_point[0]
-        x_max = parent_bbox.max_point[0] - child_bbox.max_point[0]
-        if x_min >= x_max:
-            x = (parent_bbox.min_point[0] + parent_bbox.max_point[0]) / 2.0
-        else:
-            x = float(x_min + (x_max - x_min) * torch.rand(1, generator=generator).item())
-
-        # Y: same
-        y_min = parent_bbox.min_point[1] - child_bbox.min_point[1]
-        y_max = parent_bbox.max_point[1] - child_bbox.max_point[1]
-        if y_min >= y_max:
-            y = (parent_bbox.min_point[1] + parent_bbox.max_point[1]) / 2.0
-        else:
-            y = float(y_min + (y_max - y_min) * torch.rand(1, generator=generator).item())
+        x = self._sample_axis_position(
+            parent_bbox.min_point[0],
+            parent_bbox.max_point[0],
+            child_bbox.min_point[0],
+            child_bbox.max_point[0],
+            generator,
+        )
+        y = self._sample_axis_position(
+            parent_bbox.min_point[1],
+            parent_bbox.max_point[1],
+            child_bbox.min_point[1],
+            child_bbox.max_point[1],
+            generator,
+        )
 
         # Z: place child's bottom face at parent top + clearance
         z = parent_bbox.max_point[2] + on_relation.clearance_m - child_bbox.min_point[2]
 
         return (x, y, z)
+
+    def _sample_axis_position(
+        self,
+        parent_min: float,
+        parent_max: float,
+        child_min: float,
+        child_max: float,
+        generator: torch.Generator | None = None,
+    ) -> float:
+        """Sample a child origin along one axis so the child's extent stays within the parent's extent.
+
+        The valid range for the child origin is [parent_min - child_min, parent_max - child_max].
+        When low >= high, the child is wider than the parent on this axis — there's no position
+        where it fits completely, so we fall back to centering it over the parent.
+
+        Args:
+            parent_min: Parent world-space min extent on this axis.
+            parent_max: Parent world-space max extent on this axis.
+            child_min: Child local bbox min extent on this axis.
+            child_max: Child local bbox max extent on this axis.
+            generator: Optional RNG generator for reproducible sampling.
+
+        Returns:
+            Sampled child origin position on this axis.
+        """
+        low = parent_min - child_min
+        high = parent_max - child_max
+        if low >= high:
+            return (parent_min + parent_max) / 2.0
+        return float(low + (high - low) * torch.rand(1, generator=generator).item())
 
     def _validate_on_relations(
         self,
