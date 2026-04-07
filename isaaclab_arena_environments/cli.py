@@ -83,6 +83,7 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     environment = getattr(args, "environment", None)
     if environment is not None:
         # Update the ExampleEnvironments dictionary with the new external environment
+        print(f"Adding external environment: {environment}")
         ExampleEnvironments.update(parse_and_return_external_environment_from_string(environment))
     subparsers = args_parser.add_subparsers(
         dest="example_environment", required=True, help="Example environment to run"
