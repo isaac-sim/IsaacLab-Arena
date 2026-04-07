@@ -12,7 +12,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -29,6 +29,12 @@ class ObjectPlacer:
     3. Validating the result
     4. Retrying if necessary
     5. Applying solved positions to objects
+
+    Note:
+        On-relation initialization samples positions within the anchor's axis-aligned bounding
+        box footprint. This works correctly for rectangular/box-shaped anchor objects. For
+        non-rectangular surfaces (e.g. L-shaped counters, curved or hollow objects), the sampled
+        position may fall outside the actual surface.
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
@@ -76,16 +82,12 @@ class ObjectPlacer:
 
         anchor_objects_set = set(anchor_objects)
 
-        # Save RNG state and set seed if provided (for reproducibility without affecting Isaac Sim)
-        rng_state = None
+        # Create a local RNG generator from the seed so placement is reproducible without
+        # affecting the global torch RNG state (e.g. Isaac Sim's internal random streams).
+        generator: torch.Generator | None = None
         if self.params.placement_seed is not None:
-            rng_state = torch.get_rng_state()
-            torch.manual_seed(self.params.placement_seed)
-
-        # Determine bounds for random position initialization from the first anchor object
-        # TODO(cvolk): The user should not need to know about the bounds to set.
-        # Implement an initialization strategy that infers from the Relations(s).
-        init_bounds = self._get_init_bounds(anchor_objects[0])
+            generator = torch.Generator()
+            generator.manual_seed(self.params.placement_seed)
 
         # Placement loop with retries
         best_positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
@@ -93,8 +95,8 @@ class ObjectPlacer:
         success = False
 
         for attempt in range(self.params.max_placement_attempts):
-            # Generate starting positions (anchors from their poses, others random)
-            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, init_bounds)
+            # Generate starting positions (anchors from their poses, others from On relation)
+            initial_positions = self._generate_initial_positions(objects, anchor_objects_set, generator)
 
             # Solve
             positions = self._solver.solve(objects, initial_positions)
@@ -121,10 +123,6 @@ class ObjectPlacer:
         if self.params.apply_positions_to_objects:
             self._apply_positions(best_positions, anchor_objects_set)
 
-        # Restore RNG state if we changed it
-        if rng_state is not None:
-            torch.set_rng_state(rng_state)
-
         return PlacementResult(
             success=success,
             positions=best_positions,
@@ -132,58 +130,129 @@ class ObjectPlacer:
             attempts=attempt + 1,
         )
 
-    def _get_init_bounds(self, anchor_object: Object | ObjectReference) -> AxisAlignedBoundingBox:
-        """Get bounds for random position initialization.
-
-        If init_bounds is provided in params, use it.
-        Otherwise, create bounds of init_bounds_size centered on anchor's bounding box.
-        """
-        if self.params.init_bounds is not None:
-            return self.params.init_bounds
-
-        # Create bounds centered on anchor's world bounding box center
-        anchor_bbox = anchor_object.get_world_bounding_box()
-        center = anchor_bbox.center
-        half_size = (
-            self.params.init_bounds_size[0] / 2,
-            self.params.init_bounds_size[1] / 2,
-            self.params.init_bounds_size[2] / 2,
-        )
-
-        return AxisAlignedBoundingBox(
-            min_point=(
-                center[0] - half_size[0],
-                center[1] - half_size[1],
-                center[2] - half_size[2],
-            ),
-            max_point=(
-                center[0] + half_size[0],
-                center[1] + half_size[1],
-                center[2] + half_size[2],
-            ),
-        )
-
     def _generate_initial_positions(
         self,
         objects: list[Object | ObjectReference],
-        anchor_objects: Object | ObjectReference,
-        init_bounds: AxisAlignedBoundingBox,
+        anchor_objects: set[Object | ObjectReference],
+        generator: torch.Generator | None = None,
     ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
-        Anchors keep their current initial_pose, others get random positions.
+        Anchors keep their initial_pose. Objects with an On relation are initialized within
+        the parent's footprint at the correct Z height. All other objects start at the first
+        anchor's center; the solver handles their placement from there.
+
+        Args:
+            generator: Optional RNG generator for reproducible sampling. When None,
+                uses PyTorch's global RNG.
 
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
+        first_anchor = next(obj for obj in objects if obj in anchor_objects)
+        anchor_bbox = first_anchor.get_world_bounding_box()
+
         positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
+            elif any(isinstance(r, On) for r in obj.get_relations()):
+                positions[obj] = self._compute_on_guided_position(obj, anchor_objects, anchor_bbox, generator)
             else:
-                random_pose = get_random_pose_within_bounding_box(init_bounds)
-                positions[obj] = random_pose.position_xyz
+                positions[obj] = anchor_bbox.center  # no spatial guidance; solver handles placement
         return positions
+
+    def _get_on_parent_world_bbox(
+        self,
+        parent: Object | ObjectReference,
+        anchor_objects: set[Object | ObjectReference],
+        anchor_bbox: AxisAlignedBoundingBox,
+    ) -> AxisAlignedBoundingBox:
+        """Resolve the world bbox of an On relation's parent for initialization purposes.
+
+        If the parent is an anchor, return its world bbox directly.
+        If the parent is a non-anchor with its own On(anchor) relation, use the anchor's
+        world bbox as a proxy. Only one level of indirection is resolved; deeper chains
+        fall back to anchor_bbox. Otherwise fall back to anchor_bbox.
+
+        TODO(cvolk): Support full On-relation chains (e.g. spoon -> On(bowl) -> On(plate) -> On(table)).
+        """
+        if parent in anchor_objects:
+            return parent.get_world_bounding_box()
+        for rel in parent.get_relations():
+            if isinstance(rel, On) and rel.parent in anchor_objects:
+                return rel.parent.get_world_bounding_box()
+        return anchor_bbox
+
+    def _compute_on_guided_position(
+        self,
+        obj: Object | ObjectReference,
+        anchor_objects: set[Object | ObjectReference],
+        anchor_bbox: AxisAlignedBoundingBox,
+        generator: torch.Generator | None = None,
+    ) -> tuple[float, float, float]:
+        """Compute an initial position for an object with an On relation.
+
+        Places the object within the parent's X/Y footprint at the correct Z height,
+        so the solver starts from a valid region.
+
+        Args:
+            generator: Optional RNG generator for reproducible sampling. When None,
+                uses PyTorch's global RNG.
+        """
+        on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
+        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox)
+        child_bbox = obj.get_bounding_box()
+
+        x = self._sample_axis_position(
+            parent_bbox.min_point[0],
+            parent_bbox.max_point[0],
+            child_bbox.min_point[0],
+            child_bbox.max_point[0],
+            generator,
+        )
+        y = self._sample_axis_position(
+            parent_bbox.min_point[1],
+            parent_bbox.max_point[1],
+            child_bbox.min_point[1],
+            child_bbox.max_point[1],
+            generator,
+        )
+
+        # Z: place child's bottom face at parent top + clearance
+        z = parent_bbox.max_point[2] + on_relation.clearance_m - child_bbox.min_point[2]
+
+        return (x, y, z)
+
+    def _sample_axis_position(
+        self,
+        parent_min: float,
+        parent_max: float,
+        child_min: float,
+        child_max: float,
+        generator: torch.Generator | None = None,
+    ) -> float:
+        """Sample a child origin along one axis so the child's extent stays within the parent's extent.
+
+        The valid range for the child origin is [parent_min - child_min, parent_max - child_max].
+        When low >= high, the child is wider than the parent on this axis — there's no position
+        where it fits completely, so we fall back to centering it over the parent.
+
+        Args:
+            parent_min: Parent world-space min extent on this axis.
+            parent_max: Parent world-space max extent on this axis.
+            child_min: Child local bbox min extent on this axis.
+            child_max: Child local bbox max extent on this axis.
+            generator: Optional RNG generator for reproducible sampling.
+
+        Returns:
+            Sampled child origin position on this axis.
+        """
+        low = parent_min - child_min
+        high = parent_max - child_max
+        if low >= high:
+            return (parent_min + parent_max) / 2.0
+        return float(low + (high - low) * torch.rand(1, generator=generator).item())
 
     def _validate_on_relations(
         self,
