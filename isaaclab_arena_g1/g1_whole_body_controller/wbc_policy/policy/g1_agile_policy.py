@@ -3,15 +3,35 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import hashlib
 import numpy as np
 import pathlib
 import torch
+import urllib.request
 from typing import Any
 
 import onnxruntime as ort
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.homie_utils import load_config
+
+_AGILE_MODEL_URL = (
+    "https://github.com/nvidia-isaac/WBC-AGILE/raw/main/agile/data/policy/velocity_g1/unitree_g1_velocity_e2e.onnx"
+)
+_AGILE_MODEL_SHA256 = "8995f2462ba2d0d83afe08905148f6373990d50018610663a539225d268ef33b"
+
+
+def _download_agile_model(dest: pathlib.Path) -> None:
+    """Download the AGILE ONNX model and verify its SHA256 checksum."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading AGILE ONNX model to {dest} ...")
+    urllib.request.urlretrieve(_AGILE_MODEL_URL, dest)
+
+    actual = hashlib.sha256(dest.read_bytes()).hexdigest()
+    if actual != _AGILE_MODEL_SHA256:
+        dest.unlink()
+        raise RuntimeError(f"SHA256 mismatch for AGILE model: expected {_AGILE_MODEL_SHA256}, got {actual}")
+    print(f"Downloaded and verified AGILE model: {dest}")
 
 
 class G1AgilePolicy(WBCPolicy):
@@ -37,13 +57,10 @@ class G1AgilePolicy(WBCPolicy):
         self.robot_model = robot_model
         self.num_envs = num_envs
 
-        # Load ONNX model (must be downloaded beforehand via docker/setup/download_wbc_models.sh)
+        # Download ONNX model on first use if not already present
         model_full_path = parent_dir / model_path
         if not model_full_path.exists():
-            raise FileNotFoundError(
-                f"AGILE ONNX model not found at {model_full_path}. "
-                "Run docker/setup/download_wbc_models.sh to download it."
-            )
+            _download_agile_model(model_full_path)
         self.session = ort.InferenceSession(str(model_full_path))
         self.output_names = [out.name for out in self.session.get_outputs()]
         print(f"Successfully loaded ONNX policy from {model_full_path}")
