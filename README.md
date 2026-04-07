@@ -1,6 +1,6 @@
 <div align="center">
 
-# Isaac Lab Arena
+# Isaac Lab-Arena
 
 ### Composable Environment Creation and Policy Evaluation for Robotics Simulation
 
@@ -20,7 +20,7 @@
 
 > [!WARNING]
 > **Alpha Software — Not an Early Access or General Availability Release.**
-> Isaac Lab Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
+> Isaac Lab-Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
 > [!NOTE]
 > Changes on `main` contains an in development version of v0.2.0.
@@ -30,7 +30,7 @@
 
 ## Overview
 
-**Isaac Lab Arena** is an open-source extension to [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab) for simplified task curation and robotic policy evaluation at scale. It provides a composable architecture where environments are assembled on-the-fly from independent, reusable building blocks — eliminating the redundant boilerplate that plagues traditional task library development.
+**Isaac Lab-Arena** is an open-source extension to [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab) for simplified task curation and robotic policy evaluation at scale. It provides a composable architecture where environments are assembled on-the-fly from independent, reusable building blocks — eliminating the redundant boilerplate that plagues traditional task library development.
 
 Instead of hand-writing and maintaining a separate configuration for every combination of robot, object, and scenario, Arena lets you **compose** environments from three independent primitives:
 
@@ -42,7 +42,7 @@ Instead of hand-writing and maintaining a separate configuration for every combi
 
 The `ArenaEnvBuilder` composes these primitives into a standard `ManagerBasedRLEnvCfg` that runs natively in Isaac Lab.
 
-## Why Isaac Lab Arena?
+## Why Isaac Lab-Arena?
 
 With the rise of generalist robot policies (e.g., [GR00T N](https://developer.nvidia.com/isaac/gr00t), [pi0](https://www.physicalintelligence.company/), [SmolVLA](https://huggingface.co/docs/lerobot/smolvla)), there is an urgent need to evaluate these policies across many diverse tasks and environments. Traditional approaches suffer from:
 
@@ -73,7 +73,7 @@ Arena solves this by making environment variation a first-class concept. Swap an
 
 ### Installation
 
-Isaac Lab Arena currently supports **installation from source inside a Docker container**.
+Isaac Lab-Arena currently supports **installation from source inside a Docker container**.
 
 ```bash
 # 1. Clone the repository
@@ -158,14 +158,15 @@ IsaacLab-Arena/
 
 ## Version Compatibility
 
-| Isaac Lab Arena | Isaac Lab | Isaac Sim | Python |
+| Isaac Lab-Arena | Isaac Lab | Isaac Sim | Python |
 |-----------------|-----------|-----------|--------|
-| `main` branch   | 2.3.2     | 5.1.0     | ≥ 3.10 |
+| `main` branch   | 3.0.0     | 6.0.0     | ≥ 3.12 |
+| `feature/arena_v0.2_on_lab_2.3`   | 2.3.0     | 5.1.0     | ≥ 3.10 |
 | `release/0.1.1` | 2.3.0     | 5.0.0     | ≥ 3.10 |
 
 ## ⚠️ Project Status
 
-Isaac Lab Arena is in **alpha** (`v0.2.x`). This is important to understand:
+Isaac Lab-Arena is in **alpha** (`v0.2.x`). This is important to understand:
 
 | What This Means | Details |
 |-----------------|---------|
@@ -178,18 +179,25 @@ Isaac Lab Arena is in **alpha** (`v0.2.x`). This is important to understand:
 
 ## Ecosystem
 
-Isaac Lab Arena is part of a growing ecosystem of tools and benchmarks:
+Isaac Lab-Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
 
+### Published Benchmarks
 
-NVIDIA and partners are building Industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
-- **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)**  — high fidelity industrial benchmarks.
-- **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)**  — 138+ open-source tasks, 50 datasets per task, 7+ robots.
+- **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)** — High-fidelity industrial benchmarks.
+- **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — 138+ open-source tasks, 50 datasets per task, 7+ robots.
 - **[Lightwheel LIBERO Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — Adapted LIBERO benchmarks.
-- **[RoboTwin 2.0](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena)**  — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
+- **[RoboTwin 2.0](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena)** — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
 - **[LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)** — Share and discover Arena environments on Hugging Face.
 
-
 NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more benchmarks are coming soon.
+
+### Publishing Your Own Benchmark
+
+We encourage the community to build and publish benchmarks on Isaac Lab-Arena. The recommended workflow:
+
+1. **Maintain your benchmark in your own repository.** Create a branch or package that integrates with Isaac Lab-Arena (e.g. an `IsaacLab-Arena` branch). See [RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) for a reference example.
+2. **Reference your benchmark and Isaac Lab-Arena in publications.** When publishing on ArXiv or elsewhere, cite both your benchmark (by name, with a link to your repository) and Isaac Lab-Arena as the underlying evaluation framework.
+3. **List it here.** Open a PR to add your benchmark to the [Published Benchmarks](#published-benchmarks) list above. This README serves as the single source of truth for the Arena benchmark ecosystem so that community can discover and reuse.
 
 
 ## Contributing
@@ -215,18 +223,18 @@ Areas where contributions are especially valuable:
 
 ## License
 
-Isaac Lab Arena is released under the [Apache 2.0 License](LICENSE.md).
+Isaac Lab-Arena is released under the [Apache 2.0 License](LICENSE.md).
 
-Note that Isaac Lab Arena requires Isaac Sim, which includes components under proprietary licensing terms. See the [Isaac Sim license](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) for details.
+Note that Isaac Lab-Arena requires Isaac Sim, which includes components under proprietary licensing terms. See the [Isaac Sim license](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) for details.
 
 ## Citation
 
-If you use Isaac Lab Arena in your research, please cite:
+If you use Isaac Lab-Arena in your research, please cite:
 
 ```bibtex
 @misc{isaaclab-arena2025,
-    title   = {Isaac Lab Arena: Composable Environment Creation and Policy Evaluation for Robotics},
-    author  = {{NVIDIA Isaac Lab Arena Contributors}},
+    title   = {Isaac Lab-Arena: Composable Environment Creation and Policy Evaluation for Robotics},
+    author  = {{NVIDIA Isaac Lab-Arena Contributors}},
     year    = {2025},
     url     = {https://github.com/isaac-sim/IsaacLab-Arena}
 }
@@ -236,13 +244,13 @@ If you use Isaac Lab (the underlying framework), please also cite the [Isaac Lab
 
 ## Acknowledgements
 
-Isaac Lab Arena builds on [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab), with the evaluation and task layers designed in close collaboration with Lightwheel. We thank the Isaac Lab team and the broader robotics community for their foundational work.
+Isaac Lab-Arena builds on [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab), with the evaluation and task layers designed in close collaboration with Lightwheel. We thank the Isaac Lab team and the broader robotics community for their foundational work.
 
 ---
 
 <div align="center">
 
-**Isaac Lab Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
+**Isaac Lab-Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
 
 Made with ❤️ by the NVIDIA Robotics Team
 
