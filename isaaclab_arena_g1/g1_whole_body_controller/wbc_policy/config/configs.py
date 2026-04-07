@@ -81,8 +81,10 @@ class AgileConfig(BaseConfig):
     wbc_version: Literal["agile"] = "agile"
     """Version of the whole body controller."""
 
-    wbc_model_path: str = f"{ISAACLAB_NUCLEUS_DIR}/Arena/wbc_policy/models/agile/unitree_g1_velocity_e2e.onnx"
-    """Path to WBC model file (S3 URL, resolved via retrieve_file_path)"""
+    wbc_model_path: str = (
+        "https://github.com/nvidia-isaac/WBC-AGILE/raw/main/agile/data/policy/velocity_g1/unitree_g1_velocity_e2e.onnx"
+    )
+    """Path to WBC model file (GitHub URL, resolved via retrieve_file_path)"""
 
     # Robot Configuration
     enable_waist: bool = False
