@@ -798,8 +798,6 @@ constraints established by the solver:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_placement_attempts</span></code> (default <code class="docutils literal notranslate"><span class="pre">5</span></code>): Number of solver restarts before giving up</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">min_separation_m</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>): Extra separation enforced during overlap validation</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> (default <code class="docutils literal notranslate"><span class="pre">None</span></code>): Random seed for reproducible placements</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">init_bounds_size</span></code> (default <code class="docutils literal notranslate"><span class="pre">(4.0,</span> <span class="pre">4.0,</span> <span class="pre">2.0)</span></code>): Size in meters of the region used for
-random initialization, centered on the anchor</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">on_relation_z_tolerance_m</span></code> (default <code class="docutils literal notranslate"><span class="pre">5e-3</span></code>): Tolerance for Z validation of <code class="docutils literal notranslate"><span class="pre">On</span></code> relations</p></li>
 </ul>
 <p>The underlying solver can also be tuned via <code class="docutils literal notranslate"><span class="pre">RelationSolverParams</span></code> nested inside <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code>:</p>
