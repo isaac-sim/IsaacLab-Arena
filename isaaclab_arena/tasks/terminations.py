@@ -7,7 +7,9 @@ import math
 import torch
 
 import warp as wp
-from isaaclab.assets import RigidObject
+
+import isaaclab.utils.math as math_utils
+from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg
@@ -255,3 +257,89 @@ def root_height_below_minimum_multi_objects(
     outs_tensor = torch.stack(outs, dim=0)  # [X, N]
     terminated = outs_tensor.any(dim=0)  # [N], bool
     return terminated
+
+
+def gear_mesh_insertion_success(
+    env: ManagerBasedRLEnv,
+    held_object_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
+    fixed_object_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
+    gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+    held_gear_base_offset: list[float] | None = None,
+    gear_peg_height: float = 0.02,
+    success_z_fraction: float = 0.80,
+    xy_threshold: float = 0.0025,
+) -> torch.Tensor:
+    """Terminate when the gear is inserted onto the peg to the required depth.
+
+    Checks that the held gear's base (root + held_gear_base_offset in gear frame)
+    is centered on the peg (XY) and lowered past a fraction of the peg height (Z).
+    Peg position is fixed_asset pose + gear_base_offset in the fixed asset's local frame.
+    """
+    held_object: RigidObject = env.scene[held_object_cfg.name]
+    fixed_object: RigidObject = env.scene[fixed_object_cfg.name]
+
+    held_root = held_object.data.root_pos_w - env.scene.env_origins
+    held_quat = held_object.data.root_quat_w
+    h_offset = held_gear_base_offset if held_gear_base_offset is not None else gear_base_offset
+    held_off = torch.tensor(h_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
+    held_base_pos = held_root + math_utils.quat_apply(held_quat, held_off)
+
+    fixed_pos = fixed_object.data.root_pos_w - env.scene.env_origins
+    fixed_quat = fixed_object.data.root_quat_w
+    offset = torch.tensor(gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
+    peg_pos = fixed_pos + math_utils.quat_apply(fixed_quat, offset)
+
+    xy_dist = torch.linalg.vector_norm(peg_pos[:, 0:2] - held_base_pos[:, 0:2], dim=1)
+    is_centered = xy_dist < xy_threshold
+
+    z_disp = held_base_pos[:, 2] - peg_pos[:, 2]
+    height_threshold = gear_peg_height * success_z_fraction
+    is_inserted = z_disp < height_threshold
+
+    return torch.logical_and(is_centered, is_inserted)
+
+
+def gear_dropped_from_gripper(
+    env: ManagerBasedRLEnv,
+    gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    ee_body_name: str = "panda_hand",
+    distance_threshold: float = 0.15,
+) -> torch.Tensor:
+    """Reset when the gear has fallen too far from the end-effector."""
+    gear: RigidObject = env.scene[gear_cfg.name]
+    robot: Articulation = env.scene[robot_cfg.name]
+    eef_indices, _ = robot.find_bodies([ee_body_name])
+    ee_pos = robot.data.body_pos_w[:, eef_indices[0]]
+    gear_pos = gear.data.root_pos_w
+    distance = torch.norm(gear_pos - ee_pos, dim=-1)
+    return distance > distance_threshold
+
+
+def gear_orientation_exceeded(
+    env: ManagerBasedRLEnv,
+    gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    ee_body_name: str = "panda_hand",
+    roll_threshold_deg: float = 15.0,
+    pitch_threshold_deg: float = 15.0,
+) -> torch.Tensor:
+    """Reset when the gear has tilted too far relative to the end-effector."""
+    if not hasattr(env, "_initial_gear_ee_relative_quat"):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    gear: RigidObject = env.scene[gear_cfg.name]
+    robot: Articulation = env.scene[robot_cfg.name]
+
+    eef_indices, _ = robot.find_bodies([ee_body_name])
+    eef_quat = robot.data.body_quat_w[:, eef_indices[0]]
+    current_relative = math_utils.quat_mul(gear.data.root_quat_w, math_utils.quat_conjugate(eef_quat))
+
+    initial_relative = env._initial_gear_ee_relative_quat
+    deviation = math_utils.quat_mul(current_relative, math_utils.quat_conjugate(initial_relative))
+
+    roll, pitch, _yaw = math_utils.euler_xyz_from_quat(deviation)
+
+    roll_limit = torch.deg2rad(torch.tensor(roll_threshold_deg, device=env.device))
+    pitch_limit = torch.deg2rad(torch.tensor(pitch_threshold_deg, device=env.device))
+    return (torch.abs(roll) > roll_limit) | (torch.abs(pitch) > pitch_limit)

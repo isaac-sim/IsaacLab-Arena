@@ -11,4 +11,6 @@ from isaaclab_tasks.manager_based.manipulation.place.mdp import *  # noqa: F401,
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import *  # noqa: F401, F403
 
 from .env_callbacks import *  # noqa: F401, F403
+from .nist_gear_insertion_osc_action import *  # noqa: F401, F403
+from .observations import *  # noqa: F401, F403
 from .robot_configs import *  # noqa: F401, F403

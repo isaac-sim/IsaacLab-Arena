@@ -3,10 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
@@ -90,6 +92,96 @@ class CrackerBox(LibraryObject):
         scale: tuple[float, float, float] | None = None,
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+@register_asset
+class GearsAndBase(LibraryObject):
+    """NIST gear base with SDF collision (local USD, gear_base as root prim)."""
+
+    name = "gears_and_base"
+    tags = ["object"]
+    usd_path = str(_REPO_ROOT / "assets" / "gearbase_and_gears_gearbase_root.usd")
+
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            max_depenetration_velocity=5.0,
+            kinematic_enabled=True,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=3666.0,
+            enable_gyroscopic_forces=True,
+            solver_position_iteration_count=192,
+            solver_velocity_iteration_count=1,
+            max_contact_impulse=1e32,
+        ),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class MediumNistGear(LibraryObject):
+    """NIST medium gear (held asset for gear insertion)."""
+
+    name = "medium_nist_gear"
+    tags = ["object"]
+    usd_path = str(_REPO_ROOT / "assets" / "gear_medium.usd")
+
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=True,
+            max_depenetration_velocity=5.0,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=3666.0,
+            enable_gyroscopic_forces=True,
+            solver_position_iteration_count=192,
+            solver_velocity_iteration_count=1,
+            max_contact_impulse=1e32,
+        ),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None):
+        super().__init__(prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class NistAssembledBoard(LibraryObject):
+    """NIST assembled board (kinematic background for gear insertion scene)."""
+
+    name = "nist_assembled_board"
+    tags = ["object"]
+    usd_path = str(_REPO_ROOT / "assets" / "nist_assembled.usd")
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            kinematic_enabled=True,
+            max_depenetration_velocity=5.0,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=3666.0,
+            enable_gyroscopic_forces=True,
+            solver_position_iteration_count=192,
+            solver_velocity_iteration_count=1,
+            max_contact_impulse=1e32,
+        ),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=None),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
 @register_asset
