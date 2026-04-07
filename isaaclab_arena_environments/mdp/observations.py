@@ -11,8 +11,7 @@ import math
 from typing import TYPE_CHECKING
 
 import torch
-
-import isaacsim.core.utils.torch as torch_utils
+import warp as wp
 
 from isaaclab.assets import Articulation
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg
@@ -32,7 +31,7 @@ def body_pos_in_env_frame(
     """Noiseless body position in env frame (privileged state for critic)."""
     robot: Articulation = env.scene[robot_cfg.name]
     idx = robot.body_names.index(body_name)
-    pos_w = robot.data.body_pos_w[:, idx, :]
+    pos_w = wp.to_torch(robot.data.body_pos_w)[:, idx, :]
     return pos_w - env.scene.env_origins
 
 
@@ -44,8 +43,8 @@ def body_quat_canonical(
     """Noiseless body quaternion, canonicalized w >= 0 (privileged state for critic)."""
     robot: Articulation = env.scene[robot_cfg.name]
     idx = robot.body_names.index(body_name)
-    quat = robot.data.body_quat_w[:, idx, :]
-    sign = torch.where(quat[:, 0:1] < 0, -1.0, 1.0)
+    quat = wp.to_torch(robot.data.body_quat_w)[:, idx, :]
+    sign = torch.where(quat[:, 3:4] < 0, -1.0, 1.0)
     return quat * sign
 
 
@@ -58,7 +57,7 @@ def force_torque_at_body(
     """Read joint reaction wrench at a specific body link."""
     robot: Articulation = env.scene[robot_cfg.name]
     body_idx = robot.body_names.index(body_name)
-    wrench = robot.root_physx_view.get_link_incoming_joint_force()[:, body_idx]
+    wrench = wp.to_torch(robot.root_view.get_link_incoming_joint_force())[:, body_idx]
     if return_torque:
         return wrench
     return wrench[:, :3]
@@ -105,7 +104,7 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         self._flip_quats = torch.ones(n, device=dev)
         self._prev_noisy_pos = torch.zeros(n, 3, device=dev)
         self._prev_noisy_quat = torch.zeros(n, 4, device=dev)
-        self._prev_noisy_quat[:, 0] = 1.0
+        self._prev_noisy_quat[:, 3] = 1.0
 
     def _ensure_body_indices(self):
         if self._fingertip_idx is not None:
@@ -129,9 +128,9 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         robot: Articulation = self._env.scene[self._robot_name]
         origins = self._env.scene.env_origins
         self._prev_noisy_pos[env_ids] = (
-            robot.data.body_pos_w[env_ids, self._fingertip_idx] - origins[env_ids]
+            wp.to_torch(robot.data.body_pos_w)[env_ids, self._fingertip_idx] - origins[env_ids]
         )
-        self._prev_noisy_quat[env_ids] = robot.data.body_quat_w[env_ids, self._fingertip_idx]
+        self._prev_noisy_quat[env_ids] = wp.to_torch(robot.data.body_quat_w)[env_ids, self._fingertip_idx]
 
     def __call__(
         self,
@@ -155,8 +154,8 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         board = env.scene[self._board_name]
         origins = env.scene.env_origins
 
-        ft_pos = robot.data.body_pos_w[:, self._fingertip_idx] - origins
-        ft_quat = robot.data.body_quat_w[:, self._fingertip_idx]
+        ft_pos = wp.to_torch(robot.data.body_pos_w)[:, self._fingertip_idx] - origins
+        ft_quat = wp.to_torch(robot.data.body_quat_w)[:, self._fingertip_idx]
 
         pos_noise = torch.randn(n, 3, device=dev) * self._pos_noise
         noisy_pos = ft_pos + pos_noise
@@ -164,31 +163,32 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         rot_noise_axis = torch.randn(n, 3, device=dev)
         rot_noise_axis = rot_noise_axis / (torch.linalg.norm(rot_noise_axis, dim=1, keepdim=True) + 1e-8)
         rot_noise_angle = torch.randn(n, device=dev) * math.radians(self._rot_noise_deg)
-        noisy_quat = torch_utils.quat_mul(
-            ft_quat, torch_utils.quat_from_angle_axis(rot_noise_angle, rot_noise_axis),
+        noisy_quat = math_utils.quat_mul(
+            ft_quat, math_utils.quat_from_angle_axis(rot_noise_angle, rot_noise_axis),
         )
-        noisy_quat[:, [0, 3]] = 0.0
+        noisy_quat[:, [2, 3]] = 0.0
         noisy_quat = noisy_quat * self._flip_quats.unsqueeze(-1)
 
         arm_osc_action = env.action_manager._terms["arm_action"]
-        board_pos = board.data.root_pos_w - origins
-        board_quat = board.data.root_quat_w
+        board_pos = wp.to_torch(board.data.root_pos_w) - origins
+        board_quat = wp.to_torch(board.data.root_quat_w)
         peg_offset_exp = self._peg_offset.unsqueeze(0).expand(n, 3)
         peg_pos = board_pos + math_utils.quat_apply(board_quat, peg_offset_exp)
         noisy_fixed_pos = peg_pos + arm_osc_action.fixed_pos_noise
 
         fingertip_pos_rel = noisy_pos - noisy_fixed_pos
 
-        ee_linvel = (noisy_pos - self._prev_noisy_pos) / dt
+        safe_dt = max(dt, 1e-6)
+        ee_linvel = (noisy_pos - self._prev_noisy_pos) / safe_dt
         self._prev_noisy_pos[:] = noisy_pos
 
-        rot_diff = torch_utils.quat_mul(noisy_quat, torch_utils.quat_conjugate(self._prev_noisy_quat))
-        rot_diff = rot_diff * torch.sign(rot_diff[:, 0]).unsqueeze(-1)
-        ee_angvel = axis_angle_from_quat(rot_diff) / dt
+        rot_diff = math_utils.quat_mul(noisy_quat, math_utils.quat_conjugate(self._prev_noisy_quat))
+        rot_diff = rot_diff * torch.sign(rot_diff[:, 3]).unsqueeze(-1)
+        ee_angvel = axis_angle_from_quat(rot_diff) / safe_dt
         ee_angvel[:, 0:2] = 0.0
         self._prev_noisy_quat[:] = noisy_quat
 
-        raw_force = robot.root_physx_view.get_link_incoming_joint_force()[:, self._force_idx, :3]
+        raw_force = wp.to_torch(robot.root_view.get_link_incoming_joint_force())[:, self._force_idx, :3]
         arm_osc_action.force_smooth[:] = (
             self._ft_alpha * raw_force + (1.0 - self._ft_alpha) * arm_osc_action.force_smooth
         )

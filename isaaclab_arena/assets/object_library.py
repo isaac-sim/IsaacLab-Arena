@@ -155,7 +155,7 @@ class MediumNistGear(LibraryObject):
 
 @register_asset
 class NistAssembledBoard(LibraryObject):
-    """NIST assembled board (kinematic background for gear insertion scene)."""
+    """NIST assembled board (kinematic visual prop for gear insertion scene)."""
 
     name = "nist_assembled_board"
     tags = ["object"]

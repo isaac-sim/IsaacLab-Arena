@@ -6,6 +6,7 @@
 """Observation terms for the NIST gear insertion task."""
 
 import torch
+import warp as wp
 
 import isaaclab.utils.math as math_utils
 from isaaclab.assets import RigidObject
@@ -19,7 +20,7 @@ def gear_pos_in_env_frame(
 ) -> torch.Tensor:
     """Position of the held gear relative to the environment origin."""
     gear: RigidObject = env.scene[gear_cfg.name]
-    return gear.data.root_pos_w - env.scene.env_origins
+    return wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
 
 
 def gear_quat_canonical(
@@ -28,8 +29,8 @@ def gear_quat_canonical(
 ) -> torch.Tensor:
     """Orientation of the held gear, canonicalized so w >= 0."""
     gear: RigidObject = env.scene[gear_cfg.name]
-    quat = gear.data.root_quat_w
-    sign = torch.where(quat[:, 0:1] < 0, -1.0, 1.0)
+    quat = wp.to_torch(gear.data.root_quat_w)
+    sign = torch.where(quat[:, 3:4] < 0, -1.0, 1.0)
     return quat * sign
 
 
@@ -39,7 +40,7 @@ def board_pos_in_env_frame(
 ) -> torch.Tensor:
     """Position of the board/base relative to the environment origin."""
     board: RigidObject = env.scene[board_cfg.name]
-    return board.data.root_pos_w - env.scene.env_origins
+    return wp.to_torch(board.data.root_pos_w) - env.scene.env_origins
 
 
 def peg_pos_in_env_frame(
@@ -49,8 +50,8 @@ def peg_pos_in_env_frame(
 ) -> torch.Tensor:
     """Target peg position: fixed asset pose + offset in its local frame."""
     board: RigidObject = env.scene[board_cfg.name]
-    pos = board.data.root_pos_w - env.scene.env_origins
-    quat = board.data.root_quat_w
+    pos = wp.to_torch(board.data.root_pos_w) - env.scene.env_origins
+    quat = wp.to_torch(board.data.root_quat_w)
     offset = torch.tensor(peg_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     return pos + math_utils.quat_apply(quat, offset)
 
@@ -61,8 +62,8 @@ def board_quat_canonical(
 ) -> torch.Tensor:
     """Orientation of the assembled board / peg, canonicalized so w >= 0."""
     board: RigidObject = env.scene[board_cfg.name]
-    quat = board.data.root_quat_w
-    sign = torch.where(quat[:, 0:1] < 0, -1.0, 1.0)
+    quat = wp.to_torch(board.data.root_quat_w)
+    sign = torch.where(quat[:, 3:4] < 0, -1.0, 1.0)
     return quat * sign
 
 
@@ -73,8 +74,8 @@ def held_gear_base_pos_in_env_frame(
 ) -> torch.Tensor:
     """Position of the held gear's insertion point (root + offset in gear frame) in env frame."""
     gear: RigidObject = env.scene[gear_cfg.name]
-    gear_pos = gear.data.root_pos_w - env.scene.env_origins
-    gear_quat = gear.data.root_quat_w
+    gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
+    gear_quat = wp.to_torch(gear.data.root_quat_w)
     held_off = torch.tensor(
         held_gear_base_offset, device=env.device, dtype=torch.float32
     ).unsqueeze(0).expand(env.num_envs, 3)

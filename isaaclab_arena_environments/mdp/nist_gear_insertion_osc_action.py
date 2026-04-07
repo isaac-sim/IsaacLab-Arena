@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import math
 import torch
+import warp as wp
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-import isaacsim.core.utils.torch as torch_utils
 import isaaclab.utils.math as math_utils
 
 from isaaclab.envs.mdp.actions.actions_cfg import OperationalSpaceControllerActionCfg
@@ -85,8 +85,8 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         """Peg tip in env frame from fixed asset pose + local peg offset."""
         origins = self._env.scene.env_origins
         board = self._env.scene[self.cfg.fixed_asset_name]
-        pos = board.data.root_pos_w - origins
-        quat = board.data.root_quat_w
+        pos = wp.to_torch(board.data.root_pos_w) - origins
+        quat = wp.to_torch(board.data.root_quat_w)
         offset = self._peg_offset.unsqueeze(0).expand(pos.shape[0], 3)
         peg_pos = pos + math_utils.quat_apply(quat, offset)
         if env_ids is not None:
@@ -96,6 +96,9 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
     @property
     def action_dim(self) -> int:
         return 7
+
+    def apply_actions(self):
+        super().apply_actions()
 
     def process_actions(self, actions: torch.Tensor):
         self._raw_actions[:] = actions
@@ -128,13 +131,13 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
 
         yaw_rad = math.radians(-180.0) + math.radians(270.0) * (rot_actions[:, 2] + 1.0) / 2.0
         zero = torch.zeros_like(yaw_rad)
-        bolt_quat = torch_utils.quat_from_euler_xyz(zero, zero, yaw_rad)
+        bolt_quat = math_utils.quat_from_euler_xyz(zero, zero, yaw_rad)
         pi_t = torch.full_like(yaw_rad, math.pi)
-        flip_quat = torch_utils.quat_from_euler_xyz(pi_t, zero, zero)
-        target_quat = torch_utils.quat_mul(flip_quat, bolt_quat)
+        flip_quat = math_utils.quat_from_euler_xyz(pi_t, zero, zero)
+        target_quat = math_utils.quat_mul(flip_quat, bolt_quat)
 
-        curr_roll, curr_pitch, curr_yaw = torch_utils.get_euler_xyz(ee_quat_b)
-        desired_roll, desired_pitch, desired_yaw = torch_utils.get_euler_xyz(target_quat)
+        curr_roll, curr_pitch, curr_yaw = math_utils.euler_xyz_from_quat(ee_quat_b, wrap_to_2pi=True)
+        desired_roll, desired_pitch, desired_yaw = math_utils.euler_xyz_from_quat(target_quat, wrap_to_2pi=True)
         desired_xyz = torch.stack([desired_roll, desired_pitch, desired_yaw], dim=1)
 
         curr_yaw = _wrap_yaw(curr_yaw)
@@ -161,7 +164,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         clipped_pitch = torch.clamp(delta_pitch, -self._rot_thresh[:, 1], self._rot_thresh[:, 1])
         desired_xyz[:, 1] = curr_pitch_w + clipped_pitch
 
-        final_quat = torch_utils.quat_from_euler_xyz(
+        final_quat = math_utils.quat_from_euler_xyz(
             roll=desired_xyz[:, 0], pitch=desired_xyz[:, 1], yaw=desired_xyz[:, 2],
         )
 
@@ -210,13 +213,13 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         pos_actions = (ee_pos - bolt_pos) / self._pos_bounds
         self._smoothed_actions[env_ids, 0:3] = pos_actions
 
-        unrot_pi = torch_utils.quat_from_euler_xyz(
+        unrot_pi = math_utils.quat_from_euler_xyz(
             torch.full((n,), -math.pi, device=self.device),
             torch.zeros(n, device=self.device),
             torch.zeros(n, device=self.device),
         )
-        quat_rel_bolt = torch_utils.quat_mul(unrot_pi, ee_quat)
-        yaw_bolt = torch_utils.get_euler_xyz(quat_rel_bolt)[2]
+        quat_rel_bolt = math_utils.quat_mul(unrot_pi, ee_quat)
+        yaw_bolt = math_utils.euler_xyz_from_quat(quat_rel_bolt, wrap_to_2pi=True)[2]
         yaw_bolt = torch.where(yaw_bolt > math.pi / 2, yaw_bolt - 2 * math.pi, yaw_bolt)
         yaw_bolt = torch.where(yaw_bolt < -math.pi, yaw_bolt + 2 * math.pi, yaw_bolt)
         yaw_action = (yaw_bolt + math.radians(180.0)) / math.radians(270.0) * 2.0 - 1.0

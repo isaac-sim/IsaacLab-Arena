@@ -278,14 +278,14 @@ def gear_mesh_insertion_success(
     held_object: RigidObject = env.scene[held_object_cfg.name]
     fixed_object: RigidObject = env.scene[fixed_object_cfg.name]
 
-    held_root = held_object.data.root_pos_w - env.scene.env_origins
-    held_quat = held_object.data.root_quat_w
+    held_root = wp.to_torch(held_object.data.root_pos_w) - env.scene.env_origins
+    held_quat = wp.to_torch(held_object.data.root_quat_w)
     h_offset = held_gear_base_offset if held_gear_base_offset is not None else gear_base_offset
     held_off = torch.tensor(h_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     held_base_pos = held_root + math_utils.quat_apply(held_quat, held_off)
 
-    fixed_pos = fixed_object.data.root_pos_w - env.scene.env_origins
-    fixed_quat = fixed_object.data.root_quat_w
+    fixed_pos = wp.to_torch(fixed_object.data.root_pos_w) - env.scene.env_origins
+    fixed_quat = wp.to_torch(fixed_object.data.root_quat_w)
     offset = torch.tensor(gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     peg_pos = fixed_pos + math_utils.quat_apply(fixed_quat, offset)
 
@@ -310,8 +310,8 @@ def gear_dropped_from_gripper(
     gear: RigidObject = env.scene[gear_cfg.name]
     robot: Articulation = env.scene[robot_cfg.name]
     eef_indices, _ = robot.find_bodies([ee_body_name])
-    ee_pos = robot.data.body_pos_w[:, eef_indices[0]]
-    gear_pos = gear.data.root_pos_w
+    ee_pos = wp.to_torch(robot.data.body_pos_w)[:, eef_indices[0]]
+    gear_pos = wp.to_torch(gear.data.root_pos_w)
     distance = torch.norm(gear_pos - ee_pos, dim=-1)
     return distance > distance_threshold
 
@@ -332,8 +332,8 @@ def gear_orientation_exceeded(
     robot: Articulation = env.scene[robot_cfg.name]
 
     eef_indices, _ = robot.find_bodies([ee_body_name])
-    eef_quat = robot.data.body_quat_w[:, eef_indices[0]]
-    current_relative = math_utils.quat_mul(gear.data.root_quat_w, math_utils.quat_conjugate(eef_quat))
+    eef_quat = wp.to_torch(robot.data.body_quat_w)[:, eef_indices[0]]
+    current_relative = math_utils.quat_mul(wp.to_torch(gear.data.root_quat_w), math_utils.quat_conjugate(eef_quat))
 
     initial_relative = env._initial_gear_ee_relative_quat
     deviation = math_utils.quat_mul(current_relative, math_utils.quat_conjugate(initial_relative))

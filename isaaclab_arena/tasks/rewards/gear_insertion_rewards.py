@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import torch
+import warp as wp
 
 from isaaclab.assets import RigidObject
 from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
@@ -39,7 +40,7 @@ class _KeypointDistanceComputer:
         self.offsets_base = _get_keypoint_offsets(num_keypoints=num_keypoints, device=device)
         self.n_kp = self.offsets_base.shape[0]
         self.identity_quat = (
-            torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=device, dtype=torch.float32)
+            torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=device, dtype=torch.float32)
             .repeat(num_envs * self.n_kp, 1)
             .contiguous()
         )
@@ -114,15 +115,15 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
         peg_offset_xy_noise: float = 0.0,
     ) -> torch.Tensor:
         gear: RigidObject = env.scene[self.gear_cfg.name]
-        gear_pos = gear.data.root_pos_w - env.scene.env_origins
-        gear_quat = gear.data.root_quat_w
+        gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
+        gear_quat = wp.to_torch(gear.data.root_quat_w)
         n = gear_pos.shape[0]
         held_offset = self.held_gear_base_offset.unsqueeze(0).expand(n, 3)
         held_base_pos = gear_pos + quat_apply(gear_quat, held_offset)
 
         board: RigidObject = env.scene[self.board_cfg.name]
-        pos = board.data.root_pos_w[:n] - env.scene.env_origins[:n]
-        quat = board.data.root_quat_w[:n]
+        pos = wp.to_torch(board.data.root_pos_w)[:n] - env.scene.env_origins[:n]
+        quat = wp.to_torch(board.data.root_quat_w)[:n]
         offset = self.peg_offset.unsqueeze(0).expand(n, 3)
         target_pos = pos + quat_apply(quat, offset) + self._offset_noise[:n]
         target_quat = quat
@@ -146,14 +147,14 @@ def _check_gear_position(
     the peg position (fixed asset + offset in fixed asset frame).
     """
     gear: RigidObject = env.scene[gear_cfg.name]
-    gear_pos = gear.data.root_pos_w - env.scene.env_origins
-    gear_quat = gear.data.root_quat_w
+    gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
+    gear_quat = wp.to_torch(gear.data.root_quat_w)
     held_off = torch.tensor(held_gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     held_base_pos = gear_pos + quat_apply(gear_quat, held_off)
 
     board: RigidObject = env.scene[board_cfg.name]
-    pos = board.data.root_pos_w - env.scene.env_origins
-    quat = board.data.root_quat_w
+    pos = wp.to_torch(board.data.root_pos_w) - env.scene.env_origins
+    quat = wp.to_torch(board.data.root_quat_w)
     offset = torch.tensor(peg_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     peg_pos = pos + quat_apply(quat, offset)
 
@@ -273,15 +274,15 @@ class success_prediction_error(ManagerTermBase):
         delay_until_ratio: float = 0.25,
     ) -> torch.Tensor:
         gear: RigidObject = env.scene[self._gear_cfg.name]
-        gear_pos = gear.data.root_pos_w - env.scene.env_origins
-        gear_quat = gear.data.root_quat_w
+        gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
+        gear_quat = wp.to_torch(gear.data.root_quat_w)
         n = gear_pos.shape[0]
         held_off = self._held_gear_base_offset.unsqueeze(0).expand(n, 3)
         held_base_pos = gear_pos + quat_apply(gear_quat, held_off)
 
         board: RigidObject = env.scene[self._board_cfg.name]
-        board_pos = board.data.root_pos_w - env.scene.env_origins
-        board_quat = board.data.root_quat_w
+        board_pos = wp.to_torch(board.data.root_pos_w) - env.scene.env_origins
+        board_quat = wp.to_torch(board.data.root_quat_w)
         peg_off = self._peg_offset.unsqueeze(0).expand(n, 3)
         peg_pos = board_pos + quat_apply(board_quat, peg_off)
 

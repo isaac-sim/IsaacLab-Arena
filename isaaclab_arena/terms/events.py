@@ -38,12 +38,12 @@ def set_object_pose(
     pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).repeat(num_envs, 1)
     pose_t_xyz_q_xyzw[:, :3] += env.scene.env_origins[env_ids]
     # Set the pose and velocity
-    asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
+    asset.write_root_pose_to_sim_index(root_pose=pose_t_xyz_q_xyzw, env_ids=env_ids)
     if velocity is not None:
         vel = velocity.to_tensor(device=env.device).unsqueeze(0).expand(num_envs, -1)
-        asset.write_root_velocity_to_sim(vel, env_ids=env_ids)
+        asset.write_root_velocity_to_sim_index(root_velocity=vel, env_ids=env_ids)
     else:
-        asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
+        asset.write_root_velocity_to_sim_index(root_velocity=torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
 
 
 def set_object_pose_per_env(
@@ -66,9 +66,9 @@ def set_object_pose_per_env(
         pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
         pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
         # Set the pose and velocity
-        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=torch.tensor([cur_env], device=env.device))
-        asset.write_root_velocity_to_sim(
-            torch.zeros(1, 6, device=env.device), env_ids=torch.tensor([cur_env], device=env.device)
+        asset.write_root_pose_to_sim_index(root_pose=pose_t_xyz_q_xyzw, env_ids=torch.tensor([cur_env], device=env.device))
+        asset.write_root_velocity_to_sim_index(
+            root_velocity=torch.zeros(1, 6, device=env.device), env_ids=torch.tensor([cur_env], device=env.device)
         )
 
 
@@ -79,13 +79,14 @@ def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
         default_root_state = wp.to_torch(articulation_asset.data.default_root_state)[env_ids].clone()
         default_root_state[:, 0:3] += env.scene.env_origins[env_ids]
         # set into the physics simulation
-        articulation_asset.write_root_pose_to_sim(default_root_state[:, :7], env_ids=env_ids)
-        articulation_asset.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids=env_ids)
+        articulation_asset.write_root_pose_to_sim_index(root_pose=default_root_state[:, :7], env_ids=env_ids)
+        articulation_asset.write_root_velocity_to_sim_index(root_velocity=default_root_state[:, 7:], env_ids=env_ids)
         # obtain default joint positions
         default_joint_pos = wp.to_torch(articulation_asset.data.default_joint_pos)[env_ids].clone()
         default_joint_vel = wp.to_torch(articulation_asset.data.default_joint_vel)[env_ids].clone()
         # set into the physics simulation
-        articulation_asset.write_joint_state_to_sim(default_joint_pos, default_joint_vel, env_ids=env_ids)
+        articulation_asset.write_joint_position_to_sim_index(position=default_joint_pos, env_ids=env_ids)
+        articulation_asset.write_joint_velocity_to_sim_index(velocity=default_joint_vel, env_ids=env_ids)
 
 
 class place_gear_in_gripper(ManagerTermBase):
@@ -166,19 +167,19 @@ class place_gear_in_gripper(ManagerTermBase):
         grasp_offset_batch = self.grasp_offset_tensor.unsqueeze(0).expand(n, -1)
 
         for _ in range(max_ik_iterations):
-            joint_pos = self.robot.data.joint_pos[env_ids].clone()
-            joint_vel = self.robot.data.joint_vel[env_ids].clone()
+            joint_pos = wp.to_torch(self.robot.data.joint_pos)[env_ids].clone()
+            joint_vel = wp.to_torch(self.robot.data.joint_vel)[env_ids].clone()
 
-            gear_pos_w = self.gear.data.root_link_pos_w[env_ids].clone()
-            gear_quat_w = self.gear.data.root_link_quat_w[env_ids].clone()
+            gear_pos_w = wp.to_torch(self.gear.data.root_link_pos_w)[env_ids].clone()
+            gear_quat_w = wp.to_torch(self.gear.data.root_link_quat_w)[env_ids].clone()
 
             target_quat = math_utils.quat_mul(gear_quat_w, grasp_rot_offset_tensor)
             target_pos = gear_pos_w + math_utils.quat_apply(
                 target_quat, grasp_offset_batch
             )
 
-            eef_pos = self.robot.data.body_pos_w[env_ids, self.eef_idx]
-            eef_quat = self.robot.data.body_quat_w[env_ids, self.eef_idx]
+            eef_pos = wp.to_torch(self.robot.data.body_pos_w)[env_ids, self.eef_idx]
+            eef_quat = wp.to_torch(self.robot.data.body_quat_w)[env_ids, self.eef_idx]
 
             pos_error, aa_error = fc.get_pose_error(
                 fingertip_midpoint_pos=eef_pos,
@@ -194,7 +195,7 @@ class place_gear_in_gripper(ManagerTermBase):
                     and torch.norm(aa_error, dim=-1).max() < rot_threshold):
                 break
 
-            jacobians = self.robot.root_physx_view.get_jacobians().clone()
+            jacobians = wp.to_torch(self.robot.root_view.get_jacobians()).clone()
             jacobian = jacobians[env_ids, self.jacobi_body_idx, :, :]
 
             delta_dof_pos = fc._get_delta_dof_pos(
@@ -207,37 +208,39 @@ class place_gear_in_gripper(ManagerTermBase):
             joint_pos = joint_pos + delta_dof_pos
             joint_vel = torch.zeros_like(joint_pos)
 
-            self.robot.set_joint_position_target(joint_pos, env_ids=env_ids)
-            self.robot.set_joint_velocity_target(joint_vel, env_ids=env_ids)
-            self.robot.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
+            self.robot.set_joint_position_target_index(target=joint_pos, env_ids=env_ids)
+            self.robot.set_joint_velocity_target_index(target=joint_vel, env_ids=env_ids)
+            self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
+            self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
 
-        joint_pos = self.robot.data.joint_pos[env_ids].clone()
+        joint_pos = wp.to_torch(self.robot.data.joint_pos)[env_ids].clone()
 
         for row_idx in range(n):
             self.gripper_joint_setter_func(
                 joint_pos, [row_idx], self.finger_joints, self.hand_grasp_width,
             )
 
-        self.robot.set_joint_position_target(
-            joint_pos, joint_ids=self.all_joints, env_ids=env_ids,
+        self.robot.set_joint_position_target_index(
+            target=joint_pos, joint_ids=self.all_joints, env_ids=env_ids,
         )
-        self.robot.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
+        self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
+        self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
 
         for row_idx in range(n):
             self.gripper_joint_setter_func(
                 joint_pos, [row_idx], self.finger_joints, self.hand_close_width,
             )
 
-        self.robot.set_joint_position_target(
-            joint_pos, joint_ids=self.all_joints, env_ids=env_ids,
+        self.robot.set_joint_position_target_index(
+            target=joint_pos, joint_ids=self.all_joints, env_ids=env_ids,
         )
 
-        gear_quat = self.gear.data.root_quat_w[env_ids]
-        eef_quat = self.robot.data.body_quat_w[env_ids, self.eef_idx]
+        gear_quat = wp.to_torch(self.gear.data.root_quat_w)[env_ids]
+        eef_quat = wp.to_torch(self.robot.data.body_quat_w)[env_ids, self.eef_idx]
         rel_quat = math_utils.quat_mul(gear_quat, math_utils.quat_conjugate(eef_quat))
         if not hasattr(env, "_initial_gear_ee_relative_quat"):
             env._initial_gear_ee_relative_quat = torch.zeros(
                 env.num_envs, 4, device=env.device, dtype=torch.float32
             )
-            env._initial_gear_ee_relative_quat[:, 0] = 1.0
+            env._initial_gear_ee_relative_quat[:, 3] = 1.0
         env._initial_gear_ee_relative_quat[env_ids] = rel_quat

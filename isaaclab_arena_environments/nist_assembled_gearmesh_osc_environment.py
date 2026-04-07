@@ -224,7 +224,7 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
             hand_close_width=0.0,
             gripper_joint_setter_func=mdp.franka_gripper_joint_setter,
             end_effector_body_name="panda_hand",
-            grasp_rot_offset=[0.0, 1.0, 0.0, 0.0],
+            grasp_rot_offset=[1.0, 0.0, 0.0, 0.0],
             grasp_offset=[0.02, 0.0, -0.128],
             episode_length_s=episode_length_s,
             enable_randomization=True,
