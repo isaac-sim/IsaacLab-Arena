@@ -151,6 +151,11 @@ class RelationSolver:
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
 
+        # Compute initial loss so _last_loss_per_env is always populated
+        # (needed even when max_iters=0, e.g. tests that only check init positions).
+        with torch.no_grad():
+            self._compute_total_loss(state)
+
         # Optimization loop
         loss_history = []
         position_history = []  # Track positions for visualization
@@ -181,7 +186,7 @@ class RelationSolver:
         if self.params.save_position_history:
             position_history.append(state.get_all_positions_snapshot())
 
-        if self.params.verbose:
+        if self.params.verbose and loss_history:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 

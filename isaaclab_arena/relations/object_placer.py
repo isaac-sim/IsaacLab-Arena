@@ -169,10 +169,10 @@ class ObjectPlacer:
 
     def _generate_initial_positions(
         self,
-        objects: list[Object | ObjectReference],
-        anchor_objects: set[Object | ObjectReference],
+        objects: list[ObjectBase],
+        anchor_objects: set[ObjectBase],
         generator: torch.Generator | None = None,
-    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
+    ) -> dict[ObjectBase, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchors keep their initial_pose. Objects with an On relation are initialized within
@@ -191,7 +191,7 @@ class ObjectPlacer:
 
         cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
 
-        positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
+        positions: dict[ObjectBase, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
@@ -203,8 +203,8 @@ class ObjectPlacer:
 
     def _get_on_parent_world_bbox(
         self,
-        parent: Object | ObjectReference,
-        anchor_objects: set[Object | ObjectReference],
+        parent: ObjectBase,
+        anchor_objects: set[ObjectBase],
         anchor_bbox: AxisAlignedBoundingBox,
     ) -> AxisAlignedBoundingBox:
         """Resolve the world bbox of an On relation's parent for initialization purposes.
@@ -225,8 +225,8 @@ class ObjectPlacer:
 
     def _compute_on_guided_position(
         self,
-        obj: Object | ObjectReference,
-        anchor_objects: set[Object | ObjectReference],
+        obj: ObjectBase,
+        anchor_objects: set[ObjectBase],
         anchor_bbox: AxisAlignedBoundingBox,
         generator: torch.Generator | None = None,
     ) -> tuple[float, float, float]:
