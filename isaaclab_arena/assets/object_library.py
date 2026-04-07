@@ -14,6 +14,7 @@ from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
+from isaaclab_arena.affordances.movable import Movable
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
@@ -1968,3 +1969,45 @@ class ProceduralCube(Object):
             **self.asset_cfg_addon,
         )
         return self._add_initial_pose_to_cfg(cfg)
+
+
+@register_asset
+class MobileShelvingCart(LibraryObject, Movable):
+    """A mobile shelving cart on caster wheels.
+
+    The USD has joints connecting rigid body links (body, swivels, wheels)
+    but no ArticulationRootAPI baked in, so we apply it at spawn time via
+    a custom spawner that calls ``define_articulation_root_properties``.
+    """
+
+    name = "mobile_shelving_cart"
+    tags = ["object", "movable"]
+    usd_path = "/datasets/assets/Collected_sm_mobileshelvingcart_a01/sm_mobileshelvingcart_a01.usd"
+    object_type = ObjectType.ARTICULATION
+    default_prim_path = "{ENV_REGEX_NS}/mobile_shelving_cart"
+    scale = (0.7, 0.7, 0.7)
+    displacement_threshold = 0.15
+    spawn_cfg_addon = {
+        "func": "isaaclab_arena.utils.usd.spawners:spawn_from_usd_and_add_articulation_root",
+        "articulation_props": sim_utils.ArticulationRootPropertiesCfg(
+            enabled_self_collisions=False,
+        ),
+    }
+    asset_cfg_addon = {
+        "init_state": EMPTY_ARTICULATION_INIT_STATE_CFG,
+    }
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+    ):
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            scale=scale,
+            displacement_threshold=self.displacement_threshold,
+        )

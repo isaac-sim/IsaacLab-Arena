@@ -240,6 +240,31 @@ def goal_pose_task_termination(
     return success
 
 
+def object_displaced(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("movable_object"),
+    displacement_threshold: float = 0.5,
+) -> torch.Tensor:
+    """Terminate (success) when the object has been displaced beyond a threshold.
+
+    Displacement is measured as XY-plane Euclidean distance from the initial position.
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the movable object.
+        displacement_threshold: Minimum XY displacement in meters to count as success.
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+    object_entity = env.scene[object_cfg.name]
+    current_pos = wp.to_torch(object_entity.data.root_pos_w)[:, :2]
+    initial_pos = wp.to_torch(object_entity.data.default_root_state)[:, :2]
+    env_origins_xy = env.scene.env_origins[:, :2]
+    displacement = torch.norm(current_pos - (initial_pos + env_origins_xy), dim=-1)
+    return displacement > displacement_threshold
+
+
 def root_height_below_minimum_multi_objects(
     env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
 ) -> torch.Tensor:
