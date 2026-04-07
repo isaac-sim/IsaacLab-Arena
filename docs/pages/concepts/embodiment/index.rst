@@ -1,180 +1,48 @@
-Embodiment Design
-==================
+Embodiment
+==========
 
-Embodiments define robot-specific configurations and behaviors. They provide a modular way to integrate different robots into environments, encapsulating kinematics, control actions, observations, and camera systems.
-
-Core Architecture
------------------
-
-Embodiments use the ``EmbodimentBase`` abstract class that extends the asset system:
+An embodiment is the robot — its physical description, control interface, sensors, and cameras.
+Like scenes and tasks, embodiments are picked from the asset registry by name
+and slotted into the environment.
 
 .. code-block:: python
 
-   class EmbodimentBase(Asset):
-       name: str | None = None
-       tags: list[str] = ["embodiment"]
-       arm_mode: ArmMode | None = None
+   embodiment = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
 
-       def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None, arm_mode: ArmMode | None = None):
-           self.scene_config: Any | None = None
-           self.action_config: Any | None = None
-           self.observation_config: Any | None = None
-           # ... other configs
-
-       @abstractmethod
-       def get_scene_cfg(self) -> Any:
-           """Robot physical configuration and actuators."""
-
-       @abstractmethod
-       def get_action_cfg(self) -> Any:
-           """Control interface definition."""
-
-Embodiments in Detail
----------------------
-
-**Configuration Components**
-   Embodiments contribute multiple configuration aspects to environments:
-
-   - **Scene Configuration**: Robot physical properties, actuators, initial pose, mounting stands
-   - **Action Configuration**: Control interface (joint positions, end-effector poses, WBC)
-   - **Observation Configuration**: Sensor data, joint states, end-effector poses, camera feeds
-   - **Event Configuration**: Robot initialization, resets, randomization
-   - **Camera Configuration**: Onboard cameras with positions and sensor properties (optional)
-   - **XR Configuration**: XR device locations for teleop integration (optional)
-   - **Mimic Configuration**: Mimic environment support for demonstration (optional)
-
-
-**Available Embodiments**
-   Robot assets with different capabilities and control modes:
-
-   - **Franka Panda**: 7-DOF manipulator with differential IK control
-   - **Unitree G1**: Humanoid with WBC, dual-arm manipulation, locomotion
-   - **GR1T2**: Humanoid optimized for manipulation with dual end-effector control
-   - **Control Variants**: Joint space vs. inverse kinematics control modes
-
-**Camera Integration**
-   Optional camera systems that add observation terms when enabled, supporting both manipulation and perception tasks with head-mounted or external cameras.
-
-
-**Arm Mode**
-    Embodiments expose an ``arm_mode`` attribute that declares which arms are
-    movable for demonstration playback. This attribute uses the
-    ``ArmMode`` enum from ``isaaclab_arena.embodiments.common.arm_mode``:
-
-    - **SINGLE_ARM** – the robot has only one arm.
-    - **DUAL_ARM** – bimanual robot, task is performed with both arms in the demonstration.
-    - **LEFT** – bimanual robot, task is performed with the left arm and right arm is idle.
-    - **RIGHT** – bimanual robot, task is performed with the right arm and left arm is idle.
-
-    Tasks and mimic environment builders can consult this property to request the correct
-    subtask configurations, ensuring that mimic environments match the
-    capabilities of the selected embodiment.
-
-    .. code-block:: python
-
-        class PickAndPlaceTask(TaskBase):
-            """ Task class """
-
-            def get_mimic_env_cfg(self, arm_mode: ArmMode):
-                # gets the mimic environment configuration based on embodiment's arm mode.
-                return PickPlaceMimicEnvCfg(
-                    arm_mode=arm_mode,
-                    pick_up_object_name=self.pick_up_object.name,
-                    destination_location_name=self.destination_location.name,
-                )
-
-        @configclass
-        class PickPlaceMimicEnvCfg(MimicEnvCfg):
-            """Mimic environment configuration class"""
-
-            arm_mode: ArmMode = ArmMode.SINGLE_ARM
-
-            def __post_init__(self):
-                super().__post_init__()
-
-                # defines the subtask configurations based on the arm mode.
-                if self.arm_mode == ArmMode.SINGLE_ARM:
-                    # single arm subtask configuration
-                elif self.arm_mode in [ArmMode.LEFT, ArmMode.RIGHT]:
-                    # bimanual robot with one arm idle subtask configuration
-                elif self.arm_mode == ArmMode.DUAL_ARM:
-                    # dual arm subtask configuration
-                else:
-                    # raise error for unsupported arm mode
-
-        class ArenaEnvBuilder:
-            """ ArenaEnvBuilder class """
-
-            def compose_manager_cfg(self):
-                # composes the mimic environment configuration based on embodiment's mimic arm mode.
-                task_mimic_env_cfg = self.arena_env.task.get_mimic_env_cfg(
-                    arm_mode=self.arena_env.embodiment.arm_mode
-                )
-                return task_mimic_env_cfg
-
-
-Environment Integration
------------------------
-
-.. code-block:: python
-
-   # Embodiment creation with camera support
-   embodiment = asset_registry.get_asset_by_name("franka_ik")(
-       enable_cameras=True
-   )
-
-   # Set robot initial pose
-   embodiment.set_initial_pose(
-       Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-   )
-
-   # Environment composition
    environment = IsaacLabArenaEnvironment(
-       name="manipulation_task",
-       embodiment=embodiment,  # Robot configuration
+       name="kitchen_pick_and_place",
+       embodiment=embodiment,
        scene=scene,
        task=task,
-       teleop_device=teleop_device
    )
 
-Usage Examples
---------------
+Walkthrough
+-----------
 
-**Manipulation Robot**
-
-.. code-block:: python
-
-   franka = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
-   task = PickAndPlaceTask(pick_object, destination, background)
-
-**Humanoid Control Modes**
+We load the embodiment from the registry, passing any options to its constructor:
 
 .. code-block:: python
 
-   # Joint space control
-   g1_joint = asset_registry.get_asset_by_name("g1_wbc_joint")()
+   embodiment = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
+   embodiment.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-   # Inverse kinematics control
-   g1_ik = asset_registry.get_asset_by_name("g1_wbc_pink")()
+The initial pose places the robot in world frame — relative to the scene origin.
+This is usually set to position the robot in front of the workspace.
 
-**Teleop Integration**
+Available embodiments include the Franka Panda, Unitree G1, GR1T2, DROID, and others.
+Each has one or more control variants registered separately.
+For example, ``franka_ik`` uses differential IK control,
+while ``franka_joint_pos`` uses direct joint position control.
 
-.. code-block:: python
+**Cameras**
 
-   embodiment = asset_registry.get_asset_by_name("gr1_pink")()
-   teleop_device = device_registry.get_device_by_name("avp_handtracking")()
-
-   environment = IsaacLabArenaEnvironment(
-       embodiment=embodiment,
-       teleop_device=teleop_device,
-       scene=scene,
-       task=task
-   )
+Passing ``enable_cameras=True`` adds the robot's onboard cameras to the observation space.
+This is required for any policy that takes image observations, such as GR00T.
 
 More details
 ------------
 
-The rest of this section will describe further details of the embodiment component.
+The rest of this section covers further details of the embodiment component.
 
 .. toctree::
    :maxdepth: 1
