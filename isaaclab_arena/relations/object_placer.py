@@ -152,6 +152,8 @@ class ObjectPlacer:
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
         anchor_bbox = first_anchor.get_world_bounding_box()
 
+        cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
+
         positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
@@ -159,7 +161,7 @@ class ObjectPlacer:
             elif any(isinstance(r, On) for r in obj.get_relations()):
                 positions[obj] = self._compute_on_guided_position(obj, anchor_objects, anchor_bbox, generator)
             else:
-                positions[obj] = anchor_bbox.center  # no spatial guidance; solver handles placement
+                positions[obj] = (cx, cy, cz)
         return positions
 
     def _get_on_parent_world_bbox(
@@ -220,7 +222,7 @@ class ObjectPlacer:
         )
 
         # Z: place child's bottom face at parent top + clearance
-        z = parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2]
+        z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
 
         return (x, y, z)
 
@@ -251,7 +253,7 @@ class ObjectPlacer:
         low = parent_min - child_min
         high = parent_max - child_max
         if low >= high:
-            return (parent_min + parent_max) / 2.0
+            return float((parent_min + parent_max) / 2.0)
         return float(low + (high - low) * torch.rand(1, generator=generator).item())
 
     def _validate_on_relations(
