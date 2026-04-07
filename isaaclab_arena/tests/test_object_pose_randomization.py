@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -26,7 +27,7 @@ def _test_object_pose_randomization(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
     pose_range = PoseRange(
@@ -90,6 +91,7 @@ def _test_object_pose_randomization(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

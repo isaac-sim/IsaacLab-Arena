@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -46,7 +47,7 @@ def _test_success_rate_metric(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen_with_open_drawer")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     destination_location = ObjectReference(
         name="destination_location",
@@ -75,9 +76,9 @@ def _test_success_rate_metric(simulation_app):
     # - to: per env pose
     pose_list = [
         # Success (in the drawer)
-        Pose(position_xyz=(0.0, -0.5, 0.2), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
+        Pose(position_xyz=(0.0, -0.5, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
         # Fail (out of the drawer)
-        Pose(position_xyz=(-0.5, -0.5, 0.2), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)),
+        Pose(position_xyz=(-0.5, -0.5, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     ]
     env_cfg.events.reset_pick_up_object_pose = EventTermCfg(
         func=set_object_pose_per_env,
@@ -112,6 +113,7 @@ def _test_success_rate_metric(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

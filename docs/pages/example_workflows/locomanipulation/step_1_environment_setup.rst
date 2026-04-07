@@ -5,7 +5,7 @@ Environment Setup and Validation
 On this page we briefly describe the environment used in this example workflow
 and validate that we can load it in Isaac Lab.
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -47,10 +47,10 @@ Environment Description
                blue_sorting_bin.set_initial_pose(
                    Pose(
                        position_xyz=(-0.2450, -1.6272, -0.2641),
-                       rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
+                       rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
                    )
                )
-               embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+               embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
                scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
                task = G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
@@ -101,7 +101,7 @@ See :doc:`../../concepts/concept_assets_design` for details on asset architectur
    blue_sorting_bin.set_initial_pose(
        Pose(
            position_xyz=(-0.2450, -1.6272, -0.2641),
-           rotation_wxyz=(0.0, 0.0, 0.0, 1.0),
+           rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
        )
    )
 
@@ -161,6 +161,7 @@ We download a pre-recorded dataset from Hugging Face:
        nvidia/Arena-G1-Loco-Manipulation-Task \
        arena_g1_loco_manipulation_dataset_generated_small.hdf5 \
        --repo-type dataset \
+       --revision arena_v0.2_lab_v3.0 \
        --local-dir $DATASET_DIR
 
 
@@ -172,6 +173,7 @@ Replay the downloaded dataset to verify the environment setup
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file ${DATASET_DIR}/arena_g1_loco_manipulation_dataset_generated_small.hdf5 \

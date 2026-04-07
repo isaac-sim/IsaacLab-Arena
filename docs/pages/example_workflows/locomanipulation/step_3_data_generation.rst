@@ -5,7 +5,7 @@ This workflow covers annotating and generating the demonstration dataset using
 `Isaac Lab Mimic <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html>`_.
 
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 :docker_run_default:
 
@@ -34,6 +34,7 @@ To skip this step, you can download the pre-annotated dataset from Hugging Face 
          nvidia/Arena-G1-Loco-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_annotated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 To start the annotation process, run the following command:
@@ -41,6 +42,7 @@ To start the annotation process, run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
+     --visualizer kit \
      --device cpu \
      --input_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_g1_locomanipulation_dataset_annotated.hdf5 \
@@ -72,6 +74,7 @@ This step can be skipped by downloading the pre-generated dataset from Hugging F
          nvidia/Arena-G1-Loco-Manipulation-Task \
          arena_g1_loco_manipulation_dataset_generated.hdf5 \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir $DATASET_DIR
 
 Generate the dataset:
@@ -103,6 +106,7 @@ To visualize the data produced, you can replay the dataset using the following c
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
+     --visualizer kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \

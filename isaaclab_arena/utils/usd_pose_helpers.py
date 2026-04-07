@@ -38,6 +38,6 @@ def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pos
     prim_T_default = prim_T_world * default_T_world
 
     pos, rot, _ = UsdSkel.DecomposeTransform(prim_T_default)
-    rot_tuple = (rot.GetReal(), rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2])
+    rot_tuple = (rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2], rot.GetReal())
     pos_tuple = (pos[0], pos[1], pos[2])
-    return Pose(position_xyz=pos_tuple, rotation_wxyz=rot_tuple)
+    return Pose(position_xyz=pos_tuple, rotation_xyzw=rot_tuple)

@@ -23,13 +23,6 @@ from isaaclab_arena_environments.cli import add_example_environments_cli_args, g
 # add argparse arguments
 parser = get_isaaclab_arena_cli_parser()
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
-parser.add_argument(
-    "--enable_pinocchio",
-    action="store_true",
-    default=False,
-    help="Enable Pinocchio.",
-)
-
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
 # of the app specific flags being parsed after the global flags.
@@ -40,14 +33,6 @@ args_cli = parser.parse_args()
 
 app_launcher_args = vars(args_cli)
 
-if args_cli.enable_pinocchio:
-    # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and
-    # not the one installed by Isaac Sim pinocchio is required by the Pink IK controllers and the
-    # GR1T2 retargeter
-    import pinocchio  # noqa: F401
-
-# TODO(cvolk): XR mode is inferred from teleop device name via string matching.
-# Ideally, AppLauncher or the device config would auto-detect XR requirements.
 if "openxr" in args_cli.teleop_device.lower():
     app_launcher_args["xr"] = True
 
@@ -58,20 +43,16 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 
-import logging
 import torch
 
 import isaaclab_tasks  # noqa: F401
+import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
+import omni.log
 from isaaclab.devices import Se3Gamepad, Se3GamepadCfg, Se3Keyboard, Se3KeyboardCfg, Se3SpaceMouse, Se3SpaceMouseCfg
-from isaaclab.devices.openxr import remove_camera_configs
 from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
-
-if args_cli.enable_pinocchio:
-    import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
-
-logger = logging.getLogger(__name__)
+from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
 
 
 def main() -> None:
@@ -106,12 +87,12 @@ def main() -> None:
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         # check environment name (for reach , we don't allow the gripper)
         if "Reach" in args_cli.example_environment:
-            logger.warning(
+            omni.log.warn(
                 f"The environment '{args_cli.example_environment}' does not support gripper control. The device command"
                 " will be ignored."
             )
     except Exception as e:
-        logger.error(f"Failed to create environment: {e}")
+        omni.log.error(f"Failed to create environment: {e}")
         simulation_app.close()
         return
 
@@ -175,18 +156,21 @@ def main() -> None:
         # Always active for other devices
         teleoperation_active = True
 
-    # Create teleop device from config if present, otherwise create manually
+    # Create teleop device: IsaacTeleop (XR) > env_cfg.teleop_devices > hardcoded fallback
     teleop_interface = None
     try:
-        if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
+        if hasattr(env_cfg, "isaac_teleop") and isinstance(env_cfg.isaac_teleop, IsaacTeleopCfg):
+            teleop_interface = create_isaac_teleop_device(
+                env_cfg.isaac_teleop,
+                sim_device=str(env.device),
+                callbacks=teleoperation_callbacks,
+            )
+        elif hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
             teleop_interface = create_teleop_device(
                 args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
             )
         else:
-            logger.warning(
-                f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default."
-            )
-            # Create fallback teleop device
+            omni.log.warn(f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default.")
             sensitivity = args_cli.sensitivity
             if args_cli.teleop_device.lower() == "keyboard":
                 teleop_interface = Se3Keyboard(
@@ -201,8 +185,8 @@ def main() -> None:
                     Se3GamepadCfg(pos_sensitivity=0.1 * sensitivity, rot_sensitivity=0.1 * sensitivity)
                 )
             else:
-                logger.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                logger.error("Supported devices: keyboard, spacemouse, gamepad, avp_handtracking")
+                omni.log.error(f"Unsupported teleop device: {args_cli.teleop_device}")
+                omni.log.error("Supported devices: keyboard, spacemouse, gamepad, avp_handtracking")
                 env.close()
                 simulation_app.close()
                 return
@@ -212,60 +196,57 @@ def main() -> None:
                 try:
                     teleop_interface.add_callback(key, callback)
                 except (ValueError, TypeError) as e:
-                    logger.warning(f"Failed to add callback for key {key}: {e}")
+                    omni.log.warn(f"Failed to add callback for key {key}: {e}")
     except Exception as e:
-        logger.error(f"Failed to create teleop device: {e}")
+        omni.log.error(f"Failed to create teleop device: {e}")
         env.close()
         simulation_app.close()
         return
 
     if teleop_interface is None:
-        logger.error("Failed to create teleop interface")
+        omni.log.error("Failed to create teleop interface")
         env.close()
         simulation_app.close()
         return
 
     print(f"Using teleop device: {teleop_interface}")
 
-    # reset environment
-    env.reset()
-    teleop_interface.reset()
+    # IsaacTeleop (OpenXR) requires the device to be used as a context manager so
+    # TeleopSessionLifecycle.start() is called before advance().
+    use_isaac_teleop = hasattr(teleop_interface, "__enter__") and hasattr(teleop_interface, "__exit__")
 
-    print("Teleoperation started. Press 'R' to reset the environment.")
+    def run_teleop_loop() -> None:
+        nonlocal should_reset_recording_instance
+        env.reset()
+        teleop_interface.reset()
+        print("Teleoperation started. Press 'R' to reset the environment.")
+        while simulation_app.is_running():
+            try:
+                with torch.inference_mode():
+                    action = teleop_interface.advance()
+                    # action is None when IsaacTeleop session hasn't started yet (e.g. waiting for "Start AR")
+                    if action is None:
+                        env.sim.render()
+                    elif teleoperation_active:
+                        actions = action.repeat(env.num_envs, 1)
+                        env.step(actions)
+                    else:
+                        env.sim.render()
+                    if should_reset_recording_instance:
+                        env.reset()
+                        teleop_interface.reset()
+                        should_reset_recording_instance = False
+                        print("Environment reset complete")
+            except Exception as e:
+                omni.log.error(f"Error during simulation step: {e}")
+                break
 
-    # simulate environment
-    while simulation_app.is_running():
-        try:
-            # run everything in inference mode
-            with torch.inference_mode():
-                # get device command
-                action = teleop_interface.advance()
+    if use_isaac_teleop:
+        with teleop_interface:
+            run_teleop_loop()
+    else:
+        run_teleop_loop()
 
-                # Only apply teleop commands when active
-                if teleoperation_active:
-                    # process actions
-                    actions = action.repeat(env.num_envs, 1)
-                    # Hack for G1 Pink WBC to transferm EE into robot base coordinates
-                    action_manager = getattr(env, "action_manager", None)
-                    if action_manager is not None:
-                        for term_name in action_manager.active_terms:
-                            term = action_manager.get_term(term_name)
-                            if hasattr(term, "preprocess_actions"):
-                                actions = term.preprocess_actions(actions)
-                    # apply actions
-                    env.step(actions)
-                else:
-                    env.sim.render()
-
-                if should_reset_recording_instance:
-                    env.reset()
-                    should_reset_recording_instance = False
-                    print("Environment reset complete")
-        except Exception as e:
-            logger.error(f"Error during simulation step: {e}")
-            break
-
-    # close the simulator
     env.close()
     print("Environment closed")
 

@@ -29,14 +29,6 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_lab_group.add_argument("--seed", type=int, default=42, help="Optional seed for the random number generator.")
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
-    # NOTE(alexmillane, 2025.07.25): Unlike base isaaclab, we enable pinocchio by default.
-    isaac_lab_group.add_argument(
-        "--disable_pinocchio",
-        dest="enable_pinocchio",
-        default=True,
-        action="store_false",
-        help="Disable Pinocchio.",
-    )
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
     isaac_lab_group.add_argument(
         "--distributed",
@@ -57,6 +49,22 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         dest="solve_relations",
         default=True,
         help="Disable solving spatial relations in the environment.",
+    )
+    arena_group.add_argument(
+        "--placement_seed",
+        type=int,
+        default=None,
+        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
+    )
+    arena_group.add_argument(
+        "--presets",
+        type=str,
+        default=None,
+        help=(
+            "Physics backend preset: 'physx' or 'newton'. "
+            "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
+            "When not set, each environment uses its own default."
+        ),
     )
 
 

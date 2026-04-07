@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
+    from isaaclab.devices.device_base import DeviceCfg
+    from isaaclab_teleop import IsaacTeleopCfg
+
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
@@ -126,27 +129,15 @@ class DeviceRegistry(Registry):
         ensure_assets_registered()
         return self.get_component_by_name(name)
 
-    def get_teleop_device_cfg(self, device: type["TeleopDeviceBase"], embodiment: object):
-        from isaaclab.devices.device_base import DevicesCfg
-
+    def get_teleop_device_cfg(
+        self, device: type["TeleopDeviceBase"], embodiment: object
+    ) -> "DeviceCfg | IsaacTeleopCfg":
         retargeter_registry = RetargeterRegistry()
         retargeter_key = (device.name, embodiment.name)
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
         retargeter = retargeter_registry.get_component_by_name(retargeter_key_str)()
-        retargeter_cfg = retargeter.get_retargeter_cfg(embodiment, sim_device=device.sim_device)
-        # Handle both single retargeter and list of retargeters
-        if isinstance(retargeter_cfg, list):
-            retargeters = retargeter_cfg
-        elif retargeter_cfg is not None:
-            retargeters = [retargeter_cfg]
-        else:
-            retargeters = []
-        device_cfg = device.get_device_cfg(retargeters=retargeters, embodiment=embodiment)
-        return DevicesCfg(
-            devices={
-                device.name: device_cfg,
-            }
-        )
+        pipeline_builder = retargeter.get_pipeline_builder(embodiment)
+        return device.get_device_cfg(pipeline_builder=pipeline_builder, embodiment=embodiment)
 
 
 class RetargeterRegistry(Registry):

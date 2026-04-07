@@ -238,6 +238,11 @@ if [ -d "${EVAL_DIR}" ]; then
   DOCKER_RUN_ARGS+=(-v "${EVAL_DIR}":/eval)
 fi
 
+# Pass through so gr00t_remote_policy can print path/debug info (e.g. GROOT_DEBUG_PATH=1).
+if [ -n "${GROOT_DEBUG_PATH:-}" ]; then
+  DOCKER_RUN_ARGS+=(-e "GROOT_DEBUG_PATH=${GROOT_DEBUG_PATH}")
+fi
+
 docker run "${DOCKER_RUN_ARGS[@]}" \
   "${IMAGE_TAG_FULL}" \
   "${SERVER_ARGS[@]}"

@@ -11,10 +11,9 @@ import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+import warp as wp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.devices.openxr import XrCfg
-from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
 from isaaclab.envs import ManagerBasedRLMimicEnv  # noqa: F401
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -24,12 +23,14 @@ from isaaclab.managers.action_manager import ActionTermCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+from isaaclab_teleop import XrCfg
+from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 
 import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
+from isaaclab_arena.terms.events import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_g1.g1_env.mdp import g1_events as g1_events_mdp
 from isaaclab_arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
@@ -63,16 +64,20 @@ class G1EmbodimentBase(EmbodimentBase):
         # Anchor to the robot's pelvis for first-person view that follows the robot
         self.xr: XrCfg = XrCfg(
             anchor_pos=(0.0, 0.0, -1.0),
-            anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+            anchor_rot=(0.0, 0.0, -0.70711, 0.70711),
             anchor_prim_path="/World/envs/env_0/Robot/pelvis",
             anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
             fixed_anchor_height=True,
         )
 
+    def get_teleop_target_frame_prim_path(self) -> str | None:
+        """Pelvis prim path so OpenXR teleop poses are rebased into robot base frame for IK."""
+        return "/World/envs/env_0/Robot/pelvis"
+
 
 # Default camera offset pose
 _DEFAULT_G1_CAMERA_OFFSET = Pose(
-    position_xyz=(0.04485, 0.0, 0.35325), rotation_wxyz=(0.32651, -0.62721, 0.62721, -0.32651)
+    position_xyz=(0.04485, 0.0, 0.35325), rotation_xyzw=(-0.62721, 0.62721, -0.32651, 0.32651)
 )
 
 
@@ -157,7 +162,7 @@ class G1SceneCfg:
         prim_path="/World/envs/env_.*/Robot",
         init_state=ArticulationCfg.InitialStateCfg(
             pos=(0.8, -1.38, 0.78),
-            rot=(0.0, 0.0, 0.0, 1.0),
+            rot=(0.0, 0.0, 1.0, 0.0),
             joint_pos={
                 # target angles [rad]
                 "left_hip_pitch_joint": -0.1,
@@ -352,15 +357,13 @@ class G1CameraCfg:
             width=640,
             data_types=["rgb"],
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=0.169,  # 1.69 mm; FOV preserved via apertures
-                horizontal_aperture=0.693,  # preserves ~128° horiz FOV
-                vertical_aperture=0.284,  # preserves ~80° vert FOV
+                focal_length=15,
                 clipping_range=(0.1, 5),
             ),
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_wxyz,
+            rot=camera_offset.rotation_xyzw,
             convention="ros",
         )
 
@@ -770,7 +773,7 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             env_ids = slice(None)
 
         # Get pelvis inverse transform to convert from world to pelvis frame
-        pelvis_pose_w = self.scene["robot"].data.body_link_state_w[
+        pelvis_pose_w = wp.to_torch(self.scene["robot"].data.body_link_state_w)[
             :, self.scene["robot"].data.body_names.index("pelvis"), :
         ]
         pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins

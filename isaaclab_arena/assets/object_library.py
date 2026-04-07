@@ -10,6 +10,7 @@ import isaaclab.sim as sim_utils
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
+from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
@@ -420,6 +421,62 @@ class GroundPlane(LibraryObject):
 
 
 @register_asset
+class Sphere(LibraryObject):
+    """
+    A sphere with rigid body physics (dynamic by default).
+    """
+
+    name = "sphere"
+    tags = ["object"]
+    object_type = ObjectType.SPAWNER
+    scale = (1.0, 1.0, 1.0)
+    default_spawner_cfg = sim_utils.SphereCfg(
+        radius=0.1,
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
+        collision_props=sim_utils.CollisionPropertiesCfg(),
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            solver_position_iteration_count=16,
+            solver_velocity_iteration_count=1,
+            max_angular_velocity=1000.0,
+            max_linear_velocity=1000.0,
+            max_depenetration_velocity=5.0,
+            disable_gravity=False,
+        ),
+        mass_props=sim_utils.MassPropertiesCfg(mass=0.25),
+    )
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+        scale: tuple[float, float, float] | None = None,
+        spawner_cfg: sim_utils.SphereCfg = default_spawner_cfg,
+    ):
+        self.spawner_cfg = spawner_cfg
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            scale=scale,
+        )
+
+    def _generate_spawner_cfg(self) -> RigidObjectCfg:
+        object_cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=self.spawner_cfg,
+        )
+        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        if self.initial_velocity is not None:
+            object_cfg.init_state.lin_vel = self.initial_velocity.linear_xyz
+            object_cfg.init_state.ang_vel = self.initial_velocity.angular_xyz
+        return object_cfg
+
+    def _requires_reset_pose_event(self) -> bool:
+        return self.get_initial_pose() is not None and self.reset_pose
+
+
+@register_asset
 class DomeLight(LibraryObject):
     """A dome light, optionally textured with an HDR image environment map.
 
@@ -746,12 +803,7 @@ class RedCube(LibraryObject):
     name = "red_cube"
     tags = ["object"]
 
-    # TODO(lanceli, 2026.02.04): There is a known bug where rigid body attributes can only bind to the root layer.
-    # As a workaround, the original assets from ISAAC_NUCLEUS_DIR have been adjusted and uploaded to ISAAC_NUCLEUS_STAGING_DIR.
-    # Once this bug is resolved, the original assets can be used instead.
-
-    # usd_path =f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd" # not support, rigid body attribute need to be bind to root xform.
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/red_block_root_rigid.usd"
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"
 
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/RedCube"
@@ -775,12 +827,7 @@ class GreenCube(LibraryObject):
     name = "green_cube"
     tags = ["object"]
 
-    # TODO(lanceli, 2026.02.04): There is a known bug where rigid body attributes can only bind to the root layer.
-    # As a workaround, the original assets from ISAAC_NUCLEUS_DIR have been adjusted and uploaded to ISAAC_NUCLEUS_STAGING_DIR.
-    # Once this bug is resolved, the original assets can be used instead.
-
-    # usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd" # not support, rigid body attribute need to be bind to root xform.
-    usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/isaac_blocks/green_block_root_rigid.usd"
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd"
     object_type = ObjectType.RIGID
     default_prim_path = "{ENV_REGEX_NS}/GreenCube"
     scale = (0.02, 0.02, 0.02)
@@ -1831,3 +1878,93 @@ class TableMapleRobolab(LibraryObject):
     name = "table_maple_robolab"
     tags = ["background", "fixture", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_maple.usd"
+
+
+# ---------------------------------------------------------------------------
+# Procedural assets (Newton-safe, single-geometry cuboids)
+# ---------------------------------------------------------------------------
+
+_PROCEDURAL_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.8, 1.5, 0.04),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    visible=False,
+)
+
+
+@register_asset
+class ProceduralTable(Object):
+    """Kinematic cuboid table (invisible collision surface). Newton-safe, single geometry."""
+
+    name = "procedural_table"
+    tags = ["background", "procedural"]
+    object_min_z: float = 0.0
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        resolved_name = instance_name if instance_name is not None else "table"
+        resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/table"
+        super().__init__(
+            name=resolved_name,
+            prim_path=resolved_prim,
+            object_type=ObjectType.RIGID,
+            usd_path="",
+            initial_pose=initial_pose,
+        )
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
+            **self.asset_cfg_addon,
+        )
+        return self._add_initial_pose_to_cfg(cfg)
+
+
+_PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.05, 0.1, 0.1),
+    physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        solver_position_iteration_count=16,
+        solver_velocity_iteration_count=0,
+        disable_gravity=False,
+    ),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+)
+
+
+@register_asset
+class ProceduralCube(Object):
+    """Rigid cuboid manipuland (0.2 kg, 5x10x10 cm). Newton-safe, single geometry."""
+
+    name = "procedural_cube"
+    tags = ["object", "procedural"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        resolved_name = instance_name if instance_name is not None else "object"
+        resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/Object"
+        super().__init__(
+            name=resolved_name,
+            prim_path=resolved_prim,
+            object_type=ObjectType.RIGID,
+            usd_path="",
+            initial_pose=initial_pose,
+        )
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
+            **self.asset_cfg_addon,
+        )
+        return self._add_initial_pose_to_cfg(cfg)

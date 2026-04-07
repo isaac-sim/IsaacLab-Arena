@@ -27,6 +27,7 @@ class Job:
         num_episodes: int = None,
         policy_config_dict: dict = None,
         status: Status = None,
+        language_instruction: str = None,
     ):
         """Initialize a Job instance.
 
@@ -39,6 +40,8 @@ class Job:
             policy_type: Type of policy to use
             policy_config_dict: Dictionary configuration for the policy.
             status: Job status (defaults to PENDING)
+            language_instruction: Optional language instruction override for the policy. When set,
+                takes precedence over the task's own description.
         """
         self.name = name
         self.arena_env_args = arena_env_args
@@ -51,6 +54,7 @@ class Job:
         self.num_episodes = num_episodes
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
+        self.language_instruction = language_instruction
         self.status = status if status is not None else Status.PENDING
         self.start_time = None
         self.end_time = None
@@ -104,6 +108,7 @@ class Job:
             num_episodes=num_episodes,
             policy_config_dict=data["policy_config_dict"],
             status=status,
+            language_instruction=data.get("language_instruction"),
         )
 
     @classmethod
@@ -126,8 +131,8 @@ class Job:
 
         args_list = []
 
-        # Priority arguments that should come first
-        priority_keys = ["num_envs", "enable_cameras"]
+        # Priority arguments that should come first (global args that must precede the subcommand)
+        priority_keys = ["num_envs", "env_spacing", "enable_cameras", "placement_seed"]
 
         # Process priority arguments first (--num_envs, --enable_cameras)
         for key in priority_keys:

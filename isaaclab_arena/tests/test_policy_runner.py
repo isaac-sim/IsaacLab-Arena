@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -53,6 +55,7 @@ def run_policy_runner(
     run_subprocess(args)
 
 
+@pytest.mark.with_subprocess
 def test_zero_action_policy_press_button():
     run_policy_runner(
         policy_type="zero_action",
@@ -61,11 +64,12 @@ def test_zero_action_policy_press_button():
     )
 
 
+@pytest.mark.with_subprocess
 def test_zero_action_policy_kitchen_pick_and_place():
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
     example_environment = "kitchen_pick_and_place"
-    embodiments = ["franka", "gr1_pink", "gr1_joint"]
+    embodiments = ["franka_ik", "gr1_pink", "gr1_joint"]
     object_names = ["cracker_box", "tomato_soup_can"]
     for embodiment in embodiments:
         for object_name in object_names:
@@ -78,6 +82,7 @@ def test_zero_action_policy_kitchen_pick_and_place():
             )
 
 
+@pytest.mark.with_subprocess
 def test_zero_action_policy_galileo_pick_and_place():
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
@@ -92,6 +97,7 @@ def test_zero_action_policy_galileo_pick_and_place():
     )
 
 
+@pytest.mark.with_subprocess
 def test_zero_action_policy_gr1_open_microwave():
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
@@ -108,6 +114,7 @@ def test_zero_action_policy_gr1_open_microwave():
         )
 
 
+@pytest.mark.with_subprocess
 def test_replay_policy_gr1_open_microwave():
     run_policy_runner(
         policy_type="replay",

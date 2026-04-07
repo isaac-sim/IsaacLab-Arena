@@ -7,7 +7,7 @@ name: GitHub Pages
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "feature/isaac_lab_3_newton" ]
 
 # Concurrency control to prevent parallel runs on the same PR
 concurrency:
@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 30
 
     container:
-      image: python:3.11-slim
+      image: python:3.12-slim
 
     steps:
       - name: Install git (and tools needed by hooks)

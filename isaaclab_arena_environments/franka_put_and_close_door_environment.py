@@ -51,7 +51,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         container.set_initial_pose(
             Pose(
                 position_xyz=(0.4, -0.00586, 0.22773),
-                rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+                rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
             )
         )
 
@@ -67,11 +67,11 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(-0.3, 0.0, -0.5),
-                rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
-        if args_cli.embodiment == "franka":
+        if args_cli.embodiment == "franka_ik":
             # Set Franka arm pose for kitchen setup
             embodiment.set_initial_joint_pose([0.0, -1.309, 0.0, -2.793, 0.0, 3.037, 0.740, 0.04, 0.04])
 
@@ -123,5 +123,5 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="dex_cube", help="Object to pick and place in the microwave")
-        parser.add_argument("--embodiment", type=str, default="franka", help="Robot embodiment to use")
+        parser.add_argument("--embodiment", type=str, default="franka_ik", help="Robot embodiment to use")
         parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")

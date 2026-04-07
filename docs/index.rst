@@ -1,11 +1,11 @@
-``Isaac Lab Arena`` Documentation
-=================================
+Welcome to Isaac Lab Arena!
+===========================
 
 .. warning::
    This is the latest version of IsaacLab Arena. It contains the newest features but may not be fully tested yet.
    For the tested version, please refer to the `release/0.1.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.1.1/index.html>`_.
 
-``Isaac Lab Arena`` is an extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
+``Isaac Lab Arena`` extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 to simplify the creation of task/environment libraries.
 
 
@@ -100,7 +100,7 @@ The following code snippet shows a simple example(pick up a tomato soup can and 
 
 .. code-block:: python
 
-   embodiment = asset_registry.get_asset_by_name("franka")(enable_cameras=True)
+   embodiment = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
    background = asset_registry.get_asset_by_name("kitchen")()
    tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
    destination_location = ObjectReference(
@@ -187,21 +187,23 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: User's Guide
+   :caption: Set Up
 
    pages/quickstart/installation
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
    pages/quickstart/first_arena_env
-   pages/quickstart/docker_containers
-   pages/quickstart/jupyter_notebooks
+   pages/quickstart/first_experiments/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Example Workflows
 
-   pages/example_workflows/locomanipulation/index
-   pages/example_workflows/static_manipulation/index
-   pages/example_workflows/sequential_static_manipulation/index
-   pages/example_workflows/reinforcement_learning/index
+   pages/example_workflows/imitation_learning/index
+   pages/example_workflows/reinforcement_learning_workflows/index
 
 .. toctree::
    :maxdepth: 1
@@ -209,6 +211,8 @@ TABLE OF CONTENTS
 
    pages/advanced/private_omniverse
    pages/advanced/assets_management
+   pages/advanced/gr00t_server_client
+   pages/quickstart/jupyter_notebooks
 
 .. toctree::
    :maxdepth: 1
@@ -224,12 +228,14 @@ TABLE OF CONTENTS
    pages/concepts/concept_environment_design
    pages/concepts/concept_embodiment_design
    pages/concepts/concept_tasks_design
+   pages/concepts/concept_sequential_tasks_design
    pages/concepts/concept_scene_design
    pages/concepts/concept_metrics_design
    pages/concepts/concept_teleop_devices_design
    pages/concepts/concept_environment_compilation
    pages/concepts/concept_assets_design
    pages/concepts/concept_affordances_design
+   pages/concepts/concept_object_placement
    pages/concepts/concept_policy_design
    pages/concepts/concept_remote_policies_design
 

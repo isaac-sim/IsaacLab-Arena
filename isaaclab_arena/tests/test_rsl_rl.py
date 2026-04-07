@@ -9,6 +9,8 @@ import glob
 import os
 import time
 
+import pytest
+
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -40,7 +42,6 @@ def run_rl_train(
         str(num_envs),
         "--max_iterations",
         str(max_iterations),
-        "--headless",
     ]
     if embodiment is not None:
         args += ["--embodiment", embodiment]
@@ -78,15 +79,17 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
     run_subprocess(args)
 
 
+# TODO(xinjie.yao, 2026.04.01): Add a test case for num_episodes once it's enabled
+@pytest.mark.with_subprocess
 def test_rl_train_and_eval_lift_object():
     checkpoint_path = run_rl_train(
         example_environment="lift_object",
-        embodiment="franka",
+        embodiment="franka_ik",
         object_name="dex_cube",
     )
     run_policy_runner(
         checkpoint_path=checkpoint_path,
         example_environment="lift_object",
-        embodiment="franka",
+        embodiment="franka_ik",
         object_name="dex_cube",
     )

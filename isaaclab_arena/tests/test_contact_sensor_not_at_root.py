@@ -5,6 +5,7 @@
 
 import gymnasium as gym
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -21,7 +22,7 @@ def get_test_environment(num_envs: int):
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -40,7 +41,7 @@ def get_test_environment(num_envs: int):
     sweet_potato = asset_registry.get_asset_by_name("sweet_potato")(
         initial_pose=Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -61,7 +62,7 @@ def get_test_environment(num_envs: int):
     )
 
     # Create embodiment
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="test_sweet_potato_pick_and_place",
@@ -96,6 +97,7 @@ def _test_contact_sensor_not_at_root(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

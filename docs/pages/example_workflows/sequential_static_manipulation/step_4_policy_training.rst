@@ -5,7 +5,7 @@ This workflow covers post-training an example policy using the generated dataset
 here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
 :docker_run_gr00t:
 
@@ -35,6 +35,7 @@ pre-generated dataset from Hugging Face as described below.
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          --include "ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir "$_tmp" && \
       mkdir -p "$DATASET_DIR" && \
       mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100.hdf5" "$DATASET_DIR/" && \
@@ -61,6 +62,7 @@ Note that this conversion step can be skipped by downloading the pre-converted L
          nvidia/Arena-GR1-Manipulation-PlaceItemCloseDoor-Task \
          --include "ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100/lerobot/*" \
          --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
          --local-dir "$_tmp" && \
       mkdir -p "$DATASET_DIR" && \
       mv "$_tmp/ranch_bottle_into_fridge/ranch_bottle_into_fridge_generated_100" "$DATASET_DIR/" && \

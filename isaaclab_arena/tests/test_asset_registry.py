@@ -48,7 +48,7 @@ def _test_all_assets_in_registry(simulation_app):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -63,23 +63,18 @@ def _test_all_assets_in_registry(simulation_app):
     objects_in_registry: list[Object] = []
     for idx, asset_cls in enumerate(asset_registry.get_assets_by_tag("object")):
         asset = asset_cls()
-        # Skip "peg" and "hole" assets due to enable_pinocchio requirement mismatch.
-        # These IsaacLab factory assembly assets require enable_pinocchio=False, but the current
-        # SimulationApp session was initialized with enable_pinocchio=True. The app cannot be
-        # restarted mid-session due to subprocess.py limitations.
-        if asset.name not in ("peg", "hole"):
-            # Set their pose
-            pose = Pose(
-                position_xyz=(
-                    first_position[0] + (idx + 1) * OBJECT_SEPARATION,
-                    first_position[1],
-                    first_position[2],
-                ),
-                rotation_wxyz=(1, 0, 0, 0),
-            )
-            asset.set_initial_pose(pose)
-            objects_in_registry.append(asset)
-            objects_in_registry_names.append(asset.name)
+        # Set their pose
+        pose = Pose(
+            position_xyz=(
+                first_position[0] + (idx + 1) * OBJECT_SEPARATION,
+                first_position[1],
+                first_position[2],
+            ),
+            rotation_xyzw=(0, 0, 0, 1),
+        )
+        asset.set_initial_pose(pose)
+        objects_in_registry.append(asset)
+        objects_in_registry_names.append(asset.name)
     # Add lights
     for asset_cls in asset_registry.get_assets_by_tag("light"):
         asset = asset_cls()
@@ -95,7 +90,7 @@ def _test_all_assets_in_registry(simulation_app):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="dummy_task",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
     )
 
@@ -115,11 +110,11 @@ def _test_all_assets_in_registry(simulation_app):
 
     # Check all the assets made it into the scene.
     for asset_name in objects_in_registry_names:
-        assert asset_name in env.scene.keys(), f"Asset {asset_name} not found in scene"
+        assert asset_name in env.unwrapped.scene.keys(), f"Asset {asset_name} not found in scene"
 
     # Check all the assets have the correct pose.
     for asset_name in objects_in_registry_names:
-        assert asset_name in env.scene.keys(), f"Asset {asset_name} not found in scene"
+        assert asset_name in env.unwrapped.scene.keys(), f"Asset {asset_name} not found in scene"
 
     env.close()
 
@@ -174,7 +169,7 @@ def _test_hdr_image_spawn(simulation_app):
     works in a live simulation, so a single HDR is sufficient.
     """
     from isaaclab_arena.assets.asset_registry import AssetRegistry, HDRImageRegistry
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -194,7 +189,7 @@ def _test_hdr_image_spawn(simulation_app):
     scene = Scene(assets=[light, ground_plane])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="hdr_spawn_test",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
     )
 
@@ -229,7 +224,7 @@ def _test_multi_light_in_scene(simulation_app):
     from pxr import UsdLux
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -243,7 +238,7 @@ def _test_multi_light_in_scene(simulation_app):
     scene = Scene(assets=[light, light_duplicate, ground_plane, ground_plane_duplicate])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="dummy_task",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
     )
     # Compile the environment.
@@ -257,7 +252,7 @@ def _test_multi_light_in_scene(simulation_app):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
-    all_prims_in_stage = get_all_prims(env.scene.stage)
+    all_prims_in_stage = get_all_prims(env.unwrapped.scene.stage)
     # Check that there is only one light in the stage
     # We dont add lights from anywhere else in this scene.
     light_prims = [prim for prim in all_prims_in_stage if prim.IsA(UsdLux.DomeLight)]

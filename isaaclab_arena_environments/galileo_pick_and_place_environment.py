@@ -37,7 +37,7 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase):
         pick_up_object.set_initial_pose(
             Pose(
                 position_xyz=(0.55, 0.0, 0.33),
-                rotation_wxyz=(0.0, 0.0, 0.7071068, -0.7071068),
+                rotation_xyzw=(0.0, 0.7071068, -0.7071068, 0.0),
             )
         )
 

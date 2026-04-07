@@ -6,8 +6,7 @@
 
 import gymnasium as gym
 import torch
-
-import pytest
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -21,7 +20,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -31,25 +30,24 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
-    args_cli.enable_pinocchio = False
 
     asset_registry = AssetRegistry()
 
     # Create scene assets
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0, 0, 0.707, 0.707)))
 
     peg = asset_registry.get_asset_by_name("peg")()
-    peg.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    peg.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     hole = asset_registry.get_asset_by_name("hole")()
-    hole.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    hole.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
 
     # Create embodiment
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     scene = Scene(assets=[background, peg, hole, light])
@@ -92,7 +90,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -102,31 +100,30 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
-    args_cli.enable_pinocchio = False
 
     asset_registry = AssetRegistry()
 
     # Create scene assets
     background = asset_registry.get_asset_by_name("table")()
-    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_wxyz=(0.707, 0, 0, 0.707)))
+    background.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0, 0, 0.707, 0.707)))
 
     gear_base = asset_registry.get_asset_by_name("gear_base")()
-    gear_base.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    gear_base.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     medium_gear = asset_registry.get_asset_by_name("medium_gear")()
-    medium_gear.set_initial_pose(Pose(position_xyz=(0.5, 0.2, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    medium_gear.set_initial_pose(Pose(position_xyz=(0.5, 0.2, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     small_gear = asset_registry.get_asset_by_name("small_gear")()
-    small_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    small_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     large_gear = asset_registry.get_asset_by_name("large_gear")()
-    large_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    large_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
     light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
 
     # Create embodiment
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     scene = Scene(assets=[background, gear_base, medium_gear, small_gear, large_gear, light])
@@ -197,7 +194,6 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -240,7 +236,6 @@ def _test_gear_mesh_assembly_single(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -277,7 +272,6 @@ def _test_peg_insert_assembly_multi(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -314,7 +308,6 @@ def _test_gear_mesh_assembly_multi(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -346,8 +339,6 @@ def _test_peg_insert_initialization(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
-
         traceback.print_exc()
         return False
 
@@ -380,7 +371,6 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
 
         traceback.print_exc()
         return False
@@ -389,14 +379,8 @@ def _test_gear_mesh_initialization(simulation_app) -> bool:
 
 
 # Test functions that will be called by pytest
-@pytest.mark.skip(
-    reason=(
-        "Requires enable_pinocchio=False. Run separately: pytest -sv"
-        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_single"
-    )
-)
 def test_peg_insert_assembly_single():
-    result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS, enable_pinocchio=False)
+    result = run_simulation_app_function(_test_peg_insert_assembly_single, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_single.__name__} failed"
 
 
@@ -405,14 +389,8 @@ def test_gear_mesh_assembly_single():
     assert result, f"Test {_test_gear_mesh_assembly_single.__name__} failed"
 
 
-@pytest.mark.skip(
-    reason=(
-        "Requires enable_pinocchio=False. Run separately: pytest -sv"
-        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_multi"
-    )
-)
 def test_peg_insert_assembly_multi():
-    result = run_simulation_app_function(_test_peg_insert_assembly_multi, headless=HEADLESS, enable_pinocchio=False)
+    result = run_simulation_app_function(_test_peg_insert_assembly_multi, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_assembly_multi.__name__} failed"
 
 
@@ -421,17 +399,8 @@ def test_gear_mesh_assembly_multi():
     assert result, f"Test {_test_gear_mesh_assembly_multi.__name__} failed"
 
 
-@pytest.mark.skip(
-    reason=(
-        "Requires enable_pinocchio=False. Run separately: pytest -sv"
-        " isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_initialization"
-    )
-)
 def test_peg_insert_initialization():
-    """
-    For peg insert task, we need to test the task with pinocchio disabled due to the "peg" and "hole" assets are not compatible with pinocchio.
-    """
-    result = run_simulation_app_function(_test_peg_insert_initialization, headless=HEADLESS, enable_pinocchio=False)
+    result = run_simulation_app_function(_test_peg_insert_initialization, headless=HEADLESS)
     assert result, f"Test {_test_peg_insert_initialization.__name__} failed"
 
 
@@ -441,15 +410,9 @@ def test_gear_mesh_initialization():
 
 
 if __name__ == "__main__":
-    """
-    Peg insert tests are commented out because they require enable_pinocchio=False,
-    but the current test session's SimulationApp was initialized with enable_pinocchio=True.
-    Due to limitations in subprocess.py, the SimulationApp cannot be restarted with different
-    parameters during a single pytest session. Run peg insert tests separately with:
-      pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_single --disable_pinocchio
-      pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_assembly_multi --disable_pinocchio
-      pytest -sv isaaclab_arena/tests/test_assembly_task.py::test_peg_insert_initialization --disable_pinocchio
-    """
+    test_peg_insert_initialization()
+    test_peg_insert_assembly_single()
+    test_peg_insert_assembly_multi()
     test_gear_mesh_initialization()
     test_gear_mesh_assembly_single()
     test_gear_mesh_assembly_multi()

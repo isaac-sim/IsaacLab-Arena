@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import traceback
 
 import pytest
 
@@ -72,7 +73,10 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         # the simple RIGID/ARTICULATION classification:
         # - For example, the "peg" and "hole" assets have both RigidBodyAPI and ArticulationRootAPI
         #   applied simultaneously, sometimes in different prim layers.
-        if object_asset.name not in ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base"):
+        # Procedurally generated assets do not have USD paths, so we skip them.
+        if "procedural" in getattr(object_asset, "tags", []):
+            continue
+        if object_asset.name not in ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere"):
             print(f"Automatically classifying: {object_asset.name}")
             detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
             print(f"database object type: {object_asset.object_type}")
@@ -95,7 +99,7 @@ def _test_auto_object_type(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
 
     try:
         # Try out an auto object.
@@ -140,6 +144,7 @@ def _test_auto_object_type(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

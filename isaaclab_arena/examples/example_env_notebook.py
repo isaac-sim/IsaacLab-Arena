@@ -8,7 +8,6 @@
 import torch
 import tqdm
 
-import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
 
 print("Launching simulation app once in notebook")
@@ -38,7 +37,7 @@ args_cli = args_parser.parse_args([
 #     "--background",
 #     "kitchen",
 #     "--embodiment",
-#     "franka",
+#     "franka_ik",
 # ])
 
 arena_builder = get_arena_builder_from_cli(args_cli)

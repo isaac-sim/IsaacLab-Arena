@@ -7,6 +7,7 @@ import torch
 from abc import ABC, abstractmethod
 from enum import Enum
 
+import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
@@ -17,6 +18,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.utils.velocity import Velocity
 
 
 class ObjectType(Enum):
@@ -42,6 +44,7 @@ class ObjectBase(Asset, ABC):
         self.prim_path = prim_path
         self.object_type = object_type
         self.initial_pose: Pose | PoseRange | None = None
+        self.initial_velocity: Velocity | None = None
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
@@ -77,7 +80,25 @@ class ObjectBase(Asset, ABC):
         initial_pose = self._get_initial_pose_as_pose()
         if initial_pose is not None and self.object_cfg is not None:
             self.object_cfg.init_state.pos = initial_pose.position_xyz
-            self.object_cfg.init_state.rot = initial_pose.rotation_wxyz
+            self.object_cfg.init_state.rot = initial_pose.rotation_xyzw
+        self.event_cfg = self._init_event_cfg()
+
+    def set_initial_velocity(self, velocity: Velocity) -> None:
+        """Set / override the initial velocity and rebuild derived configs.
+
+        The velocity is applied as ``init_state.lin_vel`` and
+        ``init_state.ang_vel`` on the underlying config
+        (``RigidObjectCfg`` or ``ArticulationCfg``) and is also restored
+        on every environment reset via the reset event.
+
+        Args:
+            velocity: A ``Velocity`` specifying linear and angular components.
+        """
+        self.initial_velocity = velocity
+        if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "lin_vel"):
+            self.object_cfg.init_state.lin_vel = velocity.linear_xyz
+        if self.object_cfg is not None and hasattr(self.object_cfg.init_state, "ang_vel"):
+            self.object_cfg.init_state.ang_vel = velocity.angular_xyz
         self.event_cfg = self._init_event_cfg()
 
     def _requires_reset_pose_event(self) -> bool:
@@ -91,7 +112,7 @@ class ObjectBase(Asset, ABC):
         )
 
     def _init_event_cfg(self) -> EventTermCfg | None:
-        """Build the ``EventTermCfg`` for resetting this object's pose."""
+        """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
         if not self._requires_reset_pose_event():
             return None
 
@@ -106,13 +127,15 @@ class ObjectBase(Asset, ABC):
                 },
             )
         else:
+            params: dict = {
+                "pose": initial_pose,
+                "asset_cfg": SceneEntityCfg(self.name),
+                "velocity": self.initial_velocity,
+            }
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",
-                params={
-                    "pose": initial_pose,
-                    "asset_cfg": SceneEntityCfg(self.name),
-                },
+                params=params,
             )
 
     def get_relations(self) -> list[RelationBase]:
@@ -160,15 +183,15 @@ class ObjectBase(Asset, ABC):
             The order is (x, y, z, qw, qx, qy, qz).
         """
         # We require that the asset has been added to the scene under its name.
-        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
         if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = env.scene[self.name].data.root_pose_w.clone()
+            object_pose = wp.to_torch(env.unwrapped.scene[self.name].data.root_pose_w).clone()
         elif self.object_type == ObjectType.BASE:
-            object_pose = torch.cat(env.scene[self.name].get_world_poses(), dim=-1)
+            object_pose = torch.cat(env.unwrapped.scene[self.name].get_world_poses(), dim=-1)
         else:
             raise ValueError(f"Function not implemented for object type: {self.object_type}")
         if is_relative:
-            object_pose[:, :3] -= env.scene.env_origins
+            object_pose[:, :3] -= env.unwrapped.scene.env_origins
         return object_pose
 
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
@@ -178,18 +201,20 @@ class ObjectBase(Asset, ABC):
             env: The environment.
             pose: The pose to set.
         """
-        assert self.name in env.scene.keys(), f"Asset {self.name} not found in scene"
+        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
         if env_ids is None:
-            env_ids = torch.arange(env.num_envs, device=env.device)
+            env_ids = torch.arange(env.unwrapped.num_envs, device=env.unwrapped.device)
         # Grab the object
-        asset = env.scene[self.name]
+        asset = env.unwrapped.scene[self.name]
         num_envs = len(env_ids)
         # Convert the pose to the env frame
-        pose_t_xyz_q_wxyz = pose.to_tensor(device=env.device).repeat(num_envs, 1)
-        pose_t_xyz_q_wxyz[:, :3] += env.scene.env_origins[env_ids]
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.unwrapped.device).repeat(num_envs, 1)
+        pose_t_xyz_q_xyzw[:, :3] += env.unwrapped.scene.env_origins[env_ids]
         # Set the pose and velocity
-        asset.write_root_pose_to_sim(pose_t_xyz_q_wxyz, env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros(1, 6, device=env.device), env_ids=env_ids)
+        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_ids)
+        asset.write_root_velocity_to_sim(
+            torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
+        )
 
     def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"

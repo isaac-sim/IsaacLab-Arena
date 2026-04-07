@@ -7,6 +7,7 @@ import numpy as np
 import pathlib
 import torch
 import tqdm
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.utils.pose import Pose
@@ -47,16 +48,16 @@ def get_test_scene():
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
     microwave = asset_registry.get_asset_by_name("microwave")()
 
-    kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+    kitchen.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     cracker_box.set_initial_pose(
         Pose(
-            position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)
+            position_xyz=(3.69020713150969, -0.804121657812894, 1.2531903565606817), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)
         )
     )
     microwave.set_initial_pose(
         Pose(
             position_xyz=(2.862758610786719, -0.39786255771393336, 1.087924015237011),
-            rotation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
         )
     )
 
@@ -70,7 +71,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -90,7 +91,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     # - drawer (destination location)
     # - microwave (openable object)
     background = background_from_usd_path(name="kitchen", usd_path=tmp_path, initial_pose=background_pose)
-    embodiment = FrankaEmbodiment()
+    embodiment = FrankaIKEmbodiment()
     cracker_box = ObjectReference(
         name="cracker_box",
         prim_path="{ENV_REGEX_NS}/kitchen/cracker_box",
@@ -148,7 +149,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
                     open_microwave()
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
-                success = env.termination_manager.get_term("success")
+                success = env.unwrapped.termination_manager.get_term("success")
                 is_open = microwave.is_open(env, SceneEntityCfg(microwave.name))
                 terminated_list.append(terminated.item())
                 success_list.append(success.item())
@@ -156,6 +157,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -185,7 +187,7 @@ def _test_reference_objects(simulation_app, tmp_path: pathlib.Path) -> bool:
 
 
 def _test_reference_objects_with_transform(simulation_app, tmp_path: pathlib.Path) -> bool:
-    background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_wxyz=(0.70711, 0, 0, -0.70711))
+    background_pose = Pose(position_xyz=(0.772, 3.39, -0.895), rotation_xyzw=(0, 0, -0.70711, 0.70711))
     return _test_reference_objects_with_background_pose(background_pose, tmp_path)
 
 

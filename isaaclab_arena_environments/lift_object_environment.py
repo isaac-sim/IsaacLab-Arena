@@ -43,8 +43,8 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
             teleop_device = None
 
         # Set all positions
-        background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_wxyz=(0.707, 0, 0, 0.707)))
-        pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_wxyz=(1, 0, 0, 0)))
+        background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_xyzw=(0, 0, 0.707, 0.707)))
+        pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
 
         # Compose the scene
@@ -78,5 +78,11 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--embodiment", type=str, default="franka")
-        parser.add_argument("--rl_training_mode", type=bool, default=True)
+        # For RL training, joint model gives better success rate than IK model.
+        # The IK model tends to stuck in degenerate poses.
+        parser.add_argument("--embodiment", type=str, default="franka_joint_pos")
+        parser.add_argument(
+            "--rl_training_mode",
+            action="store_true",
+            help="Disable success termination (use when training with RSL-RL). Omit for evaluation.",
+        )

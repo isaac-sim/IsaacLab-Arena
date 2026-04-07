@@ -9,11 +9,13 @@ import argparse
 import datetime
 import gymnasium as gym
 
+from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
+from isaaclab_teleop import IsaacTeleopCfg
 
 from isaaclab_arena.assets.asset_registry import DeviceRegistry
 from isaaclab_arena.assets.object import Object
@@ -26,10 +28,25 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
+
+
+def _reapply_viewer_cfg(env) -> None:
+    """Re-apply ViewerCfg camera position after visualizers are initialized.
+
+    ViewportCameraController calls sim.set_camera_view() during __init__, but visualizers
+    (e.g. KitVisualizer) are not yet initialized at that point and silently ignore the call.
+    After gym.make() returns the visualizers are ready, so we call update_view_location()
+    again to apply the configured eye/lookat position.
+    """
+    unwrapped = env.unwrapped
+    vcc = getattr(unwrapped, "viewport_camera_controller", None)
+    if vcc is not None:
+        vcc.update_view_location()
 
 
 class ArenaEnvBuilder:
@@ -98,13 +115,14 @@ class ArenaEnvBuilder:
         self._add_pairwise_no_collision(objects_with_relations)
 
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
-        placer = ObjectPlacer()
+        placement_seed = getattr(self.args, "placement_seed", None)
+        placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
         result = placer.place(objects=objects_with_relations)
 
         if result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
-            print(f"Relation solving not completed after {result.attempts} attempt(s)")
+            print(f"Warning: Relation solving not completed after {result.attempts} attempt(s)")
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -164,13 +182,15 @@ class ArenaEnvBuilder:
         )
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
+        isaac_teleop_cfg = None
+        teleop_devices_cfg = None
         if self.arena_env.teleop_device is not None:
             device_registry = DeviceRegistry()
-            teleop_device_cfg = device_registry.get_teleop_device_cfg(
-                self.arena_env.teleop_device, self.arena_env.embodiment
-            )
-        else:
-            teleop_device_cfg = None
+            device_cfg = device_registry.get_teleop_device_cfg(self.arena_env.teleop_device, self.arena_env.embodiment)
+            if isinstance(device_cfg, IsaacTeleopCfg):
+                isaac_teleop_cfg = device_cfg
+            elif isinstance(device_cfg, DeviceCfg):
+                teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
@@ -223,7 +243,8 @@ class ArenaEnvBuilder:
                 curriculum=curriculum_cfg,
                 commands=commands_cfg,
                 xr=xr_cfg,
-                teleop_devices=teleop_device_cfg,
+                isaac_teleop=isaac_teleop_cfg,
+                teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics,
                 isaaclab_arena_env=isaaclab_arena_env,
@@ -245,7 +266,8 @@ class ArenaEnvBuilder:
                 curriculum=curriculum_cfg,
                 commands=commands_cfg,
                 xr=xr_cfg,
-                teleop_devices=teleop_device_cfg,
+                isaac_teleop=isaac_teleop_cfg,
+                teleop_devices=teleop_devices_cfg,
                 # Mimic stuff
                 datagen_config=task_mimic_env_cfg.datagen_config,
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
@@ -263,6 +285,20 @@ class ArenaEnvBuilder:
         # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+
+        # Apply the --presets CLI flag (e.g. --presets newton).
+        # This runs after the callback so the user's CLI choice is the final authority.
+        presets = getattr(self.args, "presets", None)
+        if presets is not None:
+            from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+
+            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
+
+            # Set replicate_physics for shared physics representations.
+            # For Newton, wihotut this flag, the simulation initialization
+            # takes a very long time for large number of parallel environments.
+            if presets == "newton":
+                env_cfg.scene.replicate_physics = True
 
         return env_cfg
 
@@ -310,12 +346,18 @@ class ArenaEnvBuilder:
         )
         return name, cfg
 
-    def make_registered(self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None) -> ManagerBasedEnv:
-        env, _ = self.make_registered_and_return_cfg(env_cfg)
+    def make_registered(
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+    ) -> ManagerBasedEnv:
+        env, _ = self.make_registered_and_return_cfg(env_cfg, render_mode=render_mode)
         return env
 
     def make_registered_and_return_cfg(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None
+        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
-        return gym.make(name, cfg=cfg).unwrapped, cfg
+        env = gym.make(name, cfg=cfg, render_mode=render_mode)
+        # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
+        # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
+        _reapply_viewer_cfg(env)
+        return env, cfg

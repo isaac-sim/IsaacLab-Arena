@@ -5,6 +5,7 @@
 
 import torch
 
+import warp as wp
 from isaaclab.assets import Articulation
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
@@ -22,7 +23,7 @@ def unnormalize_value(value: float, min_value: float, max_value: float) -> float
 
 def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> int:
     """Get the index of a joint from the asset config."""
-    articulation = env.scene.articulations[asset_cfg.name]
+    articulation = env.unwrapped.scene.articulations[asset_cfg.name]
     assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
     joint_index = articulation.data.joint_names.index(asset_cfg.joint_names[0])
     return joint_index
@@ -30,13 +31,13 @@ def get_joint_index_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityC
 
 def get_articulation_from_asset_cfg(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> Articulation:
     """Get the articulation from the asset config."""
-    articulation = env.scene.articulations[asset_cfg.name]
+    articulation = env.unwrapped.scene.articulations[asset_cfg.name]
     return articulation
 
 
 def get_joint_position_limits_from_articulation(articulation: Articulation, joint_index: int) -> tuple[float, float]:
     """Get the position limits of a joint from the articulation."""
-    joint_position_limits = articulation.data.joint_pos_limits[0, joint_index, :]
+    joint_position_limits = wp.to_torch(articulation.data.joint_pos_limits)[0, joint_index, :]
     joint_min, joint_max = joint_position_limits[0], joint_position_limits[1]
     return joint_min, joint_max
 
@@ -45,7 +46,7 @@ def get_unnormalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntity
     """Get the unnormalized position of a joint in radians."""
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
-    joint_position = articulation.data.joint_pos[:, joint_index]
+    joint_position = wp.to_torch(articulation.data.joint_pos)[:, joint_index]
     return joint_position
 
 
@@ -71,10 +72,17 @@ def set_unnormalized_joint_position(
     """Set the position of a joint using an unnormalized value (in radians)."""
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
     joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
-    articulation.write_joint_position_to_sim(
-        torch.tensor([[target_joint_position_unnormlized]]).to(env.device),
-        torch.tensor([joint_index]).to(env.device),
-        env_ids=env_ids.to(env.device) if env_ids is not None else None,
+    # Duplicate data for each environment
+    num_envs = env.unwrapped.num_envs if env_ids is None else len(env_ids)
+    position = torch.full((num_envs, 1), target_joint_position_unnormlized, device=env.unwrapped.device)
+    joint_ids = torch.tensor([joint_index], dtype=torch.int32, device=env.unwrapped.device)
+    # Move env_ids to the device
+    env_ids = env_ids.to(env.unwrapped.device) if env_ids is not None else None
+    # Write the data to the simulation
+    articulation.write_joint_position_to_sim_index(
+        position=position,
+        joint_ids=joint_ids,
+        env_ids=env_ids,
     )
 
 

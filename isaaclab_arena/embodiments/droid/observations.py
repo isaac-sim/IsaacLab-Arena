@@ -5,6 +5,7 @@
 
 import torch
 
+import warp as wp
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 
@@ -21,7 +22,7 @@ def arm_joint_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntit
         "panda_joint7",
     ]
     joint_indices = [i for i, name in enumerate(robot.data.joint_names) if name in joint_names]
-    return robot.data.joint_pos[:, joint_indices]
+    return wp.to_torch(robot.data.joint_pos)[:, joint_indices]
 
 
 def gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
@@ -29,7 +30,7 @@ def gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityC
     robot = env.scene[asset_cfg.name]
     joint_names = ["finger_joint"]
     joint_indices = [i for i, name in enumerate(robot.data.joint_names) if name in joint_names]
-    joint_pos = robot.data.joint_pos[:, joint_indices]
+    joint_pos = wp.to_torch(robot.data.joint_pos)[:, joint_indices]
     # rescale to 0–1
     return joint_pos / (torch.pi / 4)
 
@@ -38,11 +39,11 @@ def ee_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("r
     """Returns the end effector position (x, y, z) in the world frame."""
     robot = env.scene[asset_cfg.name]
     body_idx = robot.data.body_names.index("base_link")  # Robotiq gripper base link
-    return robot.data.body_pos_w[:, body_idx, :]
+    return wp.to_torch(robot.data.body_pos_w)[:, body_idx, :]
 
 
 def ee_quat(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Returns the end effector orientation as quaternion (w, x, y, z) in the world frame."""
     robot = env.scene[asset_cfg.name]
     body_idx = robot.data.body_names.index("base_link")  # Robotiq gripper base link
-    return robot.data.body_quat_w[:, body_idx, :]
+    return wp.to_torch(robot.data.body_quat_w)[:, body_idx, :]

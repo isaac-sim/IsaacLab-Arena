@@ -6,11 +6,13 @@
 import math
 import torch
 
+import warp as wp
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
+from isaaclab.utils.math import combine_frame_transforms
 
 
 # NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
@@ -22,8 +24,8 @@ def object_on_destination(
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
 ) -> torch.Tensor:
-    object: RigidObject = env.scene[object_cfg.name]
-    sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
+    object: RigidObject = env.unwrapped.scene[object_cfg.name]
+    sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
     # and ``M`` is the number of filtered bodies.
@@ -32,10 +34,10 @@ def object_on_destination(
     assert sensor.data.force_matrix_w.shape[1] == 1
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
-    force_matrix_norm = torch.norm(sensor.data.force_matrix_w.clone(), dim=-1).reshape(-1)
+    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
-    velocity_w = object.data.root_lin_vel_w
+    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
@@ -55,7 +57,7 @@ def objects_on_destinations(
     Returns True only when ALL objects in the list satisfy the destination condition.
     See `object_on_destination` for details on the single-object logic.
     """
-    condition_met = torch.ones((env.num_envs), device=env.device, dtype=torch.bool)
+    condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
     for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
         single_condition = object_on_destination(
             env=env,
@@ -86,11 +88,8 @@ def objects_in_proximity(
     target_object: RigidObject = env.scene[target_object_cfg.name]
 
     # Get positions relative to environment origin
-    object_pos = object.data.root_pos_w - env.scene.env_origins
-
-    # Get positions relative to environment origin
-    object_pos = object.data.root_pos_w - env.scene.env_origins
-    target_object_pos = target_object.data.root_pos_w - env.scene.env_origins
+    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
+    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
 
     # object to target object
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
@@ -123,7 +122,7 @@ def lift_object_il_success(
     """
 
     object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = object_instance.data.root_pos_w
+    object_pos = wp.to_torch(object_instance.data.root_pos_w)
 
     goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
@@ -135,6 +134,7 @@ def lift_object_il_success(
 def lift_object_rl_success(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     rl_training: bool = False,
     command_name: str = "object_pose",
     position_tolerance: float = 0.05,
@@ -148,6 +148,7 @@ def lift_object_rl_success(
     Args:
         env: The RL environment instance.
         object_cfg: The configuration of the object to track.
+        robot_cfg: The robot configuration (needed to transform the goal to world frame).
         rl_training: If True, always returns False (disables success termination for RL training).
         command_name: The name of the command that is used to control the object.
         position_tolerance: Distance tolerance for success (m).
@@ -155,20 +156,22 @@ def lift_object_rl_success(
     Returns:
         A boolean tensor of shape (num_envs,) indicating success.
     """
-    # During RL training, never terminate early
     if rl_training:
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
+    robot: RigidObject = env.scene[robot_cfg.name]
     object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = object_instance.data.root_pos_w
 
-    # Try to get goal position from command manager
     command = env.command_manager.get_command(command_name)
-    # compute the desired position in the world frame
-    goal_pos = command[:, :3]
+    des_pos_b = command[:, :3]
 
-    # Check if object is within tolerance of goal
-    distance = torch.norm(object_pos - goal_pos, dim=1)
+    # Transform goal from robot-base frame to world frame
+    root_pos_w = wp.to_torch(robot.data.root_pos_w)
+    root_quat_w = wp.to_torch(robot.data.root_quat_w)
+    des_pos_w, _ = combine_frame_transforms(root_pos_w, root_quat_w, des_pos_b)
+
+    object_pos_w = wp.to_torch(object_instance.data.root_pos_w)
+    distance = torch.linalg.norm(des_pos_w - object_pos_w[:, :3], dim=1)
     return distance < position_tolerance
 
 
@@ -178,7 +181,7 @@ def goal_pose_task_termination(
     target_x_range: tuple[float, float] | None = None,
     target_y_range: tuple[float, float] | None = None,
     target_z_range: tuple[float, float] | None = None,
-    target_orientation_wxyz: tuple[float, float, float, float] | None = None,
+    target_orientation_xyzw: tuple[float, float, float, float] | None = None,
     target_orientation_tolerance_rad: float = 0.1,
 ) -> torch.Tensor:
     """Terminate when the object's pose is within the thresholds (BBox + Orientation).
@@ -189,15 +192,15 @@ def goal_pose_task_termination(
         target_x_range: Success zone x-range [min, max] in meters.
         target_y_range: Success zone y-range [min, max] in meters.
         target_z_range: Success zone z-range [min, max] in meters.
-        target_orientation_wxyz: Target quaternion [w, x, y, z].
+        target_orientation_xyzw: Target quaternion [x, y, z, w].
         target_orientation_tolerance_rad: Angular tolerance in radians (default: 0.1).
 
     Returns:
         A boolean tensor of shape (num_envs, )
     """
     object_instance: RigidObject = env.scene[object_cfg.name]
-    object_root_pos_w = object_instance.data.root_pos_w
-    object_root_quat_w = object_instance.data.root_quat_w
+    object_root_pos_w = wp.to_torch(object_instance.data.root_pos_w)
+    object_root_quat_w = wp.to_torch(object_instance.data.root_quat_w)
 
     device = env.device
     num_envs = env.num_envs
@@ -206,7 +209,7 @@ def goal_pose_task_termination(
         target_x_range is not None,
         target_y_range is not None,
         target_z_range is not None,
-        target_orientation_wxyz is not None,
+        target_orientation_xyzw is not None,
     ])
 
     if not has_any_threshold:
@@ -223,8 +226,8 @@ def goal_pose_task_termination(
             success &= in_range
 
     # Orientation check
-    if target_orientation_wxyz is not None:
-        target_quat = torch.tensor(target_orientation_wxyz, device=device, dtype=torch.float32).unsqueeze(0)
+    if target_orientation_xyzw is not None:
+        target_quat = torch.tensor(target_orientation_xyzw, device=device, dtype=torch.float32).unsqueeze(0)
 
         # Formula: |<q1, q2>| > cos(tolerance / 2)
         quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)

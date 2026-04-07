@@ -97,7 +97,6 @@ class GalbotLeftArmActionsCfg:
         controller=GALBOT_LEFT_ARM_RMPFLOW_CFG,
         scale=1.0,
         body_offset=RMPFlowActionCfg.OffsetCfg(pos=(0.0, 0.0, 0.0)),
-        articulation_prim_expr="/World/envs/env_.*/Robot",
         use_relative_mode=True,
     )
 

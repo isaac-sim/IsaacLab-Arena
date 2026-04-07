@@ -6,6 +6,7 @@
 import gymnasium as gym
 import random
 import torch
+import traceback
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -19,7 +20,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.franka.franka import FrankaEmbodiment
+    from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -37,7 +38,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
     stand_mixer.set_initial_pose(
         Pose(
             position_xyz=(0.6, -0.00586, 0.22773),
-            rotation_wxyz=(0.7071068, 0, 0, -0.7071068),
+            rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
         )
     )
 
@@ -45,7 +46,7 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="turn_stand_mixer_knob",
-        embodiment=FrankaEmbodiment(),
+        embodiment=FrankaIKEmbodiment(),
         scene=scene,
         task=TurnKnobTask(turnable_object=stand_mixer, target_level=RESET_TARGET_LEVEL, reset_level=-1),
     )
@@ -80,6 +81,7 @@ def _test_turn_stand_mixer_knob_to_desired_levels_single_env(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -128,6 +130,7 @@ def _test_turn_stand_mixer_knob_multiple_envs(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:
@@ -164,6 +167,7 @@ def _test_turn_stand_mixer_knob_reset_condition(simulation_app):
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return False
 
     finally:

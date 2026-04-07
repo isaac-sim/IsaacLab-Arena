@@ -128,4 +128,4 @@ Usage Examples
        num_envs=1024,
        use_fabric=True
    )
-   env = gym.make(name, cfg=cfg).unwrapped
+   env = gym.make(name, cfg=cfg)

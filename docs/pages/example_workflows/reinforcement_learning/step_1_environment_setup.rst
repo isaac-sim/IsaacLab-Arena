@@ -1,7 +1,7 @@
 Environment Setup and Validation
 --------------------------------
 
-**Docker Container**: Base (see :doc:`../../quickstart/docker_containers` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
 On this page we briefly describe the RL environment used in this example workflow
 and validate that we can load it in Isaac Lab.
@@ -42,8 +42,8 @@ Environment Description
               )
 
               # Set all positions
-              background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_wxyz=(0.707, 0, 0, 0.707)))
-              pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_wxyz=(1, 0, 0, 0)))
+              background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_xyzw=(0, 0, 0.707, 0.707)))
+              pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
               ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
 
               # Compose the scene
@@ -94,8 +94,8 @@ to provide a flat observation vector suitable for RL training.
 
 .. code-block:: python
 
-   background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_wxyz=(0.707, 0, 0, 0.707)))
-   pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_wxyz=(1, 0, 0, 0)))
+   background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_xyzw=(0, 0, 0.707, 0.707)))
+   pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
    ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
 
 Before we create the scene, we need to place our objects in the right locations. The table is positioned
@@ -131,7 +131,7 @@ The task includes:
 - **Reward Terms**: Dense rewards for reaching, grasping, lifting, and achieving target poses
 - **Observation Space**: Robot state (joint positions, velocities), object state (pose, velocity), and goal commands
 - **Termination Conditions**: Object dropped or timeout
-- **Success Condition**: Object reaches target position (only active during evaluation when ``rl_training_mode=False``)
+- **Success Condition**: Object reaches target position (disabled by the ``--rl_training_mode`` flag for training)
 
 See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
@@ -159,12 +159,13 @@ To validate the environment loads correctly, run one training iteration and chec
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
+     --rl_training_mode \
      --num_envs 64 \
-     --max_iterations 1 \
-     --headless
+     --max_iterations 1
+
 
 If the environment is set up correctly, you will see one iteration of training output before the script exits.
 

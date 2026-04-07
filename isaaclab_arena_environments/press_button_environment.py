@@ -37,7 +37,7 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
             teleop_device = None
 
         # Put the coffee_machine on the packing table.
-        press_object_pose = Pose(position_xyz=(0.7, 0.4, 0.19), rotation_wxyz=(0.7071, 0.0, 0.0, -0.7071))
+        press_object_pose = Pose(position_xyz=(0.7, 0.4, 0.19), rotation_xyzw=(0.0, 0.0, -0.7071, 0.7071))
         press_object.set_initial_pose(press_object_pose)
 
         # Compose the scene
@@ -58,4 +58,4 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
         # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--embodiment", type=str, default="franka")
+        parser.add_argument("--embodiment", type=str, default="franka_ik")

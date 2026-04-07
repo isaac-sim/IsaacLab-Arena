@@ -126,6 +126,8 @@ and pass ``--distributed`` so each process uses a different GPU (via ``LOCAL_RAN
 The rest of the arguments (environment, embodiment, object, etc.) come from the
 Arena environments CLI and the policy’s own ``add_args_to_parser``.
 
+.. _sequential-batch-eval-runner:
+
 2. Sequential batch eval runner — batch jobs
 --------------------------------------------
 
@@ -216,6 +218,7 @@ object with:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
+     --visualizer kit \
      --eval_jobs_config path/to/eval_jobs_config.json \
      --num_steps 1000
 

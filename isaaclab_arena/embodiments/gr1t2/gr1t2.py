@@ -15,7 +15,6 @@ import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.devices.openxr import XrCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
@@ -26,13 +25,14 @@ from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
+from isaaclab_teleop import XrCfg
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.utils.isaaclab_utils.resets import reset_all_articulation_joints
+from isaaclab_arena.terms.events import reset_all_articulation_joints
 from isaaclab_arena.utils.pose import Pose
 
 ARM_JOINT_NAMES_LIST = [
@@ -77,7 +77,7 @@ ARM_JOINT_NAMES_LIST = [
 ]
 
 # Default camera offset pose
-_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_wxyz=(0.62, 0.32, -0.32, -0.63))
+_DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.32, -0.32, -0.63, 0.62))
 
 
 @register_asset
@@ -108,7 +108,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         # These offsets are defined relative to the robot's base frame
         self._xr_offset = Pose(
             position_xyz=(-0.5, 0.0, -1.0),
-            rotation_wxyz=(0.70711, 0.0, 0.0, -0.70711),
+            rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711),
         )
         self.xr: XrCfg | None = None
 
@@ -388,7 +388,7 @@ class GR1T2CameraCfg:
         )
         offset = OffsetClass(
             pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_wxyz,
+            rot=camera_offset.rotation_xyzw,
             convention="opengl",
         )
 
