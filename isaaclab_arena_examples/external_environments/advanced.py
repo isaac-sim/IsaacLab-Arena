@@ -3,16 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Advanced example: externally-defined environment with a custom task.
+"""Advanced example: externally-defined environment with a custom task and embodiment.
 
-This builds on the basic example by defining a custom task in the same file.
-The task triggers success after a fixed number of simulation steps.
-
-External environment files are loaded after the simulation app has started
-(via the ``--external_environment_class_path`` CLI flag), so Isaac Lab modules
-can be imported at the top level.
-
-Usage::
+Builds on the basic example by defining a custom task and a custom embodiment
+variant (with modified controller gains) in the same file::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 100 \\
@@ -29,7 +23,9 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils import configclass
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -78,6 +74,30 @@ class SuccessAfterNStepsTerminationsCfg:
 
 
 # ---------------------------------------------------------------------------
+# Custom embodiment
+# ---------------------------------------------------------------------------
+
+
+@register_asset
+class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
+    """Franka IK embodiment with halved joint PD gains for more compliant behaviour.
+
+    The standard ``franka_ik`` uses stiffness 400 / damping 80 on the shoulder
+    and forearm actuator groups.  This variant halves both, which is useful for
+    contact-rich or force-sensitive tasks.
+    """
+
+    name = "franka_ik_soft"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        for actuator_name in ("panda_shoulder", "panda_forearm"):
+            actuator = self.scene_config.robot.actuators[actuator_name]
+            actuator.stiffness = 200.0
+            actuator.damping = 40.0
+
+
+# ---------------------------------------------------------------------------
 # External environment
 # ---------------------------------------------------------------------------
 
@@ -95,7 +115,7 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         light = self.asset_registry.get_asset_by_name("light")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        embodiment = self.asset_registry.get_asset_by_name("franka_ik")()
+        embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
 
         table_reference = ObjectReference(
             name="table",
