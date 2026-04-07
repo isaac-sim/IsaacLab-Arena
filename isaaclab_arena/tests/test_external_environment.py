@@ -11,7 +11,10 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 HEADLESS = True
 NUM_STEPS = 2
 
-EXTERNAL_ENV_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment"
+EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment"
+EXTERNAL_ENV_ADVANCED_IMPORT_PATH = (
+    "isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment"
+)
 
 
 def run_policy_runner_with_external_environment(
@@ -44,8 +47,19 @@ def run_policy_runner_with_external_environment(
 def test_external_environment_franka_table():
     run_policy_runner_with_external_environment(
         policy_type="zero_action",
-        environment_import_path=EXTERNAL_ENV_IMPORT_PATH,
+        environment_import_path=EXTERNAL_ENV_BASIC_IMPORT_PATH,
         example_environment="franka_table",
+        object_name="cracker_box",
+        num_steps=NUM_STEPS,
+    )
+
+
+@pytest.mark.with_subprocess
+def test_external_environment_franka_table_with_task():
+    run_policy_runner_with_external_environment(
+        policy_type="zero_action",
+        environment_import_path=EXTERNAL_ENV_ADVANCED_IMPORT_PATH,
+        example_environment="franka_table_with_task",
         object_name="cracker_box",
         num_steps=NUM_STEPS,
     )

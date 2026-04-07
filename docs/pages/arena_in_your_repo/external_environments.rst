@@ -102,3 +102,10 @@ environment's ``add_cli_args()`` method.
        :width: 50%
        :alt: External environment example
        :align: center
+
+Next Steps
+----------
+
+The example above uses a built-in task (``NoTask``) and a built-in embodiment
+(``franka_ik``).  To learn how to define your own custom tasks and embodiment
+variants, see :doc:`external_tasks_and_embodiments`.

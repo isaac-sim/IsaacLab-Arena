@@ -2,33 +2,21 @@ Your Own Tasks and Embodiments
 ==============================
 
 The :doc:`previous page <external_environments>` showed how to define an
-external environment that composes built-in assets.  This page goes further:
-you will learn how to define a **custom task** and a **custom embodiment
-variant** in an external file and wire them into an environment.
-
-The full example lives in
-``isaaclab_arena_examples/external_environments/advanced.py``.
+environment in your repository, external to the Isaac Lab - Arena source tree.
+Typical users will also want to define their own tasks and embodiments.
+This page describes how that is done, in an external repo.
 
 Defining a Custom Task
 ----------------------
 
-A task controls the episode lifecycle: termination conditions, metrics, and
-(optionally) extra scene objects, events, rewards, and viewer settings.
-Create one by subclassing ``TaskBase``:
+A custom task is defined by subclassing ``TaskBase`` and implementing the required methods.
+The code below shows how to define a simple task that succeeds after a fixed number of steps.
+This task can be passed to the ``ArenaEnvBuilder`` to create an environment
+(see :ref:`putting_it_all_together` below for an example).
 
 .. code-block:: python
 
-   from dataclasses import MISSING
-
-   import isaaclab.envs.mdp as mdp_isaac_lab
-   from isaaclab.managers import TerminationTermCfg
-   from isaaclab.utils import configclass
-
-   from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-   from isaaclab_arena.metrics.metric_base import MetricBase
-   from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-   from isaaclab_arena.tasks.task_base import TaskBase
-
+   # my_package/isaaclab_arena_environments/my_environment_with_task.py
 
    class SuccessAfterNStepsTask(TaskBase):
        """Minimal task: the episode succeeds after a fixed number of steps."""
@@ -40,19 +28,10 @@ Create one by subclassing ``TaskBase``:
            )
            self.num_steps_for_success = num_steps_for_success
 
-       def get_scene_cfg(self):
-           return None
-
        def get_termination_cfg(self):
            n = self.num_steps_for_success
            success = TerminationTermCfg(func=lambda env, n=n: env.episode_length_buf >= n)
            return SuccessAfterNStepsTerminationsCfg(success=success)
-
-       def get_events_cfg(self):
-           return None
-
-       def get_mimic_env_cfg(self, arm_mode: ArmMode):
-           raise NotImplementedError
 
        def get_metrics(self) -> list[MetricBase]:
            return [SuccessRateMetric()]
@@ -63,33 +42,19 @@ Create one by subclassing ``TaskBase``:
        time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
        success: TerminationTermCfg = MISSING
 
-The key methods to implement are:
-
-* ``get_termination_cfg()`` — returns the termination conditions.  The example
-  marks the episode as successful once ``episode_length_buf`` reaches the
-  configured step count.
-* ``get_metrics()`` — returns the list of metrics to compute.  Here we use the
-  built-in ``SuccessRateMetric``.
-* ``get_scene_cfg()`` and ``get_events_cfg()`` — return ``None`` when the task
-  does not add extra scene objects or randomisation events beyond what the
-  embodiment already provides.
 
 Defining a Custom Embodiment
 ----------------------------
 
-Embodiments encapsulate everything about a specific robot configuration:
-articulation USD, actuator gains, action space, observations, and events.
-You can create a variant of an existing embodiment by subclassing it and
-overriding the parts you want to change.
-
-The example below subclasses ``FrankaIKEmbodiment`` and halves the joint PD
-gains on the shoulder and forearm actuator groups, producing a more compliant
+Custom embodiments are defined by subclassing ``EmbodimentBase`` and implementing
+the required methods.
+In this example, we keep things simple by subclassing an existing embodiment
+(``FrankaIKEmbodiment``) and overriding some joint PD gains to produce a more compliant
 arm:
 
 .. code-block:: python
 
-   from isaaclab_arena.assets.register import register_asset
-   from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+   # my_package/isaaclab_arena_environments/my_environment_with_task.py
 
 
    @register_asset
@@ -107,19 +72,19 @@ arm:
 
 The ``@register_asset`` decorator registers the class with the
 ``AssetRegistry`` under the name ``"franka_ik_soft"``, so it can be fetched
-the same way as any built-in embodiment:
+the same way as any built-in embodiment (see :ref:`putting_it_all_together` below for an example).
 
-.. code-block:: python
-
-   embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
+.. _putting_it_all_together:
 
 Putting It All Together
 -----------------------
 
-The environment class composes the custom task, the custom embodiment, and a
-scene — exactly like the basic example, but now using the pieces defined above:
+Here we create an example environment, like in :doc:`external_environments`, but this time
+that composes the custom task and custom embodiment.
 
 .. code-block:: python
+
+   # my_package/isaaclab_arena_environments/my_environment_with_task.py
 
    class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
 
@@ -162,22 +127,39 @@ scene — exactly like the basic example, but now using the pieces defined above
        def add_cli_args(parser: argparse.ArgumentParser) -> None:
            parser.add_argument("--object", type=str, default="cracker_box")
 
-Running the Example
--------------------
+External environments can be used in Isaac Lab Arena workflows by using a particular
+CLI syntax. For example, a zero-action policy can be run with an
+externally-defined environment like this:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
-     --num_steps 100 \
-     --external_environment_class_path \
-     isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \
-     franka_table_with_task
+     --num_episodes 1 \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableWithTaskEnvironment \
+     franka_table_with_task \
+     --object tomato_soup_can
+
+So the flag ``external_environment_class_path`` is used to specify the (fully qualified) path to the
+external environment module and class. The environment name is then specified as the
+first non flag argument to the policy runner, and any additional arguments are passed to the
+environment's ``add_cli_args()`` method.
 
 .. note::
 
-   Like the basic example, this file lives inside the Isaac Lab Arena source
-   tree (``isaaclab_arena_examples/external_environments/advanced.py``) but is
-   **not** included in the built-in environments.  It is loaded through the
-   ``--external_environment_class_path`` flag to demonstrate how an external
-   codebase would use the same mechanism.
+    The environment above is actually located in ``isaaclab_arena_examples/external_environments/advanced.py``.
+    So this environment is located in the Isaac Lab Arena source-tree, but isn't included
+    in the built in environments, so must be called through the external environment syntax.
+    This is done to demonstrate how this would be done in an external codebase.
+
+    The environment can be run with:
+
+    .. code-block:: bash
+
+        python isaaclab_arena/evaluation/policy_runner.py \
+          --visualizer kit \
+          --policy_type zero_action \
+          --num_episodes 1 \
+          --external_environment_class_path isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \
+          franka_table_with_task \
+          --object tomato_soup_can

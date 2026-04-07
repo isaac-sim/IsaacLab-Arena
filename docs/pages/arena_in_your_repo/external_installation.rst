@@ -72,6 +72,12 @@ for a complete reference, including Isaac Lab installation and optional GR00T de
    Of course, if you have an non-Docker environment that satisfies the prerequisites, you can
    install Arena directly into that environment, without the need for Docker.
 
+Next Steps
+----------
+
+Once Arena is installed, see :doc:`external_environments` for how to define
+your own environments in your repository.
+
 .. Defining a Custom, Externally-Defined Environment
 .. -------------------------------------------------
 
