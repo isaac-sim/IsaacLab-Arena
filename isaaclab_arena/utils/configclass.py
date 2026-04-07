@@ -127,7 +127,10 @@ def get_field_info(field: dataclasses.Field) -> tuple[str, type, Any]:
     if field.default is not dataclasses.MISSING:
         field_info += (field.default,)
     elif field.default_factory is not dataclasses.MISSING:
-        field_info += (field.default_factory,)
+        # Isaac Lab ``@configclass`` turns mutable defaults into ``field(default_factory=...)``.
+        # Passing the raw callable to :func:`make_configclass` sets ``Class.field_name = <function>`` in the
+        # generated class body, so merged instances get a function instead of a config instance (e.g. ``proprio``).
+        field_info += (dataclasses.field(default_factory=field.default_factory),)
     return field_info
 
 

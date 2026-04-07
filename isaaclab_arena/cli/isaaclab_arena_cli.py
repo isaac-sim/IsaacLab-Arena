@@ -56,6 +56,16 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Seed for object placement. If set, objects are placed at the same positions across runs.",
     )
+    arena_group.add_argument(
+        "--presets",
+        type=str,
+        default=None,
+        help=(
+            "Physics backend preset: 'physx' or 'newton'. "
+            "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
+            "When not set, each environment uses its own default."
+        ),
+    )
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:

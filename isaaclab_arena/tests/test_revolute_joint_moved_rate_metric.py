@@ -39,7 +39,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     microwave = asset_registry.get_asset_by_name("microwave")()
 
     microwave.set_initial_pose(Pose(position_xyz=(0.45, 0.0, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))

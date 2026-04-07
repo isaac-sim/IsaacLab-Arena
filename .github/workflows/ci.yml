@@ -140,18 +140,22 @@ jobs:
       # - All subprocess-spawning tests (each spawns their own SimulationApp)
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
-
-      - name: Run in-process tests without cameras
+      - name: Run in-process Newton tests
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" \
+          /isaac-sim/python.sh -m pytest -sv -m with_newton \
             isaaclab_arena/tests/
 
-      - name: Run in-process tests with cameras.
+      - name: Run in-process PhysX tests without cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m "with_cameras and not with_subprocess" \
+          /isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
-      - name: Run subprocess-spawning tests (before persistent SimApp is created)
+      - name: Run in-process PhysX tests with cameras
+        run: |
+          /isaac-sim/python.sh -m pytest -sv -m "with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
+
+      - name: Run subprocess-spawning  PhysX tests
         run: |
           /isaac-sim/python.sh -m pytest -sv -m with_subprocess \
             isaaclab_arena/tests/

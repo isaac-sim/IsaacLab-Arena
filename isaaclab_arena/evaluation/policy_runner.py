@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import gymnasium as gym
 import torch
 import tqdm
 from importlib import import_module
@@ -169,9 +168,7 @@ def main():
 
         # Build scene
         arena_builder = get_arena_builder_from_cli(args_cli)
-        name, cfg = arena_builder.build_registered()
-
-        env = gym.make(name, cfg=cfg)
+        env, cfg = arena_builder.make_registered_and_return_cfg()
 
         # Per-rank seed when distributed so each process has a different seed
         seed = args_cli.seed

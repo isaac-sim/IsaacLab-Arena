@@ -21,13 +21,12 @@ or you can download a pre-trained one as described below.
    .. code-block:: bash
 
       hf download \
-         nvidia/IsaacLab-Arena-Lift-Object-RL \
-         model_11999.pt \
+         nvidia/Arena-Franka-Lift-Object-RL-Task \
          --local-dir $MODELS_DIR/lift_object_checkpoint
 
    After downloading, the checkpoint is at:
 
-   ``$MODELS_DIR/lift_object_checkpoint/model_11999.pt``
+   ``$MODELS_DIR/lift_object_checkpoint/model_1999.pt``
 
    Replace checkpoint paths in the examples below with this path.
 
@@ -50,14 +49,14 @@ Method 1: Single Environment Evaluation
    python isaaclab_arena/evaluation/policy_runner.py \
      --visualizer kit \
      --policy_type rsl_rl \
-     --num_steps 1000 \
-     --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
+     --num_episodes 20 \
+     --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
      lift_object
 
 .. note::
 
-   If you downloaded the pre-trained model from Hugging Face, replace the checkpoint path with:
-   ``$MODELS_DIR/lift_object_checkpoint/model_11999.pt``
+   If you train the model yourself, the checkpoint path is typically in the ``logs/rsl_rl/generic_experiment/`` directory.
+   Replace the checkpoint path with the path to your own checkpoint.
 
 Policy-specific arguments (``--policy_type``, ``--checkpoint_path``, etc.) must come **before** the
 environment name. Environment-specific arguments (``--object``, ``--embodiment``, etc.) must come
@@ -67,7 +66,7 @@ At the end of the run, metrics are printed to the console:
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.85, 'num_episodes': 12}
+   Metrics: {'success_rate': 0.81, 'num_episodes': 12}
 
 
 Method 2: Parallel Environment Evaluation
@@ -79,21 +78,28 @@ For more statistically significant results, run across many environments in para
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type rsl_rl \
-     --num_steps 5000 \
+     --num_episodes 1024 \
      --num_envs 64 \
-     --checkpoint_path logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt \
-     --headless \
+     --env_spacing 2.5 \
+     --visualizer kit \
+     --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
      lift_object
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.83, 'num_episodes': 156}
+   Metrics: {'success_rate': 0.72, 'num_episodes': 1024}
+
+.. image:: ../../../images/lift_object_rl_parallel.gif
+   :align: center
+   :height: 400px
 
 
 Method 3: Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a JSON config.
+Here we evaluate the models you trained yourself.
+The checkpoint path should be replaced with the timestamp of your training run in the ``logs/rsl_rl/generic_experiment/`` directory.
 
 **1. Create an evaluation config**
 
@@ -102,20 +108,30 @@ Create a file ``eval_config.json``:
 .. code-block:: json
 
    {
-     "policy_runner_args": {
-       "policy_type": "rsl_rl",
-       "num_steps": 5000,
-       "num_envs": 64,
-       "headless": true
-     },
-     "evaluations": [
+     "jobs": [
        {
-         "checkpoint_path": "logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_5999.pt",
-         "environment": "lift_object"
+         "name": "lift_object_model_1000",
+         "policy_type": "rsl_rl",
+         "num_episodes": 1024,
+         "arena_env_args": {
+           "environment": "lift_object",
+           "num_envs": 64
+         },
+         "policy_config_dict": {
+           "checkpoint_path": "logs/rsl_rl/generic_experiment/<timestamp>/model_1000.pt"
+         }
        },
        {
-         "checkpoint_path": "logs/rsl_rl/generic_experiment/2026-01-28_17-26-10/model_11999.pt",
-         "environment": "lift_object"
+         "name": "lift_object_model_1999",
+         "policy_type": "rsl_rl",
+         "num_episodes": 1024,
+         "arena_env_args": {
+           "environment": "lift_object",
+           "num_envs": 64
+         },
+         "policy_config_dict": {
+           "checkpoint_path": "logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt"
+         }
        }
      ]
    }
@@ -124,20 +140,24 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/eval_runner.py \
+     --visualizer kit \
+     --eval_jobs_config eval_config.json
 
 .. code-block:: text
 
-   Evaluating checkpoint 1/2: model_5999.pt
-   Metrics: {'success_rate': 0.72, 'num_episodes': 152}
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
 
-   Evaluating checkpoint 2/2: model_11999.pt
-   Metrics: {'success_rate': 0.85, 'num_episodes': 156}
+   lift_object_model_1000:
+   num_episodes                         1024
+   success_rate                       0.6526
 
-   Summary:
-   ========================================
-   model_5999.pt  | Success: 72% | Episodes: 152
-   model_11999.pt | Success: 85% | Episodes: 156
+   lift_object_model_1999:
+   num_episodes                         1024
+   success_rate                       0.7408
+   ======================================================================
 
 
 Understanding the Metrics

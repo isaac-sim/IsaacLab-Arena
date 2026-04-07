@@ -35,6 +35,20 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.multiprocess import get_local_rank
 
 
+def _reapply_viewer_cfg(env) -> None:
+    """Re-apply ViewerCfg camera position after visualizers are initialized.
+
+    ViewportCameraController calls sim.set_camera_view() during __init__, but visualizers
+    (e.g. KitVisualizer) are not yet initialized at that point and silently ignore the call.
+    After gym.make() returns the visualizers are ready, so we call update_view_location()
+    again to apply the configured eye/lookat position.
+    """
+    unwrapped = env.unwrapped
+    vcc = getattr(unwrapped, "viewport_camera_controller", None)
+    if vcc is not None:
+        vcc.update_view_location()
+
+
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
 
@@ -271,6 +285,20 @@ class ArenaEnvBuilder:
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
+        # Apply the --presets CLI flag (e.g. --presets newton).
+        # This runs after the callback so the user's CLI choice is the final authority.
+        presets = getattr(self.args, "presets", None)
+        if presets is not None:
+            from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+
+            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
+
+            # Set replicate_physics for shared physics representations.
+            # For Newton, wihotut this flag, the simulation initialization
+            # takes a very long time for large number of parallel environments.
+            if presets == "newton":
+                env_cfg.scene.replicate_physics = True
+
         return env_cfg
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
@@ -327,4 +355,8 @@ class ArenaEnvBuilder:
         self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
-        return gym.make(name, cfg=cfg, render_mode=render_mode), cfg
+        env = gym.make(name, cfg=cfg, render_mode=render_mode)
+        # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
+        # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
+        _reapply_viewer_cfg(env)
+        return env, cfg

@@ -85,9 +85,16 @@ $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-deps --no-build-isola
     accelerate==1.2.1 \
     peft==0.17.0 \
     diffusers==0.35.1 \
-    tianshou==0.5.1 && \
+    tianshou==0.5.1
 
-# Step 2: Everything else — let pip resolve transitive deps normally.
+# Step 2: Install deepspeed with deps, then remove the torch it pulls in.
+echo "Installing deepspeed (with deps, then removing duplicate torch)..."
+$PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation \
+    deepspeed==0.17.6 && \
+rm -rf "$GROOT_DEPS_DIR/torch" "$GROOT_DEPS_DIR/torch-"*.dist-info \
+       "$GROOT_DEPS_DIR/functorch" "$GROOT_DEPS_DIR/torchgen"
+
+# Step 3: Everything else — let pip resolve transitive deps normally.
 echo "Installing remaining GR00T dependencies (with deps)..."
 $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use-pep517 \
     lmdb==1.7.5 \
@@ -115,7 +122,7 @@ $PYTHON_CMD -m pip install --target "$GROOT_DEPS_DIR" --no-build-isolation --use
     onnx==1.17.0 \
     pytest \
     hydra-core \
-    tyro && \
+    tyro
 
 # Add GR00T deps to sys.path *after* site-packages via .pth (so we never override Isaac Sim packages)
 SITE_PACKAGES=$($PYTHON_CMD -c "import site; print(site.getsitepackages()[0])")

@@ -41,7 +41,7 @@ def test_franka_put_and_close_door_mimic_data_generation_single_env():
         # example env
         args.append("franka_put_and_close_door")
         args.append("--embodiment")
-        args.append("franka")
+        args.append("franka_ik")
         run_subprocess(args)
 
 
@@ -70,7 +70,7 @@ def test_franka_put_and_close_door_mimic_data_generation_multi_env():
         # example env
         args.append("franka_put_and_close_door")
         args.append("--embodiment")
-        args.append("franka")
+        args.append("franka_ik")
         run_subprocess(args)
 
 

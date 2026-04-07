@@ -1878,3 +1878,93 @@ class TableMapleRobolab(LibraryObject):
     name = "table_maple_robolab"
     tags = ["background", "fixture", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_maple.usd"
+
+
+# ---------------------------------------------------------------------------
+# Procedural assets (Newton-safe, single-geometry cuboids)
+# ---------------------------------------------------------------------------
+
+_PROCEDURAL_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.8, 1.5, 0.04),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    visible=False,
+)
+
+
+@register_asset
+class ProceduralTable(Object):
+    """Kinematic cuboid table (invisible collision surface). Newton-safe, single geometry."""
+
+    name = "procedural_table"
+    tags = ["background", "procedural"]
+    object_min_z: float = 0.0
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        resolved_name = instance_name if instance_name is not None else "table"
+        resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/table"
+        super().__init__(
+            name=resolved_name,
+            prim_path=resolved_prim,
+            object_type=ObjectType.RIGID,
+            usd_path="",
+            initial_pose=initial_pose,
+        )
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
+            **self.asset_cfg_addon,
+        )
+        return self._add_initial_pose_to_cfg(cfg)
+
+
+_PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
+    size=(0.05, 0.1, 0.1),
+    physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        solver_position_iteration_count=16,
+        solver_velocity_iteration_count=0,
+        disable_gravity=False,
+    ),
+    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+    mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+)
+
+
+@register_asset
+class ProceduralCube(Object):
+    """Rigid cuboid manipuland (0.2 kg, 5x10x10 cm). Newton-safe, single geometry."""
+
+    name = "procedural_cube"
+    tags = ["object", "procedural"]
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = None,
+        initial_pose: Pose | None = None,
+    ):
+        resolved_name = instance_name if instance_name is not None else "object"
+        resolved_prim = prim_path if prim_path is not None else "{ENV_REGEX_NS}/Object"
+        super().__init__(
+            name=resolved_name,
+            prim_path=resolved_prim,
+            object_type=ObjectType.RIGID,
+            usd_path="",
+            initial_pose=initial_pose,
+        )
+
+    def _generate_rigid_cfg(self) -> RigidObjectCfg:
+        cfg = RigidObjectCfg(
+            prim_path=self.prim_path,
+            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
+            **self.asset_cfg_addon,
+        )
+        return self._add_initial_pose_to_cfg(cfg)

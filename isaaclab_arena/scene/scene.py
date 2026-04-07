@@ -14,6 +14,7 @@ from pxr import Gf, Usd, UsdGeom
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
@@ -53,7 +54,15 @@ class Scene:
         self.assets[asset.name] = asset
 
     def add_assets(self, assets: list[Asset | RigidObjectSet]):
+        all_assets = set(assets)
         for asset in assets:
+            if isinstance(asset, ObjectReference):
+                assert asset.parent_asset in all_assets, (
+                    f"ObjectReference '{asset.name}' refers to parent asset '{asset.parent_asset.name}' "
+                    "which is not included in the scene."
+                )
+        sorted_assets = sorted(assets, key=lambda a: isinstance(a, ObjectReference))
+        for asset in sorted_assets:
             self.add_asset(asset)
 
     def get_scene_cfg(self) -> Any:

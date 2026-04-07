@@ -27,7 +27,7 @@ def _test_object_pose_randomization(simulation_app):
     asset_registry = AssetRegistry()
 
     background = asset_registry.get_asset_by_name("kitchen")()
-    embodiment = asset_registry.get_asset_by_name("franka")()
+    embodiment = asset_registry.get_asset_by_name("franka_ik")()
     cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 
     pose_range = PoseRange(
