@@ -1,108 +1,126 @@
-Metrics Design
-==============
+Metrics
+=======
 
-Metrics evaluate robot performance and task completion. The system integrates with Isaac Lab's recorder manager to capture simulation data and compute performance indicators.
-
-Core Architecture
------------------
-
-Metrics use two-component architecture separating data collection from metric computation:
+A metric records any quantity during simulation and reduces it to a scalar after the rollout.
+Each task defines which metrics to collect via ``get_metrics()``. Because metrics are attached
+to the task, they travel with it across all environment compositions — define them once and
+they are automatically applied to every environment that uses that task, with no manual
+wiring required.
 
 .. code-block:: python
 
-   class MetricBase(ABC):
-       name: str
-       recorder_term_name: str
+   task = PickAndPlaceTask(pick_object, destination, kitchen)
+   task.get_metrics()
+   # → [SuccessRateMetric(), ObjectMovedRateMetric(pick_object)]
 
-       @abstractmethod
-       def get_recorder_term_cfg(self) -> RecorderTermCfg:
-           """Define what data to record."""
+Arena metrics
+-------------
 
-       @abstractmethod
-       def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-           """Compute final metric from recorded data."""
+Arena ships with three metrics:
 
-Each metric has a **RecorderTerm** that collects data and a **MetricBase** implementation that processes recorded data into performance indicators.
+**SuccessRateMetric**
+   The fraction of episodes in which the task's ``success`` termination condition was triggered.
+   Used by all tasks.
 
-Metrics in Detail
------------------
+**ObjectMovedRateMetric**
+   The fraction of episodes in which an object exceeded a minimum linear velocity.
+   Used as a proxy for whether the robot interacted with the object at all.
+   Used by pick-and-place and lift tasks.
 
-**Data Collection Pipeline**
-   Two-phase approach to performance evaluation:
+**RevoluteJointMovedRateMetric**
+   The fraction of episodes in which a revolute joint moved by at least a minimum delta
+   from its reset position. Used by open-door and close-door tasks.
 
-   - **RecorderTerm Components**: Real-time data collection during simulation with configurable triggers
-   - **Recording Modes**: Pre-reset, post-step, event-triggered, and continuous monitoring patterns
-   - **Storage Format**: HDF5 format with episode organization and parallel environment support
-   - **Data Extraction**: Access simulation state and extract relevant measurements
+How recording works
+-------------------
 
-**Available Metrics**
-   Built-in metrics for common evaluation scenarios:
+Metrics are recorded in two phases.
 
-   - **Success Rate Metric**: Binary task completion tracking across episodes
-   - **Door Moved Rate Metric**: Interaction progress with openable objects via joint positions
-   - **Object Moved Rate Metric**: Manipulation assessment through object velocity tracking
-   - **Custom Metrics**: Extensible framework for task-specific performance indicators
+During simulation, a ``RecorderTerm`` (from Isaac Lab) samples data at each step or episode
+boundary and writes it to an HDF5 file. For example, ``SuccessRateMetric`` records the
+success flag just before each episode resets; ``ObjectMovedRateMetric`` records the
+object's velocity at every simulation step.
 
-**Integration Pattern**
-   Metrics integrate through task definitions:
+After the rollout completes, Arena reads the HDF5 file and calls
+``metric.compute_metric_from_recording()`` on the collected data to produce a scalar result.
+The results are printed and saved to a JSON file.
 
-   .. code-block:: python
+You do not need to manage any of this manually — it is all wired up automatically
+when the environment is compiled from the task.
 
-      class OpenDoorTask(TaskBase):
-          def get_metrics(self) -> list[MetricBase]:
-              return [
-                  SuccessRateMetric(),
-                  DoorMovedRateMetric(self.openable_object, reset_openness=self.reset_openness)
-              ]
-
-**Computation Workflow**
-   Standardized evaluation process:
-
-   - **Data Recording**: Capture relevant simulation data throughout execution
-   - **Episode Completion**: Organize and store data when episodes terminate
-   - **Metric Computation**: Post-simulation processing of recorded data
-   - **Result Aggregation**: Combine multiple metrics into evaluation reports
-
-Environment Integration
+Writing a custom metric
 -----------------------
 
-.. code-block:: python
+Because the ``RecorderTerm`` has full access to the simulation environment, anything available
+in Isaac Lab — object poses, joint states, velocities, sensor readings — can be recorded and
+turned into a metric.
 
-   # Metric collection during environment execution
-   env_builder = ArenaEnvBuilder(arena_environment, args)
-   env = env_builder.make_registered()  # Metrics auto-configured from task
+A custom metric requires two classes: a ``RecorderTerm`` that samples data during simulation,
+and a ``MetricBase`` subclass that computes the final value from the recorded data.
 
-   # Execute episodes with automatic recording
-   for episode in range(100):
-       obs, _ = env.reset()
-       done = False
-       while not done:
-           actions = policy(obs)
-           obs, _, terminated, truncated, _ = env.step(actions)
-           done = terminated or truncated
-
-   # Compute final performance indicators
-   metrics_results = compute_metrics(env)
-
-Usage Examples
---------------
-
-**Task-Specific Metrics**
+The example below is ``ObjectMovedRateMetric`` from Arena's own metrics library. It records
+the object's linear velocity at every step and computes the fraction of episodes in which
+the object exceeded a velocity threshold:
 
 .. code-block:: python
 
-   # Pick and place evaluation
-   task = PickAndPlaceTask(pick_object, destination, background)
-   metrics = task.get_metrics()  # [SuccessRateMetric(), ObjectMovedRateMetric()]
+   import numpy as np
+   from dataclasses import MISSING
 
-   # Door opening evaluation
-   task = OpenDoorTask(microwave, openness_threshold=0.8)
-   metrics = task.get_metrics()  # [SuccessRateMetric(), DoorMovedRateMetric()]
+   import warp as wp
+   from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
+   from isaaclab.utils import configclass
+   from isaaclab_arena.assets.asset import Asset
+   from isaaclab_arena.metrics.metric_base import MetricBase
 
-**Results Analysis**
+
+   class ObjectVelocityRecorder(RecorderTerm):
+       """Records the linear velocity of an object for each sim step of an episode."""
+
+       def __init__(self, cfg, env):
+           super().__init__(cfg, env)
+           self.name = cfg.name
+           self.object_name = cfg.object_name
+
+       def record_post_step(self):
+           object_linear_velocity = wp.to_torch(self._env.scene[self.object_name].data.root_link_vel_w)[:, :3]
+           return self.name, object_linear_velocity
+
+
+   @configclass
+   class ObjectVelocityRecorderCfg(RecorderTermCfg):
+       class_type: type[RecorderTerm] = ObjectVelocityRecorder
+       name: str = "object_linear_velocity"
+       object_name: str = MISSING
+
+
+   class ObjectMovedRateMetric(MetricBase):
+       name = "object_moved_rate"
+       recorder_term_name = "object_linear_velocity"
+
+       def __init__(self, object: Asset, object_velocity_threshold: float = 0.5):
+           super().__init__()
+           self.object = object
+           self.object_velocity_threshold = object_velocity_threshold
+
+       def get_recorder_term_cfg(self) -> RecorderTermCfg:
+           return ObjectVelocityRecorderCfg(name=self.recorder_term_name, object_name=self.object.name)
+
+       def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+           object_moved_per_demo = []
+           for object_velocity in recorded_metric_data:
+               object_linear_velocity_magnitude = np.linalg.norm(object_velocity, axis=-1)
+               object_moved = np.any(object_linear_velocity_magnitude > self.object_velocity_threshold)
+               object_moved_per_demo.append(object_moved)
+           return float(np.mean(object_moved_per_demo))
+
+To use it, return it from your task's ``get_metrics()``:
 
 .. code-block:: python
 
-   # Performance evaluation across environments
-   print(f"Success Rate: {metrics_results['success_rate']:.2%}")
-   print(f"Object Moved Rate: {metrics_results['object_moved_rate']:.2%}")
+   class MyTask(TaskBase):
+       def get_metrics(self) -> list[MetricBase]:
+           return [
+               SuccessRateMetric(),
+               ObjectMovedRateMetric(self.pick_object),
+           ]
