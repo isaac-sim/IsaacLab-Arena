@@ -3,23 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import hashlib
 import numpy as np
 import pathlib
 import torch
-import urllib.request
 from typing import Any
 
 import onnxruntime as ort
+from isaaclab.utils.assets import retrieve_file_path
 
 from isaaclab_arena_g1.g1_env.robot_model import RobotModel
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.homie_utils import load_config
-
-_AGILE_MODEL_URL = (
-    "https://github.com/nvidia-isaac/WBC-AGILE/raw/main/agile/data/policy/velocity_g1/unitree_g1_velocity_e2e.onnx"
-)
-_AGILE_MODEL_SHA256 = "8995f2462ba2d0d83afe08905148f6373990d50018610663a539225d268ef33b"
 
 # ONNX feedback state keys and their per-environment shapes (excluding batch dim).
 _STATE_KEYS_AND_SHAPES: dict[str, tuple[int, ...]] = {
@@ -31,19 +25,6 @@ _STATE_KEYS_AND_SHAPES: dict[str, tuple[int, ...]] = {
     "controlled_joint_vel_history": (5, 14),
     "actions_history": (5, 14),
 }
-
-
-def _download_agile_model(dest: pathlib.Path) -> None:
-    """Download the AGILE ONNX model and verify its SHA256 checksum."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading AGILE ONNX model to {dest} ...")
-    urllib.request.urlretrieve(_AGILE_MODEL_URL, dest)
-
-    actual = hashlib.sha256(dest.read_bytes()).hexdigest()
-    if actual != _AGILE_MODEL_SHA256:
-        dest.unlink()
-        raise RuntimeError(f"SHA256 mismatch for AGILE model: expected {_AGILE_MODEL_SHA256}, got {actual}")
-    print(f"Downloaded and verified AGILE model: {dest}")
 
 
 class G1AgilePolicy(WBCPolicy):
@@ -61,7 +42,8 @@ class G1AgilePolicy(WBCPolicy):
         Args:
             robot_model: Robot model containing joint ordering info.
             config_path: Path to policy YAML configuration file (relative to wbc_policy dir).
-            model_path: Path to the ONNX model file (relative to wbc_policy dir).
+            model_path: Path to the ONNX model file. Can be an S3/Nucleus URL
+                (resolved and cached by retrieve_file_path) or a local path.
             num_envs: Number of environments.
         """
         parent_dir = pathlib.Path(__file__).parent.parent
@@ -69,10 +51,11 @@ class G1AgilePolicy(WBCPolicy):
         self.robot_model = robot_model
         self.num_envs = num_envs
 
-        # Download ONNX model on first use if not already present
-        model_full_path = parent_dir / model_path
-        if not model_full_path.exists():
-            _download_agile_model(model_full_path)
+        # Resolve model path via OV asset API (handles S3 download + local caching).
+        # Same pattern as G1HomiePolicyV2: retrieve_file_path returns a local path
+        # (absolute for S3 cache, relative for local files), then join with parent_dir.
+        model_local_path = retrieve_file_path(model_path, force_download=True)
+        model_full_path = parent_dir / model_local_path
         self.session = ort.InferenceSession(str(model_full_path))
         self.output_names = [out.name for out in self.session.get_outputs()]
         print(f"Successfully loaded ONNX policy from {model_full_path}")
