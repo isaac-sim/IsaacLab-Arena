@@ -41,7 +41,6 @@ class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
             name="table",
             prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
             parent_asset=background,
-            # object_type=ObjectType.RIGID,
         )
         table_reference.add_relation(IsAnchor())
         pick_up_object.add_relation(On(table_reference))

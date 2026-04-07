@@ -6,7 +6,7 @@ The recommended way to consume IsaacLab-Arena from an external project is to inc
 any file inside the Arena source tree.
 
 This is the currently recommended integration pattern until IsaacLab-Arena is available as a
-published pip package, at which point the submodule will be replaced by a simple
+published ``pip`` package, at which point the submodule will be replaced by a simple
 ``pip install isaaclab_arena``. The environment and asset extension patterns below will
 remain unchanged.
 
@@ -26,8 +26,6 @@ A typical external repository looks like this:
    │   ├── isaaclab_arena_environments/
    │   │   ├── __init__.py
    │   │   └── my_environment.py    ← custom environment class
-   │   └── scripts/
-   │       └── run_datagen.py       ← entry script
    ├── docker/
    │   └── Dockerfile
    └── .gitmodules
@@ -56,6 +54,7 @@ before your own package run ``pip install -e``.
    # Image must have Isaac Lab installed
    # e.g. RUN /isaaclab/isaaclab.sh -i
 
+   # Copy the submodule into the image and install Arena
    COPY submodules/IsaacLab-Arena /opt/arena
    RUN /isaac-sim/python.sh -m pip install -e /opt/arena
 
@@ -67,73 +66,112 @@ See Arena's own `Dockerfile
 <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/docker/Dockerfile.isaaclab_arena>`_
 for a complete reference, including Isaac Lab installation and optional GR00T dependencies.
 
+.. note::
 
-Defining a Custom Environment
-------------------------------
+   Note that above we have assumed that Arena is being installed inside a Docker container.
+   Of course, if you have an non-Docker environment that satisfies the prerequisites, you can
+   install Arena directly into that environment, without the need for Docker.
 
-Subclass ``ExampleEnvironmentBase``, set a unique ``name``, and implement ``get_env()``:
+Defining a Custom, Externally-Defined Environment
+-------------------------------------------------
+
+This section how to write a new environment, outside of the Isaac Lab - Arena source tree.
+
+To write your own environment, subclass ``ExampleEnvironmentBase``, set a unique ``name``,
+and implement ``get_env()`` and ``add_cli_args()``.
+Below is an example of a custom environment that places a single object on a table.
 
 .. code-block:: python
 
    # my_package/isaaclab_arena_environments/my_environment.py
 
    import argparse
+
    from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-   from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-   from isaaclab_arena.scene.scene import Scene
-   from isaaclab_arena.tasks.no_task import NoTask
 
-   class MyEnvironment(ExampleEnvironmentBase):
 
-       name: str = "my_environment"
+   class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
 
-       def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-           background = self.asset_registry.get_asset_by_name(args_cli.background)()
-           embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-               enable_cameras=args_cli.enable_cameras
+       name: str = "franka_table"
+
+       def get_env(self, args_cli: argparse.Namespace):
+           from isaaclab_arena.assets.object_reference import ObjectReference
+           from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+           from isaaclab_arena.relations.relations import IsAnchor, On
+           from isaaclab_arena.scene.scene import Scene
+           from isaaclab_arena.tasks.no_task import NoTask
+
+           # Grab some assets from the registry.
+           background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
+           light = self.asset_registry.get_asset_by_name("light")()
+           pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+           embodiment = self.asset_registry.get_asset_by_name("franka_ik")()
+
+           # Position the assets
+           table_reference = ObjectReference(
+               name="table",
+               prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
+               parent_asset=background,
            )
-           scene = Scene(assets=[background])
-           return IsaacLabArenaEnvironment(
+           table_reference.add_relation(IsAnchor())
+           pick_up_object.add_relation(On(table_reference))
+
+           # Compose the scene
+           scene = Scene(assets=[background, table_reference, pick_up_object, light])
+
+           # Create the environment
+           isaaclab_arena_environment = IsaacLabArenaEnvironment(
                name=self.name,
                embodiment=embodiment,
                scene=scene,
                task=NoTask(),
            )
+           return isaaclab_arena_environment
 
        @staticmethod
        def add_cli_args(parser: argparse.ArgumentParser) -> None:
-           parser.add_argument("--background", type=str, default="kitchen")
-           parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
+           parser.add_argument("--object", type=str, default="cracker_box")
 
-
-Wiring into the Arena CLI
---------------------------
-
-In your entry script, inject the class into ``ExampleEnvironments`` before parsing arguments:
-
-.. code-block:: python
-
-   # my_package/scripts/run_datagen.py
-
-   from isaaclab_arena_environments.cli import (
-       ExampleEnvironments,
-       get_arena_builder_from_cli,
-       get_isaaclab_arena_environments_cli_parser,
-   )
-   from my_package.isaaclab_arena_environments.my_environment import MyEnvironment
-
-   # Register the custom environment
-   ExampleEnvironments[MyEnvironment.name] = MyEnvironment
-
-   # Parse args and build
-   parser = get_isaaclab_arena_environments_cli_parser()
-   args_cli = parser.parse_args()
-   arena_builder = get_arena_builder_from_cli(args_cli)
-   env = arena_builder.make_registered()
-   env.reset()
-
-Run it with:
+External environments can be used in Isaac Lab Arena workflows by using a particular
+CLI syntax. For example, for the a zero-action policy can be run with an
+externally-defined environment like this:
 
 .. code-block:: bash
 
-   python my_package/scripts/run_datagen.py my_environment --background kitchen
+   python isaaclab_arena/examples/policy_runner.py \
+     --policy_type zero_action \
+     --num_steps 50 \
+     --environment my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
+     franka_table \
+     --object tomato_soup_can
+
+So the flag ``environment`` is used to specify the (fully qualified) path to the
+external environment module and class. The environment name is then specified as the
+first non flag argument to the policy runner, and any additional arguments are passed to the
+environment's ``add_cli_args()`` method.
+
+.. note::
+
+    The environment above is actually located in ``isaaclab_arena_examples/external_environments/basic.py``.
+    So this environment is located in the Isaac Lab Arena source-tree, but isn't included
+    in the built in environments, so must be called through the external environment syntax.
+    This is done to demonstrate how this would be done in an external codebase.
+
+    The environment can be run with:
+
+    .. code-block:: bash
+
+        python isaaclab_arena/evaluation/policy_runner.py \
+          --visualizer kit \
+          --policy_type zero_action \
+          --num_steps 50 \
+          --environment isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \
+          franka_table \
+          --object tomato_soup_can
+
+    which results in an environment like the one below:
+
+    .. image:: ../../images/externally_defined_environment.png
+       :width: 50%
+       :alt: External environment example
+       :align: center
