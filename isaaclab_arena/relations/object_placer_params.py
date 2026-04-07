@@ -6,18 +6,11 @@
 from dataclasses import dataclass, field
 
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 @dataclass
 class ObjectPlacerParams:
     """Configuration parameters for ObjectPlacer."""
-
-    init_bounds: AxisAlignedBoundingBox | None = None
-    """Bounding box for random position initialization. If None, inferred from anchor object."""
-
-    init_bounds_size: tuple[float, float, float] = (4.0, 4.0, 2.0)
-    """Size (x, y, z) in meters of init_bounds when inferred from anchor. Centered on anchor object."""
 
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
