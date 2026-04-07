@@ -27,7 +27,6 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -64,7 +63,7 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=task,
             teleop_device=None,
-            rl_framework=RLFramework.RSL_RL,
+            rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=dexsuite_rl_cfg_entry,
         )
 

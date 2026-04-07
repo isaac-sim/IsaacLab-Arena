@@ -328,9 +328,8 @@ class ArenaEnvBuilder:
         kwargs = {
             "env_cfg_entry_point": cfg_entry,
         }
-        if self.arena_env.rl_framework is not None:
-            assert self.arena_env.rl_policy_cfg is not None
-            kwargs[self.arena_env.rl_framework.get_entry_point_string()] = self.arena_env.rl_policy_cfg
+        if self.arena_env.rl_framework_entry_point is not None:
+            kwargs[self.arena_env.rl_framework_entry_point] = self.arena_env.rl_policy_cfg
         gym.register(
             id=name,
             entry_point=entry_point,
