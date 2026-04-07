@@ -161,7 +161,7 @@ IsaacLab-Arena/
 | Isaac Lab Arena | Isaac Lab | Isaac Sim | Python |
 |-----------------|-----------|-----------|--------|
 | `main` branch   | 3.0.0     | 6.0.0     | ≥ 3.12 |
-| `feature/arena_v0.2_on_lab_2.3`   | 3.3.0     | 5.1.0     | ≥ 3.10 |
+| `feature/arena_v0.2_on_lab_2.3`   | 2.3.0     | 5.1.0     | ≥ 3.10 |
 | `release/0.1.1` | 2.3.0     | 5.0.0     | ≥ 3.10 |
 
 ## ⚠️ Project Status
