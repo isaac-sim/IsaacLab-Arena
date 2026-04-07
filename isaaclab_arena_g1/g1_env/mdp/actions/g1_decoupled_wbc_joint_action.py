@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from isaaclab.assets.articulation import Articulation
 from isaaclab.managers.action_manager import ActionTerm
 
-from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.config.configs import HomieV2Config
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.config.configs import AgileConfig, HomieV2Config
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     G1_NUM_JOINTS,
     NUM_BASE_HEIGHT_CMD,
@@ -70,6 +70,8 @@ class G1DecoupledWBCJointAction(ActionTerm):
 
         if self._wbc_version == "homie_v2":
             wbc_config = HomieV2Config()
+        elif self._wbc_version == "agile":
+            wbc_config = AgileConfig()
         else:
             raise ValueError(f"Invalid WBC version: {self._wbc_version}")
 
