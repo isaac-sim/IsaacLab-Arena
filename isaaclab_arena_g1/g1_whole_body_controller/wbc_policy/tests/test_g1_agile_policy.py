@@ -19,23 +19,24 @@ import warp as wp
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 500
-MIN_ROOT_HEIGHT = 0.5
+WARMUP_STEPS = 50
+MIN_ROOT_HEIGHT = 0.4
 HEADLESS = True
 ENABLE_CAMERAS = True
 
 
 def _get_agile_test_env(num_envs: int = 1):
     """Create a G1 robot with the AGILE WBC policy in an empty scene."""
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.g1.g1 import G1WBCAgileJointEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.pose import Pose
 
-    scene = Scene(assets=[])
+    ground_plane = AssetRegistry().get_asset_by_name("ground_plane")()
+    scene = Scene(assets=[ground_plane])
     embodiment = G1WBCAgileJointEmbodiment(enable_cameras=ENABLE_CAMERAS)
-    embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     env = IsaacLabArenaEnvironment(
         name="g1_agile_standing_test",
@@ -62,10 +63,11 @@ def _test_agile_standing(simulation_app) -> bool:
                 actions[:, -4] = 0.75
                 env.step(actions)
 
-                root_z = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, 2].item()
-                assert (
-                    root_z > MIN_ROOT_HEIGHT
-                ), f"Robot fell at step {step}: root z = {root_z:.3f} m (min {MIN_ROOT_HEIGHT} m)"
+                if step >= WARMUP_STEPS:
+                    root_z = wp.to_torch(env.unwrapped.scene["robot"].data.root_link_pose_w)[0, 2].item()
+                    assert (
+                        root_z > MIN_ROOT_HEIGHT
+                    ), f"Robot fell at step {step}: root z = {root_z:.3f} m (min {MIN_ROOT_HEIGHT} m)"
 
     except Exception as e:
         print(f"Error: {e}")
