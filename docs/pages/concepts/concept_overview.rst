@@ -9,10 +9,6 @@ Arena environments are composed of three independent sub-pieces:
 * **Embodiment**: The robot embodiment, its physical description, observations, actions, sensors etc.
 * **Task**: A definition of what is to be accomplished in the environment.
 
-Because these pieces are independent, they can be composed in unique combinations
-to create new environments.
-This is shown in the figure below.
-
 .. figure:: ../../images/isaac_lab_arena_arch_overview.png
    :width: 90%
    :alt: Isaac Lab Arena Workflow
@@ -43,10 +39,8 @@ In code, this looks like:
 a single Isaac Lab ``ManagerBasedRLEnv``. The ``make_registered()`` call registers
 the environment with the gym registry and returns it ready to run.
 
-Using composition to build environments has the advantage that scenes, embodiments,
-and tasks can be reused and independently varied.
-This moves us from a library of monolithic environment descriptions
-to a library of environment *parts*.
-
-In this section of the documentation, we will describe the design of each of these sub-pieces:
-Scene, Task, and Embodiment.
+Because these pieces are independent, they can be reused and combined freely.
+The same pick-and-place task works with any robot on any scene: swap the Franka
+for a G1, or the kitchen for a warehouse, with no changes to the task.
+This moves us from a library of monolithic environment descriptions to a library
+of environment *parts*.
