@@ -110,11 +110,7 @@ class SimulationAppContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("Closing simulation app")
-        # app_launcher.close() will terminate the whole process with exit code 0, i.e. preventing errors from being seen by the caller. There are seemingly no ways around this.
-        # As a workaround, we call os._exit(1) that terminates immediately. The downside is that any cleanup would be omitted
-        if exc_type is None:
-            self.app_launcher.app.close()
-        else:
+        if exc_type is not None:
             print(f"Exception caught in SimulationAppContext: {exc_type.__name__}: {exc_val}")
             print("Traceback:")
             traceback.print_exception(exc_type, exc_val, exc_tb)
@@ -122,3 +118,17 @@ class SimulationAppContext:
             sys.stdout.flush()
             sys.stderr.flush()
             os._exit(1)
+
+        # When launched as a test subprocess, skip app.close() which can hang
+        # indefinitely in Kit's shutdown path.  The parent process owns the
+        # lifetime via process-group kill (see run_subprocess).
+        if os.environ.get("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE") == "1":
+            print("Force-exiting subprocess (ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE=1)")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(0)
+
+        # Normal interactive / non-test path: attempt a clean Kit shutdown.
+        # app.close() may terminate the process with exit code 0 regardless of
+        # errors — see the error branch above for the workaround.
+        self.app_launcher.app.close()

@@ -5,6 +5,7 @@
 
 import atexit
 import os
+import signal
 import subprocess
 import sys
 import traceback
@@ -31,26 +32,60 @@ _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first i
 _AT_LEAST_ONE_TEST_FAILED = False
 
 
-def run_subprocess(cmd, env=None):
-    print(f"Running command: {cmd}")
+_SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "600"))
+
+
+def run_subprocess(cmd, env=None, timeout_sec: int | None = None):
+    """Run a command in a subprocess with timeout and process-group cleanup.
+
+    Uses a dedicated process group so that on timeout the entire process tree
+    (Isaac Sim, Kit, shader compiler, ...) is killed — not just the top-level
+    process.
+
+    Args:
+        cmd: Command to run (list of strings).
+        env: Optional environment dict.  Defaults to inheriting the parent env.
+        timeout_sec: Per-subprocess wall-clock timeout in seconds.
+            Defaults to ``_SUBPROCESS_TIMEOUT_SEC`` (env ``ISAACLAB_ARENA_SUBPROCESS_TIMEOUT``, fallback 600).
+    """
+    if timeout_sec is None:
+        timeout_sec = _SUBPROCESS_TIMEOUT_SEC
+
+    print(f"Running command (timeout={timeout_sec}s): {cmd}")
     global _AT_LEAST_ONE_TEST_FAILED
+
+    if env is None:
+        env = os.environ.copy()
+    env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
+
+    # start_new_session=True → new process group, so os.killpg can reap the whole tree.
+    process = subprocess.Popen(
+        cmd,
+        env=env,
+        stdout=None,
+        stderr=None,
+        start_new_session=True,
+    )
+
     try:
-        result = subprocess.run(
-            cmd,
-            check=True,
-            env=env,
-            # Don't capture output, let it flow through in real-time
-            capture_output=False,
-            text=True,
-            # Explicitly set stdout and stderr to None to use parent process's pipes
-            stdout=None,
-            stderr=None,
+        returncode = process.wait(timeout=timeout_sec)
+    except subprocess.TimeoutExpired:
+        pgid = os.getpgid(process.pid)
+        sys.stderr.write(
+            f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s — killing process group {pgid}\n"
         )
-        print(f"Command completed with return code: {result.returncode}")
-    except subprocess.CalledProcessError as e:
-        sys.stderr.write(f"Command failed with return code {e.returncode}: {e}\n")
+        os.killpg(pgid, signal.SIGKILL)
+        process.wait()
         _AT_LEAST_ONE_TEST_FAILED = True
-        raise e
+        raise subprocess.SubprocessError(
+            f"Subprocess timed out after {timeout_sec}s: {cmd}"
+        )
+
+    print(f"Command completed with return code: {returncode}")
+    if returncode != 0:
+        sys.stderr.write(f"Command failed with return code {returncode}\n")
+        _AT_LEAST_ONE_TEST_FAILED = True
+        raise subprocess.CalledProcessError(returncode, cmd)
 
 
 class _IsolatedArgv:
