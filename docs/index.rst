@@ -197,6 +197,7 @@ TABLE OF CONTENTS
 
    pages/quickstart/first_arena_env
    pages/quickstart/first_experiments/index
+   pages/quickstart/arena_in_your_repo
 
 .. toctree::
    :maxdepth: 1
