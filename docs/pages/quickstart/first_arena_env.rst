@@ -264,3 +264,9 @@ Next Steps
 Now that you understand how the environment is built, see :doc:`first_experiments/index` to run it and
 evaluate a policy across object, lighting, and scale variations from the same environment
 definition, with no code changes.
+
+Using IsaacLab-Arena in Your Own Repository
+-------------------------------------------
+
+See :doc:`arena_in_your_repo` for the recommended pattern of consuming Arena as an unmodified
+submodule from an external project.
