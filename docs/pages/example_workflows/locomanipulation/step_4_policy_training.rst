@@ -120,7 +120,7 @@ To post-train the policy, run the following command
 
 .. code-block:: bash
 
-   python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+   PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
    --dataset_path=$DATASET_DIR/arena_g1_loco_manipulation_dataset_generated/lerobot \
    --output_dir=$MODELS_DIR \
    --modality_config_path=isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
