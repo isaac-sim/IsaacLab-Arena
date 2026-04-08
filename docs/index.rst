@@ -200,6 +200,14 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
+   :caption: Arena in Your Repo
+
+   pages/arena_in_your_repo/external_installation
+   pages/arena_in_your_repo/external_environments
+   pages/arena_in_your_repo/external_tasks_and_embodiments
+
+.. toctree::
+   :maxdepth: 1
    :caption: Example Workflows
 
    pages/example_workflows/imitation_learning/index
