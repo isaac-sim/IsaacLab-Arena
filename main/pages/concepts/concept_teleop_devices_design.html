@@ -539,17 +539,17 @@ device configs are used.</p>
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
 <p><strong>Keyboard Teleoperation</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic keyboard control</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--visualizer<span class="w"> </span>kit<span class="w"> </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span>kitchen_pick_and_place
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--viz<span class="w"> </span>kit<span class="w"> </span>--teleop_device<span class="w"> </span>keyboard<span class="w"> </span>kitchen_pick_and_place
 </pre></div>
 </div>
 <p><strong>SpaceMouse Control</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Precise manipulation with SpaceMouse</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--visualizer<span class="w"> </span>kit--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--sensitivity<span class="w"> </span><span class="m">2</span>.0
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--viz<span class="w"> </span>kit--teleop_device<span class="w"> </span>spacemouse<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--sensitivity<span class="w"> </span><span class="m">2</span>.0
 </pre></div>
 </div>
 <p><strong>Hand Tracking</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># XR hand tracking for humanoid control (requires CloudXR runtime via Isaac Teleop)</span>
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--visualizer<span class="w"> </span>kit<span class="w"> </span>--teleop_device<span class="w"> </span>openxr<span class="w"> </span>gr1_open_microwave
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/teleop.py<span class="w"> </span>--viz<span class="w"> </span>kit<span class="w"> </span>--teleop_device<span class="w"> </span>openxr<span class="w"> </span>gr1_open_microwave
 </pre></div>
 </div>
 </section>

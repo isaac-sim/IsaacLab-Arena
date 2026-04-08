@@ -47,7 +47,7 @@ Checkpoints are saved every 250 iterations to
 
 .. tip::
 
-   Add ``--visualizer newton`` to visualize training with the Newton (MuJoCo) viewer.
+   Add ``--viz newton`` to visualize training with the Newton (MuJoCo) viewer.
 
 
 Overriding Hyperparameters

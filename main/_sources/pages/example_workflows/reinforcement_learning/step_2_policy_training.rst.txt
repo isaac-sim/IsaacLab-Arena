@@ -23,7 +23,7 @@ builds the environment, and registers it with gym so IsaacLab's script can find 
 
 .. tip::
 
-   Add ``--visualizer kit`` to open the GUI and watch training live.
+   Add ``--viz kit`` to open the GUI and watch training live.
 
 Checkpoints are written to ``logs/rsl_rl/generic_experiment/<timestamp>/``.
 The agent configuration is saved alongside as ``params/agent.yaml``,

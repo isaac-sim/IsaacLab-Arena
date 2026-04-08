@@ -34,7 +34,7 @@ of simulation steps:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
-     --visualizer kit \
+     --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
      --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
@@ -59,7 +59,7 @@ To measure success rates across several variations of the environment in a singl
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
-     --visualizer kit \
+     --viz kit \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
 
 This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.

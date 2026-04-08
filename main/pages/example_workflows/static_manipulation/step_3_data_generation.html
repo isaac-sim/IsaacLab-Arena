@@ -498,7 +498,7 @@ such that the annotation step can be skipped.</p>
 </div>
 </details><p>To start the annotation process run the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/annotate_demos.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
@@ -546,6 +546,7 @@ such that the data generation step can be skipped.</p>
 </div>
 <p>Data generation takes 30-60 minutes depending on hardware.
 If you want to visualize the data generation process, remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code>
+and add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> (before specifying the task name <code class="docutils literal notranslate"><span class="pre">gr1_open_microwave</span></code>)
 to visualize data generation.</p>
 </section>
 <section id="step-3-validate-generated-data-optional">
@@ -554,7 +555,7 @@ to visualize data generation.</p>
 through the robot, in order to check (visually) if the robot is able to perform the task successfully.
 To do so, run the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated.hdf5<span class="w"> </span><span class="se">\</span>

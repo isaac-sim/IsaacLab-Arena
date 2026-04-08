@@ -584,14 +584,14 @@ with tuned parameters for dexterous manipulation).</p></li>
 <p>Verify the environment loads correctly with a zero-action policy:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># PhysX (default):</span>
 python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dexsuite_lift
 
 <span class="c1"># Newton:</span>
 python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--presets<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
@@ -601,9 +601,9 @@ python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span cl
 <p>You should see the Kuka Allegro hand in the scene with the cuboid on the table.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p><code class="docutils literal notranslate"><span class="pre">--visualizer</span> <span class="pre">newton</span></code> uses the MuJoCo viewer; <code class="docutils literal notranslate"><span class="pre">--visualizer</span> <span class="pre">kit</span></code> uses
+<p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">newton</span></code> uses the MuJoCo viewer; <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> uses
 the Kit viewer. The visualizer setting is independent of the physics backend.
-For example, <code class="docutils literal notranslate"><span class="pre">--visualizer</span> <span class="pre">kit</span> <span class="pre">--presets</span> <span class="pre">newton</span></code> runs Newton physics with
+For example, <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span> <span class="pre">--presets</span> <span class="pre">newton</span></code> runs Newton physics with
 the Kit viewer.</p>
 </div>
 </section>

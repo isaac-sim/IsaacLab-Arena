@@ -470,7 +470,7 @@ exactly one argument from the baseline.</p>
 <h2>Experiment: Baseline<a class="headerlink" href="#experiment-baseline" title="Link to this heading">#</a></h2>
 <p>Your reference run — rubiks cube on the table, bowl as destination:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
@@ -501,7 +501,7 @@ Some options to try:</p>
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
@@ -528,7 +528,7 @@ carpentry_shop_robolab
 </div>
 <p>You can also adjust the dome light intensity independently with <code class="docutils literal notranslate"><span class="pre">--light_intensity</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
@@ -548,7 +548,7 @@ carpentry_shop_robolab
 <h2>Experiment: Scale Up<a class="headerlink" href="#experiment-scale-up" title="Link to this heading">#</a></h2>
 <p>Add <code class="docutils literal notranslate"><span class="pre">--num_envs</span></code> to run many environments in parallel on the GPU:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
@@ -576,7 +576,7 @@ own environment arguments, policy, and step count — and runs them sequentially
 Sim process, collecting success metrics for each. <code class="docutils literal notranslate"><span class="pre">getting_started_jobs_config.json</span></code> bundles
 the four experiments above into a single config:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/getting_started_jobs_config.json
 </pre></div>
 </div>
