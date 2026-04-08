@@ -317,6 +317,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy.html">Running a Real Policy</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/arena_in_your_repo.html">Using IsaacLab-Arena in Your Own Repository</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="nav bd-sidenav">
@@ -515,36 +516,36 @@ server–client), see <a class="reference internal" href="../policy_evaluation/e
 <p><strong>Baseline Testing</strong></p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Single GPU</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Distribute Multi-GPU</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Zero action policy for environment validation</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">1000</span>
+python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--object<span class="w"> </span>cracker_box
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Zero action policy for environment validation</span>
 <span class="c1"># --nproc_per_node represents the number of available GPUs</span>
-python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--distributed<span class="w"> </span>--headless
+python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--distributed<span class="w"> </span>--headless<span class="w"> </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--object<span class="w"> </span>cracker_box
 </pre></div>
 </div>
 </div></div>
 <p><strong>Demonstration Replay</strong></p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Single GPU</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Distribute Multi-GPU</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay recorded demonstrations</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>replay<span class="w"> </span>--replay_file_path<span class="w"> </span>demos.h5<span class="w"> </span>kitchen_pick_and_place
+python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>replay<span class="w"> </span>--replay_file_path<span class="w"> </span>demos.h5<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--object<span class="w"> </span>cracker_box
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay recorded demonstrations</span>
 <span class="c1"># --nproc_per_node represents the number of available GPUs</span>
-python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>replay<span class="w"> </span>--replay_file_path<span class="w"> </span>demos.h5<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--distributed<span class="w"> </span>--headless
+python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--distributed<span class="w"> </span>--headless<span class="w"> </span>--policy_type<span class="w"> </span>replay<span class="w"> </span>--replay_file_path<span class="w"> </span>demos.h5<span class="w"> </span>kitchen_pick_and_place<span class="w"> </span>--object<span class="w"> </span>cracker_box
 </pre></div>
 </div>
 </div></div>
 <p><strong>Neural Policy Execution</strong></p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Single GPU</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Distribute Multi-GPU</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># GR00T foundation model deployment</span>
-python<span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span>--policy_config_yaml_path<span class="w"> </span>config.yaml
+python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span>--policy_config_yaml_path<span class="w"> </span>config.yaml<span class="w"> </span>&lt;your_isaaclab_arena_environment&gt;
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># GR00T foundation model deployment</span>
 <span class="c1"># --nproc_per_node represents the number of available GPUs</span>
-python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>policy_runner.py<span class="w"> </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span>--policy_config_yaml_path<span class="w"> </span>config.yaml<span class="w"> </span>--distributed<span class="w"> </span>--headless
+python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--distributed<span class="w"> </span>--headless<span class="w"> </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span>--policy_config_yaml_path<span class="w"> </span>config.yaml<span class="w"> </span>&lt;your_isaaclab_arena_environment&gt;
 </pre></div>
 </div>
 </div></div>

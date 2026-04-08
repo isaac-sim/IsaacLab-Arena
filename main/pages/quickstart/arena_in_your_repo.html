@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; isaaclab_arena 0.2</title>
+    <title>Using IsaacLab-Arena in Your Own Repository &#8212; isaaclab_arena 0.2</title>
   
   
   
@@ -49,13 +49,13 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/quickstart/installation';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/quickstart/arena_in_your_repo';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="First Arena Environment" href="first_arena_env.html" />
-    <link rel="prev" title="Welcome to Isaac Lab Arena!" href="../../index.html" />
+    <link rel="next" title="Imitation Learning" href="../example_workflows/imitation_learning/index.html" />
+    <link rel="prev" title="Running a Real Policy" href="first_experiments/running_a_real_policy.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -287,9 +287,9 @@
             <label for="version-select" style="font-weight: bold; display: block;">Version</label>
           </div>
           <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
-            <option value="installation.html" selected>main</option>
-            <option value="../../../release/0.1.0/pages/quickstart/installation.html" >release/0.1.0</option>
-            <option value="../../../release/0.1.1/pages/quickstart/installation.html" >release/0.1.1</option>
+            <option value="arena_in_your_repo.html" selected>main</option>
+            <option value="../../../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../release/0.1.1/index.html" >release/0.1.1</option>
           </select>
         </li>
       </ul>
@@ -304,18 +304,18 @@
      aria-label="Table of Contents">
   <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Installation</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="first_arena_env.html">First Arena Environment</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="first_experiments/index.html">Running your First Experiments</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="first_experiments/running_a_real_policy.html">Running a Real Policy</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="arena_in_your_repo.html">Using IsaacLab-Arena in Your Own Repository</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Using IsaacLab-Arena in Your Own Repository</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="nav bd-sidenav">
@@ -430,7 +430,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Installation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Using IsaacLab-Arena in Your Own Repository</span></li>
   </ul>
 </nav>
 </div>
@@ -447,60 +447,157 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>This page describes how to install Isaac Lab Arena from source inside a Docker container.</p>
-<section id="supported-systems">
-<h2>Supported Systems<a class="headerlink" href="#supported-systems" title="Link to this heading">#</a></h2>
-<p>Isaac Lab Arena runs on Isaac Sim <code class="docutils literal notranslate"><span class="pre">5.1.0</span></code> and Isaac Lab <code class="docutils literal notranslate"><span class="pre">2.3.0</span></code>.
-The dependencies are installed automatically during the Docker build process.
-Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
-<a class="reference external" href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html">Isaac Sim Requirements</a>.</p>
+  <section id="using-isaaclab-arena-in-your-own-repository">
+<h1>Using IsaacLab-Arena in Your Own Repository<a class="headerlink" href="#using-isaaclab-arena-in-your-own-repository" title="Link to this heading">#</a></h1>
+<p>The recommended way to consume IsaacLab-Arena from an external project is to include it as an
+<strong>unmodified git submodule</strong> and extend it purely through its registration API — without editing
+any file inside the Arena source tree.</p>
+<p>This is the currently recommended integration pattern until IsaacLab-Arena is available as a
+published <code class="docutils literal notranslate"><span class="pre">pip</span></code> package, at which point the submodule will be replaced by a simple
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">isaaclab_arena</span></code>. The environment and asset extension patterns below will
+remain unchanged.</p>
+<section id="repository-layout">
+<h2>Repository Layout<a class="headerlink" href="#repository-layout" title="Link to this heading">#</a></h2>
+<p>A typical external repository looks like this:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>my_project/
+├── submodules/
+│   └── IsaacLab-Arena/          ← unmodified Arena submodule
+├── my_package/
+│   ├── pyproject.toml
+│   ├── isaaclab_arena_environments/
+│   │   ├── __init__.py
+│   │   └── my_environment.py    ← custom environment class
+├── docker/
+│   └── Dockerfile
+└── .gitmodules
+</pre></div>
+</div>
+<p>Add the submodule with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>submodule<span class="w"> </span>add<span class="w"> </span>git@github.com:isaac-sim/IsaacLab-Arena.git<span class="w"> </span>submodules/IsaacLab-Arena
+</pre></div>
+</div>
 </section>
-<section id="installation-via-docker">
-<h2>Installation via Docker<a class="headerlink" href="#installation-via-docker" title="Link to this heading">#</a></h2>
-<p>Isaac Lab Arena supports installation from source inside a Docker container.
-Future versions of Isaac Lab Arena, we will support a larger range of
-installation options.</p>
-<ol class="arabic simple">
-<li><p><strong>Clone the repository and initialize submodules:</strong></p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:isaac-sim/IsaacLab-Arena.git
+<section id="dockerfile">
+<h2>Dockerfile<a class="headerlink" href="#dockerfile" title="Link to this heading">#</a></h2>
+<p>Your base image must already have <strong>Isaac Sim</strong> and <strong>Isaac Lab</strong> installed (e.g.
+<code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/isaac-sim:6.0.0</span></code>).</p>
+<p>Copy the submodule into the image and install Arena
+before your own package run <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span></code>.</p>
+<div class="highlight-dockerfile notranslate"><div class="highlight"><pre><span></span><span class="c"># Base image must have Isaac Sim</span>
+<span class="c"># e.g. FROM nvcr.io/nvidia/isaac-sim:6.0.0</span>
+
+<span class="c"># Image must have Isaac Lab installed</span>
+<span class="c"># e.g. RUN /isaaclab/isaaclab.sh -i</span>
+
+<span class="c"># Copy the submodule into the image and install Arena</span>
+<span class="k">COPY</span><span class="w"> </span>submodules/IsaacLab-Arena<span class="w"> </span>/opt/arena
+<span class="k">RUN</span><span class="w"> </span>/isaac-sim/python.sh<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>/opt/arena
+
+<span class="c"># Install your package after Arena is in place</span>
+<span class="k">COPY</span><span class="w"> </span>my_package<span class="w"> </span>/workspace/my_package
+<span class="k">RUN</span><span class="w"> </span>/isaac-sim/python.sh<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>/workspace/my_package
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
-</pre></div>
-</div>
-<ol class="arabic simple" start="2">
-<li><p><strong>Launch the docker container:</strong></p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
-</pre></div>
-</div>
-<p>The container will build (if needed) and drop you into an interactive shell.</p>
+<p>See Arena’s own <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/docker/Dockerfile.isaaclab_arena">Dockerfile</a>
+for a complete reference, including Isaac Lab installation and optional GR00T dependencies.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The run docker script mounts the following directories from the host machine if they exist:</p>
-<ul class="simple">
-<li><p><strong>Datasets</strong>: <code class="docutils literal notranslate"><span class="pre">$HOME/datasets</span></code> → <code class="docutils literal notranslate"><span class="pre">/datasets</span></code></p></li>
-<li><p><strong>Models</strong>: <code class="docutils literal notranslate"><span class="pre">$HOME/models</span></code> → <code class="docutils literal notranslate"><span class="pre">/models</span></code></p></li>
-<li><p><strong>Evaluation</strong>: <code class="docutils literal notranslate"><span class="pre">$HOME/eval</span></code> → <code class="docutils literal notranslate"><span class="pre">/eval</span></code></p></li>
-</ul>
-<p>When mounted a user avoids re-downloading datasets and models between container restarts,
-so our suggestion is to create these directories on the host machine before running the container.
-Note that the path of the mounted directories are configurable — see <code class="docutils literal notranslate"><span class="pre">docker/run_docker.sh</span></code>
-for the full list of arguments.</p>
+<p>Note that above we have assumed that Arena is being installed inside a Docker container.
+Of course, if you have an non-Docker environment that satisfies the prerequisites, you can
+install Arena directly into that environment, without the need for Docker.</p>
 </div>
-<ol class="arabic simple" start="3">
-<li><p><strong>Optionally verify installation by running tests:</strong></p></li>
-</ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
-pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not with_cameras and not with_subprocess&quot;</span><span class="w"> </span>isaaclab_arena/tests/
-pytest<span class="w"> </span>-sv<span class="w"> </span>-m<span class="w"> </span>with_subprocess<span class="w"> </span>isaaclab_arena/tests/
+</section>
+<section id="defining-a-custom-externally-defined-environment">
+<h2>Defining a Custom, Externally-Defined Environment<a class="headerlink" href="#defining-a-custom-externally-defined-environment" title="Link to this heading">#</a></h2>
+<p>This section describes how to write a new environment, outside of the Isaac Lab - Arena source tree.</p>
+<p>To write your own environment, subclass <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code>, set a unique <code class="docutils literal notranslate"><span class="pre">name</span></code>,
+and implement <code class="docutils literal notranslate"><span class="pre">get_env()</span></code> and <code class="docutils literal notranslate"><span class="pre">add_cli_args()</span></code>.
+Below is an example of a custom environment that places a single object on a table.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment.py</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena_environments.example_environment_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExampleEnvironmentBase</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;franka_table&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.no_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoTask</span>
+
+        <span class="c1"># Grab some assets from the registry.</span>
+        <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik&quot;</span><span class="p">)()</span>
+
+        <span class="c1"># Position the assets</span>
+        <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
+            <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{ENV_REGEX_NS}</span><span class="s2">/maple_table_robolab/table&quot;</span><span class="p">,</span>
+            <span class="n">parent_asset</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">table_reference</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">IsAnchor</span><span class="p">())</span>
+        <span class="n">pick_up_object</span><span class="o">.</span><span class="n">add_relation</span><span class="p">(</span><span class="n">On</span><span class="p">(</span><span class="n">table_reference</span><span class="p">))</span>
+
+        <span class="c1"># Compose the scene</span>
+        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">table_reference</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">light</span><span class="p">])</span>
+
+        <span class="c1"># Create the environment</span>
+        <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
+            <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">=</span><span class="n">NoTask</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_cli_args</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--object&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>With <code class="docutils literal notranslate"><span class="pre">isaaclab_arena</span></code> installed and the docker running, you’re ready to build your
-first IsaacLab-Arena Environment. See <a class="reference internal" href="first_arena_env.html"><span class="doc">First Arena Environment</span></a> to get started.</p>
+<p>External environments can be used in Isaac Lab Arena workflows by using a particular
+CLI syntax. For example, a zero-action policy can be run with an
+externally-defined environment like this:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_environment_class_path<span class="w"> </span>my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>franka_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>tomato_soup_can
+</pre></div>
+</div>
+<p>So the flag <code class="docutils literal notranslate"><span class="pre">external_environment_class_path</span></code> is used to specify the (fully qualified) path to the
+external environment module and class. The environment name is then specified as the
+first non flag argument to the policy runner, and any additional arguments are passed to the
+environment’s <code class="docutils literal notranslate"><span class="pre">add_cli_args()</span></code> method.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The environment above is actually located in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_examples/external_environments/basic.py</span></code>.
+So this environment is located in the Isaac Lab Arena source-tree, but isn’t included
+in the built in environments, so must be called through the external environment syntax.
+This is done to demonstrate how this would be done in an external codebase.</p>
+<p>The environment can be run with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--visualizer<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_environment_class_path<span class="w"> </span>isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>franka_table<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--object<span class="w"> </span>tomato_soup_can
+</pre></div>
+</div>
+<p>which results in an environment like the one below:</p>
+<a class="reference internal image-reference" href="../../_images/externally_defined_environment.png"><img alt="External environment example" class="align-center" src="../../_images/externally_defined_environment.png" style="width: 50%;" />
+</a>
+</div>
 </section>
 </section>
 
@@ -515,20 +612,20 @@ first IsaacLab-Arena Environment. See <a class="reference internal" href="first_
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../../index.html"
+       href="first_experiments/running_a_real_policy.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Welcome to Isaac Lab Arena!</p>
+        <p class="prev-next-title">Running a Real Policy</p>
       </div>
     </a>
     <a class="right-next"
-       href="first_arena_env.html"
+       href="../example_workflows/imitation_learning/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">First Arena Environment</p>
+        <p class="prev-next-title">Imitation Learning</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -553,8 +650,9 @@ first IsaacLab-Arena Environment. See <a class="reference internal" href="first_
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-systems">Supported Systems</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation-via-docker">Installation via Docker</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#repository-layout">Repository Layout</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dockerfile">Dockerfile</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-custom-externally-defined-environment">Defining a Custom, Externally-Defined Environment</a></li>
 </ul>
   </nav></div>
 
