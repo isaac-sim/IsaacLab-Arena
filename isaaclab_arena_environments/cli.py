@@ -71,18 +71,27 @@ def parse_and_return_external_environment_from_string(environment_path: str) -> 
     if ":" not in environment_path:
         raise ValueError(f"Invalid environment path: {environment_path}. Expected format: 'module_path:class_name'")
     module_path, class_name = environment_path.split(":", 1)
-    module = importlib.import_module(module_path)
-    environment_class = getattr(module, class_name)
+    try:
+        module = importlib.import_module(module_path)
+        environment_class = getattr(module, class_name)
+    except (ModuleNotFoundError, AttributeError) as e:
+        raise ValueError(
+            f"Could not resolve the environment path '{environment_path}' into an environment class."
+            " The format should be 'module_path:class_name'.\n"
+            f"Received the error:\n {e}."
+        ) from e
     name = getattr(environment_class, "name", environment_class.__name__)
+    assert name is not None, "Environment class must have a 'name' attribute"
     return {name: environment_class}
 
 
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     # Parse the parser once here to add the external environments to the example environments
     args, unknown = args_parser.parse_known_args()
-    environment = getattr(args, "environment", None)
+    environment = getattr(args, "external_environment_class_path", None)
     if environment is not None:
         # Update the ExampleEnvironments dictionary with the new external environment
+        print(f"Adding external environment: {environment}")
         ExampleEnvironments.update(parse_and_return_external_environment_from_string(environment))
     subparsers = args_parser.add_subparsers(
         dest="example_environment", required=True, help="Example environment to run"
