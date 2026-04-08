@@ -42,11 +42,10 @@ To start the annotation process, run the following command:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
-     --visualizer kit \
+     --viz kit \
      --device cpu \
      --input_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_g1_locomanipulation_dataset_annotated.hdf5 \
-     --enable_pinocchio \
      --mimic \
      galileo_g1_locomanip_pick_and_place
 
@@ -95,7 +94,8 @@ Generate the dataset:
      --embodiment g1_wbc_pink
 
 Data generation takes 1-4 hours depending on your CPU/GPU.
-You can remove ``--headless`` to visualize during data generation.
+You can remove ``--headless`` and add ``--viz kit``
+(before specifying the task name ``galileo_g1_locomanip_pick_and_place``) to visualize during data generation.
 
 
 Step 3: Validate Generated Dataset (Optional)
@@ -106,7 +106,7 @@ To visualize the data produced, you can replay the dataset using the following c
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
-     --visualizer kit \
+     --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_generated.hdf5 \
