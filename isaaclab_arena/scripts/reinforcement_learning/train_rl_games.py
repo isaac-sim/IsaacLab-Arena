@@ -21,7 +21,7 @@ parser.add_argument("--video_interval", type=int, default=2000, help="Interval b
 parser.add_argument(
     "--agent_cfg_path",
     type=Path,
-    default=Path("isaaclab_arena/policy/rl_policy/nist_gear_insertion_osc_rl_games.yaml"),
+    required=True,
     help="Path to the RL-Games agent YAML configuration file.",
 )
 parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint to resume from.")

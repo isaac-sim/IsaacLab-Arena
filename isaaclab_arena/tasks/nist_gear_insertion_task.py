@@ -5,17 +5,14 @@
 
 """Simple gear insertion task for the assembled NIST board.
 
-The medium gear is a separate object that the robot must pick up and insert
-onto the peg. The peg can be on the assembled board or on the gearbase
-asset (gears_and_base; USD gearbase_and_gears.usd). Use :attr:`gear_base_asset` to specify the
-asset whose pose + offset defines the peg (fixed asset + local offset); if omitted, the
-assembled board is used.
+The medium gear is a separate object that the robot must insert
+onto the peg.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import MISSING
+from dataclasses import MISSING, dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -30,7 +27,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.observations import gear_insertion_observations
-from isaaclab_arena_environments.mdp.observations import body_pos_in_env_frame, body_quat_canonical
+from isaaclab_arena.tasks.observations.gear_insertion_observations import body_pos_in_env_frame, body_quat_canonical
 from isaaclab_arena.tasks.rewards import gear_insertion_rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import (
@@ -47,12 +44,30 @@ if TYPE_CHECKING:
     import torch
 
 
+@dataclass
+class GraspConfig:
+    """Configuration for placing the gear in the robot's gripper at reset.
+
+    Groups all embodiment-specific grasp parameters so the task constructor
+    stays focused on task-level concerns (geometry, success criteria).
+    """
+
+    num_arm_joints: int = 7
+    hand_grasp_width: float = 0.03
+    hand_close_width: float = 0.0
+    gripper_joint_setter_func: Callable | None = None
+    end_effector_body_name: str = "panda_hand"
+    grasp_rot_offset: list[float] = field(default_factory=lambda: [1.0, 0.0, 0.0, 0.0])
+    grasp_offset: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    arm_joint_names: str = "panda_joint.*"
+    finger_body_names: str = ".*finger"
+
+
 class NistGearInsertionTask(TaskBase):
     """Gear insertion task: insert the medium gear onto the peg.
 
     Peg position is computed from a fixed asset (board or separate gear-base USD)
-    plus an offset in that asset's local frame (assembly peg-insert convention). Use
-    :attr:`gear_base_asset` when the peg is on the gearbase (gears_and_base / gearbase_and_gears.usd).
+    plus an offset in that asset's local frame (assembly peg-insert convention).
     """
 
     def __init__(
@@ -61,41 +76,19 @@ class NistGearInsertionTask(TaskBase):
         held_gear: Asset,
         background_scene: Asset,
         peg_offset_from_board: list[float] | None = None,
+        peg_offset_for_obs: list[float] | None = None,
         held_gear_base_offset: list[float] | None = None,
+        gear_base_asset: Asset | None = None,
         gear_peg_height: float = 0.02,
         success_z_fraction: float = 0.30,
         xy_threshold: float = 0.0025,
         episode_length_s: float | None = None,
         task_description: str | None = None,
-        start_in_gripper: bool = False,
-        num_arm_joints: int = 7,
-        hand_grasp_width: float = 0.03,
-        hand_close_width: float = 0.0,
-        gripper_joint_setter_func: Callable[
-            [torch.Tensor, Sequence[int], Sequence[int], float], None
-        ] | None = None,
-        end_effector_body_name: str = "panda_hand",
-        grasp_rot_offset: list[float] | None = None,
-        grasp_offset: list[float] | None = None,
-        include_success_bonus: bool = True,
+        grasp_cfg: GraspConfig | None = None,
         enable_randomization: bool = False,
-        arm_joint_names: str = "panda_joint.*",
-        finger_body_names: str = ".*finger",
-        peg_offset_xy_noise: float = 0.0,
-        gear_base_asset: Asset | None = None,
-        peg_offset_for_obs: list[float] | None = None,
-        disable_drop_terminations: bool = False,
-        engagement_xy_threshold: float | None = None,
-        success_bonus_weight: float | None = None,
-        include_insertion_regularizers: bool = False,
-        pos_action_threshold: float = 0.02,
-        rot_action_threshold: float = 0.097,
-        action_penalty_weight: float = -0.0005,
-        action_grad_penalty_weight: float = -0.01,
-        contact_penalty_weight: float = -0.001,
-        success_pred_error_weight: float = -1.0,
-        success_pred_error_delay: float = 0.25,
-        extra_event_terms: dict[str, EventTermCfg] | None = None,
+        peg_offset_xy_noise: float = 0.005,
+        disable_drop_terminations: bool = True,
+        rl_training_mode: bool = False,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.assembled_board = assembled_board
@@ -109,30 +102,10 @@ class NistGearInsertionTask(TaskBase):
         self.gear_peg_height = gear_peg_height
         self.success_z_fraction = success_z_fraction
         self.xy_threshold = xy_threshold
-        self.start_in_gripper = start_in_gripper
-        self.num_arm_joints = num_arm_joints
-        self.hand_grasp_width = hand_grasp_width
-        self.hand_close_width = hand_close_width
-        self.gripper_joint_setter_func = gripper_joint_setter_func
-        self.end_effector_body_name = end_effector_body_name
-        self.grasp_rot_offset = grasp_rot_offset or [1.0, 0.0, 0.0, 0.0]
-        self.grasp_offset = grasp_offset or [0.0, 0.0, 0.0]
-        self.include_success_bonus = include_success_bonus
+        self.grasp_cfg = grasp_cfg
         self.enable_randomization = enable_randomization
-        self.arm_joint_names = arm_joint_names
-        self.finger_body_names = finger_body_names
         self.disable_drop_terminations = disable_drop_terminations
-        self.engagement_xy_threshold = engagement_xy_threshold
-        self.success_bonus_weight = success_bonus_weight
-        self.include_insertion_regularizers = include_insertion_regularizers
-        self.pos_action_threshold = pos_action_threshold
-        self.rot_action_threshold = rot_action_threshold
-        self.action_penalty_weight = action_penalty_weight
-        self.action_grad_penalty_weight = action_grad_penalty_weight
-        self.contact_penalty_weight = contact_penalty_weight
-        self.success_pred_error_weight = success_pred_error_weight
-        self.success_pred_error_delay = success_pred_error_delay
-        self.extra_event_terms = extra_event_terms or {}
+        self.rl_training_mode = rl_training_mode
         self.task_description = (
             f"Insert the {held_gear.name} onto the gear base on the {assembled_board.name}"
             if task_description is None
@@ -157,21 +130,10 @@ class NistGearInsertionTask(TaskBase):
             board_name=self._gear_base_asset.name,
             peg_offset=self.peg_offset_from_board,
             held_gear_base_offset=self.held_gear_base_offset,
-            include_success_bonus=self.include_success_bonus,
-            peg_offset_xy_noise=self.peg_offset_xy_noise,
             gear_peg_height=self.gear_peg_height,
             success_z_fraction=self.success_z_fraction,
             xy_threshold=self.xy_threshold,
-            engagement_xy_threshold=self.engagement_xy_threshold,
-            success_bonus_weight=self.success_bonus_weight,
-            include_insertion_regularizers=self.include_insertion_regularizers,
-            pos_action_threshold=self.pos_action_threshold,
-            rot_action_threshold=self.rot_action_threshold,
-            action_penalty_weight=self.action_penalty_weight,
-            action_grad_penalty_weight=self.action_grad_penalty_weight,
-            contact_penalty_weight=self.contact_penalty_weight,
-            success_pred_error_weight=self.success_pred_error_weight,
-            success_pred_error_delay=self.success_pred_error_delay,
+            peg_offset_xy_noise=self.peg_offset_xy_noise,
         )
 
     def get_termination_cfg(self):
@@ -195,13 +157,15 @@ class NistGearInsertionTask(TaskBase):
             },
         )
         cfg = _TerminationsCfg(success=success, object_dropped=object_dropped)
-        if self.start_in_gripper:
+        if self.rl_training_mode:
+            cfg.success = None
+        if self.grasp_cfg is not None:
             cfg.gear_dropped_from_gripper = TerminationTermCfg(
                 func=gear_dropped_from_gripper,
                 params={
                     "gear_cfg": SceneEntityCfg(self.held_gear.name),
                     "robot_cfg": SceneEntityCfg("robot"),
-                    "ee_body_name": self.end_effector_body_name,
+                    "ee_body_name": self.grasp_cfg.end_effector_body_name,
                     "distance_threshold": 0.15,
                 },
             )
@@ -212,27 +176,89 @@ class NistGearInsertionTask(TaskBase):
 
     def get_events_cfg(self):
         cfg = _EventsCfg()
-        if self.start_in_gripper and self.gripper_joint_setter_func is not None:
+        gc = self.grasp_cfg
+        if gc is not None and gc.gripper_joint_setter_func is not None:
             cfg.place_gear = EventTermCfg(
                 func=place_gear_in_gripper,
                 mode="reset",
                 params={
                     "gear_cfg": SceneEntityCfg(self.held_gear.name),
-                    "num_arm_joints": self.num_arm_joints,
-                    "hand_grasp_width": self.hand_grasp_width,
-                    "hand_close_width": self.hand_close_width,
-                    "gripper_joint_setter_func": self.gripper_joint_setter_func,
-                    "end_effector_body_name": self.end_effector_body_name,
-                    "grasp_rot_offset": self.grasp_rot_offset,
-                    "grasp_offset": self.grasp_offset,
+                    "num_arm_joints": gc.num_arm_joints,
+                    "hand_grasp_width": gc.hand_grasp_width,
+                    "hand_close_width": gc.hand_close_width,
+                    "gripper_joint_setter_func": gc.gripper_joint_setter_func,
+                    "end_effector_body_name": gc.end_effector_body_name,
+                    "grasp_rot_offset": gc.grasp_rot_offset,
+                    "grasp_offset": gc.grasp_offset,
                 },
             )
         if self.enable_randomization:
+            arm_joints = gc.arm_joint_names if gc is not None else "panda_joint.*"
+            finger_bodies = gc.finger_body_names if gc is not None else ".*finger"
+            cfg.held_physics_material = EventTermCfg(
+                func=mdp_isaac_lab.randomize_rigid_body_material,
+                mode="startup",
+                params={
+                    "asset_cfg": SceneEntityCfg(self.held_gear.name),
+                    "static_friction_range": (0.75, 0.75),
+                    "dynamic_friction_range": (0.75, 0.75),
+                    "restitution_range": (0.0, 0.0),
+                    "num_buckets": 1,
+                },
+            )
+            cfg.robot_physics_material = EventTermCfg(
+                func=mdp_isaac_lab.randomize_rigid_body_material,
+                mode="startup",
+                params={
+                    "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+                    "static_friction_range": (0.75, 0.75),
+                    "dynamic_friction_range": (0.75, 0.75),
+                    "restitution_range": (0.0, 0.0),
+                    "num_buckets": 1,
+                },
+            )
+            cfg.fixed_physics_material = EventTermCfg(
+                func=mdp_isaac_lab.randomize_rigid_body_material,
+                mode="startup",
+                params={
+                    "asset_cfg": SceneEntityCfg(self._gear_base_asset.name),
+                    "static_friction_range": (0.25, 1.25),
+                    "dynamic_friction_range": (0.25, 0.25),
+                    "restitution_range": (0.0, 0.0),
+                    "num_buckets": 128,
+                },
+            )
+            cfg.held_object_mass = EventTermCfg(
+                func=mdp_isaac_lab.randomize_rigid_body_mass,
+                mode="reset",
+                params={
+                    "asset_cfg": SceneEntityCfg(self.held_gear.name),
+                    "mass_distribution_params": (-0.005, 0.005),
+                    "operation": "add",
+                    "distribution": "uniform",
+                },
+            )
+            cfg.fixed_asset_pose = EventTermCfg(
+                func=mdp_isaac_lab.reset_root_state_uniform,
+                mode="reset",
+                params={
+                    "asset_cfg": SceneEntityCfg(self._gear_base_asset.name),
+                    "pose_range": {
+                        "x": (0.0, 0.0),
+                        "y": (0.0, 0.0),
+                        "z": (0.0, 0.0),
+                        "roll": (0.0, 0.0),
+                        "pitch": (0.0, 0.0),
+                        "yaw": (0.0, 0.2617993877991494),
+                    },
+                    "velocity_range": {},
+                },
+            )
             cfg.robot_actuator_gains = EventTermCfg(
                 func=mdp_isaac_lab.randomize_actuator_gains,
                 mode="reset",
                 params={
-                    "asset_cfg": SceneEntityCfg("robot", joint_names=[self.arm_joint_names]),
+                    "asset_cfg": SceneEntityCfg("robot", joint_names=[arm_joints]),
                     "stiffness_distribution_params": (0.75, 1.5),
                     "damping_distribution_params": (0.3, 3.0),
                     "operation": "scale",
@@ -243,7 +269,7 @@ class NistGearInsertionTask(TaskBase):
                 func=mdp_isaac_lab.randomize_joint_parameters,
                 mode="reset",
                 params={
-                    "asset_cfg": SceneEntityCfg("robot", joint_names=[self.arm_joint_names]),
+                    "asset_cfg": SceneEntityCfg("robot", joint_names=[arm_joints]),
                     "friction_distribution_params": (0.3, 0.7),
                     "operation": "add",
                     "distribution": "uniform",
@@ -275,15 +301,13 @@ class NistGearInsertionTask(TaskBase):
                 func=mdp_isaac_lab.randomize_rigid_body_material,
                 mode="startup",
                 params={
-                    "asset_cfg": SceneEntityCfg("robot", body_names=self.finger_body_names),
+                    "asset_cfg": SceneEntityCfg("robot", body_names=finger_bodies),
                     "static_friction_range": (0.75, 0.75),
                     "dynamic_friction_range": (0.75, 0.75),
                     "restitution_range": (0.0, 0.0),
                     "num_buckets": 16,
                 },
             )
-        for name, term_cfg in self.extra_event_terms.items():
-            setattr(cfg, name, term_cfg)
         return cfg
 
     def get_prompt(self):
@@ -307,7 +331,7 @@ class _TerminationsCfg:
     """Termination terms for the gear insertion task."""
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-    success: TerminationTermCfg = MISSING
+    success: TerminationTermCfg | None = MISSING
     object_dropped: TerminationTermCfg | None = MISSING
     gear_dropped_from_gripper: TerminationTermCfg | None = None
     gear_orientation_exceeded: TerminationTermCfg | None = None
@@ -322,8 +346,12 @@ class _EventsCfg:
         mode="reset",
         params={"reset_joint_targets": True},
     )
-    fixed_asset_pose: EventTermCfg | None = None
     place_gear: EventTermCfg | None = None
+    fixed_asset_pose: EventTermCfg | None = None
+    held_physics_material: EventTermCfg | None = None
+    robot_physics_material: EventTermCfg | None = None
+    fixed_physics_material: EventTermCfg | None = None
+    held_object_mass: EventTermCfg | None = None
     gripper_init_yaw_noise: EventTermCfg | None = None
     robot_actuator_gains: EventTermCfg | None = None
     robot_joint_friction: EventTermCfg | None = None
@@ -350,20 +378,20 @@ class _GearInsertionObservationsCfg:
         @configclass
         class _TaskObsCfg(ObsGroup):
             gear_pos = ObsTerm(
-                func=gear_insertion_observations.gear_pos_in_env_frame,
-                params={"gear_cfg": SceneEntityCfg(gear_name)},
+                func=mdp_isaac_lab.root_pos_w,
+                params={"asset_cfg": SceneEntityCfg(gear_name)},
             )
             gear_quat = ObsTerm(
-                func=gear_insertion_observations.gear_quat_canonical,
-                params={"gear_cfg": SceneEntityCfg(gear_name)},
+                func=mdp_isaac_lab.root_quat_w,
+                params={"make_quat_unique": True, "asset_cfg": SceneEntityCfg(gear_name)},
             )
             peg_pos = ObsTerm(
                 func=gear_insertion_observations.peg_pos_in_env_frame,
                 params={"board_cfg": SceneEntityCfg(board_name), "peg_offset": peg_offset},
             )
             board_quat = ObsTerm(
-                func=gear_insertion_observations.board_quat_canonical,
-                params={"board_cfg": SceneEntityCfg(board_name)},
+                func=mdp_isaac_lab.root_quat_w,
+                params={"make_quat_unique": True, "asset_cfg": SceneEntityCfg(board_name)},
             )
             peg_delta = ObsTerm(
                 func=gear_insertion_observations.peg_delta_from_held_gear_base,
@@ -400,55 +428,52 @@ class _GearInsertionObservationsCfg:
 
 @configclass
 class _GearInsertionRewardsCfg:
-    """Keypoint squashing, bonuses, and optional insertion regularizers for gear insertion."""
+    """Keypoint squashing, bonuses, and insertion regularisers for gear insertion.
+
+    Reward weights are hardcoded here (matching the lift-task pattern) rather
+    than being surfaced through the task constructor.
+    """
 
     kp_baseline: RewardTermCfg = MISSING
     kp_coarse: RewardTermCfg = MISSING
     kp_fine: RewardTermCfg = MISSING
-    engagement_bonus: RewardTermCfg | None = None
-    success_bonus: RewardTermCfg | None = None
-
-    action_penalty_asset: RewardTermCfg | None = None
-    action_grad_penalty: RewardTermCfg | None = None
-    contact_penalty: RewardTermCfg | None = None
-    success_pred_error: RewardTermCfg | None = None
+    engagement_bonus: RewardTermCfg = MISSING
+    success_bonus: RewardTermCfg = MISSING
+    action_penalty_asset: RewardTermCfg = MISSING
+    action_grad_penalty: RewardTermCfg = MISSING
+    contact_penalty: RewardTermCfg = MISSING
+    success_pred_error: RewardTermCfg = MISSING
 
     def __init__(
         self,
         gear_name: str,
         board_name: str,
         peg_offset: list[float],
-        held_gear_base_offset: list[float] | None = None,
-        include_success_bonus: bool = True,
-        peg_offset_xy_noise: float = 0.0,
-        gear_peg_height: float = 0.02,
-        success_z_fraction: float = 0.05,
-        xy_threshold: float = 0.0025,
-        engagement_xy_threshold: float | None = None,
-        success_bonus_weight: float | None = None,
-        include_insertion_regularizers: bool = False,
-        pos_action_threshold: float = 0.02,
-        rot_action_threshold: float = 0.097,
-        action_penalty_weight: float = -0.0005,
-        action_grad_penalty_weight: float = -0.01,
-        contact_penalty_weight: float = -0.001,
-        success_pred_error_weight: float = -1.0,
-        success_pred_error_delay: float = 0.25,
+        held_gear_base_offset: list[float],
+        gear_peg_height: float,
+        success_z_fraction: float,
+        xy_threshold: float,
+        peg_offset_xy_noise: float = 0.005,
     ):
-        self.action_penalty_asset = None
-        self.action_grad_penalty = None
-        self.contact_penalty = None
-        self.success_pred_error = None
-        hgo = held_gear_base_offset if held_gear_base_offset is not None else [2.025e-2, 0.0, 0.0]
+        hgo = held_gear_base_offset
+        gear_cfg = SceneEntityCfg(gear_name)
+        board_cfg = SceneEntityCfg(board_name)
         common_params = {
-            "gear_cfg": SceneEntityCfg(gear_name),
-            "board_cfg": SceneEntityCfg(board_name),
+            "gear_cfg": gear_cfg,
+            "board_cfg": board_cfg,
             "peg_offset": peg_offset,
             "held_gear_base_offset": hgo,
             "keypoint_scale": 0.15,
             "num_keypoints": 4,
             "peg_offset_xy_noise": peg_offset_xy_noise,
         }
+        bonus_params = {
+            "gear_cfg": gear_cfg,
+            "board_cfg": board_cfg,
+            "peg_offset": peg_offset,
+            "held_gear_base_offset": hgo,
+        }
+
         self.kp_baseline = RewardTermCfg(
             func=gear_insertion_rewards.gear_peg_keypoint_squashing,
             weight=1.0,
@@ -464,60 +489,42 @@ class _GearInsertionRewardsCfg:
             weight=1.0,
             params={**common_params, "squash_a": 100.0, "squash_b": 0.0},
         )
-        bonus_params = {
-            "gear_cfg": SceneEntityCfg(gear_name),
-            "board_cfg": SceneEntityCfg(board_name),
-            "peg_offset": peg_offset,
-            "held_gear_base_offset": hgo,
-        }
-        if include_success_bonus:
-            self.engagement_bonus = RewardTermCfg(
-                func=gear_insertion_rewards.gear_insertion_engagement_bonus,
-                weight=1.0,
-                params={
-                    **bonus_params,
-                    "engage_z_fraction": 0.90,
-                    "xy_threshold": 0.015 if engagement_xy_threshold is None else engagement_xy_threshold,
-                },
-            )
-            self.success_bonus = RewardTermCfg(
-                func=gear_insertion_rewards.gear_insertion_success_bonus,
-                weight=1.0 if success_bonus_weight is None else success_bonus_weight,
-                params={**bonus_params, "success_z_fraction": success_z_fraction},
-            )
-        else:
-            self.engagement_bonus = None
-            self.success_bonus = None
-        if include_insertion_regularizers:
-            self.action_penalty_asset = RewardTermCfg(
-                func=gear_insertion_rewards.osc_action_magnitude_penalty,
-                weight=action_penalty_weight,
-                params={
-                    "pos_action_threshold": pos_action_threshold,
-                    "rot_action_threshold": rot_action_threshold,
-                },
-            )
-            self.action_grad_penalty = RewardTermCfg(
-                func=gear_insertion_rewards.osc_action_delta_penalty,
-                weight=action_grad_penalty_weight,
-                params={},
-            )
-            self.contact_penalty = RewardTermCfg(
-                func=gear_insertion_rewards.wrist_contact_force_penalty,
-                weight=contact_penalty_weight,
-                params={},
-            )
-            self.success_pred_error = RewardTermCfg(
-                func=gear_insertion_rewards.success_prediction_error,
-                weight=success_pred_error_weight,
-                params={
-                    "gear_cfg": SceneEntityCfg(gear_name),
-                    "board_cfg": SceneEntityCfg(board_name),
-                    "peg_offset": peg_offset,
-                    "held_gear_base_offset": hgo,
-                    "gear_peg_height": gear_peg_height,
-                    "success_z_fraction": success_z_fraction,
-                    "xy_threshold": xy_threshold,
-                    "delay_until_ratio": success_pred_error_delay,
-                },
-            )
+        self.engagement_bonus = RewardTermCfg(
+            func=gear_insertion_rewards.gear_insertion_engagement_bonus,
+            weight=1.0,
+            params={**bonus_params, "engage_z_fraction": 0.90, "xy_threshold": xy_threshold},
+        )
+        self.success_bonus = RewardTermCfg(
+            func=gear_insertion_rewards.gear_insertion_success_bonus,
+            weight=1.0,
+            params={**bonus_params, "success_z_fraction": success_z_fraction},
+        )
+        self.action_penalty_asset = RewardTermCfg(
+            func=gear_insertion_rewards.osc_action_magnitude_penalty,
+            weight=-0.0005,
+            params={"pos_action_threshold": 0.02, "rot_action_threshold": 0.097},
+        )
+        self.action_grad_penalty = RewardTermCfg(
+            func=gear_insertion_rewards.osc_action_delta_penalty,
+            weight=-0.01,
+            params={},
+        )
+        self.contact_penalty = RewardTermCfg(
+            func=gear_insertion_rewards.wrist_contact_force_penalty,
+            weight=-0.001,
+            params={},
+        )
+        self.success_pred_error = RewardTermCfg(
+            func=gear_insertion_rewards.success_prediction_error,
+            weight=-1.0,
+            params={
+                "gear_cfg": gear_cfg,
+                "board_cfg": board_cfg,
+                "peg_offset": peg_offset,
+                "held_gear_base_offset": hgo,
+                "gear_peg_height": gear_peg_height,
+                "success_z_fraction": success_z_fraction,
+                "xy_threshold": xy_threshold,
+                "delay_until_ratio": 0.25,
+            },
+        )

@@ -35,8 +35,11 @@ class RlGamesActionPolicyConfig:
     checkpoint_path: str
     """Path to the RL-Games .pth checkpoint file."""
 
-    agent_cfg_path: Path = Path("isaaclab_arena/policy/rl_policy/nist_gear_insertion_osc_rl_games.yaml")
-    """Path to the RL-Games agent YAML configuration file."""
+    agent_cfg_path: Path = None
+    """Path to the RL-Games agent YAML configuration file.
+
+    When using the CLI (``policy_runner.py``), this is set via ``--agent_cfg_path``.
+    """
 
     device: str = "cuda:0"
     """Device to run the policy on."""
@@ -61,22 +64,6 @@ class RlGamesActionPolicy(PolicyBase):
     Wraps the RL-Games player for use with the Arena policy runner and eval runner.
     Handles observation processing (concatenation, clipping) and LSTM state management.
 
-    Example JSON configuration for eval runner::
-
-        {
-          "jobs": [{
-              "name": "eval_gear_insertion",
-              "policy_type": "rl_games",
-              "policy_config_dict": {
-                  "checkpoint_path": "logs/rl_games/.../nn/model.pth",
-                  "agent_cfg_path": "isaaclab_arena/policy/rl_policy/nist_gear_insertion_osc_rl_games.yaml",
-                  "device": "cuda:0",
-                  "deterministic": true
-              },
-              "arena_env_args": {"environment": "nist_assembled_gear_mesh_osc"},
-              "num_episodes": 100
-          }]
-        }
     """
 
     name = "rl_games"
@@ -189,7 +176,7 @@ class RlGamesActionPolicy(PolicyBase):
         group.add_argument(
             "--agent_cfg_path",
             type=Path,
-            default=Path("isaaclab_arena/policy/rl_policy/nist_gear_insertion_osc_rl_games.yaml"),
+            required=True,
             help="Path to the RL-Games agent YAML configuration file.",
         )
         group.add_argument(
