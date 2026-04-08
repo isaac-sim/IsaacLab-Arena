@@ -139,14 +139,14 @@ Verify the environment loads correctly with a zero-action policy:
 
    # PhysX (default):
    python isaaclab_arena/evaluation/policy_runner.py \
-     --visualizer kit \
+     --viz kit \
      --policy_type zero_action \
      --num_steps 100 \
      dexsuite_lift
 
    # Newton:
    python isaaclab_arena/evaluation/policy_runner.py \
-     --visualizer newton \
+     --viz newton \
      --presets newton \
      --policy_type zero_action \
      --num_steps 100 \
@@ -156,7 +156,7 @@ You should see the Kuka Allegro hand in the scene with the cuboid on the table.
 
 .. tip::
 
-   ``--visualizer newton`` uses the MuJoCo viewer; ``--visualizer kit`` uses
+   ``--viz newton`` uses the MuJoCo viewer; ``--viz kit`` uses
    the Kit viewer. The visualizer setting is independent of the physics backend.
-   For example, ``--visualizer kit --presets newton`` runs Newton physics with
+   For example, ``--viz kit --presets newton`` runs Newton physics with
    the Kit viewer.

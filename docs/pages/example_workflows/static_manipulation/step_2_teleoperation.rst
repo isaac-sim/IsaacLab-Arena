@@ -89,7 +89,7 @@ Run the recording script:
    source ~/.cloudxr/run/cloudxr.env
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
-     --visualizer kit \
+     --viz kit \
      --dataset_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --num_demos 10 \
      --num_success_steps 2 \
