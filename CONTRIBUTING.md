@@ -1,6 +1,6 @@
-## Isaac Lab Arena Contribution Rules
+## Isaac Lab-Arena Contribution Rules
 
-This document describes the rules for contributing to Isaac Lab Arena
+This document describes the rules for contributing to Isaac Lab-Arena
 
 
 #### Signing Your Work
