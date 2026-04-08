@@ -1,141 +1,88 @@
-Policy Design
-=============
+Policy
+======
 
-Policies define how agents generate actions from observations.
-The policy system provides a registry system for managing different policies.
+A policy in Arena is a standard interface between your model and the evaluation
+pipeline. You implement one method — ``get_action(env, obs)`` — and the policy
+plugs into both the single-job runner and the batch eval runner without any
+changes to either. In bare IsaacLab you would write an ad-hoc inference loop
+for each model; Arena's ``PolicyBase`` gives a consistent contract that all
+runners depend on.
 
-For how to run policies in practice (single job, sequential batch, or
-server–client), see :doc:`Evaluation Types <concept_evaluation_types>`.
+.. code-block:: python
 
-Core Architecture
+   policy = ZeroActionPolicy(config=ZeroActionPolicyArgs())
+   obs, _ = env.reset()
+   action = policy.get_action(env, obs)
+
+Built-in policies
 -----------------
 
-Policies use the ``PolicyBase`` abstract class:
+Arena ships with four policies:
 
-.. code-block:: python
+**ZeroActionPolicy** (``"zero_action"``)
+   Returns a zero-filled action tensor. Useful for validating an environment
+   without a trained model.
 
-   class PolicyBase(ABC):
-       @abstractmethod
-       def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
-           """Compute an action given the environment and observation.
+**ReplayActionPolicy** (``"replay"``)
+   Replays actions from a recorded episode stored in an HDF5 file.
 
-           Args:
-               env: The environment instance
-               observation: Observation dictionary from the environment
+**RslRlActionPolicy** (``"rsl_rl"``)
+   Runs inference with a trained RSL-RL checkpoint. Loads the checkpoint and
+   its accompanying ``params/agent.yaml`` automatically.
 
-           Returns:
-               torch.Tensor: The action to take
-           """
 
-This enables seamless swapping between different policy implementations while maintaining consistent integration with IsaacLab Arena environments.
-
-Policies in Detail
-------------------
-
-**Policy Categories**
-   Three main types addressing different use cases:
-
-   - **Zero Action Policy**: Baseline that returns zero actions for environment testing and physics validation
-   - **Replay Action Policy**: Replays pre-recorded demonstrations from HDF5 datasets for analysis and evaluation
-   - **GR00T Neural Policies**: Advanced foundation models for visuomotor control with multi-modal inputs
-
-**Implementation Patterns**
-   Common policy implementation approaches:
-
-   - **Stateless Policies**: Pure functions from observations to actions (ZeroActionPolicy)
-   - **Dataset-Driven**: Load and replay recorded trajectories (ReplayActionPolicy)
-   - **Neural Networks**: Process visual and proprioceptive inputs for learned behaviors (GR00T policies)
-
-Environment Integration
+Writing a custom policy
 -----------------------
 
-.. code-block:: python
-
-   # Policy creation from CLI arguments
-   arena_builder = get_arena_builder_from_cli(args)
-   env = arena_builder.make_registered()
-   policy, num_steps = create_policy(args)
-
-   # Standard execution loop
-   obs, _ = env.reset()
-   for step in range(num_steps):
-       with torch.inference_mode():
-           actions = policy.get_action(env, obs)
-           obs, rewards, terminated, truncated, info = env.step(actions)
-           if terminated.any() or truncated.any():
-               obs, _ = env.reset()
-
-Usage Examples
---------------
-
-**Baseline Testing**
-
-.. tabs::
-
-   .. tab:: Single GPU
-
-      .. code-block:: bash
-
-         # Zero action policy for environment validation
-         python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 1000 kitchen_pick_and_place --object cracker_box
-
-   .. tab:: Distribute Multi-GPU
-
-      .. code-block:: bash
-
-         # Zero action policy for environment validation
-         # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py --distributed --headless --policy_type zero_action --num_steps 1000 kitchen_pick_and_place --object cracker_box
-
-**Demonstration Replay**
-
-.. tabs::
-
-   .. tab:: Single GPU
-
-      .. code-block:: bash
-
-         # Replay recorded demonstrations
-         python isaaclab_arena/evaluation/policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place --object cracker_box
-
-   .. tab:: Distribute Multi-GPU
-
-      .. code-block:: bash
-
-         # Replay recorded demonstrations
-         # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py --distributed --headless --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place --object cracker_box
-
-**Neural Policy Execution**
-
-.. tabs::
-
-   .. tab:: Single GPU
-
-      .. code-block:: bash
-
-         # GR00T foundation model deployment
-         python isaaclab_arena/evaluation/policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml <your_isaaclab_arena_environment>
-
-   .. tab:: Distribute Multi-GPU
-
-      .. code-block:: bash
-
-         # GR00T foundation model deployment
-         # --nproc_per_node represents the number of available GPUs
-         python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py --distributed --headless --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml <your_isaaclab_arena_environment>
-
-**Custom Policy Integration**
+Subclass ``PolicyBase``, set a ``name``, decorate with ``@register_policy``,
+and implement ``get_action``:
 
 .. code-block:: python
 
-   class CustomPolicy(PolicyBase):
-       def get_action(self, env, observation):
-           # Custom control logic
-           return torch.zeros(env.action_space.shape)
+   import gymnasium as gym
+   import torch
+   from gymnasium.spaces.dict import Dict as GymSpacesDict
 
-   policy = CustomPolicy()
-   actions = policy.get_action(environment, observations)
+   from isaaclab_arena.assets.register import register_policy
+   from isaaclab_arena.policy.policy_base import PolicyBase
+
+
+   @register_policy
+   class MyPolicy(PolicyBase):
+       name = "my_policy"
+
+       def __init__(self, config):
+           super().__init__(config)
+
+       def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
+           # Your model inference here
+           return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))
+
+       @staticmethod
+       def add_args_to_parser(parser):
+           # Add any CLI arguments your policy needs, then return the parser
+           return parser
+
+       @staticmethod
+       def from_args(args):
+           return MyPolicy(config=None)
+
+Once registered, select the policy by name on the command line:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --policy_type my_policy \
+     ...
+
+For policies not registered by name, pass a dotted Python path instead
+(e.g. ``--policy_type mypackage.mypolicy.MyPolicy``). The runner will
+import and instantiate the class directly.
+
+To use a custom policy in the batch eval runner's JSON config, define a
+``config_class`` dataclass on the policy and implement ``from_dict()``.
+This lets the runner instantiate the policy from a plain dict without
+going through argparse. See :doc:`concept_evaluation_types` for details.
 
 More details
 ------------
