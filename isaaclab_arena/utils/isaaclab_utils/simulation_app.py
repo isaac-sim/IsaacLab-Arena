@@ -82,7 +82,6 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
             omni.usd.get_context().new_stage()
 
 
-
 def reapply_viewer_cfg(env) -> None:
     """Re-apply ViewerCfg camera position after visualizers are initialized.
 
@@ -95,6 +94,7 @@ def reapply_viewer_cfg(env) -> None:
     vcc = getattr(unwrapped, "viewport_camera_controller", None)
     if vcc is not None:
         vcc.update_view_location()
+
 
 def _kill_child_processes() -> None:
     """SIGKILL all direct child processes of the current process via /proc."""
@@ -114,7 +114,6 @@ def _kill_child_processes() -> None:
                             break
             except (FileNotFoundError, PermissionError, ProcessLookupError, ValueError):
                 continue
-
 
 
 class SimulationAppContext:
