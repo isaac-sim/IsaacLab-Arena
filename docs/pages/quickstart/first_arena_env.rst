@@ -268,5 +268,5 @@ definition, with no code changes.
 Using IsaacLab-Arena in Your Own Repository
 -------------------------------------------
 
-See :doc:`arena_in_your_repo` for the recommended pattern of consuming Arena as an unmodified
-submodule from an external project.
+See :doc:`../arena_in_your_repo/external_installation` for the recommended pattern of consuming
+Arena as an unmodified submodule from an external project.
