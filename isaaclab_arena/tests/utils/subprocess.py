@@ -5,7 +5,6 @@
 
 import atexit
 import os
-import signal
 import subprocess
 import sys
 import traceback
@@ -35,18 +34,25 @@ _AT_LEAST_ONE_TEST_FAILED = False
 _SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "600"))
 
 
-def run_subprocess(cmd, env=None, timeout_sec: int | None = None):
-    """Run a command in a subprocess with timeout and process-group cleanup.
-
-    Uses a dedicated process group so that on timeout the entire process tree
-    (Isaac Sim, Kit, shader compiler, ...) is killed — not just the top-level
-    process.
+def run_subprocess(
+    cmd,
+    env=None,
+    timeout_sec: int | None = None,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess | None:
+    """Run a command in a subprocess with timeout.
 
     Args:
         cmd: Command to run (list of strings).
         env: Optional environment dict.  Defaults to inheriting the parent env.
         timeout_sec: Per-subprocess wall-clock timeout in seconds.
             Defaults to ``_SUBPROCESS_TIMEOUT_SEC`` (env ``ISAACLAB_ARENA_SUBPROCESS_TIMEOUT``, fallback 600).
+        capture_output: If True, capture stdout/stderr and return a
+            ``CompletedProcess``.  When False (default) output streams to
+            the parent process and the function returns None on success.
+
+    Returns:
+        ``CompletedProcess`` when *capture_output* is True, else None.
     """
     if timeout_sec is None:
         timeout_sec = _SUBPROCESS_TIMEOUT_SEC
@@ -58,32 +64,30 @@ def run_subprocess(cmd, env=None, timeout_sec: int | None = None):
         env = os.environ.copy()
     env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
 
-    # start_new_session=True → new process group, so os.killpg can reap the whole tree.
-    process = subprocess.Popen(
-        cmd,
-        env=env,
-        stdout=None,
-        stderr=None,
-        start_new_session=True,
-    )
-
     try:
-        returncode = process.wait(timeout=timeout_sec)
-    except subprocess.TimeoutExpired:
-        pgid = os.getpgid(process.pid)
-        sys.stderr.write(
-            f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s — killing process group {pgid}\n"
+        result = subprocess.run(
+            cmd,
+            env=env,
+            timeout=timeout_sec,
+            capture_output=capture_output,
+            text=capture_output,
         )
-        os.killpg(pgid, signal.SIGKILL)
-        process.wait()
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s\n")
         _AT_LEAST_ONE_TEST_FAILED = True
         raise subprocess.SubprocessError(f"Subprocess timed out after {timeout_sec}s: {cmd}")
 
-    print(f"Command completed with return code: {returncode}")
-    if returncode != 0:
-        sys.stderr.write(f"Command failed with return code {returncode}\n")
+    print(f"Command completed with return code: {result.returncode}")
+    if result.returncode != 0:
+        sys.stderr.write(f"Command failed with return code {result.returncode}\n")
+        if capture_output and result.stderr:
+            sys.stderr.write(result.stderr)
         _AT_LEAST_ONE_TEST_FAILED = True
-        raise subprocess.CalledProcessError(returncode, cmd)
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+    if capture_output:
+        return result
+    return None
 
 
 class _IsolatedArgv:
@@ -141,7 +145,7 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         first_headless, first_enable_cameras = _PERSISTENT_INIT_ARGS
         if (headless != first_headless) or (enable_cameras != first_enable_cameras):
             print(
-                "[isaac-arena] Warning: persistent SimulationApp already initialized with "
+                "[isaaclab-arena] Warning: persistent SimulationApp already initialized with "
                 f"headless={first_headless}, enable_cameras={first_enable_cameras}. "
                 "Ignoring new values."
             )

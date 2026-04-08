@@ -18,9 +18,18 @@ def get_isaac_sim_version() -> str:
     return omni.kit.app.get_app().get_app_version()
 
 
+STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
+
+
 def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
+    import time
+
+    t0 = time.monotonic()
     app_launcher = AppLauncher(args)
+    elapsed = time.monotonic() - t0
+    sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
+    sys.__stderr__.flush()
     return app_launcher
 
 

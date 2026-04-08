@@ -157,6 +157,7 @@ jobs:
 
       - name: Run subprocess-spawning  PhysX tests
         run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
@@ -188,7 +189,9 @@ jobs:
 
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena_gr00t/tests/
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena_gr00t/tests/
 
 
   build_docs_pre_merge:
