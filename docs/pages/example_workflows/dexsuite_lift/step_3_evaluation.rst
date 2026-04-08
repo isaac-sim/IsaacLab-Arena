@@ -45,7 +45,7 @@ Single Environment Evaluation
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
-     --visualizer newton \
+     --viz newton \
      --presets newton \
      --policy_type rsl_rl \
      --num_steps 800 \
