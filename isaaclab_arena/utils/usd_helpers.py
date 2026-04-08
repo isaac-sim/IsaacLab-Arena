@@ -5,6 +5,8 @@
 
 from contextlib import contextmanager
 
+import numpy as np
+import trimesh
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -196,3 +198,108 @@ def compute_local_bounding_box_from_prim(
         min_point=(local_min[0], local_min[1], local_min[2]),
         max_point=(local_max[0], local_max[1], local_max[2]),
     )
+
+
+def _collect_mesh_prims(stage: Usd.Stage, root: Usd.Prim) -> list[Usd.Prim]:
+    """Collect all UsdGeom.Mesh prims under *root*, including instance proxies.
+
+    Uses ``Usd.PrimRange`` with ``Usd.TraverseInstanceProxies()`` so that
+    instanceable USD assets (e.g. ``*_instanceable.usd``) are traversed
+    correctly.
+    """
+    meshes: list[Usd.Prim] = []
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if prim.IsA(UsdGeom.Mesh):
+            meshes.append(prim)
+    return meshes
+
+
+def extract_mesh_from_usd(
+    usd_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> trimesh.Trimesh:
+    """Extract a combined triangle mesh from a USD asset.
+
+    Walks all ``UsdGeom.Mesh`` prims under the default prim (including
+    instance proxies for ``*_instanceable.usd`` files), transforms their
+    vertices into the default-prim's local frame, and concatenates them into a
+    single ``trimesh.Trimesh``.
+
+    If no ``UsdGeom.Mesh`` prims are found (e.g. the asset uses only analytic
+    shapes), a box mesh derived from the USD bounding box is returned as a
+    fallback so that mesh-mode collision still works.
+
+    Args:
+        usd_path: Path to the USD file.
+        scale: Scale factors (x, y, z) applied to all vertices.
+
+    Returns:
+        A single ``trimesh.Trimesh`` combining all mesh geometry in the asset.
+
+    Raises:
+        ValueError: If the USD file cannot be opened.
+    """
+    stage = Usd.Stage.Open(usd_path)
+    if not stage:
+        raise ValueError(f"Failed to open USD file: {usd_path}")
+
+    default_prim = stage.GetDefaultPrim()
+    if not default_prim:
+        default_prim = stage.GetPseudoRoot()
+
+    mesh_prims = _collect_mesh_prims(stage, default_prim)
+    if not mesh_prims:
+        bbox = compute_local_bounding_box_from_usd(usd_path, scale)
+        size = bbox.size[0].tolist()
+        center = bbox.center[0].tolist()
+        box = trimesh.creation.box(extents=size)
+        box.apply_translation(center)
+        return box
+
+    all_vertices: list[np.ndarray] = []
+    all_faces: list[np.ndarray] = []
+    vertex_offset = 0
+
+    for mesh_prim in mesh_prims:
+        geom_mesh = UsdGeom.Mesh(mesh_prim)
+        points = np.array(geom_mesh.GetPointsAttr().Get(), dtype=np.float64)
+        face_counts = np.array(geom_mesh.GetFaceVertexCountsAttr().Get(), dtype=np.int32)
+        face_indices = np.array(geom_mesh.GetFaceVertexIndicesAttr().Get(), dtype=np.int32)
+
+        if len(points) == 0 or len(face_indices) == 0:
+            continue
+
+        # Transform vertices into the default prim's local frame.
+        xformable = UsdGeom.Xformable(mesh_prim)
+        local_to_world = xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        xform_matrix = np.array(local_to_world, dtype=np.float64).T  # pxr stores row-major
+        rot_scale = xform_matrix[:3, :3]
+        translation = xform_matrix[:3, 3]
+        points = points @ rot_scale.T + translation
+
+        # Triangulate polygon faces (most USD meshes are already triangulated or quads).
+        faces: list[list[int]] = []
+        idx = 0
+        for count in face_counts:
+            if count == 3:
+                faces.append([face_indices[idx], face_indices[idx + 1], face_indices[idx + 2]])
+            else:
+                for k in range(1, count - 1):
+                    faces.append([face_indices[idx], face_indices[idx + k], face_indices[idx + k + 1]])
+            idx += count
+
+        face_array = np.array(faces, dtype=np.int32) + vertex_offset
+        all_vertices.append(points)
+        all_faces.append(face_array)
+        vertex_offset += len(points)
+
+    if not all_vertices:
+        raise ValueError(f"All mesh prims in {usd_path} are empty")
+
+    vertices = np.concatenate(all_vertices, axis=0)
+    faces = np.concatenate(all_faces, axis=0)
+
+    # Apply scale.
+    vertices *= np.array(scale, dtype=np.float64)
+
+    return trimesh.Trimesh(vertices=vertices, faces=faces, process=False)

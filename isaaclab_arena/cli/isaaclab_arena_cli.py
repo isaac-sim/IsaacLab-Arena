@@ -57,6 +57,23 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Seed for object placement. If set, objects are placed at the same positions across runs.",
     )
     arena_group.add_argument(
+        "--collision_mode",
+        type=str,
+        choices=["aabb", "mesh"],
+        default="aabb",
+        help="Collision checking strategy: 'aabb' (fast, conservative) or 'mesh' (tighter, allows denser packing).",
+    )
+    arena_group.add_argument(
+        "--solver_max_iters",
+        type=int,
+        default=None,
+        help=(
+            "Override max optimisation iterations for the relation solver. "
+            "Set to 0 to skip optimisation and keep objects at their initial poses "
+            "(useful for validating hand-placed arrangements). Default: use solver default (600)."
+        ),
+    )
+    arena_group.add_argument(
         "--presets",
         type=str,
         default=None,

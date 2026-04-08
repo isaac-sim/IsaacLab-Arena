@@ -2,11 +2,17 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 import torch
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
+
+if TYPE_CHECKING:
+    import trimesh
 
 
 class DummyObject:
@@ -20,11 +26,13 @@ class DummyObject:
         bounding_box: AxisAlignedBoundingBox,
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
+        collision_mesh: trimesh.Trimesh | None = None,
         **kwargs,
     ):
         self.name = name
         self.initial_pose = initial_pose
         self.bounding_box = bounding_box
+        self._collision_mesh = collision_mesh
         assert self.bounding_box is not None
         self.relations = []
 
@@ -60,6 +68,10 @@ class DummyObject:
 
     def get_initial_pose(self) -> Pose | None:
         return self.initial_pose
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the collision mesh provided at construction, or None."""
+        return self._collision_mesh
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None

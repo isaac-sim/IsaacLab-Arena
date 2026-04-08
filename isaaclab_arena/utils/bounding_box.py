@@ -172,6 +172,34 @@ class AxisAlignedBoundingBox:
             & (other._max_point[:, 2] + margin > self._min_point[:, 2])
         )
 
+    def rotated(self, rotation_xyzw: tuple[float, float, float, float]) -> "AxisAlignedBoundingBox":
+        """Return the enclosing AABB after rotating this box by an arbitrary quaternion.
+
+        Rotates all 8 corners and computes the new axis-aligned min/max.
+        The result is always >= the original size (equality only for identity
+        or 180-degree axis-aligned rotations).
+
+        Args:
+            rotation_xyzw: Rotation quaternion as (x, y, z, w).
+
+        Returns:
+            New AxisAlignedBoundingBox enclosing the rotated corners.
+        """
+        x, y, z, w = rotation_xyzw
+        rot = torch.tensor(
+            [
+                [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+                [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+                [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+            ],
+            dtype=torch.float32,
+        )
+        corners = self.get_corners_at()  # (N, 8, 3)
+        rotated_corners = torch.einsum("ij,nkj->nki", rot, corners)
+        new_min = rotated_corners.min(dim=1).values
+        new_max = rotated_corners.max(dim=1).values
+        return AxisAlignedBoundingBox(min_point=new_min, max_point=new_max)
+
     def rotated_90_around_z(self, quarters: int) -> "AxisAlignedBoundingBox":
         """Rotate AABB by quarters * 90° around Z axis.
 

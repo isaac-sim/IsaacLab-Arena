@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+import trimesh
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -67,6 +68,17 @@ class ObjectBase(Asset, ABC):
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated)."""
         ...
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Get a triangle mesh for mesh-level collision checking.
+
+        Returns the object's geometry as a ``trimesh.Trimesh`` in the object's
+        local frame.  Subclasses backed by USD files should override this to
+        extract the actual mesh; others (e.g. ``DummyObject``) may return
+        ``None`` to indicate no mesh is available (the placer will fall back to
+        AABB checks for that object).
+        """
+        return None
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.

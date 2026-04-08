@@ -28,7 +28,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.object_placer_params import CollisionMode, ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
@@ -119,7 +119,12 @@ class ArenaEnvBuilder:
         # Positions are applied to objects via set_initial_pose (single-env: Pose/PoseRange,
         # multi-env: PosePerEnv), so each object's event_cfg handles its own reset.
         placement_seed = getattr(self.args, "placement_seed", None)
-        placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
+        collision_mode = CollisionMode(getattr(self.args, "collision_mode", "aabb"))
+        placer_params = ObjectPlacerParams(placement_seed=placement_seed, collision_mode=collision_mode)
+        solver_max_iters = getattr(self.args, "solver_max_iters", None)
+        if solver_max_iters is not None:
+            placer_params.solver_params.max_iters = solver_max_iters
+        placer = ObjectPlacer(params=placer_params)
         num_envs = self.args.num_envs
         result = placer.place(objects_with_relations, num_envs=num_envs)
 

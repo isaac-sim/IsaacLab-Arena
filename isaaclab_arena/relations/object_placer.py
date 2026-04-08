@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import math
 import torch
+import trimesh
+import trimesh.collision
+import trimesh.transformations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.object_placer_params import CollisionMode, ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
@@ -54,6 +57,19 @@ class ObjectPlacer:
         position may fall outside the actual surface.
     """
 
+    MESH_MODE_BBOX_SCALE = 0.0
+    """Scale factor for AABBs in the NoCollision loss when using mesh collision mode.
+
+    Set to 0.0 to disable AABB-based separation during optimisation, relying
+    entirely on mesh validation for collision correctness.  This allows the
+    solver to keep objects in positions that are AABB-invalid but mesh-valid
+    (e.g. objects inside a hollow container).
+
+    Shrinking the bounding boxes during optimization lets the solver pack objects
+    tighter, relying on the post-solve mesh validation to catch real collisions.
+    Value of 0.8 approximates the inscribed volume of a cylinder within its AABB.
+    """
+
     def __init__(self, params: ObjectPlacerParams | None = None):
         """Initialize the ObjectPlacer.
 
@@ -61,7 +77,19 @@ class ObjectPlacer:
             params: Configuration parameters. If None, uses defaults.
         """
         self.params = params or ObjectPlacerParams()
+        if self.params.collision_mode == CollisionMode.MESH:
+            self._apply_mesh_mode_strategy()
         self._solver = RelationSolver(params=self.params.solver_params)
+
+    def _apply_mesh_mode_strategy(self) -> None:
+        """Override the NoCollision loss strategy to use shrunk bounding boxes."""
+        from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
+        from isaaclab_arena.relations.relations import NoCollision
+
+        strategies = self.params.solver_params.strategies
+        existing = strategies.get(NoCollision)
+        slope = existing.slope if isinstance(existing, NoCollisionLossStrategy) else 100.0
+        strategies[NoCollision] = NoCollisionLossStrategy(slope=slope, bbox_scale=self.MESH_MODE_BBOX_SCALE)
 
     def place(
         self,
@@ -177,9 +205,13 @@ class ObjectPlacer:
     ) -> dict[ObjectBase, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
-        Anchors keep their initial_pose. Objects with an On relation are initialized within
-        the parent's footprint at the correct Z height. All other objects start at the first
-        anchor's center; the solver handles their placement from there.
+        Anchors keep their initial_pose. Non-anchor objects that already have an
+        ``initial_pose`` set use the provided XY while Z is derived from their
+        ``On`` relation (so the object sits on the correct surface). Objects
+        without an explicit ``initial_pose`` are initialized within the parent's
+        footprint at the correct Z height via random sampling. All other objects
+        start at the first anchor's center; the solver handles their placement
+        from there.
 
         Args:
             generator: Optional RNG generator for reproducible sampling. When None,
@@ -197,11 +229,41 @@ class ObjectPlacer:
         for obj in objects:
             if obj in anchor_objects:
                 positions[obj] = obj.get_initial_pose().position_xyz
+            elif isinstance(obj.get_initial_pose(), Pose):
+                positions[obj] = self._resolve_initial_pose_position(
+                    obj, anchor_objects, anchor_bbox
+                )
             elif any(isinstance(r, On) for r in obj.get_relations()):
                 positions[obj] = self._compute_on_guided_position(obj, anchor_objects, anchor_bbox, generator)
             else:
                 positions[obj] = (cx, cy, cz)
         return positions
+
+    def _resolve_initial_pose_position(
+        self,
+        obj: ObjectBase,
+        anchor_objects: set[ObjectBase],
+        anchor_bbox: AxisAlignedBoundingBox,
+    ) -> tuple[float, float, float]:
+        """Use the object's explicit initial_pose for XY and derive Z from its On relation.
+
+        If the object has an ``On`` relation the Z is computed so the child sits
+        on the parent's top surface (same formula as ``_compute_on_guided_position``).
+        Otherwise the Z from the initial_pose is used as-is.
+        """
+        pose = obj.get_initial_pose()
+        assert isinstance(pose, Pose), f"Expected Pose for fixed initial position, got {type(pose)}"
+        px, py, pz = pose.position_xyz
+
+        on_relations = [r for r in obj.get_relations() if isinstance(r, On)]
+        if on_relations:
+            on_relation = on_relations[0]
+            parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox)
+            child_bbox = obj.get_bounding_box()
+            z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
+            return (px, py, z)
+
+        return (px, py, pz)
 
     def _get_on_parent_world_bbox(
         self,
@@ -341,34 +403,108 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
     ) -> bool:
-        """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
+        """Validate that no two objects overlap in 3D.
 
-        Pairs linked by an On relation are skipped (validated separately by
-        _validate_on_relations).
+        Dispatches to AABB or mesh-based checking depending on
+        ``self.params.collision_mode``.  Pairs linked by an On relation are
+        always skipped (validated separately by ``_validate_on_relations``).
         """
-        # Build set of On-related pairs to skip (child, parent) and (parent, child).
-        on_pairs: set[tuple] = set()
+        if self.params.collision_mode == CollisionMode.MESH:
+            return self._validate_no_overlap_mesh(positions)
+        return self._validate_no_overlap_aabb(positions)
+
+    def _get_on_pairs(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+    ) -> set[tuple[int, int]]:
+        """Build set of (id(a), id(b)) pairs linked by On relations (both directions)."""
+        on_pairs: set[tuple[int, int]] = set()
         for obj in positions:
             for rel in obj.get_relations():
                 if isinstance(rel, On) and rel.parent in positions:
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
+        return on_pairs
 
+    def _validate_no_overlap_aabb(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+    ) -> bool:
+        """AABB-based overlap validation.
+
+        When an object has a ``RotateAroundSolution`` marker the local AABB is
+        inflated to enclose the rotated geometry before the overlap check.
+        """
+        on_pairs = self._get_on_pairs(positions)
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
-                # Pairs related by an On relation are excluded from the overlap check.
                 if (id(a), id(b)) in on_pairs:
                     continue
-
-                a_world = a.get_bounding_box().translated(positions[a])
-                b_world = b.get_bounding_box().translated(positions[b])
-
+                a_bbox = a.get_bounding_box()
+                b_bbox = b.get_bounding_box()
+                a_rotate = self._get_rotate_around_solution(a)
+                if a_rotate is not None:
+                    a_bbox = a_bbox.rotated(a_rotate.get_rotation_xyzw())
+                b_rotate = self._get_rotate_around_solution(b)
+                if b_rotate is not None:
+                    b_bbox = b_bbox.rotated(b_rotate.get_rotation_xyzw())
+                a_world = a_bbox.translated(positions[a])
+                b_world = b_bbox.translated(positions[b])
                 if a_world.overlaps(b_world, margin=self.params.min_separation_m).item():
                     if self.params.verbose:
-                        print(f"  Overlap between '{a.name}' and '{b.name}'")
+                        print(f"  AABB overlap between '{a.name}' and '{b.name}'")
                     return False
+        return True
+
+    def _validate_no_overlap_mesh(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+    ) -> bool:
+        """Mesh-based overlap validation using ``trimesh.collision.CollisionManager`` (FCL).
+
+        For each object, builds a world-space transform from the solved position
+        (and optional RotateAroundSolution rotation) and adds its collision mesh
+        (or an AABB box fallback) to a CollisionManager.  On-relation pairs are
+        excluded so that a child sitting on its parent does not count as a collision.
+        """
+        on_pairs = self._get_on_pairs(positions)
+
+        manager = trimesh.collision.CollisionManager()
+        obj_by_name: dict[str, ObjectBase] = {}
+
+        for obj, pos in positions.items():
+            mesh = obj.get_collision_mesh()
+            if mesh is None:
+                bbox = obj.get_bounding_box()
+                size = bbox.size[0].tolist()
+                center = bbox.center[0].tolist()
+                mesh = trimesh.creation.box(extents=size)
+                mesh.apply_translation(center)
+
+            transform = trimesh.transformations.translation_matrix(pos)
+            rotate_marker = self._get_rotate_around_solution(obj)
+            if rotate_marker is not None:
+                rot_xyzw = rotate_marker.get_rotation_xyzw()
+                x, y, z, w = rot_xyzw
+                rot_matrix = trimesh.transformations.quaternion_matrix([w, x, y, z])
+                transform = transform @ rot_matrix
+
+            obj_key = obj.name
+            obj_by_name[obj_key] = obj
+            manager.add_object(obj_key, mesh, transform)
+
+        _, contact_pairs = manager.in_collision_internal(return_names=True)
+
+        for name_a, name_b in contact_pairs:
+            a = obj_by_name[name_a]
+            b = obj_by_name[name_b]
+            if (id(a), id(b)) in on_pairs or (id(b), id(a)) in on_pairs:
+                continue
+            if self.params.verbose:
+                print(f"  Mesh collision between '{name_a}' and '{name_b}'")
+            return False
         return True
 
     def _validate_placement(

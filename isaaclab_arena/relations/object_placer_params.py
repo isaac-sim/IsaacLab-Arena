@@ -4,8 +4,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+
+class CollisionMode(Enum):
+    """Strategy for validating that placed objects do not collide."""
+
+    AABB = "aabb"
+    """Axis-aligned bounding box overlap check (fast, conservative)."""
+
+    MESH = "mesh"
+    """Triangle-mesh collision check via FCL (tighter, allows denser packing)."""
 
 
 @dataclass
@@ -35,3 +46,10 @@ class ObjectPlacerParams:
     on_relation_z_tolerance_m: float = 5e-3
     """Tolerance (meters) for On-relation Z validation. Valid Z band is extended to
     (parent_top - tolerance, parent_top + clearance_m + tolerance]. Default 5e-3 accommodates solver residual."""
+
+    collision_mode: CollisionMode = CollisionMode.AABB
+    """Collision checking strategy for overlap validation.  ``AABB`` uses axis-aligned
+    bounding boxes (fast, conservative).  ``MESH`` uses the actual triangle meshes via
+    ``trimesh.collision.CollisionManager`` for tighter packing.  Objects that do not
+    provide a collision mesh (``get_collision_mesh() is None``) fall back to AABB even
+    when ``MESH`` mode is selected."""

@@ -15,7 +15,14 @@ from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, extract_mesh_from_usd, has_light, open_stage
+
+
+_COLLISION_MESH_CACHE: dict[tuple[str, tuple[float, float, float]], "trimesh.Trimesh"] = {}
+"""Module-level cache for collision meshes, keyed by (usd_path, scale).
+
+Stored here rather than on Object instances so that IsaacLab's
+``configclass._validate`` never recurses into trimesh internals."""
 
 
 class Object(ObjectBase):
@@ -63,6 +70,15 @@ class Object(ObjectBase):
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
+
+    def get_collision_mesh(self) -> "trimesh.Trimesh | None":
+        """Get triangle mesh extracted from the USD file for mesh-level collision checking."""
+        if self.usd_path is None:
+            return None
+        cache_key = (self.usd_path, self.scale)
+        if cache_key not in _COLLISION_MESH_CACHE:
+            _COLLISION_MESH_CACHE[cache_key] = extract_mesh_from_usd(self.usd_path, self.scale)
+        return _COLLISION_MESH_CACHE[cache_key]
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).

@@ -329,15 +329,26 @@ class NoCollisionLossStrategy(RelationLossStrategy):
     4. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
     """
 
-    def __init__(self, slope: float = 10.0, debug: bool = False):
+    def __init__(self, slope: float = 10.0, debug: bool = False, bbox_scale: float = 1.0):
         """
         Args:
             slope: Gradient magnitude for overlap volume loss (default: 10.0).
                    Loss scales with slope times overlap volume.
             debug: If True, print detailed loss component breakdown.
+            bbox_scale: Scale factor for bounding boxes used in the loss (default: 1.0).
+                Values < 1.0 shrink both child and parent AABBs around their centers,
+                letting the optimizer pack objects tighter.  Useful when a downstream
+                mesh-level validation will catch real collisions.
         """
         self.slope = slope
         self.debug = debug
+        self.bbox_scale = bbox_scale
+
+    @staticmethod
+    def _shrink_bbox(bbox: AxisAlignedBoundingBox, scale: float) -> AxisAlignedBoundingBox:
+        center = (bbox.min_point + bbox.max_point) * 0.5
+        half = (bbox.max_point - bbox.min_point) * 0.5 * scale
+        return AxisAlignedBoundingBox(center - half, center + half)
 
     def compute_loss(
         self,
@@ -360,6 +371,10 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)
+
+        if self.bbox_scale != 1.0:
+            child_bbox = self._shrink_bbox(child_bbox, self.bbox_scale)
+            parent_world_bbox = self._shrink_bbox(parent_world_bbox, self.bbox_scale)
 
         # Parent world extents from the world bounding box, expanded by clearance_m
         c = relation.clearance_m
