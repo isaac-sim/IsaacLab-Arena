@@ -5,7 +5,7 @@ Policies define how agents generate actions from observations.
 The policy system provides a registry system for managing different policies.
 
 For how to run policies in practice (single job, sequential batch, or
-server–client), see :doc:`Evaluation Types <../policy_evaluation/evaluation_types>`.
+server–client), see :doc:`Evaluation Types <concept_evaluation_types>`.
 
 Core Architecture
 -----------------
@@ -136,3 +136,12 @@ Usage Examples
 
    policy = CustomPolicy()
    actions = policy.get_action(environment, observations)
+
+More details
+------------
+
+.. toctree::
+   :maxdepth: 1
+
+   concept_evaluation_types
+   concept_remote_policies_design
