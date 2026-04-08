@@ -211,10 +211,10 @@ TABLE OF CONTENTS
    :caption: Concepts
 
    pages/concepts/concept_overview
+   pages/concepts/concept_environment_compilation
    pages/concepts/scene/index
    pages/concepts/task/index
    pages/concepts/embodiment/index
-   pages/concepts/concept_environment_compilation
    pages/concepts/concept_object_placement
    pages/concepts/policy/index
 

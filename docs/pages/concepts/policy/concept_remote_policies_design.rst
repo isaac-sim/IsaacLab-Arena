@@ -1,5 +1,5 @@
-Remote Policies Design
-======================
+Remote Policies
+===============
 
 This section describes the generic remote policy interface in Isaac Lab Arena,
 how it is structured around server-side and client-side policies, and how to

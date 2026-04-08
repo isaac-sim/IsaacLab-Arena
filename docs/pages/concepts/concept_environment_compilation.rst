@@ -29,48 +29,41 @@ component contributes and merging them into a single
 How it works
 ------------
 
-Each component exposes a set of ``get_*_cfg()`` methods that return its
-contribution to each Isaac Lab manager:
+Each component (Scene, Embodiment, Task) exposes a set of ``get_*_cfg()`` methods that return its
+contribution to each Isaac Lab manager. The typical contributions of each component
+to each manager are tabulated below:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 25 25 25
++-------------+------------------------------------------------------------------------+
+| Isaac Lab   | Isaac Lab - Arena Component                                            |
++ Manager     +-----------------------+-------------------------+----------------------+
+|             | Scene                 | Embodiment              | Task                 |
++=============+=======================+=========================+======================+
+| Scene       | assets, lights        | robot, sensors          | task-specific assets |
++-------------+-----------------------+-------------------------+----------------------+
+| Observations|                       | proprioception, cameras | goal observations    |
++-------------+-----------------------+-------------------------+----------------------+
+| Actions     |                       | control interface       |                      |
++-------------+-----------------------+-------------------------+----------------------+
+| Events      | object placement      | robot reset             | task reset           |
+| (resets)    |                       |                         |                      |
++-------------+-----------------------+-------------------------+----------------------+
+| Terminations|                       |                         | success, failure     |
++-------------+-----------------------+-------------------------+----------------------+
+| Rewards     |                       |                         | dense rewards (RL)   |
++-------------+-----------------------+-------------------------+----------------------+
+| Recorder    |                       |                         | metrics-required data|
++-------------+-----------------------+-------------------------+----------------------+
 
-   * - Manager
-     - Scene
-     - Embodiment
-     - Task
-   * - Scene
-     - assets, lights
-     - robot, sensors
-     - task-specific assets
-   * - Observations
-     -
-     - proprioception, cameras
-     - goal observations
-   * - Actions
-     -
-     - control interface
-     -
-   * - Events (resets)
-     - object placement
-     - robot reset
-     - task reset
-   * - Terminations
-     -
-     -
-     - success, failure
-   * - Rewards
-     -
-     -
-     - dense rewards (RL)
 
-``ArenaEnvBuilder.compose_manager_cfg()`` merges all of these into one config.
-It also wires up the metrics recorder manager from the task's ``get_metrics()``,
-and optionally solves spatial relations between objects (``--solve_relations``).
+``ArenaEnvBuilder.compose_manager_cfg()`` first assmble the partial manager contributions
+from each component into a set of complete managers. Then it merges these complete managers
+into a single ``ManagerBasedRLEnvCfg``.
+The Arena Environment Builder also optionally solves spatial relations between
+objects (``--solve_relations``). See :doc:`./concept_object_placement` for more details.
+
 
 The compiled config is then registered with the gym registry under the
-environment's name, and ``gym.make()`` returns the running environment.
+environment's name, and ``gym.make()`` returns the gym environment.
 
 Mimic mode
 ----------
@@ -83,4 +76,4 @@ in mimic mode.
 
 .. code-block:: bash
 
-   python my_script.py --mimic ...
+   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py --mimic ...
