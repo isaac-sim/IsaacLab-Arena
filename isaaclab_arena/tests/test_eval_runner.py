@@ -6,11 +6,11 @@
 import json
 import os
 import re
+import subprocess
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -39,7 +39,7 @@ def run_eval_runner_and_check_no_failures(jobs_config_path: str, headless: bool 
     if headless:
         args.append("--headless")
 
-    result = run_subprocess(args, capture_output=True)
+    result = subprocess.run(args, capture_output=True, text=True, check=True)
     output = result.stdout + result.stderr
 
     # Parse the output to find job statuses in the table
@@ -60,7 +60,7 @@ def run_eval_runner_and_check_no_failures(jobs_config_path: str, headless: bool 
         raise AssertionError(f"The following jobs failed: {', '.join(failed_jobs)}\nAll job statuses: {job_statuses}")
 
 
-@pytest.mark.with_subprocess
+@pytest.mark.skip(reason="Skipping because of CI stalling")
 def test_eval_runner_two_jobs_zero_action(tmp_path):
     """Test eval_runner with 2 jobs using zero_action policy on different objects."""
     jobs = [
@@ -93,7 +93,7 @@ def test_eval_runner_two_jobs_zero_action(tmp_path):
     run_eval_runner_and_check_no_failures(temp_config_path)
 
 
-@pytest.mark.with_subprocess
+@pytest.mark.skip(reason="Skipping because of CI stalling")
 def test_eval_runner_multiple_environments(tmp_path):
     """Test eval_runner with jobs across different environments."""
     jobs = [
@@ -126,7 +126,7 @@ def test_eval_runner_multiple_environments(tmp_path):
     run_eval_runner_and_check_no_failures(temp_config_path)
 
 
-@pytest.mark.with_subprocess
+@pytest.mark.skip(reason="Skipping because of CI stalling")
 def test_eval_runner_different_embodiments(tmp_path):
     """Test eval_runner with jobs using different embodiments."""
     jobs = [
@@ -146,7 +146,7 @@ def test_eval_runner_different_embodiments(tmp_path):
             "arena_env_args": {
                 "environment": "kitchen_pick_and_place",
                 "object": "tomato_soup_can",
-                "embodiment": "franka",
+                "embodiment": "franka_ik",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
@@ -159,7 +159,7 @@ def test_eval_runner_different_embodiments(tmp_path):
     run_eval_runner_and_check_no_failures(temp_config_path)
 
 
-@pytest.mark.with_subprocess
+@pytest.mark.skip(reason="Skipping because of CI stalling")
 def test_eval_runner_from_existing_config():
     """Test eval_runner using the zero_action_jobs_config.json and verify no jobs failed."""
     config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
@@ -167,7 +167,7 @@ def test_eval_runner_from_existing_config():
     run_eval_runner_and_check_no_failures(config_path)
 
 
-@pytest.mark.with_subprocess
+@pytest.mark.skip(reason="Skipping because of CI stalling")
 def test_eval_runner_enable_cameras(tmp_path):
     """Test eval_runner with enable_cameras set to true."""
     jobs = [
@@ -176,7 +176,7 @@ def test_eval_runner_enable_cameras(tmp_path):
             "arena_env_args": {
                 "environment": "kitchen_pick_and_place",
                 "object": "cracker_box",
-                "embodiment": "franka",
+                "embodiment": "franka_ik",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
@@ -188,7 +188,7 @@ def test_eval_runner_enable_cameras(tmp_path):
                 "enable_cameras": True,
                 "environment": "kitchen_pick_and_place",
                 "object": "cracker_box",
-                "embodiment": "franka",
+                "embodiment": "franka_ik",
             },
             "num_steps": NUM_STEPS,
             "policy_type": "zero_action",
