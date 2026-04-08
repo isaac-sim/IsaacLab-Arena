@@ -96,18 +96,18 @@ Usage Examples
 .. code-block:: bash
 
    # Basic keyboard control
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit --teleop_device keyboard kitchen_pick_and_place
+   python isaaclab_arena/scripts/imitation_learning/teleop.py --viz kit --teleop_device keyboard kitchen_pick_and_place
 
 **SpaceMouse Control**
 
 .. code-block:: bash
 
    # Precise manipulation with SpaceMouse
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit--teleop_device spacemouse kitchen_pick_and_place --sensitivity 2.0
+   python isaaclab_arena/scripts/imitation_learning/teleop.py --viz kit--teleop_device spacemouse kitchen_pick_and_place --sensitivity 2.0
 
 **Hand Tracking**
 
 .. code-block:: bash
 
    # XR hand tracking for humanoid control (requires CloudXR runtime via Isaac Teleop)
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit --teleop_device openxr gr1_open_microwave
+   python isaaclab_arena/scripts/imitation_learning/teleop.py --viz kit --teleop_device openxr gr1_open_microwave
