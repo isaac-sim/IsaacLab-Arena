@@ -68,11 +68,11 @@ class RelationSolver:
             debug: If True, print detailed loss breakdown.
 
         Returns:
-            Scalar loss tensor (mean over envs). Per-env loss stored in _last_loss_per_env.
+            Scalar loss tensor (mean over environments).
         """
-        N = state.num_envs
+        batch_size = state.batch_size
         device = state.optimizable_positions.device if state.optimizable_positions is not None else None
-        total_loss = torch.zeros(N, device=device, dtype=torch.float32)
+        total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
         # Compute loss from all spatial relations using strategies
         for obj in state.optimizable_objects:
@@ -145,6 +145,7 @@ class RelationSolver:
             if self.params.verbose:
                 print("No optimizable objects, skipping solver.")
             self._last_loss_history = [0.0]
+            self._last_loss_per_env = torch.zeros(state.batch_size)
             self._last_position_history = [state.get_all_positions_snapshot()]
             return state.get_final_positions()
 
@@ -203,7 +204,7 @@ class RelationSolver:
 
     @property
     def last_loss_per_env(self) -> torch.Tensor | None:
-        """Per-env loss (N,) from the last solve() call."""
+        """Per-candidate loss tensor of shape (batch_size,) from the last solve() call."""
         return self._last_loss_per_env
 
     @property

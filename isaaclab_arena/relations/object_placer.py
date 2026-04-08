@@ -119,7 +119,7 @@ class ObjectPlacer:
         num_results = num_envs if result_per_env else 1
         num_candidates = self.params.max_placement_attempts * num_results
 
-        initial_positions: list[dict] = []
+        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
             if generator is not None:
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
@@ -149,7 +149,9 @@ class ObjectPlacer:
                 f" {total_valid} valid, selected best {num_results} ({n_valid} valid)"
             )
 
-        final_per_env: list[dict] = [candidate.positions for candidate in selected]
+        final_per_env: list[dict[ObjectBase, tuple[float, float, float]]] = [
+            candidate.positions for candidate in selected
+        ]
         results_per_env = [
             PlacementResult(
                 success=candidate.is_valid,

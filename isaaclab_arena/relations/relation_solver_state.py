@@ -21,8 +21,7 @@ class RelationSolverState:
     keeping anchor (fixed) and optimizable positions separate internally
     while providing an interface for position lookups.
 
-    Positions are always stored as (N, num_objects, 3) where N = num_envs
-    (N=1 for single-env).
+    Positions are always stored as (batch_size, num_objects, 3).
     """
 
     def __init__(
@@ -52,7 +51,7 @@ class RelationSolverState:
         self._obj_to_idx: dict[ObjectBase, int] = {obj: i for i, obj in enumerate(objects)}
 
         self._device = device or torch.device("cpu")
-        self._num_envs = len(initial_positions)
+        self._batch_size = len(initial_positions)
 
         # Validate that every dict contains all objects before building the tensor.
         for d in initial_positions:
@@ -67,7 +66,7 @@ class RelationSolverState:
         self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
         # Anchors must be identical across envs (they are fixed reference points).
         for idx in self._anchor_indices:
-            for env_idx in range(1, self._num_envs):
+            for env_idx in range(1, self._batch_size):
                 assert torch.allclose(all_positions[0, idx], all_positions[env_idx, idx]), (
                     f"Anchor '{objects[idx].name}' has different positions across envs "
                     f"(env 0: {all_positions[0, idx].tolist()}, env {env_idx}: {all_positions[env_idx, idx].tolist()})"
@@ -95,13 +94,13 @@ class RelationSolverState:
             self._optimizable_positions = None
 
     @property
-    def num_envs(self) -> int:
-        """Number of environments (leading dimension N)."""
-        return self._num_envs
+    def batch_size(self) -> int:
+        """Number of independent position sets (leading dimension of position tensors)."""
+        return self._batch_size
 
     @property
     def optimizable_positions(self) -> torch.Tensor | None:
-        """Tensor of optimizable positions (N, num_opt, 3), or None if all objects are anchors.
+        """Tensor of optimizable positions (batch_size, num_optimizable, 3), or None if all objects are anchors.
 
         This is the tensor that should be passed to the optimizer.
         """
@@ -124,7 +123,7 @@ class RelationSolverState:
             obj: The object to get position for.
 
         Returns:
-            Position tensor of shape (N, 3).
+            Position tensor of shape (batch_size, 3).
 
         Raises:
             KeyError: If object is not tracked by this state.
@@ -132,7 +131,7 @@ class RelationSolverState:
         """
         idx = self._obj_to_idx[obj]
         if idx in self._anchor_indices:
-            return self._anchor_positions[idx].unsqueeze(0).expand(self._num_envs, 3)
+            return self._anchor_positions[idx].unsqueeze(0).expand(self._batch_size, 3)
         if self._optimizable_positions is None:
             raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
         opt_idx = self._global_to_opt_idx[idx]
@@ -157,12 +156,12 @@ class RelationSolverState:
         pos_list = full.detach().cpu().tolist()
         return [
             {obj: tuple(pos_list[env_idx][obj_idx]) for obj_idx, obj in enumerate(self._all_objects)}
-            for env_idx in range(self._num_envs)
+            for env_idx in range(self._batch_size)
         ]
 
     def _reconstruct_all_positions(self) -> torch.Tensor:
-        """Reconstruct a full (N, num_objects, 3) tensor from anchor and optimizable parts."""
-        full = self._anchor_pos_tensor.expand(self._num_envs, -1, -1).clone()
+        """Reconstruct a full (batch_size, num_objects, 3) tensor from anchor and optimizable parts."""
+        full = self._anchor_pos_tensor.expand(self._batch_size, -1, -1).clone()
         if self._optimizable_positions is not None:
             full[:, self._opt_idx_tensor, :] = self._optimizable_positions
         return full
