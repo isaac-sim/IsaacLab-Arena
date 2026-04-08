@@ -1,9 +1,9 @@
 Embodiment
 ==========
 
-An embodiment is the robot — its physical description, control interface, sensors, and cameras.
-Like scenes and tasks, embodiments are picked from the asset registry by name
-and slotted into the environment.
+An embodiment is the robot: its physical description, control interface, sensors, and cameras.
+Because the embodiment is independent of the scene and task, you can swap the robot
+without touching anything else. The same pick-and-place task works with a Franka or a G1.
 
 .. code-block:: python
 
