@@ -1,113 +1,80 @@
-Teleop Devices Design
-======================
+Teleop Devices
+==============
 
-Teleop devices defined in Arena are a thin wrapper around the Isaac Lab teleop devices.
-We define this wrapper to allow for easy registration and discovery of teleop devices.
+A teleop device is the human input interface for teleoperation — it translates
+operator input (keyboard, SpaceMouse, or XR hand tracking) into robot commands
+during demonstration collection.
 
-Core Architecture
------------------
-
-Teleop devices use the ``TeleopDeviceBase`` abstract class with automatic registration:
+Arena's teleop devices are a thin wrapper around Isaac Lab's built-in devices,
+added so they can be registered by name and discovered from the device registry,
+the same way assets and embodiments are.
 
 .. code-block:: python
 
-   class TeleopDeviceBase(ABC):
-       name: str | None = None
-
-       @abstractmethod
-       def get_device_cfg(self, pipeline_builder=None, embodiment=None):
-           """Return an Isaac Lab device config for the specific device."""
+   from isaaclab_arena.assets.register import register_device
 
    @register_device
    class KeyboardCfg(TeleopDeviceBase):
        name = "keyboard"
 
-       def get_device_cfg(self, pipeline_builder=None, embodiment=None):
+       def get_device_cfg(self, pipeline_builder=None, embodiment=None) -> Se3KeyboardCfg:
            return Se3KeyboardCfg(pos_sensitivity=0.05, rot_sensitivity=0.05)
 
-Devices are automatically discovered through decorator-based registration and provide Isaac Lab-compatible configurations.
+The ``@register_device`` decorator makes the device available by name. The wrapper
+implements a single method, ``get_device_cfg()``, that returns the underlying
+Isaac Lab device configuration.
 
-For XR teleoperation, the ``OpenXRCfg`` device produces an ``IsaacTeleopCfg`` that
-references a **pipeline builder** -- a callable that constructs an ``isaacteleop``
-retargeting pipeline graph. This pipeline converts XR tracking data (hand poses,
-controller inputs) into robot action tensors. ``OpenXRCfg.get_device_cfg`` raises
-``ValueError`` if no pipeline builder is provided.
+To add teleoperation to an environment, pick a device by name and pass it in:
 
 .. code-block:: python
 
-   @register_device
-   class OpenXRCfg(TeleopDeviceBase):
-       name = "openxr"
+   teleop_device = device_registry.get_device_by_name("keyboard")()
 
-       def get_device_cfg(self, pipeline_builder=None, embodiment=None) -> IsaacTeleopCfg:
-           return IsaacTeleopCfg(
-               pipeline_builder=pipeline_builder,
-               xr_cfg=embodiment.get_xr_cfg(),
-           )
-
-Teleop Devices in Detail
--------------------------
-
-**Available Devices**
-   Three primary input modalities for different use cases:
-
-   - **Keyboard**: WASD-style SE3 manipulation with configurable sensitivity parameters
-   - **SpaceMouse**: 6DOF precise spatial control for manipulation tasks
-   - **XR Hand Tracking**: Isaac Teleop pipeline-based hand tracking for humanoid control,
-     using ``isaacteleop`` retargeters (Se3AbsRetargeter, DexHandRetargeter, etc.) to map
-     XR hand poses to robot joint commands
-
-**Registration and Discovery**
-   Decorator-based system for automatic device management:
-
-   - **@register_device**: Automatic registration during module import
-   - **Device Registry**: Central discovery mechanism for available devices
-   - **@register_retargeter**: Associates a pipeline builder with a (device, embodiment) pair
-
-Environment Integration
------------------------
-
-.. code-block:: python
-
-   # Device selection during environment creation
-   teleop_device = device_registry.get_device_by_name(args_cli.teleop_device)()
-
-   # Environment composition with teleop support
    environment = IsaacLabArenaEnvironment(
-       name="manipulation_task",
+       name="kitchen_pick_and_place",
        embodiment=embodiment,
        scene=scene,
        task=task,
-       teleop_device=teleop_device,  # Optional human control interface
+       teleop_device=teleop_device,
    )
 
-   # Automatic device configuration and integration
-   env = env_builder.make_registered()  # Handles device setup internally
+   env = ArenaEnvBuilder(environment, args_cli).make_registered()
 
-For XR devices, the environment builder sets ``isaac_teleop`` on the env config
-(an ``IsaacTeleopCfg``). For keyboard/spacemouse devices, standard Isaac Lab
-device configs are used.
+``teleop_device`` is optional — omit it for policy evaluation and include it
+when collecting demonstrations.
 
-Usage Examples
---------------
+Available devices
+-----------------
 
-**Keyboard Teleoperation**
+**keyboard**
+   WASD-style SE3 control with configurable sensitivity. Good for quick setup
+   and simple manipulation tasks.
 
-.. code-block:: bash
+**spacemouse**
+   6-DOF spatial control. More precise than the keyboard; suitable for
+   fine manipulation.
 
-   # Basic keyboard control
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit --teleop_device keyboard kitchen_pick_and_place
+**openxr**
+   XR hand tracking via the ``isaacteleop`` retargeting pipeline. Maps hand
+   poses and controller input to robot joint commands. Requires a pipeline
+   builder (see below).
 
-**SpaceMouse Control**
+   For a full walkthrough — collecting demonstrations on a static manipulation
+   task using an Apple Vision Pro or Meta Quest — see
+   :doc:`../../example_workflows/static_manipulation/step_2_teleoperation`.
 
-.. code-block:: bash
+XR and pipeline builders
+------------------------
 
-   # Precise manipulation with SpaceMouse
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit--teleop_device spacemouse kitchen_pick_and_place --sensitivity 2.0
+Keyboard and SpaceMouse emit SE3 deltas that Isaac Lab can apply to any robot
+with an IK controller — no robot-specific setup needed. XR hand tracking is
+different: the headset gives you raw hand and finger poses, and translating those
+into joint commands depends on the specific robot. A GR1T2 and a Unitree G1 have
+different joint structures, so the mapping must be defined per robot.
 
-**Hand Tracking**
-
-.. code-block:: bash
-
-   # XR hand tracking for humanoid control (requires CloudXR runtime via Isaac Teleop)
-   python isaaclab_arena/scripts/imitation_learning/teleop.py --visualizer kit --teleop_device openxr gr1_open_microwave
+That mapping is called a **pipeline builder** — a callable that constructs an
+``isaacteleop`` retargeting graph for a specific (device, embodiment) pair.
+Arena registers one per pair, so when you pass ``openxr`` and an embodiment to
+the environment, the right pipeline is looked up and wired in automatically.
+Built-in embodiments that support XR already have a pipeline builder registered.
+You only need to provide one if you are adding a new embodiment.

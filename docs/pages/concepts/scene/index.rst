@@ -1,69 +1,33 @@
 Scene
 =====
 
-A scene is composed of a collection of 3D assets that define the simulated environment
-into which our robot will operate.
-Defining a scene is easy. You simply pass a list of assets that should be added
-to the environment. An asset can be a background or an object.
-The code example below shows constructing a simple scene
-
-.. code-block:: python
-
-   # Asset creation and positioning
-   background = asset_registry.get_asset_by_name("kitchen")()
-   pick_object = asset_registry.get_asset_by_name("cracker_box")()
-
-   # Position the object on the benchtop.
-   pick_object.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1)))
-
-   # Scene composition
-   scene = Scene(assets=[background, pick_object])
-
-   # Environment integration
-   environment = IsaacLabArenaEnvironment(
-       name="my_scene",
-       scene=scene,
-   )
-
-Walkthrough
-------------
-
-Let's walk through the code example above step-by-step.
-
-First, we load some objects from the asset registry
+A scene is a collection of assets.
+It defines the physical environment the robot operates in, and because it
+is independent of the robot and task, you can swap objects or backgrounds
+without touching the task or embodiment.
 
 .. code-block:: python
 
    background = asset_registry.get_asset_by_name("kitchen")()
    pick_object = asset_registry.get_asset_by_name("cracker_box")()
 
-We then position the object on the benchtop.
-
-.. code-block:: python
-
    pick_object.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1)))
 
-We create the scene by composing the background and the object(s).
-
-.. code-block:: python
-
    scene = Scene(assets=[background, pick_object])
-
-Finally we create a simple Isaac Lab Arena environment.
-
-.. code-block:: python
 
    environment = IsaacLabArenaEnvironment(
        name="my_scene",
        scene=scene,
    )
 
-Simple as that!
+Assets are loaded from the asset registry by name. An asset can be a
+background, a rigid object, or a set of objects (``RigidObjectSet``).
+Assets can also carry affordances (e.g. ``Openable``, ``Placeable``) that
+describe how they can be interacted with, which is what allows tasks to
+work with any compatible object.
 
 More details
 ------------
-
-The rest of this section will describe further details of the scenes component.
 
 .. toctree::
    :maxdepth: 1
