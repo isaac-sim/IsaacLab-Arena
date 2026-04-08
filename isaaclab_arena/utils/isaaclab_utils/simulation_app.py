@@ -82,6 +82,7 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
             omni.usd.get_context().new_stage()
 
 
+
 def reapply_viewer_cfg(env) -> None:
     """Re-apply ViewerCfg camera position after visualizers are initialized.
 
@@ -94,6 +95,26 @@ def reapply_viewer_cfg(env) -> None:
     vcc = getattr(unwrapped, "viewport_camera_controller", None)
     if vcc is not None:
         vcc.update_view_location()
+
+def _kill_child_processes() -> None:
+    """SIGKILL all direct child processes of the current process via /proc."""
+    import signal
+
+    my_pid = os.getpid()
+    with suppress(FileNotFoundError, PermissionError):
+        for entry in os.scandir("/proc"):
+            if not entry.name.isdigit():
+                continue
+            try:
+                with open(f"/proc/{entry.name}/status") as f:
+                    for line in f:
+                        if line.startswith("PPid:"):
+                            if int(line.split()[1]) == my_pid:
+                                os.kill(int(entry.name), signal.SIGKILL)
+                            break
+            except (FileNotFoundError, PermissionError, ProcessLookupError, ValueError):
+                continue
+
 
 
 class SimulationAppContext:
@@ -129,12 +150,17 @@ class SimulationAppContext:
             os._exit(1)
 
         # When launched as a test subprocess, skip app.close() which can hang
-        # indefinitely in Kit's shutdown path.  The parent process owns the
-        # lifetime via process-group kill (see run_subprocess).
+        # indefinitely in Kit's shutdown path.
         if os.environ.get("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE") == "1":
             print("Force-exiting subprocess (ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE=1)")
             sys.stdout.flush()
             sys.stderr.flush()
+            # SIGKILL orphaned Kit children (shader compiler, GPU workers, …)
+            # so they don't hold GPU resources and block the next test subprocess.
+            # We target each child individually via /proc to avoid signalling
+            # ourselves (Kit installs a C-level SIGTERM handler that overrides
+            # Python's SIG_IGN, so os.killpg is not safe here).
+            _kill_child_processes()
             os._exit(0)
 
         # Normal interactive / non-test path: attempt a clean Kit shutdown.

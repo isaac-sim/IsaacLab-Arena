@@ -42,6 +42,12 @@ def run_subprocess(
 ) -> subprocess.CompletedProcess | None:
     """Run a command in a subprocess with timeout.
 
+    ``start_new_session=True`` isolates the child into its own process group.
+    The child-side ``SimulationAppContext`` uses this to SIGTERM its entire
+    group before ``os._exit()``, preventing orphaned Kit children (shader
+    compiler, GPU workers, …) from holding GPU resources and blocking the
+    next subprocess.
+
     Args:
         cmd: Command to run (list of strings).
         env: Optional environment dict.  Defaults to inheriting the parent env.
@@ -71,6 +77,7 @@ def run_subprocess(
             timeout=timeout_sec,
             capture_output=capture_output,
             text=capture_output,
+            start_new_session=True,
         )
     except subprocess.TimeoutExpired:
         sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s\n")
