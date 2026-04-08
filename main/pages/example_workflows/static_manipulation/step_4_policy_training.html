@@ -563,7 +563,8 @@ We provide two post-training options:</p>
 <li><p><strong>GPUs:</strong> 8 (multi-GPU training)</p></li>
 </ul>
 <p>To post-train the policy, run the following command</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="nv">$GROOT_DEPS_DIR</span>:<span class="nv">$PYTHONPATH</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span><span class="se">\</span>
+submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
 --dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
 --modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
@@ -595,7 +596,8 @@ We provide two post-training options:</p>
 <li><p><strong>GPUs:</strong> 1 (single-GPU training)</p></li>
 </ul>
 <p>To post-train the policy, run the following command</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>python<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="nv">$GROOT_DEPS_DIR</span>:<span class="nv">$PYTHONPATH</span><span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
 --dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
 --output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
 --modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
