@@ -200,13 +200,6 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
-   :caption: Example Workflows
-
-   pages/example_workflows/imitation_learning/index
-   pages/example_workflows/reinforcement_learning_workflows/index
-
-.. toctree::
-   :maxdepth: 1
    :caption: Concepts
 
    pages/concepts/concept_overview
@@ -216,6 +209,13 @@ TABLE OF CONTENTS
    pages/concepts/concept_environment_compilation
    pages/concepts/concept_object_placement
    pages/concepts/policy/index
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Example Workflows
+
+   pages/example_workflows/imitation_learning/index
+   pages/example_workflows/reinforcement_learning_workflows/index
 
 .. toctree::
    :maxdepth: 1
