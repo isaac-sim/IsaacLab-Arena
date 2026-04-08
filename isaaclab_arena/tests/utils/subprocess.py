@@ -77,9 +77,7 @@ def run_subprocess(cmd, env=None, timeout_sec: int | None = None):
         os.killpg(pgid, signal.SIGKILL)
         process.wait()
         _AT_LEAST_ONE_TEST_FAILED = True
-        raise subprocess.SubprocessError(
-            f"Subprocess timed out after {timeout_sec}s: {cmd}"
-        )
+        raise subprocess.SubprocessError(f"Subprocess timed out after {timeout_sec}s: {cmd}")
 
     print(f"Command completed with return code: {returncode}")
     if returncode != 0:
