@@ -44,9 +44,8 @@ To start the annotation process, run the following command:
    python isaaclab_arena/scripts/imitation_learning/annotate_demos.py \
      --visualizer kit \
      --device cpu \
-     --input_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
-     --output_file $DATASET_DIR/arena_g1_locomanipulation_dataset_annotated.hdf5 \
-     --enable_pinocchio \
+     --input_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_recorded.hdf5 \
+     --output_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
      --mimic \
      galileo_g1_locomanip_pick_and_place
 
