@@ -59,7 +59,7 @@ Below is an example of a custom environment that places a single object on a tab
        def add_cli_args(parser: argparse.ArgumentParser) -> None:
            parser.add_argument("--object", type=str, default="cracker_box")
 
-External environments can be used in Isaac Lab Arena workflows by using a particular
+External environments can be used in Isaac Lab - Arena workflows by using a particular
 CLI syntax. For example, a zero-action policy can be run with an
 externally-defined environment like this:
 
@@ -80,7 +80,7 @@ environment's ``add_cli_args()`` method.
 .. note::
 
     The environment above is actually located in ``isaaclab_arena_examples/external_environments/basic.py``.
-    So this environment is located in the Isaac Lab Arena source-tree, but isn't included
+    So this environment is located in the Isaac Lab - Arena source-tree, but isn't included
     in the built in environments, so must be called through the external environment syntax.
     This is done to demonstrate how this would be done in an external codebase.
 
