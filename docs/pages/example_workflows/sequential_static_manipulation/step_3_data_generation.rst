@@ -61,6 +61,7 @@ To start the annotation process run the following command:
      --device cpu \
      --input_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
      --output_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
+     --enable_pinocchio \
      --mimic \
      put_item_in_fridge_and_close_door \
      --object ranch_dressing_hope_robolab \
@@ -118,6 +119,7 @@ Generate the dataset:
      --num_envs 10 \
      --input_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
      --output_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \
+     --enable_pinocchio \
      --enable_cameras \
      --headless \
      --mimic \

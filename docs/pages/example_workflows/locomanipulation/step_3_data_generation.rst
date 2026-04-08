@@ -46,6 +46,7 @@ To start the annotation process, run the following command:
      --device cpu \
      --input_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_g1_locomanipulation_dataset_annotated.hdf5 \
+     --enable_pinocchio \
      --mimic \
      galileo_g1_locomanip_pick_and_place
 

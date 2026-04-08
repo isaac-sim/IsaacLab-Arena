@@ -57,6 +57,7 @@ To start the annotation process run the following command:
      --device cpu \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
+     --enable_pinocchio \
      --mimic \
      gr1_open_microwave
 
@@ -103,6 +104,7 @@ Generate the dataset:
      --num_envs 10 \
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
+     --enable_pinocchio \
      --enable_cameras \
      --headless \
      --mimic \
