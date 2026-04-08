@@ -190,7 +190,11 @@ def main():
     env_cfg.recorders.dataset_filename = output_file_name
 
     # create environment from loaded config
-    env: ManagerBasedRLMimicEnv = gym.make(env_name, cfg=env_cfg).unwrapped
+    env = gym.make(env_name, cfg=env_cfg)
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
+
+    reapply_viewer_cfg(env)
+    env: ManagerBasedRLMimicEnv = env.unwrapped
 
     if not isinstance(env, ManagerBasedRLMimicEnv):
         raise ValueError("The environment should be derived from ManagerBasedRLMimicEnv")

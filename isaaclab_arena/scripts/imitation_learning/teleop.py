@@ -84,7 +84,11 @@ def main() -> None:
 
     try:
         # create environment
-        env = gym.make(env_name, cfg=env_cfg).unwrapped
+        env = gym.make(env_name, cfg=env_cfg)
+        from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
+
+        reapply_viewer_cfg(env)
+        env = env.unwrapped
         # check environment name (for reach , we don't allow the gripper)
         if "Reach" in args_cli.example_environment:
             omni.log.warn(

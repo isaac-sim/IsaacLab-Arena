@@ -227,8 +227,11 @@ def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name:
         Exception: If environment creation fails for any reason.
     """
     try:
-        env = gym.make(env_name, cfg=env_cfg).unwrapped
-        return env
+        env = gym.make(env_name, cfg=env_cfg)
+        from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
+
+        reapply_viewer_cfg(env)
+        return env.unwrapped
     except Exception as e:
         omni.log.error(f"Failed to create environment: {e}")
         exit(1)
