@@ -34,6 +34,8 @@ class PickAndPlaceTask(TaskBase):
         destination_object: Asset | None = None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
+        force_threshold: float = 1.0,
+        velocity_threshold: float = 0.1,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
@@ -45,6 +47,8 @@ class PickAndPlaceTask(TaskBase):
                 contact_against_prim_paths=[self.destination_location.get_prim_path()],
             ),
         )
+        self.force_threshold = force_threshold
+        self.velocity_threshold = velocity_threshold
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
@@ -55,7 +59,7 @@ class PickAndPlaceTask(TaskBase):
 
     def get_scene_cfg(self):
         return self.scene_config
-
+a
     def get_termination_cfg(self):
         return self.termination_cfg
 
@@ -65,8 +69,8 @@ class PickAndPlaceTask(TaskBase):
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
                 "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                "force_threshold": 1.0,
-                "velocity_threshold": 0.1,
+                "force_threshold": self.force_threshold,
+                "velocity_threshold": self.velocity_threshold,
             },
         )
         object_dropped = TerminationTermCfg(

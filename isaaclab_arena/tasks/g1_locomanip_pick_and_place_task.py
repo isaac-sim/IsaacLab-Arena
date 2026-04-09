@@ -74,7 +74,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
                 "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                "force_threshold": 1.0,
+                "force_threshold": 0.5,
                 "velocity_threshold": 0.1,
             },
         )
