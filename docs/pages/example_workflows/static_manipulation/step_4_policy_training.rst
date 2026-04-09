@@ -110,9 +110,9 @@ We provide two post-training options:
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Best Quality
+   .. tab-item:: Best Quality
 
       Training takes approximately 4-8 hours on 8x L40s GPUs.
 
@@ -150,7 +150,7 @@ We provide two post-training options:
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
 
-   .. tab:: Low Hardware Requirements
+   .. tab-item:: Low Hardware Requirements
 
       Training takes approximately 2-3 hours on 1x Ada6000 GPU.
 
