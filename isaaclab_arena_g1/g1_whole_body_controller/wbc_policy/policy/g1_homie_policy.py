@@ -7,14 +7,13 @@ import collections
 import numpy as np
 import pathlib
 import torch
-from collections.abc import Callable
 from typing import Any
 
-import onnxruntime as ort
 from isaaclab.utils.assets import retrieve_file_path
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WBCPolicy
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.homie_utils import get_gravity_orientation, load_config
+from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.onnx_utils import OnnxInferenceSession
 
 
 class G1HomiePolicyV2(WBCPolicy):
@@ -38,8 +37,8 @@ class G1HomiePolicyV2(WBCPolicy):
         model_path_1_local = retrieve_file_path(model_path_1, force_download=True)
         model_path_2_local = retrieve_file_path(model_path_2, force_download=True)
 
-        self.policy_1 = self.load_onnx_policy(str(parent_dir / model_path_1_local))
-        self.policy_2 = self.load_onnx_policy(str(parent_dir / model_path_2_local))
+        self.policy_1 = OnnxInferenceSession(str(parent_dir / model_path_1_local))
+        self.policy_2 = OnnxInferenceSession(str(parent_dir / model_path_2_local))
 
         # Initialize observation history buffer
         self.observation = None
@@ -80,26 +79,6 @@ class G1HomiePolicyV2(WBCPolicy):
         self.roll_cmd = self.config["rpy_cmd"][0]
         self.pitch_cmd = self.config["rpy_cmd"][1]
         self.yaw_cmd = self.config["rpy_cmd"][2]
-
-    def load_onnx_policy(self, model_path: str) -> Callable[[torch.Tensor], torch.Tensor]:
-        """Load the ONNX policy from the model path.
-
-        Args:
-            model_path: The path to the ONNX policy model
-
-        Returns:
-            The ONNX policy model runnable for forward pass.
-        """
-        model = ort.InferenceSession(model_path)
-
-        def run_inference(input_tensor):
-            ort_inputs = {model.get_inputs()[0].name: input_tensor.cpu().numpy()}
-            ort_outs = model.run(None, ort_inputs)
-            return torch.tensor(ort_outs[0], device="cpu")
-
-        print(f"Successfully loaded ONNX policy from {model_path}")
-
-        return run_inference
 
     def compute_observation(self, observation: dict[str, Any]) -> tuple[np.ndarray, int]:
         """Compute the observation vector from current state"""
@@ -245,7 +224,9 @@ class G1HomiePolicyV2(WBCPolicy):
                 # Use walking policy for movement commands
                 policy = self.policy_2
 
-            self.action = policy(self.obs_tensor).detach().numpy()
+            ort_inputs = {policy.input_names[0]: self.obs_tensor.cpu().numpy()}
+            result = policy.run(ort_inputs)
+            self.action = list(result.values())[0]
 
         # Transform action to target_dof_pos
         assert self.use_policy_action

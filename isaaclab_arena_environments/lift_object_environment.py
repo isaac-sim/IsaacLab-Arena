@@ -21,7 +21,6 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
         import isaaclab_arena_examples.policy.base_rsl_rl_policy as base_rsl_rl_policy
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
         from isaaclab_arena.utils.pose import Pose
@@ -66,7 +65,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=task,
             teleop_device=teleop_device,
-            rl_framework=RLFramework.RSL_RL,
+            rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=f"{base_rsl_rl_policy.__name__}:RLPolicyCfg",
         )
 

@@ -70,16 +70,16 @@ Usage Examples
 
 **Baseline Testing**
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU
+   .. tab-item:: Single GPU
 
       .. code-block:: bash
 
          # Zero action policy for environment validation
          python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 1000 kitchen_pick_and_place --object cracker_box
 
-   .. tab:: Distribute Multi-GPU
+   .. tab-item:: Distribute Multi-GPU
 
       .. code-block:: bash
 
@@ -89,16 +89,16 @@ Usage Examples
 
 **Demonstration Replay**
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU
+   .. tab-item:: Single GPU
 
       .. code-block:: bash
 
          # Replay recorded demonstrations
          python isaaclab_arena/evaluation/policy_runner.py --policy_type replay --replay_file_path demos.h5 kitchen_pick_and_place --object cracker_box
 
-   .. tab:: Distribute Multi-GPU
+   .. tab-item:: Distribute Multi-GPU
 
       .. code-block:: bash
 
@@ -108,16 +108,16 @@ Usage Examples
 
 **Neural Policy Execution**
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU
+   .. tab-item:: Single GPU
 
       .. code-block:: bash
 
          # GR00T foundation model deployment
          python isaaclab_arena/evaluation/policy_runner.py --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy --policy_config_yaml_path config.yaml <your_isaaclab_arena_environment>
 
-   .. tab:: Distribute Multi-GPU
+   .. tab-item:: Distribute Multi-GPU
 
       .. code-block:: bash
 

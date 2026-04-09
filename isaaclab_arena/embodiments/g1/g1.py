@@ -136,6 +136,32 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         self.camera_config._camera_offset = camera_offset
 
 
+@register_asset
+class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
+    """Embodiment for the G1 robot with AGILE WBC policy and direct joint upperbody control.
+
+    By default uses tiled camera for efficient parallel evaluation.
+    """
+
+    name = "g1_wbc_agile_joint"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
+        use_tiled_camera: bool = True,
+    ):
+        super().__init__(enable_cameras, initial_pose)
+        self.action_config = G1WBCAgileJointActionCfg()
+        self.observation_config = G1WBCJointObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
+        self.event_config = G1WBCJointEventCfg()
+        self.camera_config._is_tiled_camera = use_tiled_camera
+        self.camera_config._camera_offset = camera_offset
+
+
 @configclass
 class G1SceneCfg:
 
@@ -597,6 +623,13 @@ class G1WBCJointActionCfg:
     """Action specifications for the MDP, for G1 WBC action."""
 
     g1_action: ActionTermCfg = G1DecoupledWBCJointActionCfg(asset_name="robot", joint_names=[".*"])
+
+
+@configclass
+class G1WBCAgileJointActionCfg:
+    """Action specifications for the MDP, for G1 AGILE WBC action."""
+
+    g1_action: ActionTermCfg = G1DecoupledWBCJointActionCfg(asset_name="robot", joint_names=[".*"], wbc_version="agile")
 
 
 @configclass
