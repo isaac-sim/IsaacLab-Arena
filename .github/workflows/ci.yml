@@ -155,7 +155,7 @@ jobs:
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
-      - name: Run subprocess-spawning  PhysX tests
+      - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
