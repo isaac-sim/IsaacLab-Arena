@@ -4,7 +4,7 @@ Sequential Tasks
 Tasks can be composed sequentially to form longer horizon, more complex tasks using the ``SequentialTaskBase`` class.
 ``SequentialTaskBase`` takes a list of ``TaskBase`` instances and automatically composes them into a single task.
 The order of the tasks in the list determines the order in which subtasks must be completed.
-
+Internally, the Arena Environment Builder will automatically track that each sub-task is
 Internally, the Arena Environment Builder will automatically track that use sub-task is
 completed successfully in turn.
 It will also automatically compose the sub-task metrics, resets etc.
