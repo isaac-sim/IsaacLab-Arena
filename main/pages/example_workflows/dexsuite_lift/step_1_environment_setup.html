@@ -485,7 +485,6 @@ The physics backend defaults to PhysX and can be switched to Newton by passing
         <span class="kn">import</span><span class="w"> </span><span class="nn">isaaclab_tasks.manager_based.manipulation.dexsuite</span>  <span class="c1"># noqa: F401</span>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.reinforcement_learning.frameworks</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLFramework</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.lift_object_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">DexsuiteLiftTask</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
@@ -522,7 +521,7 @@ The physics backend defaults to PhysX and can be switched to Newton by passing
             <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
             <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
             <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">rl_framework</span><span class="o">=</span><span class="n">RLFramework</span><span class="o">.</span><span class="n">RSL_RL</span><span class="p">,</span>
+            <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">&quot;rsl_rl_cfg_entry_point&quot;</span><span class="p">,</span>
             <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="n">dexsuite_rl_cfg_entry</span><span class="p">,</span>
         <span class="p">)</span>
 </pre></div>
