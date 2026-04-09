@@ -47,6 +47,7 @@ def get_test_environment(num_envs: int):
         background_scene=background,
         episode_length_s=30.0,
         task_description="Pick up the apple from the table and place it onto the plate.",
+        success_proximity_max_distance=0.15,
     )
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
