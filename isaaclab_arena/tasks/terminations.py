@@ -20,7 +20,9 @@ from isaaclab.utils.math import combine_frame_transforms
 def object_on_destination(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
-    contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
+    contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg(
+        "pick_up_object_contact_sensor"
+    ),
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
     destination_cfg: SceneEntityCfg | None = None,
@@ -36,7 +38,9 @@ def object_on_destination(
     assert sensor.data.force_matrix_w.shape[1] == 1
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
-    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
+    force_matrix_norm = torch.norm(
+        wp.to_torch(sensor.data.force_matrix_w), dim=-1
+    ).reshape(-1)
     force_above_threshold = force_matrix_norm > force_threshold
 
     velocity_w = wp.to_torch(object.data.root_lin_vel_w)
@@ -64,7 +68,9 @@ def object_on_destination(
 def objects_on_destinations(
     env: ManagerBasedRLEnv,
     object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
-    contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
+    contact_sensor_cfg_list: list[SceneEntityCfg] = [
+        SceneEntityCfg("pick_up_object_contact_sensor")
+    ],
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
     destination_cfg_list: list[SceneEntityCfg] | None = None,
@@ -75,9 +81,13 @@ def objects_on_destinations(
     Returns True only when ALL objects in the list satisfy the destination condition.
     See `object_on_destination` for details on the single-object logic.
     """
-    condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
+    condition_met = torch.ones(
+        (env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool
+    )
     dest_cfgs = destination_cfg_list or [None] * len(object_cfg_list)
-    for object_cfg, contact_sensor_cfg, dest_cfg in zip(object_cfg_list, contact_sensor_cfg_list, dest_cfgs):
+    for object_cfg, contact_sensor_cfg, dest_cfg in zip(
+        object_cfg_list, contact_sensor_cfg_list, dest_cfgs
+    ):
         single_condition = object_on_destination(
             env=env,
             object_cfg=object_cfg,
@@ -110,7 +120,9 @@ def objects_in_proximity(
 
     # Get positions relative to environment origin
     object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
+    target_object_pos = (
+        wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
+    )
 
     # object to target object
     x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
@@ -226,12 +238,14 @@ def goal_pose_task_termination(
     device = env.device
     num_envs = env.num_envs
 
-    has_any_threshold = any([
-        target_x_range is not None,
-        target_y_range is not None,
-        target_z_range is not None,
-        target_orientation_xyzw is not None,
-    ])
+    has_any_threshold = any(
+        [
+            target_x_range is not None,
+            target_y_range is not None,
+            target_z_range is not None,
+            target_orientation_xyzw is not None,
+        ]
+    )
 
     if not has_any_threshold:
         return torch.zeros(num_envs, dtype=torch.bool, device=device)
@@ -243,12 +257,16 @@ def goal_pose_task_termination(
     for idx, range_val in enumerate(ranges):
         if range_val is not None:
             range_min, range_max = range_val
-            in_range = (object_root_pos_w[:, idx] >= range_min) & (object_root_pos_w[:, idx] <= range_max)
+            in_range = (object_root_pos_w[:, idx] >= range_min) & (
+                object_root_pos_w[:, idx] <= range_max
+            )
             success &= in_range
 
     # Orientation check
     if target_orientation_xyzw is not None:
-        target_quat = torch.tensor(target_orientation_xyzw, device=device, dtype=torch.float32).unsqueeze(0)
+        target_quat = torch.tensor(
+            target_orientation_xyzw, device=device, dtype=torch.float32
+        ).unsqueeze(0)
 
         # Formula: |<q1, q2>| > cos(tolerance / 2)
         quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
@@ -262,7 +280,9 @@ def goal_pose_task_termination(
 
 
 def root_height_below_minimum_multi_objects(
-    env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
+    env: ManagerBasedRLEnv,
+    minimum_height: float,
+    asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")],
 ) -> torch.Tensor:
     """Terminate when any asset's root height is below the minimum height.
 
@@ -270,7 +290,9 @@ def root_height_below_minimum_multi_objects(
         This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
     """
     outs = [
-        root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
+        root_height_below_minimum(
+            env=env, minimum_height=minimum_height, asset_cfg=asset_cfg
+        )
         for asset_cfg in asset_cfg_list
     ]
     outs_tensor = torch.stack(outs, dim=0)  # [X, N]
