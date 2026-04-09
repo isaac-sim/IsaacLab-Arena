@@ -71,3 +71,24 @@ class HomieV2Config(BaseConfig):
 
     policy_config_path: str = "config/g1_homie_v2.yaml"
     """Policy related configuration to specify inputs/outputs dim"""
+
+
+@dataclass
+class AgileConfig(BaseConfig):
+    """Config for the WBC-AGILE end-to-end velocity policy for G1."""
+
+    # WBC Configuration
+    wbc_version: Literal["agile"] = "agile"
+    """Version of the whole body controller."""
+
+    wbc_model_path: str = (
+        "https://github.com/nvidia-isaac/WBC-AGILE/raw/v1.2/agile/data/policy/velocity_g1/unitree_g1_velocity_e2e.onnx"
+    )
+    """Path to WBC model file (GitHub URL, resolved via retrieve_file_path)"""
+
+    # Robot Configuration
+    enable_waist: bool = False
+    """Whether to include waist joints in IK."""
+
+    policy_config_path: str = "config/g1_agile.yaml"
+    """Policy related configuration to specify inputs/outputs dim"""
