@@ -4,67 +4,60 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Dense clutter environment demonstrating mesh-level collision checking.
+Dense clutter environment demonstrating mesh vs. AABB collision optimisation.
 
-A red container sits at the table centre.  A tomato-soup can and a mug are
-placed **inside** the container using explicit ``initial_pose`` values.
-Because the container is hollow (open box), their triangle meshes do not
-collide — but their axis-aligned bounding boxes overlap the container's
-solid AABB.
+Four tomato-soup cans are arranged in a tight 2×2 offset grid on a table.
+Each diagonal pair is separated by 5 cm in both X and Y.  Because the cans
+are cylindrical, their axis-aligned bounding boxes (squares in the XY
+plane) overlap at the corners, but the actual round meshes do **not**
+touch: the Euclidean distance between centres (~7.1 cm) exceeds the can
+diameter (~6.6 cm).
 
-Run with ``--solver_max_iters 0`` to skip optimisation and evaluate the
-hand-placed arrangement directly:
+**Mesh collision mode** — SDF queries confirm no mesh penetration; the
+solver keeps the cans in the original tight packing:
 
-Mesh mode (objects inside the container are accepted):
   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \\
     --viz kit --policy_type zero_action --num_steps 500 \\
-    --collision_mode mesh --solver_max_iters 0 \\
+    --collision_mode mesh \\
     dense_clutter --embodiment gr1_joint
 
-AABB mode (same arrangement is rejected — AABBs overlap):
+**AABB collision mode** — the overlap-volume loss detects the bounding-box
+overlap and pushes diagonal neighbours apart, yielding a more spread-out
+arrangement:
+
   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \\
     --viz kit --policy_type zero_action --num_steps 500 \\
-    --collision_mode aabb --solver_max_iters 0 \\
+    --collision_mode aabb \\
     dense_clutter --embodiment gr1_joint
+
+A cracker box and a mustard bottle are placed on opposite sides of the
+table for visual context; they are far enough apart that neither mode
+affects them.
 """
 
 import argparse
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# Container at half scale in XY, full scale in Z → 9 cm wall height.
-# Inner dimensions ~29.6 × 19.6 cm — spacious enough for small objects.
-CONTAINER_SCALE = (0.5, 0.5, 1.0)
-
-# Objects placed inside the container.  clearance_m=0.005 lifts them 5 mm
-# above the table surface so they clear the container's thin bottom plate.
-# XY positions are well inside the container half-extents (0.153, 0.103).
-OBJECTS_INSIDE_CONTAINER = [
-    ("tomato_soup_can", "can_in_container", (0.05, 0.0)),
-    ("tomato_soup_can", "can2_in_container", (-0.05, 0.0)),
-]
-INSIDE_CLEARANCE_M = 0.03
-
-# Objects on the table with explicit positions (no random placement).
-# Spread far enough apart that no AABBs overlap.
-OBJECTS_ON_TABLE = [
-    ("beer_bottle", (0.45, 0.0)),
-    ("mustard_bottle", (-0.45, 0.0)),
-    ("cracker_box", (0.0, 0.25)),
-    ("sugar_box", (0.0, -0.25)),
+# Tight offset grid of cylindrical cans.
+# Diagonal offset of 0.05 m in X and Y gives:
+#   AABB overlap per axis ≈ 0.066 − 0.05 = 0.016 m  (overlapping)
+#   Mesh distance = 0.05·√2 ≈ 0.071 m > 0.066 m      (not touching)
+CAN_POSITIONS = [
+    ("can_a", (-0.075, -0.025)),
+    ("can_b", (0.025, -0.025)),
+    ("can_c", (-0.025, 0.025)),
+    ("can_d", (0.075, 0.025)),
 ]
 
 
 class DenseClutterEnvironment(ExampleEnvironmentBase):
-    """Table scene with objects placed inside a hollow container.
+    """Table scene with cylindrical cans in tight diagonal packing.
 
-    The container's AABB is a solid box, but its mesh is an open basket.
-    Objects inside have AABB overlap (solid-box assumption) but no mesh
-    collision (they sit in the hollow interior).
-
-    With ``--collision_mode mesh --solver_max_iters 0`` the arrangement
-    passes validation.  With ``--collision_mode aabb --solver_max_iters 0``
-    the same arrangement is rejected because the AABBs overlap.
+    Diagonal neighbours have overlapping AABBs (square bounding boxes)
+    but non-overlapping meshes (round cross-sections).  Mesh collision
+    mode preserves the tight arrangement; AABB collision mode spreads the
+    cans out to eliminate bounding-box overlap.
     """
 
     name: str = "dense_clutter"
@@ -107,22 +100,15 @@ class DenseClutterEnvironment(ExampleEnvironmentBase):
 
         placeable_assets = []
 
-        # Container at table centre with explicit initial_pose.
-        container = self.asset_registry.get_asset_by_name("red_container")(scale=CONTAINER_SCALE)
-        container.add_relation(On(tabletop_reference))
-        container.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
-        placeable_assets.append(container)
+        # Tightly packed cans at the table centre.
+        for instance_name, (cx, cy) in CAN_POSITIONS:
+            can = self.asset_registry.get_asset_by_name("tomato_soup_can")(instance_name=instance_name)
+            can.add_relation(On(tabletop_reference))
+            can.set_initial_pose(Pose(position_xyz=(cx, cy, 0.0)))
+            placeable_assets.append(can)
 
-        # Objects inside the container — lifted 5 mm above the table to clear
-        # the container's bottom plate mesh.
-        for asset_name, instance_name, (ix, iy) in OBJECTS_INSIDE_CONTAINER:
-            obj = self.asset_registry.get_asset_by_name(asset_name)(instance_name=instance_name)
-            obj.add_relation(On(tabletop_reference, clearance_m=INSIDE_CLEARANCE_M))
-            obj.set_initial_pose(Pose(position_xyz=(ix, iy, 0.0)))
-            placeable_assets.append(obj)
-
-        # Objects spread around the table at explicit positions (no randomness).
-        for obj_name, (ox, oy) in OBJECTS_ON_TABLE:
+        # Context objects placed far from the cans (no AABB overlap with anything).
+        for obj_name, (ox, oy) in [("cracker_box", (-0.40, 0.0)), ("mustard_bottle", (0.40, 0.0))]:
             obj = self.asset_registry.get_asset_by_name(obj_name)()
             obj.add_relation(On(tabletop_reference))
             obj.set_initial_pose(Pose(position_xyz=(ox, oy, 0.0)))

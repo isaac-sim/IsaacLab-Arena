@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import torch
 from typing import TYPE_CHECKING
 
@@ -102,6 +103,7 @@ class RelationSolver:
                         child_pos=child_pos,
                         child_bbox=obj.get_bounding_box().to(device),
                         parent_world_bbox=parent_world_bbox,
+                        child_obj=obj,
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
@@ -130,7 +132,14 @@ class RelationSolver:
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        if self.params.multi_gpu and num_gpus > 1 and len(initial_positions) > 1:
+            return self._solve_multi_gpu(objects, initial_positions, num_gpus)
+
+        if self.params.device is not None:
+            device = torch.device(self.params.device)
+        else:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = RelationSolverState(objects, initial_positions, device=device)
 
         if self.params.verbose:
@@ -196,6 +205,64 @@ class RelationSolver:
         self._last_position_history = position_history
 
         return state.get_final_positions()
+
+    def _solve_multi_gpu(
+        self,
+        objects: list[ObjectBase],
+        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        num_gpus: int,
+    ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
+        """Partition the candidate batch across GPUs, solve in parallel, and gather.
+
+        Each GPU gets a contiguous slice of *initial_positions*.  Mesh-based
+        strategies are duplicated per device so Warp meshes live on the correct
+        GPU.  Results (final positions and per-env losses) are collected on CPU.
+        """
+        from isaaclab_arena.relations.relation_loss_strategies import MeshNoCollisionLossStrategy
+        from isaaclab_arena.relations.relations import NoCollision
+
+        batch = len(initial_positions)
+        chunk_size = (batch + num_gpus - 1) // num_gpus
+
+        all_results: list[dict[ObjectBase, tuple[float, float, float]]] = []
+        all_losses: list[float] = []
+
+        if self.params.verbose:
+            print(f"Multi-GPU solve: {batch} candidates across {num_gpus} GPUs (chunk ~{chunk_size})")
+
+        for gpu_idx in range(num_gpus):
+            start = gpu_idx * chunk_size
+            end = min(start + chunk_size, batch)
+            if start >= end:
+                break
+
+            device_str = f"cuda:{gpu_idx}"
+            chunk_positions = initial_positions[start:end]
+
+            per_device_params = copy.copy(self.params)
+            per_device_params.device = device_str
+            per_device_params.multi_gpu = False
+            per_device_params.verbose = False
+            per_device_strategies = dict(per_device_params.strategies)
+            existing_nc = per_device_strategies.get(NoCollision)
+            if isinstance(existing_nc, MeshNoCollisionLossStrategy):
+                per_device_strategies[NoCollision] = MeshNoCollisionLossStrategy(
+                    slope=existing_nc.slope, device=device_str
+                )
+            per_device_params.strategies = per_device_strategies
+
+            sub_solver = RelationSolver(params=per_device_params)
+            results = sub_solver.solve(objects, chunk_positions)
+            all_results.extend(results)
+
+            if sub_solver.last_loss_per_env is not None:
+                all_losses.extend(sub_solver.last_loss_per_env.cpu().tolist())
+
+        self._last_loss_per_env = torch.tensor(all_losses, dtype=torch.float32) if all_losses else None
+        self._last_loss_history = []
+        self._last_position_history = []
+
+        return all_results
 
     @property
     def last_loss_history(self) -> list[float]:

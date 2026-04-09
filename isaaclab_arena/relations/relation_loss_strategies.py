@@ -18,6 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
+    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation, NoCollision
 
 from isaaclab_arena.relations.relations import Side
@@ -99,6 +100,7 @@ class RelationLossStrategy(ABC):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        child_obj: "ObjectBase | None" = None,
     ) -> torch.Tensor:
         """Compute the loss for a relation constraint.
 
@@ -108,6 +110,8 @@ class RelationLossStrategy(ABC):
                 backward compat or (N, 3) for batched.
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
+            child_obj: The child ObjectBase instance (optional, used by mesh-based
+                strategies that need to look up collision meshes).
 
         Returns:
             Scalar loss tensor when child_pos is (3,), or (N,) tensor when (N, 3).
@@ -140,6 +144,7 @@ class NextToLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        child_obj: "ObjectBase | None" = None,
     ) -> torch.Tensor:
         """Compute loss for NextTo relation.
 
@@ -251,6 +256,7 @@ class OnLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        child_obj: "ObjectBase | None" = None,
     ) -> torch.Tensor:
         """Compute loss for On relation.
 
@@ -259,6 +265,7 @@ class OnLossStrategy(RelationLossStrategy):
             child_pos: Child object position (N, 3) in world coords.
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
+            child_obj: Unused; accepted for interface compatibility.
 
         Returns:
             Weighted loss tensor of shape (N,).
@@ -356,6 +363,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        child_obj: "ObjectBase | None" = None,
     ) -> torch.Tensor:
         """Compute loss for NoCollision relation.
 
@@ -364,6 +372,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
             child_pos: Child object position (N, 3) in world coords.
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
+            child_obj: Unused; accepted for interface compatibility.
 
         Returns:
             Weighted loss tensor of shape (N,).
@@ -471,6 +480,86 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
         if relation.z is not None:
             z_loss = single_point_linear_loss(child_pos[:, 2], relation.z, slope=self.slope)
             total_loss = total_loss + z_loss
+
+        result = relation.relation_loss_weight * total_loss
+        return result.squeeze(0) if single_input else result
+
+
+class MeshNoCollisionLossStrategy(RelationLossStrategy):
+    """Differentiable mesh-based collision loss using NVIDIA Warp SDF queries.
+
+    For each ``NoCollision`` pair, samples one object's mesh vertices,
+    transforms them to the other object's local frame, and queries signed
+    distances via ``wp.mesh_query_point``.  Penetrating vertices (negative
+    SDF) contribute ``slope * ReLU(-sdf)`` to the loss.  The query is
+    bidirectional (A's verts against B's mesh, and B's verts against A's
+    mesh) so that partial overlaps in either direction are penalised.
+
+    Falls back to AABB overlap loss for objects that lack a collision mesh.
+    """
+
+    def __init__(self, slope: float = 100.0, device: str = "cuda:0"):
+        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+
+        self.slope = slope
+        self._mesh_mgr = WarpMeshManager(device=device)
+        self._fallback = NoCollisionLossStrategy(slope=slope)
+
+    def compute_loss(
+        self,
+        relation: "NoCollision",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+        child_obj: "ObjectBase | None" = None,
+    ) -> torch.Tensor:
+        """Compute mesh-based penetration loss for a NoCollision relation.
+
+        If *child_obj* is ``None`` or either object lacks a collision mesh,
+        delegates to the AABB fallback strategy.
+        """
+        parent_obj = relation.parent
+        if child_obj is None or child_obj.get_collision_mesh() is None or parent_obj.get_collision_mesh() is None:
+            return self._fallback.compute_loss(relation, child_pos, child_bbox, parent_world_bbox)
+
+        from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
+
+        single_input = child_pos.dim() == 1
+        if single_input:
+            child_pos = child_pos.unsqueeze(0)
+
+        device_str = self._mesh_mgr.device
+        device = child_pos.device
+        batch = child_pos.shape[0]
+
+        parent_local_bbox = parent_obj.get_bounding_box().to(device)
+        parent_pos = parent_world_bbox.center - parent_local_bbox.center
+
+        child_verts_np = self._mesh_mgr.get_mesh_vertices(child_obj)
+        parent_verts_np = self._mesh_mgr.get_mesh_vertices(parent_obj)
+        child_verts_local = torch.tensor(child_verts_np, dtype=torch.float32, device=device)
+        parent_verts_local = torch.tensor(parent_verts_np, dtype=torch.float32, device=device)
+
+        child_wp_mesh = self._mesh_mgr.get_warp_mesh(child_obj)
+        parent_wp_mesh = self._mesh_mgr.get_warp_mesh(parent_obj)
+
+        total_loss = torch.zeros(batch, device=device, dtype=torch.float32)
+
+        for env_idx in range(batch):
+            c_pos = child_pos[env_idx]
+            p_pos = parent_pos[env_idx] if parent_pos.dim() > 1 else parent_pos.squeeze(0)
+
+            child_world = child_verts_local + c_pos
+            query_in_parent = child_world - p_pos
+            sdf_a = mesh_sdf(query_in_parent, parent_wp_mesh, device_str)
+            pen_a = torch.nn.functional.relu(-sdf_a).mean()
+
+            parent_world = parent_verts_local + p_pos
+            query_in_child = parent_world - c_pos
+            sdf_b = mesh_sdf(query_in_child, child_wp_mesh, device_str)
+            pen_b = torch.nn.functional.relu(-sdf_b).mean()
+
+            total_loss[env_idx] = self.slope * (pen_a + pen_b)
 
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result

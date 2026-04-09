@@ -45,6 +45,17 @@ class RelationSolverParams:
     save_position_history: bool = True
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
 
+    multi_gpu: bool = False
+    """When True and multiple CUDA devices are available, partition the candidate
+    batch across GPUs.  Each device gets its own copy of mesh data and runs
+    the solver on its share of the batch; results are gathered back to device 0.
+    Has no effect when only one GPU is present or CUDA is unavailable."""
+
+    device: str | None = None
+    """Override the CUDA device for the solver (e.g. ``"cuda:1"``).  When None,
+    the solver auto-selects ``"cuda:0"`` if available, else CPU.  Primarily
+    used internally by the multi-GPU path to assign sub-solvers to devices."""
+
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
     strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
         default_factory=_default_strategies

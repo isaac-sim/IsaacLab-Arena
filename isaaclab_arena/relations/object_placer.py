@@ -82,14 +82,23 @@ class ObjectPlacer:
         self._solver = RelationSolver(params=self.params.solver_params)
 
     def _apply_mesh_mode_strategy(self) -> None:
-        """Override the NoCollision loss strategy to use shrunk bounding boxes."""
-        from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
+        """Replace the NoCollision loss strategy with a differentiable mesh-based SDF loss.
+
+        Uses :class:`MeshNoCollisionLossStrategy` backed by NVIDIA Warp for
+        GPU-accelerated signed-distance queries.  Objects without collision
+        meshes fall back to the AABB overlap loss internally.
+        """
+        from isaaclab_arena.relations.relation_loss_strategies import (
+            MeshNoCollisionLossStrategy,
+            NoCollisionLossStrategy,
+        )
         from isaaclab_arena.relations.relations import NoCollision
 
         strategies = self.params.solver_params.strategies
         existing = strategies.get(NoCollision)
         slope = existing.slope if isinstance(existing, NoCollisionLossStrategy) else 100.0
-        strategies[NoCollision] = NoCollisionLossStrategy(slope=slope, bbox_scale=self.MESH_MODE_BBOX_SCALE)
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        strategies[NoCollision] = MeshNoCollisionLossStrategy(slope=slope, device=device)
 
     def place(
         self,
