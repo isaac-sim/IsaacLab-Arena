@@ -11,6 +11,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -19,6 +20,8 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import objects_in_proximity
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.tasks.terminations import object_on_destination
+
 
 
 class G1LocomanipPickAndPlaceTask(TaskBase):
@@ -32,6 +35,7 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         task_description: str | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
+        print("HERE")
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_bin = destination_bin
@@ -42,18 +46,36 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         )
         self.events_cfg = None
 
+        hacked_prim_path = self.destination_bin.get_prim_path() + "/Geometry/sm_bin_20x25x05cm_a01_01"
+
+        self.scene_config = SceneCfg(
+            pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
+                # contact_against_prim_paths=[self.destination_bin.get_prim_path()],
+                contact_against_prim_paths=[hacked_prim_path],
+            ),
+        )
+
     def get_scene_cfg(self):
-        pass
+        return self.scene_config
 
     def get_termination_cfg(self):
+        # success = TerminationTermCfg(
+        #     func=objects_in_proximity,
+        #     params={
+        #         "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+        #         "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
+        #         "max_y_separation": 0.130,
+        #         "max_x_separation": 0.260,
+        #         "max_z_separation": 0.150,
+        #     },
+        # )
         success = TerminationTermCfg(
-            func=objects_in_proximity,
+            func=object_on_destination,
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
-                "max_y_separation": 0.130,
-                "max_x_separation": 0.260,
-                "max_z_separation": 0.150,
+                "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                "force_threshold": 1.0,
+                "velocity_threshold": 0.1,
             },
         )
         object_dropped = TerminationTermCfg(
@@ -82,6 +104,13 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
             lookat_object=self.pick_up_object,
             offset=np.array([-1.3, 1.7, 1.5]),
         )
+
+
+@configclass
+class SceneCfg:
+    """Scene configuration for the pick and place task."""
+
+    pick_up_object_contact_sensor: ContactSensorCfg = MISSING
 
 
 @configclass

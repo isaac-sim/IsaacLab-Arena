@@ -35,13 +35,18 @@ def object_on_destination(
     # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
     # where N is the number of envs.
     force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
+    print(f"force_matrix_norm: {force_matrix_norm}")
     force_above_threshold = force_matrix_norm > force_threshold
+    print(f"force_above_threshold: {force_above_threshold}")
 
     velocity_w = wp.to_torch(object.data.root_lin_vel_w)
     velocity_w_norm = torch.norm(velocity_w, dim=-1)
+    print(f"velocity_w_norm: {velocity_w_norm}")
     velocity_below_threshold = velocity_w_norm < velocity_threshold
+    print(f"velocity_below_threshold: {velocity_below_threshold}")
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+    print(f"condition_met: {condition_met}")
     return condition_met
 
 

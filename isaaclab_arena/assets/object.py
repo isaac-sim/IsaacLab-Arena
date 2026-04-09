@@ -105,10 +105,13 @@ class Object(ObjectBase):
         if contact_against_prim_paths is None:
             contact_against_prim_paths = []
         rigid_body_relative_path = find_shallowest_rigid_body(self.usd_path, relative_to_root=True)
+        print(f"FOUND: {rigid_body_relative_path}")
         assert (
             rigid_body_relative_path is not None
         ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
         contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        print(f"CONTACT SENSOR PRIM PATH: {contact_sensor_prim_path}")
+        print(f"CONTACT AGAINST PRIM PATHS: {contact_against_prim_paths}")
         return ContactSensorCfg(
             prim_path=contact_sensor_prim_path,
             filter_prim_paths_expr=contact_against_prim_paths,
