@@ -85,22 +85,6 @@ Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/generic_exp
 If ``--load_run`` is omitted, the latest run is selected. If ``--checkpoint`` is omitted,
 the latest checkpoint in that run is loaded.
 
-.. tip::
-
-   You can also combine resume with Hydra overrides to change hyperparameters mid-training,
-   e.g. lowering the learning rate for fine-tuning:
-
-   .. code-block:: bash
-
-      python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
-        --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-        --task lift_object \
-        --rl_training_mode \
-        --num_envs 4096 \
-        --max_iterations 4000 \
-        --resume \
-        agent.algorithm.learning_rate=0.00005
-
 
 Monitoring Training
 ^^^^^^^^^^^^^^^^^^^

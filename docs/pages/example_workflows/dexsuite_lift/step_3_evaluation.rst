@@ -9,7 +9,7 @@ Once inside the container, set the models directory:
 
 .. code-block:: bash
 
-   export MODELS_DIR=models/isaaclab_arena/dexsuite_lift
+   export MODELS_DIR=/models/isaaclab_arena/dexsuite_lift
    mkdir -p $MODELS_DIR
 
 This step evaluates a checkpoint using Arena's ``dexsuite_lift`` environment.
