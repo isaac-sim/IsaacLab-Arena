@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import argparse
-import math
 import gymnasium as gym
+import math
 import torch
 import yaml
 from dataclasses import dataclass
@@ -15,11 +15,10 @@ from gymnasium.spaces.dict import Dict as GymSpacesDict
 from pathlib import Path
 
 from isaaclab.utils.assets import retrieve_file_path
+from isaaclab_rl.rl_games import RlGamesGpuEnv, RlGamesVecEnvWrapper
 from rl_games.common import env_configurations, vecenv
 from rl_games.common.player import BasePlayer
 from rl_games.torch_runner import Runner
-
-from isaaclab_rl.rl_games import RlGamesGpuEnv, RlGamesVecEnvWrapper
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
@@ -101,7 +100,12 @@ class RlGamesActionPolicy(PolicyBase):
         concate_obs = agent_cfg["params"]["env"].get("concate_obs_groups", True)
 
         self._wrapper = RlGamesVecEnvWrapper(
-            env, device, clip_obs, clip_actions, obs_groups, concate_obs,
+            env,
+            device,
+            clip_obs,
+            clip_actions,
+            obs_groups,
+            concate_obs,
         )
 
         vecenv.register(

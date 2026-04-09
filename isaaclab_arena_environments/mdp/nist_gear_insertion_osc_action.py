@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import math
 import torch
-import warp as wp
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-
+import warp as wp
 from isaaclab.envs.mdp.actions.actions_cfg import OperationalSpaceControllerActionCfg
 from isaaclab.envs.mdp.actions.task_space_actions import OperationalSpaceControllerAction
 from isaaclab.managers.action_manager import ActionTerm
@@ -103,9 +102,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
     def process_actions(self, actions: torch.Tensor):
         self._raw_actions[:] = actions
         self._prev_smoothed_actions[:] = self._smoothed_actions
-        self._smoothed_actions[:] = (
-            self.ema_factor * actions + (1.0 - self.ema_factor) * self._smoothed_actions
-        )
+        self._smoothed_actions[:] = self.ema_factor * actions + (1.0 - self.ema_factor) * self._smoothed_actions
         self.success_pred[:] = self._smoothed_actions[:, 6]
 
         self._compute_ee_pose()
@@ -165,7 +162,9 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         desired_xyz[:, 1] = curr_pitch_w + clipped_pitch
 
         final_quat = math_utils.quat_from_euler_xyz(
-            roll=desired_xyz[:, 0], pitch=desired_xyz[:, 1], yaw=desired_xyz[:, 2],
+            roll=desired_xyz[:, 0],
+            pitch=desired_xyz[:, 1],
+            yaw=desired_xyz[:, 2],
         )
 
         self._processed_actions[:, :3] = final_pos
@@ -180,7 +179,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         super().reset(env_ids)
-        if env_ids is None or (hasattr(env_ids, '__len__') and len(env_ids) == 0):
+        if env_ids is None or (hasattr(env_ids, "__len__") and len(env_ids) == 0):
             return
 
         n = len(env_ids)
@@ -189,15 +188,19 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         self.ema_factor[env_ids] = lo + torch.rand(n, 1, device=self.device) * (hi - lo)
 
         self._pos_thresh[env_ids] = _randomize_gains(
-            self._default_pos_thresh[env_ids], self.cfg.pos_threshold_noise_level, n, self.device,
+            self._default_pos_thresh[env_ids],
+            self.cfg.pos_threshold_noise_level,
+            n,
+            self.device,
         )
         self._rot_thresh[env_ids] = _randomize_gains(
-            self._default_rot_thresh[env_ids], self.cfg.rot_threshold_noise_level, n, self.device,
+            self._default_rot_thresh[env_ids],
+            self.cfg.rot_threshold_noise_level,
+            n,
+            self.device,
         )
 
-        self.fixed_pos_noise[env_ids] = (
-            torch.randn(n, 3, device=self.device) * self._fixed_pos_noise_levels
-        )
+        self.fixed_pos_noise[env_ids] = torch.randn(n, 3, device=self.device) * self._fixed_pos_noise_levels
 
         ct_lo, ct_hi = self.cfg.contact_threshold_range
         self.contact_thresholds[env_ids] = ct_lo + torch.rand(n, device=self.device) * (ct_hi - ct_lo)

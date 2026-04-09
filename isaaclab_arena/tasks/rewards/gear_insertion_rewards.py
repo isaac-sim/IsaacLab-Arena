@@ -13,11 +13,10 @@ https://arxiv.org/pdf/2408.04587 for related shaping.
 
 from __future__ import annotations
 
+import torch
 from typing import TYPE_CHECKING
 
-import torch
 import warp as wp
-
 from isaaclab.assets import RigidObject
 from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
 from isaaclab.utils.math import combine_frame_transforms, quat_apply
@@ -86,7 +85,9 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
         super().__init__(cfg, env)
         self.gear_cfg: SceneEntityCfg = cfg.params["gear_cfg"]
         self.board_cfg: SceneEntityCfg = cfg.params["board_cfg"]
-        self.peg_offset = torch.tensor(cfg.params.get("peg_offset", [0.0, 0.0, 0.0]), device=env.device, dtype=torch.float32)
+        self.peg_offset = torch.tensor(
+            cfg.params.get("peg_offset", [0.0, 0.0, 0.0]), device=env.device, dtype=torch.float32
+        )
         self.held_gear_base_offset = torch.tensor(
             cfg.params.get("held_gear_base_offset", [2.025e-2, 0.0, 0.0]), device=env.device, dtype=torch.float32
         )
@@ -98,8 +99,9 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
     def reset(self, env_ids: torch.Tensor) -> None:
         if self._xy_noise_range > 0.0:
             n = len(env_ids)
-            self._offset_noise[env_ids, 0] = (torch.rand(n, device=self._offset_noise.device) * 2 - 1) * self._xy_noise_range
-            self._offset_noise[env_ids, 1] = (torch.rand(n, device=self._offset_noise.device) * 2 - 1) * self._xy_noise_range
+            noise_dev = self._offset_noise.device
+            self._offset_noise[env_ids, 0] = (torch.rand(n, device=noise_dev) * 2 - 1) * self._xy_noise_range
+            self._offset_noise[env_ids, 1] = (torch.rand(n, device=noise_dev) * 2 - 1) * self._xy_noise_range
 
     def __call__(
         self,
@@ -149,7 +151,9 @@ def _check_gear_position(
     gear: RigidObject = env.scene[gear_cfg.name]
     gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
     gear_quat = wp.to_torch(gear.data.root_quat_w)
-    held_off = torch.tensor(held_gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
+    held_off = (
+        torch.tensor(held_gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
+    )
     held_base_pos = gear_pos + quat_apply(gear_quat, held_off)
 
     board: RigidObject = env.scene[board_cfg.name]
@@ -179,7 +183,14 @@ def gear_insertion_engagement_bonus(
 ) -> torch.Tensor:
     """Bonus when the gear is partially engaged on the peg."""
     return _check_gear_position(
-        env, gear_cfg, board_cfg, peg_offset, held_gear_base_offset, gear_peg_height, engage_z_fraction, xy_threshold,
+        env,
+        gear_cfg,
+        board_cfg,
+        peg_offset,
+        held_gear_base_offset,
+        gear_peg_height,
+        engage_z_fraction,
+        xy_threshold,
     ).float()
 
 
@@ -195,7 +206,14 @@ def gear_insertion_success_bonus(
 ) -> torch.Tensor:
     """Bonus when the gear is fully inserted (binary success geometry)."""
     return _check_gear_position(
-        env, gear_cfg, board_cfg, peg_offset, held_gear_base_offset, gear_peg_height, success_z_fraction, xy_threshold,
+        env,
+        gear_cfg,
+        board_cfg,
+        peg_offset,
+        held_gear_base_offset,
+        gear_peg_height,
+        success_z_fraction,
+        xy_threshold,
     ).float()
 
 
@@ -298,5 +316,3 @@ class success_prediction_error(ManagerTermBase):
         pred = (arm_osc_action.success_pred + 1.0) / 2.0
         error = torch.abs(true_success.float() - pred)
         return error * self._pred_scale
-
-

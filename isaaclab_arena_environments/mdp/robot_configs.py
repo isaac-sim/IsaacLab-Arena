@@ -8,9 +8,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 import torch
+from collections.abc import Sequence
 
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
@@ -31,6 +30,7 @@ def franka_gripper_joint_setter(
     """
     for jid in finger_joint_indices:
         joint_pos[row_indices, jid] = width / 2.0
+
 
 # ===========================================================================================
 # Franka Panda robot configuration optimized for assembly tasks (peg insert, gear mesh, etc.).

@@ -24,18 +24,14 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
         from isaaclab.managers import ObservationTermCfg as ObsTerm
         from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 
+        import isaaclab_arena_environments.mdp as mdp
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.nist_gear_insertion_task import GraspConfig, NistGearInsertionTask
+        from isaaclab_arena.tasks.observations.gear_insertion_observations import NistGearInsertionPolicyObservations
         from isaaclab_arena.utils.pose import Pose
-        import isaaclab_arena_environments.mdp as mdp
-        from isaaclab_arena.tasks.observations.gear_insertion_observations import (
-            NistGearInsertionPolicyObservations,
-        )
-        from isaaclab_arena_environments.mdp.nist_gear_insertion_osc_action import (
-            NistGearInsertionOscActionCfg,
-        )
+        from isaaclab_arena_environments.mdp.nist_gear_insertion_osc_action import NistGearInsertionOscActionCfg
 
         peg_tip_offset = (0.02025, 0.0, 0.025)
         peg_base_offset = (0.02025, 0.0, 0.0)
@@ -76,19 +72,17 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
                 ),
             ],
         )
-        embodiment.set_initial_joint_pose(
-            [
-                0.561824,
-                0.287201,
-                -0.543103,
-                -2.410188,
-                0.507908,
-                2.847644,
-                0.454298,
-                0.04,
-                0.04,
-            ]
-        )
+        embodiment.set_initial_joint_pose([
+            0.561824,
+            0.287201,
+            -0.543103,
+            -2.410188,
+            0.507908,
+            2.847644,
+            0.454298,
+            0.04,
+            0.04,
+        ])
         embodiment.action_config.arm_action = NistGearInsertionOscActionCfg(
             asset_name="robot",
             joint_names=["panda_joint[1-7]"],
@@ -151,7 +145,9 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
             teleop_device = None
 
         table.set_initial_pose(Pose(position_xyz=(0.55, 0.0, -0.009), rotation_xyzw=(0.0, 0.0, 0.707, 0.707)))
-        assembled_board.set_initial_pose(Pose(position_xyz=(0.88, 0.15, -0.009), rotation_xyzw=(0.0, 0.0, -0.7071, 0.7071)))
+        assembled_board.set_initial_pose(
+            Pose(position_xyz=(0.88, 0.15, -0.009), rotation_xyzw=(0.0, 0.0, -0.7071, 0.7071))
+        )
         medium_gear.set_initial_pose(Pose(position_xyz=(0.5462, -0.02386, 0.12858), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         gears_and_base.set_initial_pose(
             Pose(position_xyz=(0.585, -0.074, 0.0), rotation_xyzw=(0.0, 0.0, 0.9239, 0.3827))

@@ -15,12 +15,11 @@ This module contains:
 from __future__ import annotations
 
 import math
+import torch
 from typing import TYPE_CHECKING
 
-import torch
-import warp as wp
-
 import isaaclab.utils.math as math_utils
+import warp as wp
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.math import axis_angle_from_quat
@@ -38,7 +37,7 @@ if TYPE_CHECKING:
 def peg_pos_in_env_frame(
     env: ManagerBasedRLEnv,
     board_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
-    peg_offset: list[float] = [0.0, 0.0, 0.0],
+    peg_offset: tuple[float, ...] = (0.0, 0.0, 0.0),
 ) -> torch.Tensor:
     """Target peg position: fixed asset pose + offset in its local frame."""
     board: RigidObject = env.scene[board_cfg.name]
@@ -51,15 +50,15 @@ def peg_pos_in_env_frame(
 def held_gear_base_pos_in_env_frame(
     env: ManagerBasedRLEnv,
     gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
-    held_gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+    held_gear_base_offset: tuple[float, ...] = (2.025e-2, 0.0, 0.0),
 ) -> torch.Tensor:
     """Position of the held gear's insertion point (root + offset in gear frame) in env frame."""
     gear: RigidObject = env.scene[gear_cfg.name]
     gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
     gear_quat = wp.to_torch(gear.data.root_quat_w)
-    held_off = torch.tensor(
-        held_gear_base_offset, device=env.device, dtype=torch.float32
-    ).unsqueeze(0).expand(env.num_envs, 3)
+    held_off = (
+        torch.tensor(held_gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
+    )
     return gear_pos + math_utils.quat_apply(gear_quat, held_off)
 
 
@@ -67,8 +66,8 @@ def peg_delta_from_held_gear_base(
     env: ManagerBasedRLEnv,
     gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
     board_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
-    peg_offset: list[float] = [0.0, 0.0, 0.0],
-    held_gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+    peg_offset: tuple[float, ...] = (0.0, 0.0, 0.0),
+    held_gear_base_offset: tuple[float, ...] = (2.025e-2, 0.0, 0.0),
 ) -> torch.Tensor:
     """Vector from held gear insertion point to peg. Positive = peg is ahead in that axis."""
     held_base = held_gear_base_pos_in_env_frame(env, gear_cfg, held_gear_base_offset)
@@ -116,6 +115,7 @@ def force_torque_at_body(
     robot: Articulation = env.scene[robot_cfg.name]
     body_idx = robot.body_names.index(body_name)
     wrench = wp.to_torch(robot.root_view.get_link_incoming_joint_force())[:, body_idx]
+    wrench = torch.nan_to_num(wrench, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
     if return_torque:
         return wrench
     return wrench[:, :3]
@@ -154,9 +154,7 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         self._rot_noise_deg: float = p.get("rot_noise_level_deg", 0.1)
         self._force_noise: float = p.get("force_noise_level", 1.0)
         self._ft_alpha: float = p.get("ft_smoothing_factor", 0.25)
-        self._contact_thresh_range: tuple[float, float] = tuple(
-            p.get("contact_threshold_range", [5.0, 10.0])
-        )
+        self._contact_thresh_range: tuple[float, float] = tuple(p.get("contact_threshold_range", [5.0, 10.0]))
 
         n = env.num_envs
         dev = env.device
@@ -227,7 +225,8 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         rot_noise_axis = rot_noise_axis / (torch.linalg.norm(rot_noise_axis, dim=1, keepdim=True) + 1e-8)
         rot_noise_angle = torch.randn(n, device=dev) * math.radians(self._rot_noise_deg)
         noisy_quat = math_utils.quat_mul(
-            ft_quat, math_utils.quat_from_angle_axis(rot_noise_angle, rot_noise_axis),
+            ft_quat,
+            math_utils.quat_from_angle_axis(rot_noise_angle, rot_noise_axis),
         )
         noisy_quat[:, [2, 3]] = 0.0
         noisy_quat = noisy_quat * self._flip_quats.unsqueeze(-1)
@@ -252,6 +251,7 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         self._prev_noisy_quat[:] = noisy_quat
 
         raw_force = wp.to_torch(robot.root_view.get_link_incoming_joint_force())[:, self._force_idx, :3]
+        raw_force = torch.nan_to_num(raw_force, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
         arm_osc_action.force_smooth[:] = (
             self._ft_alpha * raw_force + (1.0 - self._ft_alpha) * arm_osc_action.force_smooth
         )
@@ -262,12 +262,15 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         prev_actions = arm_osc_action._smoothed_actions.clone()
         prev_actions[:, 3:5] = 0.0
 
-        return torch.cat([
-            fingertip_pos_rel,
-            noisy_quat,
-            ee_linvel,
-            ee_angvel,
-            noisy_force,
-            force_threshold,
-            prev_actions,
-        ], dim=-1)
+        return torch.cat(
+            [
+                fingertip_pos_rel,
+                noisy_quat,
+                ee_linvel,
+                ee_angvel,
+                noisy_force,
+                force_threshold,
+                prev_actions,
+            ],
+            dim=-1,
+        )

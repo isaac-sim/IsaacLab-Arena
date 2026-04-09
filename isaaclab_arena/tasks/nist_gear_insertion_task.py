@@ -11,15 +11,15 @@ onto the peg.
 
 from __future__ import annotations
 
+import numpy as np
 from collections.abc import Callable
 from dataclasses import MISSING, dataclass, field
-from typing import TYPE_CHECKING
-
-import numpy as np
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, ObservationGroupCfg as ObsGroup, ObservationTermCfg as ObsTerm
+from isaaclab.managers import EventTermCfg
+from isaaclab.managers import ObservationGroupCfg as ObsGroup
+from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
@@ -30,18 +30,9 @@ from isaaclab_arena.tasks.observations import gear_insertion_observations
 from isaaclab_arena.tasks.observations.gear_insertion_observations import body_pos_in_env_frame, body_quat_canonical
 from isaaclab_arena.tasks.rewards import gear_insertion_rewards
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import (
-    gear_dropped_from_gripper,
-    gear_mesh_insertion_success,
-    gear_orientation_exceeded,
-)
+from isaaclab_arena.tasks.terminations import gear_dropped_from_gripper, gear_mesh_insertion_success
 from isaaclab_arena.terms.events import place_gear_in_gripper
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    import torch
 
 
 @dataclass
@@ -97,7 +88,9 @@ class NistGearInsertionTask(TaskBase):
         self._gear_base_asset = gear_base_asset if gear_base_asset is not None else assembled_board
         self.peg_offset_from_board = peg_offset_from_board or [2.025e-2, 0.0, 0.0]
         self.peg_offset_for_obs = peg_offset_for_obs
-        self.held_gear_base_offset = held_gear_base_offset if held_gear_base_offset is not None else [2.025e-2, 0.0, 0.0]
+        self.held_gear_base_offset = (
+            held_gear_base_offset if held_gear_base_offset is not None else [2.025e-2, 0.0, 0.0]
+        )
         self.peg_offset_xy_noise = peg_offset_xy_noise
         self.gear_peg_height = gear_peg_height
         self.success_z_fraction = success_z_fraction
@@ -374,6 +367,7 @@ class _GearInsertionObservationsCfg:
         held_gear_base_offset: list[float] | None = None,
     ):
         hgo = held_gear_base_offset if held_gear_base_offset is not None else [2.025e-2, 0.0, 0.0]
+
         @configclass
         class _TaskObsCfg(ObsGroup):
             gear_pos = ObsTerm(
