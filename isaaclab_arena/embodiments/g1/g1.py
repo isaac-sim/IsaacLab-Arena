@@ -667,9 +667,7 @@ class G1WBCPinkActionCfg:
 class G1WBCAgilePinkActionCfg:
     """Action specifications for the MDP, for G1 AGILE WBC with PINK IK upper body."""
 
-    g1_action: ActionTermCfg = G1DecoupledWBCPinkActionCfg(
-        asset_name="robot", joint_names=[".*"], wbc_version="agile"
-    )
+    g1_action: ActionTermCfg = G1DecoupledWBCPinkActionCfg(asset_name="robot", joint_names=[".*"], wbc_version="agile")
 
 
 @configclass
