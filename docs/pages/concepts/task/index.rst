@@ -28,7 +28,7 @@ Tasks and affordances
 Tasks are defined in terms of object **affordances**, not specific objects.
 ``OpenDoorTask`` takes any ``Openable`` — a microwave, a fridge, a cabinet.
 Its success condition calls ``openable.is_open()``, its reset calls ``openable.close()``,
-and its metric tracks ``openable.how_open()``.
+and its metric tracks ``openable.get_openness()``.
 
 .. figure:: ../../../images/open_door_task.png
    :width: 100%
