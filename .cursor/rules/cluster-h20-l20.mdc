@@ -1,0 +1,17 @@
+---
+description: H20 and L20 cluster defaults for remote policy validation
+alwaysApply: true
+---
+
+# H20 L20 Cluster
+
+- Default role split: `h20-8` (`10.185.189.23`) runs the remote policy server, and `l20-8` (`10.185.189.15`) runs client and evaluation jobs.
+- `h20-8` has 8x `NVIDIA H20` GPUs at about 97 GB each, with `mlx5_0..mlx5_9` and `mlx5_bond_0`.
+- `l20-8` has 8x `NVIDIA L20` GPUs at about 46 GB each, with `mlx5_0..mlx5_3` and `mlx5_bond_0`.
+- Both hosts expose host-level UCX and RDMA pieces including `dc_mlx5`, `rc_mlx5`, `ud_mlx5`, `rdmacm`, `nvidia_peermem`, `mlx5_ib`, and `ib_uverbs`.
+- `ibstat` reports link layer `Ethernet`; treat this fabric as RoCE or RDMA-capable Ethernet, not native InfiniBand.
+- Both hosts have Docker at `/home/chenchaox/project/rlinf_pub/env/bin/docker`; do not assume plain `docker` resolves to the right binary.
+- Both hosts can SSH to each other directly.
+- Remote hosts may not have convenience tools such as `rg`; use portable shell probes when checking them.
+- Keep three capability levels separate in reports: UCX over TCP, UCX over RDMA mlx5 transports, and GPU-aware UCX or `nvcomp` inside containers.
+- Do not claim GDRDMA or full GPU-direct success until container-side runtime evidence confirms it.

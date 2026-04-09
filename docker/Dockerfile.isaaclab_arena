@@ -9,6 +9,8 @@ USER root
 ARG INSTALL_GROOT=false
 
 ARG WORKDIR="/workspace"
+ARG EXTRA_REMOTE_APT_PACKAGES=""
+ARG EXTRA_REMOTE_PIP_PACKAGES=""
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
 
@@ -23,7 +25,15 @@ RUN apt-get update && apt-get install -y \
   git-lfs \
   cmake \
   sudo \
-  python3-pip
+  python3-pip \
+  && rm -rf /var/lib/apt/lists/*
+
+# Optional debug / profiling packages for cluster-specific experiments.
+RUN if [ -n "$EXTRA_REMOTE_APT_PACKAGES" ]; then \
+      apt-get update && apt-get install -y $EXTRA_REMOTE_APT_PACKAGES && rm -rf /var/lib/apt/lists/*; \
+    else \
+      echo "Skipping extra remote apt packages"; \
+    fi
 
 ################################
 # Install Isaac Lab
@@ -136,6 +146,12 @@ RUN CUDA_MAJOR=$(/isaac-sim/python.sh -c "import torch; print((torch.version.cud
       "ucx-py-cu${CUDA_MAJOR}" \
       "nvidia-nvcomp-cu${CUDA_MAJOR}" || \
     (echo "Failed to install CUDA-matched remote deps for CUDA ${CUDA_MAJOR}. Check wheel availability for ucx-py-cu${CUDA_MAJOR} / nvidia-nvcomp-cu${CUDA_MAJOR}." && exit 1)
+
+RUN if [ -n "$EXTRA_REMOTE_PIP_PACKAGES" ]; then \
+      /isaac-sim/python.sh -m pip install --no-cache-dir $EXTRA_REMOTE_PIP_PACKAGES; \
+    else \
+      echo "Skipping extra remote pip packages"; \
+    fi
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

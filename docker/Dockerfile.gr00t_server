@@ -2,6 +2,8 @@ FROM nvcr.io/nvidia/pytorch:24.07-py3
 
 ARG WORKDIR="/workspace"
 ARG GROOT_DEPS_GROUP="base"
+ARG EXTRA_REMOTE_APT_PACKAGES=""
+ARG EXTRA_REMOTE_PIP_PACKAGES=""
 ENV WORKDIR=${WORKDIR}
 ENV GROOT_DEPS_GROUP=${GROOT_DEPS_GROUP}
 WORKDIR "${WORKDIR}"
@@ -11,6 +13,13 @@ RUN apt-get update && apt-get install -y \
     git-lfs \
     cmake \
     && rm -rf /var/lib/apt/lists/*
+
+# Optional debug / profiling packages for cluster-specific experiments.
+RUN if [ -n "$EXTRA_REMOTE_APT_PACKAGES" ]; then \
+      apt-get update && apt-get install -y $EXTRA_REMOTE_APT_PACKAGES && rm -rf /var/lib/apt/lists/*; \
+    else \
+      echo "Skipping extra remote apt packages"; \
+    fi
 
 RUN pip install --upgrade pip
 
@@ -35,6 +44,12 @@ RUN CUDA_MAJOR=$(python -c "import torch; print((torch.version.cuda or '12').spl
       "ucx-py-cu${CUDA_MAJOR}" \
       "nvidia-nvcomp-cu${CUDA_MAJOR}" || \
     (echo "Failed to install CUDA-matched remote deps for CUDA ${CUDA_MAJOR}. Check wheel availability for ucx-py-cu${CUDA_MAJOR} / nvidia-nvcomp-cu${CUDA_MAJOR}." && exit 1)
+
+RUN if [ -n "$EXTRA_REMOTE_PIP_PACKAGES" ]; then \
+      pip install --no-cache-dir $EXTRA_REMOTE_PIP_PACKAGES; \
+    else \
+      echo "Skipping extra remote pip packages"; \
+    fi
 
 ENV PYTHONPATH=${WORKDIR}
 

@@ -5,6 +5,12 @@ set -euo pipefail
 # User-configurable defaults
 # -------------------------
 
+DEFAULT_DOCKER_BIN="/home/chenchaox/project/rlinf_pub/env/bin/docker"
+DOCKER_BIN="${DOCKER_BIN:-}"
+EXTRA_REMOTE_APT_PACKAGES="${EXTRA_REMOTE_APT_PACKAGES:-}"
+EXTRA_REMOTE_PIP_PACKAGES="${EXTRA_REMOTE_PIP_PACKAGES:-}"
+DOCKER_RUN_EXTRA_ARGS="${DOCKER_RUN_EXTRA_ARGS:-}"
+
 # Default mount directories on the host machine
 DATASETS_DIR="${DATASETS_DIR:-$HOME/datasets}"
 MODELS_DIR="${MODELS_DIR:-$HOME/models}"
@@ -17,6 +23,19 @@ DOCKER_VERSION_TAG="${DOCKER_VERSION_TAG:-latest}"
 # Rebuild controls
 FORCE_REBUILD="${FORCE_REBUILD:-false}"
 NO_CACHE=""
+
+if [ -z "$DOCKER_BIN" ]; then
+  if [ -x "$DEFAULT_DOCKER_BIN" ]; then
+    DOCKER_BIN="$DEFAULT_DOCKER_BIN"
+  else
+    DOCKER_BIN="$(command -v docker || true)"
+  fi
+fi
+
+if [ -z "$DOCKER_BIN" ] || [ ! -x "$DOCKER_BIN" ]; then
+  echo "Docker binary not found. Set DOCKER_BIN or install docker." >&2
+  exit 1
+fi
 
 # Server parameters (can also be overridden via environment variables)
 HOST="${HOST:-0.0.0.0}"
@@ -77,6 +96,12 @@ Examples:
     -g "device=0,1" \\
     --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \\
     --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml
+
+Environment overrides:
+  DOCKER_BIN                   Docker CLI binary. Default prefers "$DEFAULT_DOCKER_BIN".
+  EXTRA_REMOTE_APT_PACKAGES    Additional apt packages for image experiments.
+  EXTRA_REMOTE_PIP_PACKAGES    Additional pip packages for image experiments.
+  DOCKER_RUN_EXTRA_ARGS        Extra docker run args for profiling or diagnostics.
 EOF
 }
 
@@ -178,10 +203,18 @@ echo "  MODELS_DIR   = ${MODELS_DIR}"
 echo "  EVAL_DIR     = ${EVAL_DIR}"
 echo "Docker image:"
 echo "  ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG}"
+echo "Docker binary:"
+echo "  ${DOCKER_BIN}"
 echo "GPU:"
 echo "  --gpus ${GPUS}"
 echo "Rebuild:"
 echo "  FORCE_REBUILD = ${FORCE_REBUILD}, NO_CACHE = '${NO_CACHE}'"
+echo "Extra apt packages:"
+echo "  ${EXTRA_REMOTE_APT_PACKAGES:-<none>}"
+echo "Extra pip packages:"
+echo "  ${EXTRA_REMOTE_PIP_PACKAGES:-<none>}"
+echo "Extra docker run args:"
+echo "  ${DOCKER_RUN_EXTRA_ARGS:-<none>}"
 echo "Server args:"
 printf '  %q ' "${SERVER_ARGS[@]}"; echo
 
@@ -199,7 +232,7 @@ if [ "${FORCE_REBUILD}" = "true" ]; then
   SHOULD_BUILD=true
 else
   # Without force flag: only build if the image does not exist locally
-  if [ -z "$(docker images -q "${IMAGE_TAG_FULL}")" ]; then
+  if [ -z "$("$DOCKER_BIN" images -q "${IMAGE_TAG_FULL}")" ]; then
     SHOULD_BUILD=true
   fi
 fi
@@ -207,8 +240,10 @@ fi
 # 2) Build or skip
 if [ "${SHOULD_BUILD}" = "true" ]; then
   echo "Building Docker image ${IMAGE_TAG_FULL}..."
-  docker build \
+  "$DOCKER_BIN" build \
     ${NO_CACHE} \
+    --build-arg EXTRA_REMOTE_APT_PACKAGES="${EXTRA_REMOTE_APT_PACKAGES}" \
+    --build-arg EXTRA_REMOTE_PIP_PACKAGES="${EXTRA_REMOTE_PIP_PACKAGES}" \
     -f docker/Dockerfile.gr00t_server \
     -t "${IMAGE_TAG_FULL}" \
     .
@@ -224,10 +259,17 @@ fi
 DOCKER_RUN_ARGS=(
   --rm
   --gpus "${GPUS}"
+  --ipc host
+  --ulimit memlock=-1
+  --ulimit stack=-1
   --net host
   --name gr00t_policy_server_container
   -v "${MODELS_DIR}":/models
 )
+
+if [ -d /dev/infiniband ]; then
+  DOCKER_RUN_ARGS+=(-v /dev/infiniband:/dev/infiniband)
+fi
 
 # Only mount datasets / eval if the directories exist on host
 if [ -d "${DATASETS_DIR}" ]; then
@@ -238,6 +280,12 @@ if [ -d "${EVAL_DIR}" ]; then
   DOCKER_RUN_ARGS+=(-v "${EVAL_DIR}":/eval)
 fi
 
-docker run "${DOCKER_RUN_ARGS[@]}" \
+if [ -n "${DOCKER_RUN_EXTRA_ARGS}" ]; then
+  # shellcheck disable=SC2206
+  EXTRA_RUN_ARGS_ARRAY=(${DOCKER_RUN_EXTRA_ARGS})
+  DOCKER_RUN_ARGS+=("${EXTRA_RUN_ARGS_ARRAY[@]}")
+fi
+
+"$DOCKER_BIN" run "${DOCKER_RUN_ARGS[@]}" \
   "${IMAGE_TAG_FULL}" \
   "${SERVER_ARGS[@]}"

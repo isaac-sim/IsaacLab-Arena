@@ -23,13 +23,27 @@ Lifecycle:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import threading
-from typing import Any
-
-import torch
+from typing import TYPE_CHECKING, Any
 
 from .base import ClientTransport, ServerTransport
 from .zmq_transport import ZmqClientTransport, ZmqServerTransport
+
+if TYPE_CHECKING:
+    import torch
+
+
+def _bind_cuda_context(tensor: "torch.Tensor") -> None:
+    """Ensure the calling thread has the CUDA context for this tensor's device."""
+    if not tensor.is_cuda:
+        return
+    import torch
+
+    device_index = tensor.device.index
+    if device_index is None:
+        device_index = torch.cuda.current_device()
+    torch.cuda.set_device(device_index)
 
 
 def _ensure_ucp():
@@ -94,12 +108,14 @@ class ZmqUcxServerTransport(ServerTransport):
             async def _on_connect(ep):
                 # Read the full client identity so UCX endpoint lookup matches
                 # the exact ZMQ ROUTER identity without truncation collisions.
-                size_raw = await ep.recv(2)
-                identity_size = int.from_bytes(bytes(size_raw), "big")
+                size_buf = bytearray(2)
+                await ep.recv(size_buf)
+                identity_size = int.from_bytes(bytes(size_buf), "big")
                 if identity_size <= 0:
                     raise RuntimeError("UCX client identity size must be positive")
-                cid_raw = await ep.recv(identity_size)
-                key = ZmqUcxServerTransport._ucx_key(bytes(cid_raw))
+                cid_buf = bytearray(identity_size)
+                await ep.recv(cid_buf)
+                key = ZmqUcxServerTransport._ucx_key(bytes(cid_buf))
                 old_ep = self._ucx_endpoints.pop(key, None)
                 if old_ep is not None:
                     try:
@@ -129,6 +145,8 @@ class ZmqUcxServerTransport(ServerTransport):
 
     def recv_tensor(self, client_id: bytes, nbytes: int, buffer: torch.Tensor | None = None) -> torch.Tensor:
         """Receive a GPU tensor from a client via UCX."""
+        import torch
+
         key = self._ucx_key(client_id)
         ep = self._ucx_endpoints.get(key)
         if ep is None:
@@ -137,12 +155,18 @@ class ZmqUcxServerTransport(ServerTransport):
         if buffer is None:
             buffer = torch.empty(nbytes, dtype=torch.uint8, device="cuda")
 
-        future = asyncio.run_coroutine_threadsafe(ep.recv(buffer), self._ucx_loop)
+        async def _recv_coro():
+            _bind_cuda_context(buffer)
+            await ep.recv(buffer)
+
+        future = asyncio.run_coroutine_threadsafe(_recv_coro(), self._ucx_loop)
         future.result(timeout=self._timeout_s)
         return buffer
 
     def send_tensor(self, client_id: bytes, tensor: torch.Tensor) -> None:
         """Send a GPU tensor to a client via UCX."""
+        import torch
+
         key = self._ucx_key(client_id)
         ep = self._ucx_endpoints.get(key)
         if ep is None:
@@ -153,7 +177,11 @@ class ZmqUcxServerTransport(ServerTransport):
         if tensor.is_cuda:
             torch.cuda.current_stream().synchronize()
 
-        future = asyncio.run_coroutine_threadsafe(ep.send(tensor), self._ucx_loop)
+        async def _send_coro():
+            _bind_cuda_context(tensor)
+            await ep.send(tensor)
+
+        future = asyncio.run_coroutine_threadsafe(_send_coro(), self._ucx_loop)
         future.result(timeout=self._timeout_s)
 
     def disconnect_client(self, client_id: bytes) -> None:
@@ -209,7 +237,12 @@ class ZmqUcxClientTransport(ClientTransport):
     def _shutdown_ucx_resources(self) -> None:
         if self._ucx_endpoint is not None:
             try:
-                self._ucx_endpoint.close()
+                close_result = self._ucx_endpoint.close()
+                if inspect.isawaitable(close_result):
+                    if self._ucx_loop is not None and self._ucx_loop.is_running():
+                        asyncio.run_coroutine_threadsafe(close_result, self._ucx_loop).result(timeout=self._timeout_s)
+                    else:
+                        asyncio.run(close_result)
             except Exception:
                 pass
             self._ucx_endpoint = None
@@ -262,6 +295,8 @@ class ZmqUcxClientTransport(ClientTransport):
 
     def send_tensor(self, tensor: torch.Tensor) -> None:
         """Send a GPU tensor to the server via UCX."""
+        import torch
+
         if self._ucx_endpoint is None:
             raise RuntimeError("UCX endpoint not connected")
 
@@ -271,20 +306,27 @@ class ZmqUcxClientTransport(ClientTransport):
         if tensor.is_cuda:
             torch.cuda.current_stream().synchronize()
 
-        future = asyncio.run_coroutine_threadsafe(
-            self._ucx_endpoint.send(tensor), self._ucx_loop
-        )
+        async def _send_coro():
+            _bind_cuda_context(tensor)
+            await self._ucx_endpoint.send(tensor)
+
+        future = asyncio.run_coroutine_threadsafe(_send_coro(), self._ucx_loop)
         future.result(timeout=self._timeout_s)
 
     def recv_tensor(self, nbytes: int, buffer: torch.Tensor | None = None) -> torch.Tensor:
         """Receive a GPU tensor from the server via UCX."""
+        import torch
+
         if self._ucx_endpoint is None:
             raise RuntimeError("UCX endpoint not connected")
         if buffer is None:
             buffer = torch.empty(nbytes, dtype=torch.uint8, device="cuda")
-        future = asyncio.run_coroutine_threadsafe(
-            self._ucx_endpoint.recv(buffer), self._ucx_loop
-        )
+
+        async def _recv_coro():
+            _bind_cuda_context(buffer)
+            await self._ucx_endpoint.recv(buffer)
+
+        future = asyncio.run_coroutine_threadsafe(_recv_coro(), self._ucx_loop)
         future.result(timeout=self._timeout_s)
         return buffer
 

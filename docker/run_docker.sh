@@ -2,6 +2,11 @@
 set -e
 DOCKER_IMAGE_NAME='isaaclab_arena'
 DOCKER_VERSION_TAG='latest'
+DEFAULT_DOCKER_BIN="/home/chenchaox/project/rlinf_pub/env/bin/docker"
+DOCKER_BIN="${DOCKER_BIN:-}"
+EXTRA_REMOTE_APT_PACKAGES="${EXTRA_REMOTE_APT_PACKAGES:-}"
+EXTRA_REMOTE_PIP_PACKAGES="${EXTRA_REMOTE_PIP_PACKAGES:-}"
+DOCKER_RUN_EXTRA_ARGS="${DOCKER_RUN_EXTRA_ARGS:-}"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -18,6 +23,19 @@ INSTALL_GROOT="false"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
+
+if [ -z "$DOCKER_BIN" ]; then
+    if [ -x "$DEFAULT_DOCKER_BIN" ]; then
+        DOCKER_BIN="$DEFAULT_DOCKER_BIN"
+    else
+        DOCKER_BIN="$(command -v docker || true)"
+    fi
+fi
+
+if [ -z "$DOCKER_BIN" ] || [ ! -x "$DOCKER_BIN" ]; then
+    echo "Docker binary not found. Set DOCKER_BIN or install docker." >&2
+    exit 1
+fi
 
 while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
     case $OPTION in
@@ -65,6 +83,12 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
             echo "  -g (Install GR00T N1.6 dependencies.)"
+            echo ""
+            echo "Environment overrides:"
+            echo "  DOCKER_BIN                   (Docker CLI binary. Default prefers \"$DEFAULT_DOCKER_BIN\".)"
+            echo "  EXTRA_REMOTE_APT_PACKAGES    (Additional apt packages for image experiments.)"
+            echo "  EXTRA_REMOTE_PIP_PACKAGES    (Additional pip packages for image experiments.)"
+            echo "  DOCKER_RUN_EXTRA_ARGS        (Extra docker run args for profiling or diagnostics.)"
             exit 0
             ;;
         \?)
@@ -83,28 +107,33 @@ shift $((OPTIND-1))
 
 # Display the values being used
 echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
+echo "Using Docker binary: $DOCKER_BIN"
+echo "Extra apt packages: ${EXTRA_REMOTE_APT_PACKAGES:-<none>}"
+echo "Extra pip packages: ${EXTRA_REMOTE_PIP_PACKAGES:-<none>}"
+echo "Extra docker run args: ${DOCKER_RUN_EXTRA_ARGS:-<none>}"
 
 # Build the Docker image with the specified or default name
 echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
 
-if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
+if [ "$("$DOCKER_BIN" images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
     echo "Docker image $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Not rebuilding."
     echo "Use -r option to force the rebuild."
 else
-    docker build --pull \
+    "$DOCKER_BIN" build --pull \
         $NO_CACHE \
-        --progress=plain \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+        --build-arg EXTRA_REMOTE_APT_PACKAGES="${EXTRA_REMOTE_APT_PACKAGES}" \
+        --build-arg EXTRA_REMOTE_PIP_PACKAGES="${EXTRA_REMOTE_PIP_PACKAGES}" \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
         --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
         $SCRIPT_DIR/..
 fi
 
 # Remove any exited containers
-if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG)" ]; then
-    docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG > /dev/null
+if [ "$("$DOCKER_BIN" ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG)" ]; then
+    "$DOCKER_BIN" rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG > /dev/null
 fi
 
 add_volume_if_it_exists() {
@@ -114,9 +143,9 @@ add_volume_if_it_exists() {
 }
 
 # If container is running, attach to it, otherwise start
-if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG 2>/dev/null)" = "true" ]; then
+if [ "$( "$DOCKER_BIN" container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
-  docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG su $(id -un)
+  "$DOCKER_BIN" exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG su $(id -un)
 else
     DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG"
                     "--privileged"
@@ -124,7 +153,6 @@ else
                     "--ulimit" "stack=-1"
                     "--ipc=host"
                     "--net=host"
-                    "--runtime=nvidia"
                     "--gpus=all"
                     "-v" ".:${WORKDIR}"
                     $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
@@ -171,5 +199,11 @@ else
     # Allow X11 connections
     xhost +local:docker > /dev/null
 
-    docker run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} "${@}"
+    if [ -n "${DOCKER_RUN_EXTRA_ARGS}" ]; then
+        # shellcheck disable=SC2206
+        EXTRA_RUN_ARGS_ARRAY=(${DOCKER_RUN_EXTRA_ARGS})
+        DOCKER_RUN_ARGS+=("${EXTRA_RUN_ARGS_ARRAY[@]}")
+    fi
+
+    "$DOCKER_BIN" run "${DOCKER_RUN_ARGS[@]}" --interactive --rm --tty ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} "${@}"
 fi

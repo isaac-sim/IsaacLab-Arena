@@ -1,0 +1,14 @@
+---
+description: Remote policy v2 project context and validation order
+alwaysApply: true
+---
+
+# Remote Policy V2
+
+- Treat `remote_policy_v2_design.md` as the architecture source of truth for remote policy work.
+- Use commit `482d6ffc578a7f3f0199807ac3ab954742379897` as the current v2 implementation baseline unless newer local code proves otherwise.
+- Assume the v2 mainline is already in-tree: ROUTER/DEALER transport, `ClientState`, `transport/`, UCX support, `lz4`, and `nvcomp`.
+- Prioritize these files when reviewing or testing v2 behavior: `isaaclab_arena/remote_policy/policy_server.py`, `policy_client.py`, `server_side_policy.py`, `client_state.py`, `gpu_compression.py`, `transport/*.py`, `isaaclab_arena/policy/client_side_policy.py`, and `isaaclab_arena_gr00t/policy/gr00t_remote_policy.py`.
+- Execute remote-policy validation in this order: transport-first, then GR1 static manipulation remote close-loop, then G1 locomanipulation remote close-loop.
+- Treat external `/home/chenchaox/hkang/CLAUDE.md` as historical reference only; do not import old-cluster instructions unless they match the current H20/L20 environment.
+- Keep experiment notes under `claude_tmp/` and update repo rules when machine facts or validated workflows change.
