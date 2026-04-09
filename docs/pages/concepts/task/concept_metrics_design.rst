@@ -28,7 +28,7 @@ Example: ObjectMovedRateMetric
 Here we provide an example of how the ``ObjectMovedRateMetric`` is implemented.
 The ``ObjectMovedRateMetric`` implements the recording and computing steps described above
 in the following way:
-
+* **Computing** After the rollout completes, the ``ObjectMovedRateMetric`` processes
 * **Recording** During simulation ``ObjectMovedRateMetric`` records the
   object's velocity vector (a 3D vector) at every simulation step.
 * **Computing** After the rollout completes, the ``ObjectMovedRateMetric`` process
