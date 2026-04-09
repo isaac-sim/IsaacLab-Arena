@@ -10,7 +10,7 @@ This design means that metrics can be defined once in the task and
 they are automatically applied to every environment that uses that task.
 
 Under the hood, a metric does two things:
-
+* **Recording** — The metric records the quantity during each episode of policy execution.
 * **Recordering** The metric records the quantity during each episode of policy execution.
 * **Computing** The metric computes the final value from the recorded data, typically by reducing the recordings to a scalar.
 
