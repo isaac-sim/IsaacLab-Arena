@@ -51,9 +51,12 @@ def object_on_destination(
     # ensures we only consider the termination when the object is physically
     # near the destination.
     if destination_cfg is not None and max_distance > 0.0:
-        destination: RigidObject = env.unwrapped.scene[destination_cfg.name]
+        destination = env.unwrapped.scene[destination_cfg.name]
         object_pos_w = wp.to_torch(object.data.root_pos_w)
-        destination_pos_w = wp.to_torch(destination.data.root_pos_w)
+        if hasattr(destination, "data"):
+            destination_pos_w = wp.to_torch(destination.data.root_pos_w)
+        else:
+            destination_pos_w = wp.to_torch(destination.get_world_poses()[0])
         distance = torch.norm(object_pos_w - destination_pos_w, dim=-1)
         close_enough = distance < max_distance
         condition_met = torch.logical_and(condition_met, close_enough)
