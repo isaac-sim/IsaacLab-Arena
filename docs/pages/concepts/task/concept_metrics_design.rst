@@ -3,7 +3,7 @@ Metrics
 
 A metric is a quantity that is reported at the end of an evaluation, that quantifies
 some aspect of a policy's performance on the task.
-
+In Isaac Lab Arena, metrics are task-specific. A task defines the metrics that should
 In Isaac Lab Arena, metrics are attached task-specific. A task defines metrics that should
 be calculated during the complete of that task, while that task is being used.
 This design means that metrics can be defined once in the task and
