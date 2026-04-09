@@ -157,7 +157,7 @@ environment's ``add_cli_args()`` method.
     .. code-block:: bash
 
         python isaaclab_arena/evaluation/policy_runner.py \
-          --visualizer kit \
+          --viz kit \
           --policy_type zero_action \
           --num_episodes 1 \
           --external_environment_class_path isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \

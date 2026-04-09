@@ -141,7 +141,7 @@ We download a pre-recorded dataset from Hugging Face.
        nvidia/Arena-GR1-Manipulation-Task \
        arena_gr1_manipulation_dataset_generated.hdf5 \
        --repo-type dataset \
-       --revision arena_v0.2_lab_v2.3 \
+       --revision arena_v0.2_lab_v3.0 \
        --local-dir $DATASET_DIR
 
 
@@ -153,7 +153,7 @@ Replay the downloaded dataset to verify the environment setup:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
-     --visualizer kit \
+     --viz kit \
      --device cpu \
      --enable_cameras \
      --dataset_file "${DATASET_DIR}/arena_gr1_manipulation_dataset_generated.hdf5" \

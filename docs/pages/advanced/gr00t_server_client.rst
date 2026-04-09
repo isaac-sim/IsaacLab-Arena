@@ -36,7 +36,7 @@ A typical workflow is:
 .. code-block:: bash
 
   python -m isaaclab_arena/evaluation/policy_runner.py \
-    --visualizer kit \
+    --viz kit \
     --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
     --remote_host 127.0.0.1 \
     --remote_port 5555 \

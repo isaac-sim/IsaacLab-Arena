@@ -35,7 +35,7 @@ In another terminal, start the Arena Docker container and launch the teleop sess
 
    source ~/.cloudxr/run/cloudxr.env
    python isaaclab_arena/scripts/imitation_learning/teleop.py \
-     --visualizer kit \
+     --viz kit \
      --device cpu \
      galileo_g1_locomanip_pick_and_place \
      --teleop_device openxr
@@ -99,9 +99,9 @@ Step 4: Record with Quest 3
 
       # Record demonstrations with OpenXR teleop
       python isaaclab_arena/scripts/imitation_learning/record_demos.py \
-        --visualizer kit \
+        --viz kit \
         --device cpu \
-        --dataset_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
+        --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 2 \
         galileo_g1_locomanip_pick_and_place \
@@ -136,7 +136,7 @@ To replay the recorded demos:
 
    # Replay from the recorded HDF5 dataset
    python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
-     --visualizer kit \
+     --viz kit \
      --device cpu \
-     --dataset_file $DATASET_DIR/arena_g1_locomanipulation_dataset_recorded.hdf5 \
+     --dataset_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_recorded.hdf5 \
      galileo_g1_locomanip_pick_and_place

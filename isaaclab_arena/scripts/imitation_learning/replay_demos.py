@@ -136,7 +136,11 @@ def main():
     env_cfg.terminations = {}
 
     # create environment from loaded config
-    env = gym.make(env_name, cfg=env_cfg).unwrapped
+    env = gym.make(env_name, cfg=env_cfg)
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
+
+    reapply_viewer_cfg(env)
+    env = env.unwrapped
 
     teleop_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.1, rot_sensitivity=0.1))
     teleop_interface.add_callback("N", play_cb)
