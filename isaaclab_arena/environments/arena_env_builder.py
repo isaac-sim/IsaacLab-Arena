@@ -32,21 +32,8 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
-
-
-def _reapply_viewer_cfg(env) -> None:
-    """Re-apply ViewerCfg camera position after visualizers are initialized.
-
-    ViewportCameraController calls sim.set_camera_view() during __init__, but visualizers
-    (e.g. KitVisualizer) are not yet initialized at that point and silently ignore the call.
-    After gym.make() returns the visualizers are ready, so we call update_view_location()
-    again to apply the configured eye/lookat position.
-    """
-    unwrapped = env.unwrapped
-    vcc = getattr(unwrapped, "viewport_camera_controller", None)
-    if vcc is not None:
-        vcc.update_view_location()
 
 
 class ArenaEnvBuilder:
@@ -357,5 +344,5 @@ class ArenaEnvBuilder:
         env = gym.make(name, cfg=cfg, render_mode=render_mode)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
-        _reapply_viewer_cfg(env)
+        reapply_viewer_cfg(env)
         return env, cfg

@@ -117,9 +117,9 @@ We provide three post-training options:
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Best Quality
+   .. tab-item:: Best Quality
 
       Training takes approximately 4-8 hours on 8x L40s GPUs.
 
@@ -136,7 +136,8 @@ We provide three post-training options:
 
       .. code-block:: bash
 
-         python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+         PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH python -m torch.distributed.run --nproc_per_node=8 --standalone \
+         submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
          --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
@@ -155,7 +156,7 @@ We provide three post-training options:
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
 
-   .. tab:: Low Hardware Requirements
+   .. tab-item:: Low Hardware Requirements
 
       Training takes approximately 2-3 hours on 1x Ada6000 GPU.
 
@@ -172,7 +173,8 @@ We provide three post-training options:
 
       .. code-block:: bash
 
-         CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+         PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH CUDA_VISIBLE_DEVICES=0 \
+         python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
          --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
