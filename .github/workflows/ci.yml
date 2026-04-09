@@ -140,6 +140,10 @@ jobs:
       # - All subprocess-spawning tests (each spawns their own SimulationApp)
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
+
+      - name: Warm Kit shader cache
+        run: /isaac-sim/python.sh scripts/warm_shader_cache.py
+
       - name: Run in-process Newton tests
         run: |
           /isaac-sim/python.sh -m pytest -sv -m with_newton \
@@ -185,6 +189,9 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
+
+      - name: Warm Kit shader cache
+        run: /isaac-sim/python.sh scripts/warm_shader_cache.py
 
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
