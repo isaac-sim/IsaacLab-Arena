@@ -95,9 +95,9 @@ Step 2: Run Parallel Environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU Evaluation
+   .. tab-item:: Single GPU Evaluation
 
       Test the policy in 5 parallel environments with visualization via the GUI run:
 
@@ -115,7 +115,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --object brown_box \
            --embodiment g1_wbc_joint
 
-   .. tab:: Distribute Multi-GPU Evaluation
+   .. tab-item:: Distribute Multi-GPU Evaluation
 
       Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:
 
