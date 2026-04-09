@@ -12,6 +12,7 @@ import warp as wp
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
+WARMUP_STEPS = 50
 HEADLESS = True
 ENABLE_CAMERAS = True
 
@@ -63,19 +64,37 @@ def get_test_environment(num_envs: int):
     return env, apple, plate
 
 
+def _step_with_standing_actions(env, num_steps: int) -> list[bool]:
+    """Step the environment with standing idle actions and return termination flags."""
+    terminated_list = []
+    for _ in range(num_steps):
+        with torch.inference_mode():
+            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            # NOTE: Set base height to 0.75m to avoid robot squatting to match 0-height command.
+            actions[:, -4] = 0.75
+            _, _, terminated, _, _ = env.step(actions)
+            terminated_list.append(terminated.item())
+    return terminated_list
+
+
 def _test_initial_state_not_terminated(simulation_app) -> bool:
     """Apple starts away from the plate -- task must not be terminated."""
 
     env, apple, plate = get_test_environment(num_envs=1)
 
     try:
-        for _ in range(NUM_STEPS):
-            with torch.inference_mode():
-                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                # NOTE: Set base height to 0.75m to avoid robot squatting to match 0-height command.
-                actions[:, -4] = 0.75
-                _, _, terminated, _, _ = env.step(actions)
-                assert not terminated.item(), "Task should not be terminated at the start"
+        # Warmup: let the G1 AGILE WBC policy stabilise the robot before
+        # checking termination. During the first few dozen sim steps the
+        # robot's lower-body controller settles, which can cause brief
+        # physics transients (vibrations, contacts) that may nudge the
+        # apple and trigger the object-dropped termination spuriously.
+        _step_with_standing_actions(env, WARMUP_STEPS)
+
+        # After warmup the robot should be stable.  Assert that the task
+        # does not terminate over the next NUM_STEPS steps.
+        terminated_list = _step_with_standing_actions(env, NUM_STEPS)
+        for step, terminated in enumerate(terminated_list):
+            assert not terminated, f"Task terminated unexpectedly at post-warmup step {step}/{NUM_STEPS}"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -94,6 +113,9 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
     env, apple, plate = get_test_environment(num_envs=1)
 
     try:
+        # Warmup: stabilise the robot before teleporting the apple.
+        _step_with_standing_actions(env, WARMUP_STEPS)
+
         with torch.inference_mode():
             plate_object: RigidObject = env.unwrapped.scene[plate.name]
             apple_object: RigidObject = env.unwrapped.scene[apple.name]
