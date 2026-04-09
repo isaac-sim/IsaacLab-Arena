@@ -146,8 +146,8 @@ class PolicyServer:
 
         self._has_nvcomp = False
         try:
-            from nvidia.nvcomp import Codec  # noqa: F401
-            self._has_nvcomp = True
+            from isaaclab_arena.remote_policy.gpu_compression import has_nvcomp
+            self._has_nvcomp = has_nvcomp()
         except ImportError:
             pass
 

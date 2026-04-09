@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from typing import TYPE_CHECKING, Any, cast
 
@@ -110,7 +111,19 @@ class PolicyClient:
     # ------------------------------------------------------------------ #
 
     @staticmethod
+    def _caps_override_from_env(var_name: str) -> list[str] | None:
+        raw = os.getenv(var_name)
+        if raw is None:
+            return None
+        values = [item.strip() for item in raw.split(",") if item.strip()]
+        return values or None
+
+    @staticmethod
     def _detect_compression_capabilities() -> list[str]:
+        env_caps = PolicyClient._caps_override_from_env("ISAACLAB_ARENA_REMOTE_COMPRESSION_CAPS")
+        if env_caps is not None:
+            return env_caps
+
         caps = ["none"]
         try:
             import lz4.frame  # noqa: F401
@@ -119,15 +132,19 @@ class PolicyClient:
         except ImportError:
             pass
         try:
-            from nvidia.nvcomp import Codec  # noqa: F401
-
-            caps.append("nvcomp_lz4")
+            from isaaclab_arena.remote_policy.gpu_compression import has_nvcomp
+            if has_nvcomp():
+                caps.append("nvcomp_lz4")
         except ImportError:
             pass
         return caps
 
     @staticmethod
     def _detect_transport_capabilities() -> list[str]:
+        env_caps = PolicyClient._caps_override_from_env("ISAACLAB_ARENA_REMOTE_TRANSPORT_CAPS")
+        if env_caps is not None:
+            return env_caps
+
         caps = ["zmq"]
         if PolicyClient._has_ucx_runtime():
             caps.append("zmq_ucx")

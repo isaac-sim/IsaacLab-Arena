@@ -43,6 +43,15 @@ _nvcomp_available = False
 _nvcomp_Codec = None
 
 
+def has_nvcomp() -> bool:
+    """Return whether nvcomp can be imported in the current runtime."""
+    try:
+        _ensure_nvcomp()
+    except ImportError:
+        return False
+    return True
+
+
 def _ensure_nvcomp():
     """Import nvcomp and cache the result at module level.
 
@@ -139,7 +148,10 @@ def gpu_compress(tensor: torch.Tensor) -> torch.Tensor:
     # nvcomp may return int8 — normalize to uint8
     if compressed_torch.dtype == torch.int8:
         compressed_torch = compressed_torch.view(torch.uint8)
-    return compressed_torch
+    # ``torch.from_dlpack()`` may alias storage owned by nvcomp's intermediate
+    # object. Clone here so callers receive a standalone CUDA tensor whose
+    # lifetime no longer depends on ``compressed_nv`` surviving past this frame.
+    return compressed_torch.clone()
 
 
 def gpu_decompress(compressed: torch.Tensor, original_nbytes: int) -> torch.Tensor:
