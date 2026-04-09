@@ -67,6 +67,12 @@ class PickAndPlaceTask(TaskBase):
                 "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
                 "force_threshold": 1.0,
                 "velocity_threshold": 0.1,
+                # Proximity guard: the GPU physics pipeline can report
+                # spurious contact-sensor forces between distant objects.
+                # Require the pick-up object to be within 0.15 m of the
+                # destination before considering the contact valid.
+                "destination_cfg": SceneEntityCfg(self.destination_location.name),
+                "max_distance": 0.15,
             },
         )
         object_dropped = TerminationTermCfg(
