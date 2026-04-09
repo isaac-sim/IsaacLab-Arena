@@ -35,7 +35,6 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/tabs.css?v=a5c4661c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
@@ -50,7 +49,6 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script src="../../../_static/tabs.js?v=3030b3cb"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/sequential_static_manipulation/step_5_evaluation';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
@@ -539,21 +537,32 @@ and the revolute joint moved rate for the second subtask, and the subtask succes
 You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.</p>
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
-<div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Best Quality</label><div class="sd-tab-content docutils">
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [1.0, 1.0], &#39;num_episodes&#39;: 5}
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><p>Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.</p>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Low Hardware Requirements</label><div class="sd-tab-content docutils">
+<p>Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: Metrics: {&#39;success_rate&#39;: 0.75, &#39;object_moved_rate_subtask_0&#39;: 1.0, &#39;revolute_joint_moved_rate_subtask_1&#39;: 1.0, &#39;subtask_success_rate&#39;: [0.75, 0.75], &#39;num_episodes&#39;: 4}
 </pre></div>
 </div>
-</div></div>
+</div>
+</div>
 </section>
 <section id="step-2-run-parallel-environments-evaluation">
 <h2>Step 2: Run Parallel environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
 <p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
-<div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Single GPU Evaluation</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Distribute Multi-GPU Evaluation</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Single GPU Evaluation</label><div class="sd-tab-content docutils">
+<p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
@@ -565,7 +574,11 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 <span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
+<p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
@@ -579,7 +592,8 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 <span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
 </pre></div>
 </div>
-</div></div>
+</div>
+</div>
 <p>And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the microwave door is opened),
 or truncated (if timeouts are enabled, like the maximum episode length is exceeded).</p>
@@ -607,8 +621,11 @@ GR00T N1.6 policy is trained on upper body joint positions, so we use
 <section id="step-3-multi-object-heterogeneous-evaluation">
 <h2>Step 3: Multi-object Heterogeneous Evaluation<a class="headerlink" href="#step-3-multi-object-heterogeneous-evaluation" title="Link to this heading">#</a></h2>
 <p>This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.</p>
-<div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Single GPU Evaluation</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Distribute Multi-GPU Evaluation</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-4">
+Single GPU Evaluation</label><div class="sd-tab-content docutils">
+<p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 --viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 --policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
@@ -621,7 +638,11 @@ put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</spa
 --object_set<span class="w"> </span>ketchup_bottle_hope_robolab<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span>bbq_sauce_bottle_hope_robolab<span class="w"> </span>mayonnaise_bottle_hope_robolab
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
+</div>
+<input id="sd-tab-item-5" name="sd-tab-set-2" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+Distribute Multi-GPU Evaluation</label><div class="sd-tab-content docutils">
+<p>Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nnode<span class="o">=</span><span class="m">1</span><span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">2</span><span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
@@ -635,7 +656,8 @@ put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</spa
 <span class="w">  </span>--object_set<span class="w"> </span>ketchup_bottle_hope_robolab<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span>bbq_sauce_bottle_hope_robolab<span class="w"> </span>mayonnaise_bottle_hope_robolab
 </pre></div>
 </div>
-</div></div>
+</div>
+</div>
 <p>Each environment has a different object spawned from the object set. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate for this sequential task, object moved rate for the first subtask,

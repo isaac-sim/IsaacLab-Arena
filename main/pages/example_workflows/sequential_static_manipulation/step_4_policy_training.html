@@ -35,7 +35,6 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/tabs.css?v=a5c4661c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
@@ -50,7 +49,6 @@
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script src="../../../_static/tabs.js?v=3030b3cb"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/sequential_static_manipulation/step_4_policy_training';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.png"/>
@@ -560,8 +558,11 @@ We provide three post-training options:</p>
 <li><p>Best Quality: 8 GPUs with 48GB memory</p></li>
 <li><p>Low Hardware Requirements: 1 GPU with 24GB memory</p></li>
 </ul>
-<div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Best Quality</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Low Hardware Requirements</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Best Quality</label><div class="sd-tab-content docutils">
+<p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
 <p>Training Configuration:</p>
 <ul class="simple">
 <li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
@@ -593,7 +594,11 @@ submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </spa
 --color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><p>Training takes approximately 2-3 hours on 1x Ada6000 GPU.</p>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Low Hardware Requirements</label><div class="sd-tab-content docutils">
+<p>Training takes approximately 2-3 hours on 1x Ada6000 GPU.</p>
 <p>Training Configuration:</p>
 <ul class="simple">
 <li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
@@ -625,7 +630,8 @@ python<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_fin
 --save_total_limit<span class="o">=</span><span class="m">5</span>
 </pre></div>
 </div>
-</div></div>
+</div>
+</div>
 <p>see the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning">GR00T fine-tuning guidelines</a>
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results.</p>

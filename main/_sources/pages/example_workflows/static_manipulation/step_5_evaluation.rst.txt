@@ -85,15 +85,15 @@ should be greater than 0.9, and the number of episodes should be in the range of
 Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Best Quality
+   .. tab-item:: Best Quality
 
       .. code-block:: text
 
          Metrics: {'success_rate': 0.8823529411764706, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 17}
 
-   .. tab:: Low Hardware Requirements
+   .. tab-item:: Low Hardware Requirements
 
       .. code-block:: text
 
@@ -105,9 +105,9 @@ Step 2: Run Parallel Environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU Evaluation
+   .. tab-item:: Single GPU Evaluation
 
       Test the policy in 10 parallel environments with visualization via the GUI run:
 
@@ -123,7 +123,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            gr1_open_microwave \
            --embodiment gr1_joint
 
-   .. tab:: Distribute Multi-GPU Evaluation
+   .. tab-item:: Distribute Multi-GPU Evaluation
 
       Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
 
