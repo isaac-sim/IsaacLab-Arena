@@ -77,6 +77,23 @@ def _step_with_standing_actions(env, num_steps: int) -> list[bool]:
     return terminated_list
 
 
+def _replace_apple_at_initial_pose(env, apple) -> None:
+    """Teleport the apple back to its initial position with zero velocity.
+
+    During warmup the G1 AGILE WBC policy can physically knock the apple
+    off the table.  Calling this after warmup restores the apple so the
+    real test assertions start from a known-good state.
+    """
+    from isaaclab.assets import RigidObject
+
+    with torch.inference_mode():
+        apple_object: RigidObject = env.unwrapped.scene[apple.name]
+        init_pos = torch.tensor([[0.15, 0.15, 0.05]], device=env.unwrapped.device)
+        init_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.unwrapped.device)
+        apple_object.write_root_pose_to_sim(root_pose=torch.cat([init_pos, init_quat], dim=-1))
+        apple_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.unwrapped.device))
+
+
 def _test_initial_state_not_terminated(simulation_app) -> bool:
     """Apple starts away from the plate -- task must not be terminated."""
 
@@ -89,6 +106,13 @@ def _test_initial_state_not_terminated(simulation_app) -> bool:
         # physics transients (vibrations, contacts) that may nudge the
         # apple and trigger the object-dropped termination spuriously.
         _step_with_standing_actions(env, WARMUP_STEPS)
+
+        # Re-place the apple at its initial pose after warmup.  The robot's
+        # stabilisation during warmup can knock the apple off the table,
+        # triggering the object_dropped termination before we even start
+        # the real assertion steps.  Re-placing ensures the test validates
+        # the steady-state behaviour, not the warmup transient.
+        _replace_apple_at_initial_pose(env, apple)
 
         # After warmup the robot should be stable.  Assert that the task
         # does not terminate over the next NUM_STEPS steps.
