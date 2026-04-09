@@ -42,7 +42,7 @@ to each manager are tabulated below:
 +-------------+-----------------------+-------------------------+----------------------+
 | Observations|                       | proprioception, cameras | goal observations    |
 +-------------+-----------------------+-------------------------+----------------------+
-| Actions     |                       | control interface       |                      |
+``ArenaEnvBuilder.compose_manager_cfg()`` first assembles the partial manager contributions
 +-------------+-----------------------+-------------------------+----------------------+
 | Events      | object placement      | robot reset             | task reset           |
 | (resets)    |                       |                         |                      |
