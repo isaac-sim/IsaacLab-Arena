@@ -34,8 +34,10 @@ class PickAndPlaceTask(TaskBase):
         destination_object: Asset | None = None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
+        success_proximity_max_distance: float = 0.0,
     ):
         super().__init__(episode_length_s=episode_length_s)
+        self.success_proximity_max_distance = success_proximity_max_distance
         self.pick_up_object = pick_up_object
         self.destination_object = destination_object
         self.background_scene = background_scene
@@ -60,20 +62,22 @@ class PickAndPlaceTask(TaskBase):
         return self.termination_cfg
 
     def make_termination_cfg(self):
+        success_params = {
+            "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+            "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+            "force_threshold": 1.0,
+            "velocity_threshold": 0.1,
+        }
+        if self.success_proximity_max_distance > 0.0:
+            # Proximity guard: the GPU physics pipeline can report spurious
+            # contact-sensor forces between distant objects.  When enabled,
+            # require the pick-up object to be within max_distance of the
+            # destination before considering the contact valid.
+            success_params["destination_cfg"] = SceneEntityCfg(self.destination_location.name)
+            success_params["max_distance"] = self.success_proximity_max_distance
         success = TerminationTermCfg(
             func=object_on_destination,
-            params={
-                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                "force_threshold": 1.0,
-                "velocity_threshold": 0.1,
-                # Proximity guard: the GPU physics pipeline can report
-                # spurious contact-sensor forces between distant objects.
-                # Require the pick-up object to be within 0.15 m of the
-                # destination before considering the contact valid.
-                "destination_cfg": SceneEntityCfg(self.destination_location.name),
-                "max_distance": 0.15,
-            },
+            params=success_params,
         )
         object_dropped = TerminationTermCfg(
             func=mdp_isaac_lab.root_height_below_minimum,
