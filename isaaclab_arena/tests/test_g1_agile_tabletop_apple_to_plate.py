@@ -66,15 +66,16 @@ def get_test_environment(num_envs: int):
 def _test_initial_state_not_terminated(simulation_app) -> bool:
     """Apple starts away from the plate -- task must not be terminated."""
 
-    from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
-
     env, apple, plate = get_test_environment(num_envs=1)
 
-    def assert_not_terminated(env, terminated):
-        assert not terminated.item(), "Task should not be terminated at the start"
-
     try:
-        step_zeros_and_call(env, NUM_STEPS, assert_not_terminated)
+        for _ in range(NUM_STEPS):
+            with torch.inference_mode():
+                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+                # NOTE: Set base height to 0.75m to avoid robot squatting to match 0-height command.
+                actions[:, -4] = 0.75
+                _, _, terminated, _, _ = env.step(actions)
+                assert not terminated.item(), "Task should not be terminated at the start"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
