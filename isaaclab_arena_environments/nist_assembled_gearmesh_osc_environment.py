@@ -39,12 +39,12 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
 
         peg_tip_offset = (0.02025, 0.0, 0.025)
         peg_base_offset = (0.02025, 0.0, 0.0)
-        success_z_fraction = 0.05
+        success_z_fraction = 0.20
         xy_threshold = 0.0025
         episode_length_s = 15.0
 
         table = self.asset_registry.get_asset_by_name("table")()
-        assembled_board = self.asset_registry.get_asset_by_name("nist_assembled_board")()
+        assembled_board = self.asset_registry.get_asset_by_name("nist_board_assembled")()
         gears_and_base = self.asset_registry.get_asset_by_name("gears_and_base")()
         medium_gear = self.asset_registry.get_asset_by_name("medium_nist_gear")()
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
@@ -150,8 +150,8 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        table.set_initial_pose(Pose(position_xyz=(0.55, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.707, 0.707)))
-        assembled_board.set_initial_pose(Pose(position_xyz=(0.71, -0.005, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        table.set_initial_pose(Pose(position_xyz=(0.55, 0.0, -0.009), rotation_xyzw=(0.0, 0.0, 0.707, 0.707)))
+        assembled_board.set_initial_pose(Pose(position_xyz=(0.88, 0.15, -0.009), rotation_xyzw=(0.0, 0.0, -0.7071, 0.7071)))
         medium_gear.set_initial_pose(Pose(position_xyz=(0.5462, -0.02386, 0.12858), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         gears_and_base.set_initial_pose(
             Pose(position_xyz=(0.585, -0.074, 0.0), rotation_xyzw=(0.0, 0.0, 0.9239, 0.3827))

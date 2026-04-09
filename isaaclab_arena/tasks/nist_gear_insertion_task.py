@@ -147,6 +147,7 @@ class NistGearInsertionTask(TaskBase):
                 "gear_peg_height": self.gear_peg_height,
                 "success_z_fraction": self.success_z_fraction,
                 "xy_threshold": self.xy_threshold,
+                "rl_training": self.rl_training_mode,
             },
         )
         object_dropped = TerminationTermCfg(
@@ -157,8 +158,6 @@ class NistGearInsertionTask(TaskBase):
             },
         )
         cfg = _TerminationsCfg(success=success, object_dropped=object_dropped)
-        if self.rl_training_mode:
-            cfg.success = None
         if self.grasp_cfg is not None:
             cfg.gear_dropped_from_gripper = TerminationTermCfg(
                 func=gear_dropped_from_gripper,
@@ -331,7 +330,7 @@ class _TerminationsCfg:
     """Termination terms for the gear insertion task."""
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-    success: TerminationTermCfg | None = MISSING
+    success: TerminationTermCfg = MISSING
     object_dropped: TerminationTermCfg | None = MISSING
     gear_dropped_from_gripper: TerminationTermCfg | None = None
     gear_orientation_exceeded: TerminationTermCfg | None = None

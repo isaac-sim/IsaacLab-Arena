@@ -268,13 +268,19 @@ def gear_mesh_insertion_success(
     gear_peg_height: float = 0.02,
     success_z_fraction: float = 0.80,
     xy_threshold: float = 0.0025,
+    rl_training: bool = False,
 ) -> torch.Tensor:
     """Terminate when the gear is inserted onto the peg to the required depth.
 
     Checks that the held gear's base (root + held_gear_base_offset in gear frame)
     is centered on the peg (XY) and lowered past a fraction of the peg height (Z).
     Peg position is fixed_asset pose + gear_base_offset in the fixed asset's local frame.
+
+    When ``rl_training`` is True, always returns False (no early termination)
+    but the term stays registered so that ``SuccessRateMetric`` can query it.
     """
+    if rl_training:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
     held_object: RigidObject = env.scene[held_object_cfg.name]
     fixed_object: RigidObject = env.scene[fixed_object_cfg.name]
 
