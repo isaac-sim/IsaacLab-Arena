@@ -19,14 +19,21 @@ class G1AgileTabletopAppleToPlateEnvironment(ExampleEnvironmentBase):
     name: str = "g1_agile_tabletop_apple_to_plate"
 
     def get_env(self, args_cli: argparse.Namespace):
+        from isaaclab_arena.assets.object_base import ObjectType
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("table")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        destination_location = self.asset_registry.get_asset_by_name("clay_plates_hot3d_robolab")()
+        background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=(0.01, 0.01, 0.01))
+        destination_location = self.asset_registry.get_asset_by_name("clay_plates_hot3d_robolab")(scale=(0.5, 0.5, 0.5))
+        import isaaclab.sim as sim_utils
+
+        light = self.asset_registry.get_asset_by_name("light")(
+            spawner_cfg=sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=500.0)
+        )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
@@ -34,30 +41,31 @@ class G1AgileTabletopAppleToPlateEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        # Position objects on the table surface within the robot's reach.
-        # The Seattle Lab table surface is near z=0; objects get a small z offset above it.
-        pick_up_object.set_initial_pose(
-            Pose(
-                position_xyz=(0.15, 0.15, 0.05),
-                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
-            )
+        # Create a reference to the table surface for spatial relations.
+        table_reference = ObjectReference(
+            name="table",
+            prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
+            parent_asset=background,
+            object_type=ObjectType.RIGID,
         )
-        destination_location.set_initial_pose(
-            Pose(
-                position_xyz=(0.15, -0.15, 0.02),
-                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
-            )
-        )
+        table_reference.add_relation(IsAnchor())
 
-        # Robot stands behind the table facing forward.
+        from isaaclab_arena.utils.pose import Pose
+
+        # Place objects on the table surface; On() handles z-height automatically.
+        pick_up_object.set_initial_pose(Pose(position_xyz=(0.8, 0.1, 0.0)))
+        pick_up_object.add_relation(On(table_reference))
+        destination_location.set_initial_pose(Pose(position_xyz=(0.8, -0.1, 0.0)))
+        destination_location.add_relation(On(table_reference))
+
         embodiment.set_initial_pose(
             Pose(
-                position_xyz=(-0.4, 0.0, 0.0),
-                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+                position_xyz=(1.2, 0.0, 0.0),
+                rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
             )
         )
 
-        scene = Scene(assets=[background, pick_up_object, destination_location])
+        scene = Scene(assets=[background, pick_up_object, destination_location, table_reference, light])
         task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,
