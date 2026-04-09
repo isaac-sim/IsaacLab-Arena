@@ -4,14 +4,12 @@ Metrics
 A metric is a quantity that is reported at the end of an evaluation, that quantifies
 some aspect of a policy's performance on the task.
 In Isaac Lab Arena, metrics are task-specific. A task defines the metrics that should
-In Isaac Lab Arena, metrics are attached task-specific. A task defines metrics that should
-be calculated during the complete of that task, while that task is being used.
+be calculated during the evaluation of that task.
 This design means that metrics can be defined once in the task and
 they are automatically applied to every environment that uses that task.
 
 Under the hood, a metric does two things:
 * **Recording** — The metric records the quantity during each episode of policy execution.
-* **Recordering** The metric records the quantity during each episode of policy execution.
 * **Computing** The metric computes the final value from the recorded data, typically by reducing the recordings to a scalar.
 
 In the code below we show how to inspect the metrics defined by the ``PickAndPlaceTask``.
@@ -28,7 +26,7 @@ Example: ObjectMovedRateMetric
 Here we provide an example of how the ``ObjectMovedRateMetric`` is implemented.
 The ``ObjectMovedRateMetric`` implements the recording and computing steps described above
 in the following way:
-* **Computing** After the rollout completes, the ``ObjectMovedRateMetric`` processes
+
 * **Recording** During simulation ``ObjectMovedRateMetric`` records the
   object's velocity vector (a 3D vector) at every simulation step.
 * **Computing** After the rollout completes, the ``ObjectMovedRateMetric`` process

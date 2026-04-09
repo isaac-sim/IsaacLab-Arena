@@ -42,7 +42,7 @@ to each manager are tabulated below:
 +-------------+-----------------------+-------------------------+----------------------+
 | Observations|                       | proprioception, cameras | goal observations    |
 +-------------+-----------------------+-------------------------+----------------------+
-``ArenaEnvBuilder.compose_manager_cfg()`` first assembles the partial manager contributions
+| Actions     |                       | control interface       |                      |
 +-------------+-----------------------+-------------------------+----------------------+
 | Events      | object placement      | robot reset             | task reset           |
 | (resets)    |                       |                         |                      |
@@ -55,7 +55,7 @@ to each manager are tabulated below:
 +-------------+-----------------------+-------------------------+----------------------+
 
 
-``ArenaEnvBuilder.compose_manager_cfg()`` first assmble the partial manager contributions
+``ArenaEnvBuilder.compose_manager_cfg()`` first assembles the partial manager contributions
 from each component into a set of complete managers. Then it merges these complete managers
 into a single ``ManagerBasedRLEnvCfg``.
 The Arena Environment Builder also optionally solves spatial relations between
