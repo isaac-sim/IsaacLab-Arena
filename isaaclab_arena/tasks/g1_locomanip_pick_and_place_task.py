@@ -17,118 +17,158 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
+# class PickAndPlaceTask(TaskBase):
 
-class G1LocomanipPickAndPlaceTask(TaskBase):
+#     def __init__(
+#         self,
+#         pick_up_object: Asset,
+#         destination_location: Asset,
+#         background_scene: Asset,
+#         destination_object: Asset | None = None,
+#         episode_length_s: float | None = None,
+#         task_description: str | None = None,
+#         force_threshold: float = 1.0,
+#         velocity_threshold: float = 0.1,
+#     ):
+
+
+class G1LocomanipPickAndPlaceTask(PickAndPlaceTask):
 
     def __init__(
         self,
         pick_up_object: Asset,
-        destination_bin: Asset,
+        destination_location: Asset,
         background_scene: Asset,
         episode_length_s: float | None = None,
         task_description: str | None = None,
+        force_threshold: float = 1.0,
+        velocity_threshold: float = 0.1,
     ):
-        super().__init__(episode_length_s=episode_length_s)
-        self.pick_up_object = pick_up_object
-        self.background_scene = background_scene
-        self.destination_bin = destination_bin
-        self.task_description = (
-            f"Pick up the {pick_up_object.name}, and place it into the {destination_bin.name}"
-            if task_description is None
-            else task_description
+        super().__init__(
+            pick_up_object=pick_up_object,
+            destination_location=destination_location,
+            background_scene=background_scene,
+            episode_length_s=episode_length_s,
+            task_description=task_description,
+            force_threshold=force_threshold,
+            velocity_threshold=velocity_threshold,
         )
-        self.events_cfg = None
-
-        self.scene_config = SceneCfg(
-            pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
-                contact_against_object=self.destination_bin,
-            ),
-        )
-
-    def get_scene_cfg(self):
-        return self.scene_config
-
-    def get_termination_cfg(self):
-        # success = TerminationTermCfg(
-        #     func=objects_in_proximity,
-        #     params={
-        #         "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-        #         "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
-        #         "max_y_separation": 0.130,
-        #         "max_x_separation": 0.260,
-        #         "max_z_separation": 0.150,
-        #     },
-        # )
-        success = TerminationTermCfg(
-            func=object_on_destination,
-            params={
-                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                "force_threshold": 0.5,
-                "velocity_threshold": 0.1,
-            },
-        )
-        object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
-            params={
-                "minimum_height": -0.6,
-                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
-            },
-        )
-        return TerminationsCfg(
-            success=success,
-            object_dropped=object_dropped,
-        )
-
-    def get_events_cfg(self):
-        return self.events_cfg
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
-        return G1LocomanipPickPlaceMimicEnvCfg()
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
-
-    def get_viewer_cfg(self) -> ViewerCfg:
-        return get_viewer_cfg_look_at_object(
-            lookat_object=self.pick_up_object,
-            offset=np.array([-1.3, 1.7, 1.5]),
+        assert arm_mode == ArmMode.DUAL_ARM, "Locomanip pick and place task only supports dual arm mode"
+        return LocomanipPickAndPlaceMimicEnvCfg(
+            pick_up_object_name=self.pick_up_object.name,
         )
+        # return G1LocomanipPickPlaceMimicEnvCfg(
+        #     arm_mode=arm_mode,
+        #     pick_up_object_name=self.pick_up_object.name,
+        #     destination_location_name=self.destination_location.name,
+        # )
+
+
+#         self.pick_up_object = pick_up_object
+#         self.background_scene = background_scene
+#         self.destination_bin = destination_bin
+#         self.task_description = (
+#             f"Pick up the {pick_up_object.name}, and place it into the {destination_bin.name}"
+#             if task_description is None
+#             else task_description
+#         )
+#         self.events_cfg = None
+
+#         self.scene_config = SceneCfg(
+#             pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
+#                 contact_against_object=self.destination_bin,
+#             ),
+#         )
+
+#     def get_scene_cfg(self):
+#         return self.scene_config
+
+#     def get_termination_cfg(self):
+#         # success = TerminationTermCfg(
+#         #     func=objects_in_proximity,
+#         #     params={
+#         #         "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+#         #         "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
+#         #         "max_y_separation": 0.130,
+#         #         "max_x_separation": 0.260,
+#         #         "max_z_separation": 0.150,
+#         #     },
+#         # )
+#         success = TerminationTermCfg(
+#             func=object_on_destination,
+#             params={
+#                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+#                 "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+#                 "force_threshold": 0.5,
+#                 "velocity_threshold": 0.1,
+#             },
+#         )
+#         object_dropped = TerminationTermCfg(
+#             func=mdp_isaac_lab.root_height_below_minimum,
+#             params={
+#                 "minimum_height": -0.6,
+#                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
+#             },
+#         )
+#         return TerminationsCfg(
+#             success=success,
+#             object_dropped=object_dropped,
+#         )
+
+#     def get_events_cfg(self):
+#         return self.events_cfg
+
+#     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+#         return G1LocomanipPickPlaceMimicEnvCfg()
+
+#     def get_metrics(self) -> list[MetricBase]:
+#         return [SuccessRateMetric()]
+
+#     def get_viewer_cfg(self) -> ViewerCfg:
+#         return get_viewer_cfg_look_at_object(
+#             lookat_object=self.pick_up_object,
+#             offset=np.array([-1.3, 1.7, 1.5]),
+#         )
+
+
+# @configclass
+# class SceneCfg:
+#     """Scene configuration for the pick and place task."""
+
+#     pick_up_object_contact_sensor: ContactSensorCfg = MISSING
+
+
+# @configclass
+# class TerminationsCfg:
+#     """Termination terms for the MDP."""
+
+#     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
+
+#     success: TerminationTermCfg = MISSING
+
+#     object_dropped: TerminationTermCfg = MISSING
 
 
 @configclass
-class SceneCfg:
-    """Scene configuration for the pick and place task."""
-
-    pick_up_object_contact_sensor: ContactSensorCfg = MISSING
-
-
-@configclass
-class TerminationsCfg:
-    """Termination terms for the MDP."""
-
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-
-    success: TerminationTermCfg = MISSING
-
-    object_dropped: TerminationTermCfg = MISSING
-
-
-@configclass
-class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
+class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
     """
     Isaac Lab Mimic environment config class for G1 Locomanip Pick and Place env.
     """
+
+    pick_up_object_name: str = "pick_up_object"
 
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
 
-        self.datagen_config.name = "g1_locomanip_pick_and_place_D0"
+        self.datagen_config.name = "locomanip_pick_and_place_D0"
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
         self.datagen_config.generation_num_trials = 100
@@ -146,7 +186,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="idle_right",
@@ -170,7 +210,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="grasp_and_idle_right",
@@ -194,7 +234,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 first_subtask_start_offset_range=(0, 0),
@@ -221,7 +261,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="idle_left",
@@ -245,7 +285,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="grasp_and_idle_left",
@@ -269,7 +309,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 first_subtask_start_offset_range=(0, 0),
@@ -320,7 +360,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_turn_inplace",
@@ -344,7 +384,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_to_bin",
@@ -368,7 +408,7 @@ class G1LocomanipPickPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 first_subtask_start_offset_range=(0, 0),
