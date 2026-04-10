@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy, UnaryRelationLossStrategy
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase, WithinBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
@@ -78,8 +78,8 @@ class RelationSolver:
                 child_pos = state.get_position(obj)
                 strategy = self._get_strategy(relation)
 
-                # Handle unary relations (no parent) like AtPosition
-                if isinstance(relation, AtPosition):
+                # Handle unary relations (no parent) like AtPosition and WithinBox
+                if isinstance(relation, (AtPosition, WithinBox)):
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,

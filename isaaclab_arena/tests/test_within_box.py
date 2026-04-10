@@ -149,3 +149,41 @@ def test_within_box_unconstrained_axes_ignored():
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
+
+
+# =============================================================================
+# Solver integration test
+# =============================================================================
+
+
+from isaaclab_arena.assets.dummy_object import DummyObject
+from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.utils.pose import Pose
+
+
+def test_solver_respects_within_box():
+    """Solver moves an object inside the WithinBox region."""
+    table = DummyObject(
+        name="table",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
+    )
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
+    )
+    box.add_relation(On(table, clearance_m=0.01))
+    box.add_relation(WithinBox(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
+
+    initial_positions = {table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}
+
+    solver = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4, verbose=False))
+    result = solver.solve(objects=[table, box], initial_positions=initial_positions)
+
+    pos = result[box]
+    assert 0.2 <= pos[0] <= 0.5, f"x={pos[0]} should be within [0.2, 0.5]"
+    assert 0.2 <= pos[1] <= 0.5, f"y={pos[1]} should be within [0.2, 0.5]"
