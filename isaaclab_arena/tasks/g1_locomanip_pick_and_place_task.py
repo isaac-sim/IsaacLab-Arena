@@ -3,38 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
-from dataclasses import MISSING
-
-import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import object_on_destination
-from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-
-# class PickAndPlaceTask(TaskBase):
-
-#     def __init__(
-#         self,
-#         pick_up_object: Asset,
-#         destination_location: Asset,
-#         background_scene: Asset,
-#         destination_object: Asset | None = None,
-#         episode_length_s: float | None = None,
-#         task_description: str | None = None,
-#         force_threshold: float = 1.0,
-#         velocity_threshold: float = 0.1,
-#     ):
 
 
 class G1LocomanipPickAndPlaceTask(PickAndPlaceTask):
@@ -60,100 +34,12 @@ class G1LocomanipPickAndPlaceTask(PickAndPlaceTask):
         )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        # NOTE(alexmillane, 2026.04.10): Currently we only support dual arm mode for
+        # the Locomanip pick and place task.
         assert arm_mode == ArmMode.DUAL_ARM, "Locomanip pick and place task only supports dual arm mode"
         return LocomanipPickAndPlaceMimicEnvCfg(
             pick_up_object_name=self.pick_up_object.name,
         )
-        # return G1LocomanipPickPlaceMimicEnvCfg(
-        #     arm_mode=arm_mode,
-        #     pick_up_object_name=self.pick_up_object.name,
-        #     destination_location_name=self.destination_location.name,
-        # )
-
-
-#         self.pick_up_object = pick_up_object
-#         self.background_scene = background_scene
-#         self.destination_bin = destination_bin
-#         self.task_description = (
-#             f"Pick up the {pick_up_object.name}, and place it into the {destination_bin.name}"
-#             if task_description is None
-#             else task_description
-#         )
-#         self.events_cfg = None
-
-#         self.scene_config = SceneCfg(
-#             pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
-#                 contact_against_object=self.destination_bin,
-#             ),
-#         )
-
-#     def get_scene_cfg(self):
-#         return self.scene_config
-
-#     def get_termination_cfg(self):
-#         # success = TerminationTermCfg(
-#         #     func=objects_in_proximity,
-#         #     params={
-#         #         "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-#         #         "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
-#         #         "max_y_separation": 0.130,
-#         #         "max_x_separation": 0.260,
-#         #         "max_z_separation": 0.150,
-#         #     },
-#         # )
-#         success = TerminationTermCfg(
-#             func=object_on_destination,
-#             params={
-#                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-#                 "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-#                 "force_threshold": 0.5,
-#                 "velocity_threshold": 0.1,
-#             },
-#         )
-#         object_dropped = TerminationTermCfg(
-#             func=mdp_isaac_lab.root_height_below_minimum,
-#             params={
-#                 "minimum_height": -0.6,
-#                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
-#             },
-#         )
-#         return TerminationsCfg(
-#             success=success,
-#             object_dropped=object_dropped,
-#         )
-
-#     def get_events_cfg(self):
-#         return self.events_cfg
-
-#     def get_mimic_env_cfg(self, arm_mode: ArmMode):
-#         return G1LocomanipPickPlaceMimicEnvCfg()
-
-#     def get_metrics(self) -> list[MetricBase]:
-#         return [SuccessRateMetric()]
-
-#     def get_viewer_cfg(self) -> ViewerCfg:
-#         return get_viewer_cfg_look_at_object(
-#             lookat_object=self.pick_up_object,
-#             offset=np.array([-1.3, 1.7, 1.5]),
-#         )
-
-
-# @configclass
-# class SceneCfg:
-#     """Scene configuration for the pick and place task."""
-
-#     pick_up_object_contact_sensor: ContactSensorCfg = MISSING
-
-
-# @configclass
-# class TerminationsCfg:
-#     """Termination terms for the MDP."""
-
-#     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-
-#     success: TerminationTermCfg = MISSING
-
-#     object_dropped: TerminationTermCfg = MISSING
 
 
 @configclass
