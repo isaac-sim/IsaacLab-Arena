@@ -298,28 +298,53 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Check that no two non-anchor objects overlap in 3D (axis-aligned bbox with clearance margin).
+        """Check that no two objects overlap in 3D (axis-aligned bbox check).
 
-        Only checks non-anchor pairs. Anchor-to-non-anchor overlap is expected when the
-        non-anchor sits On(anchor), so those pairs are skipped here; the solver's built-in
-        no-overlap loss handles them during optimization.
+        Skips a pair when one object is an anchor and the other has an On relation
+        targeting that anchor (overlap is expected because the child sits on the parent).
+        For non-anchor pairs, applies ``clearance_m`` as a safety margin. For non-anchor
+        vs anchor pairs without an On relation between them, checks actual overlap only
+        (margin=0.0) since clearance is meant for sibling objects.
         """
         anchor_objects = get_anchor_objects(list(positions.keys()))
         anchor_set = set(anchor_objects)
-        non_anchors = [obj for obj in positions if obj not in anchor_set]
+        all_objects = list(positions.keys())
 
-        for i in range(len(non_anchors)):
-            for j in range(i + 1, len(non_anchors)):
-                a, b = non_anchors[i], non_anchors[j]
+        for i in range(len(all_objects)):
+            for j in range(i + 1, len(all_objects)):
+                a, b = all_objects[i], all_objects[j]
+                a_is_anchor = a in anchor_set
+                b_is_anchor = b in anchor_set
+
+                # Skip anchor-anchor pairs (both fixed)
+                if a_is_anchor and b_is_anchor:
+                    continue
+
+                # Skip pairs where the non-anchor has an On relation targeting the anchor
+                if a_is_anchor and self._has_on_relation_with(b, a):
+                    continue
+                if b_is_anchor and self._has_on_relation_with(a, b):
+                    continue
 
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps(b_world, margin=self.params.solver_params.clearance_m):
+                # Non-anchor vs non-anchor: use clearance_m margin
+                # Non-anchor vs anchor (no On relation): check actual overlap only
+                if not a_is_anchor and not b_is_anchor:
+                    margin = self.params.solver_params.clearance_m
+                else:
+                    margin = 0.0
+
+                if a_world.overlaps(b_world, margin=margin):
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False
         return True
+
+    def _has_on_relation_with(self, child: Object | ObjectReference, parent: Object | ObjectReference) -> bool:
+        """Return True if *child* has an On relation targeting *parent*."""
+        return any(isinstance(r, On) and r.parent is parent for r in child.get_relations())
 
     def _validate_placement(
         self,
