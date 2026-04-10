@@ -58,7 +58,6 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
             friction_correlation_distance=0.00625,
             gpu_max_rigid_contact_count=2**23,
             gpu_max_rigid_patch_count=2**23,
-            gpu_collision_stack_size=2**32 - 1,
             gpu_max_num_partitions=1,  # Important for stable simulation
         ),
         physics_material=RigidBodyMaterialCfg(

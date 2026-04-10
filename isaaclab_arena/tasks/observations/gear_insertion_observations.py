@@ -22,7 +22,7 @@ import isaaclab.utils.math as math_utils
 import warp as wp
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg
-from isaaclab.utils.math import axis_angle_from_quat
+from isaaclab.utils.math import axis_angle_from_quat, quat_unique
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -60,6 +60,30 @@ def held_gear_base_pos_in_env_frame(
         torch.tensor(held_gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     )
     return gear_pos + math_utils.quat_apply(gear_quat, held_off)
+
+
+def check_gear_insertion_geometry(
+    held_base_pos: torch.Tensor,
+    peg_pos: torch.Tensor,
+    gear_peg_height: float,
+    z_fraction: float,
+    xy_threshold: float,
+) -> torch.Tensor:
+    """Shared XY-centering + Z-depth insertion check used by rewards, terminations, and observations.
+
+    Args:
+        held_base_pos: (N, 3) position of the held gear's insertion base in env frame.
+        peg_pos: (N, 3) position of the target peg in env frame.
+        gear_peg_height: Physical height of the peg.
+        z_fraction: Fraction of peg height that counts as inserted.
+        xy_threshold: Maximum XY distance for centering.
+
+    Returns:
+        (N,) bool tensor — True where gear is centered and inserted.
+    """
+    xy_dist = torch.norm(held_base_pos[:, :2] - peg_pos[:, :2], dim=-1)
+    z_diff = held_base_pos[:, 2] - peg_pos[:, 2]
+    return (xy_dist < xy_threshold) & (z_diff < gear_peg_height * z_fraction)
 
 
 def peg_delta_from_held_gear_base(
@@ -101,8 +125,7 @@ def body_quat_canonical(
     robot: Articulation = env.scene[robot_cfg.name]
     idx = robot.body_names.index(body_name)
     quat = wp.to_torch(robot.data.body_quat_w)[:, idx, :]
-    sign = torch.where(quat[:, 3:4] < 0, -1.0, 1.0)
-    return quat * sign
+    return quat_unique(quat)
 
 
 def force_torque_at_body(
@@ -111,7 +134,12 @@ def force_torque_at_body(
     body_name: str = "force_sensor",
     return_torque: bool = False,
 ) -> torch.Tensor:
-    """Read joint reaction wrench at a specific body link."""
+    """Read joint reaction wrench at a specific body link.
+
+    Uses PhysX ``root_view.get_link_incoming_joint_force()`` (same pattern as
+    Isaac Lab's ``forge_env.py``). This is the standard way to read F/T sensor
+    data in Isaac Sim; no higher-level API is available.
+    """
     robot: Articulation = env.scene[robot_cfg.name]
     body_idx = robot.body_names.index(body_name)
     wrench = wp.to_torch(robot.root_view.get_link_incoming_joint_force())[:, body_idx]
@@ -191,7 +219,11 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         self._prev_noisy_pos[env_ids] = (
             wp.to_torch(robot.data.body_pos_w)[env_ids, self._fingertip_idx] - origins[env_ids]
         )
-        self._prev_noisy_quat[env_ids] = wp.to_torch(robot.data.body_quat_w)[env_ids, self._fingertip_idx]
+        reset_quat = wp.to_torch(robot.data.body_quat_w)[env_ids, self._fingertip_idx].clone()
+        reset_quat[:, [2, 3]] = 0.0
+        reset_quat = torch.nn.functional.normalize(reset_quat, dim=-1)
+        reset_quat = reset_quat * flip.unsqueeze(-1)
+        self._prev_noisy_quat[env_ids] = reset_quat
 
     def __call__(
         self,
@@ -229,8 +261,10 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
             math_utils.quat_from_angle_axis(rot_noise_angle, rot_noise_axis),
         )
         noisy_quat[:, [2, 3]] = 0.0
+        noisy_quat = torch.nn.functional.normalize(noisy_quat, dim=-1)
         noisy_quat = noisy_quat * self._flip_quats.unsqueeze(-1)
 
+        # No public API for action term lookup; _terms is the standard access pattern.
         arm_osc_action = env.action_manager._terms["arm_action"]
         board_pos = wp.to_torch(board.data.root_pos_w) - origins
         board_quat = wp.to_torch(board.data.root_quat_w)
@@ -252,6 +286,9 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
 
         raw_force = wp.to_torch(robot.root_view.get_link_incoming_joint_force())[:, self._force_idx, :3]
         raw_force = torch.nan_to_num(raw_force, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
+        # Force EMA is updated here (in the observation) rather than in process_actions
+        # because the smoothed force must be current *before* the policy reads it.
+        # Moving this to process_actions would delay the update by one step.
         arm_osc_action.force_smooth[:] = (
             self._ft_alpha * raw_force + (1.0 - self._ft_alpha) * arm_osc_action.force_smooth
         )

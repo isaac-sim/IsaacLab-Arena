@@ -48,7 +48,8 @@ class GraspConfig:
     hand_close_width: float = 0.0
     gripper_joint_setter_func: Callable | None = None
     end_effector_body_name: str = "panda_hand"
-    grasp_rot_offset: list[float] = field(default_factory=lambda: [1.0, 0.0, 0.0, 0.0])
+    # xyzw identity; the environment overrides with task-specific orientation
+    grasp_rot_offset: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0, 1.0])
     grasp_offset: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     arm_joint_names: str = "panda_joint.*"
     finger_body_names: str = ".*finger"
@@ -70,6 +71,8 @@ class NistGearInsertionTask(TaskBase):
         peg_offset_for_obs: list[float] | None = None,
         held_gear_base_offset: list[float] | None = None,
         gear_base_asset: Asset | None = None,
+        # Success geometry: Z threshold = gear_peg_height * success_z_fraction
+        # e.g. 0.02 * 0.20 = 4 mm.  Tune these together.
         gear_peg_height: float = 0.02,
         success_z_fraction: float = 0.30,
         xy_threshold: float = 0.0025,
@@ -250,7 +253,7 @@ class NistGearInsertionTask(TaskBase):
                 func=mdp_isaac_lab.randomize_actuator_gains,
                 mode="reset",
                 params={
-                    "asset_cfg": SceneEntityCfg("robot", joint_names=[arm_joints]),
+                    "asset_cfg": SceneEntityCfg("robot", joint_names=arm_joints),
                     "stiffness_distribution_params": (0.75, 1.5),
                     "damping_distribution_params": (0.3, 3.0),
                     "operation": "scale",
@@ -261,7 +264,7 @@ class NistGearInsertionTask(TaskBase):
                 func=mdp_isaac_lab.randomize_joint_parameters,
                 mode="reset",
                 params={
-                    "asset_cfg": SceneEntityCfg("robot", joint_names=[arm_joints]),
+                    "asset_cfg": SceneEntityCfg("robot", joint_names=arm_joints),
                     "friction_distribution_params": (0.3, 0.7),
                     "operation": "add",
                     "distribution": "uniform",
@@ -326,7 +329,6 @@ class _TerminationsCfg:
     success: TerminationTermCfg = MISSING
     object_dropped: TerminationTermCfg | None = MISSING
     gear_dropped_from_gripper: TerminationTermCfg | None = None
-    gear_orientation_exceeded: TerminationTermCfg | None = None
 
 
 @configclass

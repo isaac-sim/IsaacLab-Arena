@@ -14,6 +14,8 @@ import warp as wp
 from isaaclab.assets import Articulation
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
+# Dependency: isaaclab_tasks.direct.automate (Factory task package) provides
+# IK utilities (get_pose_error, _get_delta_dof_pos) used by place_gear_in_gripper.
 from isaaclab_tasks.direct.automate import factory_control as fc
 
 from isaaclab_arena.utils.pose import Pose
@@ -214,13 +216,8 @@ class place_gear_in_gripper(ManagerTermBase):
 
         joint_pos = wp.to_torch(self.robot.data.joint_pos)[env_ids].clone()
 
-        for row_idx in range(n):
-            self.gripper_joint_setter_func(
-                joint_pos,
-                [row_idx],
-                self.finger_joints,
-                self.hand_grasp_width,
-            )
+        for jid in self.finger_joints:
+            joint_pos[:, jid] = self.hand_grasp_width / 2.0
 
         self.robot.set_joint_position_target_index(
             target=joint_pos,
@@ -230,13 +227,8 @@ class place_gear_in_gripper(ManagerTermBase):
         self.robot.write_joint_position_to_sim_index(position=joint_pos, env_ids=env_ids)
         self.robot.write_joint_velocity_to_sim_index(velocity=joint_vel, env_ids=env_ids)
 
-        for row_idx in range(n):
-            self.gripper_joint_setter_func(
-                joint_pos,
-                [row_idx],
-                self.finger_joints,
-                self.hand_close_width,
-            )
+        for jid in self.finger_joints:
+            joint_pos[:, jid] = self.hand_close_width / 2.0
 
         self.robot.set_joint_position_target_index(
             target=joint_pos,

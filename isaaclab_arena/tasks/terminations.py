@@ -15,6 +15,8 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms
 
+from isaaclab_arena.tasks.observations.gear_insertion_observations import check_gear_insertion_geometry
+
 
 # NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
 # seem to generate a "small" velocity.
@@ -262,7 +264,7 @@ def gear_mesh_insertion_success(
     env: ManagerBasedRLEnv,
     held_object_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
     fixed_object_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
-    gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+    gear_base_offset: tuple[float, ...] = (2.025e-2, 0.0, 0.0),
     held_gear_base_offset: list[float] | None = None,
     gear_peg_height: float = 0.02,
     success_z_fraction: float = 0.80,
@@ -294,14 +296,7 @@ def gear_mesh_insertion_success(
     offset = torch.tensor(gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
     peg_pos = fixed_pos + math_utils.quat_apply(fixed_quat, offset)
 
-    xy_dist = torch.linalg.vector_norm(peg_pos[:, 0:2] - held_base_pos[:, 0:2], dim=1)
-    is_centered = xy_dist < xy_threshold
-
-    z_disp = held_base_pos[:, 2] - peg_pos[:, 2]
-    height_threshold = gear_peg_height * success_z_fraction
-    is_inserted = z_disp < height_threshold
-
-    return torch.logical_and(is_centered, is_inserted)
+    return check_gear_insertion_geometry(held_base_pos, peg_pos, gear_peg_height, success_z_fraction, xy_threshold)
 
 
 def gear_dropped_from_gripper(
@@ -319,32 +314,3 @@ def gear_dropped_from_gripper(
     gear_pos = wp.to_torch(gear.data.root_pos_w)
     distance = torch.norm(gear_pos - ee_pos, dim=-1)
     return distance > distance_threshold
-
-
-def gear_orientation_exceeded(
-    env: ManagerBasedRLEnv,
-    gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
-    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    ee_body_name: str = "panda_hand",
-    roll_threshold_deg: float = 15.0,
-    pitch_threshold_deg: float = 15.0,
-) -> torch.Tensor:
-    """Reset when the gear has tilted too far relative to the end-effector."""
-    if not hasattr(env, "_initial_gear_ee_relative_quat"):
-        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-
-    gear: RigidObject = env.scene[gear_cfg.name]
-    robot: Articulation = env.scene[robot_cfg.name]
-
-    eef_indices, _ = robot.find_bodies([ee_body_name])
-    eef_quat = wp.to_torch(robot.data.body_quat_w)[:, eef_indices[0]]
-    current_relative = math_utils.quat_mul(wp.to_torch(gear.data.root_quat_w), math_utils.quat_conjugate(eef_quat))
-
-    initial_relative = env._initial_gear_ee_relative_quat
-    deviation = math_utils.quat_mul(current_relative, math_utils.quat_conjugate(initial_relative))
-
-    roll, pitch, _yaw = math_utils.euler_xyz_from_quat(deviation)
-
-    roll_limit = torch.deg2rad(torch.tensor(roll_threshold_deg, device=env.device))
-    pitch_limit = torch.deg2rad(torch.tensor(pitch_threshold_deg, device=env.device))
-    return (torch.abs(roll) > roll_limit) | (torch.abs(pitch) > pitch_limit)

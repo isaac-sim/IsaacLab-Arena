@@ -26,7 +26,6 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
 
         import isaaclab_arena_environments.mdp as mdp
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.reinforcement_learning.frameworks import RLFramework
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.nist_gear_insertion_task import GraspConfig, NistGearInsertionTask
         from isaaclab_arena.tasks.observations.gear_insertion_observations import NistGearInsertionPolicyObservations
@@ -188,7 +187,7 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
             task=task,
             teleop_device=teleop_device,
             env_cfg_callback=mdp.assembly_env_cfg_callback,
-            rl_framework=RLFramework.RL_GAMES,
+            rl_framework_entry_point="rl_games_cfg_entry_point",
             rl_policy_cfg="isaaclab_arena_examples.policy:nist_gear_insertion_osc_rl_games.yaml",
         )
 

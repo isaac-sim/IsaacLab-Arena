@@ -126,4 +126,4 @@ params:
           layer_norm: True
 
     player:
-      deterministic: False
+      deterministic: True

@@ -21,6 +21,8 @@ from isaaclab.assets import RigidObject
 from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
 from isaaclab.utils.math import combine_frame_transforms, quat_apply
 
+from isaaclab_arena.tasks.observations.gear_insertion_observations import check_gear_insertion_geometry
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
@@ -108,8 +110,8 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
         env: ManagerBasedRLEnv,
         gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
         board_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
-        peg_offset: list[float] = [0.0, 0.0, 0.0],
-        held_gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+        peg_offset: tuple[float, ...] = (0.0, 0.0, 0.0),
+        held_gear_base_offset: tuple[float, ...] = (2.025e-2, 0.0, 0.0),
         keypoint_scale: float = 0.15,
         num_keypoints: int = 4,
         squash_a: float = 50.0,
@@ -133,50 +135,58 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
         return _squashing_fn(kp_dist, squash_a, squash_b)
 
 
+# Module-level cache for constant offset tensors used by _check_gear_position.
+# In practice this holds only 2-3 entries (held_gear_base_offset and peg_offset
+# per device). If per-episode offset randomization is added in the future, this
+# cache should be replaced with instance-level pre-allocated tensors.
+_CACHED_OFFSETS: dict[tuple, torch.Tensor] = {}
+
+
+def _get_cached_offset(values: tuple[float, ...] | list[float], n: int, device: torch.device) -> torch.Tensor:
+    """Return a cached (n, 3) offset tensor, avoiding per-step allocation."""
+    key = (tuple(values), device)
+    cached = _CACHED_OFFSETS.get(key)
+    if cached is None or cached.shape[0] < n:
+        cached = torch.tensor(values, device=device, dtype=torch.float32).unsqueeze(0).expand(max(n, 1), 3).contiguous()
+        _CACHED_OFFSETS[key] = cached
+    return cached[:n]
+
+
 def _check_gear_position(
     env: ManagerBasedRLEnv,
     gear_cfg: SceneEntityCfg,
     board_cfg: SceneEntityCfg,
-    peg_offset: list[float],
-    held_gear_base_offset: list[float],
+    peg_offset: tuple[float, ...],
+    held_gear_base_offset: tuple[float, ...],
     gear_peg_height: float,
     z_fraction: float,
     xy_threshold: float,
 ) -> torch.Tensor:
     """Return bool tensor indicating whether gear meets XY centering and Z depth criteria.
 
-    Compares the held gear's insertion base (root + offset in gear frame) against
-    the peg position (fixed asset + offset in fixed asset frame).
+    Delegates to :func:`check_gear_insertion_geometry` for the shared XY+Z check.
     """
     gear: RigidObject = env.scene[gear_cfg.name]
     gear_pos = wp.to_torch(gear.data.root_pos_w) - env.scene.env_origins
     gear_quat = wp.to_torch(gear.data.root_quat_w)
-    held_off = (
-        torch.tensor(held_gear_base_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
-    )
+    held_off = _get_cached_offset(held_gear_base_offset, env.num_envs, env.device)
     held_base_pos = gear_pos + quat_apply(gear_quat, held_off)
 
     board: RigidObject = env.scene[board_cfg.name]
     pos = wp.to_torch(board.data.root_pos_w) - env.scene.env_origins
     quat = wp.to_torch(board.data.root_quat_w)
-    offset = torch.tensor(peg_offset, device=env.device, dtype=torch.float32).unsqueeze(0).expand(env.num_envs, 3)
+    offset = _get_cached_offset(peg_offset, env.num_envs, env.device)
     peg_pos = pos + quat_apply(quat, offset)
 
-    xy_dist = torch.norm(held_base_pos[:, :2] - peg_pos[:, :2], dim=-1)
-    z_diff = held_base_pos[:, 2] - peg_pos[:, 2]
-    height_threshold = gear_peg_height * z_fraction
-
-    is_centered = xy_dist < xy_threshold
-    is_inserted = z_diff < height_threshold
-    return is_centered & is_inserted
+    return check_gear_insertion_geometry(held_base_pos, peg_pos, gear_peg_height, z_fraction, xy_threshold)
 
 
 def gear_insertion_engagement_bonus(
     env: ManagerBasedRLEnv,
     gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
     board_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
-    peg_offset: list[float] = [0.0, 0.0, 0.0],
-    held_gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+    peg_offset: tuple[float, ...] = (0.0, 0.0, 0.0),
+    held_gear_base_offset: tuple[float, ...] = (2.025e-2, 0.0, 0.0),
     gear_peg_height: float = 0.02,
     engage_z_fraction: float = 0.90,
     xy_threshold: float = 0.015,
@@ -198,8 +208,8 @@ def gear_insertion_success_bonus(
     env: ManagerBasedRLEnv,
     gear_cfg: SceneEntityCfg = SceneEntityCfg("medium_nist_gear"),
     board_cfg: SceneEntityCfg = SceneEntityCfg("gears_and_base"),
-    peg_offset: list[float] = [0.0, 0.0, 0.0],
-    held_gear_base_offset: list[float] = [2.025e-2, 0.0, 0.0],
+    peg_offset: tuple[float, ...] = (0.0, 0.0, 0.0),
+    held_gear_base_offset: tuple[float, ...] = (2.025e-2, 0.0, 0.0),
     gear_peg_height: float = 0.02,
     success_z_fraction: float = 0.05,
     xy_threshold: float = 0.0025,
@@ -218,7 +228,10 @@ def gear_insertion_success_bonus(
 
 
 class osc_action_magnitude_penalty(ManagerTermBase):
-    """Penalize large asset-relative position/rotation commands."""
+    """Penalize large asset-relative position/rotation commands.
+
+    Note: accesses ``env.action_manager._terms`` directly — no public API exists.
+    """
 
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
@@ -264,6 +277,12 @@ class success_prediction_error(ManagerTermBase):
     ``true_success`` uses held insertion base vs target peg (same geometry as
     ``gear_insertion_success_bonus`` / ``gear_mesh_insertion_success``), not the gear
     rigid-body root, consistent with common assembly peg-insert benchmarks.
+
+    ``_pred_scale`` acts as a **one-way curriculum gate**: it starts at 0 and
+    flips to 1 the first time mean success rate crosses ``delay_until_ratio``.
+    It intentionally never resets back to 0 — once the agent demonstrates
+    sufficient insertion ability, the prediction penalty remains active for the
+    rest of training even if performance temporarily dips.
     """
 
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
@@ -304,10 +323,9 @@ class success_prediction_error(ManagerTermBase):
         peg_off = self._peg_offset.unsqueeze(0).expand(n, 3)
         peg_pos = board_pos + quat_apply(board_quat, peg_off)
 
-        xy_dist = torch.norm(held_base_pos[:, :2] - peg_pos[:, :2], dim=-1)
-        z_diff = held_base_pos[:, 2] - peg_pos[:, 2]
-        height_threshold = self._gear_peg_height * self._success_z_fraction
-        true_success = (xy_dist < self._xy_threshold) & (z_diff < height_threshold)
+        true_success = check_gear_insertion_geometry(
+            held_base_pos, peg_pos, self._gear_peg_height, self._success_z_fraction, self._xy_threshold
+        )
 
         if true_success.float().mean() >= self._delay_until_ratio:
             self._pred_scale = 1.0
