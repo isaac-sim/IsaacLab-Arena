@@ -53,3 +53,6 @@ class RelationSolverParams:
         default_factory=_default_strategies
     )
     """Loss strategies for each relation type. Override to customize loss computation."""
+
+    def __post_init__(self):
+        assert self.clearance_m >= 0.0, f"clearance_m must be non-negative, got {self.clearance_m}"
