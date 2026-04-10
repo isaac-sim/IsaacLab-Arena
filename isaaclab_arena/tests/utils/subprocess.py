@@ -42,11 +42,11 @@ def run_subprocess(
 ) -> subprocess.CompletedProcess | None:
     """Run a command in a subprocess with timeout.
 
-    ``start_new_session=True`` isolates the child into its own process group.
-    The child-side ``SimulationAppContext`` uses this to SIGTERM its entire
-    group before ``os._exit()``, preventing orphaned Kit children (shader
-    compiler, GPU workers, …) from holding GPU resources and blocking the
-    next subprocess.
+    The child is launched with ``start_new_session=True`` so it lives in its
+    own process group.  The child-side ``SimulationAppContext`` uses this to
+    SIGTERM its entire group before ``os._exit()``, preventing orphaned Kit
+    children (shader compiler, GPU workers, …) from holding GPU resources and
+    blocking the next subprocess.
 
     Args:
         cmd: Command to run (list of strings).
