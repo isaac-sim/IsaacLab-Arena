@@ -200,6 +200,54 @@ def test_solver_respects_clearance_m():
     ), f"Boxes should be at least 5 cm apart; box_a at {pos_a}, box_b at {pos_b}"
 
 
+def test_negative_clearance_m_raises():
+    """Negative clearance_m should be rejected."""
+    import pytest
+
+    with pytest.raises(AssertionError):
+        RelationSolverParams(clearance_m=-0.01)
+
+
+def test_validation_accepts_on_parent_overlap():
+    """Non-anchor sitting On(anchor) should pass validation even though bboxes overlap."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _create_table()  # bbox (0,0,0)-(1,1,0.1)
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box = _create_box("box")  # bbox (0,0,0)-(0.2,0.2,0.2)
+    box.add_relation(On(table, clearance_m=0.01))
+
+    # Box at z=0.11 (table top + clearance). Its bbox goes from 0.11 to 0.31.
+    # Table bbox goes to 0.1. With clearance_m=0.01, expanded table goes to 0.11.
+    # These just touch — the On-parent pair should be skipped.
+    positions = {table: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.11)}
+
+    placer = ObjectPlacer(ObjectPlacerParams())
+    assert placer._validate_no_overlap(positions)
+
+
+def test_validation_rejects_non_anchor_overlap():
+    """Two overlapping non-anchor boxes should fail validation."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")
+    box_a.add_relation(On(table, clearance_m=0.01))
+    box_b.add_relation(On(table, clearance_m=0.01))
+
+    # Both boxes at nearly the same position — they overlap
+    positions = {table: (0.0, 0.0, 0.0), box_a: (0.3, 0.3, 0.11), box_b: (0.35, 0.35, 0.11)}
+
+    placer = ObjectPlacer(ObjectPlacerParams())
+    assert not placer._validate_no_overlap(positions)
+
+
 def test_solver_no_overlap_reproducible():
     """Same inputs should produce identical outputs (deterministic solver)."""
     table1, box_a1, box_b1 = _create_scene_no_explicit_collision_relations()
