@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # # Run multi-anchor demo
     run_dummy_multi_anchor_demo()
 
-    # Run NoCollision demo
+    # Run no-overlap demo
     run_dummy_no_collision_demo()
 
 # %%

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
 
-"""Example notebook demonstrating NoCollision with real Isaac Sim objects."""
+"""Example notebook demonstrating no-overlap placement with real Isaac Sim objects."""
 
 # NOTE: When running as a notebook, first run this cell to launch the simulation app:
 import pinocchio  # noqa: F401
@@ -30,10 +30,10 @@ def run_isaac_sim_no_collision_demo(
     reset_every_n_steps: int = 100,
     hold_overlapping_steps: int = 150,
 ):
-    """Run the NoCollision demo with Isaac Sim objects.
+    """Run the no-overlap placement demo with Isaac Sim objects.
 
     Three objects start overlapping on the table; the relation solver places them
-    so they satisfy On(table) and pairwise NoCollision. After each reset, overlapping
+    so they satisfy On(table) with automatic no-overlap handling. After each reset, overlapping
     pose is shown for hold_overlapping_steps frames (render only), then the solver
     runs and results are displayed.
 
@@ -166,7 +166,7 @@ def run_isaac_sim_no_collision_demo(
 
 
 def smoke_test_isaac_sim_no_collision(simulation_app: SimulationApp) -> bool:
-    """Smoke test: run NoCollision demo with Isaac Sim objects (minimal steps)."""
+    """Smoke test: run no-overlap placement demo with Isaac Sim objects (minimal steps)."""
     run_isaac_sim_no_collision_demo(num_steps=2)
     return True
 
