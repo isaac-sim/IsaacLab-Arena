@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation, NoCollision
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -306,8 +306,10 @@ class OnLossStrategy(RelationLossStrategy):
         return relation.relation_loss_weight * total_loss
 
 
-class NoCollisionLossStrategy(RelationLossStrategy):
-    """Loss strategy for NoCollision relations.
+class NoCollisionLossStrategy:
+    """Computes no-overlap loss between two bounding boxes.
+
+    Internal utility used by RelationSolver. Not part of the public API.
 
     Computes loss based on:
     1. X overlap: zero when child and parent are separated along X; else overlap length
@@ -328,24 +330,24 @@ class NoCollisionLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "NoCollision",
+        clearance_m: float,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for NoCollision relation.
+        """Compute no-overlap loss between child and parent bounding boxes.
 
         Args:
-            relation: NoCollision relation with relation_loss_weight.
+            clearance_m: Minimum required gap between child and parent bounding boxes.
             child_pos: Child object position tensor (x, y, z) in world coords.
             child_bbox: Child object local bounding box.
             parent_world_bbox: Parent bounding box in world coordinates.
 
         Returns:
-            Weighted loss tensor.
+            Loss tensor (scalar); positive when boxes overlap within clearance, zero otherwise.
         """
         # Parent world extents from the world bounding box, expanded by clearance_m
-        c = relation.clearance_m
+        c = clearance_m
         parent_x_min = parent_world_bbox.min_point[0] - c
         parent_x_max = parent_world_bbox.max_point[0] + c
         parent_y_min = parent_world_bbox.min_point[1] - c
@@ -381,7 +383,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
             )
             print(f"    [NoCollision] volume={overlap_volume.item():.6f}, loss={total_loss.item():.6f}")
 
-        return relation.relation_loss_weight * total_loss
+        return total_loss
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
