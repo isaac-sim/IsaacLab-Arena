@@ -468,6 +468,7 @@ class WithinBoxLossStrategy(UnaryRelationLossStrategy):
         """
         total_loss = torch.tensor(0.0, dtype=child_pos.dtype, device=child_pos.device)
 
+        # Iterate over X (0), Y (1), Z (2) with their optional bounds
         axis_bounds = [
             (relation.x_min, relation.x_max),
             (relation.y_min, relation.y_max),
@@ -475,16 +476,20 @@ class WithinBoxLossStrategy(UnaryRelationLossStrategy):
         ]
         for axis_index, (lower_bound, upper_bound) in enumerate(axis_bounds):
             if lower_bound is not None and upper_bound is not None:
+                # Both bounds: zero inside [lower, upper], linear growth outside
                 total_loss = total_loss + linear_band_loss(
                     child_pos[axis_index], lower_bound, upper_bound, slope=self.slope
                 )
             elif lower_bound is not None:
+                # Only lower bound: penalize positions below it
                 total_loss = total_loss + single_boundary_linear_loss(
                     child_pos[axis_index], lower_bound, slope=self.slope, penalty_side="less"
                 )
             elif upper_bound is not None:
+                # Only upper bound: penalize positions above it
                 total_loss = total_loss + single_boundary_linear_loss(
                     child_pos[axis_index], upper_bound, slope=self.slope, penalty_side="greater"
                 )
+            # Neither bound set: axis is unconstrained, no loss
 
         return relation.relation_loss_weight * total_loss
