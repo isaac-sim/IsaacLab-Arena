@@ -94,24 +94,46 @@ class Object(ObjectBase):
         self.reset_pose = True
         self.event_cfg = self._init_event_cfg()
 
-    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(
+        self, contact_against_object: ObjectBase | None = None, usd_path: str | None = None
+    ) -> ContactSensorCfg:
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
         # and add the contact sensor to it.
         # TODO(alexmillane, 2026.01.29): This capability to search for the correct place
         # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
         # For these objects we just (try to) add the contact sensor to the root prim.
-        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        if contact_against_prim_paths is None:
-            contact_against_prim_paths = []
-        rigid_body_relative_path = find_shallowest_rigid_body(self.usd_path, relative_to_root=True)
+        usd_path = usd_path or self.usd_path
+        rigid_body_relative_path = find_shallowest_rigid_body(usd_path, relative_to_root=True)
         assert (
             rigid_body_relative_path is not None
-        ), f"No rigid body found in {self.name} USD file: {self.usd_path}. Can't add contact sensor."
+        ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
         contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        # There are also cases where the contact against object does not have its rigid body at the root.
+        # In that case, we also need to find the shallowest rigid body.
+        # NOTE(alexmillane, 2026.04.10): For now we only support this for Object, but in the future we
+        # could support this for ObjectReference and RigidObjectSet. For now, those object types
+        # are assumed to have their rigid body at the their prim path.
+        if isinstance(contact_against_object, Object):
+            assert (
+                contact_against_object.object_type == ObjectType.RIGID
+            ), "Contact sensor is only supported for rigid objects"
+            contact_against_relative_path = find_shallowest_rigid_body(
+                contact_against_object.usd_path, relative_to_root=True
+            )
+            assert contact_against_relative_path is not None, (
+                f"No rigid body found in {contact_against_object.name} USD file: {contact_against_object.usd_path}."
+                " Can't add contact sensor."
+            )
+            filter_prim_paths = [contact_against_object.get_prim_path() + contact_against_relative_path]
+        elif isinstance(contact_against_object, ObjectBase):
+            filter_prim_paths = [contact_against_object.get_prim_path()]
+        elif contact_against_object is None:
+            filter_prim_paths = []
         return ContactSensorCfg(
             prim_path=contact_sensor_prim_path,
-            filter_prim_paths_expr=contact_against_prim_paths,
+            filter_prim_paths_expr=filter_prim_paths,
         )
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:

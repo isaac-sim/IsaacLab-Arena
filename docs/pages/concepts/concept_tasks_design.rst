@@ -48,7 +48,7 @@ Tasks in Detail
 
    - **PickAndPlaceTask**: Move objects between locations with contact-based success detection
    - **OpenDoorTask**: Affordance-based interaction with openable objects and thresholds
-   - **G1LocomanipPickAndPlaceTask**: Combined locomotion and manipulation for humanoid robots
+   - **LocomanipPickAndPlaceTask**: Combined locomotion and manipulation for humanoid robots
 
 **RL Task Design**
    RL tasks extend their IL counterparts by adding reinforcement learning components:
@@ -106,7 +106,7 @@ Usage Examples
    pick_object = asset_registry.get_asset_by_name("cracker_box")()
    destination_bin = asset_registry.get_asset_by_name("sorting_bin")()
 
-   task = G1LocomanipPickAndPlaceTask(pick_object, destination_bin, galileo_scene)
+   task = LocomanipPickAndPlaceTask(pick_object, destination_bin, galileo_scene)
 
 Sequential Tasks
 ----------------
