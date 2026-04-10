@@ -18,7 +18,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -33,7 +33,6 @@ class G1LocomanipPickAndPlaceTask(TaskBase):
         task_description: str | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
-        print("HERE")
         self.pick_up_object = pick_up_object
         self.background_scene = background_scene
         self.destination_bin = destination_bin

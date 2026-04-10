@@ -6,12 +6,10 @@
 import torch
 import traceback
 
-import warp as wp
-
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-NUM_STEPS = 500
-HEADLESS = False
+NUM_STEPS = 50
+HEADLESS = True
 
 
 def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool:
@@ -63,7 +61,6 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     try:
         condition_met_vec = []
         terminated_vec = []
-        sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
         for _ in range(NUM_STEPS):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
@@ -80,21 +77,17 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
                 )
                 terminated_vec.append(terminated.item())
 
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
+        print("Error: {e}")
         traceback.print_exc()
         return False
 
     finally:
         env.close()
 
-    print("Checking the object started above the bin")
     assert condition_met_vec[0].item() is False, "Object started in the bin"
-    print("Checking the object ended in the bin")
     assert any(condition_met_vec), "Object did not end in the bin"
-    print("Checking the task was terminated")
     assert any(terminated_vec), "The task was not terminated"
-    print("Checking the reset fired and the object was moved above the bin")
     assert condition_met_vec[-1].item() is False, "Object was not moved above the bin"
 
     return True

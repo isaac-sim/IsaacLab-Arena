@@ -220,9 +220,6 @@ class ObjectBase(Asset, ABC):
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        assert (
-            contact_against_object.object_type == ObjectType.RIGID
-        ), "Contact sensor is only supported for rigid objects"
         filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
         return ContactSensorCfg(
             prim_path=self.prim_path,
