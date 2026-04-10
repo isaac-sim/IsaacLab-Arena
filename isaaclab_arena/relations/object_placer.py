@@ -298,35 +298,27 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Check that no two objects overlap in 3D (axis-aligned bbox check).
+        """Check that no two objects overlap in 3D (axis-aligned bbox with clearance margin).
 
-        Non-anchor pairs must be separated by at least ``clearance_m``.
-        Anchor-to-non-anchor pairs must not have actual overlap (margin=0).
+        All pairs must be separated by at least ``clearance_m``.
         Anchor-to-anchor pairs are skipped (both fixed, user's responsibility).
         """
         anchor_objects = get_anchor_objects(list(positions.keys()))
         anchor_set = set(anchor_objects)
-        all_objects = list(positions.keys())
+        objects = list(positions.keys())
+        # Small tolerance to avoid false positives at floating-point boundaries
+        # (e.g., On relation places child exactly at clearance_m above parent).
+        margin = max(0.0, self.params.solver_params.clearance_m - 1e-6)
 
-        for i in range(len(all_objects)):
-            for j in range(i + 1, len(all_objects)):
-                a, b = all_objects[i], all_objects[j]
-                a_is_anchor = a in anchor_set
-                b_is_anchor = b in anchor_set
+        for i in range(len(objects)):
+            for j in range(i + 1, len(objects)):
+                a, b = objects[i], objects[j]
 
-                # Skip anchor-anchor pairs (both fixed)
-                if a_is_anchor and b_is_anchor:
+                if a in anchor_set and b in anchor_set:
                     continue
 
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
-
-                # Non-anchor vs non-anchor: enforce clearance_m separation
-                # Any pair involving an anchor: check actual overlap only (margin=0.0)
-                if not a_is_anchor and not b_is_anchor:
-                    margin = self.params.solver_params.clearance_m
-                else:
-                    margin = 0.0
 
                 if a_world.overlaps(b_world, margin=margin):
                     if self.params.verbose:
