@@ -1,5 +1,5 @@
 Arena in Your Repository
-=======================
+========================
 
 This section explains how to integrate IsaacLab-Arena into your own repository — installing
 it as a submodule, defining custom environments, and registering your own tasks and
