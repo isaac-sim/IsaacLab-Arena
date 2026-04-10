@@ -8,7 +8,11 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy, UnaryRelationLossStrategy
+from isaaclab_arena.relations.relation_loss_strategies import (
+    NoCollisionLossStrategy,
+    RelationLossStrategy,
+    UnaryRelationLossStrategy,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
@@ -37,6 +41,7 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
+        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
 
@@ -59,6 +64,70 @@ class RelationSolver:
                 f"Available strategies: {list(self.params.strategies.keys())}"
             )
         return strategy
+
+    def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+        """Compute pairwise no-overlap loss for all object pairs.
+
+        Covers (non-anchor, non-anchor) pairs and (non-anchor, anchor) pairs.
+        Anchor-to-anchor pairs are skipped since anchors never move.
+
+        Args:
+            state: Current optimization state with object positions.
+            debug: If True, print detailed loss breakdown.
+
+        Returns:
+            Total no-overlap loss tensor.
+        """
+        total = torch.tensor(0.0)
+        clearance = self.params.clearance_m
+        opt = state.optimizable_objects
+
+        # Non-anchor vs non-anchor (both directions so each object gets gradient)
+        for i in range(len(opt)):
+            for j in range(i + 1, len(opt)):
+                obj_i, obj_j = opt[i], opt[j]
+                pos_i = state.get_position(obj_i)
+                pos_j = state.get_position(obj_j)
+
+                # i as child, j as parent (gradient flows through pos_i)
+                world_bbox_j = obj_j.get_bounding_box().translated((pos_j[0].item(), pos_j[1].item(), pos_j[2].item()))
+                loss_ij = self._no_collision_strategy.compute_loss(
+                    clearance_m=clearance,
+                    child_pos=pos_i,
+                    child_bbox=obj_i.get_bounding_box(),
+                    parent_world_bbox=world_bbox_j,
+                )
+
+                # j as child, i as parent (gradient flows through pos_j)
+                world_bbox_i = obj_i.get_bounding_box().translated((pos_i[0].item(), pos_i[1].item(), pos_i[2].item()))
+                loss_ji = self._no_collision_strategy.compute_loss(
+                    clearance_m=clearance,
+                    child_pos=pos_j,
+                    child_bbox=obj_j.get_bounding_box(),
+                    parent_world_bbox=world_bbox_i,
+                )
+
+                loss = loss_ij + loss_ji
+                if debug and loss.item() > 0:
+                    print(f"  NoOverlap({obj_i.name}, {obj_j.name}): {loss.item():.6f}")
+                total = total + loss
+
+        # Non-anchor vs anchor
+        for obj in opt:
+            pos = state.get_position(obj)
+            for anchor in state.anchor_objects:
+                anchor_world_bbox = anchor.get_world_bounding_box()
+                loss = self._no_collision_strategy.compute_loss(
+                    clearance_m=clearance,
+                    child_pos=pos,
+                    child_bbox=obj.get_bounding_box(),
+                    parent_world_bbox=anchor_world_bbox,
+                )
+                if debug and loss.item() > 0:
+                    print(f"  NoOverlap({obj.name}, {anchor.name}): {loss.item():.6f}")
+                total = total + loss
+
+        return total
 
     def _compute_total_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
         """Compute total loss from all relations using registered strategies.
@@ -112,6 +181,9 @@ class RelationSolver:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
                 total_loss = total_loss + loss
+
+        # Built-in pairwise no-overlap loss
+        total_loss = total_loss + self._compute_no_overlap_loss(state, debug=debug)
 
         return total_loss
 

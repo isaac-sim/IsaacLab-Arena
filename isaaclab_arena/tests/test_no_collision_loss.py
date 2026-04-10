@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for NoCollision loss strategy and RelationSolver with NoCollision relations."""
+"""Tests for NoCollisionLossStrategy and built-in solver no-overlap behavior."""
 
 import torch
 
@@ -11,7 +11,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import IsAnchor, NoCollision, On
+from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -32,8 +32,8 @@ def _create_table() -> DummyObject:
     )
 
 
-def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]:
-    """Create table + two boxes with On(table) and NoCollision between boxes (for solver tests)."""
+def _create_scene_no_explicit_collision_relations() -> tuple[DummyObject, DummyObject, DummyObject]:
+    """Create table + two boxes with On(table) but NO explicit NoCollision. Solver should handle it."""
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
@@ -41,7 +41,6 @@ def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]
     box_b = _create_box("box_b")
     box_a.add_relation(On(table, clearance_m=0.01))
     box_b.add_relation(On(table, clearance_m=0.01))
-    box_a.add_relation(NoCollision(box_b))
     return table, box_a, box_b
 
 
@@ -151,13 +150,13 @@ def test_no_collision_loss_volume_formula():
 
 
 # =============================================================================
-# RelationSolver with NoCollision tests
+# RelationSolver built-in no-overlap tests (no explicit NoCollision relations)
 # =============================================================================
 
 
-def test_relation_solver_no_collision_produces_separated_positions():
-    """Test that RelationSolver with NoCollision and On(table) places objects so they do not overlap."""
-    table, box_a, box_b = _create_no_collision_scene()
+def test_solver_separates_overlapping_objects_without_explicit_no_collision():
+    """Solver should separate overlapping boxes using built-in no-overlap loss (no NoCollision relations)."""
+    table, box_a, box_b = _create_scene_no_explicit_collision_relations()
     objects = [table, box_a, box_b]
     initial_positions = {
         table: (0.0, 0.0, 0.0),
@@ -165,7 +164,7 @@ def test_relation_solver_no_collision_produces_separated_positions():
         box_b: (0.25, 0.25, 0.11),
     }
 
-    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    solver_params = RelationSolverParams(max_iters=400, convergence_threshold=1e-4, verbose=False)
     solver = RelationSolver(params=solver_params)
     result = solver.solve(objects=objects, initial_positions=initial_positions)
 
@@ -177,17 +176,41 @@ def test_relation_solver_no_collision_produces_separated_positions():
     assert not bbox_a.overlaps(bbox_b), f"Solver should separate boxes; box_a at {pos_a}, box_b at {pos_b}"
 
 
-def test_relation_solver_no_collision_same_inputs_reproducible():
-    """Test that RelationSolver with same initial positions and NoCollision yields identical positions."""
-    table1, box_a1, box_b1 = _create_no_collision_scene()
+def test_solver_respects_clearance_m():
+    """With clearance_m=0.05, solved boxes should be at least 5 cm apart."""
+    table, box_a, box_b = _create_scene_no_explicit_collision_relations()
+    objects = [table, box_a, box_b]
+    initial_positions = {
+        table: (0.0, 0.0, 0.0),
+        box_a: (0.2, 0.2, 0.11),
+        box_b: (0.25, 0.25, 0.11),
+    }
+
+    solver_params = RelationSolverParams(max_iters=800, convergence_threshold=1e-6, clearance_m=0.05, verbose=False)
+    solver = RelationSolver(params=solver_params)
+    result = solver.solve(objects=objects, initial_positions=initial_positions)
+
+    pos_a = result[box_a]
+    pos_b = result[box_b]
+    bbox_a = box_a.get_bounding_box().translated(pos_a)
+    bbox_b = box_b.get_bounding_box().translated(pos_b)
+
+    assert not bbox_a.overlaps(
+        bbox_b, margin=0.05
+    ), f"Boxes should be at least 5 cm apart; box_a at {pos_a}, box_b at {pos_b}"
+
+
+def test_solver_no_overlap_reproducible():
+    """Same inputs should produce identical outputs (deterministic solver)."""
+    table1, box_a1, box_b1 = _create_scene_no_explicit_collision_relations()
     initial = (0.0, 0.0, 0.0), (0.3, 0.3, 0.11), (0.6, 0.6, 0.11)
     initial_positions1 = {table1: initial[0], box_a1: initial[1], box_b1: initial[2]}
 
-    solver_params = RelationSolverParams(max_iters=50)
+    solver_params = RelationSolverParams(max_iters=50, verbose=False)
     solver1 = RelationSolver(params=solver_params)
     result1 = solver1.solve(objects=[table1, box_a1, box_b1], initial_positions=initial_positions1)
 
-    table2, box_a2, box_b2 = _create_no_collision_scene()
+    table2, box_a2, box_b2 = _create_scene_no_explicit_collision_relations()
     initial_positions2 = {table2: initial[0], box_a2: initial[1], box_b2: initial[2]}
     solver2 = RelationSolver(params=solver_params)
     result2 = solver2.solve(objects=[table2, box_a2, box_b2], initial_positions=initial_positions2)
