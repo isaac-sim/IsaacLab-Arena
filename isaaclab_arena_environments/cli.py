@@ -3,9 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
@@ -30,11 +32,8 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
 from isaaclab_arena_environments.tabletop_place_upright_environment import TableTopPlaceUprightEnvironment
 
-# NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
-# We cannot annotate types which require the simulation app to be started in order to
-# import, because this file is used to retrieve CLI arguments, so it must be imported
-# before the simulation app is started.
-# TODO(alexmillane, 2025.09.04): Fix this.
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
 
 # Collection of the available example environments
@@ -118,7 +117,7 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-def get_arena_builder_from_cli(args_cli: argparse.Namespace):  # -> tuple[ManagerBasedRLEnvCfg, str]:
+def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # Get the example environment

@@ -3,17 +3,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import math
+from typing import TYPE_CHECKING
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
 
-    def get_env(self, args_cli: argparse.Namespace):
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask

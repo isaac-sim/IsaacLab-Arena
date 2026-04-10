@@ -3,9 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
+from typing import TYPE_CHECKING
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
@@ -15,7 +21,7 @@ class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
 
     name = "tabletop_place_upright"
 
-    def get_env(self, args_cli: argparse.Namespace):
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         import isaaclab.envs.mdp as mdp
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg
