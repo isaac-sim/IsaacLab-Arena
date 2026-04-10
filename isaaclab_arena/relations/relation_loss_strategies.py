@@ -445,10 +445,10 @@ class WithinBoxLossStrategy(UnaryRelationLossStrategy):
     Unconstrained axes contribute zero loss.
     """
 
-    def __init__(self, slope: float = 10.0):
+    def __init__(self, slope: float = 100.0):
         """
         Args:
-            slope: Gradient magnitude for linear loss (default: 10.0).
+            slope: Gradient magnitude for linear loss (default: 100.0).
                    Loss increases by `slope` per meter of violation.
         """
         self.slope = slope

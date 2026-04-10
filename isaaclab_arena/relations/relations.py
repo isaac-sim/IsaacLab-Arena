@@ -38,8 +38,18 @@ class RelationBase:
     pass
 
 
+class UnaryRelation(RelationBase):
+    """Base class for unary spatial relations (no parent object).
+
+    Unary relations constrain an object's position in world coordinates
+    without referencing another object (e.g., AtPosition, WithinBox).
+    """
+
+    pass
+
+
 class Relation(RelationBase):
-    """Base class for spatial relationships between objects."""
+    """Base class for binary spatial relationships between objects."""
 
     def __init__(self, parent: Object | ObjectReference, relation_loss_weight: float = 1.0):
         """
@@ -301,7 +311,7 @@ class RotateAroundSolution(RelationBase):
         return tuple(quat.tolist())
 
 
-class AtPosition(RelationBase):
+class AtPosition(UnaryRelation):
     """Constrains object to specific world coordinates.
 
     This is a unary relation (no parent) that pins an object's position to
@@ -340,7 +350,7 @@ class AtPosition(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
-class WithinBox(RelationBase):
+class WithinBox(UnaryRelation):
     """Constrains object position to a world-coordinate axis-aligned box.
 
     This is a unary relation (no parent) that keeps an object's center within
