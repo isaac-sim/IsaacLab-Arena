@@ -109,9 +109,9 @@ def test_eval_runner_multiple_environments(tmp_path):
             "policy_args": {},
         },
         {
-            "name": "galileo_pick_power_drill",
+            "name": "kitchen_pick_power_drill",
             "arena_env_args": {
-                "environment": "galileo_pick_and_place",
+                "environment": "put_item_in_fridge_and_close_door",
                 "object": "power_drill",
                 "embodiment": "gr1_pink",
             },
