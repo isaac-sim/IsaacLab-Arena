@@ -44,7 +44,7 @@ class PickAndPlaceTask(TaskBase):
         self.destination_location = destination_location
         self.scene_config = SceneCfg(
             pick_up_object_contact_sensor=self.pick_up_object.get_contact_sensor_cfg(
-                contact_against_prim_paths=[self.destination_location.get_prim_path()],
+                contact_against_object=self.destination_location,
             ),
         )
         self.force_threshold = force_threshold
@@ -59,7 +59,7 @@ class PickAndPlaceTask(TaskBase):
 
     def get_scene_cfg(self):
         return self.scene_config
-a
+
     def get_termination_cfg(self):
         return self.termination_cfg
 

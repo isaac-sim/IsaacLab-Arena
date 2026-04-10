@@ -90,7 +90,7 @@ class RigidObjectSet(Object):
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[2]).get_bounding_box()
 
-    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
         # and add the contact sensor to it.
@@ -98,8 +98,10 @@ class RigidObjectSet(Object):
         # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
         # For these objects we just (try to) add the contact sensor to the root prim.
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        if contact_against_prim_paths is None:
-            contact_against_prim_paths = []
+        assert (
+            contact_against_object.object_type == ObjectType.RIGID
+        ), "Contact sensor is only supported for rigid objects"
+        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
         # We assume that by here, our USDs have been modified to be compatible with each other
         # and we can use the first USD path to find the shallowest rigid body.
         first_usd = self.object_usd_paths[0]
@@ -110,7 +112,7 @@ class RigidObjectSet(Object):
         contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
         return ContactSensorCfg(
             prim_path=contact_sensor_prim_path,
-            filter_prim_paths_expr=contact_against_prim_paths,
+            filter_prim_paths_expr=filter_prim_paths,
         )
 
     def _are_all_objects_type_rigid(self, objects: list[ObjectBase]) -> bool:
