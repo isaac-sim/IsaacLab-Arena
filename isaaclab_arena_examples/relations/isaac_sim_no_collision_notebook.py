@@ -51,7 +51,7 @@ def run_isaac_sim_no_collision_demo(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relations import IsAnchor, NoCollision, On
+    from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
@@ -81,10 +81,6 @@ def run_isaac_sim_no_collision_demo(
     tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
     tomato_soup_can.add_relation(On(tabletop_reference, clearance_m=0.02))
     tomato_soup_can.set_initial_pose(same_pose)
-
-    cracker_box.add_relation(NoCollision(mug))
-    cracker_box.add_relation(NoCollision(tomato_soup_can))
-    mug.add_relation(NoCollision(tomato_soup_can))
 
     scene = Scene(assets=[ground_plane, table_background, tabletop_reference, cracker_box, mug, tomato_soup_can, light])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
