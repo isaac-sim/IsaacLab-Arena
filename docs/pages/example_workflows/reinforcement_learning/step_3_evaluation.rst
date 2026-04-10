@@ -9,7 +9,7 @@ Once inside the container, set the models directory if you plan to download pre-
 
 .. code:: bash
 
-    export MODELS_DIR=models/isaaclab_arena/reinforcement_learning
+    export MODELS_DIR=/models/isaaclab_arena/reinforcement_learning
     mkdir -p $MODELS_DIR
 
 This tutorial assumes you've completed :doc:`step_2_policy_training` and have a trained checkpoint,
