@@ -206,7 +206,7 @@ class ObjectBase(Asset, ABC):
 
         Returns:
             The pose of the object in each environment. The shape is (num_envs, 7).
-            The order is (x, y, z, qw, qx, qy, qz).
+            The order is (x, y, z, qx, qy, qz, qw).
         """
         # We require that the asset has been added to the scene under its name.
         assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
