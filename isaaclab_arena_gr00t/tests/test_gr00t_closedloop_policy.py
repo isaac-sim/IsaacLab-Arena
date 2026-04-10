@@ -220,7 +220,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs(gr00t_finetuned_
     assert result, "Test test_g1_locomanip_gr00t_closedloop_policy_runner_multi_envs failed"
 
 
-@pytest.mark.skip(reason="Skipping because of CI stalling")
+@pytest.mark.with_subprocess
 def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned_model_path, tmp_path):
     """Test eval_runner including a G00T closedloop policy and a zero action policy."""
 
