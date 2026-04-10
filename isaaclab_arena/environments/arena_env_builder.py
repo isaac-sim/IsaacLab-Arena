@@ -29,6 +29,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
 from isaaclab_arena.relations.relations import IsAnchor, NoCollision
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -102,11 +103,24 @@ class ArenaEnvBuilder:
         self._add_pairwise_no_collision(objects_with_relations)
 
         # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
+        # Positions are applied to objects via set_initial_pose (single-env: Pose/PoseRange,
+        # multi-env: PosePerEnv), so each object's event_cfg handles its own reset.
         placement_seed = getattr(self.args, "placement_seed", None)
         placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
-        result = placer.place(objects=objects_with_relations)
+        num_envs = self.args.num_envs
+        result = placer.place(objects_with_relations, num_envs=num_envs)
 
-        if result.success:
+        # Log outcome
+        if isinstance(result, MultiEnvPlacementResult):
+            n_succeeded = sum(1 for r in result.results if r.success)
+            if n_succeeded == num_envs:
+                print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
+            else:
+                print(
+                    f"Relation solving: {n_succeeded}/{num_envs} env(s) passed validation after"
+                    f" {result.attempts} attempt(s)."
+                )
+        elif result.success:
             print(f"Relation solving succeeded after {result.attempts} attempt(s)")
         else:
             print(f"Warning: Relation solving not completed after {result.attempts} attempt(s)")

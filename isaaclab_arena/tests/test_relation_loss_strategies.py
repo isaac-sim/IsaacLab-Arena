@@ -225,3 +225,38 @@ def test_next_to_zero_distance_raises():
 
     with pytest.raises(AssertionError, match="Distance must be positive"):
         NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.0)
+
+
+def test_on_loss_strategy_multi_env_shape_and_values():
+    """Test that On with batched (N,3) input returns (N,) loss with correct per-env values."""
+    table = _create_table()
+    box = _create_box()
+    relation = On(table, clearance_m=0.01)
+    strategy = OnLossStrategy(slope=10.0)
+
+    child_pos = torch.tensor([[0.4, 0.4, 0.11], [0.4, 0.4, 0.5]])
+    parent_world_bbox = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 0.1], [1.0, 1.0, 0.1]]),
+    )
+
+    loss = strategy.compute_loss(relation, child_pos, box.bounding_box, parent_world_bbox)
+    assert loss.shape == (2,)
+    assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-4)
+    assert loss[1] > 0.0
+
+
+def test_next_to_loss_strategy_multi_env_shape_and_values():
+    """Test that NextTo with batched (N,3) input returns (N,) loss with correct per-env values."""
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    strategy = NextToLossStrategy(slope=10.0)
+
+    # Env 0: perfectly placed. Env 1: wrong side.
+    child_pos = torch.tensor([[1.05, 0.4, 0.0], [-0.5, 0.5, 0.0]])
+
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert loss.shape == (2,)
+    assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-4)
+    assert loss[1] > 0.0

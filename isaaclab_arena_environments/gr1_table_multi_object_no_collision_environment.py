@@ -9,8 +9,8 @@ On(table) and pairwise NoCollision (relation solver). Includes a robot (e.g. GR1
 No task — suitable for policy_runner with zero_action or any policy.
 
 Example:
-  python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 500 \\
-    --num_envs 1 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
+  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
+    --num_envs 16 --env_spacing 4.0 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
 """
 
 import argparse
@@ -19,13 +19,15 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 DEFAULT_TABLE_OBJECTS = [
     "cracker_box",
-    "mustard_bottle",
     "sugar_box",
     "tomato_soup_can",
-    "mug",
-    "brown_box",
     "dex_cube",
-]  # Default objects on table (On + pairwise NoCollision)
+    "power_drill",
+    "red_container",
+]
+# NOTE: The gradient-based solver does not guarantee collision-free placement for all
+# objects. Better initialization strategies and constraining unchanged pose dimensions
+# are needed in the near future.
 
 
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):

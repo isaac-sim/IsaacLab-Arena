@@ -40,10 +40,10 @@ def test_on_init_x_y_within_parent_footprint():
     child_bbox = box.get_bounding_box()
     desk_world = desk.get_world_bounding_box()
 
-    assert x + child_bbox.min_point[0] >= desk_world.min_point[0] - 1e-6
-    assert x + child_bbox.max_point[0] <= desk_world.max_point[0] + 1e-6
-    assert y + child_bbox.min_point[1] >= desk_world.min_point[1] - 1e-6
-    assert y + child_bbox.max_point[1] <= desk_world.max_point[1] + 1e-6
+    assert x + child_bbox.min_point[0, 0] >= desk_world.min_point[0, 0] - 1e-6
+    assert x + child_bbox.max_point[0, 0] <= desk_world.max_point[0, 0] + 1e-6
+    assert y + child_bbox.min_point[0, 1] >= desk_world.min_point[0, 1] - 1e-6
+    assert y + child_bbox.max_point[0, 1] <= desk_world.max_point[0, 1] + 1e-6
 
 
 def test_on_init_z_places_bottom_at_parent_top():
@@ -63,8 +63,8 @@ def test_on_init_z_places_bottom_at_parent_top():
     child_bbox = box.get_bounding_box()
     desk_world = desk.get_world_bounding_box()
 
-    child_bottom = z + child_bbox.min_point[2]
-    expected_bottom = desk_world.max_point[2] + clearance_m
+    child_bottom = z + child_bbox.min_point[0, 2]
+    expected_bottom = desk_world.max_point[0, 2] + clearance_m
     assert abs(child_bottom - expected_bottom) < 1e-6
 
 
@@ -88,8 +88,8 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
 
     x, y, _ = positions[big_box]
     desk_world = desk.get_world_bounding_box()
-    center_x = (desk_world.min_point[0] + desk_world.max_point[0]) / 2.0
-    center_y = (desk_world.min_point[1] + desk_world.max_point[1]) / 2.0
+    center_x = (desk_world.min_point[0, 0] + desk_world.max_point[0, 0]) / 2.0
+    center_y = (desk_world.min_point[0, 1] + desk_world.max_point[0, 1]) / 2.0
 
     assert abs(x - center_x) < 1e-6
     assert abs(y - center_y) < 1e-6
@@ -109,7 +109,7 @@ def test_no_on_relation_initializes_at_anchor_center():
 
     x, y, z = positions[box]
     desk_world = desk.get_world_bounding_box()
-    center = desk_world.center
+    center = desk_world.center[0]
 
     assert abs(x - center[0]) < 1e-6
     assert abs(y - center[1]) < 1e-6
@@ -138,11 +138,11 @@ def test_on_non_anchor_parent_with_anchor_grandparent_uses_proxy():
     desk_world = desk.get_world_bounding_box()
 
     # Mug's parent (plate) is non-anchor with On(desk): uses desk's bbox as proxy
-    assert desk_world.min_point[0] <= x <= desk_world.max_point[0]
-    assert desk_world.min_point[1] <= y <= desk_world.max_point[1]
+    assert desk_world.min_point[0, 0] <= x <= desk_world.max_point[0, 0]
+    assert desk_world.min_point[0, 1] <= y <= desk_world.max_point[0, 1]
     # Z: desk top (0.1) + clearance (0.0) - mug bbox min_z (0.0) = 0.1
     mug_bbox = mug.get_bounding_box()
-    assert abs(z - (desk_world.max_point[2] + 0.0 - mug_bbox.min_point[2])) < 1e-6
+    assert abs(z - (desk_world.max_point[0, 2] + 0.0 - mug_bbox.min_point[0, 2])) < 1e-6
 
 
 def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
@@ -167,10 +167,10 @@ def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
     desk_world = desk.get_world_bounding_box()
 
     # Parent (stand) has no On relation: falls back to desk's world bbox
-    assert desk_world.min_point[0] <= x <= desk_world.max_point[0]
-    assert desk_world.min_point[1] <= y <= desk_world.max_point[1]
+    assert desk_world.min_point[0, 0] <= x <= desk_world.max_point[0, 0]
+    assert desk_world.min_point[0, 1] <= y <= desk_world.max_point[0, 1]
     # Z: desk.max_z (fallback) + clearance (0.0) - mug.min_z (0.0) = 0.1
-    assert abs(z - (desk_world.max_point[2] + 0.0 - mug.get_bounding_box().min_point[2])) < 1e-6
+    assert abs(z - (desk_world.max_point[0, 2] + 0.0 - mug.get_bounding_box().min_point[0, 2])) < 1e-6
 
 
 def test_on_init_reproducible_with_placement_seed():
