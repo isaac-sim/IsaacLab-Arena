@@ -298,11 +298,19 @@ class ObjectPlacer:
         self,
         positions: dict[Object | ObjectReference, tuple[float, float, float]],
     ) -> bool:
-        """Check that no two objects overlap in 3D (axis-aligned bbox with margin)."""
-        objects = list(positions.keys())
-        for i in range(len(objects)):
-            for j in range(i + 1, len(objects)):
-                a, b = objects[i], objects[j]
+        """Check that no two non-anchor objects overlap in 3D (axis-aligned bbox with clearance margin).
+
+        Only checks non-anchor pairs. Anchor-to-non-anchor overlap is expected when the
+        non-anchor sits On(anchor), so those pairs are skipped here; the solver's built-in
+        no-overlap loss handles them during optimization.
+        """
+        anchor_objects = get_anchor_objects(list(positions.keys()))
+        anchor_set = set(anchor_objects)
+        non_anchors = [obj for obj in positions if obj not in anchor_set]
+
+        for i in range(len(non_anchors)):
+            for j in range(i + 1, len(non_anchors)):
+                a, b = non_anchors[i], non_anchors[j]
 
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
