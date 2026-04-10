@@ -50,7 +50,7 @@ RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/Isaac
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
-RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.0 --extra-index-url https://pypi.nvidia.com
+RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.1.0 --extra-index-url https://pypi.nvidia.com
 
 # Upgrade pip ahead of the editable install
 RUN /isaac-sim/python.sh -m pip install --upgrade pip
