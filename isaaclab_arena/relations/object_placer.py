@@ -78,7 +78,7 @@ class ObjectPlacer:
                 placement (one layout per env).
             result_per_env: When True (default), each environment gets a distinct
                 layout. When False, a single best layout is solved and applied
-                identically to all environments (useful for deterministic evaluation).
+                identically to all environments.
 
         Returns:
             PlacementResult when a single layout is produced (num_envs=1 or
