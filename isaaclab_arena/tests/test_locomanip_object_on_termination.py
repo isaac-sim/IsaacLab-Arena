@@ -21,7 +21,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
+    from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceTask
     from isaaclab_arena.tasks.terminations import object_on_destination
     from isaaclab_arena.utils.pose import Pose
 
@@ -48,7 +48,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
 
     scene = Scene(assets=[background, brown_box, blue_sorting_bin])
 
-    task = G1LocomanipPickAndPlaceTask(
+    task = LocomanipPickAndPlaceTask(
         pick_up_object=brown_box,
         destination_location=blue_sorting_bin,
         background_scene=background,

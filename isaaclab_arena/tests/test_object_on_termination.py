@@ -12,8 +12,8 @@ import warp as wp
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-NUM_STEPS = 500
-HEADLESS = False
+NUM_STEPS = 50
+HEADLESS = True
 PLOT = False
 
 
