@@ -340,6 +340,66 @@ class AtPosition(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
+class WithinBox(RelationBase):
+    """Constrains object position to a world-coordinate axis-aligned box.
+
+    This is a unary relation (no parent) that keeps an object's center within
+    an axis-aligned bounding box in world coordinates. Each axis is independently
+    optional; any axis with neither min nor max set is unconstrained.
+
+    Note: Loss computation is handled by WithinBoxLossStrategy in relation_loss_strategies.py.
+
+    Usage:
+        # Keep object within a 1m cube centered at the origin
+        mug.add_relation(WithinBox(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
+
+        # Only constrain Z (object must stay above table surface)
+        mug.add_relation(WithinBox(z_min=0.8))
+    """
+
+    def __init__(
+        self,
+        x_min: float | None = None,
+        x_max: float | None = None,
+        y_min: float | None = None,
+        y_max: float | None = None,
+        z_min: float | None = None,
+        z_max: float | None = None,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            x_min: Lower bound on world X coordinate, or None to leave unconstrained.
+            x_max: Upper bound on world X coordinate, or None to leave unconstrained.
+            y_min: Lower bound on world Y coordinate, or None to leave unconstrained.
+            y_max: Upper bound on world Y coordinate, or None to leave unconstrained.
+            z_min: Lower bound on world Z coordinate, or None to leave unconstrained.
+            z_max: Upper bound on world Z coordinate, or None to leave unconstrained.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        assert (
+            x_min is not None
+            or x_max is not None
+            or y_min is not None
+            or y_max is not None
+            or z_min is not None
+            or z_max is not None
+        ), "At least one bound (x_min, x_max, y_min, y_max, z_min, or z_max) must be specified for WithinBox"
+        if x_min is not None and x_max is not None:
+            assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
+        if y_min is not None and y_max is not None:
+            assert y_min < y_max, f"y_min must be less than y_max, got y_min={y_min}, y_max={y_max}"
+        if z_min is not None and z_max is not None:
+            assert z_min < z_max, f"z_min must be less than z_max, got z_min={z_min}, z_max={z_max}"
+        self.x_min = x_min
+        self.x_max = x_max
+        self.y_min = y_min
+        self.y_max = y_max
+        self.z_min = z_min
+        self.z_max = z_max
+        self.relation_loss_weight = relation_loss_weight
+
+
 def get_anchor_objects(objects: list[Object | ObjectReference]) -> list[Object | ObjectReference]:
     """Get all anchor objects from a list of objects.
 
