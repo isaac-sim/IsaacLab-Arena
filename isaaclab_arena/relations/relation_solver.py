@@ -83,6 +83,11 @@ class RelationSolver:
         clearance = self.params.clearance_m
         all_objects = state.optimizable_objects + list(state.anchor_objects)
 
+        # Each non-anchor appears as "child" (receives gradient). For two non-anchors A and B,
+        # both (A-as-child, B-as-other) and (B-as-child, A-as-other) are computed so both get
+        # gradient. The .item() calls below detach the "other" position from the graph -- this
+        # is intentional. Do not switch to single-pair (i < j) iteration without also making
+        # the loss differentiable w.r.t. both positions.
         for child in state.optimizable_objects:
             child_pos = state.get_position(child)
             child_bbox = child.get_bounding_box()
