@@ -128,8 +128,8 @@ class NoCollision(Relation):
     TODO(zhx06): RelationSolver._compute_total_loss iterates every relation on every object with no
     deduplication. If both A.add_relation(NoCollision(B)) and B.add_relation(NoCollision(A))
     are present, loss is computed twice. Bidirectional NoCollision can also make the relation
-    graph cyclic and cause issues when creating the environment. Deduplicate and/or
-    add higher-level handling of symmetric relations.
+    graph cyclic and cause issues when creating the environment. Deduplication and/or
+    higher-level handling of symmetric relations to be addressed in a future commit.
     """
 
     def __init__(
