@@ -300,12 +300,9 @@ class ObjectPlacer:
     ) -> bool:
         """Check that no two objects overlap in 3D (axis-aligned bbox check).
 
-        Margin depends on the pair type:
-        - Non-anchor vs non-anchor: ``clearance_m`` margin (safety gap between siblings).
-        - Non-anchor vs anchor (with On relation): ``margin=0.0`` (they're adjacent by
-          design; only catch actual penetration).
-        - Non-anchor vs anchor (no On relation): ``margin=0.0`` (actual overlap only).
-        - Anchor vs anchor: skipped (both fixed, user's responsibility).
+        Non-anchor pairs must be separated by at least ``clearance_m``.
+        Anchor-to-non-anchor pairs must not have actual overlap (margin=0).
+        Anchor-to-anchor pairs are skipped (both fixed, user's responsibility).
         """
         anchor_objects = get_anchor_objects(list(positions.keys()))
         anchor_set = set(anchor_objects)
