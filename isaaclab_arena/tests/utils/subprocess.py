@@ -5,6 +5,7 @@
 
 import atexit
 import os
+import signal
 import subprocess
 import sys
 import traceback
@@ -16,6 +17,54 @@ from isaacsim import SimulationApp
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.tests.conftest import PYTEST_SESSION
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher, teardown_simulation_app
+
+_ORPHAN_PATTERNS = ("omni.telemetry.transmitter", "omni.kit", "carb.windowing")
+
+
+def _kill_kit_orphans():
+    """Kill Kit child processes (telemetry transmitters, etc.) that survive app.close().
+
+    On CPU-constrained CI runners, even one orphan telemetry transmitter can starve
+    the next Kit subprocess launch, eventually deadlocking Kit startup entirely.
+    ``_kill_child_processes()`` in simulation_app.py handles direct children via /proc,
+    but reparented orphans (e.g. telemetry transmitter adopted by PID 1) escape that
+    scan.  This function catches them by matching process names.
+    """
+    import re
+
+    try:
+        ps = subprocess.run(
+            ["ps", "-eo", "pid,ppid,comm,args"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return
+
+    our_pid = os.getpid()
+    killed = []
+    for line in ps.stdout.splitlines()[1:]:
+        line_lower = line.lower()
+        if not any(pat in line_lower for pat in _ORPHAN_PATTERNS):
+            continue
+        m = re.match(r"\s*(\d+)", line)
+        if not m:
+            continue
+        pid = int(m.group(1))
+        if pid == our_pid:
+            continue
+        try:
+            os.kill(pid, signal.SIGKILL)
+            killed.append(pid)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            pass
+
+    if killed:
+        print(f"[run_subprocess] Killed {len(killed)} orphan process(es): {killed}")
+
 
 # NOTE(alexmillane): Isaac Sim makes testing complicated. During shutdown Isaac Sim will
 # terminate the surrounding pytest process with exit code 0, regardless
@@ -30,27 +79,73 @@ _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
 _AT_LEAST_ONE_TEST_FAILED = False
 
+_SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "600"))
 
-def run_subprocess(cmd, env=None):
-    print(f"Running command: {cmd}")
+
+def run_subprocess(
+    cmd,
+    env=None,
+    timeout_sec: int | None = None,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess | None:
+    """Run a command in a subprocess with timeout and orphan cleanup.
+
+    Args:
+        cmd: Command to run (list of strings).
+        env: Optional environment dict.  Defaults to inheriting the parent env.
+        timeout_sec: Per-subprocess wall-clock timeout in seconds.
+            Defaults to ``_SUBPROCESS_TIMEOUT_SEC`` (env ``ISAACLAB_ARENA_SUBPROCESS_TIMEOUT``, fallback 600).
+        capture_output: If True, capture stdout/stderr and return a
+            ``CompletedProcess``.  When False (default) output streams to
+            the parent process and the function returns None on success.
+
+    Returns:
+        ``CompletedProcess`` when *capture_output* is True, else None.
+    """
+    if timeout_sec is None:
+        timeout_sec = _SUBPROCESS_TIMEOUT_SEC
+
+    print(f"Running command (timeout={timeout_sec}s): {cmd}")
     global _AT_LEAST_ONE_TEST_FAILED
+
+    if env is None:
+        env = os.environ.copy()
+    env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
+
+    # start_new_session=True isolates the child into its own process group.
+    # The child-side SimulationAppContext uses this to SIGTERM its entire
+    # group before os._exit(), preventing orphaned Kit children (shader
+    # compiler, GPU workers, …) from holding GPU resources and blocking
+    # the next subprocess.  After the child exits, _kill_kit_orphans()
+    # sweeps for any reparented Kit processes (e.g. telemetry transmitter)
+    # that escaped the child-side cleanup.
     try:
         result = subprocess.run(
             cmd,
-            check=True,
             env=env,
-            # Don't capture output, let it flow through in real-time
-            capture_output=False,
-            text=True,
-            # Explicitly set stdout and stderr to None to use parent process's pipes
-            stdout=None,
-            stderr=None,
+            timeout=timeout_sec,
+            capture_output=capture_output,
+            text=capture_output,
+            start_new_session=True,
         )
-        print(f"Command completed with return code: {result.returncode}")
-    except subprocess.CalledProcessError as e:
-        sys.stderr.write(f"Command failed with return code {e.returncode}: {e}\n")
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s\n")
         _AT_LEAST_ONE_TEST_FAILED = True
-        raise e
+        raise subprocess.SubprocessError(f"Subprocess timed out after {timeout_sec}s: {cmd}")
+    finally:
+        _kill_kit_orphans()
+
+    print(f"Command completed with return code: {result.returncode}")
+    if result.returncode != 0:
+        sys.stderr.write(f"Command failed with return code {result.returncode}\n")
+        if capture_output and result.stderr:
+            sys.stderr.write(result.stderr)
+        _AT_LEAST_ONE_TEST_FAILED = True
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+    if capture_output:
+        return result
+    return None
 
 
 class _IsolatedArgv:
@@ -108,7 +203,7 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
         first_headless, first_enable_cameras = _PERSISTENT_INIT_ARGS
         if (headless != first_headless) or (enable_cameras != first_enable_cameras):
             print(
-                "[isaac-arena] Warning: persistent SimulationApp already initialized with "
+                "[isaaclab-arena] Warning: persistent SimulationApp already initialized with "
                 f"headless={first_headless}, enable_cameras={first_enable_cameras}. "
                 "Ignoring new values."
             )
