@@ -195,7 +195,7 @@ NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA 
 
 We encourage the community to build and publish benchmarks on Isaac Lab-Arena. The recommended workflow:
 
-1. **Maintain your benchmark in your own repository.** Create a branch or package that integrates with Isaac Lab-Arena (e.g. an `IsaacLab-Arena` branch). See [RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) for a reference example.
+1. **Maintain your benchmark in your own repository.** Create a branch or package that integrates with Isaac Lab-Arena (e.g. an `IsaacLab-Arena` branch). See [RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) for a reference example. For detailed setup instructions — including repository layout, Dockerfile setup, and how to register custom environments/robots/tasks — see the [Arena in Your Repository](https://isaac-sim.github.io/IsaacLab-Arena/latest/pages/arena_in_your_repo/index.html) guide.
 2. **Reference your benchmark and Isaac Lab-Arena in publications.** When publishing on ArXiv or elsewhere, cite both your benchmark (by name, with a link to your repository) and Isaac Lab-Arena as the underlying evaluation framework.
 3. **List it here.** Open a PR to add your benchmark to the [Published Benchmarks](#published-benchmarks) list above. This README serves as the single source of truth for the Arena benchmark ecosystem so that community can discover and reuse.
 
