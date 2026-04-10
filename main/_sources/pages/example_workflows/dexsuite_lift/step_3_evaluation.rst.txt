@@ -9,7 +9,7 @@ Once inside the container, set the models directory:
 
 .. code-block:: bash
 
-   export MODELS_DIR=models/isaaclab_arena/dexsuite_lift
+   export MODELS_DIR=/models/isaaclab_arena/dexsuite_lift
    mkdir -p $MODELS_DIR
 
 This step evaluates a checkpoint using Arena's ``dexsuite_lift`` environment.
@@ -78,7 +78,9 @@ At the end of the run, metrics are printed to the console:
         dexsuite_lift
 
    However, the model behaviour may differ significantly when training and
-   evaluation use different physics backends.
+   evaluation use different physics backends. The above model, which was
+   trained with Newton, fails to grasp or lift the cube completely when
+   evaluated with PhysX.
 
 
 Parallel Environment Evaluation

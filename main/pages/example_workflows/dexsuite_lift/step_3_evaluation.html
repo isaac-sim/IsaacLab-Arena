@@ -465,7 +465,7 @@
 </pre></div>
 </div>
 <p>Once inside the container, set the models directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>models/isaaclab_arena/dexsuite_lift
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/dexsuite_lift
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_DIR</span>
 </pre></div>
 </div>
@@ -519,7 +519,9 @@ are at:</p>
 </pre></div>
 </div>
 <p>However, the model behaviour may differ significantly when training and
-evaluation use different physics backends.</p>
+evaluation use different physics backends. The above model, which was
+trained with Newton, fails to grasp or lift the cube completely when
+evaluated with PhysX.</p>
 </div>
 </section>
 <section id="parallel-environment-evaluation">

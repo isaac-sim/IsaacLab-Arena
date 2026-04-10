@@ -514,6 +514,25 @@ concatenated, each with 5-step history)</p></li>
 </pre></div>
 </div>
 </section>
+<section id="resuming-from-a-checkpoint">
+<h2>Resuming from a Checkpoint<a class="headerlink" href="#resuming-from-a-checkpoint" title="Link to this heading">#</a></h2>
+<p>To resume training from a previously saved checkpoint, use the <code class="docutils literal notranslate"><span class="pre">--resume</span></code> flag
+together with <code class="docutils literal notranslate"><span class="pre">--load_run</span></code> (run folder name) and <code class="docutils literal notranslate"><span class="pre">--checkpoint</span></code> (model filename).
+Both arguments are optional — when omitted, the most recent run and latest checkpoint
+are used automatically.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--task<span class="w"> </span>Isaac-Dexsuite-Kuka-Allegro-Lift-v0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">512</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--resume<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--load_run<span class="w"> </span>&lt;timestamp&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--checkpoint<span class="w"> </span>model_5000.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">presets</span><span class="o">=</span>newton<span class="w"> </span><span class="nv">presets</span><span class="o">=</span>cube
+</pre></div>
+</div>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">&lt;timestamp&gt;</span></code> with the run folder name under <code class="docutils literal notranslate"><span class="pre">logs/rsl_rl/dexsuite_kuka_allegro/</span></code>.
+If <code class="docutils literal notranslate"><span class="pre">--load_run</span></code> is omitted, the latest run is selected. If <code class="docutils literal notranslate"><span class="pre">--checkpoint</span></code> is omitted,
+the latest checkpoint in that run is loaded.</p>
+</section>
 <section id="monitoring-training">
 <h2>Monitoring Training<a class="headerlink" href="#monitoring-training" title="Link to this heading">#</a></h2>
 <p>Launch Tensorboard to monitor progress:</p>
@@ -588,6 +607,7 @@ accurate contact solver. For best results, use a powerful GPU (e.g., RTX
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training-command">Training Command</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overriding-hyperparameters">Overriding Hyperparameters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#resuming-from-a-checkpoint">Resuming from a Checkpoint</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#monitoring-training">Monitoring Training</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#expected-results">Expected Results</a></li>
 </ul>
