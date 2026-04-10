@@ -83,6 +83,8 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                     "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the"
                     " right of the shelf."
                 ),
+                force_threshold=0.5,
+                velocity_threshold=0.1,
             ),
             teleop_device=teleop_device,
         )
