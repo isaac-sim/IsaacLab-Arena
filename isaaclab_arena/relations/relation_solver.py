@@ -68,8 +68,9 @@ class RelationSolver:
     def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
         """Compute pairwise no-overlap loss for all object pairs.
 
-        Covers (non-anchor, non-anchor) pairs and (non-anchor, anchor) pairs.
-        Anchor-to-anchor pairs are skipped since anchors never move.
+        For each non-anchor object, computes overlap loss against every other object.
+        Anchor-to-anchor pairs are skipped (neither moves). Gradient flows to the
+        non-anchor object in each pair.
 
         Args:
             state: Current optimization state with object positions.
@@ -80,51 +81,32 @@ class RelationSolver:
         """
         total = torch.tensor(0.0)
         clearance = self.params.clearance_m
-        opt = state.optimizable_objects
+        all_objects = state.optimizable_objects + list(state.anchor_objects)
 
-        # Non-anchor vs non-anchor (both directions so each object gets gradient)
-        for i in range(len(opt)):
-            for j in range(i + 1, len(opt)):
-                obj_i, obj_j = opt[i], opt[j]
-                pos_i = state.get_position(obj_i)
-                pos_j = state.get_position(obj_j)
+        for child in state.optimizable_objects:
+            child_pos = state.get_position(child)
+            child_bbox = child.get_bounding_box()
 
-                # i as child, j as parent (gradient flows through pos_i)
-                world_bbox_j = obj_j.get_bounding_box().translated((pos_j[0].item(), pos_j[1].item(), pos_j[2].item()))
-                loss_ij = self._no_collision_strategy.compute_loss(
-                    clearance_m=clearance,
-                    child_pos=pos_i,
-                    child_bbox=obj_i.get_bounding_box(),
-                    parent_world_bbox=world_bbox_j,
-                )
+            for other in all_objects:
+                if other is child:
+                    continue
 
-                # j as child, i as parent (gradient flows through pos_j)
-                world_bbox_i = obj_i.get_bounding_box().translated((pos_i[0].item(), pos_i[1].item(), pos_i[2].item()))
-                loss_ji = self._no_collision_strategy.compute_loss(
-                    clearance_m=clearance,
-                    child_pos=pos_j,
-                    child_bbox=obj_j.get_bounding_box(),
-                    parent_world_bbox=world_bbox_i,
-                )
+                if other in state.anchor_objects:
+                    other_world_bbox = other.get_world_bounding_box()
+                else:
+                    other_pos = state.get_position(other)
+                    other_world_bbox = other.get_bounding_box().translated(
+                        (other_pos[0].item(), other_pos[1].item(), other_pos[2].item())
+                    )
 
-                loss = loss_ij + loss_ji
-                if debug and loss.item() > 0:
-                    print(f"  NoOverlap({obj_i.name}, {obj_j.name}): {loss.item():.6f}")
-                total = total + loss
-
-        # Non-anchor vs anchor
-        for obj in opt:
-            pos = state.get_position(obj)
-            for anchor in state.anchor_objects:
-                anchor_world_bbox = anchor.get_world_bounding_box()
                 loss = self._no_collision_strategy.compute_loss(
                     clearance_m=clearance,
-                    child_pos=pos,
-                    child_bbox=obj.get_bounding_box(),
-                    parent_world_bbox=anchor_world_bbox,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=other_world_bbox,
                 )
                 if debug and loss.item() > 0:
-                    print(f"  NoOverlap({obj.name}, {anchor.name}): {loss.item():.6f}")
+                    print(f"  NoOverlap({child.name}, {other.name}): {loss.item():.6f}")
                 total = total + loss
 
         return total
