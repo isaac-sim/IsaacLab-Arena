@@ -438,19 +438,10 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
 class WithinBoxLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for WithinBox relations.
 
-    For each constrained axis:
-    - Both bounds set: uses linear_band_loss to penalise positions outside [min, max].
-    - Only min set: uses single_boundary_linear_loss with penalty_side="less".
-    - Only max set: uses single_boundary_linear_loss with penalty_side="greater".
-    Unconstrained axes contribute zero loss.
+    Per constrained axis: band loss when both bounds set, boundary loss for a single bound.
     """
 
     def __init__(self, slope: float = 100.0):
-        """
-        Args:
-            slope: Gradient magnitude for linear loss (default: 100.0).
-                   Loss increases by `slope` per meter of violation.
-        """
         self.slope = slope
 
     def compute_loss(
@@ -459,52 +450,20 @@ class WithinBoxLossStrategy(UnaryRelationLossStrategy):
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for WithinBox relation.
-
-        Args:
-            relation: WithinBox relation with optional x/y/z min/max bounds.
-            child_pos: Child object position tensor (x, y, z) in world coords.
-            child_bbox: Child object local bounding box (unused, for signature consistency).
-
-        Returns:
-            Weighted loss tensor.
-        """
         total_loss = torch.tensor(0.0, dtype=child_pos.dtype, device=child_pos.device)
 
-        # X axis constraint
-        if relation.x_min is not None and relation.x_max is not None:
-            total_loss = total_loss + linear_band_loss(child_pos[0], relation.x_min, relation.x_max, slope=self.slope)
-        elif relation.x_min is not None:
-            total_loss = total_loss + single_boundary_linear_loss(
-                child_pos[0], relation.x_min, slope=self.slope, penalty_side="less"
-            )
-        elif relation.x_max is not None:
-            total_loss = total_loss + single_boundary_linear_loss(
-                child_pos[0], relation.x_max, slope=self.slope, penalty_side="greater"
-            )
-
-        # Y axis constraint
-        if relation.y_min is not None and relation.y_max is not None:
-            total_loss = total_loss + linear_band_loss(child_pos[1], relation.y_min, relation.y_max, slope=self.slope)
-        elif relation.y_min is not None:
-            total_loss = total_loss + single_boundary_linear_loss(
-                child_pos[1], relation.y_min, slope=self.slope, penalty_side="less"
-            )
-        elif relation.y_max is not None:
-            total_loss = total_loss + single_boundary_linear_loss(
-                child_pos[1], relation.y_max, slope=self.slope, penalty_side="greater"
-            )
-
-        # Z axis constraint
-        if relation.z_min is not None and relation.z_max is not None:
-            total_loss = total_loss + linear_band_loss(child_pos[2], relation.z_min, relation.z_max, slope=self.slope)
-        elif relation.z_min is not None:
-            total_loss = total_loss + single_boundary_linear_loss(
-                child_pos[2], relation.z_min, slope=self.slope, penalty_side="less"
-            )
-        elif relation.z_max is not None:
-            total_loss = total_loss + single_boundary_linear_loss(
-                child_pos[2], relation.z_max, slope=self.slope, penalty_side="greater"
-            )
+        for axis, (lo, hi) in enumerate(
+            [(relation.x_min, relation.x_max), (relation.y_min, relation.y_max), (relation.z_min, relation.z_max)]
+        ):
+            if lo is not None and hi is not None:
+                total_loss = total_loss + linear_band_loss(child_pos[axis], lo, hi, slope=self.slope)
+            elif lo is not None:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    child_pos[axis], lo, slope=self.slope, penalty_side="less"
+                )
+            elif hi is not None:
+                total_loss = total_loss + single_boundary_linear_loss(
+                    child_pos[axis], hi, slope=self.slope, penalty_side="greater"
+                )
 
         return relation.relation_loss_weight * total_loss
