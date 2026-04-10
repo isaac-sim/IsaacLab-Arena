@@ -307,7 +307,7 @@ class ObjectPlacer:
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
+                if a_world.overlaps(b_world, margin=self.params.solver_params.clearance_m):
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False
