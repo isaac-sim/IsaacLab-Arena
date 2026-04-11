@@ -318,9 +318,12 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../arena_in_your_repo/index.html">Arena in Your Repository</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
@@ -543,9 +546,15 @@ MP4 camera recordings, and dataset metadata.</p>
 <section id="step-2-post-train-policy">
 <h2>Step 2: Post-train Policy<a class="headerlink" href="#step-2-post-train-policy" title="Link to this heading">#</a></h2>
 <p>We post-train the GR00T N1.6 policy on the task.</p>
-<p>The GR00T N1.6 policy has 3 billion parameters so post-training is an an expensive operation.
-We provide one post-training option, 8 GPUs with 48GB memory, to achieve the best quality:</p>
+<p>The GR00T N1.6 policy has 3 billion parameters so post-training is an expensive operation.
+We provide one post-training option, 8 GPUs with 48GB memory, to achieve the best quality.</p>
 <p>Training takes approximately 4-8 hours on 8x L40s GPUs.</p>
+<p>Compute Requirements:</p>
+<ul class="simple">
+<li><p><strong>GPUs:</strong> 8x with at least 48 GB VRAM each (e.g. L40s, GB200, etc.)</p></li>
+<li><p><strong>System RAM:</strong> 256 GB or more recommended — multi-GPU training with large batch sizes
+and multiple dataloader workers requires substantial host memory</p></li>
+</ul>
 <p>Training Configuration:</p>
 <ul class="simple">
 <li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
@@ -553,7 +562,6 @@ We provide one post-training option, 8 GPUs with 48GB memory, to achieve the bes
 <li><p><strong>Frozen Modules:</strong> LLM (language model)</p></li>
 <li><p><strong>Batch Size:</strong> 96 (adjust based on GPU memory)</p></li>
 <li><p><strong>Training Steps:</strong> 20,000</p></li>
-<li><p><strong>GPUs:</strong> 8 (multi-GPU training)</p></li>
 </ul>
 <p>To post-train the policy, run the following command</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="nv">$GROOT_DEPS_DIR</span>:<span class="nv">$PYTHONPATH</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
