@@ -117,21 +117,32 @@ Create a file ``eval_config.json``:
 .. code-block:: json
 
    {
-     "policy_runner_args": {
-       "presets": "newton",
-       "policy_type": "rsl_rl",
-       "num_steps": 5000,
-       "num_envs": 64,
-       "env_spacing": 3
-     },
-     "evaluations": [
+     "jobs": [
        {
-         "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_7500.pt",
-         "environment": "dexsuite_lift"
+         "name": "dexsuite_lift_7500",
+         "arena_env_args": {
+           "environment": "dexsuite_lift",
+           "num_envs": 64,
+           "env_spacing": 3
+         },
+         "num_steps": 5000,
+         "policy_type": "rsl_rl",
+         "policy_config_dict": {
+           "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_7500.pt"
+         }
        },
        {
-         "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_14999.pt",
-         "environment": "dexsuite_lift"
+         "name": "dexsuite_lift_14999",
+         "arena_env_args": {
+           "environment": "dexsuite_lift",
+           "num_envs": 64,
+           "env_spacing": 3
+         },
+         "num_steps": 5000,
+         "policy_type": "rsl_rl",
+         "policy_config_dict": {
+           "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_14999.pt"
+         }
        }
      ]
    }
@@ -140,7 +151,7 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/eval_runner.py --presets newton --eval_jobs_config eval_config.json
 
 
 Understanding the Metrics
