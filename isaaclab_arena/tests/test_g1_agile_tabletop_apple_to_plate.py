@@ -18,7 +18,11 @@ ENABLE_CAMERAS = True
 
 
 def get_test_environment(num_envs: int):
-    """Build the G1 AGILE tabletop apple-to-plate environment for testing."""
+    """Build the G1 AGILE tabletop apple-to-plate environment for testing.
+
+    Uses a simplified scene layout (plain table, no spatial relations) to
+    isolate task termination logic from the full production environment.
+    """
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
