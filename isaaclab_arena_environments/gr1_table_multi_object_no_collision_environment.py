@@ -8,9 +8,10 @@ Table + multi-object no-overlap environment. Office table with objects placed vi
 On(table) with built-in no-overlap (relation solver). Includes a robot (e.g. GR1).
 No task -- suitable for policy_runner with zero_action or any policy.
 
-Example:
-  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
+Example (--viz kit enables the Kit visualizer, --episode_length_s triggers periodic resets):
+  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
+    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
+    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
 """
 
 import argparse
@@ -98,13 +99,19 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             ]
         )
 
-        def _enable_periodic_reset(cfg):
-            import isaaclab.envs.mdp as mdp_isaac_lab
-            from isaaclab.managers import TerminationTermCfg
+        episode_length_s = getattr(args_cli, "episode_length_s", None)
+        env_cfg_callback = None
+        if episode_length_s is not None:
 
-            cfg.episode_length_s = 5.0
-            cfg.terminations.time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-            return cfg
+            def _enable_periodic_reset(cfg):
+                import isaaclab.envs.mdp as mdp_isaac_lab
+                from isaaclab.managers import TerminationTermCfg
+
+                cfg.episode_length_s = episode_length_s
+                cfg.terminations.time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
+                return cfg
+
+            env_cfg_callback = _enable_periodic_reset
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
@@ -112,7 +119,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=NoTask(),
             teleop_device=teleop_device,
-            env_cfg_callback=_enable_periodic_reset,
+            env_cfg_callback=env_cfg_callback,
         )
         return isaaclab_arena_environment
 
@@ -127,3 +134,9 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         )
         parser.add_argument("--embodiment", type=str, default="gr1_joint", help="Robot embodiment to use")
         parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")
+        parser.add_argument(
+            "--episode_length_s",
+            type=float,
+            default=None,
+            help="Episode length in seconds. Enables time_out termination so objects are re-placed on reset.",
+        )
