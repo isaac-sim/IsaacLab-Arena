@@ -28,7 +28,6 @@ class ObjectType(Enum):
     BASE = "base"
     RIGID = "rigid"
     ARTICULATION = "articulation"
-    SPAWNER = "spawner"
 
 
 class ObjectBase(Asset, ABC):
@@ -191,8 +190,6 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_articulation_cfg()
         elif self.object_type == ObjectType.BASE:
             object_cfg = self._generate_base_cfg()
-        elif self.object_type == ObjectType.SPAWNER:
-            object_cfg = self._generate_spawner_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
         return object_cfg
@@ -263,8 +260,4 @@ class ObjectBase(Asset, ABC):
     @abstractmethod
     def _generate_base_cfg(self) -> AssetBaseCfg:
         # Subclasses must implement this method
-        pass
-
-    def _generate_spawner_cfg(self) -> AssetBaseCfg:
-        # Object Subclasses must implement this method
         pass
