@@ -192,6 +192,78 @@ def test_relation_solver_no_collision_produces_separated_positions():
     assert not bbox_a.overlaps(bbox_b).item(), f"Solver should separate boxes; box_a at {pos_a}, box_b at {pos_b}"
 
 
+def test_solver_respects_clearance_m():
+    """With clearance_m=0.05, solved boxes should be at least 5 cm apart."""
+    table, box_a, box_b = _create_no_collision_scene()
+    objects = [table, box_a, box_b]
+    initial_positions = [{
+        table: (0.0, 0.0, 0.0),
+        box_a: (0.2, 0.2, 0.11),
+        box_b: (0.25, 0.25, 0.11),
+    }]
+
+    solver_params = RelationSolverParams(max_iters=800, convergence_threshold=1e-6, clearance_m=0.05, verbose=False)
+    solver = RelationSolver(params=solver_params)
+    result = solver.solve(objects=objects, initial_positions=initial_positions)[0]
+
+    pos_a = result[box_a]
+    pos_b = result[box_b]
+    bbox_a = box_a.get_bounding_box().translated(pos_a)
+    bbox_b = box_b.get_bounding_box().translated(pos_b)
+
+    assert not bbox_a.overlaps(
+        bbox_b, margin=0.05
+    ).item(), f"Boxes should be at least 5 cm apart; box_a at {pos_a}, box_b at {pos_b}"
+
+
+def test_negative_clearance_m_raises():
+    """Negative clearance_m should be rejected."""
+    import pytest
+
+    with pytest.raises(ValueError):
+        RelationSolverParams(clearance_m=-0.01)
+
+
+def test_validation_accepts_on_parent_overlap():
+    """Non-anchor sitting On(anchor) should pass validation (On pairs are skipped)."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box = _create_box("box")
+    box.add_relation(On(table, clearance_m=0.01))
+
+    # Box at z=0.11 sits on top of table (bbox 0..0.1). With clearance_m=0.01
+    # the expanded table extends to 0.11, so they just touch. The On pair
+    # should be skipped by validation.
+    positions = {table: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.11)}
+
+    placer = ObjectPlacer(ObjectPlacerParams())
+    assert placer._validate_no_overlap(positions)
+
+
+def test_validation_rejects_non_anchor_overlap():
+    """Two overlapping non-anchor boxes should fail validation."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")
+    box_a.add_relation(On(table, clearance_m=0.01))
+    box_b.add_relation(On(table, clearance_m=0.01))
+
+    # Both boxes at nearly the same position -- they overlap
+    positions = {table: (0.0, 0.0, 0.0), box_a: (0.3, 0.3, 0.11), box_b: (0.35, 0.35, 0.11)}
+
+    placer = ObjectPlacer(ObjectPlacerParams())
+    assert not placer._validate_no_overlap(positions)
+
+
 def test_relation_solver_no_collision_same_inputs_reproducible():
     """Test that RelationSolver with same initial positions yields identical positions."""
     table1, box_a1, box_b1 = _create_no_collision_scene()
