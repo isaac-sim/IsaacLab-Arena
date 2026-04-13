@@ -123,7 +123,7 @@ class RelationSolver:
         return total_loss.mean()
 
     def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
-        """Compute pairwise no-overlap loss between all non-anchor objects.
+        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
 
         For each non-anchor object (child), computes overlap loss against every
         other object (anchors and non-anchors), skipping self-pairs.
