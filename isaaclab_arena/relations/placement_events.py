@@ -14,7 +14,7 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
-from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ def solve_and_place_objects(
         placer_params: Parameters forwarded to ``ObjectPlacer``. Seed is forced to
             ``None`` so each reset gets fresh randomness.
     """
-    if env_ids is None:
+    if env_ids is None or len(env_ids) == 0:
         return
 
     num_reset_envs = len(env_ids)
@@ -74,6 +74,17 @@ def solve_and_place_objects(
     # Identify anchors (fixed references) — their poses are not written.
     anchor_objects_set = set(get_anchor_objects(objects))
 
+    # RandomAroundSolution markers are intentionally not applied here: the solver
+    # already provides fresh randomness on every reset, and post-solve jitter could
+    # violate constraints (e.g. NoCollision). Warn so the omission is visible.
+    for obj in objects:
+        if obj not in anchor_objects_set:
+            if any(isinstance(r, RandomAroundSolution) for r in obj.get_relations()):
+                print(
+                    f"Warning: RandomAroundSolution on '{obj.name}' is ignored during reset "
+                    "(solver randomness provides per-reset variation)."
+                )
+
     # Pre-compute rotation for each non-anchor object (same across all envs).
     # Pattern matches ObjectPlacer._apply_positions.
     rotations: dict[str, tuple[float, float, float, float]] = {}
@@ -84,7 +95,11 @@ def solve_and_place_objects(
 
     # Write solved poses into each resetting environment.
     # Pattern follows set_object_pose_per_env in isaaclab_arena/terms/events.py.
+    zero_velocity = torch.zeros(1, 6, device=env.device)
     for local_idx, cur_env in enumerate(env_ids.tolist()):
+        if not results_per_env[local_idx].success:
+            continue  # keep previous layout for this env
+        env_id_tensor = torch.tensor([cur_env], device=env.device)
         positions = results_per_env[local_idx].positions
         for obj, pos in positions.items():
             if obj in anchor_objects_set:
@@ -93,7 +108,5 @@ def solve_and_place_objects(
             pose = Pose(position_xyz=pos, rotation_xyzw=rotations[obj.name])
             pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
             pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
-            asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=torch.tensor([cur_env], device=env.device))
-            asset.write_root_velocity_to_sim(
-                torch.zeros(1, 6, device=env.device), env_ids=torch.tensor([cur_env], device=env.device)
-            )
+            asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
+            asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
