@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, Relation, WithinBox
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, Relation, PositionLimits
 
 from isaaclab_arena.relations.relations import Side
 
@@ -435,8 +435,8 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
         return relation.relation_loss_weight * total_loss
 
 
-class WithinBoxLossStrategy(UnaryRelationLossStrategy):
-    """Loss strategy for WithinBox relations.
+class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
+    """Loss strategy for PositionLimits relations.
 
     Per constrained axis: band loss when both bounds are set, single-boundary
     loss when only one bound is set. Unconstrained axes contribute zero loss.
@@ -452,14 +452,14 @@ class WithinBoxLossStrategy(UnaryRelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "WithinBox",
+        relation: "PositionLimits",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for WithinBox relation.
+        """Compute loss for PositionLimits relation.
 
         Args:
-            relation: WithinBox relation with optional per-axis bounds.
+            relation: PositionLimits relation with optional per-axis bounds.
             child_pos: Object position tensor (x, y, z) in world coords.
             child_bbox: Object local bounding box (unused, for signature consistency).
 

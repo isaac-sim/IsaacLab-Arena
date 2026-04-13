@@ -3,14 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for WithinBox relation and WithinBoxLossStrategy."""
+"""Tests for PositionLimits relation and PositionLimitsLossStrategy."""
 
 import torch
 
 import pytest
 
-from isaaclab_arena.relations.relation_loss_strategies import WithinBoxLossStrategy
-from isaaclab_arena.relations.relations import WithinBox
+from isaaclab_arena.relations.relation_loss_strategies import PositionLimitsLossStrategy
+from isaaclab_arena.relations.relations import PositionLimits
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 # Dummy bounding box used for all strategy tests (child object is a 0.1m cube at origin)
@@ -18,75 +18,75 @@ _DUMMY_BBOX = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 
 
 
 # =============================================================================
-# WithinBox construction / validation tests
+# PositionLimits construction / validation tests
 # =============================================================================
 
 
-def test_within_box_requires_at_least_one_bound():
-    """WithinBox() with no bounds should raise AssertionError."""
+def test_position_limits_requires_at_least_one_bound():
+    """PositionLimits() with no bounds should raise AssertionError."""
 
     with pytest.raises(AssertionError):
-        WithinBox()
+        PositionLimits()
 
 
-def test_within_box_rejects_min_greater_than_max():
-    """WithinBox with x_min > x_max should raise AssertionError."""
+def test_position_limits_rejects_min_greater_than_max():
+    """PositionLimits with x_min > x_max should raise AssertionError."""
 
     with pytest.raises(AssertionError):
-        WithinBox(x_min=0.5, x_max=-0.5)
+        PositionLimits(x_min=0.5, x_max=-0.5)
 
 
-def test_within_box_allows_single_bound():
-    """WithinBox with only x_min should construct without error."""
+def test_position_limits_allows_single_bound():
+    """PositionLimits with only x_min should construct without error."""
 
-    relation = WithinBox(x_min=-0.3)
+    relation = PositionLimits(x_min=-0.3)
     assert relation.x_min == -0.3
     assert relation.x_max is None
 
 
 # =============================================================================
-# WithinBoxLossStrategy tests
+# PositionLimitsLossStrategy tests
 # =============================================================================
 
 
-def test_within_box_zero_loss_when_inside():
+def test_position_limits_zero_loss_when_inside():
     """Loss is approximately zero when position is inside the box."""
 
-    relation = WithinBox(x_min=-1.0, x_max=1.0, y_min=-1.0, y_max=1.0, z_min=0.0, z_max=2.0)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(x_min=-1.0, x_max=1.0, y_min=-1.0, y_max=1.0, z_min=0.0, z_max=2.0)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 0.0, 1.0])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
 
 
-def test_within_box_positive_loss_when_outside_x():
+def test_position_limits_positive_loss_when_outside_x():
     """Loss is positive when position exceeds x_max."""
 
-    relation = WithinBox(x_min=-1.0, x_max=1.0)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(x_min=-1.0, x_max=1.0)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
     child_pos = torch.tensor([2.0, 0.0, 0.0])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
     assert loss > 0.0
 
 
-def test_within_box_positive_loss_when_below_min():
+def test_position_limits_positive_loss_when_below_min():
     """Loss is positive when position is below y_min."""
 
-    relation = WithinBox(y_min=0.5, y_max=1.5)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(y_min=0.5, y_max=1.5)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 0.0, 0.0])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
     assert loss > 0.0
 
 
-def test_within_box_single_bound_min_only():
+def test_position_limits_single_bound_min_only():
     """With only x_min set: zero loss above bound, positive loss below."""
 
-    relation = WithinBox(x_min=0.5)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(x_min=0.5)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
 
     pos_above = torch.tensor([1.0, 0.0, 0.0])
     loss_above = strategy.compute_loss(relation, pos_above, _DUMMY_BBOX)
@@ -97,11 +97,11 @@ def test_within_box_single_bound_min_only():
     assert loss_below > 0.0
 
 
-def test_within_box_single_bound_max_only():
+def test_position_limits_single_bound_max_only():
     """With only x_max set: zero loss below bound, positive loss above."""
 
-    relation = WithinBox(x_max=0.5)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(x_max=0.5)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
 
     pos_below = torch.tensor([0.0, 0.0, 0.0])
     loss_below = strategy.compute_loss(relation, pos_below, _DUMMY_BBOX)
@@ -112,12 +112,12 @@ def test_within_box_single_bound_max_only():
     assert loss_above > 0.0
 
 
-def test_within_box_loss_scales_with_weight():
+def test_position_limits_loss_scales_with_weight():
     """weight=2.0 gives exactly 2x the loss of weight=1.0."""
 
-    relation_1x = WithinBox(x_min=-1.0, x_max=1.0, relation_loss_weight=1.0)
-    relation_2x = WithinBox(x_min=-1.0, x_max=1.0, relation_loss_weight=2.0)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation_1x = PositionLimits(x_min=-1.0, x_max=1.0, relation_loss_weight=1.0)
+    relation_2x = PositionLimits(x_min=-1.0, x_max=1.0, relation_loss_weight=2.0)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
     child_pos = torch.tensor([3.0, 0.0, 0.0])
 
     loss_1x = strategy.compute_loss(relation_1x, child_pos, _DUMMY_BBOX)
@@ -125,11 +125,11 @@ def test_within_box_loss_scales_with_weight():
     assert torch.isclose(loss_2x, 2.0 * loss_1x, rtol=1e-5)
 
 
-def test_within_box_z_constraint():
+def test_position_limits_z_constraint():
     """Z bounds are enforced like X and Y bounds."""
 
-    relation = WithinBox(z_min=0.0, z_max=1.0)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(z_min=0.0, z_max=1.0)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
 
     pos_inside = torch.tensor([0.0, 0.0, 0.5])
     loss_inside = strategy.compute_loss(relation, pos_inside, _DUMMY_BBOX)
@@ -140,11 +140,11 @@ def test_within_box_z_constraint():
     assert loss_outside > 0.0
 
 
-def test_within_box_unconstrained_axes_ignored():
+def test_position_limits_unconstrained_axes_ignored():
     """Only X constrained: extreme Y/Z values produce no loss."""
 
-    relation = WithinBox(x_min=-1.0, x_max=1.0)
-    strategy = WithinBoxLossStrategy(slope=10.0)
+    relation = PositionLimits(x_min=-1.0, x_max=1.0)
+    strategy = PositionLimitsLossStrategy(slope=10.0)
     child_pos = torch.tensor([0.0, 1e6, -1e6])
 
     loss = strategy.compute_loss(relation, child_pos, _DUMMY_BBOX)
@@ -163,8 +163,8 @@ from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.pose import Pose
 
 
-def test_solver_respects_within_box():
-    """Solver moves an object inside the WithinBox region."""
+def test_solver_respects_position_limits():
+    """Solver moves an object inside the PositionLimits region."""
     table = DummyObject(
         name="table",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.1)),
@@ -177,7 +177,7 @@ def test_solver_respects_within_box():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
     )
     box.add_relation(On(table, clearance_m=0.01))
-    box.add_relation(WithinBox(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
+    box.add_relation(PositionLimits(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
 
     initial_positions = {table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}
 

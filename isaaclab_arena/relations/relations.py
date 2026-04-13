@@ -42,7 +42,7 @@ class UnaryRelation(RelationBase):
     """Base class for unary spatial relations (no parent object).
 
     Unary relations constrain an object's position in world coordinates
-    without referencing another object (e.g., AtPosition, WithinBox).
+    without referencing another object (e.g., AtPosition, PositionLimits).
     """
 
     pass
@@ -350,14 +350,14 @@ class AtPosition(UnaryRelation):
         self.relation_loss_weight = relation_loss_weight
 
 
-class WithinBox(UnaryRelation):
+class PositionLimits(UnaryRelation):
     """Constrains object position to a world-coordinate axis-aligned box.
 
     Each axis is independently optional (None = unconstrained).
 
     Usage:
-        mug.add_relation(WithinBox(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
-        mug.add_relation(WithinBox(z_min=0.8))  # only constrain Z
+        mug.add_relation(PositionLimits(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
+        mug.add_relation(PositionLimits(z_min=0.8))  # only constrain Z
     """
 
     def __init__(
@@ -377,7 +377,7 @@ class WithinBox(UnaryRelation):
             or y_max is not None
             or z_min is not None
             or z_max is not None
-        ), "At least one bound (x_min, x_max, y_min, y_max, z_min, or z_max) must be specified for WithinBox"
+        ), "At least one bound (x_min, x_max, y_min, y_max, z_min, or z_max) must be specified for PositionLimits"
         if x_min is not None and x_max is not None:
             assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
         if y_min is not None and y_max is not None:
