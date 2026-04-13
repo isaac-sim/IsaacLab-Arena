@@ -14,13 +14,11 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
-from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
-
-_warned_random_around: set[str] = set()
 
 
 def solve_and_place_objects(
@@ -47,11 +45,7 @@ def solve_and_place_objects(
 
     num_reset_envs = len(env_ids)
 
-    # Re-solve with fresh randomness (seed=None). apply_positions_to_objects=False
-    # because we write poses directly to the simulation below;
-    # save_position_history=False because we don't need debug snapshots during resets.
-    # Exit inference_mode because policy_runner wraps env.step() in
-    # torch.inference_mode(), which disables autograd — but the solver needs it.
+    # Solver needs autograd, so temporarily exit any active inference_mode context.
     reset_solver_params = replace(placer_params.solver_params, save_position_history=False)
     reset_params = replace(
         placer_params,
@@ -66,42 +60,18 @@ def solve_and_place_objects(
 
     if isinstance(result, MultiEnvPlacementResult):
         results_per_env = result.results
-        n_succeeded = sum(1 for r in results_per_env if r.success)
-        print(f"Placement reset: {n_succeeded}/{num_reset_envs} env(s) solved in {result.attempts} attempt(s)")
     else:
         results_per_env = [result]
-        status = "succeeded" if result.success else "not completed"
-        print(f"Placement reset: {status} in {result.attempts} attempt(s)")
 
-    # Identify anchors (fixed references) — their poses are not written.
     anchor_objects_set = set(get_anchor_objects(objects))
-
-    # RandomAroundSolution markers are intentionally not applied here: the solver
-    # already provides fresh randomness on every reset, and post-solve jitter could
-    # violate constraints (e.g. NoCollision).
-    for obj in objects:
-        if obj not in anchor_objects_set:
-            if obj.name not in _warned_random_around and any(
-                isinstance(r, RandomAroundSolution) for r in obj.get_relations()
-            ):
-                _warned_random_around.add(obj.name)
-                print(
-                    f"Warning: RandomAroundSolution on '{obj.name}' is ignored during placement reset "
-                    "(solver randomness provides per-reset variation)."
-                )
-
-    # Pre-compute rotation for each non-anchor object (same across all envs).
-    # Pattern matches ObjectPlacer._apply_positions.
     rotations: dict[ObjectBase, tuple[float, float, float, float]] = {}
     for obj in objects:
         if obj not in anchor_objects_set:
             rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
             rotations[obj] = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
 
-    # Write solved poses into each resetting environment.
-    # Even when validation failed, write the best-effort positions — the solver's
-    # lowest-loss attempt is still better than the USD defaults (objects at origin).
-    # This matches the old build-time flow where _apply_positions was always called.
+    # Always write positions, even when validation failed — the solver's best-effort
+    # is still better than the USD defaults (objects at origin).
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for local_idx, cur_env in enumerate(env_ids.tolist()):
         env_id_tensor = torch.tensor([cur_env], device=env.device)
