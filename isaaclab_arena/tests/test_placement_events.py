@@ -93,6 +93,18 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
     assert any_different, "Unseeded multi-env placement should produce different positions across environments"
 
 
+def test_managed_by_placement_event_defaults_to_false():
+    """managed_by_placement_event should default to False on new objects."""
+    desk, box1, box2 = _create_test_objects()
+
+    assert box1.managed_by_placement_event is False
+    assert box2.managed_by_placement_event is False
+    assert desk.managed_by_placement_event is False
+
+    box1.managed_by_placement_event = True
+    assert box1.managed_by_placement_event is True
+
+
 def test_successive_seeded_placements_produce_same_layout():
     """Two place() calls with the same seed should produce identical positions."""
 
