@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
@@ -48,8 +49,9 @@ def solve_and_place_objects(
     # because we write poses directly to the simulation below.
     # Exit inference_mode because policy_runner wraps env.step() in
     # torch.inference_mode(), which disables autograd — but the solver needs it.
+    reset_solver_params = replace(placer_params.solver_params, save_position_history=False)
     reset_params = ObjectPlacerParams(
-        solver_params=placer_params.solver_params,
+        solver_params=reset_solver_params,
         max_placement_attempts=placer_params.max_placement_attempts,
         apply_positions_to_objects=False,
         verbose=False,
@@ -63,8 +65,12 @@ def solve_and_place_objects(
 
     if isinstance(result, MultiEnvPlacementResult):
         results_per_env = result.results
+        n_ok = sum(1 for r in results_per_env if r.success)
+        print(f"Placement reset: {n_ok}/{num_reset_envs} env(s) solved in {result.attempts} attempt(s)")
     else:
         results_per_env = [result]
+        status = "ok" if result.success else "failed"
+        print(f"Placement reset: {status} in {result.attempts} attempt(s)")
 
     # Identify anchors (fixed references) — their poses are not written.
     anchor_objects_set = set(get_anchor_objects(objects))

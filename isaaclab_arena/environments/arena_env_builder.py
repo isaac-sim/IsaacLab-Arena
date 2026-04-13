@@ -33,7 +33,7 @@ from isaaclab_arena.relations.placement_events import solve_and_place_objects
 from isaaclab_arena.relations.placement_pool import PlacementPool
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
-from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 
@@ -155,8 +155,6 @@ class ArenaEnvBuilder:
         )
         placement_event_cfg = None
         if self._placement_event_cfg is not None:
-            from isaaclab_arena.utils.configclass import make_configclass
-
             PlacementEventCfg = make_configclass(
                 "PlacementEventCfg",
                 [("placement_reset", EventTermCfg, self._placement_event_cfg)],
