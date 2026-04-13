@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the placement-on-reset event and managed_by_placement_event flag."""
+"""Tests for placement-on-reset event: fresh layouts on successive resets."""
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -17,6 +17,7 @@ from isaaclab_arena.utils.pose import Pose
 
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
+
     desk = DummyObject(
         name="desk",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
@@ -32,6 +33,7 @@ def _create_test_objects():
         name="box2",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
     )
+
     box1.add_relation(On(desk, clearance_m=0.01))
     box2.add_relation(On(desk, clearance_m=0.01))
     box2.add_relation(NextTo(box1, side=Side.POSITIVE_X, distance_m=0.05))
@@ -41,6 +43,7 @@ def _create_test_objects():
 
 def test_successive_placements_without_seed_produce_different_layouts():
     """Two place() calls with placement_seed=None should produce different positions."""
+
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     params = ObjectPlacerParams(
         solver_params=solver_params,
@@ -66,6 +69,7 @@ def test_successive_placements_without_seed_produce_different_layouts():
 
 def test_placement_without_seed_multi_env_gives_different_layouts():
     """Multi-env placement with seed=None should give distinct per-env layouts."""
+
     num_envs = 4
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     params = ObjectPlacerParams(
@@ -86,6 +90,7 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
 
 def test_successive_seeded_placements_produce_same_layout():
     """Two place() calls with the same seed should produce identical positions."""
+
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     params = ObjectPlacerParams(
         solver_params=solver_params,
