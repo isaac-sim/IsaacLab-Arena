@@ -5,10 +5,10 @@ Isaac Lab Arena supports three main ways to run policy evaluation: a single-job
 **policy runner** (single or multi-GPU), a **sequential batch eval runner** for
 multiple jobs in one process, and a **server–client** setup for remote policies. This
 section summarizes when to use each and how they work. Each section below links
-to the relevant concept docs: :doc:`Policy Design <../concepts/concept_policy_design>`,
-:doc:`Environment Design <../concepts/concept_environment_design>`,
-:doc:`Metrics Design <../concepts/concept_metrics_design>`, and
-:doc:`Remote Policies Design <../concepts/concept_remote_policies_design>`.
+to the relevant concept docs: :doc:`Policy Design <index>`,
+:doc:`Environment Design <../concept_overview>`,
+:doc:`Metrics Design <../task/concept_metrics_design>`, and
+:doc:`Remote Policies Design <concept_remote_policies_design>`.
 
 Summary
 -------
@@ -43,7 +43,7 @@ choice for ad-hoc runs, debugging, or when you want to drive one scenario with
 full control over CLI arguments.
 
 **Design context:** For how policies are defined and integrated with environments,
-see :doc:`Policy Design <../concepts/concept_policy_design>`.
+see :doc:`Policy Design <index>`.
 
 **Features:**
 
@@ -139,9 +139,9 @@ configurations (e.g. many objects or tasks) without launching multiple processes
 by hand. Persistence of the simulation application is maintained between jobs.
 
 **Design context:** For how environments are composed and how metrics are
-defined and computed, see :doc:`Environment Design <../concepts/concept_environment_design>`
-and :doc:`Metrics Design <../concepts/concept_metrics_design>`. Policies used per job
-follow :doc:`Policy Design <../concepts/concept_policy_design>`.
+defined and computed, see :doc:`Environment Design <../concept_overview>`
+and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per job
+follow :doc:`Policy Design <index>`.
 
 **Features:**
 
@@ -235,7 +235,7 @@ side, but the policy is a **client-side remote policy** that talks to a
 
 **Design context:** For the full remote policy design, protocol, and how to
 implement custom server-side and client-side policies, see
-:doc:`Remote Policies Design <../concepts/concept_remote_policies_design>`.
+:doc:`Remote Policies Design <concept_remote_policies_design>`.
 
 **Features:**
 
