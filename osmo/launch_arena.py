@@ -9,7 +9,7 @@
 Usage examples:
 
     # Default evaluation (zero_action on kitchen_pick_and_place)
-    python osmo/launch_arena.py
+    python osmo/launch_arena.py --pool isaac-dev-l40-03
 
     # Custom command
     python osmo/launch_arena.py \
@@ -26,10 +26,14 @@ Usage examples:
             isaaclab_arena/tests/'
 
     # Override resources
-    python osmo/launch_arena.py --gpus 2 --platform ovx-l40 --memory 128Gi --pool isaac-dev-l40-03
+    python osmo/launch_arena.py --gpus 2 --platform ovx-l40 --memory 128Gi \
+        --pool isaac-dev-l40-03 \
+        --command '/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+            --policy_type zero_action --num_steps 500 --headless \
+            kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
 
     # Dry run (print rendered YAML without submitting)
-    python osmo/launch_arena.py --dry-run
+    python osmo/launch_arena.py --pool isaac-dev-l40-03 --dry-run
 """
 
 from __future__ import annotations
