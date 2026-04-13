@@ -327,7 +327,7 @@ and add them to the scene:
 The builder automatically:
 
 - Collects all objects with at least one relation from the scene
-- Adds pairwise ``NoCollision`` constraints between all non-anchor objects (if not already present)
+- Enforces no-overlap between all object pairs automatically (built-in solver behavior, controlled by ``clearance_m``)
 - Creates an ``ObjectPlacer`` and runs placement
 - Sets the solved poses on the objects before handing them to Isaac Lab
 

@@ -8,7 +8,11 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy, UnaryRelationLossStrategy
+from isaaclab_arena.relations.relation_loss_strategies import (
+    NoCollisionLossStrategy,
+    RelationLossStrategy,
+    UnaryRelationLossStrategy,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
@@ -36,6 +40,7 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
+        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
@@ -111,8 +116,59 @@ class RelationSolver:
 
                 total_loss = total_loss + loss
 
+        # Add built-in no-overlap loss between all object pairs
+        total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
+
         self._last_loss_per_env = total_loss.detach().clone()
         return total_loss.mean()
+
+    def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+        """Compute pairwise no-overlap loss between all non-anchor objects.
+
+        For each non-anchor object (child), computes overlap loss against every
+        other object (anchors and non-anchors), skipping self-pairs.
+
+        Args:
+            state: Current optimization state with object positions.
+            debug: If True, print detailed loss breakdown.
+
+        Returns:
+            Per-environment loss tensor of shape (batch_size,).
+        """
+        batch_size = state.batch_size
+        device = state.optimizable_positions.device if state.optimizable_positions is not None else None
+        total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
+
+        all_objects = list(state.optimizable_objects) + list(state.anchor_objects)
+        non_anchor_objects = state.optimizable_objects
+
+        for child in non_anchor_objects:
+            child_pos = state.get_position(child)
+            child_bbox = child.get_bounding_box().to(device)
+
+            for other in all_objects:
+                if other is child:
+                    continue
+
+                if other in state.anchor_objects:
+                    other_world_bbox = other.get_world_bounding_box().to(device)
+                else:
+                    other_pos = state.get_position(other).detach()
+                    other_world_bbox = other.get_bounding_box().to(device).translated(other_pos)
+
+                loss = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=other_world_bbox,
+                )
+
+                if debug:
+                    print(f"  [NoOverlap] {child.name} vs {other.name}: loss={loss.mean().item():.6f}")
+
+                total_loss = total_loss + loss
+
+        return total_loss
 
     def solve(
         self,
@@ -293,7 +349,7 @@ def _print_unary_relation_debug(
     child_bbox = obj.get_bounding_box()
 
     target_str = ", ".join(
-        f"{axis}={getattr(relation, axis):.4f}" for axis in ("x", "y", "z") if getattr(relation, axis) is not None
+        f"{key}={value:.4f}" for key, value in relation.__dict__.items() if isinstance(value, (int, float))
     )
     print(f"\n=== {obj.name} -> {type(relation).__name__}({target_str}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
