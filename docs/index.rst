@@ -213,38 +213,24 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
+   :caption: Concepts
+
+   pages/concepts/concept_overview
+   pages/concepts/concept_environment_compilation
+   pages/concepts/scene/index
+   pages/concepts/task/index
+   pages/concepts/embodiment/index
+   pages/concepts/concept_object_placement
+   pages/concepts/policy/index
+
+.. toctree::
+   :maxdepth: 1
    :caption: Advanced
 
    pages/advanced/private_omniverse
    pages/advanced/assets_management
    pages/advanced/gr00t_server_client
    pages/quickstart/jupyter_notebooks
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Policy Evaluation
-
-   pages/policy_evaluation/index
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Concepts
-
-   pages/concepts/concept_overview
-   pages/concepts/concept_environment_design
-   pages/concepts/concept_embodiment_design
-   pages/concepts/concept_tasks_design
-   pages/concepts/concept_sequential_tasks_design
-   pages/concepts/concept_scene_design
-   pages/concepts/concept_metrics_design
-   pages/concepts/concept_teleop_devices_design
-   pages/concepts/concept_environment_compilation
-   pages/concepts/concept_assets_design
-   pages/concepts/concept_affordances_design
-   pages/concepts/concept_object_placement
-   pages/concepts/concept_policy_design
-   pages/concepts/concept_remote_policies_design
-
 
 .. toctree::
    :maxdepth: 1
