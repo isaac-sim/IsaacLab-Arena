@@ -42,6 +42,14 @@ class DummyObject:
         """Get local bounding box (relative to object origin)."""
         return self.bounding_box
 
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Get per-environment local bounding boxes (expanded from single bbox)."""
+        bbox = self.get_bounding_box()
+        return AxisAlignedBoundingBox(
+            min_point=bbox.min_point.expand(num_envs, 3),
+            max_point=bbox.max_point.expand(num_envs, 3),
+        )
+
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).
 

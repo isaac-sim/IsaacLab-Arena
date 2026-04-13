@@ -15,7 +15,8 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -66,12 +67,32 @@ class RelationSolver:
             )
         return strategy
 
-    def _compute_total_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+    def _get_bbox(
+        self,
+        obj: ObjectBase,
+        device: torch.device | None,
+        bboxes_per_row: dict[ObjectBase, AxisAlignedBoundingBox] | None,
+    ) -> AxisAlignedBoundingBox:
+        """Return the per-row or default local bbox for *obj*, moved to *device*."""
+        if bboxes_per_row is not None and obj in bboxes_per_row:
+            return bboxes_per_row[obj].to(device)
+        return obj.get_bounding_box().to(device)
+
+    def _compute_total_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+        bboxes_per_row: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+    ) -> torch.Tensor:
         """Compute total loss from all relations using registered strategies.
 
         Args:
             state: Current optimization state with object positions.
             debug: If True, print detailed loss breakdown.
+            bboxes_per_row: Optional per-row bboxes keyed by object. When
+                provided the bbox ``min_point`` / ``max_point`` have shape
+                ``(batch, 3)`` instead of ``(1, 3)``, enabling heterogeneous
+                object placement.
 
         Returns:
             Scalar loss tensor (mean over environments).
@@ -85,13 +106,14 @@ class RelationSolver:
             for relation in obj.get_spatial_relations():
                 child_pos = state.get_position(obj)
                 strategy = self._get_strategy(relation)
+                child_bbox = self._get_bbox(obj, device, bboxes_per_row)
 
                 # Handle unary relations (no parent)
                 if isinstance(relation, UnaryRelation):
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box().to(device),
+                        child_bbox=child_bbox,
                     )
                     if debug:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
@@ -102,11 +124,12 @@ class RelationSolver:
                         parent_world_bbox = parent.get_world_bounding_box().to(device)
                     else:
                         parent_pos = state.get_position(parent)
-                        parent_world_bbox = parent.get_bounding_box().to(device).translated(parent_pos)
+                        parent_bbox = self._get_bbox(parent, device, bboxes_per_row)
+                        parent_world_bbox = parent_bbox.translated(parent_pos)
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box().to(device),
+                        child_bbox=child_bbox,
                         parent_world_bbox=parent_world_bbox,
                     )
                     if debug:
@@ -198,6 +221,7 @@ class RelationSolver:
         self,
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        bboxes_per_row: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -206,6 +230,11 @@ class RelationSolver:
                 marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Use a single-element list
                 for single-env placement.
+            bboxes_per_row: Optional per-row bounding boxes keyed by object.
+                When provided, each ``AxisAlignedBoundingBox`` has shape
+                ``(batch, 3)`` so different batch rows can use different
+                geometry (heterogeneous placement). If ``None``, every row
+                uses the object's default ``get_bounding_box()``.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
@@ -235,7 +264,7 @@ class RelationSolver:
         # Compute initial loss so _last_loss_per_env is always populated
         # (needed even when max_iters=0, e.g. tests that only check init positions).
         with torch.no_grad():
-            self._compute_total_loss(state)
+            self._compute_total_loss(state, bboxes_per_row=bboxes_per_row)
 
         # Optimization loop
         loss_history = []
@@ -248,7 +277,7 @@ class RelationSolver:
                 position_history.append(state.get_all_positions_snapshot())
 
             # Compute total loss
-            loss = self._compute_total_loss(state)
+            loss = self._compute_total_loss(state, bboxes_per_row=bboxes_per_row)
             loss_history.append(loss.item())
 
             # Backprop and update (only optimizable positions will update)
