@@ -26,8 +26,7 @@ A clear and concise description of any alternative solutions or features you've 
 Describe the versions where you are observing the missing feature in:
 
 <!-- Please complete the following description. -->
-- Isaac Lab Version: [e.g. 3.0.0]
-- Isaac Sim Version: [e.g. 6.0, this can be obtained by `cat ${ISAACSIM_PATH}/VERSION`]
+- Arena Release: [e.g. Arena v0.2]
 
 ### Additional context
 
