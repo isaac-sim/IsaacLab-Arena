@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, Relation, NoCollision
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, Relation, PositionLimits
 
 from isaaclab_arena.relations.relations import Side
 
@@ -456,6 +456,71 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
         if relation.z is not None:
             z_loss = single_point_linear_loss(child_pos[:, 2], relation.z, slope=self.slope)
             total_loss = total_loss + z_loss
+
+        result = relation.relation_loss_weight * total_loss
+        return result.squeeze(0) if single_input else result
+
+
+class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
+    """Loss strategy for PositionLimits relations.
+
+    Per constrained axis: band loss when both bounds are set, single-boundary
+    loss when only one bound is set. Unconstrained axes contribute zero loss.
+    """
+
+    def __init__(self, slope: float = 100.0):
+        """
+        Args:
+            slope: Gradient magnitude for linear loss (default: 100.0).
+                   Loss increases by ``slope`` per meter of violation.
+        """
+        self.slope = slope
+
+    def compute_loss(
+        self,
+        relation: "PositionLimits",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for PositionLimits relation.
+
+        Args:
+            relation: PositionLimits relation with optional per-axis bounds.
+            child_pos: Child object position (N, 3) in world coords.
+            child_bbox: Object local bounding box (unused, for signature consistency).
+
+        Returns:
+            Weighted loss tensor of shape (N,).
+        """
+        single_input = child_pos.dim() == 1
+        if single_input:
+            child_pos = child_pos.unsqueeze(0)
+
+        total_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
+
+        # Iterate over X (0), Y (1), Z (2) with their optional bounds
+        axis_bounds = [
+            (relation.x_min, relation.x_max),
+            (relation.y_min, relation.y_max),
+            (relation.z_min, relation.z_max),
+        ]
+        for axis_index, (lower_bound, upper_bound) in enumerate(axis_bounds):
+            if lower_bound is not None and upper_bound is not None:
+                # Both bounds: zero inside [lower, upper], linear growth outside
+                total_loss = total_loss + linear_band_loss(
+                    child_pos[:, axis_index], lower_bound, upper_bound, slope=self.slope
+                )
+            elif lower_bound is not None:
+                # Only lower bound: penalize positions below it
+                total_loss = total_loss + single_boundary_linear_loss(
+                    child_pos[:, axis_index], lower_bound, slope=self.slope, penalty_side="less"
+                )
+            elif upper_bound is not None:
+                # Only upper bound: penalize positions above it
+                total_loss = total_loss + single_boundary_linear_loss(
+                    child_pos[:, axis_index], upper_bound, slope=self.slope, penalty_side="greater"
+                )
+            # Neither bound set: axis is unconstrained, no loss
 
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result

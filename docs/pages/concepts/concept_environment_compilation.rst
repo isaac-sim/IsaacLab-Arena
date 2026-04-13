@@ -1,131 +1,79 @@
-Environment Compilation Design
-================================
+Environment Compilation
+=======================
 
-Environment compilation transforms modular IsaacLab Arena Environment components into complete Isaac Lab Arena environment configurations.
-The system handles configuration merging, environment registration, and integration with Isaac Lab's architecture.
+Environment compilation is the step that turns the three independent components —
+scene, embodiment, and task — into a runnable Isaac Lab environment.
+``ArenaEnvBuilder`` does this by collecting the partial configuration each
+component contributes and merging them into a single
+``ManagerBasedRLEnvCfg``.
 
-Core Architecture
------------------
+.. figure:: ../../images/arena_env_builder.png
+   :width: 100%
+   :alt: ArenaEnvBuilder merges Scene, Embodiment, and Task into a ManagerBasedRLEnv
+   :align: center
 
-Compilation uses the ``ArenaEnvBuilder`` class:
-
-.. code-block:: python
-
-   class ArenaEnvBuilder:
-       """Compose IsaacLab Arena → Isaac Lab configs"""
-
-       def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
-           self.arena_env = arena_env
-           self.args = args
-
-       def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
-           """Combine configurations from all components."""
-           scene_cfg = combine_configclass_instances(
-               "SceneCfg",
-               self.DEFAULT_SCENE_CFG,
-               self.arena_env.scene.get_scene_cfg(),
-               self.arena_env.embodiment.get_scene_cfg(),
-               self.arena_env.task.get_scene_cfg()
-           )
-
-The builder transforms IsaacLab Arena environment definitions into Isaac Lab's configuration format through systematic component integration.
-
-Compilation in Detail
----------------------
-
-**Configuration Merging**
-   Systematic combination of component configurations:
-
-   - **Scene Configuration**: Merges default settings, scene assets, embodiment physics, and task-specific elements
-   - **Observation Configuration**: Extracts sensor data and state information from embodiment
-   - **Action Configuration**: Defines control interfaces from embodiment specifications
-   - **Event Configuration**: Combines reset and randomization logic from embodiment, scene, and task
-   - **Termination Configuration**: Merges success/failure conditions from task and scene components
-   - **Metrics Configuration**: Automatic recorder manager setup for performance evaluation
-   - **XR Configuration**: XR device locations for teleop integration (optional)
-   - **Teleop Device Configuration**: Teleop device configuration from embodiment
-   - **Recorder Manager Configuration**: Recorder manager configuration for performance evaluation
-
-**Environment Modes**
-   Support for different Isaac Lab environment types:
-
-   - **Standard Mode**: Full environment with observations, actions, events, terminations, and metrics
-   - **Mimic Mode**: Mimic environment with subtask definitions
-
-Environment Integration
------------------------
+   ``ArenaEnvBuilder`` merges the Scene, Embodiment, and Task into a runnable ``ManagerBasedRLEnv``.
 
 .. code-block:: python
 
-   # Create IsaacLab Arena environment definition
    environment = IsaacLabArenaEnvironment(
-       name="kitchen_manipulation",
-       embodiment=franka_embodiment,
-       scene=kitchen_scene,
-       task=pick_and_place_task,
-       teleop_device=keyboard_device
+       name="manipulation_task",
+       embodiment=embodiment,
+       scene=scene,
+       task=task,
    )
 
-   # Compile to Isaac Lab environment
-   env_builder = ArenaEnvBuilder(environment, args)
-
-   # Register and create executable environment
+   env_builder = ArenaEnvBuilder(environment, args_cli)
    env = env_builder.make_registered()
 
-   # Alternative: get both environment and configuration
-   env, cfg = env_builder.make_registered_and_return_cfg()
+How it works
+------------
 
-Usage Examples
---------------
+Each component (Scene, Embodiment, Task) exposes a set of ``get_*_cfg()`` methods that return its
+contribution to each Isaac Lab manager. The typical contributions of each component
+to each manager are tabulated below:
 
-**Standard Environment Compilation**
++-------------+------------------------------------------------------------------------+
+| Isaac Lab   | Isaac Lab - Arena Component                                            |
++ Manager     +-----------------------+-------------------------+----------------------+
+|             | Scene                 | Embodiment              | Task                 |
++=============+=======================+=========================+======================+
+| Scene       | assets, lights        | robot, sensors          | task-specific assets |
++-------------+-----------------------+-------------------------+----------------------+
+| Observations|                       | proprioception, cameras | goal observations    |
++-------------+-----------------------+-------------------------+----------------------+
+| Actions     |                       | control interface       |                      |
++-------------+-----------------------+-------------------------+----------------------+
+| Events      | object placement      | robot reset             | task reset           |
+| (resets)    |                       |                         |                      |
++-------------+-----------------------+-------------------------+----------------------+
+| Terminations|                       |                         | success, failure     |
++-------------+-----------------------+-------------------------+----------------------+
+| Rewards     |                       |                         | dense rewards (RL)   |
++-------------+-----------------------+-------------------------+----------------------+
+| Recorder    |                       |                         | metrics-required data|
++-------------+-----------------------+-------------------------+----------------------+
 
-.. code-block:: python
 
-   # Build standard RL environment
-   args.mimic = False
-   env_builder = ArenaEnvBuilder(arena_environment, args)
-   env = env_builder.make_registered()
+``ArenaEnvBuilder.compose_manager_cfg()`` first assembles the partial manager contributions
+from each component into a set of complete managers. Then it merges these complete managers
+into a single ``ManagerBasedRLEnvCfg``.
+The Arena Environment Builder also optionally solves spatial relations between
+objects (``--solve_relations``). See :doc:`./concept_object_placement` for more details.
 
-   # Environment ready for training/evaluation
-   obs, _ = env.reset()
-   actions = policy.get_action(env, obs)
-   obs, rewards, terminated, truncated, info = env.step(actions)
 
-**Mimic Environment Compilation**
+The compiled config is then registered with the gym registry under the
+environment's name, and ``gym.make()`` returns the gym environment.
 
-.. code-block:: python
+Mimic mode
+----------
 
-   # Build demonstration generation environment
-   args.mimic = True
-   env_builder = ArenaEnvBuilder(arena_environment, args)
-   env = env_builder.make_registered()
+Passing ``--mimic`` at the command line compiles a
+``ManagerBasedRLMimicEnv`` instead of a standard ``ManagerBasedRLEnv``.
+The mimic environment is used for demonstration generation and includes
+subtask configurations from the task. Metrics and recorders are excluded
+in mimic mode.
 
-   # Environment configured for mimic data generation
-   mimic_env.generate_demonstrations()
+.. code-block:: bash
 
-**Configuration Inspection**
-
-.. code-block:: python
-
-   # Examine compiled configuration before registration
-   env_builder = ArenaEnvBuilder(arena_environment, args)
-   cfg = env_builder.compose_manager_cfg()
-
-   print(f"Scene objects: {list(cfg.scene.keys())}")
-   print(f"Action space: {cfg.actions}")
-   print(f"Observation space: {cfg.observations}")
-
-**Runtime Parameter Override**
-
-.. code-block:: python
-
-   # Apply runtime configuration changes
-   name, cfg = env_builder.build_registered()
-   cfg = parse_env_cfg(
-       name,
-       device="cuda:0",
-       num_envs=1024,
-       use_fabric=True
-   )
-   env = gym.make(name, cfg=cfg)
+   python isaaclab_arena/scripts/imitation_learning/generate_dataset.py --mimic ...
