@@ -82,7 +82,7 @@ Step-by-Step Breakdown
 Here, we're selecting the specific pieces we need for our locomanipulation task: the Galileo arena as our background environment,
 an object to pick up, a blue sorting bin as our goal location, and the G1 embodiment.
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
-See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
+See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
 
 
 **2. Position the Objects**
@@ -116,7 +116,7 @@ currently set manually to create an achievable task.
     scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
 
 Now we bring everything together into a IsaacLab-Arena scene.
-See :doc:`../../concepts/concept_scene_design` for scene composition details.
+See :doc:`../../concepts/scene/index` for scene composition details.
 
 **4. Create the Locomanip Pick and Place Task**
 
@@ -129,7 +129,7 @@ environment: pick up the specified object and place it in the blue sorting bin.
 
 The task knows about the key objects involved (what to pick, where to place it, and the environment context) and will
 provide rewards, compute observations, and determine when the episode should end.
-See :doc:`../../concepts/concept_tasks_design` for task creation details.
+See :doc:`../../concepts/task/index` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
@@ -145,7 +145,7 @@ See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
 top-level container that connects your embodiment (the robot), the scene (the world) and the task (the objective).
-See :doc:`../../concepts/concept_environment_design` for environment composition details.
+See :doc:`../../concepts/concept_overview` for environment composition details.
 
 
 Step 1: Download a test dataset

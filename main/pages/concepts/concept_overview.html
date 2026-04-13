@@ -54,8 +54,8 @@
     <link rel="icon" href="../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Environment Design" href="concept_environment_design.html" />
-    <link rel="prev" title="Evaluation Types" href="../policy_evaluation/evaluation_types.html" />
+    <link rel="next" title="Environment Compilation" href="concept_environment_compilation.html" />
+    <link rel="prev" title="Evaluation in Arena" href="../example_workflows/dexsuite_lift/step_3_evaluation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -306,7 +306,7 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/first_experiments/index.html">Running your First Experiments</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy.html">Running a Real Policy</a></li>
 </ul>
@@ -314,7 +314,7 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
@@ -323,7 +323,7 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/imitation_learning/index.html">Imitation Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
@@ -350,7 +350,7 @@
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
@@ -366,36 +366,38 @@
 </ul>
 </details></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="task/concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="policy/concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="policy/concept_remote_policies_design.html">Remote Policies</a></li>
+</ul>
+</details></li>
+</ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../advanced/gr00t_server_client.html">Server-Client Mode With GR00T</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Policy Evaluation</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1 has-children"><a class="reference internal" href="../policy_evaluation/index.html">Policy Evaluation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../policy_evaluation/evaluation_types.html">Evaluation Types</a></li>
-</ul>
-</details></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Concept Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_design.html">Environment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_embodiment_design.html">Embodiment Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_tasks_design.html">Tasks Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_sequential_tasks_design.html">Sequential Tasks Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_scene_design.html">Scene Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_teleop_devices_design.html">Teleop Devices Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_environment_compilation.html">Environment Compilation Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_assets_design.html">Assets Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_affordances_design.html">Affordances Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_object_placement.html">Object Placement</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_policy_design.html">Policy Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_remote_policies_design.html">Remote Policies Design</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -453,38 +455,46 @@
                   
   <section id="concept-overview">
 <h1>Concept Overview<a class="headerlink" href="#concept-overview" title="Link to this heading">#</a></h1>
-<p>This section provides an overview of the core concepts in Isaac Lab Arena.</p>
+<p>Isaac Lab Arena aims to simplify the creation of task/environment libraries.
+The key to achieving that goal is the use of <em>composition</em>.
+Arena environments are composed of three independent sub-pieces:</p>
+<ul class="simple">
+<li><p><strong>Scene</strong>: The scene is a collection of objects, backgrounds, lights, etc.</p></li>
+<li><p><strong>Embodiment</strong>: The robot embodiment, its physical description, observations, actions, sensors etc.</p></li>
+<li><p><strong>Task</strong>: A definition of what is to be accomplished in the environment.</p></li>
+</ul>
 <figure class="align-center" id="id1">
-<a class="reference internal image-reference" href="../../_images/isaaclab_arena_core_framework.png"><img alt="Isaac Lab Arena Workflow" src="../../_images/isaaclab_arena_core_framework.png" style="width: 100%;" />
+<a class="reference internal image-reference" href="../../_images/isaac_lab_arena_arch_overview.png"><img alt="Isaac Lab Arena Workflow" src="../../_images/isaac_lab_arena_arch_overview.png" style="width: 90%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">IsaacLab Arena Workflow Overview</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-text">The architecture of Isaac Lab Arena. Evaluation environments are composed of
+three independent sub-pieces: Scene, Embodiment, and Task. These sub-pieces
+are passed to the Environment Compiler to produce an Isaac Lab manager-based
+environment.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>In the core of the workflow, we have three main components, <strong>Scene</strong>, <strong>Embodiment</strong>, and <strong>Task</strong>. We compile most of the managers of the
-manager-based RL environment from these three components. We strongly incline towards keeping these components as independent as possible. This
-allows us to reuse the components in different environments and tasks, thus making the framework more modular and easier to extend.</p>
-<p><strong>Embodiment</strong></p>
-<p>Embodiments define robot-specific configurations and behaviors. They provide a modular way to integrate different robots into environments,
-encapsulating kinematics, control actions, observations, terminations and camera systems. See <a class="reference internal" href="concept_embodiment_design.html"><span class="doc">Embodiment Design</span></a> for more details.</p>
-<p><strong>Task</strong></p>
-<p>Tasks define objectives, success criteria, and behavior logic for environments. They provide configurations for termination conditions, event handling,
-metrics collection, and mimic components. See <a class="reference internal" href="concept_tasks_design.html"><span class="doc">Tasks Design</span></a> for more details.</p>
-<p><strong>Scene</strong></p>
-<p>Scenes manage collections of assets that define the physical environment for simulation. They provide a unified interface for composing backgrounds,
-objects, and interactive elements. See <a class="reference internal" href="concept_scene_design.html"><span class="doc">Scene Design</span></a> for more details.</p>
-<p>When combining these three components we create the observation, action, event, termination, metrics, mimic components of the manager-based RL environment.
-For more details on how to combine these components, see <a class="reference internal" href="concept_environment_compilation.html"><span class="doc">Environment Compilation Design</span></a>.</p>
-<p>Other components of interest are the <strong>Affordances</strong> and the <strong>Metrics</strong>.</p>
-<p><strong>Affordances</strong></p>
-<p>Affordances define what interactions objects can perform - opening doors, pressing buttons, manipulating objects.
-They provide standardized interfaces that integrate with tasks and embodiments. See <a class="reference internal" href="concept_affordances_design.html"><span class="doc">Affordances Design</span></a> for more details.</p>
-<p><strong>Metrics</strong></p>
-<p>Metrics define the performance evaluation metrics for the environment.
-Some metrics are independent of the task and the embodiment, such as the success rate metric,
-while others are task-specific, such as open door rate metric. See <a class="reference internal" href="concept_metrics_design.html"><span class="doc">Metrics Design</span></a> for more details.</p>
-<p>These components together with teleoperation devices form the manager-based RL environment.
-See <a class="reference internal" href="concept_environment_design.html"><span class="doc">Environment Design</span></a> for more details on how these components are easily combined to create our environments.</p>
+<p>In code, this looks like:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">])</span>
+
+<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;manipulation_task&quot;</span><span class="p">,</span>
+    <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
+    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>  <span class="c1"># optional</span>
+<span class="p">)</span>
+
+<span class="n">env</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> compiles the scene, embodiment, and task configurations into
+a single Isaac Lab <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>. The <code class="docutils literal notranslate"><span class="pre">make_registered()</span></code> call registers
+the environment with the gym registry and returns it ready to run.</p>
+<p>Because these pieces are independent, they can be reused and combined freely.
+The same pick-and-place task works with any robot on any scene: swap the Franka
+for a G1, or the kitchen for a warehouse, with no changes to the task.
+This moves us from a library of monolithic environment descriptions to a library
+of environment <em>parts</em>.</p>
 </section>
 
 
@@ -498,20 +508,20 @@ See <a class="reference internal" href="concept_environment_design.html"><span c
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../policy_evaluation/evaluation_types.html"
+       href="../example_workflows/dexsuite_lift/step_3_evaluation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Evaluation Types</p>
+        <p class="prev-next-title">Evaluation in Arena</p>
       </div>
     </a>
     <a class="right-next"
-       href="concept_environment_design.html"
+       href="concept_environment_compilation.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Environment Design</p>
+        <p class="prev-next-title">Environment Compilation</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
