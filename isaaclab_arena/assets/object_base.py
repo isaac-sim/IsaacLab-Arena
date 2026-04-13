@@ -151,16 +151,15 @@ class ObjectBase(Asset, ABC):
                     "asset_cfgs": [SceneEntityCfg(self.name)],
                 },
             )
-        else:
-            params: dict = {
-                "pose": initial_pose,
-                "asset_cfg": SceneEntityCfg(self.name),
-                "velocity": self.initial_velocity,
-            }
+        else:  # Pose
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",
-                params=params,
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                    "velocity": self.initial_velocity,
+                },
             )
 
     def get_relations(self) -> list[RelationBase]:

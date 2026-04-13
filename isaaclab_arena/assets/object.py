@@ -8,6 +8,7 @@ from typing import Any
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
@@ -32,7 +33,7 @@ class Object(ObjectBase):
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
-        spawner_cfg=None,
+        spawner_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
@@ -43,6 +44,10 @@ class Object(ObjectBase):
             raise ValueError(f"Object '{name}' requires either usd_path or a spawner_cfg")
         # Detect object type if not provided
         if object_type is None:
+            assert usd_path is not None, (
+                "object_type is None (indicating auto-detect) but usd_path is also None. usd_path is required to detect"
+                " object type"
+            )
             object_type = detect_object_type(usd_path=usd_path)
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
@@ -177,7 +182,7 @@ class Object(ObjectBase):
                         "WARNING: Base object has lights, this may cause issues when using with multiple environments."
                     )
         object_cfg = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/" + self.name,
+            prim_path=self.prim_path,
             spawn=self._get_spawn_cfg(),
             **self.asset_cfg_addon,
         )
