@@ -179,11 +179,11 @@ def test_solver_respects_position_limits():
     box.add_relation(On(table, clearance_m=0.01))
     box.add_relation(PositionLimits(x_min=0.2, x_max=0.5, y_min=0.2, y_max=0.5))
 
-    initial_positions = {table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}
+    initial_positions = [{table: (0.0, 0.0, 0.0), box: (1.5, 1.5, 0.11)}]
 
     solver = RelationSolver(params=RelationSolverParams(max_iters=300, convergence_threshold=1e-4, verbose=False))
     result = solver.solve(objects=[table, box], initial_positions=initial_positions)
 
-    pos = result[box]
+    pos = result[0][box]
     assert 0.2 <= pos[0] <= 0.5, f"x={pos[0]} should be within [0.2, 0.5]"
     assert 0.2 <= pos[1] <= 0.5, f"y={pos[1]} should be within [0.2, 0.5]"

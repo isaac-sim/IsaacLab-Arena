@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, Relation, PositionLimits
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
