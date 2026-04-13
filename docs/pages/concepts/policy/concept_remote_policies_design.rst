@@ -1,12 +1,12 @@
-Remote Policies Design
-======================
+Remote Policies
+===============
 
 This section describes the generic remote policy interface in Isaac Lab Arena,
 how it is structured around server-side and client-side policies, and how to
 plug in your own remote policies.
 
 For running evaluation with a remote policy (server–client), see
-:doc:`Evaluation Types <../policy_evaluation/evaluation_types>`.
+:doc:`Evaluation Types <concept_evaluation_types>`.
 
 Overview
 --------
@@ -45,7 +45,7 @@ policy follows a different pattern, you can implement your own
 ``ClientSidePolicy`` subclass to adapt the raw actions from the remote
 model to the environment.
 
-.. figure:: ../../images/remote_policy_design.png
+.. figure:: ../../../images/remote_policy_design.png
    :align: center
    :width: 100%
 

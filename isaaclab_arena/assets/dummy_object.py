@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import torch
 
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 
@@ -36,7 +36,7 @@ class DummyObject:
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
+        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
