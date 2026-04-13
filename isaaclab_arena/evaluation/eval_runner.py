@@ -5,6 +5,7 @@
 
 import argparse
 import dataclasses
+import gymnasium as gym
 import json
 import os
 import traceback
@@ -16,8 +17,7 @@ from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
-from isaaclab_arena.utils.reload_modules import reload_arena_modules
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
 
@@ -26,8 +26,6 @@ if TYPE_CHECKING:
 
 
 def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
-
-    reload_arena_modules()
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
@@ -42,7 +40,7 @@ def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None =
 
     env = arena_builder.make_registered(env_cfg, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
-    return env
+    return env, env_name
 
 
 def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
@@ -122,9 +120,10 @@ def main():
         for job in job_manager:
             if job is not None:
                 env = None
+                env_name = None
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
-                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
+                    env, env_name = load_env(job.arena_env_args, job.name, render_mode=render_mode)
 
                     policy = get_policy_from_job(job)
 
@@ -172,11 +171,17 @@ def main():
                         raise
 
                 finally:
-                    # Only stop env if it was successfully created
                     if env is not None:
-                        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
-                        # cleanup managers, including recorder manager closing hdf5 file
+                        # 1. Close env: tears down managers (recorder closes HDF5),
+                        #    then sim.stop() + sim.clear_instance() (detaches PhysX, closes stage)
                         env.close()
+                        # 2. Remove gym registration to avoid collisions on next job
+                        if env_name is not None and env_name in gym.registry:
+                            del gym.registry[env_name]
+                        # 3. Create fresh USD stage for the next job (Kit stays alive)
+                        import omni.usd
+
+                        omni.usd.get_context().new_stage()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
