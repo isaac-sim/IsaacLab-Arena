@@ -69,6 +69,26 @@ class ObjectBase(Asset, ABC):
         """Get bounding box in world coordinates (local bbox rotated and translated)."""
         ...
 
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Get per-environment local bounding boxes.
+
+        For homogeneous objects the single local bbox is expanded to ``(num_envs, 3)``.
+        ``RigidObjectSet`` overrides this to return the actual bbox of each env's
+        variant, enabling heterogeneous placement.
+
+        Args:
+            num_envs: Number of environments.
+
+        Returns:
+            ``AxisAlignedBoundingBox`` with ``min_point`` / ``max_point`` of shape
+            ``(num_envs, 3)``.
+        """
+        bbox = self.get_bounding_box()
+        return AxisAlignedBoundingBox(
+            min_point=bbox.min_point.expand(num_envs, 3),
+            max_point=bbox.max_point.expand(num_envs, 3),
+        )
+
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
 

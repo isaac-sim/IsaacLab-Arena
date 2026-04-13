@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import torch
+
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -67,6 +69,7 @@ class RigidObjectSet(Object):
 
         self.objects: list[Object] = objects
         self.random_choice = random_choice
+        self.heterogeneous_bbox: bool = len(objects) > 1
 
         # Set default prim_path if not provided
         if prim_path is None:
@@ -89,6 +92,49 @@ class RigidObjectSet(Object):
         This is a heuristic to avoid objects spawning inside their support surfaces.
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
+
+    def get_variant_indices(self, num_envs: int) -> list[int]:
+        """Return which member object index is assigned to each environment.
+
+        When ``random_choice`` is False the mapping is round-robin
+        (``env_idx % len(objects)``).  When True, a random permutation is
+        generated (and cached so repeated calls with the same ``num_envs``
+        are deterministic within a session).
+
+        Args:
+            num_envs: Number of environments.
+
+        Returns:
+            List of length ``num_envs`` with indices into ``self.objects``.
+        """
+        n = len(self.objects)
+        if not self.random_choice:
+            return [i % n for i in range(num_envs)]
+
+        if not hasattr(self, "_cached_variant_indices") or len(self._cached_variant_indices) != num_envs:
+            self._cached_variant_indices = [int(i) for i in torch.randint(n, (num_envs,)).tolist()]
+        return self._cached_variant_indices
+
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Get the actual bounding box for each env's variant.
+
+        Unlike ``get_bounding_box()`` (which uses a max-z heuristic), this
+        returns the real local bbox of the variant assigned to each env,
+        enabling correct collision-free placement for heterogeneous scenes.
+
+        Args:
+            num_envs: Number of environments.
+
+        Returns:
+            ``AxisAlignedBoundingBox`` with ``min_point`` / ``max_point`` of
+            shape ``(num_envs, 3)``.
+        """
+        variant_indices = self.get_variant_indices(num_envs)
+        member_bboxes = [obj.get_bounding_box() for obj in self.objects]
+
+        min_pts = torch.stack([member_bboxes[idx].min_point[0] for idx in variant_indices], dim=0)
+        max_pts = torch.stack([member_bboxes[idx].max_point[0] for idx in variant_indices], dim=0)
+        return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We assume that by here, our USDs have been modified to be compatible with each other
