@@ -45,19 +45,18 @@ def solve_and_place_objects(
 
     num_reset_envs = len(env_ids)
 
-    # Re-solve with seed=None (fresh randomness) and apply_positions_to_objects=False
-    # because we write poses directly to the simulation below.
+    # Re-solve with fresh randomness (seed=None). apply_positions_to_objects=False
+    # because we write poses directly to the simulation below;
+    # save_position_history=False because we don't need debug snapshots during resets.
     # Exit inference_mode because policy_runner wraps env.step() in
     # torch.inference_mode(), which disables autograd — but the solver needs it.
     reset_solver_params = replace(placer_params.solver_params, save_position_history=False)
-    reset_params = ObjectPlacerParams(
+    reset_params = replace(
+        placer_params,
         solver_params=reset_solver_params,
-        max_placement_attempts=placer_params.max_placement_attempts,
         apply_positions_to_objects=False,
         verbose=False,
         placement_seed=None,
-        min_separation_m=placer_params.min_separation_m,
-        on_relation_z_tolerance_m=placer_params.on_relation_z_tolerance_m,
     )
     placer = ObjectPlacer(params=reset_params)
     with torch.inference_mode(False):

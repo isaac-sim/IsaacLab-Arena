@@ -50,7 +50,6 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
-        self.managed_by_placement_event: bool = False
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.
@@ -121,12 +120,8 @@ class ObjectBase(Asset, ABC):
     def _requires_reset_pose_event(self) -> bool:
         """Whether a reset-event for the initial pose should be generated.
 
-        Returns False when the object is managed by a coordinated placement
-        event (``managed_by_placement_event``), since that event handles reset.
         Subclasses may override to add extra conditions (e.g. a ``reset_pose`` flag).
         """
-        if self.managed_by_placement_event:
-            return False
         return self.get_initial_pose() is not None and self.object_type in (
             ObjectType.RIGID,
             ObjectType.ARTICULATION,
