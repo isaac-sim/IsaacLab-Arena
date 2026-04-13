@@ -1,0 +1,91 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+version: 2
+workflow:
+  name: {{ workflow_name }}
+  groups:
+  - name: arena
+    tasks:
+    - args:
+      - /tmp/entry.sh
+      command:
+      - bash
+      credentials:
+        omni_svc:
+          OMNI_PASS: omni_pass
+          OMNI_USER: omni_user
+      downloadType: download
+      environment:
+        ACCEPT_EULA: "Y"
+        PRIVACY_CONSENT: "Y"
+        ISAACLAB_PATH: /workspaces/isaaclab_arena/submodules/IsaacLab
+        REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+        PYTHONUNBUFFERED: "1"
+      files:
+      - contents: |-
+          set -euxo pipefail
+
+          # Run ldconfig to ensure shared libraries are found (mirrors entrypoint.sh)
+          ldconfig
+
+          # Ensure required directories exist
+          mkdir -p /datasets /models /eval
+
+          # Ensure the Isaac Sim symlink exists
+          [ -e /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim ] || \
+            ln -s /isaac-sim/ /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim
+
+          # Display system info
+          nvidia-smi
+          cd /workspaces/isaaclab_arena
+
+          # Overwrite LFS pointer stubs with real data uploaded from local machine.
+          # OSMO nests under: {{input:0}}/arena-lfs-data/test_data/
+          if [ -d "{{input:0}}/arena-lfs-data/test_data" ]; then
+            cp -r "{{input:0}}/arena-lfs-data/test_data/"* \
+              /workspaces/isaaclab_arena/isaaclab_arena/tests/test_data/
+          fi
+
+          {{ command }}
+
+
+        path: /tmp/entry.sh
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      inputs:
+      # Use LFS-tracked test data uploaded from the local machine.
+      - dataset:
+          name: arena-lfs-data
+      lead: true
+      name: master
+  resources:
+    default:
+      cpu: {{ cpus }}
+      gpu: {{ gpus }}
+      memory: {{ memory }}
+      platform: {{ platform }}
+      storage: {{ storage }}
+  timeout:
+    exec_timeout: {{ exec_timeout }}
+    queue_timeout: {{ queue_timeout }}
+
+default-values:
+  workflow_name: arena-evaluation
+  cpus: 15
+  gpus: 1
+  memory: 64Gi
+  storage: 200Gi
+  platform: ovx-l40
+  exec_timeout: 1d
+  queue_timeout: 2d
+
+  command: >-
+    /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+    --policy_type zero_action \
+    --num_steps 100 \
+    --headless \
+    kitchen_pick_and_place \
+    --object cracker_box \
+    --embodiment franka_ik
