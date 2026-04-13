@@ -99,12 +99,22 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
                 light,
             ]
         )
+
+        def _enable_periodic_reset(cfg):
+            import isaaclab.envs.mdp as mdp_isaac_lab
+            from isaaclab.managers import TerminationTermCfg
+
+            cfg.episode_length_s = 5.0
+            cfg.terminations.time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
+            return cfg
+
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
             task=NoTask(),
             teleop_device=teleop_device,
+            env_cfg_callback=_enable_periodic_reset,
         )
         return isaaclab_arena_environment
 
