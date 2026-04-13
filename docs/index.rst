@@ -199,12 +199,10 @@ TABLE OF CONTENTS
    pages/quickstart/first_experiments/index
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Arena in Your Repo
 
-   pages/arena_in_your_repo/external_installation
-   pages/arena_in_your_repo/external_environments
-   pages/arena_in_your_repo/external_tasks_and_embodiments
+   pages/arena_in_your_repo/index
 
 .. toctree::
    :maxdepth: 1

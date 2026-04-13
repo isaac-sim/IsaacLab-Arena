@@ -23,6 +23,8 @@ def object_on_destination(
     contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
+    destination_cfg: SceneEntityCfg | None = None,
+    max_distance: float = 0.0,
 ) -> torch.Tensor:
     object: RigidObject = env.unwrapped.scene[object_cfg.name]
     sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
@@ -42,6 +44,23 @@ def object_on_destination(
     velocity_below_threshold = velocity_w_norm < velocity_threshold
 
     condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
+
+    # Optional proximity guard: require the object to be within max_distance
+    # of the destination.  The GPU physics pipeline can report spurious
+    # contact-sensor forces between objects that are far apart, so this
+    # ensures we only consider the termination when the object is physically
+    # near the destination.
+    if destination_cfg is not None and max_distance > 0.0:
+        destination = env.unwrapped.scene[destination_cfg.name]
+        object_pos_w = wp.to_torch(object.data.root_pos_w)
+        if hasattr(destination, "data"):
+            destination_pos_w = wp.to_torch(destination.data.root_pos_w)
+        else:
+            destination_pos_w = wp.to_torch(destination.get_world_poses()[0])
+        distance = torch.norm(object_pos_w - destination_pos_w, dim=-1)
+        close_enough = distance < max_distance
+        condition_met = torch.logical_and(condition_met, close_enough)
+
     return condition_met
 
 
@@ -51,6 +70,8 @@ def objects_on_destinations(
     contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
+    destination_cfg_list: list[SceneEntityCfg] | None = None,
+    max_distance: float = 0.0,
 ) -> torch.Tensor:
     """Multi-object version of `object_on_destination`.
 
@@ -58,13 +79,16 @@ def objects_on_destinations(
     See `object_on_destination` for details on the single-object logic.
     """
     condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
-    for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
+    dest_cfgs = destination_cfg_list or [None] * len(object_cfg_list)
+    for object_cfg, contact_sensor_cfg, dest_cfg in zip(object_cfg_list, contact_sensor_cfg_list, dest_cfgs):
         single_condition = object_on_destination(
             env=env,
             object_cfg=object_cfg,
             contact_sensor_cfg=contact_sensor_cfg,
             force_threshold=force_threshold,
             velocity_threshold=velocity_threshold,
+            destination_cfg=dest_cfg,
+            max_distance=max_distance,
         )
         condition_met = torch.logical_and(condition_met, single_condition)
     return condition_met
@@ -241,7 +265,9 @@ def goal_pose_task_termination(
 
 
 def root_height_below_minimum_multi_objects(
-    env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
+    env: ManagerBasedRLEnv,
+    minimum_height: float,
+    asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")],
 ) -> torch.Tensor:
     """Terminate when any asset's root height is below the minimum height.
 
