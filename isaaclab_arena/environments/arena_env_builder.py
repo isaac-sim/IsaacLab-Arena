@@ -12,6 +12,7 @@ import gymnasium as gym
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
+from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
@@ -27,9 +28,10 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+from isaaclab_arena.relations.placement_events import solve_and_place_objects
+from isaaclab_arena.relations.placement_pool import PlacementPool
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
@@ -45,6 +47,7 @@ class ArenaEnvBuilder:
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
+        self._placement_event_cfg: EventTermCfg | None = None
 
     def orchestrate(self) -> None:
         """Orchestrate the environment member interaction"""
@@ -77,38 +80,34 @@ class ArenaEnvBuilder:
 
         This method:
         1. Collects all objects from the scene that have relations
-        2. Runs the ObjectPlacer to solve spatial constraints (no-overlap is built into the solver)
-        3. Applies solved positions to objects
+        2. Pre-solves a pool of layouts and registers a reset event that draws from it
+           (no-overlap is built into the solver)
         """
-        # All objects with relations are subjects of the relation solving.
         objects_with_relations = self._get_objects_with_relations()
 
         if not objects_with_relations:
             print("No objects with relations found in scene. Skipping relation solving.")
             return
 
-        # Run the ObjectPlacer (default on_relation_z_tolerance_m accommodates solver residual).
-        # Positions are applied to objects via set_initial_pose (single-env: Pose/PoseRange,
-        # multi-env: PosePerEnv), so each object's event_cfg handles its own reset.
-        placement_seed = getattr(self.args, "placement_seed", None)
-        placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=placement_seed))
-        num_envs = self.args.num_envs
-        result = placer.place(objects_with_relations, num_envs=num_envs)
-
-        # Log outcome
-        if isinstance(result, MultiEnvPlacementResult):
-            n_succeeded = sum(1 for r in result.results if r.success)
-            if n_succeeded == num_envs:
-                print(f"Relation solving succeeded for all {num_envs} env(s) after {result.attempts} attempt(s)")
-            else:
-                print(
-                    f"Relation solving: {n_succeeded}/{num_envs} env(s) passed validation after"
-                    f" {result.attempts} attempt(s)."
-                )
-        elif result.success:
-            print(f"Relation solving succeeded after {result.attempts} attempt(s)")
-        else:
-            print(f"Warning: Relation solving not completed after {result.attempts} attempt(s)")
+        placer_params = ObjectPlacerParams(
+            placement_seed=self.args.placement_seed,
+            apply_positions_to_objects=False,
+            solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+        )
+        pool_size = max(self.args.num_envs * 10, 100)
+        placement_pool = PlacementPool(
+            objects=objects_with_relations,
+            placer_params=placer_params,
+            pool_size=pool_size,
+        )
+        self._placement_event_cfg = EventTermCfg(
+            func=solve_and_place_objects,
+            mode="reset",
+            params={
+                "objects": objects_with_relations,
+                "placement_pool": placement_pool,
+            },
+        )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -154,11 +153,21 @@ class ArenaEnvBuilder:
             embodiment.get_observation_cfg(),
             task.get_observation_cfg(),
         )
+        placement_event_cfg = None
+        if self._placement_event_cfg is not None:
+            from isaaclab_arena.utils.configclass import make_configclass
+
+            PlacementEventCfg = make_configclass(
+                "PlacementEventCfg",
+                [("placement_reset", EventTermCfg, self._placement_event_cfg)],
+            )
+            placement_event_cfg = PlacementEventCfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
+            placement_event_cfg,
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",

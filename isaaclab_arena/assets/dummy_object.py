@@ -27,6 +27,7 @@ class DummyObject:
         self.bounding_box = bounding_box
         assert self.bounding_box is not None
         self.relations = []
+        self.managed_by_placement_event: bool = False
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)
