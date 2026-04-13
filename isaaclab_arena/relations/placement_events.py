@@ -20,6 +20,8 @@ from isaaclab_arena.utils.pose import Pose
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
+_warned_random_around: set[str] = set()
+
 
 def solve_and_place_objects(
     env: ManagerBasedEnv,
@@ -64,11 +66,11 @@ def solve_and_place_objects(
 
     if isinstance(result, MultiEnvPlacementResult):
         results_per_env = result.results
-        n_ok = sum(1 for r in results_per_env if r.success)
-        print(f"Placement reset: {n_ok}/{num_reset_envs} env(s) solved in {result.attempts} attempt(s)")
+        n_succeeded = sum(1 for r in results_per_env if r.success)
+        print(f"Placement reset: {n_succeeded}/{num_reset_envs} env(s) solved in {result.attempts} attempt(s)")
     else:
         results_per_env = [result]
-        status = "ok" if result.success else "failed"
+        status = "succeeded" if result.success else "not completed"
         print(f"Placement reset: {status} in {result.attempts} attempt(s)")
 
     # Identify anchors (fixed references) — their poses are not written.
@@ -76,36 +78,39 @@ def solve_and_place_objects(
 
     # RandomAroundSolution markers are intentionally not applied here: the solver
     # already provides fresh randomness on every reset, and post-solve jitter could
-    # violate constraints (e.g. NoCollision). Warn so the omission is visible.
+    # violate constraints (e.g. NoCollision).
     for obj in objects:
         if obj not in anchor_objects_set:
-            if any(isinstance(r, RandomAroundSolution) for r in obj.get_relations()):
+            if obj.name not in _warned_random_around and any(
+                isinstance(r, RandomAroundSolution) for r in obj.get_relations()
+            ):
+                _warned_random_around.add(obj.name)
                 print(
-                    f"Warning: RandomAroundSolution on '{obj.name}' is ignored during reset "
+                    f"Warning: RandomAroundSolution on '{obj.name}' is ignored during placement reset "
                     "(solver randomness provides per-reset variation)."
                 )
 
     # Pre-compute rotation for each non-anchor object (same across all envs).
     # Pattern matches ObjectPlacer._apply_positions.
-    rotations: dict[str, tuple[float, float, float, float]] = {}
+    rotations: dict[ObjectBase, tuple[float, float, float, float]] = {}
     for obj in objects:
         if obj not in anchor_objects_set:
             rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
-            rotations[obj.name] = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
+            rotations[obj] = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
 
     # Write solved poses into each resetting environment.
-    # Pattern follows set_object_pose_per_env in isaaclab_arena/terms/events.py.
+    # Even when validation failed, write the best-effort positions — the solver's
+    # lowest-loss attempt is still better than the USD defaults (objects at origin).
+    # This matches the old build-time flow where _apply_positions was always called.
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for local_idx, cur_env in enumerate(env_ids.tolist()):
-        if not results_per_env[local_idx].success:
-            continue  # keep previous layout for this env
         env_id_tensor = torch.tensor([cur_env], device=env.device)
         positions = results_per_env[local_idx].positions
         for obj, pos in positions.items():
             if obj in anchor_objects_set:
                 continue
             asset = env.scene[obj.name]
-            pose = Pose(position_xyz=pos, rotation_xyzw=rotations[obj.name])
+            pose = Pose(position_xyz=pos, rotation_xyzw=rotations[obj])
             pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
             pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
             asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
