@@ -1,9 +1,12 @@
-Sequential Tasks Design
-=======================
+Sequential Tasks
+================
 
 Tasks can be composed sequentially to form longer horizon, more complex tasks using the ``SequentialTaskBase`` class.
 ``SequentialTaskBase`` takes a list of ``TaskBase`` instances and automatically composes them into a single task.
 The order of the tasks in the list determines the order in which subtasks must be completed.
+Internally, the Arena Environment Builder will automatically track that each sub-task is
+completed successfully in turn.
+It will also automatically compose the sub-task metrics, resets etc.
 
 **Usage Example (Pick and Place Task and Close Door Task Composition)**
 
@@ -18,6 +21,7 @@ The order of the tasks in the list determines the order in which subtasks must b
 
     sequential_task = SequentialTaskBase(subtasks=[pick_and_place_task, close_door_task])
 
-**Available Examples**
-
-- **PutAndCloseDoorTask**: Pick up and move an object to a destination location and then close a door (within **GR1PutAndCloseDoorEnvironment**).
+We demonstrate the use of a sequential task in one of our workflows.
+See :doc:`../../example_workflows/sequential_static_manipulation/index` to see a
+sequential task is use - picking up an object and placing it in a refrigerator and then
+closing the door.
