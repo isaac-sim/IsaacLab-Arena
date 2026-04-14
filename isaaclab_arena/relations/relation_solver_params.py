@@ -57,5 +57,4 @@ class RelationSolverParams:
     """Loss strategies for each relation type. Override to customize loss computation."""
 
     def __post_init__(self):
-        if self.clearance_m < 0:
-            raise ValueError(f"clearance_m must be >= 0, got {self.clearance_m}")
+        assert self.clearance_m >= 0, f"clearance_m must be >= 0, got {self.clearance_m}"

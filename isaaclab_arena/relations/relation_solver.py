@@ -40,6 +40,7 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
+        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
         self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
@@ -76,7 +77,7 @@ class RelationSolver:
             Scalar loss tensor (mean over environments).
         """
         batch_size = state.batch_size
-        device = state.optimizable_positions.device if state.optimizable_positions is not None else None
+        device = state.device
         total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
         # Compute loss from all spatial relations using strategies
@@ -125,8 +126,11 @@ class RelationSolver:
     def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
         """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
 
-        For each non-anchor object (child), computes overlap loss against every
-        other object (anchors and non-anchors), skipping self-pairs.
+        Each unique pair is evaluated once:
+        - Non-anchor vs anchor: gradient flows to the non-anchor only.
+        - Non-anchor vs non-anchor: gradient flows to the first object only
+          (the symmetric pair is not computed; each object receives gradient
+          signal in alternating solver iterations via the detached other_pos).
 
         Args:
             state: Current optimization state with object positions.
@@ -135,37 +139,42 @@ class RelationSolver:
         Returns:
             Per-environment loss tensor of shape (batch_size,).
         """
-        batch_size = state.batch_size
-        device = state.optimizable_positions.device if state.optimizable_positions is not None else None
-        total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
+        device = state.device
+        total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
 
-        all_objects = list(state.optimizable_objects) + list(state.anchor_objects)
         non_anchor_objects = state.optimizable_objects
+        anchor_objects = list(state.anchor_objects)
 
-        for child in non_anchor_objects:
+        for i, child in enumerate(non_anchor_objects):
             child_pos = state.get_position(child)
             child_bbox = child.get_bounding_box().to(device)
 
-            for other in all_objects:
-                if other is child:
-                    continue
+            # Against all anchors
+            for anchor in anchor_objects:
+                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+                loss = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=anchor_world_bbox,
+                )
+                if debug:
+                    print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
+                total_loss = total_loss + loss
 
-                if other in state.anchor_objects:
-                    other_world_bbox = other.get_world_bounding_box().to(device)
-                else:
-                    other_pos = state.get_position(other).detach()
-                    other_world_bbox = other.get_bounding_box().to(device).translated(other_pos)
-
+            # Against other non-anchors (unique pairs only)
+            for j in range(i + 1, len(non_anchor_objects)):
+                other = non_anchor_objects[j]
+                other_pos = state.get_position(other).detach()
+                other_world_bbox = other.get_bounding_box().to(device).translated(other_pos)
                 loss = self._no_collision_strategy.compute_loss(
                     clearance_m=self.params.clearance_m,
                     child_pos=child_pos,
                     child_bbox=child_bbox,
                     parent_world_bbox=other_world_bbox,
                 )
-
                 if debug:
                     print(f"  [NoOverlap] {child.name} vs {other.name}: loss={loss.mean().item():.6f}")
-
                 total_loss = total_loss + loss
 
         return total_loss
