@@ -112,6 +112,10 @@ jobs:
         name: nvidia-smi
         run: nvidia-smi
 
+      - &lscpu
+        name: lscpu
+        run: lscpu
+
       # Setup
       - *install_git_step
       - *cleanup_step
