@@ -6,14 +6,11 @@
 from __future__ import annotations
 
 import torch
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
 
-from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+from isaaclab_arena.relations.placement_pool import PlacementPool
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 
@@ -25,43 +22,28 @@ def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
     objects: list[ObjectBase],
-    placer_params: ObjectPlacerParams,
+    placement_pool: PlacementPool,
 ) -> None:
-    """Coordinated reset event that re-runs the relation solver and writes fresh poses.
+    """Coordinated reset event that draws layouts from a pre-solved pool and writes poses.
 
-    Registered as a single ``EventTermCfg(mode="reset")`` that replaces per-object
-    pose events for solver-managed objects. Each call solves for the subset of
-    environments being reset, producing a new random layout per env.
+    Registered as a single ``EventTermCfg(mode="reset")``. Each call draws one
+    layout per resetting environment from the pool and writes the poses to sim.
 
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
         objects: All objects (including anchors) participating in relation solving.
-        placer_params: Parameters forwarded to ``ObjectPlacer``. Seed is forced to
-            ``None`` so each reset gets fresh randomness.
+        placement_pool: Pre-solved pool of layouts to draw from.
     """
     if env_ids is None or len(env_ids) == 0:
         return
 
     num_reset_envs = len(env_ids)
+    results_per_env = placement_pool.draw(num_reset_envs)
 
-    # Solver needs autograd, so temporarily exit any active inference_mode context.
-    reset_solver_params = replace(placer_params.solver_params, save_position_history=False)
-    reset_params = replace(
-        placer_params,
-        solver_params=reset_solver_params,
-        apply_positions_to_objects=False,
-        verbose=False,
-        placement_seed=None,
-    )
-    placer = ObjectPlacer(params=reset_params)
-    with torch.inference_mode(False):
-        result = placer.place(objects, num_envs=num_reset_envs, result_per_env=True)
-
-    if isinstance(result, MultiEnvPlacementResult):
-        results_per_env = result.results
-    else:
-        results_per_env = [result]
+    n_failed = sum(1 for r in results_per_env if not r.success)
+    if n_failed > 0:
+        print(f"[WARNING] Placement validation failed for {n_failed}/{num_reset_envs} envs. Writing best-effort positions.")
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations: dict[ObjectBase, tuple[float, float, float, float]] = {}
@@ -70,8 +52,6 @@ def solve_and_place_objects(
             rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
             rotations[obj] = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
 
-    # Always write positions, even when validation failed — the solver's best-effort
-    # is still better than the USD defaults (objects at origin).
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for local_idx, cur_env in enumerate(env_ids.tolist()):
         env_id_tensor = torch.tensor([cur_env], device=env.device)
