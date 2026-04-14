@@ -201,8 +201,9 @@ def main():
         metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
 
         if metrics is not None:
-            # Each rank prints its own metrics as it can be different due to random seed
-            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
+            from isaaclab_arena.metrics.metrics_logger import sanitize_metrics
+
+            print(f"[Rank {local_rank}/{world_size}] Metrics: {sanitize_metrics(metrics)}")
 
         # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
         # Do NOT rely on a __del__ destructor in policy for this, since destructors are
