@@ -220,7 +220,7 @@ def test_negative_clearance_m_raises():
     """Negative clearance_m should be rejected."""
     import pytest
 
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError):
         RelationSolverParams(clearance_m=-0.01)
 
 
