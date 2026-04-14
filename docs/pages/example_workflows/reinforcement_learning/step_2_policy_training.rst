@@ -61,6 +61,31 @@ For example, to train with relu activation and a higher learning rate:
      agent.algorithm.learning_rate=0.001
 
 
+Resuming from a Checkpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To resume training from a previously saved checkpoint, use the ``--resume`` flag
+together with ``--load_run`` (run folder name) and ``--checkpoint`` (model filename).
+Both arguments are optional — when omitted, the most recent run and latest checkpoint
+are used automatically.
+
+.. code-block:: bash
+
+   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+     --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+     --task lift_object \
+     --rl_training_mode \
+     --num_envs 4096 \
+     --max_iterations 4000 \
+     --resume \
+     --load_run <timestamp> \
+     --checkpoint model_1999.pt
+
+Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/generic_experiment/``.
+If ``--load_run`` is omitted, the latest run is selected. If ``--checkpoint`` is omitted,
+the latest checkpoint in that run is loaded.
+
+
 Monitoring Training
 ^^^^^^^^^^^^^^^^^^^
 
@@ -101,6 +126,7 @@ During training, each iteration prints a summary to the console:
                                      ETA: 00:00:49
 
 
+
 Multi-GPU Training
 ^^^^^^^^^^^^^^^^^^
 
@@ -112,7 +138,7 @@ Add ``--distributed`` to spread environments across all available GPUs:
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
-     --num_envs 4096\
+     --num_envs 4096 \
      --max_iterations 2000 \
      --distributed
 

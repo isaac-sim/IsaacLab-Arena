@@ -146,22 +146,23 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m with_newton \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess and not with_newton" \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m "with_cameras and not with_subprocess and not with_newton" \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
-      - name: Run subprocess-spawning  PhysX tests
+      - name: Run subprocess-spawning PhysX tests
         run: |
-          /isaac-sim/python.sh -m pytest -sv -m with_subprocess \
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
 
@@ -193,7 +194,9 @@ jobs:
 
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
-        run: /isaac-sim/python.sh -m pytest -sv isaaclab_arena_gr00t/tests/
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena_gr00t/tests/
 
 
   build_docs_pre_merge:

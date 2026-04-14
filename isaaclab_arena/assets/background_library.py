@@ -173,7 +173,6 @@ class MapleTableRobolab(LibraryBackground):
     tags = ["background", "robolab"]
     usd_path = f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table_background.usda"
     object_min_z = -0.05
-    spawn_cfg_addon = {"activate_contact_sensors": True}
 
     def __init__(self):
         super().__init__()

@@ -98,6 +98,7 @@ COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
 COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
+COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
 COPY docs ${WORKDIR}/docs
 
 # Install IsaacLab Arena (runtime + dev deps declared in setup.py)

@@ -17,7 +17,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -28,7 +28,6 @@ class ObjectType(Enum):
     BASE = "base"
     RIGID = "rigid"
     ARTICULATION = "articulation"
-    SPAWNER = "spawner"
 
 
 class ObjectBase(Asset, ABC):
@@ -152,16 +151,15 @@ class ObjectBase(Asset, ABC):
                     "asset_cfgs": [SceneEntityCfg(self.name)],
                 },
             )
-        else:
-            params: dict = {
-                "pose": initial_pose,
-                "asset_cfg": SceneEntityCfg(self.name),
-                "velocity": self.initial_velocity,
-            }
+        else:  # Pose
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",
-                params=params,
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                    "velocity": self.initial_velocity,
+                },
             )
 
     def get_relations(self) -> list[RelationBase]:
@@ -170,7 +168,7 @@ class ObjectBase(Asset, ABC):
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
+        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
@@ -191,8 +189,6 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_articulation_cfg()
         elif self.object_type == ObjectType.BASE:
             object_cfg = self._generate_base_cfg()
-        elif self.object_type == ObjectType.SPAWNER:
-            object_cfg = self._generate_spawner_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
         return object_cfg
@@ -263,8 +259,4 @@ class ObjectBase(Asset, ABC):
     @abstractmethod
     def _generate_base_cfg(self) -> AssetBaseCfg:
         # Subclasses must implement this method
-        pass
-
-    def _generate_spawner_cfg(self) -> AssetBaseCfg:
-        # Object Subclasses must implement this method
         pass

@@ -132,6 +132,7 @@ else
                     $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
+                    "-v" "$HOME/.config/gh:/home/$(id -un)/.config/gh"
                     "-v" "$HOME/.cache:/home/$(id -un)/.cache"
                     "-v" "/tmp:/tmp"
                     "-v" "/tmp/.X11-unix:/tmp/.X11-unix:rw"
