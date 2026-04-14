@@ -39,9 +39,10 @@ class Object(ObjectBase):
         # Pull out addons (and remove them from kwargs before passing to super)
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
-        self.spawner_cfg = spawner_cfg
-        if usd_path is None and self.spawner_cfg is None:
-            raise ValueError(f"Object '{name}' requires either usd_path or a spawner_cfg")
+        assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
+        assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
+        if spawner_cfg is not None:
+            assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
         if object_type is None:
             assert usd_path is not None, (
@@ -51,6 +52,7 @@ class Object(ObjectBase):
             object_type = detect_object_type(usd_path=usd_path)
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
+        self.spawner_cfg = spawner_cfg
         self.scale = scale
         self.initial_pose = initial_pose
         self.reset_pose = True
