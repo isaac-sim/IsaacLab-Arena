@@ -37,8 +37,18 @@ class RelationBase:
     pass
 
 
+class UnaryRelation(RelationBase):
+    """Base class for unary spatial relations (no parent object).
+
+    Unary relations constrain an object's position in world coordinates
+    without referencing another object (e.g., AtPosition, PositionLimits).
+    """
+
+    pass
+
+
 class Relation(RelationBase):
-    """Base class for spatial relationships between objects."""
+    """Base class for binary spatial relationships between objects."""
 
     def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
         """
@@ -273,7 +283,7 @@ class RotateAroundSolution(RelationBase):
         return tuple(quat.tolist())
 
 
-class AtPosition(RelationBase):
+class AtPosition(UnaryRelation):
     """Constrains object to specific world coordinates.
 
     This is a unary relation (no parent) that pins an object's position to
@@ -309,6 +319,49 @@ class AtPosition(RelationBase):
         self.x = x
         self.y = y
         self.z = z
+        self.relation_loss_weight = relation_loss_weight
+
+
+class PositionLimits(UnaryRelation):
+    """Constrains object position to a world-coordinate axis-aligned box.
+
+    Each axis is independently optional (None = unconstrained).
+
+    Usage:
+        mug.add_relation(PositionLimits(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
+        mug.add_relation(PositionLimits(z_min=0.8))  # only constrain Z
+    """
+
+    def __init__(
+        self,
+        x_min: float | None = None,
+        x_max: float | None = None,
+        y_min: float | None = None,
+        y_max: float | None = None,
+        z_min: float | None = None,
+        z_max: float | None = None,
+        relation_loss_weight: float = 1.0,
+    ):
+        assert (
+            x_min is not None
+            or x_max is not None
+            or y_min is not None
+            or y_max is not None
+            or z_min is not None
+            or z_max is not None
+        ), "At least one bound (x_min, x_max, y_min, y_max, z_min, or z_max) must be specified for PositionLimits"
+        if x_min is not None and x_max is not None:
+            assert x_min < x_max, f"x_min must be less than x_max, got x_min={x_min}, x_max={x_max}"
+        if y_min is not None and y_max is not None:
+            assert y_min < y_max, f"y_min must be less than y_max, got y_min={y_min}, y_max={y_max}"
+        if z_min is not None and z_max is not None:
+            assert z_min < z_max, f"z_min must be less than z_max, got z_min={z_min}, z_max={z_max}"
+        self.x_min = x_min
+        self.x_max = x_max
+        self.y_min = y_min
+        self.y_max = y_max
+        self.z_min = z_min
+        self.z_max = z_max
         self.relation_loss_weight = relation_loss_weight
 
 

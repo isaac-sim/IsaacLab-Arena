@@ -1,14 +1,13 @@
 Evaluation Types
 =================
 
-Isaac Lab Arena supports three main ways to run policy evaluation: a single-job
-**policy runner** (single or multi-GPU), a **sequential batch eval runner** for
-multiple jobs in one process, and a **server–client** setup for remote policies. This
-section summarizes when to use each and how they work. Each section below links
-to the relevant concept docs: :doc:`Policy Design <../concepts/concept_policy_design>`,
-:doc:`Environment Design <../concepts/concept_environment_design>`,
-:doc:`Metrics Design <../concepts/concept_metrics_design>`, and
-:doc:`Remote Policies Design <../concepts/concept_remote_policies_design>`.
+Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
+**policy runner** (single or multi-GPU) and a **sequential batch eval runner** for
+multiple jobs in one process. This section summarizes when to use each and how
+they work. Each section below links to the relevant concept docs:
+:doc:`Policy Design <index>`,
+:doc:`Environment Design <../concept_overview>`, and
+:doc:`Metrics Design <../task/concept_metrics_design>`.
 
 Summary
 -------
@@ -29,10 +28,6 @@ Summary
      - Multiple jobs (env/policy combos) in sequence
      - ``eval_runner.py``
      - No
-   * - Server–client
-     - Policy runs in separate process/machine
-     - Policy runner + remote server
-     - Depends on client
 
 1. Policy runner — single job (single GPU and multi-GPU)
 --------------------------------------------------------
@@ -43,7 +38,7 @@ choice for ad-hoc runs, debugging, or when you want to drive one scenario with
 full control over CLI arguments.
 
 **Design context:** For how policies are defined and integrated with environments,
-see :doc:`Policy Design <../concepts/concept_policy_design>`.
+see :doc:`Policy Design <index>`.
 
 **Features:**
 
@@ -139,9 +134,9 @@ configurations (e.g. many objects or tasks) without launching multiple processes
 by hand. Persistence of the simulation application is maintained between jobs.
 
 **Design context:** For how environments are composed and how metrics are
-defined and computed, see :doc:`Environment Design <../concepts/concept_environment_design>`
-and :doc:`Metrics Design <../concepts/concept_metrics_design>`. Policies used per job
-follow :doc:`Policy Design <../concepts/concept_policy_design>`.
+defined and computed, see :doc:`Environment Design <../concept_overview>`
+and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per job
+follow :doc:`Policy Design <index>`.
 
 **Features:**
 
@@ -225,61 +220,6 @@ object with:
 If any job needs cameras, set ``enable_cameras: true`` in that job’s
 ``arena_env_args``; the sequential batch eval runner automatically enables camera support if any job requires it.
 
-3. Server–client (remote policies)
-----------------------------------
-
-When the policy runs in a **separate process or machine** (e.g. a GPU server
-with a large model), evaluation still uses the **policy runner** on the client
-side, but the policy is a **client-side remote policy** that talks to a
-**remote policy server** over the network.
-
-**Design context:** For the full remote policy design, protocol, and how to
-implement custom server-side and client-side policies, see
-:doc:`Remote Policies Design <../concepts/concept_remote_policies_design>`.
-
-**Features:**
-
-- **Server**: Runs the model and a ``ServerSidePolicy`` (e.g. GR00T), often
-  started via ``remote_policy_server_runner`` or a wrapper script (e.g.
-  ``docker/run_gr00t_server.sh``). No Isaac Sim on the server.
-- **Client**: Runs Isaac Lab Arena and the simulation; the policy is a
-  ``ClientSidePolicy`` (e.g. ``ActionChunkingClientSidePolicy``) that packs
-  observations, sends them to the server, and applies returned actions (with
-  optional chunking or post-processing).
-- **Protocol**: Server and client agree on an ``ActionProtocol`` (e.g. observation
-  keys, action shape, chunk length). The protocol is negotiated at handshake;
-  no policy logic lives in the protocol.
-
-**Typical workflow**
-
-1. Start the remote policy server (separate terminal or machine), e.g. with GR00T:
-
-   .. code-block:: bash
-
-      bash docker/run_gr00t_server.sh \
-        --host 127.0.0.1 \
-        --port 5555 \
-        --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
-        --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml
-
-2. Run evaluation on the client with a client-side policy (i.e. ``ActionChunkingClientSidePolicy``) and remote connection. Within the ``Base`` container, run:
-
-   .. code-block:: bash
-
-      python isaaclab_arena/evaluation/policy_runner.py \
-        --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
-        --remote_host 127.0.0.1 \
-        --remote_port 5555 \
-        --num_steps 2000 \
-        --num_envs 10 \
-        --remote_kill_on_exit \
-        <arena_environment> \
-        --embodiment <embodiment> \
-        ...
-
-The same **policy runner** is used as in the single-job case; only the policy
-type and remote options change.
-
 Choosing an evaluation type
 ---------------------------
 
@@ -287,5 +227,3 @@ Choosing an evaluation type
   use ``--object_set`` for heterogeneous objects in one run.
 - **Many env/policy combinations in one go**: use the **sequential batch eval
   runner** with a jobs JSON; use ``--object_set`` for heterogeneous objects in one run.
-- **Heavy model on another machine or process**: use **server–client** with the
-  policy runner on the client and a remote policy server.

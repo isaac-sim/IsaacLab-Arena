@@ -17,7 +17,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
+from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -170,7 +170,7 @@ class ObjectBase(Asset, ABC):
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
-        return [r for r in self.relations if isinstance(r, (Relation, AtPosition))]
+        return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
 
     def set_prim_path(self, prim_path: str) -> None:
         self.prim_path = prim_path
