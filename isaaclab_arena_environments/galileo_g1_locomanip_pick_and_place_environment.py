@@ -6,9 +6,11 @@
 import argparse
 import math
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
+@register_environment
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     name: str = "galileo_g1_locomanip_pick_and_place"

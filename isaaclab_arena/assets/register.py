@@ -6,6 +6,7 @@
 from isaaclab_arena.assets.asset_registry import (
     AssetRegistry,
     DeviceRegistry,
+    EnvironmentRegistry,
     HDRImageRegistry,
     PolicyRegistry,
     RetargeterRegistry,
@@ -56,4 +57,14 @@ def register_hdr(cls):
         print(f"WARNING: HDRImage {cls.name} is already registered. Doing nothing.")
     else:
         HDRImageRegistry().register(cls, cls.name)
+    return cls
+
+
+# Decorator to register an environment with the EnvironmentRegistry.
+def register_environment(cls):
+    registry = EnvironmentRegistry()
+    if cls.name in registry._components:
+        print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
+    else:
+        registry.register(cls, cls.name)
     return cls

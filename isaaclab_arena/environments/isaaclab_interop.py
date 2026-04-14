@@ -5,7 +5,8 @@
 
 import argparse
 
-from isaaclab_arena_environments.cli import ExampleEnvironments
+from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
+from isaaclab_arena_environments.cli import ensure_environments_registered
 
 
 def is_simulation_app_running() -> bool:
@@ -58,7 +59,8 @@ def environment_registration_callback() -> list[str]:
     # The result is that a single argument tells Arena what to register, and Lab what to run.
     parser.add_argument("--task", type=str, required=True, help="Name of the IsaacLab Arena environment to register.")
     environment_name = parser.parse_known_args()[0].task
-    environment = ExampleEnvironments[environment_name]()
+    ensure_environments_registered()
+    environment = EnvironmentRegistry().get_component_by_name(environment_name)()
     # Get the full list of environment-specific CLI args.
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)

@@ -5,52 +5,40 @@
 
 import argparse
 import importlib
+import inspect
+import pkgutil
 from typing import Any
 
+import isaaclab_arena_environments
+from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
-from isaaclab_arena_environments.dexsuite_lift_environment import DexsuiteLiftEnvironment
-from isaaclab_arena_environments.franka_put_and_close_door_environment import FrankaPutAndCloseDoorEnvironment
-from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
-    GalileoG1LocomanipPickAndPlaceEnvironment,
-)
-from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
-from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
-from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
-from isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment import (
-    GR1TableMultiObjectNoCollisionEnvironment,
-)
-from isaaclab_arena_environments.gr1_turn_stand_mixer_knob_environment import Gr1TurnStandMixerKnobEnvironment
-from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironment
-from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
-from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
-from isaaclab_arena_environments.press_button_environment import PressButtonEnvironment
-from isaaclab_arena_environments.tabletop_place_upright_environment import TableTopPlaceUprightEnvironment
+from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
-# We cannot annotate types which require the simulation app to be started in order to
-# import, because this file is used to retrieve CLI arguments, so it must be imported
-# before the simulation app is started.
-# TODO(alexmillane, 2025.09.04): Fix this.
+_environments_registered = False
 
 
-# Collection of the available example environments
-ExampleEnvironments = {
-    FrankaPutAndCloseDoorEnvironment.name: FrankaPutAndCloseDoorEnvironment,
-    Gr1OpenMicrowaveEnvironment.name: Gr1OpenMicrowaveEnvironment,
-    GR1PutAndCloseDoorEnvironment.name: GR1PutAndCloseDoorEnvironment,
-    KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
-    GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
-    PickAndPlaceMapleTableEnvironment.name: PickAndPlaceMapleTableEnvironment,
-    GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
-    PressButtonEnvironment.name: PressButtonEnvironment,
-    CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
-    DexsuiteLiftEnvironment.name: DexsuiteLiftEnvironment,
-    LiftObjectEnvironment.name: LiftObjectEnvironment,
-    TableTopPlaceUprightEnvironment.name: TableTopPlaceUprightEnvironment,
-    Gr1TurnStandMixerKnobEnvironment.name: Gr1TurnStandMixerKnobEnvironment,
-    GR1TableMultiObjectNoCollisionEnvironment.name: GR1TableMultiObjectNoCollisionEnvironment,
-}
+def ensure_environments_registered():
+    """Discover and register all environment classes in the ``isaaclab_arena_environments`` package.
+
+    Imports every top-level module in the package and registers any concrete
+    :class:`ExampleEnvironmentBase` subclass that has a ``name`` attribute.
+    """
+    global _environments_registered
+    if not _environments_registered:
+        _environments_registered = True
+        registry = EnvironmentRegistry()
+        for _importer, modname, ispkg in pkgutil.iter_modules(isaaclab_arena_environments.__path__):
+            if ispkg:
+                continue
+            module = importlib.import_module(f"isaaclab_arena_environments.{modname}")
+            for _attr_name, obj in inspect.getmembers(module, inspect.isclass):
+                if (
+                    issubclass(obj, ExampleEnvironmentBase)
+                    and obj is not ExampleEnvironmentBase
+                    and getattr(obj, "name", None) is not None
+                    and obj.name not in registry._components
+                ):
+                    registry.register(obj, obj.name)
 
 
 def parse_and_return_external_environment_from_string(environment_path: str) -> dict[str, Any]:
@@ -86,19 +74,23 @@ def parse_and_return_external_environment_from_string(environment_path: str) -> 
 
 
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    # Parse the parser once here to add the external environments to the example environments
+    ensure_environments_registered()
+    env_registry = EnvironmentRegistry()
+
     args, unknown = args_parser.parse_known_args()
     environment = getattr(args, "external_environment_class_path", None)
     if environment is not None:
-        # Update the ExampleEnvironments dictionary with the new external environment
         print(f"Adding external environment: {environment}")
-        ExampleEnvironments.update(parse_and_return_external_environment_from_string(environment))
+        for name, cls in parse_and_return_external_environment_from_string(environment).items():
+            env_registry.register(cls, name)
+
     subparsers = args_parser.add_subparsers(
         dest="example_environment", required=True, help="Example environment to run"
     )
-    for example_environment in ExampleEnvironments.values():
-        subparser = subparsers.add_parser(example_environment.name)
-        example_environment.add_cli_args(subparser)
+    for env_name in env_registry.get_all_keys():
+        env_cls = env_registry.get_component_by_name(env_name)
+        subparser = subparsers.add_parser(env_cls.name)
+        env_cls.add_cli_args(subparser)
 
     return args_parser
 
@@ -117,13 +109,14 @@ def get_isaaclab_arena_environments_cli_parser(
 def get_arena_builder_from_cli(args_cli: argparse.Namespace):  # -> tuple[ManagerBasedRLEnvCfg, str]:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    # Get the example environment
-    assert hasattr(args_cli, "example_environment"), "Example environment must be specified"
-    assert (
-        args_cli.example_environment in ExampleEnvironments
-    ), f"Example environment type {args_cli.example_environment} not supported"
-    example_env = ExampleEnvironments[args_cli.example_environment]()
+    ensure_environments_registered()
+    env_registry = EnvironmentRegistry()
 
-    # Compile the environment
+    assert hasattr(args_cli, "example_environment"), "Example environment must be specified"
+    assert env_registry.is_registered(
+        args_cli.example_environment
+    ), f"Example environment type {args_cli.example_environment} not supported"
+    example_env = env_registry.get_component_by_name(args_cli.example_environment)()
+
     env_builder = ArenaEnvBuilder(example_env.get_env(args_cli), args_cli)
     return env_builder

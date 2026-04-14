@@ -13,10 +13,13 @@ def test_dexsuite_lift_example_in_cli_registry() -> None:
     pytest.importorskip(
         "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
     )
-    from isaaclab_arena_environments.cli import ExampleEnvironments
+    from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
 
-    assert "dexsuite_lift" in ExampleEnvironments
-    assert ExampleEnvironments["dexsuite_lift"].name == "dexsuite_lift"
+    ensure_environments_registered()
+    env_registry = EnvironmentRegistry()
+    assert env_registry.is_registered("dexsuite_lift")
+    assert env_registry.get_component_by_name("dexsuite_lift").name == "dexsuite_lift"
 
 
 @pytest.mark.with_newton

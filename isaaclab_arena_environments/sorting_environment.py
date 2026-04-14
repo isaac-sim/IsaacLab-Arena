@@ -5,9 +5,11 @@
 
 import argparse
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
+@register_environment
 class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
     """
     A pick and place environment for the Seattle Lab table.
