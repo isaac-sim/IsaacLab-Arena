@@ -4,9 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from typing import Any
-
 import numpy as np
+from typing import Any
 
 
 def sanitize_metrics(metrics: dict[str, Any]) -> dict[str, int | float | list]:
