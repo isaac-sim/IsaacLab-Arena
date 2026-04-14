@@ -6,10 +6,9 @@
 from __future__ import annotations
 
 import random
+import torch
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
-
-import torch
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -52,7 +51,10 @@ class PlacementPool:
         n_valid = sum(1 for r in self._pool if r.success)
         n_total = len(self._pool)
         if n_valid < n_total:
-            print(f"[WARNING] Placement pool: {n_valid}/{n_total} layouts passed validation. Using best-effort for the rest.")
+            print(
+                f"[WARNING] Placement pool: {n_valid}/{n_total} layouts passed validation. Using best-effort for the"
+                " rest."
+            )
 
     def draw(self, n: int) -> list[PlacementResult]:
         """Draw ``n`` layouts from the pool (random with replacement)."""

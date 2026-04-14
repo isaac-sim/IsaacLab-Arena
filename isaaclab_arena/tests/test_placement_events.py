@@ -233,5 +233,7 @@ def test_placement_pool_draws_different_layouts():
     draws = pool.draw(5)
     assert len(draws) == 5
     positions = [d.positions[box1] for d in draws]
-    any_different = any(positions[i] != positions[j] for i in range(len(positions)) for j in range(i + 1, len(positions)))
+    any_different = any(
+        positions[i] != positions[j] for i in range(len(positions)) for j in range(i + 1, len(positions))
+    )
     assert any_different, "Pool draws should produce different layouts"
