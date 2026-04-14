@@ -43,7 +43,10 @@ def solve_and_place_objects(
 
     n_failed = sum(1 for r in results_per_env if not r.success)
     if n_failed > 0:
-        print(f"[WARNING] Placement validation failed for {n_failed}/{num_reset_envs} envs. Writing best-effort positions.")
+        print(
+            f"[WARNING] Placement validation failed for {n_failed}/{num_reset_envs} envs. Writing best-effort"
+            " positions."
+        )
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations: dict[ObjectBase, tuple[float, float, float, float]] = {}
