@@ -123,7 +123,6 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
       .. code-block:: bash
 
          python -m torch.distributed.run --nnode=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --viz kit \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
            --num_steps 1200 \
