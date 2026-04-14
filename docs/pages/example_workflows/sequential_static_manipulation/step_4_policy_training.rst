@@ -110,8 +110,8 @@ Step 2: Post-train Policy
 
 We post-train the GR00T N1.6 policy on the task.
 
-The GR00T N1.6 policy has 3 billion parameters so post-training is an expensive operation.
-We provide two post-training options:
+The GR00T N1.6 policy has 3 billion parameters so post training is an an expensive operation.
+We provide three post-training options:
 
 * Best Quality: 8 GPUs with 48GB memory
 * Low Hardware Requirements: 1 GPU with 24GB memory
@@ -123,12 +123,6 @@ We provide two post-training options:
 
       Training takes approximately 4-8 hours on 8x L40s GPUs.
 
-      Compute Requirements:
-
-      - **GPUs:** 8x with at least 48 GB VRAM each (e.g. L40s, A6000, A100)
-      - **System RAM:** 256 GB or more recommended — multi-GPU training with large batch sizes
-        and multiple dataloader workers requires substantial host memory
-
       Training Configuration:
 
       - **Base Model:** GR00T-N1.6-3B (foundation model)
@@ -136,6 +130,7 @@ We provide two post-training options:
       - **Frozen Modules:** LLM (language model)
       - **Global Batch Size:** 96 (adjust based on GPU memory)
       - **Training Steps:** 20,000
+      - **GPUs:** 8 (multi-GPU training)
 
       To post-train the policy, run the following command
 

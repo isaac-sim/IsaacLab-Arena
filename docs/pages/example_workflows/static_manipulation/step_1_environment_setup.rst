@@ -77,7 +77,7 @@ Step-by-Step Breakdown
 Here, we're selecting the components needed for our static manipulation task: the kitchen environment as our background,
 a microwave with an openable door, and the GR1 embodiment (our robot).
 The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
-See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
+See :doc:`../../concepts/concept_assets_design` for details on asset architecture.
 
 **2. Position the Objects**
 
@@ -100,7 +100,7 @@ currently set manually to create an achievable task. In this case, we place the 
     scene = Scene(assets=assets)
 
 Now we bring everything together into an IsaacLab-Arena scene.
-See :doc:`../../concepts/scene/index` for scene composition details.
+See :doc:`../../concepts/concept_scene_design` for scene composition details.
 
 **4. Create the Open Door Task**
 
@@ -109,7 +109,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
     task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
 
 The ``OpenDoorTask`` encapsulates the goal of this environment: open the microwave door.
-See :doc:`../../concepts/task/index` for task creation details.
+See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
@@ -125,7 +125,7 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
 top-level container that connects the embodiment (the robot), the scene (the world), and the task (the objective).
-See :doc:`../../concepts/concept_overview` for environment composition details.
+See :doc:`../../concepts/concept_environment_design` for environment composition details.
 
 
 Step 1: Download a Test Dataset

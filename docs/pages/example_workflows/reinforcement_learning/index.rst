@@ -72,7 +72,7 @@ You'll need to create folders for logs, checkpoints, and models:
 
     export LOG_DIR=logs/rsl_rl
     mkdir -p $LOG_DIR
-    export MODELS_DIR=/models/isaaclab_arena/reinforcement_learning
+    export MODELS_DIR=models/isaaclab_arena/reinforcement_learning
     mkdir -p $MODELS_DIR
 
 Workflow Steps

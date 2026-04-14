@@ -64,29 +64,6 @@ Hyperparameters can be overridden with Hydra-style CLI arguments:
      agent.max_iterations=20000 agent.save_interval=500 agent.algorithm.learning_rate=0.0005
 
 
-Resuming from a Checkpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To resume training from a previously saved checkpoint, use the ``--resume`` flag
-together with ``--load_run`` (run folder name) and ``--checkpoint`` (model filename).
-Both arguments are optional — when omitted, the most recent run and latest checkpoint
-are used automatically.
-
-.. code-block:: bash
-
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
-     --task Isaac-Dexsuite-Kuka-Allegro-Lift-v0 \
-     --num_envs 512 \
-     --resume \
-     --load_run <timestamp> \
-     --checkpoint model_5000.pt \
-     presets=newton presets=cube
-
-Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/dexsuite_kuka_allegro/``.
-If ``--load_run`` is omitted, the latest run is selected. If ``--checkpoint`` is omitted,
-the latest checkpoint in that run is loaded.
-
-
 Monitoring Training
 ^^^^^^^^^^^^^^^^^^^
 

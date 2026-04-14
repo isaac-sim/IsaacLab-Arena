@@ -107,7 +107,7 @@ html_theme_options = {
     "pygments_dark_style": "monokai",
     "footer_links": {},
     "github_url": "https://github.com/isaac-sim/IsaacLab-Arena",
-    "show_nav_level": 1,
+    "show_nav_level": 2,
     # TODO(alexmillane, 2025-04-24): Try re-enabling this once we have a pypi page.
     # "icon_links": [
     #     {

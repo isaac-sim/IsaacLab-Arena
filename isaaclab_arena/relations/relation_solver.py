@@ -15,7 +15,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -85,8 +85,8 @@ class RelationSolver:
                 child_pos = state.get_position(obj)
                 strategy = self._get_strategy(relation)
 
-                # Handle unary relations (no parent)
-                if isinstance(relation, UnaryRelation):
+                # Handle unary relations (no parent) like AtPosition
+                if isinstance(relation, AtPosition):
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
@@ -341,16 +341,17 @@ def _print_relation_debug(
 
 def _print_unary_relation_debug(
     obj: ObjectBase,
-    relation: RelationBase,
+    relation: AtPosition,
     child_pos: torch.Tensor,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a unary relation (no parent)."""
     child_bbox = obj.get_bounding_box()
 
-    params = {k: v for k, v in relation.__dict__.items() if v is not None and k != "relation_loss_weight"}
-    param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
-    print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")
+    target_str = ", ".join(
+        f"{key}={value:.4f}" for key, value in relation.__dict__.items() if isinstance(value, (int, float))
+    )
+    print(f"\n=== {obj.name} -> {type(relation).__name__}({target_str}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
     print(
         f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"

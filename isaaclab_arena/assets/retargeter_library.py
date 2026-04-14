@@ -73,22 +73,6 @@ class G1WbcPinkIsaacTeleopRetargeter(RetargetterBase):
 
 
 @register_retargeter
-class G1WbcAgilePinkIsaacTeleopRetargeter(RetargetterBase):
-    """Isaac Teleop pipeline builder for G1 WBC AGILE with Pink IK."""
-
-    device = "openxr"
-    embodiment = "g1_wbc_agile_pink"
-
-    def __init__(self):
-        pass
-
-    def get_pipeline_builder(self, embodiment: object) -> Callable:
-        from isaaclab_arena_g1.teleop.g1_pink_locomanipulation_pipeline import _build_g1_pink_locomanipulation_pipeline
-
-        return _build_g1_pink_locomanipulation_pipeline
-
-
-@register_retargeter
 class FrankaKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "franka_ik"

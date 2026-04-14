@@ -236,7 +236,7 @@ def test_g1_locomanip_gr00t_closedloop_policy_runner_eval_runner(gr00t_finetuned
             "name": "gr1_open_microwave_cracker_box",
             "arena_env_args": {
                 "environment": "gr1_open_microwave",
-                "num_envs": 3,
+                "num_envs": 10,
                 "object": "cracker_box",
                 "embodiment": "gr1_joint",
             },

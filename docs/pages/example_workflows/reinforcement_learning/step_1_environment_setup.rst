@@ -109,7 +109,7 @@ is positioned below to provide physical support.
     scene = Scene(assets=assets)
 
 Now we bring everything together into an IsaacLab-Arena scene.
-See :doc:`../../concepts/scene/index` for scene composition details.
+See :doc:`../../concepts/concept_scene_design` for scene composition details.
 
 **4. Create the Lift Object RL Task**
 
@@ -133,7 +133,7 @@ The task includes:
 - **Termination Conditions**: Object dropped or timeout
 - **Success Condition**: Object reaches target position (disabled by the ``--rl_training_mode`` flag for training)
 
-See :doc:`../../concepts/task/index` for task creation details.
+See :doc:`../../concepts/concept_tasks_design` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
@@ -149,7 +149,7 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 Finally, we assemble all the pieces into a complete, runnable RL environment. The ``IsaacLabArenaEnvironment``
 connects the embodiment (the robot), the scene (the world), and the task (the objective and rewards).
-See :doc:`../../concepts/concept_overview` for environment composition details.
+See :doc:`../../concepts/concept_environment_design` for environment composition details.
 
 
 Validation: Run Random Policy
