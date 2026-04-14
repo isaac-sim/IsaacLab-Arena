@@ -12,6 +12,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import solve_and_place_objects
+from isaaclab_arena.relations.placement_pool import PlacementPool
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
@@ -146,8 +147,9 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PlacementPool(objects=objects, placer_params=placer_params, pool_size=10)
 
-    solve_and_place_objects(env, env_ids, objects, placer_params)
+    solve_and_place_objects(env, env_ids, objects, pool)
 
     # Anchor (desk) should NOT have been written.
     assert "desk" not in env._assets, "Anchor pose should not be written to sim"
@@ -170,8 +172,66 @@ def test_solve_and_place_objects_skips_empty_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
-    solve_and_place_objects(env, torch.tensor([], dtype=torch.int64), [desk, box1, box2], placer_params)
+    solve_and_place_objects(env, torch.tensor([], dtype=torch.int64), [desk, box1, box2], pool)
 
-    # No scene assets should have been touched.
     assert len(env._assets) == 0, "No writes should occur for empty env_ids"
+
+
+def test_solve_and_place_objects_skips_none_env_ids():
+    """solve_and_place_objects should return immediately when env_ids is None."""
+
+    desk, box1, box2 = _create_test_objects()
+    env = _make_mock_env(num_envs=1)
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+
+    solve_and_place_objects(env, None, [desk, box1, box2], pool)
+
+    assert len(env._assets) == 0, "No writes should occur for None env_ids"
+
+
+def test_solve_and_place_objects_handles_multiple_env_ids():
+    """solve_and_place_objects should write poses for each resetting environment."""
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    num_envs = 4
+
+    env = _make_mock_env(num_envs=num_envs)
+    env_ids = torch.tensor([0, 2])
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PlacementPool(objects=objects, placer_params=placer_params, pool_size=10)
+
+    solve_and_place_objects(env, env_ids, objects, pool)
+
+    assert "desk" not in env._assets, "Anchor pose should not be written to sim"
+
+    for name in ("box1", "box2"):
+        asset = env._assets[name]
+        assert asset.write_root_pose_to_sim.call_count == 2, (
+            f"Expected 2 write_root_pose_to_sim calls for {name} (one per reset env), "
+            f"got {asset.write_root_pose_to_sim.call_count}"
+        )
+
+
+def test_placement_pool_draws_different_layouts():
+    """PlacementPool.draw() should return layouts (likely different across draws)."""
+
+    desk, box1, box2 = _create_test_objects()
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
+
+    assert pool.size == 20
+
+    draws = pool.draw(5)
+    assert len(draws) == 5
+    positions = [d.positions[box1] for d in draws]
+    any_different = any(positions[i] != positions[j] for i in range(len(positions)) for j in range(i + 1, len(positions)))
+    assert any_different, "Pool draws should produce different layouts"
