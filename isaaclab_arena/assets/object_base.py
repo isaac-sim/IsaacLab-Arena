@@ -28,7 +28,6 @@ class ObjectType(Enum):
     BASE = "base"
     RIGID = "rigid"
     ARTICULATION = "articulation"
-    SPAWNER = "spawner"
 
 
 class ObjectBase(Asset, ABC):
@@ -152,16 +151,15 @@ class ObjectBase(Asset, ABC):
                     "asset_cfgs": [SceneEntityCfg(self.name)],
                 },
             )
-        else:
-            params: dict = {
-                "pose": initial_pose,
-                "asset_cfg": SceneEntityCfg(self.name),
-                "velocity": self.initial_velocity,
-            }
+        else:  # Pose
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",
-                params=params,
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                    "velocity": self.initial_velocity,
+                },
             )
 
     def get_relations(self) -> list[RelationBase]:
@@ -191,8 +189,6 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_articulation_cfg()
         elif self.object_type == ObjectType.BASE:
             object_cfg = self._generate_base_cfg()
-        elif self.object_type == ObjectType.SPAWNER:
-            object_cfg = self._generate_spawner_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
         return object_cfg
@@ -263,8 +259,4 @@ class ObjectBase(Asset, ABC):
     @abstractmethod
     def _generate_base_cfg(self) -> AssetBaseCfg:
         # Subclasses must implement this method
-        pass
-
-    def _generate_spawner_cfg(self) -> AssetBaseCfg:
-        # Object Subclasses must implement this method
         pass
