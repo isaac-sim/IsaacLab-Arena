@@ -20,7 +20,8 @@ from typing import Any
 
 from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 
-from isaaclab_arena.policy.action_chunking import ActionChunkingState
+from isaaclab_arena.policy.action_chunking import ActionChunkScheduler
+from isaaclab_arena.policy.action_scheduler import ActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
@@ -87,7 +88,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
     name = "gr00t_remote_closedloop"
     config_class = Gr00tRemoteClosedloopPolicyArgs
 
-    def __init__(self, config: Gr00tRemoteClosedloopPolicyArgs):
+    def __init__(self, config: Gr00tRemoteClosedloopPolicyArgs, action_scheduler: ActionScheduler | None = None):
         super().__init__(config)
 
         # Policy config (for obs/action translation — no model loading)
@@ -115,15 +116,16 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
 
-        # Chunking state (same as local policy)
-        self._chunking_state = ActionChunkingState(
-            num_envs=self.num_envs,
-            action_chunk_length=self.action_chunk_length,
-            action_horizon=self.policy_config.action_horizon,
-            action_dim=self.action_dim,
-            device=self.device,
-            dtype=torch.float,
-        )
+        if action_scheduler is None:
+            action_scheduler = ActionChunkScheduler(
+                num_envs=self.num_envs,
+                action_chunk_length=self.action_chunk_length,
+                action_horizon=self.policy_config.action_horizon,
+                action_dim=self.action_dim,
+                device=self.device,
+                dtype=torch.float,
+            )
+        self._action_scheduler = action_scheduler
 
         # Connect to GR00T's native policy server
         self._client = Gr00tPolicyClient(
@@ -186,7 +188,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         def fetch_chunk() -> torch.Tensor:
             return self._get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
 
-        return self._chunking_state.get_action(fetch_chunk)
+        return self._action_scheduler.get_action(fetch_chunk)
 
     def _get_action_chunk(
         self, observation: dict[str, Any], camera_names: list[str] | str = "robot_head_cam_rgb"
@@ -232,4 +234,4 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         if env_ids is None:
             env_ids = slice(None)
         self._client.reset()
-        self._chunking_state.reset(env_ids)
+        self._action_scheduler.reset(env_ids)

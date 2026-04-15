@@ -3,19 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared action chunking state and logic for local and remote policies."""
+"""ActionChunkScheduler: buffer a model chunk and step through it sequentially."""
 
 from __future__ import annotations
 
 import torch
 from collections.abc import Callable
 
+from isaaclab_arena.policy.action_scheduler import ActionScheduler
 
-class ActionChunkingState:
-    """Holds chunk buffer, per-env index, and refill flag; provides get_action(fetch_chunk_fn).
 
-    Used by Gr00tClosedloopPolicy and any framework-specific remote wrapper
-    so chunking behavior is identical across local and remote policies.
+class ActionChunkScheduler(ActionScheduler):
+    """Buffers one action chunk and replays it one step at a time.
+
+    Fetches a new chunk from the model only when the current one is exhausted.
+    Per-env tracking allows environments to refetch independently.
     """
 
     def __init__(
@@ -79,10 +81,14 @@ class ActionChunkingState:
 
         return action
 
-    def reset(self, env_ids: torch.Tensor | None = None) -> None:
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
         """Reset chunking state for the given envs (all if None)."""
         if env_ids is None:
             env_ids = slice(None)
         self.current_action_chunk[env_ids] = 0.0
         self.current_action_index[env_ids] = -1
         self.env_requires_new_chunk[env_ids] = True
+
+
+# Backwards-compatibility alias
+ActionChunkingState = ActionChunkScheduler

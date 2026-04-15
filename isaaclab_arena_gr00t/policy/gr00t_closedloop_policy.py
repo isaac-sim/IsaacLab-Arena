@@ -21,7 +21,8 @@ from gr00t.data.embodiment_tags import EmbodimentTag
 # future release if all workflows move to the remote path.
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
-from isaaclab_arena.policy.action_chunking import ActionChunkingState
+from isaaclab_arena.policy.action_chunking import ActionChunkScheduler
+from isaaclab_arena.policy.action_scheduler import ActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
@@ -72,7 +73,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
     name = "gr00t_closedloop"
     config_class = Gr00tClosedloopPolicyArgs
 
-    def __init__(self, config: Gr00tClosedloopPolicyArgs):
+    def __init__(self, config: Gr00tClosedloopPolicyArgs, action_scheduler: ActionScheduler | None = None):
         """Initialize Gr00tClosedloopPolicy from a configuration dataclass."""
         super().__init__(config)
 
@@ -109,15 +110,16 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
 
-        # Shared chunking state (reused by remote framework wrappers)
-        self._chunking_state = ActionChunkingState(
-            num_envs=self.num_envs,
-            action_chunk_length=self.action_chunk_length,
-            action_horizon=self.policy_config.action_horizon,
-            action_dim=self.action_dim,
-            device=self.device,
-            dtype=torch.float,
-        )
+        if action_scheduler is None:
+            action_scheduler = ActionChunkScheduler(
+                num_envs=self.num_envs,
+                action_chunk_length=self.action_chunk_length,
+                action_horizon=self.policy_config.action_horizon,
+                action_dim=self.action_dim,
+                device=self.device,
+                dtype=torch.float,
+            )
+        self._action_scheduler = action_scheduler
 
         # task description of task being evaluated. It will be set by the task being evaluated.
         self.task_description: str | None = None
@@ -222,7 +224,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         def fetch_chunk() -> torch.Tensor:
             return self.get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
 
-        return self._chunking_state.get_action(fetch_chunk)
+        return self._action_scheduler.get_action(fetch_chunk)
 
     def get_action_chunk(
         self, observation: dict[str, Any], camera_names: list[str] | str = "robot_head_cam_rgb"
@@ -255,4 +257,4 @@ class Gr00tClosedloopPolicy(PolicyBase):
             env_ids = slice(None)
         # placeholder for future reset options from GR00T repo
         self.policy.reset()
-        self._chunking_state.reset(env_ids)
+        self._action_scheduler.reset(env_ids)
