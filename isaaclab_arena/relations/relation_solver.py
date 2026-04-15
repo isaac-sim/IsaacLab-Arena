@@ -15,7 +15,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import AtPosition, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -141,12 +141,17 @@ class RelationSolver:
                 total_loss = total_loss + loss
 
         # Add built-in no-overlap loss between all object pairs
-        total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
+        total_loss = total_loss + self._compute_no_overlap_loss(state, debug, bboxes_per_row=bboxes_per_row)
 
         self._last_loss_per_env = total_loss.detach().clone()
         return total_loss.mean()
 
-    def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+    def _compute_no_overlap_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+        bboxes_per_row: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+    ) -> torch.Tensor:
         """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
 
         Each unique pair is evaluated twice (once per direction):
@@ -157,6 +162,7 @@ class RelationSolver:
         Args:
             state: Current optimization state with object positions.
             debug: If True, print detailed loss breakdown.
+            bboxes_per_row: Optional per-row bboxes for heterogeneous placement.
 
         Returns:
             Per-environment loss tensor of shape (batch_size,).
@@ -169,7 +175,7 @@ class RelationSolver:
 
         for i, child in enumerate(non_anchor_objects):
             child_pos = state.get_position(child)
-            child_bbox = child.get_bounding_box().to(device)
+            child_bbox = self._get_bbox(child, device, bboxes_per_row)
 
             # Against all anchors
             for anchor in anchor_objects:
@@ -188,7 +194,7 @@ class RelationSolver:
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
                 other_pos = state.get_position(other)
-                other_bbox = other.get_bounding_box().to(device)
+                other_bbox = self._get_bbox(other, device, bboxes_per_row)
 
                 # Forward: gradient flows to child (object i)
                 other_world_bbox = other_bbox.translated(other_pos.detach())

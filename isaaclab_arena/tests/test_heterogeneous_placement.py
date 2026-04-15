@@ -13,11 +13,9 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import IsAnchor, NoCollision, On
+from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -105,9 +103,7 @@ def test_solver_accepts_per_row_bboxes():
     objects = [desk, box]
     batch_size = 4
 
-    initial_positions = [
-        {desk: (0.0, 0.0, 0.0), box: (0.5, 0.5, 0.11)} for _ in range(batch_size)
-    ]
+    initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.5, 0.5, 0.11)} for _ in range(batch_size)]
 
     # Create per-row bboxes with varying sizes across the batch.
     min_pts = torch.zeros(batch_size, 3)
@@ -214,9 +210,7 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
     )
     obj_x.add_relation(On(desk, clearance_m=0.01))
 
-    # NoCollision between A and X (both directions).
-    obj_a.add_relation(NoCollision(obj_x))
-    obj_x.add_relation(NoCollision(obj_a))
+    # No-overlap is handled automatically by the solver's built-in clearance.
 
     objects = [desk, obj_a, obj_x]
     num_envs = 4
@@ -240,6 +234,16 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
         for obj in (obj_a, obj_x):
             z = r.positions[obj][2]
             assert abs(z - 0.11) < 0.05, f"Env {env_idx}, {obj.name}: z={z:.4f}, expected ~0.11"
+
+        # Verify XY non-overlap using each env's actual variant bbox.
+        variant_idx = env_idx % len([small_a, large_a])
+        a_bbox = [small_a, large_a][variant_idx]
+        x_bbox = obj_x.get_bounding_box()
+        a_world = a_bbox.translated(r.positions[obj_a])
+        x_world = x_bbox.translated(r.positions[obj_x])
+        assert not a_world.overlaps(
+            x_world
+        ).item(), f"Env {env_idx}: A and X bboxes overlap at positions A={r.positions[obj_a]}, X={r.positions[obj_x]}"
 
 
 def test_homogeneous_path_unchanged():

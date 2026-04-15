@@ -253,11 +253,19 @@ class ObjectPlacer:
         results: list[PlacementResult] = []
         for env_idx in range(num_envs):
             start = env_idx * max_attempts
+            # Slice single-env bboxes for validation of this env's candidates.
+            env_bbox_overrides = {
+                obj: AxisAlignedBoundingBox(
+                    min_point=env_bboxes[obj].min_point[env_idx : env_idx + 1],
+                    max_point=env_bboxes[obj].max_point[env_idx : env_idx + 1],
+                )
+                for obj in objects
+            }
             env_candidates = [
                 PlacementCandidate(
                     all_losses[start + j],
                     all_positions[start + j],
-                    self._validate_placement(all_positions[start + j]),
+                    self._validate_placement(all_positions[start + j], bbox_overrides=env_bbox_overrides),
                 )
                 for j in range(max_attempts)
             ]
@@ -415,12 +423,18 @@ class ObjectPlacer:
     def _validate_on_relations(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
+        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
         """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
 
         1. X: child's footprint entirely within parent's X extent.
         2. Y: child's footprint entirely within parent's Y extent.
         3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
+
+        Args:
+            positions: Solved positions for each object.
+            bbox_overrides: Optional per-object bbox overrides (single-env, shape ``(1, 3)``).
+                Used by heterogeneous placement to supply the correct variant bbox.
         """
         for obj in positions:
             for rel in obj.get_relations():
@@ -429,8 +443,12 @@ class ObjectPlacer:
                 parent = rel.parent
                 if parent not in positions:
                     continue
-                child_world = obj.get_bounding_box().translated(positions[obj])
-                parent_world = parent.get_bounding_box().translated(positions[parent])
+                child_bbox = bbox_overrides[obj] if bbox_overrides and obj in bbox_overrides else obj.get_bounding_box()
+                parent_bbox = (
+                    bbox_overrides[parent] if bbox_overrides and parent in bbox_overrides else parent.get_bounding_box()
+                )
+                child_world = child_bbox.translated(positions[obj])
+                parent_world = parent_bbox.translated(positions[parent])
                 # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
                 if (
                     child_world.min_point[0, 0] < parent_world.min_point[0, 0]
@@ -442,8 +460,8 @@ class ObjectPlacer:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
                 # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
-                parent_local_top_z: float = parent.get_bounding_box().max_point[0, 2].item()
-                child_local_bottom_z: float = obj.get_bounding_box().min_point[0, 2].item()
+                parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
+                child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
                 parent_top_z = parent_local_top_z + positions[parent][2]
                 clearance_m = rel.clearance_m
                 child_bottom_z = child_local_bottom_z + positions[obj][2]
@@ -457,6 +475,7 @@ class ObjectPlacer:
     def _validate_no_overlap(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
+        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
         """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
 
@@ -464,6 +483,11 @@ class ObjectPlacer:
         The margin is derived from the solver's clearance_m parameter (with a
         small float tolerance subtracted to avoid rejecting solutions that are
         within solver residual).
+
+        Args:
+            positions: Solved positions for each object.
+            bbox_overrides: Optional per-object bbox overrides (single-env, shape ``(1, 3)``).
+                Used by heterogeneous placement to supply the correct variant bbox.
         """
         # Build set of On-related pairs to skip (child, parent) and (parent, child).
         on_pairs: set[tuple] = set()
@@ -490,8 +514,10 @@ class ObjectPlacer:
                 if (id(a), id(b)) in on_pairs:
                     continue
 
-                a_world = a.get_bounding_box().translated(positions[a])
-                b_world = b.get_bounding_box().translated(positions[b])
+                a_bbox = bbox_overrides[a] if bbox_overrides and a in bbox_overrides else a.get_bounding_box()
+                b_bbox = bbox_overrides[b] if bbox_overrides and b in bbox_overrides else b.get_bounding_box()
+                a_world = a_bbox.translated(positions[a])
+                b_world = b_bbox.translated(positions[b])
 
                 if a_world.overlaps(b_world, margin=margin).item():
                     if self.params.verbose:
@@ -502,16 +528,21 @@ class ObjectPlacer:
     def _validate_placement(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
+        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
         """Validate that no two objects overlap in 3D and On relations are satisfied.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
+            bbox_overrides: Optional per-object bbox overrides (single-env, shape ``(1, 3)``).
+                Used by heterogeneous placement to supply the correct variant bbox.
 
         Returns:
             True if no overlaps exist and On relations hold, False otherwise.
         """
-        return self._validate_no_overlap(positions) and self._validate_on_relations(positions)
+        return self._validate_no_overlap(positions, bbox_overrides) and self._validate_on_relations(
+            positions, bbox_overrides
+        )
 
     def _apply_positions(
         self,
