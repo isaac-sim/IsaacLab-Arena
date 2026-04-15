@@ -27,7 +27,7 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
@@ -46,7 +46,9 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         table_reference.add_relation(IsAnchor())
 
         pick_up_object.add_relation(On(table_reference))
+        pick_up_object.add_relation(PositionLimits(x_min=0.55, x_max=0.70, y_min=-0.4, y_max=-0.1))
         destination_location.add_relation(On(table_reference))
+        destination_location.add_relation(PositionLimits(x_min=0.55, x_max=0.70, y_min=-0.4, y_max=-0.1))
 
         additional_table_objects = [
             self.asset_registry.get_asset_by_name(name)() for name in args_cli.additional_table_objects

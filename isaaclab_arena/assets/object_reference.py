@@ -27,7 +27,6 @@ class ObjectReference(ObjectBase):
         self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
-        assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
 

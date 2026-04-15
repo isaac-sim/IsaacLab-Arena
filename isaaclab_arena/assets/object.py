@@ -8,6 +8,7 @@ from typing import Any
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
@@ -32,18 +33,26 @@ class Object(ObjectBase):
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
+        spawner_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
-        if object_type is not ObjectType.SPAWNER:
-            assert usd_path is not None
+        assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
+        assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
+        if spawner_cfg is not None:
+            assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
         if object_type is None:
+            assert usd_path is not None, (
+                "object_type is None (indicating auto-detect) but usd_path is also None. usd_path is required to detect"
+                " object type"
+            )
             object_type = detect_object_type(usd_path=usd_path)
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
+        self.spawner_cfg = spawner_cfg
         self.scale = scale
         self.initial_pose = initial_pose
         self.reset_pose = True
@@ -136,63 +145,50 @@ class Object(ObjectBase):
             filter_prim_paths_expr=filter_prim_paths,
         )
 
+    def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
+        """Return the spawn config to use: custom spawner_cfg if set, else a UsdFileCfg."""
+        if self.spawner_cfg is not None:
+            return self.spawner_cfg
+        return UsdFileCfg(
+            usd_path=self.usd_path,
+            scale=self.scale,
+            activate_contact_sensors=activate_contact_sensors,
+            **self.spawn_cfg_addon,
+        )
+
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,
-            spawn=UsdFileCfg(
-                usd_path=self.usd_path,
-                scale=self.scale,
-                activate_contact_sensors=True,
-                **self.spawn_cfg_addon,
-            ),
+            spawn=self._get_spawn_cfg(activate_contact_sensors=True),
             **self.asset_cfg_addon,
         )
-        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        return object_cfg
+        return self._add_initial_pose_to_cfg(object_cfg)
 
     def _generate_articulation_cfg(self) -> ArticulationCfg:
         assert self.object_type == ObjectType.ARTICULATION
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
-            spawn=UsdFileCfg(
-                usd_path=self.usd_path,
-                scale=self.scale,
-                activate_contact_sensors=True,
-                **self.spawn_cfg_addon,
-            ),
+            spawn=self._get_spawn_cfg(activate_contact_sensors=True),
             **self.asset_cfg_addon,
             actuators={},
         )
-        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        return object_cfg
+        return self._add_initial_pose_to_cfg(object_cfg)
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
         assert self.object_type == ObjectType.BASE
-        with open_stage(self.usd_path) as stage:
-            if has_light(stage):
-                print("WARNING: Base object has lights, this may cause issues when using with multiple environments.")
-        object_cfg = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/" + self.name,
-            spawn=UsdFileCfg(
-                usd_path=self.usd_path,
-                scale=self.scale,
-                **self.spawn_cfg_addon,
-            ),
-            **self.asset_cfg_addon,
-        )
-        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        return object_cfg
-
-    def _generate_spawner_cfg(self) -> AssetBaseCfg:
-        assert self.object_type == ObjectType.SPAWNER
+        if self.spawner_cfg is None:
+            with open_stage(self.usd_path) as stage:
+                if has_light(stage):
+                    print(
+                        "WARNING: Base object has lights, this may cause issues when using with multiple environments."
+                    )
         object_cfg = AssetBaseCfg(
             prim_path=self.prim_path,
-            spawn=self.spawner_cfg,
+            spawn=self._get_spawn_cfg(),
             **self.asset_cfg_addon,
         )
-        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        return object_cfg
+        return self._add_initial_pose_to_cfg(object_cfg)
 
     def _add_initial_pose_to_cfg(
         self, object_cfg: RigidObjectCfg | ArticulationCfg | AssetBaseCfg
