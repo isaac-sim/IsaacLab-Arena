@@ -8,7 +8,11 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy, UnaryRelationLossStrategy
+from isaaclab_arena.relations.relation_loss_strategies import (
+    NoCollisionLossStrategy,
+    RelationLossStrategy,
+    UnaryRelationLossStrategy,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
@@ -36,6 +40,8 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
+        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
+        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
@@ -71,7 +77,7 @@ class RelationSolver:
             Scalar loss tensor (mean over environments).
         """
         batch_size = state.batch_size
-        device = state.optimizable_positions.device if state.optimizable_positions is not None else None
+        device = state.device
         total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
         # Compute loss from all spatial relations using strategies
@@ -111,8 +117,82 @@ class RelationSolver:
 
                 total_loss = total_loss + loss
 
+        # Add built-in no-overlap loss between all object pairs
+        total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
+
         self._last_loss_per_env = total_loss.detach().clone()
         return total_loss.mean()
+
+    def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
+
+        Each unique pair is evaluated twice (once per direction):
+        - Non-anchor vs anchor: gradient flows to the non-anchor only.
+        - Non-anchor vs non-anchor: both objects receive gradient by computing
+          the loss in both directions with the other's position detached.
+
+        Args:
+            state: Current optimization state with object positions.
+            debug: If True, print detailed loss breakdown.
+
+        Returns:
+            Per-environment loss tensor of shape (batch_size,).
+        """
+        device = state.device
+        total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
+
+        non_anchor_objects = state.optimizable_objects
+        anchor_objects = list(state.anchor_objects)
+
+        for i, child in enumerate(non_anchor_objects):
+            child_pos = state.get_position(child)
+            child_bbox = child.get_bounding_box().to(device)
+
+            # Against all anchors
+            for anchor in anchor_objects:
+                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+                loss = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=anchor_world_bbox,
+                )
+                if debug:
+                    print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
+                total_loss = total_loss + loss
+
+            # Against other non-anchors (unique pairs, both directions)
+            for j in range(i + 1, len(non_anchor_objects)):
+                other = non_anchor_objects[j]
+                other_pos = state.get_position(other)
+                other_bbox = other.get_bounding_box().to(device)
+
+                # Forward: gradient flows to child (object i)
+                other_world_bbox = other_bbox.translated(other_pos.detach())
+                loss_fwd = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=other_world_bbox,
+                )
+
+                # Reverse: gradient flows to other (object j)
+                child_world_bbox = child_bbox.translated(child_pos.detach())
+                loss_rev = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=other_pos,
+                    child_bbox=other_bbox,
+                    parent_world_bbox=child_world_bbox,
+                )
+
+                if debug:
+                    print(
+                        f"  [NoOverlap] {child.name} vs {other.name}:"
+                        f" fwd={loss_fwd.mean().item():.6f}, rev={loss_rev.mean().item():.6f}"
+                    )
+                total_loss = total_loss + loss_fwd + loss_rev
+
+        return total_loss
 
     def solve(
         self,
