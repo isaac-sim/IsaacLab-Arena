@@ -44,6 +44,19 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
     arena_group.add_argument(
+        "--no-solve-relations",
+        action="store_false",
+        dest="solve_relations",
+        default=True,
+        help="Disable solving spatial relations in the environment.",
+    )
+    arena_group.add_argument(
+        "--placement_seed",
+        type=int,
+        default=None,
+        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
+    )
+    arena_group.add_argument(
         "--presets",
         type=str,
         default=None,
@@ -53,23 +66,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
             "When not set, each environment uses its own default."
         ),
     )
-
-    placement_group = parser.add_argument_group(
-        "Placement Arguments", "Arguments controlling object placement and relation solving"
-    )
-    placement_group.add_argument(
-        "--solve_relations",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Solve spatial relations in the environment. Use --no-solve_relations to disable.",
-    )
-    placement_group.add_argument(
-        "--placement_seed",
-        type=int,
-        default=None,
-        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
-    )
-    placement_group.add_argument(
+    arena_group.add_argument(
         "--resolve_on_reset",
         action=argparse.BooleanOptionalAction,
         default=None,

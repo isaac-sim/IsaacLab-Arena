@@ -79,7 +79,11 @@ class ArenaEnvBuilder:
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
-        Always pre-solves a pool of valid layouts via :class:`PlacementPool`.
+        This method:
+        1. Collects all objects from the scene that have relations
+        2. Runs the ObjectPlacer to solve spatial constraints (no-overlap is built into the solver)
+        3. Applies solved positions to objects via a :class:`PlacementPool`
+
         Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
         (overridable from CLI with ``--resolve_on_reset`` / ``--no-resolve_on_reset``):
 
@@ -87,8 +91,6 @@ class ArenaEnvBuilder:
           from the pool for each resetting environment.
         * **False** — applies one layout per environment via ``set_initial_pose``
           so per-object reset events restore the same layout every time.
-
-        No-overlap is built into the solver in both modes.
         """
         objects_with_relations = self._get_objects_with_relations()
 
