@@ -481,7 +481,7 @@ sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </s
 </pre></div>
 </div>
 <p>Create a CloudXR config to enable hand tracking:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;NV_DEVICE_PROFILE=auto-native&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>handtracking.env
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;NV_CXR_ENABLE_PUSH_DEVICES=0&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>handtracking.env
 </pre></div>
 </div>
 <p>Start the CloudXR runtime with the customized config file:</p>
