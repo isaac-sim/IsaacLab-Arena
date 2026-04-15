@@ -5,40 +5,20 @@
 
 import argparse
 import importlib
-import inspect
-import pkgutil
 from typing import Any
 
-import isaaclab_arena_environments
 from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-
-_environments_registered = False
 
 
 def ensure_environments_registered():
-    """Discover and register all environment classes in the ``isaaclab_arena_environments`` package.
+    """Trigger registration of all environments in the ``isaaclab_arena_environments`` package.
 
-    Imports every top-level module in the package and registers any concrete
-    :class:`ExampleEnvironmentBase` subclass that has a ``name`` attribute.
+    Importing the package fires the ``@register_environment`` decorator on each
+    environment module, which handles registration.  The import is cached by
+    Python, so subsequent calls are free.
     """
-    global _environments_registered
-    if not _environments_registered:
-        _environments_registered = True
-        registry = EnvironmentRegistry()
-        for _importer, modname, ispkg in pkgutil.iter_modules(isaaclab_arena_environments.__path__):
-            if ispkg:
-                continue
-            module = importlib.import_module(f"isaaclab_arena_environments.{modname}")
-            for _attr_name, obj in inspect.getmembers(module, inspect.isclass):
-                if (
-                    issubclass(obj, ExampleEnvironmentBase)
-                    and obj is not ExampleEnvironmentBase
-                    and getattr(obj, "name", None) is not None
-                    and obj.name not in registry._components
-                ):
-                    registry.register(obj, obj.name)
+    import isaaclab_arena_environments  # noqa: F401
 
 
 def parse_and_return_external_environment_from_string(environment_path: str) -> dict[str, Any]:
