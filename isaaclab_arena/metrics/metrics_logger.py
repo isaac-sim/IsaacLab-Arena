@@ -8,12 +8,16 @@ import numpy as np
 from typing import Any
 
 
-def sanitize_metrics(metrics: dict[str, Any]) -> dict[str, int | float | list]:
+def metrics_to_plain_python_types(metrics: dict[str, Any]) -> dict[str, int | float | list]:
     """Convert numpy scalars/arrays in a metrics dict to plain Python types."""
     sanitized = {}
     for k, v in metrics.items():
-        if isinstance(v, (np.floating, np.integer)):
+        if isinstance(v, np.bool_):
+            sanitized[k] = bool(v)
+        elif isinstance(v, np.floating):
             sanitized[k] = float(v)
+        elif isinstance(v, np.integer):
+            sanitized[k] = int(v)
         elif isinstance(v, np.ndarray):
             sanitized[k] = v.tolist()
         else:
@@ -35,7 +39,7 @@ class MetricsLogger:
         """
         if job_name not in self.metrics_data:
             self.metrics_data[job_name] = {}
-        self.metrics_data[job_name].update(sanitize_metrics(metrics))
+        self.metrics_data[job_name].update(metrics_to_plain_python_types(metrics))
 
     def save_metrics_to_file(self):
         """Save all metrics to JSON file."""
