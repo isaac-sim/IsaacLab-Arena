@@ -40,7 +40,10 @@ Tests require Isaac Sim and run via pytest:
 
 ```bash
 # Run all tests
-/isaac-sim/python.sh -m pytest isaaclab_arena/tests/
+# Our tests are separated into different phases of running. To run the full test suite requires three commands.
+/isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" isaacalab_arena/tests
+/isaac-sim/python.sh -m pytest  -sv -m "with_cameras and not with_subprocess" isaacalab_arena/tests
+/isaac-sim/python.sh -m pytest  -sv -m "with_subprocess" isaacalab_arena/tests
 
 # Run a single test file
 /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py
@@ -94,7 +97,7 @@ env.unwrapped.cfg                       # access Isaac Lab config
 env.unwrapped.device                    # access Isaac Lab device
 ```
 
-### Test Infrastructure
+### Writing Tests
 
 Simulation tests use an inner/outer function pattern to handle Isaac Sim's process lifecycle:
 
