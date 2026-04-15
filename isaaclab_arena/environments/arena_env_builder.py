@@ -118,9 +118,9 @@ class ArenaEnvBuilder:
         )
 
         if placer_params.resolve_on_reset:
-            anchor_objects = set(get_anchor_objects(objects_with_relations))
+            anchor_objects_set = set(get_anchor_objects(objects_with_relations))
             for obj in objects_with_relations:
-                if obj not in anchor_objects:
+                if obj not in anchor_objects_set:
                     assert obj.event_cfg is None, (
                         f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
                         "Relational solving should not be combined with explicit setting of "
@@ -128,7 +128,7 @@ class ArenaEnvBuilder:
                     )
             # Set init_state so objects spawn at valid positions (not origin).
             # The placement event will override these on every reset.
-            self._set_init_state_from_pool(objects_with_relations, placement_pool, anchor_objects)
+            self._set_init_state_from_pool(objects_with_relations, placement_pool, anchor_objects_set)
             self._placement_event_cfg = EventTermCfg(
                 func=solve_and_place_objects,
                 mode="reset",
@@ -144,7 +144,7 @@ class ArenaEnvBuilder:
         self,
         objects: list[Object | ObjectReference],
         pool: PlacementPool,
-        anchor_objects: set,
+        anchor_objects_set: set,
     ) -> None:
         """Set ``object_cfg.init_state`` from a pool layout so objects spawn at valid positions.
 
@@ -153,7 +153,7 @@ class ArenaEnvBuilder:
         """
         layout = pool.sample(1)[0]
         for obj in objects:
-            if obj in anchor_objects or obj.object_cfg is None:
+            if obj in anchor_objects_set or obj.object_cfg is None:
                 continue
             pos = layout.positions.get(obj)
             if pos is None:
@@ -176,10 +176,10 @@ class ArenaEnvBuilder:
         from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
         layouts = pool.sample(num_envs)
-        anchor_objects = set(get_anchor_objects(objects))
+        anchor_objects_set = set(get_anchor_objects(objects))
 
         for obj in objects:
-            if obj in anchor_objects:
+            if obj in anchor_objects_set:
                 continue
             rotation_xyzw = get_rotation_xyzw(obj)
             poses = [

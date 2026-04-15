@@ -228,7 +228,7 @@ def test_placement_pool_acquires_different_layouts():
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
     pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
 
-    assert len(pool) == 20
+    assert pool.remaining == 20
 
     draws = pool.acquire(5)
     assert len(draws) == 5
@@ -247,11 +247,11 @@ def test_placement_pool_sample_does_not_consume():
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
     pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
-    initial_available = len(pool)
+    initial_available = pool.remaining
 
     samples = pool.sample(5)
     assert len(samples) == 5
-    assert len(pool) == initial_available, "sample() should not consume from available queue"
+    assert pool.remaining == initial_available, "sample() should not consume from available queue"
 
 
 def test_placement_pool_acquire_triggers_refill():
@@ -264,7 +264,7 @@ def test_placement_pool_acquire_triggers_refill():
 
     # Exhaust the pool, then request more
     pool.acquire(5)
-    assert len(pool) == 0
+    assert pool.remaining == 0
 
     draws = pool.acquire(3)
     assert len(draws) == 3, "acquire() should refill and return the requested count"

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import random
 import torch
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -30,7 +29,7 @@ class PlacementPool:
     * :meth:`sample` — picks *count* layouts at random with replacement
       (non-consuming).  Used for static initial positions.
 
-    Internally the pool is a single list with a read cursor, following the
+    Internally the pool is a single list with a read index, following the
     same pattern as ``stable-baselines3.ReplayBuffer`` (single storage +
     position index).
 
@@ -42,7 +41,7 @@ class PlacementPool:
 
     def __init__(
         self,
-        objects: Sequence[ObjectBase],
+        objects: list[ObjectBase],
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
     ) -> None:
@@ -53,8 +52,9 @@ class PlacementPool:
         self._placer = ObjectPlacer(params=placer_params)
         self._pool_size = pool_size
         self._layouts: list[PlacementResult] = []
-        self._cursor: int = 0
+        self._next_idx: int = 0
 
+        # Pre-solve the initial batch (runs the gradient solver, no simulation is needed).
         self._solve_and_store(pool_size)
         if not self._layouts:
             raise RuntimeError(
@@ -63,14 +63,16 @@ class PlacementPool:
             )
 
     def _compact(self) -> None:
-        """Drop consumed layouts and reset the cursor to free memory."""
-        self._layouts = self._layouts[self._cursor :]
-        self._cursor = 0
+        """Drop consumed layouts and reset the read index to free memory."""
+        self._layouts = self._layouts[self._next_idx :]
+        self._next_idx = 0
 
     def _solve_and_store(self, num_layouts: int) -> None:
         """Solve *num_layouts* placements and append valid ones to the pool."""
         self._compact()
 
+        # place() runs: random init → gradient solve → validate → rank.
+        # It returns up to num_layouts results; some may fail validation.
         with torch.inference_mode(False):
             result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
 
@@ -80,8 +82,8 @@ class PlacementPool:
 
         if len(valid_results) < num_layouts:
             print(
-                f"[WARNING] Placement pool: solved {num_layouts}, got {len(valid_results)} valid."
-                f" {num_layouts - len(valid_results)} layouts failed validation."
+                f"Placement pool: solved {num_layouts} candidates,"
+                f" {len(valid_results)} valid, {num_layouts - len(valid_results)} failed validation"
             )
 
         random.shuffle(valid_results)
@@ -90,25 +92,25 @@ class PlacementPool:
     def acquire(self, count: int) -> list[PlacementResult]:
         """Return the next *count* layouts sequentially (without replacement).
 
-        Auto-refills the pool when there are not enough layouts ahead of the cursor.
+        Auto-refills the pool when there are not enough layouts ahead of the read index.
 
         Raises:
             RuntimeError: If the pool cannot provide *count* layouts after refilling.
         """
-        remaining = len(self._layouts) - self._cursor
+        remaining = len(self._layouts) - self._next_idx
         if remaining < count:
-            self._solve_and_store(max(self._pool_size, count))
+            self._solve_and_store(max(self._pool_size, count))  # solve a fresh batch
 
-        remaining = len(self._layouts) - self._cursor
-        if remaining < count:
+        remaining = len(self._layouts) - self._next_idx
+        if remaining < count:  # still not enough after refill (solver producing too few valid layouts)
             raise RuntimeError(
                 f"Placement pool has {remaining} valid layouts but {count} were requested. "
                 "The solver is not producing enough valid placements."
             )
 
-        start = self._cursor
-        self._cursor += count
-        return self._layouts[start : self._cursor]
+        start = self._next_idx
+        self._next_idx += count
+        return self._layouts[start : self._next_idx]
 
     def sample(self, count: int) -> list[PlacementResult]:
         """Pick *count* layouts at random with replacement (non-consuming).
@@ -118,6 +120,7 @@ class PlacementPool:
         """
         return random.choices(self._layouts, k=count)
 
-    def __len__(self) -> int:
-        """Number of layouts ahead of the cursor (available for :meth:`acquire`)."""
-        return len(self._layouts) - self._cursor
+    @property
+    def remaining(self) -> int:
+        """Number of layouts not yet consumed by :meth:`acquire`."""
+        return len(self._layouts) - self._next_idx
