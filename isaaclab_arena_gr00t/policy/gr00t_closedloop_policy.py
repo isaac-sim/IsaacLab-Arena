@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from gr00t.data.embodiment_tags import EmbodimentTag
+# NOTE: Gr00tPolicy is a heavy import (transformers, model loading). This local policy
+# loads the model in-process and requires the full GR00T ML stack. For production
+# evaluation, use Gr00tRemoteClosedloopPolicy which delegates inference to a remote
+# GR00T server and has no heavy dependencies. This local policy may be removed in a
+# future release if all workflows move to the remote path.
 from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena.policy.action_chunking import ActionChunkingState
@@ -27,7 +32,6 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     compute_action_dim,
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
-    load_gr00t_policy_from_config,
 )
 from isaaclab_arena_gr00t.utils.eagle_config_compat import apply_eagle_config_compat
 from isaaclab_arena_gr00t.utils.io_utils import (
@@ -76,7 +80,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
             config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
         )
-        self.policy: Gr00tPolicy = load_gr00t_policy_from_config(self.policy_config)
+        self.policy: Gr00tPolicy = self._load_policy()
 
         # Basic attributes
         self.num_envs = config.num_envs
@@ -156,16 +160,18 @@ class Gr00tClosedloopPolicy(PolicyBase):
         """Load the simulation action joint config from the data config."""
         return load_robot_joints_config_from_yaml(action_config_path)
 
-    def load_policy(self) -> Gr00tPolicy:
-        """Load the dataset, whose iterator will be used as the policy."""
-        assert Path(
-            self.policy_config.model_path
-        ).exists(), f"Dataset path {self.policy_config.dataset_path} does not exist"
+    def _load_policy(self) -> Gr00tPolicy:
+        """Load the GR00T policy model in-process."""
+        model_path = self.policy_config.model_path
+        is_hf_id = bool(model_path and "/" in model_path and not model_path.startswith(("/", ".")))
+        assert (
+            Path(model_path).exists() or is_hf_id
+        ), f"Model path {model_path} does not exist and is not a HuggingFace model id"
 
         apply_eagle_config_compat()
 
         return Gr00tPolicy(
-            model_path=self.policy_config.model_path,
+            model_path=model_path,
             embodiment_tag=EmbodimentTag[self.policy_config.embodiment_tag],
             device=self.device,
             strict=True,
