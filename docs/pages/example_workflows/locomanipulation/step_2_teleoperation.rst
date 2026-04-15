@@ -31,9 +31,16 @@ In another terminal, start the Arena Docker container and launch the teleop sess
 
 :docker_run_default:
 
+Run the following command to activate IsaacTeleop CloudXR environment settings:
+
 .. code-block:: bash
 
    source ~/.cloudxr/run/cloudxr.env
+
+Run the teleop script:
+
+.. code-block:: bash
+
    python isaaclab_arena/scripts/imitation_learning/teleop.py \
      --viz kit \
      --device cpu \

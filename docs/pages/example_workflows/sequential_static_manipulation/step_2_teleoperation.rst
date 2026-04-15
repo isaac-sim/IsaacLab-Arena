@@ -83,11 +83,16 @@ In another terminal, start the Arena Docker container:
 
 :docker_run_default:
 
-Run the recording script:
+Run the following command to activate IsaacTeleop CloudXR environment settings:
 
 .. code-block:: bash
 
    source ~/.cloudxr/run/cloudxr.env
+
+Run the recording script:
+
+.. code-block:: bash
+
    python isaaclab_arena/scripts/imitation_learning/record_demos.py \
      --device cpu \
      --viz kit \
