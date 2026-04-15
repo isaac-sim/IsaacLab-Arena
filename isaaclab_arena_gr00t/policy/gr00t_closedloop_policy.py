@@ -105,7 +105,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
 
-        # Shared chunking state (unified with remote ActionChunkingClientSidePolicy)
+        # Shared chunking state (reused by remote framework wrappers)
         self._chunking_state = ActionChunkingState(
             num_envs=self.num_envs,
             action_chunk_length=self.action_chunk_length,

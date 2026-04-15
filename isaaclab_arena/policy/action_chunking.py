@@ -14,8 +14,8 @@ from collections.abc import Callable
 class ActionChunkingState:
     """Holds chunk buffer, per-env index, and refill flag; provides get_action(fetch_chunk_fn).
 
-    Used by both Gr00tClosedloopPolicy (local) and ActionChunkingClientSidePolicy (remote)
-    so chunking behavior is identical.
+    Used by Gr00tClosedloopPolicy and any framework-specific remote wrapper
+    so chunking behavior is identical across local and remote policies.
     """
 
     def __init__(
