@@ -93,7 +93,7 @@ class RigidObjectSet(Object):
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
 
-    def get_variant_indices(self, num_envs: int) -> list[int]:
+    def get_variant_indices(self, num_envs: int, seed: int | None = None) -> list[int]:
         """Return which member object index is assigned to each environment.
 
         When ``random_choice`` is False the mapping is round-robin
@@ -103,6 +103,9 @@ class RigidObjectSet(Object):
 
         Args:
             num_envs: Number of environments.
+            seed: Optional RNG seed for reproducible variant assignment
+                when ``random_choice`` is True. If None, uses the global
+                torch RNG.
 
         Returns:
             List of length ``num_envs`` with indices into ``self.objects``.
@@ -112,7 +115,11 @@ class RigidObjectSet(Object):
             return [i % n for i in range(num_envs)]
 
         if not hasattr(self, "_cached_variant_indices") or len(self._cached_variant_indices) != num_envs:
-            self._cached_variant_indices = [int(i) for i in torch.randint(n, (num_envs,)).tolist()]
+            generator = None
+            if seed is not None:
+                generator = torch.Generator()
+                generator.manual_seed(seed)
+            self._cached_variant_indices = [int(i) for i in torch.randint(n, (num_envs,), generator=generator).tolist()]
         return self._cached_variant_indices
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
