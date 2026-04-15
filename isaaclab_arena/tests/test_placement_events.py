@@ -220,20 +220,113 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_placement_pool_draws_different_layouts():
-    """PlacementPool.draw() should return layouts (likely different across draws)."""
+def test_placement_pool_acquires_different_layouts():
+    """PlacementPool.acquire() should return layouts (likely different across draws)."""
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
     pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
 
-    assert pool.size == 20
+    assert len(pool) == 20
 
-    draws = pool.draw(5)
+    draws = pool.acquire(5)
     assert len(draws) == 5
     positions = [d.positions[box1] for d in draws]
     any_different = any(
         positions[i] != positions[j] for i in range(len(positions)) for j in range(i + 1, len(positions))
     )
     assert any_different, "Pool draws should produce different layouts"
+
+
+def test_placement_pool_sample_does_not_consume():
+    """PlacementPool.sample() should return layouts without consuming them."""
+
+    desk, box1, box2 = _create_test_objects()
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+
+    initial_available = len(pool)
+
+    samples = pool.sample(5)
+    assert len(samples) == 5
+    assert len(pool) == initial_available, "sample() should not consume from available queue"
+
+
+def test_placement_pool_acquire_triggers_refill():
+    """Acquiring more than available should trigger a refill and still return the requested count."""
+
+    desk, box1, box2 = _create_test_objects()
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=5)
+
+    # Exhaust the pool, then request more
+    pool.acquire(5)
+    assert len(pool) == 0
+
+    draws = pool.acquire(3)
+    assert len(draws) == 3, "acquire() should refill and return the requested count"
+
+
+def test_resolve_on_reset_false_applies_pose_per_env():
+    """Simulates the resolve_on_reset=False path: sample layouts and build PosePerEnv per object."""
+    from isaaclab_arena.relations.placement_events import get_rotation_xyzw
+    from isaaclab_arena.relations.relations import get_anchor_objects
+    from isaaclab_arena.utils.pose import PosePerEnv
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    num_envs = 3
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+    pool = PlacementPool(objects=objects, placer_params=placer_params, pool_size=20)
+
+    layouts = pool.sample(num_envs)
+    assert len(layouts) == num_envs
+
+    anchor_objects = set(get_anchor_objects(objects))
+    for obj in objects:
+        if obj in anchor_objects:
+            continue
+        rotation_xyzw = get_rotation_xyzw(obj)
+        poses = [
+            Pose(position_xyz=layouts[env_idx].positions[obj], rotation_xyzw=rotation_xyzw)
+            for env_idx in range(num_envs)
+        ]
+        pose_per_env = PosePerEnv(poses=poses)
+        assert len(pose_per_env.poses) == num_envs, f"Expected {num_envs} poses for {obj.name}"
+        for p in pose_per_env.poses:
+            assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
+
+
+def test_placement_pool_empty_catalog_raises():
+    """PlacementPool should raise RuntimeError when no valid layouts can be produced."""
+    import pytest
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    # Two large boxes that cannot both fit On a tiny desk
+    big1 = DummyObject(
+        name="big1",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big2 = DummyObject(
+        name="big2",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big1.add_relation(On(desk))
+    big2.add_relation(On(desk))
+
+    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
+
+    with pytest.raises(RuntimeError, match="failed to produce any valid layouts"):
+        PlacementPool(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
