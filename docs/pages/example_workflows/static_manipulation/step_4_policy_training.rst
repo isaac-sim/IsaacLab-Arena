@@ -151,7 +151,7 @@ We provide two post-training options:
          --tune_diffusion_model \
          --no-resume \
          --dataloader_num_workers=16 \
-         --use-wandb \
+         --no_use_wandb \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
 
@@ -187,7 +187,6 @@ We provide two post-training options:
          --tune_projector \
          --tune_diffusion_model \
          --dataloader_num_workers=16 \
-         --use-wandb \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
          --save_total_limit=5
