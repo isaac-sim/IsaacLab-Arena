@@ -29,9 +29,10 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import solve_and_place_objects
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.placement_pool import PlacementPool
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
@@ -78,10 +79,16 @@ class ArenaEnvBuilder:
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
-        This method:
-        1. Collects all objects from the scene that have relations
-        2. Pre-solves a pool of layouts and registers a reset event that draws from it
-           (no-overlap is built into the solver)
+        Always pre-solves a pool of valid layouts via :class:`PlacementPool`.
+        Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
+        (overridable from CLI with ``--resolve_on_reset`` / ``--no-resolve_on_reset``):
+
+        * **True** (default) — registers a reset event that draws a fresh layout
+          from the pool for each resetting environment.
+        * **False** — applies one layout per environment via ``set_initial_pose``
+          so per-object reset events restore the same layout every time.
+
+        No-overlap is built into the solver in both modes.
         """
         objects_with_relations = self._get_objects_with_relations()
 
@@ -89,25 +96,72 @@ class ArenaEnvBuilder:
             print("No objects with relations found in scene. Skipping relation solving.")
             return
 
+        num_envs = self.args.num_envs
+        cli_resolve = getattr(self.args, "resolve_on_reset", None)
+
+        # The pool applies positions itself, so disable ObjectPlacer's built-in apply.
+        # Position history and verbose logging are unnecessary for batch-solving a pool.
         placer_params = ObjectPlacerParams(
             placement_seed=self.args.placement_seed,
             apply_positions_to_objects=False,
             solver_params=RelationSolverParams(save_position_history=False, verbose=False),
         )
-        pool_size = max(self.args.num_envs * 10, 100)
+        if cli_resolve is not None:
+            placer_params.resolve_on_reset = cli_resolve
+
+        pool_size = num_envs * placer_params.min_unique_layouts_per_env
+
         placement_pool = PlacementPool(
             objects=objects_with_relations,
             placer_params=placer_params,
             pool_size=pool_size,
         )
-        self._placement_event_cfg = EventTermCfg(
-            func=solve_and_place_objects,
-            mode="reset",
-            params={
-                "objects": objects_with_relations,
-                "placement_pool": placement_pool,
-            },
-        )
+
+        if placer_params.resolve_on_reset:
+            anchor_objects = set(get_anchor_objects(objects_with_relations))
+            for obj in objects_with_relations:
+                if obj not in anchor_objects:
+                    assert obj.event_cfg is None, (
+                        f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
+                        "Relational solving should not be combined with explicit setting of "
+                        "poses on non-anchor objects."
+                    )
+            self._placement_event_cfg = EventTermCfg(
+                func=solve_and_place_objects,
+                mode="reset",
+                params={
+                    "objects": objects_with_relations,
+                    "placement_pool": placement_pool,
+                },
+            )
+        else:
+            self._apply_pool_layouts_to_objects(objects_with_relations, placement_pool, num_envs)
+
+    def _apply_pool_layouts_to_objects(
+        self,
+        objects: list[Object | ObjectReference],
+        pool: PlacementPool,
+        num_envs: int,
+    ) -> None:
+        """Draw layouts from the pool and apply them to objects via ``set_initial_pose``.
+
+        Each non-anchor object gets a :class:`~isaaclab_arena.utils.pose.PosePerEnv`
+        so that per-object reset events restore these positions.
+        """
+        from isaaclab_arena.utils.pose import Pose, PosePerEnv
+
+        layouts = pool.sample(num_envs)
+        anchor_objects = set(get_anchor_objects(objects))
+
+        for obj in objects:
+            if obj in anchor_objects:
+                continue
+            rotation_xyzw = get_rotation_xyzw(obj)
+            poses = [
+                Pose(position_xyz=layouts[env_idx].positions[obj], rotation_xyzw=rotation_xyzw)
+                for env_idx in range(num_envs)
+            ]
+            obj.set_initial_pose(PosePerEnv(poses=poses))
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""

@@ -17,10 +17,18 @@ from isaaclab_arena.utils.pose import Pose
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
+IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
+
+
+def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
+    """Return the RotateAroundSolution rotation for *obj*, or identity if none."""
+    rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
+    return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+
 
 def solve_and_place_objects(
     env: ManagerBasedEnv,
-    env_ids: torch.Tensor,
+    env_ids: torch.Tensor | None,
     objects: list[ObjectBase],
     placement_pool: PlacementPool,
 ) -> None:
@@ -39,21 +47,10 @@ def solve_and_place_objects(
         return
 
     num_reset_envs = len(env_ids)
-    results_per_env = placement_pool.draw(num_reset_envs)
-
-    n_failed = sum(1 for r in results_per_env if not r.success)
-    if n_failed > 0:
-        print(
-            f"[WARNING] Placement validation failed for {n_failed}/{num_reset_envs} envs. Writing best-effort"
-            " positions."
-        )
+    results_per_env = placement_pool.acquire(num_reset_envs)
 
     anchor_objects_set = set(get_anchor_objects(objects))
-    rotations: dict[ObjectBase, tuple[float, float, float, float]] = {}
-    for obj in objects:
-        if obj not in anchor_objects_set:
-            rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
-            rotations[obj] = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
+    rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
 
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for local_idx, cur_env in enumerate(env_ids.tolist()):
