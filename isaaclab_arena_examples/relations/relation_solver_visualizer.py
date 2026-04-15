@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 from typing import TYPE_CHECKING
 
 import plotly.graph_objects as go
@@ -14,6 +15,8 @@ import plotly.graph_objects as go
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
+    import trimesh
+
     from isaaclab_arena.assets.object import Object
 
 # Color palette for objects
@@ -154,6 +157,80 @@ class RelationSolverVisualizer:
             line=line_dict,
             name=name,
             opacity=opacity,
+            showlegend=True,
+        )
+
+    @staticmethod
+    def create_mesh_trace(
+        mesh: trimesh.Trimesh,
+        position: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        color: str = "#1f77b4",
+        name: str = "mesh",
+        opacity: float = 0.35,
+    ) -> go.Mesh3d:
+        """Create a Plotly ``Mesh3d`` trace for a trimesh object at *position*.
+
+        Args:
+            mesh: A ``trimesh.Trimesh`` instance (local-frame geometry).
+            position: World-space (x, y, z) offset applied to every vertex.
+            color: Surface fill colour.
+            name: Legend label.
+            opacity: Surface opacity (0 = invisible, 1 = solid).
+
+        Returns:
+            A ``go.Mesh3d`` trace ready to add to a Plotly figure.
+        """
+        verts = np.asarray(mesh.vertices, dtype=np.float64)
+        faces = np.asarray(mesh.faces, dtype=np.int32)
+        px, py, pz = position
+        return go.Mesh3d(
+            x=verts[:, 0] + px,
+            y=verts[:, 1] + py,
+            z=verts[:, 2] + pz,
+            i=faces[:, 0],
+            j=faces[:, 1],
+            k=faces[:, 2],
+            color=color,
+            opacity=opacity,
+            name=name,
+            showlegend=True,
+        )
+
+    @staticmethod
+    def create_sdf_scatter(
+        query_points: np.ndarray,
+        sdf_values: np.ndarray,
+        name: str = "SDF query",
+        marker_size: float = 3.0,
+    ) -> go.Scatter3d:
+        """Create a coloured scatter plot of SDF query points.
+
+        Points are coloured on a diverging scale: green (safely outside) ->
+        yellow (near surface / within margin) -> red (penetrating).
+
+        Args:
+            query_points: (N, 3) array of world-space query positions.
+            sdf_values: (N,) array of signed distance values.
+            name: Legend label.
+            marker_size: Point marker radius.
+
+        Returns:
+            A ``go.Scatter3d`` trace.
+        """
+        return go.Scatter3d(
+            x=query_points[:, 0],
+            y=query_points[:, 1],
+            z=query_points[:, 2],
+            mode="markers",
+            marker=dict(
+                size=marker_size,
+                color=sdf_values,
+                colorscale=[[0, "red"], [0.5, "yellow"], [1.0, "green"]],
+                cmin=-0.01,
+                cmax=0.02,
+                colorbar=dict(title="SDF (m)", len=0.5),
+            ),
+            name=name,
             showlegend=True,
         )
 
