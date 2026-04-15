@@ -5,10 +5,10 @@
 
 import argparse
 import importlib
-from typing import Any
 
 from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
 def ensure_environments_registered():
@@ -21,7 +21,9 @@ def ensure_environments_registered():
     import isaaclab_arena_environments  # noqa: F401
 
 
-def parse_and_return_external_environment_from_string(environment_path: str) -> dict[str, Any]:
+def parse_and_return_external_environment_from_string(
+    environment_path: str,
+) -> tuple[str, type[ExampleEnvironmentBase]]:
     """Parse a string and import the environment class
 
     Args:
@@ -31,7 +33,7 @@ def parse_and_return_external_environment_from_string(environment_path: str) -> 
         ValueError: If the environment path is not in the format "module_path:class_name"
 
     Returns:
-        dict[str, Any]: A dictionary with the environment name as the key and the environment class as the value
+        tuple[str, type[ExampleEnvironmentBase]]: A tuple with the environment name and the environment class
     """
     # Parse the environment path and import the environment class
     # We assume the environment path is in the format "module_path:class_name"
@@ -50,7 +52,7 @@ def parse_and_return_external_environment_from_string(environment_path: str) -> 
         ) from e
     name = getattr(environment_class, "name", environment_class.__name__)
     assert name is not None, "Environment class must have a 'name' attribute"
-    return {name: environment_class}
+    return name, environment_class
 
 
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -61,8 +63,8 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     environment = getattr(args, "external_environment_class_path", None)
     if environment is not None:
         print(f"Adding external environment: {environment}")
-        for name, cls in parse_and_return_external_environment_from_string(environment).items():
-            env_registry.register(cls, name)
+        name, cls = parse_and_return_external_environment_from_string(environment)
+        env_registry.register(cls, name)
 
     subparsers = args_parser.add_subparsers(
         dest="example_environment", required=True, help="Example environment to run"
