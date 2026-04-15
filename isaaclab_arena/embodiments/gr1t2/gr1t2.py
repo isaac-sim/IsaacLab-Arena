@@ -30,7 +30,6 @@ from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.embodiments.common.common import get_default_xr_cfg
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.terms.events import reset_all_articulation_joints
