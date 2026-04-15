@@ -2,7 +2,7 @@ Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
-and evaluating it in Arena GR1 Open Microwave Door Task environment.
+and evaluating it in the GR1 Sequential Pick & Place and Close Door Environment.
 
 **Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 

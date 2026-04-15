@@ -3,22 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
+from typing import TYPE_CHECKING
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
-# We cannot annotate types which require the simulation app to be started in order to
-# import, because this file is used to retrieve CLI arguments, so it must be imported
-# before the simulation app is started.
-# TODO(alexmillane, 2025.09.04): Fix this.
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     name: str = "kitchen_pick_and_place"
 
-    def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

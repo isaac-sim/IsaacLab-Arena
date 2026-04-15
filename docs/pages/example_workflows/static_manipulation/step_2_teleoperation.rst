@@ -28,7 +28,7 @@ Step 1: Start the CloudXR Runtime
 
       .. code-block:: bash
 
-         echo "NV_DEVICE_PROFILE=auto-native" > handtracking.env
+         echo "NV_CXR_ENABLE_PUSH_DEVICES=0" > handtracking.env
 
 
       Start the CloudXR runtime with the customized config file:
