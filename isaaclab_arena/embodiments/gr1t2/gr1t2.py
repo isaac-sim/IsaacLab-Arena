@@ -26,6 +26,7 @@ from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
 from isaaclab_teleop import XrCfg
+from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -104,21 +105,15 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         self.action_config = MISSING
         self.camera_config = GR1T2CameraCfg()
 
-        # XR settings (relative to robot base)
-        # These offsets are defined relative to the robot's base frame
-        self._xr_offset = Pose(
-            position_xyz=(-0.5, 0.0, -1.0),
-            rotation_xyzw=(0.0, 0.0, -0.70711, 0.70711),
+        # XR settings
+        # Anchor to the robot's pelvis for first-person view that follows the robot
+        self.xr: XrCfg = XrCfg(
+            anchor_pos=(0.0, 0.0, -1.0),
+            anchor_rot=(0.0, 0.0, -0.70711, 0.70711),
+            anchor_prim_path="/World/envs/env_0/Robot/pelvis",
+            anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
+            fixed_anchor_height=True,
         )
-        self.xr: XrCfg | None = None
-
-    def get_xr_cfg(self) -> XrCfg:
-        """Get XR configuration with anchor pose adjusted for robot's initial pose.
-
-        Returns:
-            XR configuration with anchor position and rotation in global coordinates.
-        """
-        return get_default_xr_cfg(self.initial_pose, self._xr_offset)
 
 
 @register_asset
