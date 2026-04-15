@@ -5,7 +5,7 @@
 
 """Tests that all environments in isaaclab_arena_environments are registered."""
 
-from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
+from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
 

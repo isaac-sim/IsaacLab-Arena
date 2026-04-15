@@ -30,7 +30,7 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
       the policy_type argument as a string representing the module path and class name.
 
     """
-    from isaaclab_arena.assets.asset_registry import PolicyRegistry
+    from isaaclab_arena.assets.registries import PolicyRegistry
 
     policy_registry = PolicyRegistry()
     if policy_registry.is_registered(policy_type):

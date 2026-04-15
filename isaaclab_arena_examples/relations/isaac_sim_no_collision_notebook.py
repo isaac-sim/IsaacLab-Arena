@@ -45,8 +45,8 @@ def run_isaac_sim_no_collision_demo(
     import torch
     import tqdm
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

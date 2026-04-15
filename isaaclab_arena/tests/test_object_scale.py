@@ -11,7 +11,7 @@ HEADLESS = True
 
 
 def _test_object_scale_default_and_override(simulation_app):
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
 
     asset_registry = AssetRegistry()
 

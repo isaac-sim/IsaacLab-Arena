@@ -14,7 +14,7 @@ HEADLESS = True
 
 def _test_gr1t2_xr_anchor_pose(simulation_app) -> bool:
     """Test GR1T2 XR anchor pose at origin and with robot transformation."""
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
 
     # Test 1: XR anchor at origin (no initial pose)
@@ -92,7 +92,7 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
     """Test G1 XR anchor config: fixed prim-relative anchor (pelvis), independent of initial pose."""
     from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -146,7 +146,7 @@ def _test_g1_xr_anchor_pose(simulation_app) -> bool:
 
 def _test_xr_anchor_multiple_positions(simulation_app) -> bool:
     """Test XR anchor with multiple different robot positions."""
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
