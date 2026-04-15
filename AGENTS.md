@@ -41,9 +41,9 @@ Tests require Isaac Sim and run via pytest:
 ```bash
 # Run all tests
 # Our tests are separated into different phases of running. To run the full test suite requires three commands.
-/isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" isaacalab_arena/tests
-/isaac-sim/python.sh -m pytest  -sv -m "with_cameras and not with_subprocess" isaacalab_arena/tests
-/isaac-sim/python.sh -m pytest  -sv -m "with_subprocess" isaacalab_arena/tests
+/isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests
+/isaac-sim/python.sh -m pytest  -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests
+/isaac-sim/python.sh -m pytest  -sv -m "with_subprocess" isaaclab_arena/tests
 
 # Run a single test file
 /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py
