@@ -23,6 +23,7 @@ from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 from isaaclab_arena.policy.action_chunking import ActionChunkScheduler
 from isaaclab_arena.policy.action_scheduler import ActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyArgs,
@@ -97,6 +98,8 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         )
         self.num_envs = config.num_envs
         self.device = config.policy_device
+        if get_world_size() > 1 and "cuda" in self.device:
+            self.device = f"cuda:{get_local_rank()}"
         self.task_mode = TaskMode(self.policy_config.task_mode_name)
 
         # Joint configs (for sim↔policy joint remapping)
