@@ -81,6 +81,10 @@ git commit -s -m "Your commit message"
 
 **PR iteration:** when addressing review feedback, add new commits rather than amending existing ones — this lets reviewers easily verify each change was addressed.
 
+### Coding Style
+
+- Prefer `assert` over `if-then-raise ValueError` for internal invariant checks. Use `assert condition, "message"` instead of `if not condition: raise ValueError("message")`.
+
 ## Conventions
 
 ### Wrapped Environment
