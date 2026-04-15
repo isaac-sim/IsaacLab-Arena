@@ -126,6 +126,9 @@ class ArenaEnvBuilder:
                         "Relational solving should not be combined with explicit setting of "
                         "poses on non-anchor objects."
                     )
+            # Set init_state so objects spawn at valid positions (not origin).
+            # The placement event will override these on every reset.
+            self._set_init_state_from_pool(objects_with_relations, placement_pool, anchor_objects)
             self._placement_event_cfg = EventTermCfg(
                 func=solve_and_place_objects,
                 mode="reset",
@@ -136,6 +139,28 @@ class ArenaEnvBuilder:
             )
         else:
             self._apply_pool_layouts_to_objects(objects_with_relations, placement_pool, num_envs)
+
+    def _set_init_state_from_pool(
+        self,
+        objects: list[Object | ObjectReference],
+        pool: PlacementPool,
+        anchor_objects: set,
+    ) -> None:
+        """Set ``object_cfg.init_state`` from a pool layout so objects spawn at valid positions.
+
+        Only touches ``init_state.pos`` / ``init_state.rot`` — does NOT create
+        per-object reset events (the placement event handles resets).
+        """
+        layout = pool.sample(1)[0]
+        for obj in objects:
+            if obj in anchor_objects or obj.object_cfg is None:
+                continue
+            pos = layout.positions.get(obj)
+            if pos is None:
+                continue
+            rotation_xyzw = get_rotation_xyzw(obj)
+            obj.object_cfg.init_state.pos = pos
+            obj.object_cfg.init_state.rot = rotation_xyzw
 
     def _apply_pool_layouts_to_objects(
         self,

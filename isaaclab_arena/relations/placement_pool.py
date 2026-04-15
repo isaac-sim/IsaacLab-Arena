@@ -22,7 +22,8 @@ class PlacementPool:
     """Pre-solved pool of valid placement layouts.
 
     Solves ``pool_size`` layouts at build time and keeps only those that
-    pass validation.  Two ways to draw:
+    pass validation.  Valid layouts are shuffled so successive draws
+    provide variety across resets.
 
     * :meth:`acquire` — returns the next *count* layouts sequentially
       (without replacement).  Auto-refills when exhausted.
