@@ -204,18 +204,10 @@ def main():
             # Each rank prints its own metrics as it can be different due to random seed
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
 
-        # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
-        # Do NOT rely on a __del__ destructor in policy for this, since destructors are
-        # triggered implicitly and their execution time (or even whether they run)
-        # is not guaranteed, which makes resource cleanup unreliable.
-        if policy.is_remote:
-            policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
-
         # Close the environment.
         env.close()
 
 
 if __name__ == "__main__":
-    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
     ensure_groot_deps_in_path()
     main()
