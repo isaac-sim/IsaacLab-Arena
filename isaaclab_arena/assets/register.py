@@ -63,7 +63,7 @@ def register_hdr(cls):
 # Decorator to register an environment with the EnvironmentRegistry.
 def register_environment(cls):
     registry = EnvironmentRegistry()
-    if cls.name in registry._components:
+    if registry.is_registered(cls.name):
         print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
     else:
         registry.register(cls, cls.name)
