@@ -152,6 +152,8 @@ class ObjectPlacer:
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
         anchor_bbox = first_anchor.get_world_bounding_box()
 
+        cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
+
         positions: dict[Object | ObjectReference, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
@@ -159,7 +161,7 @@ class ObjectPlacer:
             elif any(isinstance(r, On) for r in obj.get_relations()):
                 positions[obj] = self._compute_on_guided_position(obj, anchor_objects, anchor_bbox, generator)
             else:
-                positions[obj] = anchor_bbox.center  # no spatial guidance; solver handles placement
+                positions[obj] = (cx, cy, cz)
         return positions
 
     def _get_on_parent_world_bbox(
@@ -205,22 +207,22 @@ class ObjectPlacer:
         child_bbox = obj.get_bounding_box()
 
         x = self._sample_axis_position(
-            parent_bbox.min_point[0],
-            parent_bbox.max_point[0],
-            child_bbox.min_point[0],
-            child_bbox.max_point[0],
+            parent_bbox.min_point[0, 0],
+            parent_bbox.max_point[0, 0],
+            child_bbox.min_point[0, 0],
+            child_bbox.max_point[0, 0],
             generator,
         )
         y = self._sample_axis_position(
-            parent_bbox.min_point[1],
-            parent_bbox.max_point[1],
-            child_bbox.min_point[1],
-            child_bbox.max_point[1],
+            parent_bbox.min_point[0, 1],
+            parent_bbox.max_point[0, 1],
+            child_bbox.min_point[0, 1],
+            child_bbox.max_point[0, 1],
             generator,
         )
 
         # Z: place child's bottom face at parent top + clearance
-        z = parent_bbox.max_point[2] + on_relation.clearance_m - child_bbox.min_point[2]
+        z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
 
         return (x, y, z)
 
@@ -251,7 +253,7 @@ class ObjectPlacer:
         low = parent_min - child_min
         high = parent_max - child_max
         if low >= high:
-            return (parent_min + parent_max) / 2.0
+            return float((parent_min + parent_max) / 2.0)
         return float(low + (high - low) * torch.rand(1, generator=generator).item())
 
     def _validate_on_relations(
@@ -275,18 +277,20 @@ class ObjectPlacer:
                 parent_world = parent.get_bounding_box().translated(positions[parent])
                 # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
                 if (
-                    child_world.min_point[0] < parent_world.min_point[0]
-                    or child_world.max_point[0] > parent_world.max_point[0]
-                    or child_world.min_point[1] < parent_world.min_point[1]
-                    or child_world.max_point[1] > parent_world.max_point[1]
+                    child_world.min_point[0, 0] < parent_world.min_point[0, 0]
+                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0]
+                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1]
+                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1]
                 ):
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
                 # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
-                parent_top_z = parent_world.max_point[2]
+                parent_local_top_z: float = parent.get_bounding_box().max_point[0, 2].item()
+                child_local_bottom_z: float = obj.get_bounding_box().min_point[0, 2].item()
+                parent_top_z = parent_local_top_z + positions[parent][2]
                 clearance_m = rel.clearance_m
-                child_bottom_z = child_world.min_point[2]
+                child_bottom_z = child_local_bottom_z + positions[obj][2]
                 eps_z = self.params.on_relation_z_tolerance_m
                 if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
                     if self.params.verbose:
@@ -307,7 +311,7 @@ class ObjectPlacer:
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps(b_world, margin=self.params.min_separation_m):
+                if a_world.overlaps(b_world, margin=self.params.min_separation_m).item():
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False

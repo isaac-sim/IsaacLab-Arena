@@ -238,21 +238,36 @@ def _print_relation_debug(
 
     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}")
+    print(
+        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
+        f" size={child_bbox.size[0].tolist()}"
+    )
     print(f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f}, {parent_pos[2].item():.4f})")
     print(
-        f"  Parent world bbox: min={parent_world_bbox.min_point}, max={parent_world_bbox.max_point},"
-        f" size={parent_world_bbox.size}"
+        f"  Parent world bbox: min={parent_world_bbox.min_point[0].tolist()},"
+        f" max={parent_world_bbox.max_point[0].tolist()}, size={parent_world_bbox.size[0].tolist()}"
     )
 
     # Child world extents
-    child_x_range = (child_pos[0].item() + child_bbox.min_point[0], child_pos[0].item() + child_bbox.max_point[0])
-    child_y_range = (child_pos[1].item() + child_bbox.min_point[1], child_pos[1].item() + child_bbox.max_point[1])
+    child_x_range = (
+        child_pos[0].item() + child_bbox.min_point[0, 0].item(),
+        child_pos[0].item() + child_bbox.max_point[0, 0].item(),
+    )
+    child_y_range = (
+        child_pos[1].item() + child_bbox.min_point[0, 1].item(),
+        child_pos[1].item() + child_bbox.max_point[0, 1].item(),
+    )
 
     print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
     print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
-    print(f"  Parent world X: [{parent_world_bbox.min_point[0]:.4f}, {parent_world_bbox.max_point[0]:.4f}]")
-    print(f"  Parent world Y: [{parent_world_bbox.min_point[1]:.4f}, {parent_world_bbox.max_point[1]:.4f}]")
+    print(
+        f"  Parent world X: [{parent_world_bbox.min_point[0, 0].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 0].item():.4f}]"
+    )
+    print(
+        f"  Parent world Y: [{parent_world_bbox.min_point[0, 1].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 1].item():.4f}]"
+    )
     print(f"  Loss: {loss.item():.6f}")
 
 
@@ -269,5 +284,8 @@ def _print_unary_relation_debug(
     param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
     print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}")
+    print(
+        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
+        f" size={child_bbox.size[0].tolist()}"
+    )
     print(f"  Loss: {loss.item():.6f}")

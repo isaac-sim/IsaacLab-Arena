@@ -9,7 +9,7 @@ On(table) and pairwise NoCollision (relation solver). Includes a robot (e.g. GR1
 No task — suitable for policy_runner with zero_action or any policy.
 
 Example:
-  python isaaclab_arena/evaluation/policy_runner.py --policy_type zero_action --num_steps 500 \\
+  python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 1 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
 """
 

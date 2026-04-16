@@ -135,6 +135,11 @@ class NoCollision(Relation):
     unordered pair once.
 
     Note: Loss computation is handled by NoCollisionLossStrategy in relation_loss_strategies.py.
+
+    NOTE: If both A.add_relation(NoCollision(B)) and B.add_relation(NoCollision(A)) are present,
+    the solver will compute the loss twice and the relation graph becomes cyclic, which can cause
+    issues during environment creation. Deduplication or cycle detection should be addressed at a
+    higher level.
     """
 
     def __init__(
