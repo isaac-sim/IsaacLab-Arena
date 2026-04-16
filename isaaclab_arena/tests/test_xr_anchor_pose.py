@@ -39,13 +39,13 @@ def _assert_pelvis_relative_xr_cfg(embodiment_name: str, simulation_app) -> bool
         rtol=1e-5,
         err_msg=f"{embodiment_name}: anchor_rot expected {_EXPECTED_ANCHOR_ROT}, got {xr_cfg.anchor_rot}",
     )
-    assert xr_cfg.anchor_prim_path == _EXPECTED_ANCHOR_PRIM, (
-        f"{embodiment_name}: anchor_prim_path expected {_EXPECTED_ANCHOR_PRIM}, got {xr_cfg.anchor_prim_path}"
-    )
+    assert (
+        xr_cfg.anchor_prim_path == _EXPECTED_ANCHOR_PRIM
+    ), f"{embodiment_name}: anchor_prim_path expected {_EXPECTED_ANCHOR_PRIM}, got {xr_cfg.anchor_prim_path}"
     assert xr_cfg.fixed_anchor_height is True, f"{embodiment_name}: fixed_anchor_height should be True"
-    assert xr_cfg.anchor_rotation_mode == XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED, (
-        f"{embodiment_name}: anchor_rotation_mode should be FOLLOW_PRIM_SMOOTHED"
-    )
+    assert (
+        xr_cfg.anchor_rotation_mode == XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED
+    ), f"{embodiment_name}: anchor_rotation_mode should be FOLLOW_PRIM_SMOOTHED"
 
     # Anchor offsets are relative to the pelvis prim, not recomputed from world initial pose.
     robot_pose = Pose(position_xyz=(0.5, 1.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
