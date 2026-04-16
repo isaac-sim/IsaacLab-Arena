@@ -470,29 +470,36 @@
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
 Meta Quest 3 / Pico 4 Ultra</label><div class="sd-tab-content docutils">
-<p>On the host machine, configure the firewall to allow CloudXR traffic.</p>
+<ol class="arabic">
+<li><p>On the host machine, configure the firewall to allow CloudXR traffic.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">49100</span>/tcp<span class="w">   </span><span class="c1"># Signaling</span>
 sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">47998</span>/udp<span class="w">   </span><span class="c1"># Media stream</span>
 sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48322</span>/tcp<span class="w">   </span><span class="c1"># Proxy (HTTPS mode only)</span>
 </pre></div>
 </div>
-<p>Start the CloudXR runtime from the Arena Docker container:</p>
+</li>
+<li><p>Start the CloudXR runtime from the Arena Docker container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>Create a CloudXR config to enable hand tracking:</p>
+</li>
+<li><p>Create a CloudXR config to enable hand tracking:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;NV_CXR_ENABLE_PUSH_DEVICES=0&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>handtracking.env
 </pre></div>
 </div>
-<p>Start the CloudXR runtime with the customized config file:</p>
+</li>
+<li><p>Start the CloudXR runtime with the customized config file:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaacteleop.cloudxr<span class="w"> </span>--cloudxr-env-config<span class="o">=</span>handtracking.env
 </pre></div>
 </div>
+</li>
+</ol>
 </div>
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Apple Vision Pro</label><div class="sd-tab-content docutils">
-<p>On the host machine, configure the firewall to allow CloudXR traffic.</p>
+<ol class="arabic">
+<li><p>On the host machine, configure the firewall to allow CloudXR traffic.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Signaling (use one based on connection mode)</span>
 sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48010</span>/tcp<span class="w">   </span><span class="c1"># Standard mode</span>
 sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48322</span>/tcp<span class="w">   </span><span class="c1"># Secure mode</span>
@@ -508,30 +515,46 @@ sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </s
 sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span><span class="m">48002</span>/udp
 </pre></div>
 </div>
-<p>Start the CloudXR runtime from the Arena Docker container:</p>
+</li>
+<li><p>Start the CloudXR runtime from the Arena Docker container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>Create a customized config file with the following content:</p>
+</li>
+<li><p>Create a customized config file with the following content:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s\n&#39;</span><span class="w"> </span><span class="s1">&#39;NV_DEVICE_PROFILE=auto-native&#39;</span><span class="w"> </span><span class="s1">&#39;NV_CXR_ENABLE_PUSH_DEVICES=0&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>avp.env
 </pre></div>
 </div>
-<p>Start the CloudXR runtime with the customized config file:</p>
+</li>
+<li><p>Start the CloudXR runtime with the customized config file:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaacteleop.cloudxr<span class="w"> </span>--cloudxr-env-config<span class="o">=</span>avp.env
 </pre></div>
 </div>
+</li>
+</ol>
 </div>
 </div>
 </section>
 <section id="step-2-start-recording">
 <h2>Step 2: Start Recording<a class="headerlink" href="#step-2-start-recording" title="Link to this heading">#</a></h2>
-<p>In another terminal, start the Arena Docker container:</p>
+<ol class="arabic">
+<li><p>In another terminal, start the Arena Docker container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
-<p>Run the recording script:</p>
+</li>
+<li><p>Run the following command to activate IsaacTeleop CloudXR environment settings:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>~/.cloudxr/run/cloudxr.env
-python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Order matters.</strong> In the terminal where you will run Arena, <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">~/.cloudxr/run/cloudxr.env</span></code> <em>after</em> the CloudXR runtime from Step 1 is already running,
+and <em>before</em> you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.</p>
+</div>
+</li>
+<li><p>Run the recording script:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_recorded.hdf5<span class="w"> </span><span class="se">\</span>
@@ -543,6 +566,8 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 <span class="w">  </span>--teleop_device<span class="w"> </span>openxr
 </pre></div>
 </div>
+</li>
+</ol>
 </section>
 <section id="step-3-connect-xr-device-and-record">
 <h2>Step 3: Connect XR Device and Record<a class="headerlink" href="#step-3-connect-xr-device-and-record" title="Link to this heading">#</a></h2>
