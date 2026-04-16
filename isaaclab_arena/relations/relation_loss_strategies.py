@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, PositionLimits, Relation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -319,14 +319,17 @@ class OnLossStrategy(RelationLossStrategy):
         return result.squeeze(0) if single_input else result
 
 
-class NoCollisionLossStrategy(RelationLossStrategy):
-    """Loss strategy for NoCollision relations.
+class NoCollisionLossStrategy:
+    """Loss strategy for no-overlap constraints between objects.
 
     Computes loss based on:
     1. X overlap: zero when child and parent are separated along X; else overlap length
     2. Y overlap: zero when separated along Y; else overlap length
     3. Z overlap: zero when separated along Z; else overlap length
     4. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
+
+    This is a standalone strategy (not a RelationLossStrategy) because no-overlap
+    is a built-in solver behavior, not a user-specified relation.
     """
 
     def __init__(self, slope: float = 10.0, debug: bool = False):
@@ -341,28 +344,28 @@ class NoCollisionLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "NoCollision",
+        clearance_m: float,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
-        """Compute loss for NoCollision relation.
+        """Compute loss for no-overlap constraint.
 
         Args:
-            relation: NoCollision relation with relation_loss_weight.
+            clearance_m: Minimum clearance between bounding boxes in meters.
             child_pos: Child object position (N, 3) in world coords.
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
 
         Returns:
-            Weighted loss tensor of shape (N,).
+            Loss tensor of shape (N,).
         """
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)
 
         # Parent world extents from the world bounding box, expanded by clearance_m
-        c = relation.clearance_m
+        c = clearance_m
         parent_x_min = parent_world_bbox.min_point[:, 0] - c
         parent_x_max = parent_world_bbox.max_point[:, 0] + c
         parent_y_min = parent_world_bbox.min_point[:, 1] - c
@@ -401,8 +404,7 @@ class NoCollisionLossStrategy(RelationLossStrategy):
             )
             print(f"    [NoCollision] volume={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
 
-        result = relation.relation_loss_weight * total_loss
-        return result.squeeze(0) if single_input else result
+        return total_loss.squeeze(0) if single_input else total_loss
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
