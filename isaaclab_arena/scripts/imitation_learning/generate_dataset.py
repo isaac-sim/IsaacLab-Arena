@@ -182,7 +182,11 @@ def main():
     )
 
     # create environment
-    env = gym.make(env_name, cfg=env_cfg).unwrapped
+    env = gym.make(env_name, cfg=env_cfg)
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
+
+    reapply_viewer_cfg(env)
+    env = env.unwrapped
 
     if not isinstance(env, ManagerBasedRLMimicEnv):
         raise ValueError("The environment should be derived from ManagerBasedRLMimicEnv")

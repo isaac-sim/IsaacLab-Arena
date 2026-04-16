@@ -113,7 +113,7 @@ Notice that ``pick_up_object`` and ``destination_location`` come from ``args_cli
 being hardcoded. This is the variation axis: swapping ``--pick_up_object`` on the command line
 changes which asset is fetched here, resulting in a new environment, with zero code changes.
 
-See :doc:`../concepts/concept_assets_design` for details on the asset registry and how to register
+See :doc:`../concepts/scene/concept_assets_design` for details on the asset registry and how to register
 custom assets.
 
 
@@ -176,7 +176,7 @@ space, observation space, and cameras. ``droid_abs_joint_pos`` is the DROID setu
 Robotiq 2F-85 gripper) with absolute joint-position control.
 
 Swapping ``--embodiment`` replaces the robot entirely — observations, actions, and sensors update
-automatically. See :doc:`../concepts/concept_embodiment_design` for details.
+automatically. See :doc:`../concepts/embodiment/index` for details.
 
 
 Step 5: Compose the Scene
@@ -190,7 +190,7 @@ The ``Scene`` collects all physical assets. The embodiment is kept separate — 
 to ``IsaacLabArenaEnvironment`` rather than added to the scene — because the robot interacts with
 the scene rather than being part of it.
 
-See :doc:`../concepts/concept_scene_design` for scene composition details.
+See :doc:`../concepts/scene/index` for scene composition details.
 
 
 Step 6: Define the Task
@@ -214,7 +214,7 @@ It also attaches metrics (``SuccessRateMetric``, ``ObjectMovedRateMetric``) that
 collects at the end of each episode. These metrics will report the proportion of successful episodes,
 as well as the proportion of episodes in which the object was moved.
 
-See :doc:`../concepts/concept_tasks_design` for creating custom tasks.
+See :doc:`../concepts/task/index` for creating custom tasks.
 
 
 Step 7: Assemble the Environment
@@ -264,3 +264,9 @@ Next Steps
 Now that you understand how the environment is built, see :doc:`first_experiments/index` to run it and
 evaluate a policy across object, lighting, and scale variations from the same environment
 definition, with no code changes.
+
+Using IsaacLab-Arena in Your Own Repository
+-------------------------------------------
+
+See :doc:`../arena_in_your_repo/external_installation` for the recommended pattern of consuming
+Arena as an unmodified submodule from an external project.

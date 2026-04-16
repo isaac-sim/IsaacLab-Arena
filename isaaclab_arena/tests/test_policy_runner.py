@@ -65,21 +65,18 @@ def test_zero_action_policy_press_button():
 
 
 @pytest.mark.with_subprocess
-def test_zero_action_policy_kitchen_pick_and_place():
+@pytest.mark.parametrize("embodiment", ["franka_ik", "gr1_pink", "gr1_joint"])
+@pytest.mark.parametrize("object_name", ["cracker_box", "tomato_soup_can"])
+def test_zero_action_policy_kitchen_pick_and_place(embodiment, object_name):
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
-    example_environment = "kitchen_pick_and_place"
-    embodiments = ["franka_ik", "gr1_pink", "gr1_joint"]
-    object_names = ["cracker_box", "tomato_soup_can"]
-    for embodiment in embodiments:
-        for object_name in object_names:
-            run_policy_runner(
-                policy_type="zero_action",
-                example_environment=example_environment,
-                embodiment=embodiment,
-                object_name=object_name,
-                num_steps=NUM_STEPS,
-            )
+    run_policy_runner(
+        policy_type="zero_action",
+        example_environment="kitchen_pick_and_place",
+        embodiment=embodiment,
+        object_name=object_name,
+        num_steps=NUM_STEPS,
+    )
 
 
 @pytest.mark.with_subprocess
@@ -98,20 +95,17 @@ def test_zero_action_policy_galileo_pick_and_place():
 
 
 @pytest.mark.with_subprocess
-def test_zero_action_policy_gr1_open_microwave():
+@pytest.mark.parametrize("object_name", ["cracker_box", "tomato_soup_can", "mustard_bottle"])
+def test_zero_action_policy_gr1_open_microwave(object_name):
     # TODO(alexmillane, 2025.07.29): Get an exhaustive list of all scenes and embodiments
     # from a registry when we have one.
-    example_environment = "gr1_open_microwave"
-    object_name = ["cracker_box", "tomato_soup_can", "mustard_bottle"]
-    for object_name in object_name:
-        run_policy_runner(
-            policy_type="zero_action",
-            example_environment=example_environment,
-            embodiment="gr1_pink",
-            background=None,
-            object_name=object_name,
-            num_steps=NUM_STEPS,
-        )
+    run_policy_runner(
+        policy_type="zero_action",
+        example_environment="gr1_open_microwave",
+        embodiment="gr1_pink",
+        object_name=object_name,
+        num_steps=NUM_STEPS,
+    )
 
 
 @pytest.mark.with_subprocess

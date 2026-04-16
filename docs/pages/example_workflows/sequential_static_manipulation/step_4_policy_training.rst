@@ -110,18 +110,24 @@ Step 2: Post-train Policy
 
 We post-train the GR00T N1.6 policy on the task.
 
-The GR00T N1.6 policy has 3 billion parameters so post training is an an expensive operation.
-We provide three post-training options:
+The GR00T N1.6 policy has 3 billion parameters so post-training is an expensive operation.
+We provide two post-training options:
 
 * Best Quality: 8 GPUs with 48GB memory
 * Low Hardware Requirements: 1 GPU with 24GB memory
 
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Best Quality
+   .. tab-item:: Best Quality
 
       Training takes approximately 4-8 hours on 8x L40s GPUs.
+
+      Compute Requirements:
+
+      - **GPUs:** 8x with at least 48 GB VRAM each (e.g. L40s, A6000, A100)
+      - **System RAM:** 256 GB or more recommended — multi-GPU training with large batch sizes
+        and multiple dataloader workers requires substantial host memory
 
       Training Configuration:
 
@@ -130,13 +136,13 @@ We provide three post-training options:
       - **Frozen Modules:** LLM (language model)
       - **Global Batch Size:** 96 (adjust based on GPU memory)
       - **Training Steps:** 20,000
-      - **GPUs:** 8 (multi-GPU training)
 
       To post-train the policy, run the following command
 
       .. code-block:: bash
 
-         python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+         PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH python -m torch.distributed.run --nproc_per_node=8 --standalone \
+         submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
          --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
@@ -150,12 +156,11 @@ We provide three post-training options:
          --tune_visual \
          --tune_projector \
          --tune_diffusion_model \
-         --dataloader_num_workers=16 \
-         --use-wandb \
+         --dataloader_num_workers=8 \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
 
-   .. tab:: Low Hardware Requirements
+   .. tab-item:: Low Hardware Requirements
 
       Training takes approximately 2-3 hours on 1x Ada6000 GPU.
 
@@ -172,7 +177,8 @@ We provide three post-training options:
 
       .. code-block:: bash
 
-         CUDA_VISIBLE_DEVICES=0 python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+         PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH CUDA_VISIBLE_DEVICES=0 \
+         python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
          --dataset_path=$DATASET_DIR/ranch_bottle_into_fridge_generated_100/lerobot \
          --output_dir=$MODELS_DIR \
          --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
@@ -185,8 +191,7 @@ We provide three post-training options:
          --tune_visual \
          --tune_projector \
          --tune_diffusion_model \
-         --dataloader_num_workers=16 \
-         --use-wandb \
+         --dataloader_num_workers=8 \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
          --save_total_limit=5

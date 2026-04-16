@@ -9,7 +9,7 @@ Once inside the container, set the models directory if you plan to download pre-
 
 .. code:: bash
 
-    export MODELS_DIR=models/isaaclab_arena/reinforcement_learning
+    export MODELS_DIR=/models/isaaclab_arena/reinforcement_learning
     mkdir -p $MODELS_DIR
 
 This tutorial assumes you've completed :doc:`step_2_policy_training` and have a trained checkpoint,
@@ -47,7 +47,7 @@ Method 1: Single Environment Evaluation
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
-     --visualizer kit \
+     --viz kit \
      --policy_type rsl_rl \
      --num_episodes 20 \
      --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
@@ -81,7 +81,7 @@ For more statistically significant results, run across many environments in para
      --num_episodes 1024 \
      --num_envs 64 \
      --env_spacing 2.5 \
-     --visualizer kit \
+     --viz kit \
      --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
      lift_object
 
@@ -141,7 +141,7 @@ Create a file ``eval_config.json``:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
-     --visualizer kit \
+     --viz kit \
      --eval_jobs_config eval_config.json
 
 .. code-block:: text

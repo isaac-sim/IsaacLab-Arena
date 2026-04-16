@@ -3,29 +3,29 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
+from typing import TYPE_CHECKING
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
-# We cannot annotate types which require the simulation app to be started in order to
-# import, because this file is used to retrieve CLI arguments, so it must be imported
-# before the simulation app is started.
-# TODO(alexmillane, 2025.09.04): Fix this.
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
 
     name: str = "pick_and_place_maple_table"
 
-    def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
@@ -44,7 +44,9 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         table_reference.add_relation(IsAnchor())
 
         pick_up_object.add_relation(On(table_reference))
+        pick_up_object.add_relation(PositionLimits(x_min=0.55, x_max=0.70, y_min=-0.4, y_max=-0.1))
         destination_location.add_relation(On(table_reference))
+        destination_location.add_relation(PositionLimits(x_min=0.55, x_max=0.70, y_min=-0.4, y_max=-0.1))
 
         additional_table_objects = [
             self.asset_registry.get_asset_by_name(name)() for name in args_cli.additional_table_objects

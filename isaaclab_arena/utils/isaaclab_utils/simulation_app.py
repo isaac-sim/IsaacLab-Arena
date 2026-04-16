@@ -18,9 +18,18 @@ def get_isaac_sim_version() -> str:
     return omni.kit.app.get_app().get_app_version()
 
 
+STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
+
+
 def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
+    import time
+
+    t0 = time.monotonic()
     app_launcher = AppLauncher(args)
+    elapsed = time.monotonic() - t0
+    sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
+    sys.__stderr__.flush()
     return app_launcher
 
 
@@ -73,6 +82,40 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
             omni.usd.get_context().new_stage()
 
 
+def reapply_viewer_cfg(env) -> None:
+    """Re-apply ViewerCfg camera position after visualizers are initialized.
+
+    ViewportCameraController calls sim.set_camera_view() during __init__, but visualizers
+    (e.g. KitVisualizer) are not yet initialized at that point and silently ignore the call.
+    After gym.make() returns the visualizers are ready, so we call update_view_location()
+    again to apply the configured eye/lookat position.
+    """
+    unwrapped = env.unwrapped
+    vcc = getattr(unwrapped, "viewport_camera_controller", None)
+    if vcc is not None:
+        vcc.update_view_location()
+
+
+def _kill_child_processes() -> None:
+    """SIGKILL all direct child processes of the current process via /proc."""
+    import signal
+
+    my_pid = os.getpid()
+    with suppress(FileNotFoundError, PermissionError):
+        for entry in os.scandir("/proc"):
+            if not entry.name.isdigit():
+                continue
+            try:
+                with open(f"/proc/{entry.name}/status") as f:
+                    for line in f:
+                        if line.startswith("PPid:"):
+                            if int(line.split()[1]) == my_pid:
+                                os.kill(int(entry.name), signal.SIGKILL)
+                            break
+            except (FileNotFoundError, PermissionError, ProcessLookupError, ValueError):
+                continue
+
+
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
@@ -96,11 +139,7 @@ class SimulationAppContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print("Closing simulation app")
-        # app_launcher.close() will terminate the whole process with exit code 0, i.e. preventing errors from being seen by the caller. There are seemingly no ways around this.
-        # As a workaround, we call os._exit(1) that terminates immediately. The downside is that any cleanup would be omitted
-        if exc_type is None:
-            self.app_launcher.app.close()
-        else:
+        if exc_type is not None:
             print(f"Exception caught in SimulationAppContext: {exc_type.__name__}: {exc_val}")
             print("Traceback:")
             traceback.print_exception(exc_type, exc_val, exc_tb)
@@ -108,3 +147,22 @@ class SimulationAppContext:
             sys.stdout.flush()
             sys.stderr.flush()
             os._exit(1)
+
+        # When launched as a test subprocess, skip app.close() which can hang
+        # indefinitely in Kit's shutdown path.
+        if os.environ.get("ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE") == "1":
+            print("Force-exiting subprocess (ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE=1)")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            # SIGKILL orphaned Kit children (shader compiler, GPU workers, …)
+            # so they don't hold GPU resources and block the next test subprocess.
+            # We target each child individually via /proc to avoid signalling
+            # ourselves (Kit installs a C-level SIGTERM handler that overrides
+            # Python's SIG_IGN, so os.killpg is not safe here).
+            _kill_child_processes()
+            os._exit(0)
+
+        # Normal interactive / non-test path: attempt a clean Kit shutdown.
+        # app.close() may terminate the process with exit code 0 regardless of
+        # errors — see the error branch above for the workaround.
+        self.app_launcher.app.close()

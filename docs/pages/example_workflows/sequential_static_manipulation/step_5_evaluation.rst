@@ -2,7 +2,7 @@ Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
-and evaluating it in Arena GR1 Open Microwave Door Task environment.
+and evaluating it in the GR1 Sequential Pick & Place and Close Door Environment.
 
 **Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
 
@@ -75,7 +75,7 @@ Test the policy in a single environment with visualization via the GUI run:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
-     --visualizer kit \
+     --viz kit \
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
      --num_steps 2000 \
@@ -93,15 +93,15 @@ You should see similar metrics. All of them shall be greater than 0.9, and the n
 Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Best Quality
+   .. tab-item:: Best Quality
 
       .. code-block:: text
 
          Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
 
-   .. tab:: Low Hardware Requirements
+   .. tab-item:: Low Hardware Requirements
 
       Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.
 
@@ -114,9 +114,9 @@ Step 2: Run Parallel environments Evaluation
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU Evaluation
+   .. tab-item:: Single GPU Evaluation
 
       Test the policy in 10 parallel environments with visualization via the GUI run:
 
@@ -132,7 +132,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --embodiment gr1_joint \
            --object ranch_dressing_hope_robolab
 
-   .. tab:: Distribute Multi-GPU Evaluation
+   .. tab-item:: Distribute Multi-GPU Evaluation
 
       Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
 
@@ -184,16 +184,16 @@ Step 3: Multi-object Heterogeneous Evaluation
 
 This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Single GPU Evaluation
+   .. tab-item:: Single GPU Evaluation
 
       Test the policy in 10 parallel environments with visualization via the GUI run:
 
       .. code-block:: bash
 
          python isaaclab_arena/evaluation/policy_runner.py \
-         --visualizer kit \
+         --viz kit \
          --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
          --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
          --num_steps 2000 \
@@ -203,7 +203,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
          --embodiment gr1_joint \
          --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
-   .. tab:: Distribute Multi-GPU Evaluation
+   .. tab-item:: Distribute Multi-GPU Evaluation
 
       Test the policy in 10 parallel environments on each GPU with 2 GPUs total run:
 
@@ -291,7 +291,7 @@ Run the batch evaluation:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
-     --visualizer kit \
+     --viz kit \
      --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
