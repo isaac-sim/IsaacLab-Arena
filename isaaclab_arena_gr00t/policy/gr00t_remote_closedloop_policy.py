@@ -35,7 +35,24 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+from isaaclab_arena_gr00t.utils.io_utils import (
+    create_config_from_yaml,
+    load_config_from_yaml,
+    load_gr00t_modality_config_from_file,
+)
+
+
+def _load_config_skip_model_path(yaml_path: str) -> Gr00tClosedloopPolicyConfig:
+    """Load Gr00tClosedloopPolicyConfig but skip model_path validation.
+
+    The remote wrapper doesn't load the model — the server does. The YAML
+    may reference a model_path that only exists on the server machine.
+    We replace it with a dummy HuggingFace-style ID so __post_init__
+    validation passes without requiring the file on disk.
+    """
+    data = load_config_from_yaml(yaml_path, Gr00tClosedloopPolicyConfig)
+    data["model_path"] = "remote/server-side-model"
+    return Gr00tClosedloopPolicyConfig(**data)
 
 
 @dataclass
@@ -101,9 +118,12 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
     def __init__(self, config: Gr00tRemoteClosedloopPolicyArgs, action_scheduler: ActionScheduler | None = None):
         super().__init__(config)
 
-        # Policy config (for obs/action translation — no model loading)
-        self.policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
-            config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
+        # Policy config (for obs/action translation — no model loading).
+        # The YAML may contain a model_path for the local policy, but the remote
+        # wrapper doesn't load any model — the server does. Override model_path
+        # to skip the local-filesystem validation in __post_init__.
+        self.policy_config: Gr00tClosedloopPolicyConfig = _load_config_skip_model_path(
+            config.policy_config_yaml_path
         )
         self.num_envs = config.num_envs
         self.device = config.policy_device
