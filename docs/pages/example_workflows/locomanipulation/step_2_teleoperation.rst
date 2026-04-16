@@ -6,55 +6,58 @@ This workflow covers collecting demonstrations for the G1 loco-manipulation task
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
+#. On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   sudo ufw allow 49100/tcp   # Signaling
-   sudo ufw allow 47998/udp   # Media stream
-   sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
+      sudo ufw allow 49100/tcp   # Signaling
+      sudo ufw allow 47998/udp   # Media stream
+      sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
 
+#. Start the CloudXR runtime from the Arena Docker container:
 
-Start the CloudXR runtime from the Arena Docker container:
+   :docker_run_default:
 
-:docker_run_default:
+   .. code-block:: bash
 
-.. code-block:: bash
-
-   python -m isaacteleop.cloudxr
+      python -m isaacteleop.cloudxr
 
 
 Step 2: Start Arena Teleop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In another terminal, start the Arena Docker container and launch the teleop session to verify the pipeline:
+#. In another terminal, start the Arena Docker container:
 
-:docker_run_default:
+   :docker_run_default:
 
-Run the following command to activate IsaacTeleop CloudXR environment settings:
+#. Run the following command to activate IsaacTeleop CloudXR environment settings:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   source ~/.cloudxr/run/cloudxr.env
+      source ~/.cloudxr/run/cloudxr.env
 
-Run the teleop script:
+   .. important::
+      **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
+      and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
 
-.. code-block:: bash
+#. Run the teleop script:
 
-   python isaaclab_arena/scripts/imitation_learning/teleop.py \
-     --viz kit \
-     --device cpu \
-     galileo_g1_locomanip_pick_and_place \
-     --teleop_device openxr
+   .. code-block:: bash
 
-Start the session from the **XR** tab in the application window.
+      python isaaclab_arena/scripts/imitation_learning/teleop.py \
+        --viz kit \
+        --device cpu \
+        galileo_g1_locomanip_pick_and_place \
+        --teleop_device openxr
 
-.. figure:: ../../../images/locomanip_arena_server.png
-   :width: 100%
-   :alt: Arena teleop with XR running (stereoscopic view and OpenXR settings)
-   :align: center
+#. In the running application, start the session from the **XR** tab in the application window.
 
-   Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).
+   .. figure:: ../../../images/locomanip_arena_server.png
+      :width: 100%
+      :alt: Arena teleop with XR running (stereoscopic view and OpenXR settings)
+      :align: center
+
+      Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).
 
 
 Step 3: Connect from Meta Quest 3
@@ -66,7 +69,6 @@ A strong wireless connection is essential for a high-quality streaming experienc
 
 #. Open the browser on your headset and navigate to `<https://nvidia.github.io/IsaacTeleop/client>`_.
 
-
 #. Enter the IP address of your Isaac Lab host machine in the **Server IP** field.
 
 #. Click the **Click https://<ip>:48322/ to accept cert** link that appears on the page.
@@ -77,9 +79,9 @@ A strong wireless connection is essential for a high-quality streaming experienc
 
 #. **Teleoperation Controls**:
 
-* **Left joystick**: Move the body forward/backward/left/right.
-* **Right joystick**: Squat (down), rotate torso (left/right).
-* **Controllers**: Move end-effector (EE) targets for the arms.
+   * **Left joystick**: Move the body forward/backward/left/right.
+   * **Right joystick**: Squat (down), rotate torso (left/right).
+   * **Controllers**: Move end-effector (EE) targets for the arms.
 
 
 .. note::
@@ -93,11 +95,20 @@ A strong wireless connection is essential for a high-quality streaming experienc
 
       Reducing render resolution from 1 (default) to 0.2.
 
+Once you have verified the teleoperation pipeline, exit VR from the Quest 3 headset, and stop the Arena teleop app.
 
 Step 4: Record with Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. **Recording**: When ready to collect data, run the recording script from the Arena container:
+.. note::
+
+   Run the following command to activate IsaacTeleop CloudXR environment settings again if you are starting the recording app from a different terminal.
+
+   .. code-block:: bash
+
+      source ~/.cloudxr/run/cloudxr.env
+
+#. Run the recording script from the Arena container:
 
    .. code-block:: bash
 
@@ -113,6 +124,10 @@ Step 4: Record with Quest 3
         --num_success_steps 2 \
         galileo_g1_locomanip_pick_and_place \
         --teleop_device openxr
+
+#. In the running application, start the session from the XR tab in the application window.
+
+#. Follow Step 3 to connect the Quest 3 headset again.
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
 

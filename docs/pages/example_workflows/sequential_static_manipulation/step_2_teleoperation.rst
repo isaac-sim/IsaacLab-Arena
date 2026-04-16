@@ -79,30 +79,34 @@ Step 1: Start the CloudXR Runtime
 Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In another terminal, start the Arena Docker container:
+#. In another terminal, start the Arena Docker container:
 
-:docker_run_default:
+   :docker_run_default:
 
-Run the following command to activate IsaacTeleop CloudXR environment settings:
+#. Run the following command to activate IsaacTeleop CloudXR environment settings:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   source ~/.cloudxr/run/cloudxr.env
+      source ~/.cloudxr/run/cloudxr.env
 
-Run the recording script:
+   .. important::
+      **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
+      and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
 
-.. code-block:: bash
+#. Run the recording script:
 
-   python isaaclab_arena/scripts/imitation_learning/record_demos.py \
-     --device cpu \
-     --viz kit \
-     --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
-     --num_demos 10 \
-     --num_success_steps 10 \
-     put_item_in_fridge_and_close_door \
-     --object ranch_dressing_hope_robolab \
-     --embodiment gr1_pink \
-     --teleop_device openxr
+   .. code-block:: bash
+
+      python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+        --device cpu \
+        --viz kit \
+        --dataset_file $DATASET_DIR/ranch_bottle_into_fridge_recorded.hdf5 \
+        --num_demos 10 \
+        --num_success_steps 10 \
+        put_item_in_fridge_and_close_door \
+        --object ranch_dressing_hope_robolab \
+        --embodiment gr1_pink \
+        --teleop_device openxr
 
 
 Step 3: Connect XR Device and Record
