@@ -6,75 +6,71 @@ This workflow covers collecting demonstrations using Isaac Teleop with an XR dev
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
 .. tab-set::
 
    .. tab-item:: Meta Quest 3 / Pico 4 Ultra
       :selected:
 
-      On the host machine, configure the firewall to allow CloudXR traffic.
+      #. On the host machine, configure the firewall to allow CloudXR traffic.
 
-      .. code-block:: bash
+         .. code-block:: bash
 
-         sudo ufw allow 49100/tcp   # Signaling
-         sudo ufw allow 47998/udp   # Media stream
-         sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
+            sudo ufw allow 49100/tcp   # Signaling
+            sudo ufw allow 47998/udp   # Media stream
+            sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
 
+      #. Start the CloudXR runtime from the Arena Docker container:
 
-      Start the CloudXR runtime from the Arena Docker container:
+         :docker_run_default:
 
-      :docker_run_default:
+      #. Create a CloudXR config to enable hand tracking:
 
-      Create a CloudXR config to enable hand tracking:
+         .. code-block:: bash
 
-      .. code-block:: bash
+            echo "NV_CXR_ENABLE_PUSH_DEVICES=0" > handtracking.env
 
-         echo "NV_CXR_ENABLE_PUSH_DEVICES=0" > handtracking.env
+      #. Start the CloudXR runtime with the customized config file:
 
+         .. code-block:: bash
 
-      Start the CloudXR runtime with the customized config file:
-
-      .. code-block:: bash
-
-         python -m isaacteleop.cloudxr --cloudxr-env-config=handtracking.env
+            python -m isaacteleop.cloudxr --cloudxr-env-config=handtracking.env
 
 
    .. tab-item:: Apple Vision Pro
 
-      On the host machine, configure the firewall to allow CloudXR traffic.
+      #. On the host machine, configure the firewall to allow CloudXR traffic.
 
-      .. code-block:: bash
+         .. code-block:: bash
 
-         # Signaling (use one based on connection mode)
-         sudo ufw allow 48010/tcp   # Standard mode
-         sudo ufw allow 48322/tcp   # Secure mode
-         # Video
-         sudo ufw allow 47998/udp
-         sudo ufw allow 48005/udp
-         sudo ufw allow 48008/udp
-         sudo ufw allow 48012/udp
-         # Input
-         sudo ufw allow 47999/udp
-         # Audio
-         sudo ufw allow 48000/udp
-         sudo ufw allow 48002/udp
+            # Signaling (use one based on connection mode)
+            sudo ufw allow 48010/tcp   # Standard mode
+            sudo ufw allow 48322/tcp   # Secure mode
+            # Video
+            sudo ufw allow 47998/udp
+            sudo ufw allow 48005/udp
+            sudo ufw allow 48008/udp
+            sudo ufw allow 48012/udp
+            # Input
+            sudo ufw allow 47999/udp
+            # Audio
+            sudo ufw allow 48000/udp
+            sudo ufw allow 48002/udp
 
-      Start the CloudXR runtime from the Arena Docker container:
+      #. Start the CloudXR runtime from the Arena Docker container:
 
-      :docker_run_default:
+         :docker_run_default:
 
-      Create a customized config file with the following content:
+      #. Create a customized config file with the following content:
 
-      .. code-block:: bash
+         .. code-block:: bash
 
-         printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
+            printf '%s\n' 'NV_DEVICE_PROFILE=auto-native' 'NV_CXR_ENABLE_PUSH_DEVICES=0' > avp.env
 
+      #. Start the CloudXR runtime with the customized config file:
 
-      Start the CloudXR runtime with the customized config file:
+         .. code-block:: bash
 
-      .. code-block:: bash
-
-         python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
+            python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
 
 Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
