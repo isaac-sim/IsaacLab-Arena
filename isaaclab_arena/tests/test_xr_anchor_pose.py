@@ -18,7 +18,7 @@ _EXPECTED_ANCHOR_PRIM = "/World/envs/env_0/Robot/pelvis"
 
 def _assert_pelvis_relative_xr_cfg(embodiment_name: str, simulation_app) -> bool:
     """GR1T2 (gr1_pink) and G1 WBC share the same pelvis-anchored XrCfg semantics."""
-    from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode
+    from isaaclab_teleop.xr_cfg import XrAnchorRotationMode
 
     from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
