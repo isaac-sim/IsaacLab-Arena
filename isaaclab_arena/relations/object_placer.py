@@ -13,7 +13,13 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import On, RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import (
+    IsAnchor,
+    On,
+    RandomAroundSolution,
+    RotateAroundSolution,
+    get_anchor_objects,
+)
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
@@ -343,21 +349,32 @@ class ObjectPlacer:
     ) -> bool:
         """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
 
-        Pairs linked by an On relation are skipped (validated separately by
-        _validate_on_relations).
+        Pairs linked by an On relation and anchor-anchor pairs are skipped.
+        The margin is derived from the solver's clearance_m parameter (with a
+        small float tolerance subtracted to avoid rejecting solutions that are
+        within solver residual).
         """
         # Build set of On-related pairs to skip (child, parent) and (parent, child).
         on_pairs: set[tuple] = set()
+        anchor_ids: set[int] = set()
         for obj in positions:
             for rel in obj.get_relations():
                 if isinstance(rel, On) and rel.parent in positions:
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
+            if any(isinstance(r, IsAnchor) for r in obj.get_relations()):
+                anchor_ids.add(id(obj))
+
+        clearance_m = self.params.solver_params.clearance_m
+        margin = max(0.0, clearance_m - 1e-6)
 
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
+                # Skip anchor-anchor pairs (anchors are fixed, solver does not move them).
+                if id(a) in anchor_ids and id(b) in anchor_ids:
+                    continue
                 # Pairs related by an On relation are excluded from the overlap check.
                 if (id(a), id(b)) in on_pairs:
                     continue
@@ -365,7 +382,7 @@ class ObjectPlacer:
                 a_world = a.get_bounding_box().translated(positions[a])
                 b_world = b.get_bounding_box().translated(positions[b])
 
-                if a_world.overlaps(b_world, margin=self.params.min_separation_m).item():
+                if a_world.overlaps(b_world, margin=margin).item():
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
                     return False

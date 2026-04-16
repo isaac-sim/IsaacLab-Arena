@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Table + multi-object NoCollision environment. Office table with objects placed via
-On(table) and pairwise NoCollision (relation solver). Includes a robot (e.g. GR1).
-No task — suitable for policy_runner with zero_action or any policy.
+Table + multi-object no-overlap environment. Office table with objects placed via
+On(table) with built-in no-overlap (relation solver). Includes a robot (e.g. GR1).
+No task -- suitable for policy_runner with zero_action or any policy.
 
 Example:
   python isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
@@ -34,7 +34,7 @@ DEFAULT_TABLE_OBJECTS = [
 @register_environment
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
     """
-    Table-based scene with multiple objects (On(table) + NoCollision) and a robot.
+    Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
     """
 
@@ -83,7 +83,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             obj = self.asset_registry.get_asset_by_name(name)()
             obj.add_relation(On(tabletop_reference))
             placeable_assets.append(obj)
-        # NoCollision between all pairs is added automatically by ArenaEnvBuilder before solving.
+        # No-overlap between all pairs is handled automatically by the solver (built-in behavior).
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -115,7 +115,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             nargs="*",
             type=str,
             default=None,
-            help=f"Object names to spawn on the table (On + NoCollision). Default: {' '.join(DEFAULT_TABLE_OBJECTS)}",
+            help=f"Object names to spawn on the table (On + no-overlap). Default: {' '.join(DEFAULT_TABLE_OBJECTS)}",
         )
         parser.add_argument("--embodiment", type=str, default="gr1_joint", help="Robot embodiment to use")
         parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")

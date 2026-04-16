@@ -327,7 +327,7 @@ and add them to the scene:
 The builder automatically:
 
 - Collects all objects with at least one relation from the scene
-- Adds pairwise ``NoCollision`` constraints between all non-anchor objects (if not already present)
+- Enforces no-overlap between all object pairs automatically (built-in solver behavior, controlled by ``clearance_m``)
 - Creates an ``ObjectPlacer`` and runs placement
 - Sets the solved poses on the objects before handing them to Isaac Lab
 
@@ -405,15 +405,13 @@ Configuration
 
    placer = ObjectPlacer(params=ObjectPlacerParams(
        max_placement_attempts=10,
-       min_separation_m=0.01,
        placement_seed=42,
        verbose=True,
    ))
 
 Key parameters:
 
-- ``max_placement_attempts`` (default ``5``): Number of solver restarts before giving up
-- ``min_separation_m`` (default ``0.0``): Extra separation enforced during overlap validation
+- ``max_placement_attempts`` (default ``10``): Number of solver restarts before giving up
 - ``placement_seed`` (default ``None``): Random seed for reproducible placements
 - ``on_relation_z_tolerance_m`` (default ``5e-3``): Tolerance for Z validation of ``On`` relations
 

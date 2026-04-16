@@ -94,6 +94,11 @@ class RelationSolverState:
             self._optimizable_positions = None
 
     @property
+    def device(self) -> torch.device:
+        """Torch device for all position tensors."""
+        return self._device
+
+    @property
     def batch_size(self) -> int:
         """Number of independent position sets (leading dimension of position tensors)."""
         return self._batch_size
