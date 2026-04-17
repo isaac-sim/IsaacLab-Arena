@@ -51,7 +51,7 @@ In another terminal, start the Arena Docker container and launch the teleop sess
    python isaaclab_arena/scripts/imitation_learning/teleop.py \
      --viz kit \
      --device cpu \
-     galileo_g1_locomanip_apple_to_plate \
+     galileo_g1_locomanip_pick_and_place \
      --teleop_device openxr
 
 Start the session from the **XR** tab in the application window.
@@ -103,7 +103,7 @@ Step 4: Record with Quest 3
         --dataset_file $DATASET_DIR/arena_g1_locomanip_apple_dataset_recorded.hdf5 \
         --num_demos 10 \
         --num_success_steps 2 \
-        galileo_g1_locomanip_apple_to_plate \
+        galileo_g1_locomanip_pick_and_place \
         --teleop_device openxr
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
@@ -141,4 +141,4 @@ To replay the recorded demos:
      --viz kit \
      --device cpu \
      --dataset_file $DATASET_DIR/arena_g1_locomanip_apple_dataset_recorded.hdf5 \
-     galileo_g1_locomanip_apple_to_plate
+     galileo_g1_locomanip_pick_and_place

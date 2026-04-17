@@ -81,7 +81,7 @@ Test the policy in a single environment with visualization via the GUI run:
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_apple_gr00t_closedloop_config.yaml \
      --num_steps 1500 \
      --enable_cameras \
-     galileo_g1_locomanip_apple_to_plate \
+     galileo_g1_locomanip_pick_and_place \
      --object apple_01_objaverse_robolab \
      --destination clay_plates_hot3d_robolab \
      --embodiment g1_wbc_joint
@@ -118,7 +118,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --enable_cameras \
            --device cuda \
            --policy_device cuda  \
-           galileo_g1_locomanip_apple_to_plate \
+           galileo_g1_locomanip_pick_and_place \
            --object apple_01_objaverse_robolab \
            --destination clay_plates_hot3d_robolab \
            --embodiment g1_wbc_joint
@@ -139,7 +139,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --policy_device cuda  \
            --distributed \
            --headless \
-           galileo_g1_locomanip_apple_to_plate \
+           galileo_g1_locomanip_pick_and_place \
            --object apple_01_objaverse_robolab \
            --destination clay_plates_hot3d_robolab \
            --embodiment g1_wbc_joint

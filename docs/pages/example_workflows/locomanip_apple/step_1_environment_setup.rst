@@ -13,16 +13,21 @@ and validate that we can load it in Isaac Lab.
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. dropdown:: The Galileo G1 Loco-Manipulation Apple-to-Plate Environment
+The apple-to-plate workflow reuses the ``GalileoG1LocomanipPickAndPlaceEnvironment`` (also used by the
+box-to-bin workflow) with a different pick-up object and destination. The environment exposes
+``--object`` and ``--destination`` CLI arguments, so switching between the two variants is just a
+matter of passing the right asset names — no separate environment class is needed.
+
+.. dropdown:: The Galileo G1 Loco-Manipulation Pick-and-Place Environment
    :animate: fade-in
 
    .. code-block:: python
 
        import math
 
-       class GalileoG1LocomanipAppleToPlateEnvironment(ExampleEnvironmentBase):
+       class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
-           name: str = "galileo_g1_locomanip_apple_to_plate"
+           name: str = "galileo_g1_locomanip_pick_and_place"
 
            def get_env(self, args_cli: argparse.Namespace):
                from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -31,9 +36,8 @@ Environment Description
                from isaaclab_arena.utils.pose import Pose, PoseRange
 
                background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-               # Objaverse assets are ~100x real-world scale; downscale to realistic size.
-               pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=(0.01, 0.01, 0.01))
-               destination = self.asset_registry.get_asset_by_name(args_cli.destination)(scale=(0.5, 0.5, 0.5))
+               pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+               destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
                embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
                if args_cli.teleop_device is not None:
@@ -79,8 +83,8 @@ Step-by-Step Breakdown
 .. code-block:: python
 
     background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-    pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=(0.01, 0.01, 0.01))
-    destination = self.asset_registry.get_asset_by_name(args_cli.destination)(scale=(0.5, 0.5, 0.5))
+    pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+    destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
     embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
     if args_cli.teleop_device is not None:
@@ -92,10 +96,11 @@ The ``teleop_device`` is left as ``None`` when ``--teleop_device`` is not suppli
 ``replay_demos.py`` and ``policy_runner.py`` (which don't need a teleop device) can launch the same
 environment without instantiating an XR runtime.
 
-Here, we're selecting the specific pieces we need for our loco-manipulation task: the Galileo arena as our background environment,
-an apple to pick up, a clay plate as our destination, and the G1 embodiment. The apple and plate are downscaled because the Objaverse
-and HOT3D assets are authored at larger-than-real-world scale — the specific factors (``0.01`` for the apple and ``0.5`` for the plate)
-were picked by eye so the objects look approximately right next to the G1.
+Here, we're selecting the specific pieces we need for our loco-manipulation task: the Galileo arena as
+our background environment, an apple to pick up, a clay plate as our destination, and the G1 embodiment.
+Each registered asset carries its own default scale — ``Apple01ObjaverseRobolab`` bakes in the
+``(0.01, 0.01, 0.01)`` factor that accounts for Objaverse assets being authored at ~100× real-world
+size, while the HOT3D plate is authored at real size (~30 cm diameter) and needs no rescaling.
 See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
 
 
@@ -121,8 +126,8 @@ See :doc:`../../concepts/scene/concept_assets_design` for details on asset archi
 
 The apple is placed on the shelf at a randomised pose within a small XY range, and the plate is placed on the
 table to the right of the shelf. The poses were carried over from the box/bin variant and validated visually
-in the simulator; if you adjust the apple or plate asset, you may need to retune the z-heights so the apple
-sits flush on the shelf and the plate sits flat on the table.
+in the simulator; if you swap in a different pick-up object or destination, you may need to tune the
+z-heights so the object sits flush on the shelf and the destination sits flat on the table.
 
 
 **3. Compose the Scene**
@@ -187,6 +192,15 @@ config are wired up correctly without requiring teleoperation hardware.
 Step 2: Validate Environment with Demo Replay (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. note::
+
+   **First-run asset cache**: The Objaverse apple USD streams from an S3 staging bucket and
+   PhysX re-cooks its collision mesh at the baked-in ``0.01x`` scale. On a fresh machine the
+   collision cook may land a frame after the first physics step, which can cause the apple to
+   tunnel through the shelf surface on the very first load. Subsequent runs read the cached
+   USD from ``/tmp/Assets/`` and spawn correctly. If you see the apple fall through the shelf,
+   just re-run the command once.
+
 Once a pre-recorded dataset is published for this workflow on Hugging Face, you can also validate the
 environment by replaying the dataset. The replay runs the environment with the recorded actions and no
 teleoperation device is needed, so this is a handy way to visually confirm the environment looks right
@@ -199,7 +213,7 @@ without an XR headset:
      --device cpu \
      --enable_cameras \
      --dataset_file ${DATASET_DIR}/arena_g1_locomanip_apple_dataset_generated.hdf5 \
-     galileo_g1_locomanip_apple_to_plate \
+     galileo_g1_locomanip_pick_and_place \
      --object apple_01_objaverse_robolab \
      --destination clay_plates_hot3d_robolab \
      --embodiment g1_wbc_pink
@@ -209,5 +223,5 @@ without an XR headset:
    The downloaded dataset will be generated using CPU device physics, so the replay uses ``--device cpu``
    to ensure reproducibility.
 
-You should see the G1 robot replaying the generated demonstrations, performing apple pick and place
+You should see the G1 robot replaying the generated demonstrations, performing the apple pick and place
 task in the Galileo lab environment.

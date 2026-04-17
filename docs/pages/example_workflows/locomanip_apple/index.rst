@@ -8,7 +8,7 @@ This workflow mirrors the :doc:`G1 Loco-Manipulation Box Pick and Place Task <..
 Task Overview
 -------------
 
-**Task Name:** ``galileo_g1_locomanip_apple_to_plate``
+**Task Name:** ``galileo_g1_locomanip_pick_and_place``
 
 **Task Description:** The G1 humanoid robot navigates through a lab environment, picks up an apple
 from a shelf, and places it onto a plate on the table to the right of the shelf. This task requires
