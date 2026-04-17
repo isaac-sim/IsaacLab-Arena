@@ -1,0 +1,40 @@
+{
+  "_comment": "Copy this file, fill it in, and pass it to /arena-install, /arena-create, /arena-verify.",
+
+  "project_name": "my_arm_task",
+  "base_dir": "/home/user/Projects",
+
+  "robot": "franka_ik",
+  "_robot_options": ["franka_ik", "franka_joint_pos", "droid", "droid_differential_ik", "gr1_pink", "g1_wbc_pink", "kuka_allegro"],
+
+  "scene_assets": [
+    {
+      "name": "my_background",
+      "type": "background",
+      "_type_options": ["background", "object"],
+      "source": "built-in",
+      "_source_note": "Use 'built-in' OR provide host_usd_path + container_usd_path for custom assets"
+    },
+    {
+      "name": "my_object",
+      "type": "object",
+      "source": "custom",
+      "host_usd_path": "/home/user/assets/my_object.usd",
+      "container_usd_path": "/workspaces/assets/my_object.usd"
+    }
+  ],
+
+  "extra_mounts": [
+    {
+      "_comment": "Add one entry per host directory that contains custom USD files.",
+      "host": "/home/user/assets",
+      "container": "/workspaces/assets"
+    }
+  ],
+
+  "task_description": "Pick up the object and place it on the target.",
+  "success_condition": "EEF within 5 cm of the object centre",
+  "episode_length_s": 50,
+  "enable_cameras": false,
+  "mimicgen": false
+}
