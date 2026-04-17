@@ -8,6 +8,7 @@ closed-loop evaluation.
 Currently, the following imitation learning workflow examples are provided:
 
 * :doc:`G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/index>`
+* :doc:`G1 Loco-Manipulation Apple-to-Plate Task <../locomanip_apple/index>`
 * :doc:`GR1 Open Microwave Door Task <../static_manipulation/index>`
 * :doc:`GR1 Sequential Pick & Place and Close Door Task <../sequential_static_manipulation/index>`
 
@@ -30,5 +31,6 @@ Not every step requires this container — the workflow pages will tell you when
    :maxdepth: 1
 
    ../locomanipulation/index
+   ../locomanip_apple/index
    ../static_manipulation/index
    ../sequential_static_manipulation/index
