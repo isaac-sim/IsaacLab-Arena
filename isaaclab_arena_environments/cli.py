@@ -3,12 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import importlib
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
 
 def ensure_environments_registered():
@@ -88,8 +94,7 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-def get_arena_builder_from_cli(args_cli: argparse.Namespace):  # -> tuple[ManagerBasedRLEnvCfg, str]:
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
 
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()

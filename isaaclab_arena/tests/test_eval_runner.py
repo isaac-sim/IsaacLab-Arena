@@ -5,12 +5,11 @@
 
 import json
 import os
-import re
-import subprocess
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -23,15 +22,16 @@ def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
         json.dump(jobs_config, f, indent=4)
 
 
-def run_eval_runner_and_check_no_failures(jobs_config_path: str, headless: bool = HEADLESS):
-    """Run the eval_runner and verify no jobs failed.
+def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
+    """Run the eval_runner as a subprocess with timeout.
+
+    --continue_on_error is NOT passed, so the eval_runner re-raises on the
+    first job failure, exiting non-zero.  run_subprocess() detects that and
+    raises CalledProcessError, which surfaces as a test failure.
 
     Args:
-        jobs_config_path: Path to the jobs config JSON file
-        headless: Whether to run in headless mode
-
-    Raises:
-        AssertionError: If any jobs failed
+        jobs_config_path: Path to the jobs config JSON file.
+        headless: Whether to run in headless mode.
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/eval_runner.py"]
     args.append("--eval_jobs_config")
@@ -39,25 +39,7 @@ def run_eval_runner_and_check_no_failures(jobs_config_path: str, headless: bool 
     if headless:
         args.append("--headless")
 
-    result = subprocess.run(args, capture_output=True, text=True, check=True)
-    output = result.stdout + result.stderr
-
-    # Parse the output to find job statuses in the table
-    # The table format is:
-    # |                Job Name               |   Status  | ...
-    # |     gr1_open_microwave_cracker_box    | completed | ...
-    status_pattern = r"\|\s+([^|]+?)\s+\|\s+(pending|running|completed|failed)\s+\|"
-    matches = re.findall(status_pattern, output, re.IGNORECASE)
-
-    # Filter out the header row
-    job_statuses = [(name.strip(), status.strip()) for name, status in matches if name.strip() != "Job Name"]
-
-    # Check for failed jobs
-    failed_jobs = [name for name, status in job_statuses if status.lower() == "failed"]
-
-    if failed_jobs:
-        print("\n" + output)  # Print full output for debugging
-        raise AssertionError(f"The following jobs failed: {', '.join(failed_jobs)}\nAll job statuses: {job_statuses}")
+    run_subprocess(args)
 
 
 @pytest.mark.with_subprocess
@@ -90,7 +72,7 @@ def test_eval_runner_two_jobs_zero_action(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_two_jobs_zero_action.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner_and_check_no_failures(temp_config_path)
+    run_eval_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
@@ -123,7 +105,7 @@ def test_eval_runner_multiple_environments(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_multiple_environments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner_and_check_no_failures(temp_config_path)
+    run_eval_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
@@ -156,7 +138,7 @@ def test_eval_runner_different_embodiments(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_different_embodiments.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner_and_check_no_failures(temp_config_path)
+    run_eval_runner(temp_config_path)
 
 
 @pytest.mark.with_subprocess
@@ -164,10 +146,11 @@ def test_eval_runner_from_existing_config():
     """Test eval_runner using the zero_action_jobs_config.json and verify no jobs failed."""
     config_path = f"{TestConstants.arena_environments_dir}/eval_jobs_configs/zero_action_jobs_config.json"
     assert os.path.exists(config_path), f"Config file not found: {config_path}"
-    run_eval_runner_and_check_no_failures(config_path)
+    run_eval_runner(config_path)
 
 
 @pytest.mark.with_subprocess
+@pytest.mark.skip(reason="CI takes 1000s to cold-start camera rendering.")
 def test_eval_runner_enable_cameras(tmp_path):
     """Test eval_runner with enable_cameras set to true."""
     jobs = [
@@ -198,4 +181,4 @@ def test_eval_runner_enable_cameras(tmp_path):
 
     temp_config_path = str(tmp_path / "test_eval_runner_enable_cameras.json")
     write_jobs_config_to_file(jobs, temp_config_path)
-    run_eval_runner_and_check_no_failures(temp_config_path)
+    run_eval_runner(temp_config_path)

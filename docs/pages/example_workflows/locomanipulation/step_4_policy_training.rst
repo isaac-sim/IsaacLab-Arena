@@ -139,8 +139,7 @@ To post-train the policy, run the following command
    --tune_visual \
    --tune_projector \
    --tune_diffusion_model \
-   --dataloader_num_workers=16 \
-   --use-wandb \
+   --dataloader_num_workers=8 \
    --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
    --embodiment_tag=NEW_EMBODIMENT
 

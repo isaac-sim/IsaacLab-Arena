@@ -3,18 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import math
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
-# We cannot annotate types which require the simulation app to be started in order to
-# import, because this file is used to retrieve CLI arguments, so it must be imported
-# before the simulation app is started.
-# TODO(alexmillane, 2025.09.04): Fix this.
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 RANDOMIZATION_HALF_RANGE_X_M = 0.03
@@ -34,7 +34,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
     name = "put_item_in_fridge_and_close_door"
 
-    def get_env(self, args_cli: argparse.Namespace):
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
         from isaaclab.utils import configclass
 
