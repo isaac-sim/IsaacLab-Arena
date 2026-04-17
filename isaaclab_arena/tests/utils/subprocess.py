@@ -30,8 +30,26 @@ _PERSISTENT_SIM_APP_LAUNCHER: AppLauncher | None = None
 _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first init
 _AT_LEAST_ONE_TEST_FAILED = False
 
-
 _SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "600"))
+_SUBPROCESS_MAX_RETRIES = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_MAX_RETRIES", "1"))
+
+
+def _run_once(cmd, env, timeout_sec, capture_output):
+    """Run a single subprocess attempt. Returns CompletedProcess on success, raises on error."""
+    # start_new_session=True isolates the child into its own process group.
+    # The child-side SimulationAppContext uses this to SIGTERM its entire
+    # group before os._exit(), preventing orphaned Kit children (shader
+    # compiler, GPU workers, …) from holding GPU resources and blocking
+    # the next subprocess.
+    result = subprocess.run(
+        cmd,
+        env=env,
+        timeout=timeout_sec,
+        capture_output=capture_output,
+        text=capture_output,
+        start_new_session=True,
+    )
+    return result
 
 
 def run_subprocess(
@@ -40,13 +58,12 @@ def run_subprocess(
     timeout_sec: int | None = None,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess | None:
-    """Run a command in a subprocess with timeout.
+    """Run a command in a subprocess with timeout, orphan cleanup, and retry.
 
-    The child is launched with ``start_new_session=True`` so it lives in its
-    own process group.  The child-side ``SimulationAppContext`` uses this to
-    SIGTERM its entire group before ``os._exit()``, preventing orphaned Kit
-    children (shader compiler, GPU workers, …) from holding GPU resources and
-    blocking the next subprocess.
+    Kit occasionally deadlocks during startup on CPU-constrained CI runners.
+    When a timeout occurs the subprocess is killed, orphaned Kit processes are
+    cleaned up, and the command is retried up to ``_SUBPROCESS_MAX_RETRIES``
+    times (env ``ISAACLAB_ARENA_SUBPROCESS_MAX_RETRIES``, default 1).
 
     Args:
         cmd: Command to run (list of strings).
@@ -63,38 +80,40 @@ def run_subprocess(
     if timeout_sec is None:
         timeout_sec = _SUBPROCESS_TIMEOUT_SEC
 
-    print(f"Running command (timeout={timeout_sec}s): {cmd}")
     global _AT_LEAST_ONE_TEST_FAILED
 
     if env is None:
         env = os.environ.copy()
     env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
 
-    try:
-        result = subprocess.run(
-            cmd,
-            env=env,
-            timeout=timeout_sec,
-            capture_output=capture_output,
-            text=capture_output,
-            start_new_session=True,
-        )
-    except subprocess.TimeoutExpired:
-        sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s\n")
-        _AT_LEAST_ONE_TEST_FAILED = True
-        raise subprocess.SubprocessError(f"Subprocess timed out after {timeout_sec}s: {cmd}")
+    last_error = None
+    for attempt in range(_SUBPROCESS_MAX_RETRIES + 1):
+        if attempt > 0:
+            print(f"[isaaclab-arena] Retry {attempt}/{_SUBPROCESS_MAX_RETRIES} after timeout")
+        print(f"Running command (timeout={timeout_sec}s): {cmd}")
 
-    print(f"Command completed with return code: {result.returncode}")
-    if result.returncode != 0:
-        sys.stderr.write(f"Command failed with return code {result.returncode}\n")
-        if capture_output and result.stderr:
-            sys.stderr.write(result.stderr)
-        _AT_LEAST_ONE_TEST_FAILED = True
-        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+        try:
+            result = _run_once(cmd, env, timeout_sec, capture_output)
+        except subprocess.TimeoutExpired:
+            sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s (attempt {attempt + 1})\n")
+            last_error = subprocess.SubprocessError(f"Subprocess timed out after {timeout_sec}s: {cmd}")
+            continue
 
-    if capture_output:
-        return result
-    return None
+        print(f"Command completed with return code: {result.returncode}")
+        if result.returncode != 0:
+            sys.stderr.write(f"Command failed with return code {result.returncode}\n")
+            if capture_output and result.stderr:
+                sys.stderr.write(result.stderr)
+            _AT_LEAST_ONE_TEST_FAILED = True
+            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+        if capture_output:
+            return result
+        return None
+
+    # All attempts exhausted
+    _AT_LEAST_ONE_TEST_FAILED = True
+    raise last_error
 
 
 class _IsolatedArgv:
