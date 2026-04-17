@@ -13,9 +13,6 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
 from isaaclab_arena_environments.dexsuite_lift_environment import DexsuiteLiftEnvironment
 from isaaclab_arena_environments.franka_put_and_close_door_environment import FrankaPutAndCloseDoorEnvironment
-from isaaclab_arena_environments.g1_agile_tabletop_apple_to_plate_environment import (
-    G1AgileTabletopAppleToPlateEnvironment,
-)
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
@@ -44,7 +41,6 @@ ExampleEnvironments = {
     KitchenPickAndPlaceEnvironment.name: KitchenPickAndPlaceEnvironment,
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     PickAndPlaceMapleTableEnvironment.name: PickAndPlaceMapleTableEnvironment,
-    G1AgileTabletopAppleToPlateEnvironment.name: G1AgileTabletopAppleToPlateEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
     CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
