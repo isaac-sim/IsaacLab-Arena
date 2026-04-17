@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import argparse
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # NOTE: Same pattern as other example envs — avoid heavy imports before AppLauncher.
 
 
+@register_environment
 class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
     """
     Dexsuite Kuka Allegro lift task; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``.

@@ -6,9 +6,11 @@
 
 import argparse
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 
+@register_environment
 class GearMeshEnvironment(ExampleEnvironmentBase):
     """
     Gear mesh assembly environment with 4 gears:

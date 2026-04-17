@@ -15,6 +15,7 @@ Example:
 
 import argparse
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 DEFAULT_TABLE_OBJECTS = [
@@ -30,6 +31,7 @@ DEFAULT_TABLE_OBJECTS = [
 # are needed in the near future.
 
 
+@register_environment
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
     """
     Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
