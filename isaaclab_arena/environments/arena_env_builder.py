@@ -30,13 +30,14 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
-from isaaclab_arena.relations.placement_pool import PlacementPool
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 
 class ArenaEnvBuilder:
@@ -57,32 +58,13 @@ class ArenaEnvBuilder:
                 self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
             )
 
-    def _get_objects_with_relations(self) -> list[Object | ObjectReference]:
-        """Get all objects from the scene that have relations.
-
-        Returns:
-            List of Object or ObjectReference instances that have at least one relation.
-        """
-        objects_with_relations: list[Object | ObjectReference] = []
-        for asset in self.arena_env.scene.assets.values():
-            if not isinstance(asset, (Object, ObjectReference)):
-                # Fail early if a non-Object/ObjectReference asset has relations - they won't be solved
-                assert not (hasattr(asset, "get_relations") and asset.get_relations()), (
-                    f"Asset '{asset.name}' has relations but is not an Object or ObjectReference "
-                    f"(type: {type(asset).__name__}). Only Object and ObjectReference instances support relations."
-                )
-                continue
-            if asset.get_relations():
-                objects_with_relations.append(asset)
-        return objects_with_relations
-
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
         This method:
         1. Collects all objects from the scene that have relations
         2. Runs the ObjectPlacer to solve spatial constraints (no-overlap is built into the solver)
-        3. Applies solved positions to objects via a :class:`PlacementPool`
+        3. Applies solved positions to objects via a :class:`PooledObjectPlacer`
 
         Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
         (overridable from CLI with ``--resolve_on_reset`` / ``--no-resolve_on_reset``):
@@ -92,14 +74,14 @@ class ArenaEnvBuilder:
         * **False** — applies one layout per environment via ``set_initial_pose``
           so per-object reset events restore the same layout every time.
         """
-        objects_with_relations = self._get_objects_with_relations()
+        objects_with_relations = self.arena_env.scene.get_objects_with_relations()
 
         if not objects_with_relations:
             print("No objects with relations found in scene. Skipping relation solving.")
             return
 
         num_envs = self.args.num_envs
-        cli_resolve = getattr(self.args, "resolve_on_reset", None)
+        cli_resolve = self.args.resolve_on_reset
 
         # The pool applies positions itself, so disable ObjectPlacer's built-in apply.
         # Position history and verbose logging are unnecessary for batch-solving a pool.
@@ -113,7 +95,7 @@ class ArenaEnvBuilder:
 
         pool_size = num_envs * placer_params.min_unique_layouts_per_env
 
-        placement_pool = PlacementPool(
+        placement_pool = PooledObjectPlacer(
             objects=objects_with_relations,
             placer_params=placer_params,
             pool_size=pool_size,
@@ -145,7 +127,7 @@ class ArenaEnvBuilder:
     def _set_init_state_from_pool(
         self,
         objects: list[Object | ObjectReference],
-        pool: PlacementPool,
+        pool: PooledObjectPlacer,
         anchor_objects_set: set,
     ) -> None:
         """Set ``object_cfg.init_state`` from a pool layout so objects spawn at valid positions.
@@ -153,9 +135,9 @@ class ArenaEnvBuilder:
         Only touches ``init_state.pos`` / ``init_state.rot`` — does NOT create
         per-object reset events (the placement event handles resets).
         """
-        layout = pool.sample(1)[0]
+        layout = pool.sample_with_replacement(1)[0]
         for obj in objects:
-            if obj in anchor_objects_set or obj.object_cfg is None:
+            if obj in anchor_objects_set:
                 continue
             pos = layout.positions.get(obj)
             if pos is None:
@@ -167,7 +149,7 @@ class ArenaEnvBuilder:
     def _apply_pool_layouts_to_objects(
         self,
         objects: list[Object | ObjectReference],
-        pool: PlacementPool,
+        pool: PooledObjectPlacer,
         num_envs: int,
     ) -> None:
         """Draw layouts from the pool and apply them to objects via ``set_initial_pose``.
@@ -175,9 +157,7 @@ class ArenaEnvBuilder:
         Each non-anchor object gets a :class:`~isaaclab_arena.utils.pose.PosePerEnv`
         so that per-object reset events restore these positions.
         """
-        from isaaclab_arena.utils.pose import Pose, PosePerEnv
-
-        layouts = pool.sample(num_envs)
+        layouts = pool.sample_with_replacement(num_envs)
         anchor_objects_set = set(get_anchor_objects(objects))
 
         for obj in objects:

@@ -12,8 +12,8 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import solve_and_place_objects
-from isaaclab_arena.relations.placement_pool import PlacementPool
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -147,7 +147,7 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PlacementPool(objects=objects, placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
@@ -172,7 +172,7 @@ def test_solve_and_place_objects_skips_empty_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, torch.tensor([], dtype=torch.int64), [desk, box1, box2], pool)
 
@@ -187,7 +187,7 @@ def test_solve_and_place_objects_skips_none_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, None, [desk, box1, box2], pool)
 
@@ -206,7 +206,7 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PlacementPool(objects=objects, placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
@@ -220,17 +220,17 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_placement_pool_acquires_different_layouts():
-    """PlacementPool.acquire() should return layouts (likely different across draws)."""
+def test_pooled_placer_sample_without_replacement_returns_different_layouts():
+    """sample_without_replacement() should return layouts (likely different across draws)."""
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
+    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
 
     assert pool.remaining == 20
 
-    draws = pool.acquire(5)
+    draws = pool.sample_without_replacement(5)
     assert len(draws) == 5
     positions = [d.positions[box1] for d in draws]
     any_different = any(
@@ -239,35 +239,35 @@ def test_placement_pool_acquires_different_layouts():
     assert any_different, "Pool draws should produce different layouts"
 
 
-def test_placement_pool_sample_does_not_consume():
-    """PlacementPool.sample() should return layouts without consuming them."""
+def test_pooled_placer_sample_with_replacement_does_not_consume():
+    """sample_with_replacement() should return layouts without consuming them."""
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
     initial_available = pool.remaining
 
-    samples = pool.sample(5)
+    samples = pool.sample_with_replacement(5)
     assert len(samples) == 5
-    assert pool.remaining == initial_available, "sample() should not consume from available queue"
+    assert pool.remaining == initial_available, "sample_with_replacement() should not consume from available queue"
 
 
-def test_placement_pool_acquire_triggers_refill():
-    """Acquiring more than available should trigger a refill and still return the requested count."""
+def test_pooled_placer_sample_without_replacement_triggers_refill():
+    """Exhausting the pool and requesting more should trigger a refill."""
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PlacementPool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=5)
+    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=5)
 
     # Exhaust the pool, then request more
-    pool.acquire(5)
+    pool.sample_without_replacement(5)
     assert pool.remaining == 0
 
-    draws = pool.acquire(3)
-    assert len(draws) == 3, "acquire() should refill and return the requested count"
+    draws = pool.sample_without_replacement(3)
+    assert len(draws) == 3, "sample_without_replacement() should refill and return the requested count"
 
 
 def test_resolve_on_reset_false_applies_pose_per_env():
@@ -282,9 +282,9 @@ def test_resolve_on_reset_false_applies_pose_per_env():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PlacementPool(objects=objects, placer_params=placer_params, pool_size=20)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=20)
 
-    layouts = pool.sample(num_envs)
+    layouts = pool.sample_with_replacement(num_envs)
     assert len(layouts) == num_envs
 
     anchor_objects = set(get_anchor_objects(objects))
@@ -302,8 +302,8 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_placement_pool_empty_catalog_raises():
-    """PlacementPool should raise RuntimeError when no valid layouts can be produced."""
+def test_pooled_placer_empty_pool_raises():
+    """PooledObjectPlacer should raise RuntimeError when no valid layouts can be produced."""
     import pytest
 
     desk = DummyObject(
@@ -329,4 +329,4 @@ def test_placement_pool_empty_catalog_raises():
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
     with pytest.raises(RuntimeError, match="failed to produce any valid layouts"):
-        PlacementPool(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+        PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)

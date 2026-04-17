@@ -17,21 +17,17 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
-class PlacementPool:
-    """Pre-solved pool of valid placement layouts.
+class PooledObjectPlacer:
+    """Object placer that maintains a pool of valid placement layouts.
 
-    Solves ``pool_size`` layouts at build time and keeps only those that
-    pass validation.  Valid layouts are shuffled so successive draws
-    provide variety across resets.
+    Wraps :class:`ObjectPlacer` and solves layouts in batches of ``pool_size``,
+    keeping only those that pass validation.  The pool is refilled automatically
+    when consumed layouts run out.
 
-    * :meth:`acquire` — returns the next *count* layouts sequentially
-      (without replacement).  Auto-refills when exhausted.
-    * :meth:`sample` — picks *count* layouts at random with replacement
+    * :meth:`sample_without_replacement` — returns the next *count* layouts
+      sequentially.  Auto-refills when exhausted.
+    * :meth:`sample_with_replacement` — picks *count* layouts at random
       (non-consuming).  Used for static initial positions.
-
-    Internally the pool is a single list with a read index, following the
-    same pattern as ``stable-baselines3.ReplayBuffer`` (single storage +
-    position index).
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
@@ -48,7 +44,7 @@ class PlacementPool:
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
 
-        self._objects = list(objects)
+        self._objects = objects
         self._placer = ObjectPlacer(params=placer_params)
         self._pool_size = pool_size
         self._layouts: list[PlacementResult] = []
@@ -86,10 +82,9 @@ class PlacementPool:
                 f" {len(valid_results)} valid, {num_layouts - len(valid_results)} failed validation"
             )
 
-        random.shuffle(valid_results)
         self._layouts.extend(valid_results)
 
-    def acquire(self, count: int) -> list[PlacementResult]:
+    def sample_without_replacement(self, count: int) -> list[PlacementResult]:
         """Return the next *count* layouts sequentially (without replacement).
 
         Auto-refills the pool when there are not enough layouts ahead of the read index.
@@ -112,7 +107,7 @@ class PlacementPool:
         self._next_idx += count
         return self._layouts[start : self._next_idx]
 
-    def sample(self, count: int) -> list[PlacementResult]:
+    def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick *count* layouts at random with replacement (non-consuming).
 
         Used by ``resolve_on_reset=False`` to assign initial positions
@@ -122,5 +117,5 @@ class PlacementPool:
 
     @property
     def remaining(self) -> int:
-        """Number of layouts not yet consumed by :meth:`acquire`."""
+        """Number of layouts not yet consumed by :meth:`sample_without_replacement`."""
         return len(self._layouts) - self._next_idx

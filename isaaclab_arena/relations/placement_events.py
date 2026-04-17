@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
 
-from isaaclab_arena.relations.placement_pool import PlacementPool
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 
@@ -30,9 +30,9 @@ def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
     objects: list[ObjectBase],
-    placement_pool: PlacementPool,
+    placement_pool: PooledObjectPlacer,
 ) -> None:
-    """Coordinated reset event that draws layouts from a pre-solved pool and writes poses.
+    """Coordinated reset event that draws layouts from the pooled placer and writes poses.
 
     Registered as a single ``EventTermCfg(mode="reset")``. Each call draws one
     layout per resetting environment from the pool and writes the poses to sim.
@@ -41,13 +41,13 @@ def solve_and_place_objects(
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
         objects: All objects (including anchors) participating in relation solving.
-        placement_pool: Pre-solved pool of layouts to draw from.
+        placement_pool: Pooled placer to draw layouts from.
     """
     if env_ids is None or len(env_ids) == 0:
         return
 
     num_reset_envs = len(env_ids)
-    results_per_env = placement_pool.acquire(num_reset_envs)
+    results_per_env = placement_pool.sample_without_replacement(num_reset_envs)
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}

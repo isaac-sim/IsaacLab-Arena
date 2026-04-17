@@ -101,7 +101,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             ]
         )
 
-        episode_length_s = getattr(args_cli, "episode_length_s", None)
+        episode_length_s = args_cli.episode_length_s
         env_cfg_callback = None
         if episode_length_s is not None:
 
