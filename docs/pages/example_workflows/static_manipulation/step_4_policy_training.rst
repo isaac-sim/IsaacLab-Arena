@@ -119,8 +119,14 @@ We provide two post-training options:
       Compute Requirements:
 
       - **GPUs:** 8x with at least 48 GB VRAM each (e.g. L40s, A6000, A100)
-      - **System RAM:** 256 GB or more recommended — multi-GPU training with large batch sizes
+      - **System RAM:** 512 GB or more recommended — multi-GPU training with large batch sizes
         and multiple dataloader workers requires substantial host memory
+
+      .. note::
+
+         If your system has less RAM or fewer GPUs, you can reduce ``global_batch_size`` and
+         ``dataloader_num_workers`` to fit your hardware. Training will still work but will take
+         longer to converge.
 
       Training Configuration:
 
@@ -149,7 +155,7 @@ We provide two post-training options:
          --tune_visual \
          --tune_projector \
          --tune_diffusion_model \
-         --dataloader_num_workers=8 \
+         --dataloader_num_workers=16 \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
 
@@ -184,7 +190,7 @@ We provide two post-training options:
          --tune_visual \
          --tune_projector \
          --tune_diffusion_model \
-         --dataloader_num_workers=8 \
+         --dataloader_num_workers=16 \
          --embodiment_tag=GR1 \
          --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
          --save_total_limit=5
