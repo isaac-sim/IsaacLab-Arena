@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import argparse
 import gymnasium as gym
+import numpy as np
 import torch
 from dataclasses import dataclass, field
 from typing import Any
 
 from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 
-from isaaclab_arena.policy.action_chunking import ActionChunkScheduler
+from isaaclab_arena.policy.action_chunking import ActionChunkScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.action_scheduler import ActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -34,10 +35,7 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
 )
-from isaaclab_arena_gr00t.utils.io_utils import (
-    create_config_from_yaml,
-    load_gr00t_modality_config_from_file,
-)
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
 
 
 @dataclass
@@ -78,11 +76,21 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
           --model_path nvidia/GR00T-N1.6-DROID \\
           --embodiment_tag OXE_DROID --device cuda --host 0.0.0.0 --port 5555
 
-    Client side (Arena evaluation):
+    Client side — default chunk scheduler (fetches for all envs when any needs a new chunk):
         python policy_runner.py \\
           --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \\
           --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \\
           --remote_host 10.0.0.1 --remote_port 5555 \\
+          --enable_cameras --num_episodes 5 \\
+          pick_and_place_maple_table --embodiment droid_abs_joint_pos
+
+    Client side — synced_batch scheduler (waits until ALL envs need a new chunk, then does one
+    full-batch call; envs that finish their chunk early hold their current robot state):
+        python policy_runner.py \\
+          --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \\
+          --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \\
+          --remote_host 10.0.0.1 --remote_port 5555 \\
+          --scheduler synced_batch \\
           --enable_cameras --num_episodes 5 \\
           pick_and_place_maple_table --embodiment droid_abs_joint_pos
     """
@@ -139,9 +147,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
             strict=False,
         )
         if not self._client.ping():
-            raise ConnectionError(
-                f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}"
-            )
+            raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 
         self.task_description: str | None = None
         self._timing = TimingStats()
@@ -177,11 +183,25 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         group.add_argument("--remote_host", type=str, default="localhost", help="GR00T policy server hostname")
         group.add_argument("--remote_port", type=int, default=5555, help="GR00T policy server port")
         group.add_argument("--remote_api_token", type=str, default=None, help="API token for the policy server")
+        group.add_argument(
+            "--scheduler",
+            type=str,
+            default="chunk",
+            choices=["chunk", "synced_batch"],
+            help=(
+                "Action chunk scheduler: 'chunk' fetches for all envs when any needs a new chunk;"
+                " 'synced_batch' waits until all envs need a new chunk then does one full-batch call"
+                " (envs that finish early hold their current robot state)"
+            ),
+        )
         return parser
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> Gr00tRemoteClosedloopPolicy:
         config = Gr00tRemoteClosedloopPolicyArgs.from_cli_args(args)
+        scheduler = getattr(args, "scheduler", "chunk")
+        if scheduler == "synced_batch":
+            return Gr00tRemoteClosedloopPolicySyncedBatch(config)
         return Gr00tRemoteClosedloopPolicy(config)
 
     # ---------------------- Policy interface -------------------
@@ -256,3 +276,53 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         self._client.reset()
         self._action_scheduler.reset(env_ids)
 
+
+class Gr00tRemoteClosedloopPolicySyncedBatch(Gr00tRemoteClosedloopPolicy):
+    """GR00T remote policy that waits for all envs to need a new chunk before calling inference.
+
+    Uses SyncedBatchActionScheduler: envs that exhaust their chunk early hold their
+    current robot state (joint positions from obs) until all envs are ready, then one
+    full-batch inference call is made for all envs together.
+
+    Activate via:
+        --policy_type ... --scheduler synced_batch
+    """
+
+    name = "gr00t_remote_closedloop_synced_batch"
+
+    def __init__(self, config: Gr00tRemoteClosedloopPolicyArgs, action_scheduler: ActionScheduler | None = None):
+        if action_scheduler is None:
+            _policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
+                config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
+            )
+            _action_dim = compute_action_dim(
+                TaskMode(_policy_config.task_mode_name),
+                load_gr00t_joint_configs(_policy_config)[1],
+            )
+            action_scheduler = SyncedBatchActionScheduler(
+                num_envs=config.num_envs,
+                action_chunk_length=_policy_config.action_chunk_length,
+                action_horizon=_policy_config.action_horizon,
+                action_dim=_action_dim,
+                device=config.policy_device,
+                dtype=torch.float,
+            )
+        super().__init__(config, action_scheduler)
+
+    def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+        hold_action = self._extract_hold_action(observation)
+
+        def fetch_chunk() -> torch.Tensor:
+            return self._get_action_chunk(observation, self.policy_config.pov_cam_name_sim)
+
+        return self._action_scheduler.get_action(fetch_chunk, hold_action)
+
+    def _extract_hold_action(self, observation: dict[str, Any]) -> torch.Tensor:
+        """Return current joint positions mapped to action space as the hold action."""
+        _, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=[])
+        hold_np = np.zeros((self.num_envs, self.action_dim), dtype=np.float64)
+        for joint_name, action_idx in self.robot_action_joints_config.items():
+            if joint_name in self.robot_state_joints_config:
+                state_idx = self.robot_state_joints_config[joint_name]
+                hold_np[:, action_idx] = joint_pos_sim_np[:, state_idx]
+        return torch.tensor(hold_np, dtype=torch.float, device=self.device)

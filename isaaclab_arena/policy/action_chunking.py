@@ -120,5 +120,54 @@ class ActionChunkScheduler(ActionScheduler):
         self.env_requires_new_chunk[env_ids] = True
 
 
+class SyncedBatchActionScheduler(ActionChunkScheduler):
+    """ActionChunkScheduler that waits until ALL envs need a new chunk before calling inference.
+
+    Envs that exhaust their chunk early hold their current robot state
+    (joint positions passed as hold_action) until every env is ready.
+    Only then is one full-batch inference call made for all envs together.
+
+    Tradeoff vs ActionChunkScheduler:
+    - Server batch is always full (N envs, never wasted)
+    - Envs that reset early hold their post-reset state for up to
+      (chunk_length - 1) steps before receiving a fresh chunk
+    """
+
+    def get_action(
+        self,
+        fetch_chunk_fn: Callable[[], torch.Tensor],
+        hold_action: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return one action per env, fetching only when all envs need a new chunk.
+
+        Args:
+            fetch_chunk_fn: Returns (num_envs, horizon, action_dim) when called.
+            hold_action: (num_envs, action_dim) current robot joint state; applied
+                to envs that are waiting for others to catch up.
+        """
+        if self.env_requires_new_chunk.all():
+            self._n_fetch_calls += 1
+            self._total_envs_needed += self.num_envs
+            self._per_env_fetch_count += 1
+
+            new_chunk = fetch_chunk_fn()
+            self.current_action_chunk[:] = new_chunk
+            self.current_action_index[:] = 0
+            self.env_requires_new_chunk[:] = False
+
+        waiting = self.env_requires_new_chunk
+        batch_idx = torch.arange(self.num_envs, device=self.device)
+        action = self.current_action_chunk[batch_idx, self.current_action_index.clamp(min=0)]
+        action[waiting] = hold_action[waiting]
+
+        self.current_action_index[~waiting] += 1
+        exhausted = (~waiting) & (self.current_action_index >= self.action_chunk_length)
+        self.current_action_chunk[exhausted] = 0.0
+        self.current_action_index[exhausted] = -1
+        self.env_requires_new_chunk[exhausted] = True
+
+        return action
+
+
 # Backwards-compatibility alias
 ActionChunkingState = ActionChunkScheduler
