@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
 
-"""Example notebook demonstrating NoCollision with real Isaac Sim objects."""
+"""Example notebook demonstrating no-overlap with real Isaac Sim objects."""
 
 # NOTE: When running as a notebook, first run this cell to launch the simulation app:
 import pinocchio  # noqa: F401
@@ -30,12 +30,12 @@ def run_isaac_sim_no_collision_demo(
     reset_every_n_steps: int = 100,
     hold_overlapping_steps: int = 150,
 ):
-    """Run the NoCollision demo with Isaac Sim objects.
+    """Run the no-overlap demo with Isaac Sim objects.
 
     Three objects start overlapping on the table; the relation solver places them
-    so they satisfy On(table) and pairwise NoCollision. After each reset, overlapping
-    pose is shown for hold_overlapping_steps frames (render only), then the solver
-    runs and results are displayed.
+    so they satisfy On(table) with built-in no-overlap enforcement. After each reset,
+    overlapping pose is shown for hold_overlapping_steps frames (render only), then
+    the solver runs and results are displayed.
 
     Args:
         num_steps: Number of simulation steps to run.
@@ -51,7 +51,7 @@ def run_isaac_sim_no_collision_demo(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relations import IsAnchor, NoCollision, On
+    from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
@@ -82,9 +82,7 @@ def run_isaac_sim_no_collision_demo(
     tomato_soup_can.add_relation(On(tabletop_reference, clearance_m=0.02))
     tomato_soup_can.set_initial_pose(same_pose)
 
-    cracker_box.add_relation(NoCollision(mug))
-    cracker_box.add_relation(NoCollision(tomato_soup_can))
-    mug.add_relation(NoCollision(tomato_soup_can))
+    # No-overlap between objects is handled automatically by the solver (built-in behavior).
 
     scene = Scene(assets=[ground_plane, table_background, tabletop_reference, cracker_box, mug, tomato_soup_can, light])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -170,13 +168,13 @@ def run_isaac_sim_no_collision_demo(
 
 
 def smoke_test_isaac_sim_no_collision(simulation_app: SimulationApp) -> bool:
-    """Smoke test: run NoCollision demo with Isaac Sim objects (minimal steps)."""
+    """Smoke test: run no-overlap demo with Isaac Sim objects (minimal steps)."""
     run_isaac_sim_no_collision_demo(num_steps=2)
     return True
 
 
 # %%
 # When running as a notebook (after launching simulation_app), uncomment and run:
-run_isaac_sim_no_collision_demo()
+# run_isaac_sim_no_collision_demo()
 
 # %%

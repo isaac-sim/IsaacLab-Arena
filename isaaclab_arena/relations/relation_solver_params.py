@@ -8,13 +8,12 @@ from dataclasses import dataclass, field
 from isaaclab_arena.relations.relation_loss_strategies import (
     AtPositionLossStrategy,
     NextToLossStrategy,
-    NoCollisionLossStrategy,
     OnLossStrategy,
     PositionLimitsLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
-from isaaclab_arena.relations.relations import AtPosition, NextTo, NoCollision, On, PositionLimits, RelationBase
+from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, RelationBase
 
 
 def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
@@ -22,7 +21,6 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
     return {
         NextTo: NextToLossStrategy(slope=10.0),
         On: OnLossStrategy(slope=100.0),
-        NoCollision: NoCollisionLossStrategy(slope=100.0),
         AtPosition: AtPositionLossStrategy(slope=100.0),
         PositionLimits: PositionLimitsLossStrategy(slope=100.0),
     }
@@ -47,8 +45,16 @@ class RelationSolverParams:
     save_position_history: bool = True
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
 
+    clearance_m: float = 0.01
+    """Minimum clearance (meters) enforced between every pair of non-anchor objects.
+    The solver adds a no-overlap loss for all pairs automatically. Set to 0.0 to only
+    reject actual overlaps (no safety margin)."""
+
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
     strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
         default_factory=_default_strategies
     )
     """Loss strategies for each relation type. Override to customize loss computation."""
+
+    def __post_init__(self):
+        assert self.clearance_m >= 0, f"clearance_m must be >= 0, got {self.clearance_m}"
