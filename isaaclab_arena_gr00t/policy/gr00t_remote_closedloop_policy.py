@@ -24,6 +24,7 @@ from isaaclab_arena.policy.action_chunking import ActionChunkScheduler
 from isaaclab_arena.policy.action_scheduler import ActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
+from isaaclab_arena.utils.timing import TimingStats
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyArgs,
@@ -143,6 +144,15 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
             )
 
         self.task_description: str | None = None
+        self._timing = TimingStats()
+
+    @property
+    def timing_stats(self) -> TimingStats:
+        return self._timing
+
+    @property
+    def action_scheduler_stats(self) -> dict:
+        return self._action_scheduler.fetch_stats
 
     # ---------------------- CLI helpers -------------------
 
@@ -206,29 +216,36 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
 
         # 1. Reuse the same obs translation as local policy
         assert self.task_description is not None, "Task description is not set"
-        rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
-        policy_observations = build_gr00t_policy_observations(
-            rgb_list_np=rgb_list_np,
-            joint_pos_sim_np=joint_pos_sim_np,
-            task_description=self.task_description,
-            policy_config=self.policy_config,
-            robot_state_joints_config=self.robot_state_joints_config,
-            policy_joints_config=self.policy_joints_config,
-            modality_configs=self.modality_configs,
-        )
+        with self._timing.measure("obs_extract"):
+            rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(
+                nested_obs=observation, camera_names=camera_names
+            )
+
+        with self._timing.measure("obs_pack"):
+            policy_observations = build_gr00t_policy_observations(
+                rgb_list_np=rgb_list_np,
+                joint_pos_sim_np=joint_pos_sim_np,
+                task_description=self.task_description,
+                policy_config=self.policy_config,
+                robot_state_joints_config=self.robot_state_joints_config,
+                policy_joints_config=self.policy_joints_config,
+                modality_configs=self.modality_configs,
+            )
 
         # 2. Call GR00T's own client
-        robot_action_policy, _ = self._client.get_action(policy_observations)
+        with self._timing.measure("inference_wait"):
+            robot_action_policy, _ = self._client.get_action(policy_observations)
 
         # 3. Reuse the same action translation as local policy
-        action_tensor = build_gr00t_action_tensor(
-            robot_action_policy=robot_action_policy,
-            task_mode=self.task_mode,
-            policy_joints_config=self.policy_joints_config,
-            robot_action_joints_config=self.robot_action_joints_config,
-            device=self.device,
-            embodiment_tag=self.policy_config.embodiment_tag,
-        )
+        with self._timing.measure("action_build"):
+            action_tensor = build_gr00t_action_tensor(
+                robot_action_policy=robot_action_policy,
+                task_mode=self.task_mode,
+                policy_joints_config=self.policy_joints_config,
+                robot_action_joints_config=self.robot_action_joints_config,
+                device=self.device,
+                embodiment_tag=self.policy_config.embodiment_tag,
+            )
 
         assert action_tensor.shape[0] == self.num_envs and action_tensor.shape[1] >= self.action_chunk_length
         return action_tensor
@@ -238,3 +255,4 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
             env_ids = slice(None)
         self._client.reset()
         self._action_scheduler.reset(env_ids)
+

@@ -45,6 +45,12 @@ class ActionChunkScheduler(ActionScheduler):
         self.current_action_index = torch.zeros(num_envs, dtype=torch.int32, device=device)
         self.env_requires_new_chunk = torch.ones(num_envs, dtype=torch.bool, device=device)
 
+        # Fetch-efficiency tracking: how many times each env triggered a chunk fetch,
+        # and how many envs actually needed the fetch vs. total (wasted compute detection).
+        self._n_fetch_calls: int = 0
+        self._total_envs_needed: int = 0
+        self._per_env_fetch_count = torch.zeros(num_envs, dtype=torch.int64, device=device)
+
     def get_action(self, fetch_chunk_fn: Callable[[], torch.Tensor]) -> torch.Tensor:
         """Return one action per env, refilling the chunk when needed.
 
@@ -52,6 +58,12 @@ class ActionChunkScheduler(ActionScheduler):
         with horizon >= action_chunk_length.
         """
         if self.env_requires_new_chunk.any():
+            # Track which envs triggered this fetch before calling fetch_chunk_fn.
+            needed_mask = self.env_requires_new_chunk.clone()
+            self._n_fetch_calls += 1
+            self._total_envs_needed += int(needed_mask.sum().item())
+            self._per_env_fetch_count[needed_mask] += 1
+
             # compute a new action chunk for the envs that require a new action chunk
             new_chunk = fetch_chunk_fn()
             mask = self.env_requires_new_chunk
@@ -80,6 +92,24 @@ class ActionChunkScheduler(ActionScheduler):
         self.current_action_index[reset_env_ids] = -1
 
         return action
+
+    @property
+    def fetch_stats(self) -> dict:
+        """Fetch-efficiency stats useful for parallel-env analysis.
+
+        Returns a dict with:
+          n_fetch_calls        - total inference calls made
+          avg_envs_per_fetch   - mean envs that actually needed the fetch
+          fetch_efficiency     - avg_envs_per_fetch / num_envs (1.0 = perfectly sync'd)
+          per_env_fetch_count  - list of per-env fetch trigger counts
+        """
+        avg = self._total_envs_needed / self._n_fetch_calls if self._n_fetch_calls > 0 else 0.0
+        return {
+            "n_fetch_calls": self._n_fetch_calls,
+            "avg_envs_per_fetch": avg,
+            "fetch_efficiency": avg / self.num_envs if self.num_envs > 0 else 1.0,
+            "per_env_fetch_count": self._per_env_fetch_count.tolist(),
+        }
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
         """Reset chunking state for the given envs (all if None)."""
