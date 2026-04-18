@@ -33,8 +33,8 @@ def _test_success_rate_metric(simulation_app):
 
     from isaaclab.managers import EventTermCfg, SceneEntityCfg
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

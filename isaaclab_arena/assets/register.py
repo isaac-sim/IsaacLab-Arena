@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.assets.asset_registry import (
+from isaaclab_arena.assets.registries import (
     AssetRegistry,
     DeviceRegistry,
     EnvironmentRegistry,

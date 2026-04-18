@@ -17,7 +17,7 @@ ENABLE_CAMERAS = True
 
 def _test_camera_observation(simulation_app) -> bool:
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.gr1t2.gr1t2 import GR1T2PinkEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
