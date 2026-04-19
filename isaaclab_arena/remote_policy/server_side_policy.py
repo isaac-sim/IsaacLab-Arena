@@ -139,7 +139,7 @@ class ServerSidePolicy(ABC):
 
         Returns:
             A ``(action, info)`` tuple where *action* must contain at least
-            an ``"action"`` entry compatible with the negotiated ActionProtocol,
+            an ``"action"`` entry compatible with the active ActionProtocol,
             and *info* carries optional metadata.  Keys must not overlap.
         """
         raise NotImplementedError
@@ -184,11 +184,11 @@ class ServerSidePolicy(ABC):
             return {"task_description": task_description or ""}
 
         # v1 fallback: global singleton (deprecated — new clients should
-        # always call connect() which creates a ClientState)
+        # always call initialize_session() which creates a ClientState)
         import warnings
         warnings.warn(
             "set_task_description called without client_state — using deprecated "
-            "global singleton. Ensure clients call connect() to enable per-client state.",
+            "global singleton. Ensure clients call initialize_session() to enable per-client state.",
             DeprecationWarning,
             stacklevel=2,
         )

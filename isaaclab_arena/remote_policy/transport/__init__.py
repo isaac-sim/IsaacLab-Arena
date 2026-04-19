@@ -13,10 +13,11 @@ __all__ = [
     "ZmqServerTransport",
 ]
 
-# UCX transports are lazily importable to avoid hard dependency on ucx-py
+# Mooncake transports are lazily importable to avoid hard dependency on
+# mooncake-transfer-engine and its system shared libraries.
 try:
-    from .zmq_ucx_transport import ZmqUcxClientTransport, ZmqUcxServerTransport
+    from .zmq_mooncake_transport import ZmqMooncakeClientTransport, ZmqMooncakeServerTransport
 
-    __all__ += ["ZmqUcxClientTransport", "ZmqUcxServerTransport"]
+    __all__ += ["ZmqMooncakeClientTransport", "ZmqMooncakeServerTransport"]
 except ImportError:
     pass

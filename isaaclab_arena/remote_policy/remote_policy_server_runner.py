@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from importlib import import_module
 
+from isaaclab_arena.remote_policy.mooncake_config import MooncakeTransportConfig, add_server_mooncake_args
 from isaaclab_arena.remote_policy.policy_server import PolicyServer
 from isaaclab_arena.remote_policy.server_side_policy import ServerSidePolicy
 
@@ -45,6 +46,14 @@ def build_base_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=5555)
     parser.add_argument("--api_token", type=str, default=None)
     parser.add_argument("--timeout_ms", type=int, default=5000)
+    parser.add_argument(
+        "--transport_mode",
+        type=str,
+        default="zmq",
+        choices=["zmq", "zmq_mooncake"],
+        help="Remote transport selection for the simple mainline.",
+    )
+    add_server_mooncake_args(parser)
     parser.add_argument(
         "--allow_remote_kill",
         action="store_true",
@@ -119,6 +128,11 @@ def main() -> None:
         timeout_ms=args.timeout_ms,
         idle_timeout_s=args.idle_timeout_s,
         allow_remote_kill=args.allow_remote_kill,
+        transport_mode=args.transport_mode,
+        tensor_device=getattr(policy, "device", None),
+        mooncake_config=MooncakeTransportConfig.from_public_args(
+            local_hostname=args.mooncake_local_hostname,
+        ),
     )
     server.run()
 

@@ -1,0 +1,16 @@
+---
+description: Require design vetting and mature references for non-trivial infra changes
+alwaysApply: true
+---
+
+# Infra Design Vetting
+
+- For non-trivial changes involving transport/protocol logic, reconnect/session lifecycle, compression/serialization, public config, or cross-backend abstractions, do design review before coding.
+- Launch at least one subagent to critique the design, alternatives, failure modes, and API surface before implementation.
+- Use `WebSearch` and, when useful, `WebFetch` to inspect mature open-source libraries or official docs for similar patterns before locking the design. Prefer official docs and widely used production libraries over blogs.
+- Re-check naming and abstraction boundaries after that review; do not leak backend-specific methods into orchestration code when a transport/interface-level hook is more appropriate.
+- Prefer enums or typed state objects for internal modes and session state. Restrict raw strings to config parsing and wire-format boundaries.
+- Do not keep control-plane compression, reconnect behavior, or session-state transitions unless the necessity and semantics are explicit. Distinguish clearly between socket rebuild, backend reconnect, and new-session re-handshake.
+- For connectivity fields such as local host/IP selection, prefer safe auto-detection plus explicit user override instead of making users hand-wire values by default.
+- Re-review the final implementation against the mature references before considering the design settled.
+- This heavyweight process may be skipped only for trivial edits with no architectural impact.

@@ -5,23 +5,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from .mooncake_config import MooncakeTransportConfig
 
 
 @dataclass
 class RemotePolicyConfig:
-    """Configuration for using a remote PolicyServer.
-
-    Notes:
-        ``compression`` is now only a bootstrap/default value. The effective
-        ZMQ and tensor compression modes are negotiated during ``connect()`` and
-        can override this field immediately after the handshake.
-    """
+    """Configuration for using a remote PolicyServer."""
 
     host: str
     port: int
     api_token: str | None = None
     timeout_ms: int = 15000
-    # Deprecated bootstrap default; the mainline v2 path uses negotiated
-    # compression from ``get_init_info`` rather than a user-forced static mode.
-    compression: str = "none"
+    # Transport selection:
+    # - "zmq": force pure ZMQ
+    # - "zmq_ucx": legacy/debug only
+    # - "zmq_mooncake": require Mooncake tensor path
+    transport_mode: str = "zmq"
+    # Mooncake-specific settings are nested to keep the top-level remote policy
+    # config focused on transport-agnostic concerns.
+    mooncake: MooncakeTransportConfig = field(default_factory=MooncakeTransportConfig)

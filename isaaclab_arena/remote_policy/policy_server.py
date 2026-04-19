@@ -10,8 +10,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+import torch
+
 from isaaclab_arena.remote_policy.client_state import ClientState
 from isaaclab_arena.remote_policy.message_serializer import MessageSerializer
+from isaaclab_arena.remote_policy.metrics import record_remote_metric
+from isaaclab_arena.remote_policy.mooncake_config import autodetect_local_hostname
+from isaaclab_arena.remote_policy.protocol_enums import TransportMode
+from isaaclab_arena.remote_policy.profiling import nvtx_range
+from isaaclab_arena.remote_policy.remote_policy_config import MooncakeTransportConfig
 from isaaclab_arena.remote_policy.server_side_policy import ServerSidePolicy
 from isaaclab_arena.remote_policy.transport.base import ServerTransport
 from isaaclab_arena.remote_policy.transport.zmq_transport import ZmqServerTransport
@@ -32,8 +39,8 @@ class ServerTransportTimeoutError(TimeoutError):
         self.source = source
 
 
-class ReconnectRequiredError(RuntimeError):
-    """Structured server-side error indicating the client must reconnect."""
+class SessionRequiredError(RuntimeError):
+    """Structured server-side error indicating there is no active session."""
 
     def __init__(self, message: str, *, source: str) -> None:
         super().__init__(message)
@@ -41,34 +48,84 @@ class ReconnectRequiredError(RuntimeError):
 
 
 class PolicyServer:
-    """v2 policy server with ROUTER/DEALER multi-client support.
-
-    Changes from v1:
-      - Uses ``ServerTransport`` (ROUTER by default) instead of raw zmq.REP.
-      - Tracks per-client ``ClientState`` keyed by ZMQ identity.
-      - Injects ``env_ids`` and ``client_state`` into policy method calls.
-      - Garbage-collects stale clients after ``idle_timeout_s``.
-    """
+    """Policy server with a simple explicit handshake."""
 
     @staticmethod
-    def _has_ucx_runtime() -> bool:
+    def _normalize_tensor_device(device: str | None) -> str | None:
+        if device is None:
+            return None
+        if device == "cpu":
+            return "cpu"
+
         try:
-            import ucp  # noqa: F401
-        except ImportError:
+            parsed = torch.device(device)
+        except Exception:
+            return device
+
+        if parsed.type != "cuda":
+            return str(parsed)
+        return str(parsed)
+
+    @staticmethod
+    def _has_mooncake_runtime() -> bool:
+        try:
+            import mooncake.engine  # noqa: F401
+        except (ImportError, OSError):
             return False
         return True
 
     @staticmethod
-    def _create_default_transport(timeout_ms: int) -> ServerTransport:
-        """Create the production transport from locally available runtimes."""
-        if PolicyServer._has_ucx_runtime():
-            from isaaclab_arena.remote_policy.transport.zmq_ucx_transport import ZmqUcxServerTransport
+    def _create_default_transport(
+        timeout_ms: int,
+        *,
+        bind_host: str,
+        transport_mode: str,
+        tensor_device: str | None,
+        mooncake_config: MooncakeTransportConfig | None,
+    ) -> ServerTransport:
+        """Create the production transport from explicit config."""
+        mooncake = mooncake_config or MooncakeTransportConfig()
+        requested_mode = TransportMode.parse(transport_mode)
 
-            print("[PolicyServer] auto-detected UCX — using ZMQ+UCX transport")
-            return ZmqUcxServerTransport(timeout_ms=timeout_ms)
+        if requested_mode == TransportMode.ZMQ:
+            print("[PolicyServer] transport_mode='zmq' — using ZMQ-only transport")
+            return ZmqServerTransport(timeout_ms=timeout_ms)
 
-        print("[PolicyServer] UCX not available — using ZMQ-only transport")
-        return ZmqServerTransport(timeout_ms=timeout_ms)
+        if requested_mode == TransportMode.ZMQ_UCX:
+            raise RuntimeError(
+                "transport_mode='zmq_ucx' is a legacy/debug path and is no longer available through the mainline "
+                "PolicyServer constructor."
+            )
+
+        if requested_mode != TransportMode.ZMQ_MOONCAKE:
+            raise ValueError(f"Unsupported transport_mode={transport_mode!r}")
+
+        if not PolicyServer._has_mooncake_runtime():
+            raise RuntimeError(
+                "transport_mode='zmq_mooncake' was requested but the Mooncake runtime is unavailable."
+            )
+
+        resolved_local_hostname = mooncake.local_hostname or autodetect_local_hostname(bind_host)
+        if not resolved_local_hostname:
+            raise RuntimeError(
+                "transport_mode='zmq_mooncake' requires a local hostname/IP that peers can reach. "
+                "Pass --mooncake_local_hostname to override."
+            )
+
+        from isaaclab_arena.remote_policy.transport.zmq_mooncake_transport import ZmqMooncakeServerTransport
+
+        print("[PolicyServer] transport_mode='zmq_mooncake' — using ZMQ+Mooncake transport")
+        return ZmqMooncakeServerTransport(
+            timeout_ms=timeout_ms,
+            local_hostname=resolved_local_hostname,
+            metadata_server=mooncake.metadata_backend,
+            protocol=mooncake.protocol,
+            device_name=mooncake.device_name or "",
+            buffer_bytes=mooncake.staging_buffer_bytes,
+            tensor_device=tensor_device,
+            cuda_device_override=mooncake.cuda_device_override,
+            force_register=mooncake.force_register,
+        )
 
     def __init__(
         self,
@@ -79,15 +136,25 @@ class PolicyServer:
         timeout_ms: int = 15000,
         idle_timeout_s: float = 600.0,
         allow_remote_kill: bool = False,
+        transport_mode: str = "zmq",
+        tensor_device: str | None = None,
+        mooncake_config: MooncakeTransportConfig | None = None,
     ) -> None:
         self._initialize_with_transport(
             policy=policy,
             host=host,
             port=port,
             api_token=api_token,
-            transport=self._create_default_transport(timeout_ms=timeout_ms),
+            transport=self._create_default_transport(
+                timeout_ms=timeout_ms,
+                bind_host=host,
+                transport_mode=transport_mode,
+                tensor_device=tensor_device,
+                mooncake_config=mooncake_config,
+            ),
             idle_timeout_s=idle_timeout_s,
             allow_remote_kill=allow_remote_kill,
+            tensor_device=tensor_device,
         )
 
     @classmethod
@@ -100,13 +167,8 @@ class PolicyServer:
         api_token: str | None = None,
         idle_timeout_s: float = 600.0,
         allow_remote_kill: bool = False,
+        tensor_device: str | None = None,
     ) -> PolicyServer:
-        """Create a server with an injected transport for tests/benchmarks only.
-
-        Production code should call ``PolicyServer(...)`` so transport
-        auto-detection stays behind the public constructor. Configure timeout
-        behavior on the injected transport itself.
-        """
         server = cls.__new__(cls)
         server._initialize_with_transport(
             policy=policy,
@@ -116,6 +178,7 @@ class PolicyServer:
             transport=transport,
             idle_timeout_s=idle_timeout_s,
             allow_remote_kill=allow_remote_kill,
+            tensor_device=tensor_device,
         )
         return server
 
@@ -128,37 +191,25 @@ class PolicyServer:
         transport: ServerTransport,
         idle_timeout_s: float,
         allow_remote_kill: bool,
+        tensor_device: str | None,
     ) -> None:
         self._policy = policy
         self._running = True
         self._api_token = api_token
         self._idle_timeout_s = idle_timeout_s
         self._allow_remote_kill = allow_remote_kill
+        self._transport = transport
+        self._transport_mode = TransportMode.parse(transport.transport_mode)
+        self._tensor_device = self._normalize_tensor_device(tensor_device)
 
-        # Per-client state keyed by ZMQ ROUTER identity.
+        if self._transport_mode == TransportMode.ZMQ_MOONCAKE and self._tensor_device in (None, "cpu"):
+            raise RuntimeError(
+                "transport_mode='zmq_mooncake' requires policy_device to resolve to a CUDA device on the server."
+            )
+
         self._client_states: dict[bytes, ClientState] = {}
-        self._client_compression: dict[bytes, str] = {}  # ZMQ message compression
-        self._client_tensor_compression: dict[bytes, str] = {}  # UCX tensor compression
         self._last_seen: dict[bytes, float] = {}
 
-        # Detect capabilities once at init
-        self._has_ucx = self._has_ucx_runtime()
-
-        self._has_nvcomp = False
-        try:
-            from isaaclab_arena.remote_policy.gpu_compression import has_nvcomp
-            self._has_nvcomp = has_nvcomp()
-        except ImportError:
-            pass
-
-        self._has_lz4 = False
-        try:
-            import lz4.frame  # noqa: F401
-            self._has_lz4 = True
-        except ImportError:
-            pass
-
-        self._transport = transport
         bind_addr = f"tcp://{host}:{port}"
         print(f"[PolicyServer] binding on {bind_addr}")
         self._transport.bind(bind_addr)
@@ -184,32 +235,34 @@ class PolicyServer:
     ) -> None:
         self._endpoints[name] = EndpointHandler(handler=handler, requires_input=requires_input)
 
-    # ------------------------------------------------------------------
-    # Client state lookup
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _client_state_required_message(zmq_identity: bytes, endpoint: str) -> str:
         return (
-            f"No ClientState for {zmq_identity.hex()[:8]} on endpoint={endpoint!r}. "
-            "Client must call connect() / get_init_info first."
+            f"No active session for {zmq_identity.hex()[:8]} on endpoint={endpoint!r}. "
+            "Client must call initialize_session() to start a new session."
         )
 
     def _require_client_state(self, zmq_identity: bytes, endpoint: str) -> ClientState:
-        """Look up ClientState or raise if the client is not initialized.
-
-        After ``disconnect()`` or stale-client GC, the server no longer
-        holds state for the client.  Rather than silently falling back to
-        v1 legacy behavior, we return an error so the client knows to
-        reconnect via ``get_init_info`` / ``connect()``.
-        """
-        cs = self._client_states.get(zmq_identity)
-        if cs is None:
-            raise ReconnectRequiredError(
+        client_state = self._client_states.get(zmq_identity)
+        if client_state is None:
+            raise SessionRequiredError(
                 self._client_state_required_message(zmq_identity, endpoint),
-                source="client_state",
+                source="session_state",
             )
-        return cs
+        return client_state
+
+    def _create_client_state(self, zmq_identity: bytes, *, num_envs: int) -> None:
+        self._client_states[zmq_identity] = ClientState.create(num_envs)
+        self._last_seen[zmq_identity] = time.monotonic()
+
+    def _drop_client_state(self, zmq_identity: bytes) -> None:
+        self._client_states.pop(zmq_identity, None)
+        self._last_seen.pop(zmq_identity, None)
+        self._transport.disconnect_client(zmq_identity)
+
+    def _mark_seen(self, zmq_identity: bytes) -> None:
+        if zmq_identity in self._client_states:
+            self._last_seen[zmq_identity] = time.monotonic()
 
     def _send_error_response(
         self,
@@ -223,38 +276,26 @@ class PolicyServer:
         if must_reconnect or source is not None:
             payload["must_reconnect"] = must_reconnect
             payload["source"] = source or "unknown"
-        compression = self._client_compression.get(zmq_identity, "none")
-        self._transport.send(
-            zmq_identity,
-            MessageSerializer.to_bytes(payload, compression_method=compression),
-        )
+        self._transport.send(zmq_identity, MessageSerializer.to_bytes(payload))
 
     @staticmethod
-    def _infer_observation_batch_size(observation: dict[str, Any]) -> int:
-        """Historical helper for shape-based batch-size inference.
+    def _build_handshake_reject_response(
+        message: str,
+        **details: Any,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "status": "rejected",
+            "message": message,
+            "error": message,
+            "source": "handshake",
+        }
+        payload.update(details)
+        return payload
 
-        NOTE:
-        The shared v2 server no longer relies on this helper in the production
-        ``get_action`` path.  The reason is that a generic observation dict does
-        not guarantee that ``value.shape[0]`` always means "env batch size":
-        some policies may send tensors whose leading dimension is time/history,
-        sensor-specific structure, or another policy-local convention.
-
-        We keep the helper for future policy-specific validators and for review
-        discussion context, but the shared infra currently avoids enforcing a
-        transport-level "first dimension must equal env batch" rule.
-        """
-        batch_size: int | None = None
-        for value in observation.values():
-            if hasattr(value, "shape") and len(value.shape) > 0:
-                current = int(value.shape[0])
-                if batch_size is None:
-                    batch_size = current
-                elif current != batch_size:
-                    raise ValueError(
-                        f"Inconsistent observation batch dimensions: saw {batch_size} and {current}."
-                    )
-        return batch_size if batch_size is not None else 1
+    def _effective_cuda_tensor_device(self, *, context: str) -> str:
+        if self._tensor_device is None or self._tensor_device == "cpu":
+            raise RuntimeError(f"{context} requires policy_device to resolve to a CUDA device on the server.")
+        return self._tensor_device
 
     @staticmethod
     def _validate_env_ids(
@@ -271,69 +312,19 @@ class PolicyServer:
                     f"on endpoint={endpoint!r}."
                 )
 
-    def _validate_get_action_targets(
-        self,
-        client_state: ClientState,
-        observation: dict[str, Any],
-        env_ids: list[int] | None,
-        endpoint: str,
-    ) -> None:
-        """Validate explicit env targeting without inferring batch semantics.
-
-        Current shared-infra policy:
-        - If the client explicitly provides ``env_ids``, we still validate that
-          those ids are within the ``ClientState.num_envs`` range.
-        - We intentionally do *not* infer an observation batch size from
-          ``observation.shape[0]`` here.  That inference is not universally
-          correct across policies, and enforcing it at the transport/shared
-          server layer can reject otherwise valid policy-specific layouts.
-
-        In other words, the shared server validates explicit indices, but it
-        leaves deeper "does this observation layout match these env targets?"
-        checks to policy-specific code or to a future protocol field that
-        describes batch semantics explicitly.
-        """
-        del observation
-        if env_ids is not None:
-            self._validate_env_ids(client_state, env_ids, endpoint)
-
-    # ------------------------------------------------------------------
-    # Endpoint handlers
-    # ------------------------------------------------------------------
-
     def _handle_ping(self, zmq_identity: bytes) -> dict[str, Any]:
-        print(f"[PolicyServer] handle ping from {zmq_identity.hex()[:8]}")
         if zmq_identity in self._client_states:
             self._mark_seen(zmq_identity)
         return {"status": "ok"}
 
     def _handle_disconnect(self, zmq_identity: bytes) -> dict[str, Any]:
-        """Disconnect a single client: clean up its state only."""
-        print(f"[PolicyServer] handle disconnect from {zmq_identity.hex()[:8]}")
         self._drop_client_state(zmq_identity)
         return {"status": "disconnected"}
 
-    def _drop_client_state(self, zmq_identity: bytes) -> None:
-        self._client_states.pop(zmq_identity, None)
-        self._client_compression.pop(zmq_identity, None)
-        self._client_tensor_compression.pop(zmq_identity, None)
-        self._last_seen.pop(zmq_identity, None)
-        self._transport.disconnect_client(zmq_identity)
-
-    def _mark_seen(self, zmq_identity: bytes) -> None:
-        self._last_seen[zmq_identity] = time.monotonic()
-
     def _handle_kill(self, zmq_identity: bytes) -> dict[str, Any]:
-        """Shut down the entire server.  Gated by ``allow_remote_kill``."""
         self._require_client_state(zmq_identity, "kill")
         if not self._allow_remote_kill:
-            print(
-                f"[PolicyServer] WARN: kill from {zmq_identity.hex()[:8]} REJECTED "
-                "(allow_remote_kill=False). Use 'disconnect' to clean up client state, "
-                "or send SIGTERM to shut down the server."
-            )
             return {"status": "rejected", "reason": "remote kill disabled"}
-        print(f"[PolicyServer] handle kill from {zmq_identity.hex()[:8]} -> stopping")
         self._running = False
         return {"status": "stopping"}
 
@@ -342,91 +333,94 @@ class PolicyServer:
         zmq_identity: bytes,
         requested_action_mode: str,
         num_envs: int = 1,
-        transport_capabilities: list[str] | None = None,
-        compression_capabilities: list[str] | None = None,
+        transport_mode: str = "zmq",
         **_: Any,
     ) -> dict[str, Any]:
         print(
             f"[PolicyServer] handle get_init_info from {zmq_identity.hex()[:8]}: "
-            f"requested_action_mode={requested_action_mode!r}, num_envs={num_envs}"
+            f"requested_action_mode={requested_action_mode!r}, num_envs={num_envs}, "
+            f"transport_mode={transport_mode!r}"
         )
+
         if zmq_identity in self._client_states:
-            raise RuntimeError(
-                f"Client {zmq_identity.hex()[:8]} is already initialized. "
-                "Do not call get_init_info twice on a live session; reuse the current connection "
-                "or reconnect with a fresh zmq_identity."
+            return self._build_handshake_reject_response(
+                (
+                    f"Handshake rejected: client {zmq_identity.hex()[:8]} already has an active session. "
+                    "Do not call initialize_session() twice on a live session."
+                ),
+                client_id=zmq_identity.hex(),
             )
-        new_client_state = ClientState.create(num_envs)
 
-        # Negotiate transport
-        client_trans = set(transport_capabilities or [])
-        server_trans = {"zmq"}
-        if self._has_ucx:
-            server_trans.add("zmq_ucx")
-        negotiated_transport = "zmq"
-        for pref in ["zmq_ucx", "zmq"]:
-            if pref in client_trans and pref in server_trans:
-                negotiated_transport = pref
-                break
+        requested_transport = TransportMode.parse(transport_mode)
+        if requested_transport != self._transport_mode:
+            return self._build_handshake_reject_response(
+                (
+                    "Handshake rejected: transport_mode mismatch. "
+                    f"client={requested_transport.value!r}, server={self._transport_mode.value!r}. "
+                    "Adjust the client config to match the server, or restart against a server configured "
+                    "for the requested mode."
+                ),
+                client_transport_mode=requested_transport.value,
+                server_transport_mode=self._transport_mode.value,
+            )
 
-        # Negotiate compression. When tensors move over UCX, the remaining ZMQ
-        # control payloads are typically small metadata messages, so default the
-        # control plane back to no compression and reserve compression budget for
-        # the tensor path.
-        client_comp = set(compression_capabilities or [])
-        server_comp = {"none"}
-        if self._has_lz4:
-            server_comp.add("lz4")
-        if self._has_nvcomp:
-            server_comp.add("nvcomp_lz4")
+        response = self._policy.get_init_info(requested_action_mode=requested_action_mode)
+        if not isinstance(response, dict):
+            raise TypeError(f"Policy.get_init_info() must return dict, got {type(response)!r}")
 
-        zmq_compression = "none"
-        if negotiated_transport != "zmq_ucx":
-            for pref in ["lz4", "none"]:
-                if pref in client_comp and pref in server_comp:
-                    zmq_compression = pref
-                    break
+        if self._transport_mode != TransportMode.ZMQ:
+            response.update(self._transport.get_handshake_metadata(zmq_identity))
+        response["num_envs"] = num_envs
+        response["zmq_identity"] = zmq_identity
 
-        tensor_compression = "none"
-        for pref in ["nvcomp_lz4", "none"]:
-            if pref in client_comp and pref in server_comp:
-                tensor_compression = pref
-                break
+        self._create_client_state(zmq_identity, num_envs=num_envs)
+        return response
 
-        negotiated_compression = tensor_compression if tensor_compression != "none" else zmq_compression
+    def _validate_tensor_transport_request(
+        self,
+        zmq_identity: bytes,
+        *,
+        has_tensor: bool,
+    ) -> None:
+        if not has_tensor:
+            return
 
-        resp = self._policy.get_init_info(requested_action_mode=requested_action_mode)
-        if not isinstance(resp, dict):
-            raise TypeError(f"Policy.get_init_info() must return dict, got {type(resp)!r}")
+        if self._transport_mode == TransportMode.ZMQ:
+            raise RuntimeError(
+                "Protocol error: has_tensor=True is not allowed on transport_mode='zmq'. "
+                "Pure ZMQ sessions must use the inline_tensor_payload path."
+            )
 
-        ucx_port = None
-        if negotiated_transport == "zmq_ucx":
-            if not hasattr(self._transport, "start_ucx_listener"):
-                raise RuntimeError(
-                    "Protocol/config mismatch: negotiated_transport='zmq_ucx' but server "
-                    f"transport {type(self._transport).__name__} does not support start_ucx_listener()."
-                )
-            existing_ucx_port = getattr(self._transport, "ucx_port", None)
-            if existing_ucx_port is None:
-                ucx_port = getattr(self._transport, "start_ucx_listener")()
-            else:
-                ucx_port = existing_ucx_port
+    def _validate_inline_tensor_request(
+        self,
+        zmq_identity: bytes,
+        *,
+        inline_tensor_layout: list[dict[str, Any]] | None,
+        inline_tensor_payload: Any,
+    ) -> None:
+        if inline_tensor_layout is None and inline_tensor_payload is None:
+            return
+        if inline_tensor_layout is None or inline_tensor_payload is None:
+            raise RuntimeError(
+                "Protocol error: inline tensor payload requires both inline_tensor_layout and inline_tensor_payload."
+            )
 
-        resp["negotiated_compression"] = negotiated_compression
-        resp["negotiated_zmq_compression"] = zmq_compression
-        resp["negotiated_tensor_compression"] = tensor_compression
-        resp["negotiated_transport"] = negotiated_transport
-        resp["num_envs"] = num_envs
-        if ucx_port is not None:
-            resp["ucx_port"] = ucx_port
-        resp["zmq_identity"] = zmq_identity
+        if self._transport_mode != TransportMode.ZMQ:
+            raise RuntimeError(
+                "Protocol error: inline_tensor_payload is only supported on transport_mode='zmq'."
+            )
 
-        # Commit handshake state only after all steps succeed.
-        self._client_states[zmq_identity] = new_client_state
-        self._client_compression[zmq_identity] = zmq_compression
-        self._client_tensor_compression[zmq_identity] = tensor_compression
-        self._mark_seen(zmq_identity)
-        return resp
+    @staticmethod
+    def _extract_inline_tensor_bytes(inline_tensor_payload: Any) -> bytes:
+        if isinstance(inline_tensor_payload, bytes):
+            return inline_tensor_payload
+        if isinstance(inline_tensor_payload, dict):
+            payload_bytes = inline_tensor_payload.get("data")
+            if isinstance(payload_bytes, bytes):
+                return payload_bytes
+        raise RuntimeError(
+            f"Protocol error: inline_tensor_payload must decode to bytes/blob, got {type(inline_tensor_payload)!r}."
+        )
 
     def _handle_get_action(
         self,
@@ -437,32 +431,65 @@ class PolicyServer:
         has_tensor: bool = False,
         tensor_layout: list[dict[str, Any]] | None = None,
         tensor_nbytes: int = 0,
-        tensor_original_nbytes: int = 0,
-        tensor_compressed: bool = False,
+        tensor_transport_info: dict[str, Any] | None = None,
+        inline_tensor_layout: list[dict[str, Any]] | None = None,
+        inline_tensor_payload: Any = None,
+        inline_tensor_nbytes: int = 0,
         **_: Any,
     ) -> dict[str, Any]:
-        print(f"[PolicyServer] handle get_action from {zmq_identity.hex()[:8]}")
+        total_started_ns = time.perf_counter_ns()
+        del inline_tensor_nbytes
         if not isinstance(observation, dict):
             raise TypeError(f"Expected dict observation, got {type(observation)!r}")
 
-        # UCX tensor path
-        if has_tensor and tensor_layout and hasattr(self._transport, "recv_tensor"):
-            observation = self._recv_and_unpack_gpu_tensors(
-                zmq_identity, observation, tensor_layout,
-                tensor_nbytes, tensor_original_nbytes, tensor_compressed,
-            )
-
         client_state = self._require_client_state(zmq_identity, "get_action")
-        self._validate_get_action_targets(client_state, observation, env_ids, "get_action")
+        self._validate_env_ids(client_state, env_ids, "get_action")
+        self._validate_tensor_transport_request(
+            zmq_identity,
+            has_tensor=has_tensor,
+        )
+        self._validate_inline_tensor_request(
+            zmq_identity,
+            inline_tensor_layout=inline_tensor_layout,
+            inline_tensor_payload=inline_tensor_payload,
+        )
         self._mark_seen(zmq_identity)
 
+        path = "control_only"
+        if inline_tensor_layout and inline_tensor_payload is not None:
+            path = "inline_zmq"
+            observation = self._unpack_inline_tensor_payload(
+                observation,
+                inline_tensor_layout,
+                inline_tensor_payload,
+            )
+
+        if has_tensor and tensor_layout and hasattr(self._transport, "recv_tensor"):
+            path = "dedicated_tensor_transport"
+            observation = self._recv_and_unpack_gpu_tensors(
+                zmq_identity,
+                observation,
+                tensor_layout,
+                tensor_nbytes,
+                tensor_transport_info=tensor_transport_info,
+            )
+
+        policy_started_ns = time.perf_counter_ns()
         action, info = self._policy.get_action(
             observation=observation,
             options=options,
             env_ids=env_ids,
             client_state=client_state,
         )
-
+        record_remote_metric(
+            "server_policy_forward",
+            endpoint="get_action",
+            path=path,
+            transport_mode=self._transport_mode.value,
+            policy_class=type(self._policy).__name__,
+            env_count=len(env_ids) if env_ids is not None else client_state.num_envs,
+            policy_forward_ms=(time.perf_counter_ns() - policy_started_ns) / 1e6,
+        )
         if not isinstance(action, dict):
             raise TypeError(f"Policy.get_action() must return (dict, dict), got action type={type(action)!r}")
         if not isinstance(info, dict):
@@ -471,7 +498,44 @@ class PolicyServer:
         merged: dict[str, Any] = {}
         merged.update(action)
         merged.update(info)
+        record_remote_metric(
+            "server_get_action_total",
+            path=path,
+            transport_mode=self._transport_mode.value,
+            has_tensor=has_tensor,
+            has_inline_tensor=inline_tensor_layout is not None and inline_tensor_payload is not None,
+            total_ms=(time.perf_counter_ns() - total_started_ns) / 1e6,
+        )
         return merged
+
+    def _unpack_inline_tensor_payload(
+        self,
+        observation: dict[str, Any],
+        tensor_layout: list[dict[str, Any]],
+        inline_tensor_payload: Any,
+    ) -> dict[str, Any]:
+        unpack_started_ns = time.perf_counter_ns()
+        payload_bytes = self._extract_inline_tensor_bytes(inline_tensor_payload)
+        raw_buffer = torch.frombuffer(memoryview(payload_bytes), dtype=torch.uint8).clone()
+
+        for entry in tensor_layout:
+            key = entry["key"]
+            shape = entry["shape"]
+            dtype = getattr(torch, entry["dtype"].replace("torch.", ""))
+            offset = entry["offset"]
+            nbytes = entry["nbytes"]
+            tensor_bytes = raw_buffer[offset : offset + nbytes]
+            tensor = tensor_bytes.view(dtype).reshape(shape)
+            observation[key] = tensor.clone().numpy()
+
+        record_remote_metric(
+            "server_inline_tensor_unpack",
+            transport_mode=self._transport_mode.value,
+            payload_nbytes=len(payload_bytes),
+            tensor_count=len(tensor_layout),
+            unpack_ms=(time.perf_counter_ns() - unpack_started_ns) / 1e6,
+        )
+        return observation
 
     def _recv_and_unpack_gpu_tensors(
         self,
@@ -479,27 +543,25 @@ class PolicyServer:
         observation: dict[str, Any],
         tensor_layout: list[dict[str, Any]],
         tensor_nbytes: int,
-        tensor_original_nbytes: int,
-        tensor_compressed: bool,
+        tensor_transport_info: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Receive a GPU tensor via UCX and unpack into observation dict."""
-        import torch
+        if tensor_transport_info is not None and hasattr(self._transport, "prepare_recv_tensor"):
+            getattr(self._transport, "prepare_recv_tensor")(zmq_identity, tensor_transport_info)
 
+        recv_started_ns = time.perf_counter_ns()
         try:
-            raw_buffer = self._transport.recv_tensor(zmq_identity, tensor_nbytes)
+            with nvtx_range("mooncake.server_recv_tensor"):
+                raw_buffer = self._transport.recv_tensor(zmq_identity, tensor_nbytes)
         except (TimeoutError, RuntimeError) as exc:
             raise ServerTransportTimeoutError(
-                "UCX recv_tensor failed while receiving get_action payload. "
-                "Client should call reconnect().",
+                "Tensor transport recv_tensor failed while receiving get_action payload. "
+                "Client should call start_new_session().",
                 must_reconnect=True,
-                source="ucx_recv",
+                source="mooncake_recv",
             ) from exc
+        recv_elapsed_ms = (time.perf_counter_ns() - recv_started_ns) / 1e6
 
-        if tensor_compressed:
-            from isaaclab_arena.remote_policy.gpu_compression import gpu_decompress
-            raw_buffer = gpu_decompress(raw_buffer, tensor_original_nbytes)
         raw_buffer = cast(torch.Tensor, raw_buffer)
-
         for entry in tensor_layout:
             key = entry["key"]
             shape = entry["shape"]
@@ -510,6 +572,13 @@ class PolicyServer:
             tensor = tensor_bytes.view(dtype).reshape(shape)
             observation[key] = tensor
 
+        record_remote_metric(
+            "server_dedicated_tensor_recv",
+            transport_mode=self._transport_mode.value,
+            tensor_nbytes=tensor_nbytes,
+            tensor_count=len(tensor_layout),
+            recv_tensor_ms=recv_elapsed_ms,
+        )
         return observation
 
     def _handle_set_task_description(
@@ -519,18 +588,17 @@ class PolicyServer:
         env_ids: list[int] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
-        print(f"[PolicyServer] handle set_task_description from {zmq_identity.hex()[:8]}: {task_description!r}")
         client_state = self._require_client_state(zmq_identity, "set_task_description")
         self._validate_env_ids(client_state, env_ids, "set_task_description")
         self._mark_seen(zmq_identity)
-        resp = self._policy.set_task_description(
+        response = self._policy.set_task_description(
             task_description,
             env_ids=env_ids,
             client_state=client_state,
         )
-        if not isinstance(resp, dict):
-            raise TypeError(f"Policy.set_task_description() must return dict, got {type(resp)!r}")
-        return resp
+        if not isinstance(response, dict):
+            raise TypeError(f"Policy.set_task_description() must return dict, got {type(response)!r}")
+        return response
 
     def _handle_reset(
         self,
@@ -539,46 +607,33 @@ class PolicyServer:
         options: dict[str, Any] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
-        print(f"[PolicyServer] handle reset from {zmq_identity.hex()[:8]}: env_ids={env_ids}, options={options}")
         client_state = self._require_client_state(zmq_identity, "reset")
         self._validate_env_ids(client_state, env_ids, "reset")
         self._mark_seen(zmq_identity)
 
         status: dict[str, Any] = {"status": "reset_success"}
-        resp = self._policy.reset(env_ids=env_ids, reset_options=options, client_state=client_state)
-        if isinstance(resp, dict):
-            status.update(resp)
+        response = self._policy.reset(env_ids=env_ids, reset_options=options, client_state=client_state)
+        if isinstance(response, dict):
+            status.update(response)
         return status
 
-    # ------------------------------------------------------------------
-    # Client management
-    # ------------------------------------------------------------------
-
     def _gc_stale_clients(self) -> None:
-        """Remove state for clients that haven't been seen within idle_timeout_s."""
         now = time.monotonic()
-        stale = [zmq_identity for zmq_identity, ts in self._last_seen.items() if now - ts > self._idle_timeout_s]
-        for zmq_identity in stale:
-            print(
-                f"[PolicyServer] GC stale client {zmq_identity.hex()[:8]} "
-                f"(idle {now - self._last_seen[zmq_identity]:.0f}s)"
-            )
+        stale_clients = [
+            (zmq_identity, now - last_seen)
+            for zmq_identity, last_seen in self._last_seen.items()
+            if now - last_seen > self._idle_timeout_s
+        ]
+        for zmq_identity, idle_for_s in stale_clients:
+            print(f"[PolicyServer] GC stale client {zmq_identity.hex()[:8]} (idle {idle_for_s:.0f}s)")
             self._drop_client_state(zmq_identity)
-
-    # ------------------------------------------------------------------
-    # Token validation
-    # ------------------------------------------------------------------
 
     def _validate_token(self, request: dict[str, Any]) -> bool:
         if self._api_token is None:
             return True
-        ok = request.get("api_token") == self._api_token
-        if not ok:
-            print("[PolicyServer] invalid api_token in request")
-        return ok
+        return request.get("api_token") == self._api_token
 
     def _dispatch_single(self, zmq_identity: bytes, request: dict[str, Any]) -> None:
-        """Dispatch a single request (non-batch path)."""
         try:
             if not self._validate_token(request):
                 self._send_error_response(zmq_identity, "Unauthorized: invalid api_token")
@@ -592,54 +647,55 @@ class PolicyServer:
             handler = self._endpoints.get(endpoint)
             if handler is None:
                 raise ValueError(f"Unknown endpoint: {endpoint}")
-            print(f"[PolicyServer] dispatch endpoint='{endpoint}' for {zmq_identity.hex()[:8]}")
 
             data = request.get("data", {}) or {}
             if not isinstance(data, dict):
                 raise TypeError(f"Expected dict data, got {type(data)!r}")
 
-            if handler.requires_input:
-                result = handler.handler(zmq_identity, **data)
-            else:
-                result = handler.handler(zmq_identity)
+            result = handler.handler(zmq_identity, **data) if handler.requires_input else handler.handler(zmq_identity)
 
-            compression = self._client_compression.get(zmq_identity, "none")
             try:
-                resp_bytes = MessageSerializer.to_bytes(result, compression_method=compression)
-                self._transport.send(zmq_identity, resp_bytes)
+                serialize_started_ns = time.perf_counter_ns()
+                payload = MessageSerializer.to_bytes(result)
+                serialize_elapsed_ms = (time.perf_counter_ns() - serialize_started_ns) / 1e6
+                send_started_ns = time.perf_counter_ns()
+                self._transport.send(zmq_identity, payload)
+                send_elapsed_ms = (time.perf_counter_ns() - send_started_ns) / 1e6
+                record_remote_metric(
+                    "server_response_send",
+                    endpoint=endpoint,
+                    transport_mode=self._transport_mode.value,
+                    response_nbytes=len(payload),
+                    serialize_ms=serialize_elapsed_ms,
+                    send_ms=send_elapsed_ms,
+                )
             except Exception:
                 if endpoint == "get_init_info":
                     self._drop_client_state(zmq_identity)
                 raise
 
         except ServerTransportTimeoutError as exc:
-            print(f"[PolicyServer] Transport timeout: {exc}")
             self._send_error_response(
                 zmq_identity,
                 str(exc),
                 must_reconnect=exc.must_reconnect,
                 source=exc.source,
             )
-        except ReconnectRequiredError as exc:
-            print(f"[PolicyServer] Reconnect required: {exc}")
+        except SessionRequiredError as exc:
             self._send_error_response(
                 zmq_identity,
                 str(exc),
-                must_reconnect=True,
                 source=exc.source,
             )
         except Exception as exc:
             import traceback
+
             print(f"[PolicyServer] Error: {exc}")
             print(traceback.format_exc())
             try:
                 self._send_error_response(zmq_identity, str(exc))
             except Exception:
                 pass
-
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
 
     def run(self) -> None:
         print(f"[PolicyServer] listening, api_token={self._api_token!r}, mode='single-request'")
@@ -649,14 +705,23 @@ class PolicyServer:
         while self._running:
             zmq_identity: bytes | None = None
             try:
+                recv_started_ns = time.perf_counter_ns()
                 zmq_identity, raw = self._transport.recv()
-
+                recv_elapsed_ms = (time.perf_counter_ns() - recv_started_ns) / 1e6
+                decode_started_ns = time.perf_counter_ns()
                 request = MessageSerializer.from_bytes(raw)
+                decode_elapsed_ms = (time.perf_counter_ns() - decode_started_ns) / 1e6
                 if not isinstance(request, dict):
                     raise TypeError(f"Expected dict request, got {type(request)!r}")
-
+                record_remote_metric(
+                    "server_request_received",
+                    endpoint=request.get("endpoint"),
+                    transport_mode=self._transport_mode.value,
+                    request_nbytes=len(raw),
+                    recv_ms=recv_elapsed_ms,
+                    decode_ms=decode_elapsed_ms,
+                )
                 self._dispatch_single(zmq_identity, request)
-
             except TimeoutError:
                 pass
             except Exception as exc:
@@ -691,6 +756,9 @@ class PolicyServer:
         timeout_ms: int = 15000,
         idle_timeout_s: float = 600.0,
         allow_remote_kill: bool = False,
+        transport_mode: str = "zmq",
+        tensor_device: str | None = None,
+        mooncake_config: MooncakeTransportConfig | None = None,
     ) -> None:
         server = PolicyServer(
             policy=policy,
@@ -700,5 +768,8 @@ class PolicyServer:
             timeout_ms=timeout_ms,
             idle_timeout_s=idle_timeout_s,
             allow_remote_kill=allow_remote_kill,
+            transport_mode=transport_mode,
+            tensor_device=tensor_device,
+            mooncake_config=mooncake_config,
         )
         server.run()

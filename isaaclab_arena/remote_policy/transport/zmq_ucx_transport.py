@@ -3,21 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""ZMQ + UCX hybrid transport.
+"""Legacy/debug ZMQ + UCX hybrid transport.
 
-Control messages (handshake, metadata, small payloads) travel over ZMQ
-ROUTER/DEALER.  Large GPU tensors are sent via UCX zero-copy (RDMA or
-shared-memory), bypassing the CPU entirely.
-
-Lifecycle:
-  1. Client connects to the server's ZMQ ROUTER endpoint (same as ZMQ-only).
-  2. During ``get_init_info``, if both sides advertise ``"zmq_ucx"`` capability,
-     the server creates a UCX listener and returns the ``ucx_port`` in the
-     response.
-  3. The client connects a UCX endpoint to ``server_host:ucx_port``.
-  4. For ``get_action`` calls with tensor data, the client sends metadata via
-     ZMQ and the raw GPU tensor via UCX.  The server receives both, passes
-     the GPU tensor directly to the policy.
+This file is kept for explicit legacy or debugging scenarios. It is not part
+of the simple mainline design, which centers on ``zmq`` and ``zmq_mooncake``.
 """
 
 from __future__ import annotations
@@ -142,6 +131,13 @@ class ZmqUcxServerTransport(ServerTransport):
             raise TimeoutError("Timed out waiting for UCX listener to start")
         self._ucx_port = actual_port[0]
         return self._ucx_port
+
+    def get_handshake_metadata(self, client_id: bytes) -> dict[str, Any]:
+        del client_id
+        existing_ucx_port = self.ucx_port
+        if existing_ucx_port is None:
+            existing_ucx_port = self.start_ucx_listener()
+        return {"ucx_port": existing_ucx_port}
 
     def recv_tensor(self, client_id: bytes, nbytes: int, buffer: torch.Tensor | None = None) -> torch.Tensor:
         """Receive a GPU tensor from a client via UCX."""
@@ -293,6 +289,19 @@ class ZmqUcxClientTransport(ClientTransport):
             self._shutdown_ucx_resources()
             raise RuntimeError(f"Failed to connect UCX endpoint to {host}:{port}")
 
+    def connect_comm_backend(
+        self,
+        *,
+        handshake_response: dict,
+        server_host: str,
+        zmq_identity: bytes | None,
+    ) -> None:
+        if zmq_identity is None:
+            raise RuntimeError("connect_comm_backend() requires a non-empty zmq_identity for UCX.")
+        if "ucx_port" not in handshake_response:
+            raise RuntimeError("connect_comm_backend() requires 'ucx_port' in the handshake response for UCX.")
+        self.connect_ucx(server_host, int(handshake_response["ucx_port"]), zmq_identity)
+
     def send_tensor(self, tensor: torch.Tensor) -> None:
         """Send a GPU tensor to the server via UCX."""
         import torch
@@ -300,7 +309,7 @@ class ZmqUcxClientTransport(ClientTransport):
         if self._ucx_endpoint is None:
             raise RuntimeError("UCX endpoint not connected")
 
-        # Ensure all pending CUDA ops (e.g. torch.cat, gpu_compress) have
+        # Ensure all pending CUDA ops (e.g. torch.cat, tensor packing) have
         # completed before UCX reads GPU memory via DMA, which bypasses
         # the CUDA stream.
         if tensor.is_cuda:
@@ -332,6 +341,9 @@ class ZmqUcxClientTransport(ClientTransport):
 
     def rebuild(self) -> None:
         self._zmq.rebuild()
+
+    def reset_comm_backend(self) -> None:
+        self._shutdown_ucx_resources()
 
     def close(self) -> None:
         self._shutdown_ucx_resources()

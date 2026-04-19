@@ -1,0 +1,17 @@
+---
+description: Require Mooncake reviews to leave review artifacts
+alwaysApply: true
+---
+
+# Mooncake Review Artifacts
+
+- 当在这个仓库里执行 Mooncake 或 remote-policy review 时，默认要在同一轮里写出 review 文档到 `claude_tmp/mooncake/review/`，除非用户明确要求只要对话输出。
+- 不要先问用户“要不要我写 review 文档”；review 完成后直接落文档。
+- 新 review 使用类似 `YYYYMMDD_<topic>_review.md` 的文件名。
+- 如果这一轮没有新的有效问题，review 文档里要明确写 `No new findings`。
+- review 文档至少包含：
+- 复查范围或阅读材料
+- 按严重度排序的 findings
+- 剩余验证缺口
+- findings 要尽量具体到文件和关键函数，避免泛泛总结。
+- 如果后续进入无新增问题的收尾轮，仍然要按 `mooncake-review-final-pass.mdc` 再写独立的 final-pass note。

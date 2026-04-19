@@ -7,6 +7,7 @@ from .action_protocol import ActionMode, ActionProtocol, ChunkingActionProtocol
 from .client_state import ClientState
 from .message_serializer import MessageSerializer
 from .policy_client import PolicyClient, TransportTimeoutError
+from .protocol_enums import TransportMode
 from .policy_server import PolicyServer
 from .remote_policy_config import RemotePolicyConfig
 from .server_side_policy import ServerSidePolicy
@@ -21,5 +22,6 @@ __all__ = [
     "ActionMode",
     "ActionProtocol",
     "ChunkingActionProtocol",
+    "TransportMode",
     "TransportTimeoutError",
 ]

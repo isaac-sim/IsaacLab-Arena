@@ -272,10 +272,10 @@ def extract_obs_numpy_from_packed(
     """
     nested_obs = unpack_fn(packed_observation)
     rgb_list_np = _extract_rgb_from_nested_obs(
-        nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=False
+        nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=True
     )
     joint_pos_sim_np = _extract_joints_from_nested_obs(
-        nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=False
+        nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=True
     )
     return rgb_list_np, joint_pos_sim_np
 

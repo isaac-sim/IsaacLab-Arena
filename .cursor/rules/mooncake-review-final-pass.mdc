@@ -1,0 +1,15 @@
+---
+description: Require final-pass notes for Mooncake review closure
+alwaysApply: true
+---
+
+# Mooncake Review Final Pass
+
+- When a Mooncake or remote-policy review/follow-up cycle ends with no new valid findings, always add a short final-pass note under `claude_tmp/mooncake/review/`.
+- Use a filename like `YYYYMMDD_<topic>_final_pass.md`.
+- Write the final-pass note even if a full review doc and a response doc already exist; it is a separate closure artifact.
+- Keep the note short and include:
+  - what review / response / follow-up materials were re-checked
+  - the verdict that this pass found no new valid issues
+  - any remaining validation gaps such as `pytest` not run or runtime not re-validated
+- Apply this workflow consistently for future Mooncake review passes in this repo.

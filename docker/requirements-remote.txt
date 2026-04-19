@@ -2,12 +2,8 @@
 # Shared by Dockerfile.isaaclab_arena and Dockerfile.gr00t_server.
 #
 # This file intentionally keeps only CUDA-agnostic requirements.
-# CUDA-coupled wheels (for example `ucx-py-cu12`, `nvidia-nvcomp-cu12`,
-# or their `cu13` variants) are installed in the Dockerfiles after
-# detecting the CUDA major version from the image's Python/Torch runtime.
-#
-# In other words: do NOT add `ucx-py-cuXX` / `nvidia-nvcomp-cuXX` here.
-# Those packages are selected dynamically in the Dockerfiles.
+# CUDA-coupled wheels (for example `ucx-py-cu12` or its `cu13` variant)
+# are installed in the Dockerfiles after detecting the CUDA major version
+# from the image's Python/Torch runtime.
 pyzmq
 msgpack
-lz4

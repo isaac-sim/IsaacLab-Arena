@@ -5,31 +5,30 @@
 
 from __future__ import annotations
 
-import os
+import time
 import warnings
-from typing import TYPE_CHECKING, Any, cast
+from contextlib import suppress
+from typing import Any, cast
 
+import torch
+
+from isaaclab_arena.remote_policy.compression import (
+    TensorPayloadCodec,
+    build_control_observation_for_tensor_transport,
+    split_observation_entries,
+)
 from isaaclab_arena.remote_policy.message_serializer import MessageSerializer
+from isaaclab_arena.remote_policy.metrics import record_remote_metric
+from isaaclab_arena.remote_policy.mooncake_config import autodetect_local_hostname
+from isaaclab_arena.remote_policy.protocol_enums import TransportMode
+from isaaclab_arena.remote_policy.profiling import nvtx_range
 from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
 from isaaclab_arena.remote_policy.transport.base import ClientTransport
 from isaaclab_arena.remote_policy.transport.zmq_transport import ZmqClientTransport
 
-if TYPE_CHECKING:
-    import torch
-
 
 class TransportTimeoutError(TimeoutError):
-    """Unified timeout error with recovery guidance.
-
-    Attributes:
-        must_reconnect: If ``True``, the UCX session is likely broken and
-            the caller should invoke ``PolicyClient.reconnect()``.
-            If ``False``, only ZMQ was affected and ``rebuild()`` was
-            already called internally — the session may still be usable.
-        source: Which layer or session state triggered recovery
-            (for example ``"zmq_recv"``, ``"ucx_connect"``,
-            ``"ucx_send"``, ``"ucx_recv"``, ``"client_state"``).
-    """
+    """Unified timeout error with recovery guidance."""
 
     def __init__(self, message: str, *, must_reconnect: bool, source: str):
         super().__init__(message)
@@ -38,40 +37,87 @@ class TransportTimeoutError(TimeoutError):
 
 
 class PolicyClient:
-    """v2 synchronous client for talking to a PolicyServer.
-
-    Changes from v1:
-      - Uses ``ClientTransport`` (DEALER by default) instead of raw zmq.REQ.
-      - ``connect(num_envs)`` performs capability negotiation via ``get_init_info``.
-      - Supports ``env_ids`` in ``get_action`` and ``set_task_description``.
-      - DEALER timeout recovery via ``transport.rebuild()``.
-      - Caches the server-observed ``zmq_identity`` for transport rebuilds.
-    """
+    """Synchronous client for talking to a ``PolicyServer``."""
 
     @staticmethod
-    def _has_ucx_runtime() -> bool:
+    def _normalize_tensor_device(device: str | None) -> str | None:
+        if device is None:
+            return None
+        if device == "cpu":
+            return "cpu"
+
         try:
-            import ucp  # noqa: F401
-        except ImportError:
+            parsed = torch.device(device)
+        except Exception:
+            return device
+
+        if parsed.type != "cuda":
+            return str(parsed)
+        if parsed.index is None:
+            if torch.cuda.is_available():
+                return f"cuda:{torch.cuda.current_device()}"
+            return "cuda"
+        return str(parsed)
+
+    @staticmethod
+    def _has_mooncake_runtime() -> bool:
+        try:
+            import mooncake.engine  # noqa: F401
+        except (ImportError, OSError):
             return False
         return True
 
+
     @staticmethod
-    def _create_default_transport(timeout_ms: int) -> ClientTransport:
-        """Create the production transport from locally available runtimes."""
-        if PolicyClient._has_ucx_runtime():
-            from isaaclab_arena.remote_policy.transport.zmq_ucx_transport import ZmqUcxClientTransport
+    def _create_default_transport(config: RemotePolicyConfig) -> ClientTransport:
+        """Create the production transport from explicit config."""
+        timeout_ms = config.timeout_ms
+        mode = TransportMode.parse(config.transport_mode)
+        mooncake = config.mooncake
 
-            return ZmqUcxClientTransport(timeout_ms=timeout_ms)
-        return ZmqClientTransport(timeout_ms=timeout_ms)
+        if mode == TransportMode.ZMQ:
+            return ZmqClientTransport(timeout_ms=timeout_ms)
 
-    def __init__(
-        self,
-        config: RemotePolicyConfig,
-    ) -> None:
+        if mode == TransportMode.ZMQ_UCX:
+            raise RuntimeError(
+                "transport_mode='zmq_ucx' is a legacy/debug path and is no longer available through the mainline "
+                "PolicyClient constructor."
+            )
+
+        if mode != TransportMode.ZMQ_MOONCAKE:
+            raise ValueError(f"Unsupported transport_mode={mode!r}")
+
+        if not PolicyClient._has_mooncake_runtime():
+            raise RuntimeError(
+                "transport_mode='zmq_mooncake' was requested but the Mooncake runtime is unavailable."
+            )
+
+        resolved_local_hostname = mooncake.local_hostname or autodetect_local_hostname(config.host)
+        if not resolved_local_hostname:
+            raise RuntimeError(
+                "transport_mode='zmq_mooncake' requires a local hostname/IP that peers can reach. "
+                "Pass --remote_mooncake_local_hostname to override."
+            )
+
+        from isaaclab_arena.remote_policy.transport.zmq_mooncake_transport import ZmqMooncakeClientTransport
+
+        return ZmqMooncakeClientTransport(
+            timeout_ms=timeout_ms,
+            local_hostname=resolved_local_hostname,
+            metadata_server=mooncake.metadata_backend,
+            protocol=mooncake.protocol,
+            device_name=mooncake.device_name or "",
+            buffer_bytes=mooncake.staging_buffer_bytes,
+            tensor_device=None,
+            cuda_device_override=mooncake.cuda_device_override,
+            force_register=mooncake.force_register,
+        )
+
+    def __init__(self, config: RemotePolicyConfig, tensor_device: str | None = None) -> None:
         self._initialize_with_transport(
             config=config,
-            transport=self._create_default_transport(timeout_ms=config.timeout_ms),
+            transport=self._create_default_transport(config),
+            tensor_device=tensor_device,
         )
 
     @classmethod
@@ -79,80 +125,37 @@ class PolicyClient:
         cls,
         config: RemotePolicyConfig,
         transport: ClientTransport,
+        tensor_device: str | None = None,
     ) -> PolicyClient:
-        """Create a client with an injected transport for tests/benchmarks only.
-
-        Production code should call ``PolicyClient(config)`` so transport
-        auto-detection stays behind the public constructor.
-        """
+        """Create a client with an injected transport for tests only."""
         client = cls.__new__(cls)
-        client._initialize_with_transport(config=config, transport=transport)
+        client._initialize_with_transport(config=config, transport=transport, tensor_device=tensor_device)
         return client
 
     def _initialize_with_transport(
         self,
         config: RemotePolicyConfig,
         transport: ClientTransport,
+        tensor_device: str | None = None,
     ) -> None:
         self._config = config
-        self._compression: str = config.compression
-        self._zmq_compression: str = config.compression  # updated by connect()
-        self._tensor_compression: str = "none"  # updated by connect()
-        self._negotiated_transport: str = "zmq"
+        self._transport = transport
+        self._transport_endpoint = f"tcp://{config.host}:{config.port}"
+        self._transport_connected = False
+        self._transport_mode = TransportMode.parse(transport.transport_mode)
+        self._tensor_device = self._normalize_tensor_device(tensor_device)
+        self._session_initialized = False
         self._num_envs: int | None = None
         self._last_requested_action_mode: str | None = None
 
-        self._transport = transport
-        endpoint = f"tcp://{config.host}:{config.port}"
-        self._transport.connect(endpoint)
+        if self._transport_mode == TransportMode.ZMQ_MOONCAKE and self._tensor_device == "cpu":
+            raise RuntimeError(
+                "transport_mode='zmq_mooncake' requires policy_device to resolve to a CUDA device."
+            )
 
-    # ------------------------------------------------------------------ #
-    # Capability detection
-    # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def _caps_override_from_env(var_name: str) -> list[str] | None:
-        raw = os.getenv(var_name)
-        if raw is None:
-            return None
-        values = [item.strip() for item in raw.split(",") if item.strip()]
-        return values or None
-
-    @staticmethod
-    def _detect_compression_capabilities() -> list[str]:
-        env_caps = PolicyClient._caps_override_from_env("ISAACLAB_ARENA_REMOTE_COMPRESSION_CAPS")
-        if env_caps is not None:
-            return env_caps
-
-        caps = ["none"]
-        try:
-            import lz4.frame  # noqa: F401
-
-            caps.append("lz4")
-        except ImportError:
-            pass
-        try:
-            from isaaclab_arena.remote_policy.gpu_compression import has_nvcomp
-            if has_nvcomp():
-                caps.append("nvcomp_lz4")
-        except ImportError:
-            pass
-        return caps
-
-    @staticmethod
-    def _detect_transport_capabilities() -> list[str]:
-        env_caps = PolicyClient._caps_override_from_env("ISAACLAB_ARENA_REMOTE_TRANSPORT_CAPS")
-        if env_caps is not None:
-            return env_caps
-
-        caps = ["zmq"]
-        if PolicyClient._has_ucx_runtime():
-            caps.append("zmq_ucx")
-        return caps
-
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
+        transport_any = cast(Any, self._transport)
+        if hasattr(transport_any, "_tensor_device") and self._tensor_device is not None:
+            transport_any._tensor_device = self._tensor_device
 
     @staticmethod
     def _raise_if_error_response(response: Any) -> None:
@@ -167,48 +170,11 @@ class PolicyClient:
         if "error" in response:
             raise RuntimeError(f"Server error: {response['error']}")
 
-    def _prepare_observation_for_transport(
-        self,
-        observation: dict[str, Any],
-    ) -> tuple[dict[str, Any], dict[str, "torch.Tensor"] | None]:
-        """Prepare an already-packed observation for the negotiated transport."""
-        import torch
-
-        use_ucx_tensor_path = (
-            self._negotiated_transport == "zmq_ucx"
-            and hasattr(self._transport, "send_tensor")
-        )
-
-        control_observation: dict[str, Any] = {}
-        tensor_observation: dict[str, torch.Tensor] = {}
-        for key, value in observation.items():
-            if isinstance(value, torch.Tensor):
-                value = value.detach()
-                if use_ucx_tensor_path and value.is_cuda:
-                    tensor_observation[key] = value
-                    continue
-                control_observation[key] = value.cpu().numpy()
-                continue
-            control_observation[key] = value
-
-        return control_observation, (tensor_observation or None)
-
-    def _cache_zmq_identity_from_handshake(self, response: dict[str, Any], *, required: bool) -> bytes | None:
-        zmq_identity = response.get("zmq_identity")
-        if zmq_identity is None:
-            if required:
-                raise RuntimeError("Protocol error: get_init_info response is missing 'zmq_identity'.")
-            return None
-
-        if isinstance(zmq_identity, str):
-            zmq_identity = zmq_identity.encode("latin-1")
-        if not isinstance(zmq_identity, bytes):
-            raise RuntimeError(f"Protocol error: expected bytes 'zmq_identity', got {type(zmq_identity)!r}.")
-
-        transport = cast(Any, self._transport)
-        if hasattr(transport, "cache_identity"):
-            transport.cache_identity(zmq_identity)
-        return zmq_identity
+    def _ensure_transport_connected(self) -> None:
+        if self._transport_connected:
+            return
+        self._transport.connect(self._transport_endpoint)
+        self._transport_connected = True
 
     def _build_request(
         self,
@@ -217,15 +183,72 @@ class PolicyClient:
         *,
         requires_input: bool,
     ) -> dict[str, Any]:
-        """Build a request envelope with auth metadata."""
         request: dict[str, Any] = {"endpoint": endpoint}
-        request_data: dict[str, Any] | None = dict(data or {}) if requires_input else None
-
         if requires_input:
-            request["data"] = request_data or {}
+            request["data"] = dict(data or {})
         if self._config.api_token:
             request["api_token"] = self._config.api_token
         return request
+
+    def _send_request(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None,
+        *,
+        requires_input: bool,
+    ) -> None:
+        self._ensure_transport_connected()
+        request = self._build_request(endpoint, data, requires_input=requires_input)
+        serialize_started_ns = time.perf_counter_ns()
+        payload = MessageSerializer.to_bytes(request)
+        serialize_elapsed_ms = (time.perf_counter_ns() - serialize_started_ns) / 1e6
+
+        send_started_ns = time.perf_counter_ns()
+        self._transport.send(payload)
+        send_elapsed_ms = (time.perf_counter_ns() - send_started_ns) / 1e6
+        record_remote_metric(
+            "client_request_send",
+            endpoint=endpoint,
+            transport_mode=self._transport_mode.value,
+            requires_input=requires_input,
+            serialized_nbytes=len(payload),
+            serialize_ms=serialize_elapsed_ms,
+            send_ms=send_elapsed_ms,
+        )
+
+    def _recv_get_action_response(
+        self,
+        *,
+        timeout_message: str,
+        must_start_new_session: bool,
+    ) -> dict[str, Any]:
+        recv_started_ns = time.perf_counter_ns()
+        try:
+            raw = self._transport.recv()
+        except TimeoutError:
+            self._transport.rebuild()
+            raise TransportTimeoutError(
+                timeout_message,
+                must_reconnect=must_start_new_session,
+                source="zmq_recv",
+            )
+        recv_elapsed_ms = (time.perf_counter_ns() - recv_started_ns) / 1e6
+        decode_started_ns = time.perf_counter_ns()
+        response = MessageSerializer.from_bytes(raw)
+        decode_elapsed_ms = (time.perf_counter_ns() - decode_started_ns) / 1e6
+        record_remote_metric(
+            "client_get_action_response",
+            transport_mode=self._transport_mode.value,
+            must_start_new_session=must_start_new_session,
+            response_nbytes=len(raw),
+            recv_ms=recv_elapsed_ms,
+            decode_ms=decode_elapsed_ms,
+            response_keys=sorted(response.keys()) if isinstance(response, dict) else None,
+        )
+        self._raise_if_error_response(response)
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected dict response, got {type(response)!r}")
+        return response
 
     def ping(self) -> bool:
         """Check if the server is reachable."""
@@ -234,188 +257,294 @@ class PolicyClient:
             return True
         except Exception as exc:
             warnings.warn(
-                f"[PolicyClient] Failed to ping remote policy server at "
-                f"{self._config.host}:{self._config.port}: {exc}"
+                f"[PolicyClient] Failed to ping remote policy server at {self._config.host}:{self._config.port}: {exc}"
             )
             return False
 
-    def connect(self, num_envs: int, requested_action_mode: str) -> dict[str, Any]:
-        """Perform the v2 handshake: capability negotiation + get_init_info.
+    def initialize_session(self, num_envs: int, requested_action_mode: str) -> dict[str, Any]:
+        """Perform the explicit ``get_init_info`` handshake."""
+        self._send_request(
+            "get_init_info",
+            data={
+                "requested_action_mode": requested_action_mode,
+                "num_envs": num_envs,
+                "transport_mode": self._transport_mode.value,
+            },
+            requires_input=True,
+        )
 
-        Args:
-            num_envs: Number of environments this client manages.
-            requested_action_mode: ActionMode value string (e.g. ``"chunk"``).
+        try:
+            raw = self._transport.recv()
+        except TimeoutError:
+            self._transport.rebuild()
+            raise TransportTimeoutError(
+                "ZMQ recv timed out on endpoint='get_init_info'. "
+                "ZMQ socket rebuilt. Retry initialize_session().",
+                must_reconnect=False,
+                source="zmq_recv",
+            )
 
-        Returns:
-            The server's ``get_init_info`` response dict.
-        """
-        self._num_envs = num_envs
-        payload = {
-            "requested_action_mode": requested_action_mode,
-            "num_envs": num_envs,
-            "transport_capabilities": self._detect_transport_capabilities(),
-            "compression_capabilities": self._detect_compression_capabilities(),
-        }
-        resp = self.call_endpoint("get_init_info", data=payload, requires_input=True)
-        if not isinstance(resp, dict):
-            raise TypeError(f"Expected dict from get_init_info, got {type(resp)!r}")
-        zmq_identity = self._cache_zmq_identity_from_handshake(resp, required=True)
+        response = MessageSerializer.from_bytes(raw)
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected dict from get_init_info, got {type(response)!r}")
+        if "error" in response or response.get("status") == "rejected":
+            self.close()
+            return response
 
-        # Store negotiated settings — separate ZMQ and tensor compression
-        self._compression = resp.get("negotiated_compression", self._compression)
-        self._zmq_compression = resp.get("negotiated_zmq_compression", self._zmq_compression)
-        self._tensor_compression = resp.get("negotiated_tensor_compression", self._tensor_compression)
-        self._negotiated_transport = resp.get("negotiated_transport", "zmq")
+        zmq_identity = response.get("zmq_identity")
+        if isinstance(zmq_identity, str):
+            zmq_identity = zmq_identity.encode("latin-1")
+        if not isinstance(zmq_identity, bytes):
+            raise RuntimeError("Protocol error: get_init_info response is missing bytes 'zmq_identity'.")
 
-        # If UCX was negotiated, the response and the injected transport must
-        # both satisfy the UCX contract. Anything else is a protocol/config bug.
-        if self._negotiated_transport == "zmq_ucx":
-            if "ucx_port" not in resp:
-                raise RuntimeError(
-                    "Protocol error: negotiated_transport='zmq_ucx' but handshake response "
-                    "is missing 'ucx_port'."
-                )
-            if "zmq_identity" not in resp:
-                raise RuntimeError(
-                    "Protocol error: negotiated_transport='zmq_ucx' but handshake response "
-                    "is missing 'zmq_identity'."
-                )
-            if not hasattr(self._transport, "connect_ucx"):
-                raise RuntimeError(
-                    "Protocol/config mismatch: server negotiated 'zmq_ucx' but client "
-                    f"transport {type(self._transport).__name__} does not support connect_ucx()."
-                )
+        transport = cast(Any, self._transport)
+        if hasattr(transport, "cache_identity"):
+            # The live DEALER socket already owns this routing identity for all
+            # future sends on the current connection. Cache the server-observed
+            # value only so rebuild() can rebind a replacement socket to the
+            # same session key after a timeout.
+            transport.cache_identity(zmq_identity)
 
-            ucx_port = resp["ucx_port"]
-            server_host = self._config.host
-            # Use the ZMQ identity from the server so UCX endpoint mapping
-            # matches ZMQ routing identity (fixes P1-2).
-            if zmq_identity is None:
-                raise RuntimeError("Protocol error: negotiated 'zmq_ucx' but handshake has no zmq_identity.")
+        if self._transport_mode == TransportMode.ZMQ_MOONCAKE:
+            for field in ("mooncake_protocol", "mooncake_server_session_id"):
+                if field not in response:
+                    raise RuntimeError(
+                        "Protocol error: transport_mode='zmq_mooncake' but get_init_info response "
+                        f"is missing {field!r}."
+                    )
             try:
-                cast(Any, self._transport).connect_ucx(server_host, ucx_port, zmq_identity)
+                self._transport.connect_comm_backend(
+                    handshake_response=response,
+                    server_host=self._config.host,
+                    zmq_identity=zmq_identity,
+                )
+            except (NotImplementedError, AttributeError):
+                raise RuntimeError(
+                    f"Protocol/config mismatch: transport_mode='zmq_mooncake' but client transport "
+                    f"{type(self._transport).__name__} does not support connect_comm_backend()."
+                )
             except TimeoutError as exc:
+                with suppress(Exception):
+                    self.disconnect()
                 raise TransportTimeoutError(
-                    f"UCX connect timed out for {server_host}:{ucx_port}. Call reconnect().",
+                    "Mooncake backend connect timed out. Best-effort disconnect() was sent to clear server-side state.",
                     must_reconnect=True,
-                    source="ucx_connect",
+                    source="mooncake_connect",
+                ) from exc
+            except Exception as exc:
+                with suppress(Exception):
+                    self.disconnect()
+                raise RuntimeError(
+                    "Failed to connect Mooncake backend after get_init_info. "
+                    "Best-effort disconnect() was sent to clear server-side state."
                 ) from exc
 
+        self._num_envs = int(response.get("num_envs", num_envs))
         self._last_requested_action_mode = requested_action_mode
-        return resp
-
-    def get_init_info(self, requested_action_mode: str) -> dict[str, Any]:
-        """v1-compatible handshake (no capability negotiation).
-
-        Prefer ``connect(num_envs, requested_action_mode)`` for v2.
-        """
-        payload = {"requested_action_mode": requested_action_mode}
-        resp = self.call_endpoint("get_init_info", data=payload, requires_input=True)
-        if not isinstance(resp, dict):
-            raise TypeError(f"Expected dict from get_init_info, got {type(resp)!r}")
-        self._cache_zmq_identity_from_handshake(resp, required=False)
-        return resp
+        self._session_initialized = True
+        return response
 
     def get_action(
         self,
         observation: dict[str, Any],
         env_ids: list[int] | None = None,
     ) -> dict[str, Any]:
-        """Send observations and get back actions.
+        """Send observations and get back actions."""
+        control_entries, tensor_entries = split_observation_entries(observation)
 
-        Args:
-            observation: Already-packed flat observation dict. ``PolicyClient``
-                automatically decides how tensor entries travel: CUDA tensors
-                may use the negotiated UCX path, while CPU tensors are
-                serialized over ZMQ.
-            env_ids: Optional environment indices.
-        """
-        control_observation, tensor_observation = self._prepare_observation_for_transport(observation)
+        if self._transport_mode == TransportMode.ZMQ_MOONCAKE:
+            control_observation, transport_tensor_entries = build_control_observation_for_tensor_transport(
+                control_entries,
+                tensor_entries,
+            )
+            if transport_tensor_entries is not None:
+                return self._get_action_dedicated_tensor_transport(
+                    control_observation,
+                    env_ids,
+                    transport_tensor_entries,
+                )
 
-        # UCX tensor path: send CUDA tensors via UCX, metadata via ZMQ
-        if tensor_observation is not None:
-            return self._get_action_ucx(control_observation, env_ids, tensor_observation)
+            payload: dict[str, Any] = {"observation": control_observation}
+            if env_ids is not None:
+                payload["env_ids"] = env_ids
+            response = self.call_endpoint("get_action", data=payload, requires_input=True)
+            if not isinstance(response, dict):
+                raise TypeError(f"Expected dict response, got {type(response)!r}")
+            return response
 
-        # Standard ZMQ path
-        payload: dict[str, Any] = {"observation": control_observation}
+        if tensor_entries is not None:
+            return self._get_action_inline_tensor_payload(control_entries, env_ids, tensor_entries)
+
+        payload = {"observation": control_entries}
+        if env_ids is not None:
+            payload["env_ids"] = env_ids
+        response = self.call_endpoint("get_action", data=payload, requires_input=True)
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected dict response, got {type(response)!r}")
+        return response
+
+    @staticmethod
+    def _build_dedicated_tensor_control_payload(
+        observation: dict[str, Any],
+        env_ids: list[int] | None,
+        *,
+        tensor_layout: list[dict[str, Any]],
+        tensor_nbytes: int,
+        tensor_transport_info: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "observation": observation,
+            "has_tensor": True,
+            "tensor_layout": tensor_layout,
+            "tensor_nbytes": tensor_nbytes,
+        }
+        if tensor_transport_info is not None:
+            payload["tensor_transport_info"] = tensor_transport_info
+        if env_ids is not None:
+            payload["env_ids"] = env_ids
+        return payload
+
+    def _require_local_tensor_device(self, *, context: str) -> str:
+        if self._tensor_device is None:
+            raise RuntimeError(f"{context} requires policy_device to resolve to a local tensor device.")
+        return self._tensor_device
+
+    def _inline_tensor_target_device(self) -> str:
+        return "cpu"
+
+    def _prepare_request_tensor_payload(
+        self,
+        tensor_entries: dict[str, "torch.Tensor"],
+        *,
+        target_device: str,
+    ):
+        # TensorPayloadCodec stays transport-agnostic. PolicyClient chooses the
+        # target device from the final wire shape: inline ZMQ always uses CPU
+        # bytes, while dedicated tensor transports keep a device-resident buffer
+        # for send_tensor().
+        codec = TensorPayloadCodec()
+        prepared_payload = codec.prepare_tensor_payload(
+            tensor_entries,
+            target_device=target_device,
+        )
+        record_remote_metric(
+            "client_tensor_payload_prepared",
+            transport_mode=self._transport_mode.value,
+            target_device=target_device,
+            tensor_keys=sorted(tensor_entries.keys()),
+            original_nbytes=prepared_payload.original_nbytes,
+        )
+        return prepared_payload
+
+    def _get_action_inline_tensor_payload(
+        self,
+        control_entries: dict[str, Any],
+        env_ids: list[int] | None,
+        tensor_entries: dict[str, "torch.Tensor"],
+    ) -> dict[str, Any]:
+        """Pure-ZMQ tensor path using one packed inline tensor blob."""
+        total_started_ns = time.perf_counter_ns()
+        prepared_payload = self._prepare_request_tensor_payload(
+            tensor_entries,
+            target_device=self._inline_tensor_target_device(),
+        )
+        materialize_started_ns = time.perf_counter_ns()
+        inline_tensor_payload = prepared_payload.flat_buffer.detach().cpu().numpy().tobytes()
+        materialize_elapsed_ms = (time.perf_counter_ns() - materialize_started_ns) / 1e6
+        record_remote_metric(
+            "client_inline_payload_materialized",
+            transport_mode=self._transport_mode.value,
+            payload_nbytes=len(inline_tensor_payload),
+            original_nbytes=prepared_payload.original_nbytes,
+            materialize_ms=materialize_elapsed_ms,
+        )
+
+        payload: dict[str, Any] = {
+            "observation": dict(control_entries),
+            "inline_tensor_layout": prepared_payload.tensor_layout,
+            "inline_tensor_payload": inline_tensor_payload,
+            "inline_tensor_nbytes": len(inline_tensor_payload),
+        }
         if env_ids is not None:
             payload["env_ids"] = env_ids
 
-        resp = self.call_endpoint("get_action", data=payload, requires_input=True)
-        return resp
+        self._send_request("get_action", payload, requires_input=True)
+        response = self._recv_get_action_response(
+            timeout_message=(
+                "ZMQ recv timed out during packed-ZMQ get_action. "
+                "ZMQ socket rebuilt. Retry or reconnect if the server session was lost."
+            ),
+            must_start_new_session=False,
+        )
+        record_remote_metric(
+            "client_get_action_total",
+            path="inline_zmq",
+            transport_mode=self._transport_mode.value,
+            total_ms=(time.perf_counter_ns() - total_started_ns) / 1e6,
+            original_nbytes=prepared_payload.original_nbytes,
+        )
+        return response
 
-    def _get_action_ucx(
+    def _get_action_dedicated_tensor_transport(
         self,
         observation: dict[str, Any],
         env_ids: list[int] | None,
         tensor_entries: dict[str, "torch.Tensor"],
     ) -> dict[str, Any]:
-        """Internal UCX path: send selected tensor payloads via zero-copy."""
-        import torch
+        """Dedicated tensor transport path (currently ZMQ+Mooncake)."""
+        total_started_ns = time.perf_counter_ns()
+        transport = cast(Any, self._transport)
+        if not hasattr(transport, "tensor_source_info"):
+            raise RuntimeError(
+                "Protocol/config mismatch: transport_mode='zmq_mooncake' but client transport "
+                f"{type(self._transport).__name__} does not expose tensor_source_info()."
+            )
 
-        # Flatten all GPU tensors into a single contiguous buffer
-        tensor_layout: list[dict[str, Any]] = []
-        flat_parts = []
-        offset = 0
-        for key, t in tensor_entries.items():
-            flat = t.contiguous().view(torch.uint8).reshape(-1)
-            tensor_layout.append({
-                "key": key,
-                "shape": list(t.shape),
-                "dtype": str(t.dtype),
-                "offset": offset,
-                "nbytes": flat.numel(),
-            })
-            flat_parts.append(flat)
-            offset += flat.numel()
+        prepared_payload = self._prepare_request_tensor_payload(
+            tensor_entries,
+            target_device=self._require_local_tensor_device(context="transport_mode='zmq_mooncake'"),
+        )
+        transport_payload = prepared_payload.flat_buffer
 
-        flat_buffer = torch.cat(flat_parts) if len(flat_parts) > 1 else flat_parts[0]
-        original_nbytes = flat_buffer.numel()
-
-        tensor_compressed = self._tensor_compression == "nvcomp_lz4"
-        if tensor_compressed:
-            from isaaclab_arena.remote_policy.gpu_compression import gpu_compress
-            flat_buffer = gpu_compress(flat_buffer)
-
-        # Send control message via ZMQ
-        control_payload: dict[str, Any] = {
-            "observation": observation,
-            "has_tensor": True,
-            "tensor_layout": tensor_layout,
-            "tensor_nbytes": flat_buffer.numel(),
-            "tensor_original_nbytes": original_nbytes,
-            "tensor_compressed": tensor_compressed,
-        }
-        if env_ids is not None:
-            control_payload["env_ids"] = env_ids
-
-        request = self._build_request("get_action", control_payload, requires_input=True)
-        # Use negotiated ZMQ compression for the control message
-        self._transport.send(MessageSerializer.to_bytes(request, compression_method=self._zmq_compression))
-
-        # Send tensor via UCX
+        send_tensor_started_ns = time.perf_counter_ns()
         try:
-            self._transport.send_tensor(flat_buffer)
+            with nvtx_range("mooncake.stage_send_tensor"):
+                self._transport.send_tensor(transport_payload)
         except (TimeoutError, RuntimeError) as exc:
             raise TransportTimeoutError(
-                f"UCX send_tensor failed: {exc}",
+                f"Mooncake send_tensor failed: {exc}",
                 must_reconnect=True,
-                source="ucx_send",
+                source="mooncake_send",
             ) from exc
+        record_remote_metric(
+            "client_dedicated_tensor_send",
+            transport_mode=self._transport_mode.value,
+            original_nbytes=prepared_payload.original_nbytes,
+            send_tensor_ms=(time.perf_counter_ns() - send_tensor_started_ns) / 1e6,
+        )
 
-        # Receive response via ZMQ
-        try:
-            raw = self._transport.recv()
-        except TimeoutError:
-            self._transport.rebuild()
-            raise TransportTimeoutError(
-                "ZMQ recv timed out during UCX get_action. "
-                "UCX session is likely stale — call reconnect().",
-                must_reconnect=True,
-                source="zmq_recv",
-            )
-        response = MessageSerializer.from_bytes(raw)
-        self._raise_if_error_response(response)
+        control_payload = self._build_dedicated_tensor_control_payload(
+            observation,
+            env_ids,
+            tensor_layout=prepared_payload.tensor_layout,
+            tensor_nbytes=prepared_payload.original_nbytes,
+            tensor_transport_info=transport.tensor_source_info(),
+        )
+        self._send_request("get_action", control_payload, requires_input=True)
+        response = self._recv_get_action_response(
+            timeout_message=(
+                "ZMQ recv timed out during Mooncake get_action. "
+                "Mooncake session is likely stale — call start_new_session()."
+            ),
+            must_start_new_session=True,
+        )
+        record_remote_metric(
+            "client_get_action_total",
+            path="dedicated_tensor_transport",
+            transport_mode=self._transport_mode.value,
+            total_ms=(time.perf_counter_ns() - total_started_ns) / 1e6,
+            original_nbytes=prepared_payload.original_nbytes,
+        )
         return response
 
     def set_task_description(
@@ -423,72 +552,49 @@ class PolicyClient:
         task_description: str | None,
         env_ids: list[int] | None = None,
     ) -> dict[str, Any]:
-        """Send task description to the remote policy."""
         payload: dict[str, Any] = {"task_description": task_description}
         if env_ids is not None:
             payload["env_ids"] = env_ids
 
-        resp = self.call_endpoint("set_task_description", data=payload, requires_input=True)
-        if not isinstance(resp, dict):
-            raise TypeError(f"Expected dict from set_task_description, got {type(resp)!r}")
-        return resp
+        response = self.call_endpoint("set_task_description", data=payload, requires_input=True)
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected dict from set_task_description, got {type(response)!r}")
+        return response
 
     def reset(self, env_ids: list[int] | None = None, options: dict[str, Any] | None = None) -> Any:
-        """Reset remote policy state."""
-        resp = self.call_endpoint(
+        response = self.call_endpoint(
             endpoint="reset",
             data={"env_ids": env_ids, "options": options},
             requires_input=True,
         )
-        if isinstance(resp, dict):
-            status = resp.get("status")
+        if isinstance(response, dict):
+            status = response.get("status")
             if status not in ("reset_success", "ok", "reset_ok", None):
-                raise RuntimeError(f"Remote reset failed with status={status}, resp={resp}")
-        return resp
+                raise RuntimeError(f"Remote reset failed with status={status}, resp={response}")
+        return response
 
-    def reconnect(self, num_envs: int | None = None, requested_action_mode: str | None = None) -> dict[str, Any]:
-        """Full reconnect: rebuild ZMQ + re-handshake + re-establish UCX.
-
-        Use this after a UCX timeout or when the server has GC'd this
-        client's state.  A simple ``rebuild()`` only recovers ZMQ; this
-        method performs a complete re-initialization.
-
-        Args:
-            num_envs: Override num_envs for the new session (default: reuse).
-            requested_action_mode: Action mode for the handshake. Defaults to
-                the last successful handshake's mode, or ``"chunk"`` if none.
-        """
+    def start_new_session(self, num_envs: int | None = None, requested_action_mode: str | None = None) -> dict[str, Any]:
+        """Start a fresh logical session."""
         n = num_envs if num_envs is not None else (self._num_envs or 1)
         action_mode = requested_action_mode or self._last_requested_action_mode or "chunk"
 
-        # Close UCX endpoint if present
-        transport = cast(Any, self._transport)
-        if hasattr(transport, "_ucx_endpoint") and transport._ucx_endpoint is not None:
-            try:
-                transport._ucx_endpoint.close()
-            except Exception:
-                pass
-            transport._ucx_endpoint = None
+        with suppress(Exception):
+            self._transport.reset_comm_backend()
 
+        transport = cast(Any, self._transport)
         if hasattr(transport, "reset_identity"):
             transport.reset_identity()
 
-        # Rebuild ZMQ and let ZMQ assign a fresh identity.
+        self._session_initialized = False
         self._transport.rebuild()
-
-        # Re-handshake
-        return self.connect(n, action_mode)
+        return self.initialize_session(n, action_mode)
 
     def disconnect(self) -> Any:
-        """Disconnect this client from the server (cleans up server-side state)."""
+        """Disconnect this client from the server."""
         return self.call_endpoint("disconnect", requires_input=False)
 
     def kill(self) -> Any:
-        """Ask remote server to stop main loop.
-
-        Only works if the server was started with ``allow_remote_kill=True``.
-        Prefer :meth:`disconnect` for normal client teardown.
-        """
+        """Ask remote server to stop main loop."""
         return self.call_endpoint("kill", requires_input=False)
 
     def call_endpoint(
@@ -497,18 +603,11 @@ class PolicyClient:
         data: dict[str, Any] | None = None,
         requires_input: bool = True,
     ) -> Any:
-        """Generic RPC helper."""
-        request = self._build_request(endpoint, data, requires_input=requires_input)
-
-        compression = self._zmq_compression if endpoint != "get_init_info" else "none"
-        self._transport.send(MessageSerializer.to_bytes(request, compression_method=compression))
+        self._send_request(endpoint, data, requires_input=requires_input)
 
         try:
             raw = self._transport.recv()
         except TimeoutError:
-            # DEALER timeout recovery: rebuild socket to clear stale buffer.
-            # ZMQ-only timeouts do NOT require reconnect() — rebuild is
-            # sufficient (stable identity preserved, no UCX state affected).
             self._transport.rebuild()
             raise TransportTimeoutError(
                 f"ZMQ recv timed out on endpoint={endpoint!r}. "
@@ -524,11 +623,17 @@ class PolicyClient:
     def close(self) -> None:
         """Close the underlying transport."""
         self._transport.close()
+        self._transport_connected = False
+        self._session_initialized = False
 
     @property
-    def compression(self) -> str:
-        return self._compression
+    def transport_mode(self) -> str:
+        return self._transport_mode.value
 
     @property
-    def negotiated_transport(self) -> str:
-        return self._negotiated_transport
+    def tensor_device(self) -> str | None:
+        return self._tensor_device
+
+    @property
+    def session_initialized(self) -> bool:
+        return self._session_initialized

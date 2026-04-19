@@ -12,6 +12,7 @@ import warnings
 from typing import Any
 
 from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.remote_policy.mooncake_config import MooncakeTransportConfig, add_client_mooncake_args
 from isaaclab_arena.remote_policy.action_protocol import ActionMode, ActionProtocol
 from isaaclab_arena.remote_policy.policy_client import PolicyClient
 from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
@@ -22,7 +23,7 @@ class ClientSidePolicy(PolicyBase):
 
     Responsibilities:
       - Manage RemotePolicyConfig and PolicyClient.
-      - Handshake with the server via get_init_info().
+      - Handshake with the server via initialize_session().
       - Provide observation packing based on observation_keys.
       - Provide shared CLI helpers for remote-related arguments.
 
@@ -36,6 +37,7 @@ class ClientSidePolicy(PolicyBase):
         remote_config: RemotePolicyConfig,
         protocol_cls: type[ActionProtocol],
         num_envs: int = 1,
+        tensor_device: str | None = None,
     ) -> None:
         super().__init__(config=config)
 
@@ -46,18 +48,14 @@ class ClientSidePolicy(PolicyBase):
         requested_action_mode: ActionMode = protocol_cls.MODE
 
         self._remote_config = remote_config
-        self._client = PolicyClient(config=self._remote_config)
+        self._client = PolicyClient(config=self._remote_config, tensor_device=tensor_device)
         self._num_envs = num_envs
 
         try:
-            # 1) Ping server to ensure connectivity.
-            if not self._client.ping():
-                raise RuntimeError(
-                    f"Failed to connect to remote policy server at {self._remote_config.host}:{self._remote_config.port}."
-                )
-
-            # 2) v2 handshake: capability negotiation + get_init_info.
-            init_resp = self._client.connect(
+            # Perform the session handshake once. This covers connectivity,
+            # explicit transport/compression validation, and get_init_info in a
+            # single round trip.
+            init_resp = self._client.initialize_session(
                 num_envs=num_envs,
                 requested_action_mode=requested_action_mode.value,
             )
@@ -67,7 +65,7 @@ class ClientSidePolicy(PolicyBase):
 
             status = init_resp.get("status", "error")
             if status != "success":
-                message = init_resp.get("message", "no message")
+                message = init_resp.get("message") or init_resp.get("error", "no message")
                 raise RuntimeError(f"Remote policy get_init_info failed with status='{status}': {message}")
 
             cfg_dict = init_resp.get("config")
@@ -78,10 +76,12 @@ class ClientSidePolicy(PolicyBase):
 
             self._protocol: ActionProtocol = self.protocol_cls.from_dict(cfg_dict)
         except Exception:
-            with suppress(Exception):
-                self._client.disconnect()
-            with suppress(Exception):
-                self._client.close()
+            if getattr(self._client, "session_initialized", False):
+                with suppress(Exception):
+                    self._client.disconnect()
+            if getattr(self._client, "_transport_connected", False):
+                with suppress(Exception):
+                    self._client.close()
             raise
 
     # ---------------------- properties ----------------------------------
@@ -227,6 +227,14 @@ class ClientSidePolicy(PolicyBase):
             action="store_true",
             help="Deprecated: request remote server shutdown on exit. Prefer the default disconnect behavior.",
         )
+        group.add_argument(
+            "--remote_transport_mode",
+            type=str,
+            default="zmq",
+            choices=["zmq", "zmq_mooncake"],
+            help="Remote transport selection for the simple mainline.",
+        )
+        add_client_mooncake_args(group)
         return parser
 
     @staticmethod
@@ -241,4 +249,8 @@ class ClientSidePolicy(PolicyBase):
             port=args.remote_port,
             api_token=args.remote_api_token,
             timeout_ms=args.remote_timeout_ms,
+            transport_mode=args.remote_transport_mode,
+            mooncake=MooncakeTransportConfig.from_public_args(
+                local_hostname=args.remote_mooncake_local_hostname,
+            ),
         )

@@ -31,6 +31,7 @@ class ActionChunkingClientSidePolicy(ClientSidePolicy):
             remote_config=remote_config,
             protocol_cls=ChunkingActionProtocol,
             num_envs=num_envs,
+            tensor_device=device,
         )
 
         self._num_envs = num_envs

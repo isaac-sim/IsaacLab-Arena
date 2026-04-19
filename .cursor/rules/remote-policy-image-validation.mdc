@@ -1,0 +1,26 @@
+---
+description: Use the project client/server Docker images for remote policy validation
+alwaysApply: true
+---
+
+# Remote Policy Image Validation
+
+- Host-side checks such as `ReadLints` and `python3 -m py_compile` are only static validation. They do not count as remote-policy runtime testing.
+- When a development agent changes remote-policy code, it must perform validation in the project Docker images before claiming the work is runtime-tested.
+- For client/eval-side validation, use `docker/run_docker.sh`, which builds and runs the `isaaclab_arena:latest` image from `docker/Dockerfile.isaaclab_arena`.
+- Use the `isaaclab_arena` image for:
+  - interactive dev/client containers
+  - client/eval jobs
+  - pytest or other Python validation that depends on the project runtime environment
+- For server-side validation, use `docker/run_gr00t_server.sh`, which builds and runs the `gr00t_policy_server:latest` image from `docker/Dockerfile.gr00t_server`.
+- Use the `gr00t_policy_server` image to run `isaaclab_arena.remote_policy.remote_policy_server_runner` or GR00T remote policy server processes.
+- Both scripts already prefer the cluster Docker binary `/home/chenchaox/project/rlinf_pub/env/bin/docker`; do not assume bare `docker` is the correct CLI on H20/L20 hosts.
+- Default cluster split remains:
+  - `h20-8` for the server image
+  - `l20-8` for the client/eval image
+- When reporting validation status, distinguish clearly between:
+  - host static checks
+  - client-image validation
+  - server-image runtime validation
+- Do not claim remote-policy runtime tested until the relevant path has been exercised in the project images.
+- If image validation is blocked by environment issues such as missing Docker access, missing models, or unavailable GPU/runtime support, report that blocker explicitly instead of substituting host-only checks.

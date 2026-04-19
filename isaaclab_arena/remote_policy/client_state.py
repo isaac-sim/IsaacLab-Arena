@@ -14,7 +14,7 @@ class ClientState:
     """Per-client state managed by the PolicyServer.
 
     Each connected client gets its own ``ClientState`` instance, created when
-    the client calls ``get_init_info``.  The server passes a reference to this
+    the client completes ``initialize_session()``. The server passes a reference to this
     object into every ``ServerSidePolicy`` method so that policies can store
     per-client / per-env data without resorting to global singletons.
 

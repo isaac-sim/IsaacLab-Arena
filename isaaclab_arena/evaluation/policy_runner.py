@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
+import os
 import gymnasium as gym
 import torch
 import tqdm
@@ -47,6 +50,16 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     return (
         "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
     )
+
+
+def _apply_runtime_output_overrides(cfg: Any) -> None:
+    dataset_export_dir = os.getenv("ISAACLAB_ARENA_DATASET_EXPORT_DIR")
+    if dataset_export_dir and hasattr(cfg, "recorders") and hasattr(cfg.recorders, "dataset_export_dir_path"):
+        cfg.recorders.dataset_export_dir_path = dataset_export_dir
+
+    log_dir = os.getenv("ISAACLAB_ARENA_LOG_DIR")
+    if log_dir and hasattr(cfg, "log_dir"):
+        cfg.log_dir = log_dir
 
 
 def _cleanup_policy_and_env(policy: "PolicyBase" | None, env: Any | None, *, kill_server: bool) -> None:
@@ -196,6 +209,7 @@ def main():
             # Build scene
             arena_builder = get_arena_builder_from_cli(args_cli)
             name, cfg = arena_builder.build_registered()
+            _apply_runtime_output_overrides(cfg)
 
             env = gym.make(name, cfg=cfg).unwrapped
 

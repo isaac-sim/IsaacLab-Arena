@@ -82,9 +82,10 @@ class ZmqClientTransport(ClientTransport):
         self._socket: zmq.Socket | None = None
         self._endpoint: str | None = None
         # None means "let ZMQ assign a fresh routing identity on the next
-        # connect". After the first handshake, PolicyClient caches the
-        # server-observed identity here so rebuild() can preserve the same
-        # session-level routing key.
+        # connect". The first live DEALER socket keeps using that auto-assigned
+        # identity for every send automatically. After the handshake,
+        # PolicyClient caches the server-observed identity here so rebuild()
+        # can bind a replacement socket to the same session-level routing key.
         self._identity: bytes | None = None
 
     def connect(self, endpoint: str) -> None:
@@ -96,7 +97,7 @@ class ZmqClientTransport(ClientTransport):
         self._socket.connect(endpoint)
 
     def cache_identity(self, identity: bytes) -> None:
-        """Cache a server-confirmed ZMQ routing identity for future rebuilds."""
+        """Cache the current DEALER routing identity for future rebuilds."""
         self._identity = identity
 
     def reset_identity(self) -> None:

@@ -6,14 +6,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class ServerTransport(ABC):
     """Abstract base for server-side transports.
 
-    A transport handles the low-level send/recv of byte payloads between
-    the PolicyServer and its clients.  Each received message is tagged with
-    a ``client_id`` (opaque bytes) so the server can route responses back.
+    A transport handles:
+    - control-plane byte send/recv for ``PolicyServer``,
+    - optional dedicated tensor send/recv backends,
+    - optional handshake metadata for post-ZMQ backends.
+
+    It must not know anything about tensor codecs or compression internals.
     """
 
     @abstractmethod
@@ -37,18 +41,30 @@ class ServerTransport(ABC):
         """Send a response to a specific client."""
 
     def send_tensor(self, client_id: bytes, tensor: object) -> None:
-        """Send a GPU tensor to a specific client (UCX path).
+        """Send a tensor via a dedicated data backend.
 
-        Default raises ``NotImplementedError``; overridden by UCX transports.
+        Default raises ``NotImplementedError``; overridden by transports that
+        support a dedicated tensor path.
         """
-        raise NotImplementedError("send_tensor requires a UCX-capable transport")
+        raise NotImplementedError("send_tensor requires a dedicated tensor backend")
 
     def recv_tensor(self, client_id: bytes, nbytes: int, buffer: object | None = None) -> object:
-        """Receive a GPU tensor from a specific client (UCX path).
+        """Receive a tensor via a dedicated data backend.
 
-        Default raises ``NotImplementedError``; overridden by UCX transports.
+        Default raises ``NotImplementedError``; overridden by transports that
+        support a dedicated tensor path.
         """
-        raise NotImplementedError("recv_tensor requires a UCX-capable transport")
+        raise NotImplementedError("recv_tensor requires a dedicated tensor backend")
+
+    def get_handshake_metadata(self, client_id: bytes) -> dict[str, Any]:
+        """Return backend metadata that should be attached to ``get_init_info``.
+
+        ZMQ-only transports can keep the default empty dict. Dedicated tensor
+        transports (for example Mooncake or legacy UCX) can override this and
+        return backend-specific static metadata for the client.
+        """
+        del client_id
+        return {}
 
     def disconnect_client(self, client_id: bytes) -> None:
         """Clean up resources for a specific client (e.g. UCX endpoint).
@@ -62,7 +78,7 @@ class ServerTransport(ABC):
 
     @property
     def transport_mode(self) -> str:
-        """Return the transport mode identifier (e.g. ``"zmq"``, ``"zmq_ucx"``)."""
+        """Return the transport mode identifier."""
         return "zmq"
 
 
@@ -89,12 +105,29 @@ class ClientTransport(ABC):
         """
 
     def send_tensor(self, tensor: object) -> None:
-        """Send a GPU tensor to the server (UCX path)."""
-        raise NotImplementedError("send_tensor requires a UCX-capable transport")
+        """Send a tensor to the server via a dedicated data backend."""
+        raise NotImplementedError("send_tensor requires a dedicated tensor backend")
 
     def recv_tensor(self, nbytes: int, buffer: object | None = None) -> object:
-        """Receive a GPU tensor from the server (UCX path)."""
-        raise NotImplementedError("recv_tensor requires a UCX-capable transport")
+        """Receive a tensor from the server via a dedicated data backend."""
+        raise NotImplementedError("recv_tensor requires a dedicated tensor backend")
+
+    def connect_comm_backend(
+        self,
+        *,
+        handshake_response: dict,
+        server_host: str,
+        zmq_identity: bytes | None,
+    ) -> None:
+        """Connect or initialize a post-handshake backend.
+
+        ZMQ-only transports can keep the default behavior. Dedicated tensor
+        transports (Mooncake, legacy UCX, future backends) should override this.
+        """
+        raise NotImplementedError("connect_comm_backend requires a dedicated communication backend")
+
+    def reset_comm_backend(self) -> None:
+        """Reset any non-ZMQ backend state before starting a new session."""
 
     @abstractmethod
     def close(self) -> None:

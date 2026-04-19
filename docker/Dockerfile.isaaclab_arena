@@ -144,8 +144,15 @@ RUN CUDA_MAJOR=$(/isaac-sim/python.sh -c "import torch; print((torch.version.cud
     /isaac-sim/python.sh -m pip install --no-cache-dir -r ${WORKDIR}/requirements-remote.txt && \
     /isaac-sim/python.sh -m pip install --no-cache-dir \
       "ucx-py-cu${CUDA_MAJOR}" \
-      "nvidia-nvcomp-cu${CUDA_MAJOR}" || \
-    (echo "Failed to install CUDA-matched remote deps for CUDA ${CUDA_MAJOR}. Check wheel availability for ucx-py-cu${CUDA_MAJOR} / nvidia-nvcomp-cu${CUDA_MAJOR}." && exit 1)
+      mooncake-transfer-engine || \
+    (echo "Failed to install CUDA-matched remote deps for CUDA ${CUDA_MAJOR}." && exit 1)
+
+# Mooncake RDMA runtime dependencies
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      libibverbs1 ibverbs-providers rdma-core ibverbs-utils libnuma1 \
+      libunwind8 libnl-3-200 libnl-route-3-200 && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN if [ -n "$EXTRA_REMOTE_PIP_PACKAGES" ]; then \
       /isaac-sim/python.sh -m pip install --no-cache-dir $EXTRA_REMOTE_PIP_PACKAGES; \
