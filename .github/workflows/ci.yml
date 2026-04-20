@@ -165,6 +165,20 @@ jobs:
       #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
       #       isaaclab_arena/tests/
 
+      - name: Read Isaac Sim version
+        run: |
+          echo "ISAAC_SIM_VERSION=$(cat /isaac-sim/VERSION)" >> $GITHUB_ENV
+
+      - name: Echo Isaac Sim version
+        run: |
+          echo "ISAAC_SIM_VERSION=$ISAAC_SIM_VERSION"
+
+      - name: Cache Isaac Kit cache
+        uses: actions/cache@v4
+        with:
+          path: /isaac-sim/kit/cache
+          key: isaac-kit-cache-${{ env.ISAAC_SIM_VERSION }}
+
       - name: Run a single camera-requiring test
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
