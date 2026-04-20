@@ -104,8 +104,8 @@ class ArenaEnvBuilder:
         if placer_params.resolve_on_reset:
             anchor_objects_set = set(get_anchor_objects(objects_with_relations))
             for obj in objects_with_relations:
-                if obj not in anchor_objects_set:
-                    assert obj.event_cfg is None, (
+                if obj not in anchor_objects_set and obj.event_cfg is not None:
+                    raise RuntimeError(
                         f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
                         "Relational solving should not be combined with explicit setting of "
                         "poses on non-anchor objects."
