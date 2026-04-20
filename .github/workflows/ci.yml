@@ -85,6 +85,12 @@ jobs:
         run: |
           git status
 
+      # On self-hosted runners the workspace persists and files can end up
+      # 755; hooks that rewrite files preserve the mode, producing a
+      # 644→755 diff that fails pre-commit.
+      - name: Ignore file-mode changes
+        run: git config core.fileMode false
+
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
         with:
