@@ -98,7 +98,7 @@ jobs:
     name: Run tests
     runs-on: [self-hosted, gpu]
     timeout-minutes: 80
-    # needs: [pre_commit]
+    needs: [pre_commit]
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
