@@ -302,10 +302,8 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_placer_empty_pool_raises():
-    """PooledObjectPlacer should raise RuntimeError when no valid layouts can be produced."""
-    import pytest
-
+def test_pooled_placer_fallback_when_no_valid_layouts():
+    """PooledObjectPlacer should fall back to best-loss layouts when none pass validation."""
     desk = DummyObject(
         name="desk",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
@@ -328,5 +326,5 @@ def test_pooled_placer_empty_pool_raises():
     solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
-    with pytest.raises(RuntimeError, match="failed to produce any valid layouts"):
-        PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    assert pool.remaining > 0, "Pool should contain fallback layouts even when validation fails"

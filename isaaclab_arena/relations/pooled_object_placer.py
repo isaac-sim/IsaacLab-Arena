@@ -64,7 +64,12 @@ class PooledObjectPlacer:
         self._next_idx = 0
 
     def _solve_and_store(self, num_layouts: int) -> None:
-        """Solve *num_layouts* placements and append valid ones to the pool."""
+        """Solve *num_layouts* placements and append valid ones to the pool.
+
+        When no candidates pass strict validation, the best-loss candidates are
+        accepted with a warning (matching pre-pool behaviour where validation
+        failures were non-fatal).
+        """
         self._compact()
 
         # place() runs: random init → gradient solve → validate → rank.
@@ -82,7 +87,11 @@ class PooledObjectPlacer:
                 f" {len(valid_results)} valid, {num_layouts - len(valid_results)} failed validation"
             )
 
-        self._layouts.extend(valid_results)
+        if valid_results:
+            self._layouts.extend(valid_results)
+        else:
+            print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
+            self._layouts.extend(all_results)
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
         """Return the next *count* layouts sequentially (without replacement).
