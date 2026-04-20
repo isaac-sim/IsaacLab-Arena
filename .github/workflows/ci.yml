@@ -165,21 +165,8 @@ jobs:
       #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
       #       isaaclab_arena/tests/
 
-      - name: Read Isaac Sim version
-        run: |
-          echo "ISAAC_SIM_VERSION=$(cat /isaac-sim/VERSION)" >> $GITHUB_ENV
-
-      - name: Cache Isaac Sim Kit cache
-        id: isaac_sim_cache
-        uses: actions/cache@v4
-        with:
-          path: /isaac-sim/kit/cache
-          key: isaac-kit-cache-${{ env.ISAAC_SIM_VERSION }}
-
-      - name: Warmup Shader cache if cache missed
-        if: steps.isaac_sim_cache.outputs.cache-hit != 'true'
-        run:
-          /isaac-sim/warmup.sh
+      - name: Setup Isaac Sim kit cache (shader warmup on miss)
+        uses: ./.github/actions/setup-isaac-sim-kit-cache
 
       - name: Run a single camera-requiring test
         run: |
