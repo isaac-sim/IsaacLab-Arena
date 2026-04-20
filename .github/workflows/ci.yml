@@ -129,6 +129,10 @@ jobs:
           /isaac-sim/python.sh -m pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
+      - &setup_isaac_sim_kit_cache_step
+        name: Setup Isaac Sim kit cache (shader warmup on miss)
+        uses: ./.github/actions/setup-isaac-sim-kit-cache
+
       # Run the tests.
       #
       # Note(alexmillane): We have to run the tests in a specific way. To achieve a reasonable test speed,
@@ -178,6 +182,7 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
@@ -214,6 +219,7 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
 
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
