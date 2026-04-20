@@ -179,7 +179,9 @@ and the number of episodes is more than the single environment evaluation becaus
 .. note::
 
    Because the apple is smaller and rounder than the brown box, and the plate is flat rather than a
-   deep bin, the apple-to-plate task is typically harder than the box-to-bin task. Expect success rate
-   to be somewhat lower until the task's success thresholds have been tuned for the new assets —
-   see the ``max_z_separation`` and related values in
-   ``isaaclab_arena/tasks/g1_locomanip_pick_and_place_task.py``.
+   deep bin, the apple-to-plate task is typically harder than the box-to-bin task. The environment
+   passes tighter 10 cm proximity thresholds on all three axes for the apple-on-plate success
+   condition, since the box-to-bin defaults (26 cm along x) are too loose for a ~30 cm plate.
+   If you need to override these for a different apple/plate combination, see the
+   ``max_x_separation`` / ``max_y_separation`` / ``max_z_separation`` kwargs on
+   ``G1LocomanipPickAndPlaceTask`` in ``isaaclab_arena/tasks/g1_locomanip_pick_and_place_task.py``.
