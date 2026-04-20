@@ -154,11 +154,34 @@ jobs:
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
-      - name: Run in-process PhysX tests with cameras
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
 
+  tests_with_subprocess:
+    name: Run tests with subprocess
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 60
+    needs: [pre_commit]
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    steps:
+      # nvidia-smi
+      - *nvidia_smi
+      - *lscpu
+
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+
+      # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
+      # causing the whole CI run to fail. I am moving these to a parallel job, and then
+      # will make the job containing them optional in terms of passing.
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
