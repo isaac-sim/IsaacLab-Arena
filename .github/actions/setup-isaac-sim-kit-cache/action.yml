@@ -34,8 +34,3 @@ runs:
       with:
         path: /isaac-sim/kit/cache
         key: isaac-kit-cache-${{ steps.read_version.outputs.isaac_sim_version }}
-
-    - name: Warmup shader cache if cache missed
-      if: steps.isaac_sim_cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: /isaac-sim/warmup.sh
