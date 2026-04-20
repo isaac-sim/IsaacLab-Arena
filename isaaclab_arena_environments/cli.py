@@ -9,7 +9,7 @@ import argparse
 import importlib
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.asset_registry import EnvironmentRegistry
+from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 

@@ -13,7 +13,7 @@ def test_kuka_allegro_registered_in_asset_registry() -> None:
     pytest.importorskip(
         "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
     )
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment
 
     reg = AssetRegistry()

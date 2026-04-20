@@ -16,7 +16,7 @@ def _test_scene_to_usd(simulation_app, output_path: pathlib.Path) -> bool:
 
     from pxr import Gf, Usd
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 

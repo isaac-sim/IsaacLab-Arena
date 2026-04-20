@@ -15,7 +15,7 @@ HEADLESS = True
 
 def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.agibot.agibot import AgibotEmbodiment
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
