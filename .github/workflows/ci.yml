@@ -129,6 +129,10 @@ jobs:
           /isaac-sim/python.sh -m pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
+      - &setup_isaac_sim_kit_cache_step
+        name: Setup Isaac Sim kit cache (shader warmup on miss)
+        uses: ./.github/actions/setup-isaac-sim-kit-cache
+
       # Run the tests.
       #
       # Note(alexmillane): We have to run the tests in a specific way. To achieve a reasonable test speed,
@@ -144,137 +148,135 @@ jobs:
       # - All subprocess-spawning tests (each spawns their own SimulationApp)
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
-      # - name: Run in-process Newton tests
-      #   run: |
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
-      #       isaaclab_arena/tests/
+      - name: Run in-process Newton tests
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
+            isaaclab_arena/tests/
 
-      # - name: Run in-process PhysX tests without cameras
-      #   run: |
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-      #       isaaclab_arena/tests/
+      - name: Run in-process PhysX tests without cameras
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
 
-      # - name: Run in-process PhysX tests with cameras
-      #   run: |
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-      #       isaaclab_arena/tests/
+      - name: Run in-process PhysX tests with cameras
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
 
-      # - name: Run subprocess-spawning PhysX tests
-      #   run: |
-      #     ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
-      #       isaaclab_arena/tests/
-
-      - name: Setup Isaac Sim kit cache (shader warmup on miss)
-        uses: ./.github/actions/setup-isaac-sim-kit-cache
+      - name: Run subprocess-spawning PhysX tests
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
+            isaaclab_arena/tests/
 
       - name: Run a single camera-requiring test
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
           /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena/tests/test_camera_observation.py
 
-  # test_policy:
-  #   name: Run policy-related tests with GR00T & cuda12_8 deps
-  #   runs-on: [self-hosted, gpu]
-  #   timeout-minutes: 60
-  #   needs: [pre_commit]
+  test_policy:
+    name: Run policy-related tests with GR00T & cuda12_8 deps
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 60
+    needs: [pre_commit]
 
-  #   container:
-  #     image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16
-  #     credentials:
-  #       username: $oauthtoken
-  #       password: ${{ env.NGC_API_KEY }}
-  #   env:
-  #     GROOT_DEPS_DIR: /opt/groot_deps
-  #   steps:
-  #     # nvidia-smi
-  #     - *nvidia_smi
-  #     - *lscpu
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    env:
+      GROOT_DEPS_DIR: /opt/groot_deps
+    steps:
+      # nvidia-smi
+      - *nvidia_smi
+      - *lscpu
 
-  #     # Setup.
-  #     - *install_git_step
-  #     - *cleanup_step
-  #     - *mark_repo_safe_step
-  #     - *checkout_step
-  #     - *git_lfs_step
-  #     - *install_project_step
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
 
-  #     # Run the policy (GR00T) related tests.
-  #     - name: Run policy-related pytest
-  #       run: |
-  #         ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-  #         /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena_gr00t/tests/
-
-
-  # build_docs_pre_merge:
-  #   name: Build the docs (pre-merge)
-  #   runs-on: [self-hosted, gpu]
-  #   timeout-minutes: 30
-  #   needs: [pre_commit]
-
-  #   container:
-  #     image: python:3.11-slim
-
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *mark_repo_safe_step
-  #     - *cleanup_step
-
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-
-  #     # Build docs for the current branch (validates PR changes)
-  #     - name: Build docs
-  #       working-directory: ./docs
-  #       run: |
-  #         pip3 install -r requirements.txt
-  #         make SPHINXOPTS=-W html
+      # Run the policy (GR00T) related tests.
+      - name: Run policy-related pytest
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena_gr00t/tests/
 
 
-  # build_and_push_image_post_merge:
-  #   name: Build & push NGC image (post-merge)
-  #   runs-on: [self-hosted, gpu]
-  #   timeout-minutes: 90
-  #   needs: [test, test_policy]       # only push if tests passed
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build_docs_pre_merge:
+    name: Build the docs (pre-merge)
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 30
+    needs: [pre_commit]
 
-  #   container:
-  #     image: ubuntu:latest
+    container:
+      image: python:3.11-slim
 
-  #   env:
-  #     # already defined at top, but keep here for clarity/local override if needed
-  #     NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+    steps:
+      # Setup.
+      - *install_git_step
+      - *mark_repo_safe_step
+      - *cleanup_step
 
-  #   steps:
-  #     # Setup.
-  #     - *install_git_step
-  #     - *mark_repo_safe_step
-  #     - *cleanup_step
-  #     - *checkout_step
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-  #     - name: Install docker
-  #       run: |
-  #         apt-get update
-  #         apt-get install -y ca-certificates curl gnupg && \
-  #         install -m 0755 -d /etc/apt/keyrings && \
-  #         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-  #         chmod a+r /etc/apt/keyrings/docker.gpg && \
-  #         echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  #         "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
-  #         apt-get update && apt-get install -y docker.io docker-buildx-plugin
-  #         docker --version
+      # Build docs for the current branch (validates PR changes)
+      - name: Build docs
+        working-directory: ./docs
+        run: |
+          pip3 install -r requirements.txt
+          make SPHINXOPTS=-W html
 
-  #     - name: Docker login to NGC
-  #       # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
-  #       run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
-  #     - name: Build & push image to NGC
-  #       run: |
-  #         chmod +x ./docker/push_to_ngc* || true
-  #         ./docker/push_to_ngc.sh -p
+  build_and_push_image_post_merge:
+    name: Build & push NGC image (post-merge)
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 90
+    needs: [test, test_policy]       # only push if tests passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-  #     - name: Build & push image to NGC (GR00T Image)
-  #       run: |
-  #         chmod +x ./docker/push_to_ngc* || true
-  #         ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16
+    container:
+      image: ubuntu:latest
+
+    env:
+      # already defined at top, but keep here for clarity/local override if needed
+      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+
+    steps:
+      # Setup.
+      - *install_git_step
+      - *mark_repo_safe_step
+      - *cleanup_step
+      - *checkout_step
+
+      - name: Install docker
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg && \
+          install -m 0755 -d /etc/apt/keyrings && \
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+          chmod a+r /etc/apt/keyrings/docker.gpg && \
+          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+          apt-get update && apt-get install -y docker.io docker-buildx-plugin
+          docker --version
+
+      - name: Docker login to NGC
+        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
+        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Build & push image to NGC
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p
+
+      - name: Build & push image to NGC (GR00T Image)
+        run: |
+          chmod +x ./docker/push_to_ngc* || true
+          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16
