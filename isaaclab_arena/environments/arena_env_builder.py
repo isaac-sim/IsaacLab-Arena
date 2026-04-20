@@ -164,11 +164,14 @@ class ArenaEnvBuilder:
             if obj in anchor_objects_set:
                 continue
             rotation_xyzw = get_rotation_xyzw(obj)
-            poses = [
-                Pose(position_xyz=layouts[env_idx].positions[obj], rotation_xyzw=rotation_xyzw)
-                for env_idx in range(num_envs)
-            ]
-            obj.set_initial_pose(PosePerEnv(poses=poses))
+            poses = []
+            for env_idx in range(num_envs):
+                pos = layouts[env_idx].positions.get(obj)
+                if pos is None:
+                    break
+                poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+            else:
+                obj.set_initial_pose(PosePerEnv(poses=poses))
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
