@@ -182,6 +182,7 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
 
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
