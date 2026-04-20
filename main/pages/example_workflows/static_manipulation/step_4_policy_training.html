@@ -560,9 +560,15 @@ Best Quality</label><div class="sd-tab-content docutils">
 <p>Compute Requirements:</p>
 <ul class="simple">
 <li><p><strong>GPUs:</strong> 8x with at least 48 GB VRAM each (e.g. L40s, A6000, A100)</p></li>
-<li><p><strong>System RAM:</strong> 256 GB or more recommended — multi-GPU training with large batch sizes
+<li><p><strong>System RAM:</strong> 512 GB or more recommended — multi-GPU training with large batch sizes
 and multiple dataloader workers requires substantial host memory</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If your system has less RAM or fewer GPUs, you can reduce <code class="docutils literal notranslate"><span class="pre">global_batch_size</span></code> and
+<code class="docutils literal notranslate"><span class="pre">dataloader_num_workers</span></code> to fit your hardware. Training will still work but will take
+longer to converge.</p>
+</div>
 <p>Training Configuration:</p>
 <ul class="simple">
 <li><p><strong>Base Model:</strong> GR00T-N1.6-3B (foundation model)</p></li>
@@ -587,7 +593,7 @@ submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </spa
 --tune_visual<span class="w"> </span><span class="se">\</span>
 --tune_projector<span class="w"> </span><span class="se">\</span>
 --tune_diffusion_model<span class="w"> </span><span class="se">\</span>
---dataloader_num_workers<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+--dataloader_num_workers<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
 --embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>
 --color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08
 </pre></div>
@@ -621,7 +627,7 @@ python<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_fin
 --tune_visual<span class="w"> </span><span class="se">\</span>
 --tune_projector<span class="w"> </span><span class="se">\</span>
 --tune_diffusion_model<span class="w"> </span><span class="se">\</span>
---dataloader_num_workers<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+--dataloader_num_workers<span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
 --embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>
 --color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08<span class="w"> </span><span class="se">\</span>
 --save_total_limit<span class="o">=</span><span class="m">5</span>
