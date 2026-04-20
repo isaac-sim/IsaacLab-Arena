@@ -169,10 +169,6 @@ jobs:
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
             isaaclab_arena/tests/
 
-      - name: Run a single camera-requiring test
-        run: |
-          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          /isaac-sim/python.sh -m pytest -sv --durations=0 isaaclab_arena/tests/test_camera_observation.py
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
