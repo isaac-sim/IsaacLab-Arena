@@ -6,10 +6,9 @@ This workflow covers generating a new dataset using
 
 Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Teleoperation Data Collection) <step_2_teleoperation>`.
-If you do not want to do the preceding step of recording demonstrations, you can jump to
-you can download the pre-generated dataset either in
+If you do not want to do the preceding step of recording demonstrations, you can jump to either
 :ref:`step_1_annotate_demonstrations` or :ref:`step_2_generate_augmented_dataset`
-below.
+below and download the pre-provided datasets.
 
 
 **Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
