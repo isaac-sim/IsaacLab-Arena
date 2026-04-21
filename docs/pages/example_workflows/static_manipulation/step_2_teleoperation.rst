@@ -72,6 +72,18 @@ Step 1: Start the CloudXR Runtime
 
             python -m isaacteleop.cloudxr --cloudxr-env-config=avp.env
 
+.. attention::
+
+   The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
+   To accept the EULA, reply ``Yes`` when prompted with the below message:
+
+   .. code:: bash
+
+      NVIDIA CloudXR EULA must be accepted to run. View: https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
+
+      Accept NVIDIA CloudXR EULA? [y/N]: Yes
+
+
 Step 2: Start Recording
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -101,6 +113,13 @@ Step 2: Start Recording
         --num_success_steps 2 \
         gr1_open_microwave \
         --teleop_device openxr
+
+#. In the running application, start the session from the **XR** tab in the application window.
+
+   .. figure:: ../../../images/xr_start_button.png
+      :width: 55%
+      :alt: Start XR button in the XR tab
+      :align: center
 
 
 Step 3: Connect XR Device and Record
