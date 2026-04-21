@@ -66,6 +66,15 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
             "When not set, each environment uses its own default."
         ),
     )
+    arena_group.add_argument(
+        "--resolve_on_reset",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
+            " layout."
+        ),
+    )
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
