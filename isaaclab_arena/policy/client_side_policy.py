@@ -16,6 +16,7 @@ from isaaclab_arena.remote_policy.mooncake_config import MooncakeTransportConfig
 from isaaclab_arena.remote_policy.action_protocol import ActionMode, ActionProtocol
 from isaaclab_arena.remote_policy.policy_client import PolicyClient
 from isaaclab_arena.remote_policy.remote_policy_config import RemotePolicyConfig
+from isaaclab_arena.utils.image_conversion import apply_obs_spatial_hint
 
 
 class ClientSidePolicy(PolicyBase):
@@ -75,6 +76,11 @@ class ClientSidePolicy(PolicyBase):
                 )
 
             self._protocol: ActionProtocol = self.protocol_cls.from_dict(cfg_dict)
+
+            obs_hints = init_resp.get("obs_spatial_hints")
+            self._obs_spatial_hints: dict[str, dict[str, Any] | None] = (
+                obs_hints if isinstance(obs_hints, dict) else {}
+            )
         except Exception:
             if getattr(self._client, "session_initialized", False):
                 with suppress(Exception):
@@ -129,13 +135,20 @@ class ClientSidePolicy(PolicyBase):
     ) -> dict[str, Any]:
         """Pack selected observation entries into a flat dict for the server.
 
-        This layer only decides *which* observation entries belong in the
-        request. Transport-specific conversion (for example CPU numpy vs UCX
-        tensor path) is handled later by ``PolicyClient``.
+        This layer decides *which* observation entries belong in the request
+        and applies any per-key ``obs_spatial_hints`` advertised during the
+        handshake (resize/pad to the policy's expected spatial size before
+        the wire payload is built).  Transport-specific conversion (for
+        example CPU numpy vs Mooncake tensor path) is handled later by
+        ``PolicyClient``.
         """
         packed: dict[str, Any] = {}
         for key_path in self.observation_keys:
-            packed[key_path] = self._get_nested_observation(observation, key_path)
+            value = self._get_nested_observation(observation, key_path)
+            hint = self._obs_spatial_hints.get(key_path) if self._obs_spatial_hints else None
+            if hint is not None:
+                value = apply_obs_spatial_hint(value, hint)
+            packed[key_path] = value
         return packed
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:

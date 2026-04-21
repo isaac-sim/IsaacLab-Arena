@@ -89,6 +89,12 @@ class ServerSidePolicy(ABC):
         Checks that the requested action mode is valid and supported by
         this policy's ActionProtocol, and returns either an error status
         or the protocol configuration as a plain dictionary.
+
+        Subclasses can also advertise per-key spatial hints via
+        :meth:`_get_obs_spatial_hints`; when present, the client is expected
+        to pre-resize matching observation entries before sending them so the
+        server can skip its own resize.  See
+        ``claude_tmp/DESIGN_CLIENT_OBS_SHAPE_HANDSHAKE_AND_RESIZE.md``.
         """
         proto = self.protocol
 
@@ -110,10 +116,42 @@ class ServerSidePolicy(ABC):
                 ),
             }
 
-        return {
+        response: dict[str, Any] = {
             "status": "success",
             "config": proto.to_dict(),
         }
+        hints = self._get_obs_spatial_hints()
+        if hints is not None:
+            response["obs_spatial_hints"] = hints
+        return response
+
+    def _get_obs_spatial_hints(self) -> dict[str, dict[str, Any] | None] | None:
+        """Per-key spatial hints advertised in the handshake response.
+
+        Subclasses with spatial observations (RGB cameras, depth maps...) may
+        return a dict of the form::
+
+            {
+                "camera_obs.head_cam":  {"size": [H, W], "pad": True},
+                "camera_obs.wrist_cam": {"size": [H, W], "pad": True},
+                "policy.robot_joint_pos": None,
+            }
+
+        Semantics:
+            * ``{"size": [H, W], "pad": bool}`` — the client should resize this
+              key to ``(H, W)`` (with the same ``pad_img`` semantics as
+              :func:`isaaclab_arena.utils.image_conversion.resize_frames_with_padding`)
+              before packing.
+            * ``None`` — the client should not apply a spatial transform to
+              this key (e.g. proprioceptive state, language tokens).
+            * Returning ``None`` from this method (the default) omits the
+              ``obs_spatial_hints`` field entirely; the client then treats every
+              key as ``None``.
+
+        Server-side resize paths should remain in place as a defensive
+        fallback for old or non-conforming clients.
+        """
+        return None
 
     # ------------------------------------------------------------------
     # Core RPC methods (to be used by PolicyServer)

@@ -142,6 +142,22 @@ class Gr00tRemoteServerSidePolicy(ServerSidePolicy):
         print(f"[Gr00tRemoteServerSidePolicy] protocol mode = {proto.mode.value}")
         return proto
 
+    def _get_obs_spatial_hints(self) -> dict[str, dict[str, Any] | None]:
+        """Advertise per-key spatial hints derived from ``target_image_size``.
+
+        Camera obs keys map to a ``{"size": [H, W], "pad": True}`` hint
+        matching the GR00T preprocessing path; non-spatial keys (joint pos,
+        language) map to ``None`` so the client leaves them untouched.
+        """
+        hints: dict[str, dict[str, Any] | None] = {}
+        target = getattr(self.policy_config, "target_image_size", None)
+        for key in self.required_observation_keys:
+            if key.startswith("camera_obs.") and target is not None:
+                hints[key] = {"size": [int(target[0]), int(target[1])], "pad": True}
+            else:
+                hints[key] = None
+        return hints
+
     # ------------------------------------------------------------------ #
     # Helper methods
     # ------------------------------------------------------------------ #
