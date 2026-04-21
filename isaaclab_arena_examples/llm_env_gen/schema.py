@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Relation kinds currently surfaced to the LLM. Mirror the subset of
 # isaaclab_arena.relations.relations that makes sense for tabletop prompts.
@@ -50,6 +50,10 @@ class Relation(BaseModel):
     target: str | None = None
     params: dict = Field(default_factory=dict)
 
+    def identity(self) -> tuple[str, str, str | None]:
+        """Hashable identity for diffing scene graphs — ignores params."""
+        return (self.kind, self.subject, self.target)
+
 
 class SceneSpec(BaseModel):
     """LLM output — a structured plan for the scene.
@@ -73,3 +77,22 @@ class SceneSpec(BaseModel):
     items: list[Item]
     initial_scene_graph: list[Relation]
     final_scene_graph: list[Relation]
+
+    @model_validator(mode="after")
+    def _graphs_must_differ(self) -> "SceneSpec":
+        if not self.goal_added() and not self.goal_removed():
+            raise ValueError(
+                "initial_scene_graph and final_scene_graph are identical — the task "
+                "is trivially solved at reset. At least one relation must differ."
+            )
+        return self
+
+    def goal_added(self) -> list[Relation]:
+        """Relations that must become true to solve the task (final − initial)."""
+        initial = {r.identity() for r in self.initial_scene_graph}
+        return [r for r in self.final_scene_graph if r.identity() not in initial]
+
+    def goal_removed(self) -> list[Relation]:
+        """Relations that must become false to solve the task (initial − final)."""
+        final = {r.identity() for r in self.final_scene_graph}
+        return [r for r in self.initial_scene_graph if r.identity() not in final]

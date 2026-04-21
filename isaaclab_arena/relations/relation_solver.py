@@ -28,6 +28,16 @@ class RelationSolver:
     corresponding RelationLossStrategy that handles the actual loss calculation.
     """
 
+    # TODO: Support negative / not-holds constraints on the initial placement.
+    # The LLM scene-gen prototype (isaaclab_arena_examples/llm_env_gen)
+    # decomposes a prompt into initial and final scene graphs; the diff yields
+    # `goal_added` relations that MUST NOT already hold at reset (otherwise
+    # the task is trivially solved — e.g. the avocado spawning inside the
+    # bowl when the goal is 'place avocado in bowl'). A NotRelation wrapper
+    # whose loss spikes when the wrapped relation is satisfied would let the
+    # solver reject initial samples that already satisfy the goal.
+    # See isaaclab_arena_examples/llm_env_gen/resolver.py ResolvedScene.goal_added.
+
     POSITION_HISTORY_SAVE_INTERVAL = 10
     """Save position snapshot every N iterations (when save_position_history is enabled)."""
 

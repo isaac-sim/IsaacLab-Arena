@@ -48,6 +48,13 @@ class ResolvedScene:
     items: dict[str, type]
     initial_scene_graph: list[dict[str, Any]]
     final_scene_graph: list[dict[str, Any]]
+    # Derived from the two graphs: relations that must become true to solve
+    # the task (final − initial) and relations that must become false
+    # (initial − final). The placement solver is expected to honor these as
+    # negative constraints on the initial realization — see the TODO on
+    # isaaclab_arena.relations.relation_solver.RelationSolver.
+    goal_added: list[dict[str, Any]]
+    goal_removed: list[dict[str, Any]]
     trace: list[TraceEvent]
 
 
@@ -84,12 +91,24 @@ class Resolver:
         initial_graph = self._resolve_graph(spec.initial_scene_graph, "initial", known, trace)
         final_graph = self._resolve_graph(spec.final_scene_graph, "final", known, trace)
 
+        initial_keys = {(r["kind"], r["subject"], r["target"]) for r in initial_graph}
+        final_keys = {(r["kind"], r["subject"], r["target"]) for r in final_graph}
+        goal_added = [r for r in final_graph if (r["kind"], r["subject"], r["target"]) not in initial_keys]
+        goal_removed = [r for r in initial_graph if (r["kind"], r["subject"], r["target"]) not in final_keys]
+
+        for r in goal_added:
+            trace.append(TraceEvent("diff.goal_added", r["subject"], r["target"], note=r["kind"]))
+        for r in goal_removed:
+            trace.append(TraceEvent("diff.goal_removed", r["subject"], r["target"], note=r["kind"]))
+
         return ResolvedScene(
             background=background_cls,
             embodiment_name=embodiment_name,
             items=items,
             initial_scene_graph=initial_graph,
             final_scene_graph=final_graph,
+            goal_added=goal_added,
+            goal_removed=goal_removed,
             trace=trace,
         )
 

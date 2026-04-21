@@ -82,6 +82,18 @@ def main() -> None:
     for rel in resolved.final_scene_graph:
         print(f"  {rel['kind']}({rel['subject']}, {rel['target']})")
 
+    print("\n=== goal_added (must become true) ===")
+    for rel in resolved.goal_added:
+        print(f"  {rel['kind']}({rel['subject']}, {rel['target']})")
+    if not resolved.goal_added:
+        print("  (none)")
+
+    print("\n=== goal_removed (must become false) ===")
+    for rel in resolved.goal_removed:
+        print(f"  {rel['kind']}({rel['subject']}, {rel['target']})")
+    if not resolved.goal_removed:
+        print("  (none)")
+
     print("\n=== trace ===")
     for t in resolved.trace:
         chosen = t.chosen if t.chosen is not None else "<none>"
