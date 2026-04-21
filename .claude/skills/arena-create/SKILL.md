@@ -1,6 +1,6 @@
 ---
 name: arena-create
-description: Write all Python source files for an external IsaacLab-Arena project (assets, embodiment, task, environment) from a spec file.
+description: Write all Python source files for an external IsaacLab-Arena project (assets, task, environment) from a spec file.
 ---
 
 ## How to invoke
@@ -25,21 +25,100 @@ Derived variables:
 - `PKG` = `<PROJECT_DIR>/<project_name>`
 - `ARENA_SRC` = the IsaacLab-Arena repo root (find it: `git rev-parse --show-toplevel` from any known Arena path, or look for `isaaclab_arena/` alongside the spec file's `submodules/IsaacLab-Arena/`)
 
-**Before writing any code, read the Arena source** to get the exact current API.
-Do not guess or rely on memory — read the files:
+The API patterns below are embedded in this skill — **do not read Arena source files** before writing code. The one exception: if you need to verify a built-in background's sub-prim path, read the matching environment file from `<ARENA_SRC>/isaaclab_arena_environments/`.
 
-| What you need | Where to read |
-|---|---|
-| How to register assets | `<ARENA_SRC>/isaaclab_arena/assets/register.py` |
-| Embodiment base class API | `<ARENA_SRC>/isaaclab_arena/embodiments/embodiment_base.py` |
-| Built-in embodiment for the chosen robot | `<ARENA_SRC>/isaaclab_arena/embodiments/<robot>/` |
-| Task base class | `<ARENA_SRC>/isaaclab_arena/tasks/task_base.py` |
-| Scene class | `<ARENA_SRC>/isaaclab_arena/scene/scene.py` |
-| Environment base | `<ARENA_SRC>/isaaclab_arena_environments/example_environment_base.py` |
-| A complete working example | `<ARENA_SRC>/isaaclab_arena_environments/kitchen_pick_and_place/` |
-| Pose utility | `<ARENA_SRC>/isaaclab_arena/utils/pose.py` |
+---
 
-Use the kitchen_pick_and_place example as the primary reference for structure and import patterns.
+## API Quick Reference
+
+Use these embedded patterns to write all files. Do not re-read Arena source.
+
+### Asset registration
+
+```python
+# Background (static, no physics)
+from isaaclab_arena.assets.background_library import LibraryBackground
+from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.utils.pose import Pose
+
+@register_asset
+class MyBackground(LibraryBackground):
+    name = "my_background"          # registry key
+    tags = ["background"]
+    usd_path = "/container/path/bg.usd"
+    object_min_z = -0.2             # drop-reset height threshold
+    initial_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    def __init__(self):
+        super().__init__()
+
+
+# Object (dynamic / rigid — grasped or moved)
+from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_library import LibraryObject
+
+@register_asset
+class MyObject(LibraryObject):
+    name = "my_object"              # registry key
+    tags = ["object"]
+    usd_path = "/container/path/obj.usd"
+    # object_type defaults to ObjectType.RIGID — correct for graspable objects.
+    # If the USD has no rigid body physics, set object_type = ObjectType.BASE to avoid
+    # "No contact sensors added / no rigid bodies present" errors at sim start.
+
+    def __init__(self, instance_name=None, prim_path=None, initial_pose=None, scale=None):
+        super().__init__(instance_name=instance_name, prim_path=prim_path,
+                         initial_pose=initial_pose, scale=scale)
+```
+
+### Pose
+
+```python
+from isaaclab_arena.utils.pose import Pose, PoseRange
+
+# Fixed pose — all rotations are xyzw (x, y, z, w)
+Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+# Random pose range — rpy in radians
+PoseRange(
+    position_xyz_min=(-0.1, -0.1, 0.0),
+    position_xyz_max=( 0.1,  0.1, 0.0),
+    rpy_min=(0.0, 0.0, -3.14),
+    rpy_max=(0.0, 0.0,  3.14),
+)
+```
+
+### Termination functions
+
+```python
+# All from: isaaclab_arena.tasks.terminations
+from isaaclab_arena.tasks.terminations import (
+    object_on_destination,      # pick-and-place success
+    objects_on_destinations,    # multi-object variant
+    lift_object_il_success,     # lift to fixed goal position
+    objects_in_proximity,       # proximity-based success
+    goal_pose_task_termination, # goal pose with optional orientation check
+)
+
+# Signatures (key params):
+# object_on_destination(env, object_cfg, contact_sensor_cfg, force_threshold=1.0, velocity_threshold=0.5)
+# lift_object_il_success(env, object_cfg, goal_position, position_tolerance=0.05)
+# objects_in_proximity(env, object_cfg, target_object_cfg, max_y_separation, max_x_separation, max_z_separation)
+
+# Drop / failure (from isaaclab.envs.mdp):
+import isaaclab.envs.mdp as mdp_isaac_lab
+# mdp_isaac_lab.root_height_below_minimum(env, minimum_height, asset_cfg)
+# mdp_isaac_lab.time_out(env)
+```
+
+### Metrics
+
+```python
+from isaaclab_arena.metrics.success_rate import SuccessRateMetric        # always include
+from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric    # include when an object is manipulated
+
+# ObjectMovedRateMetric(object: Asset, object_velocity_threshold: float = 0.5)
+```
 
 ---
 
@@ -48,20 +127,20 @@ Use the kitchen_pick_and_place example as the primary reference for structure an
 Only needed if any asset in `scene_assets` has `"source": "custom"`.
 If all assets are built-in, write a one-line comment module.
 
-One constant per custom asset, using the `container_usd_path` from the spec.
+One constant per custom asset. Derive `container_usd_path` using the same rule as arena-install Step 1:
+find the first `extra_mounts` entry where `host_usd_path == mount["host"]` or
+`host_usd_path.startswith(mount["host"] + "/")`, then substitute:
+`container_usd_path = mount["container"] + host_usd_path[len(mount["host"]):]`.
+If no matching mount is found, warn the user and use `host_usd_path` as a fallback.
 
 ---
 
 ## Step 3 — Write `assets/background_library.py`
 
-For each `background` asset with `"source": "custom"`, register it with `@register_asset`.
-Use `AssetBaseCfg` (static, non-dynamic).
+For each `background` asset with `"source": "custom"`, register it with `@register_asset`
+using the `LibraryBackground` pattern from the API Quick Reference above.
 
 If no custom backgrounds exist, write a one-line comment module.
-
-Read `<ARENA_SRC>/isaaclab_arena/assets/register.py` and an existing library file
-(e.g. in `kitchen_pick_and_place`) for the exact `@register_asset` decorator signature and
-`get_scene_cfg()` return type.
 
 Conventions:
 - `prim_path` must start with `{ENV_REGEX_NS}/`
@@ -71,73 +150,213 @@ Conventions:
 
 ## Step 4 — Write `assets/object_library.py`
 
-For each `object` asset with `"source": "custom"`, register it with `@register_asset`.
+For each `object` asset with `"source": "custom"`, register it with `@register_asset`
+using the `LibraryObject` pattern from the API Quick Reference above.
 
-- **Static objects** (surfaces, boards — not grasped): use `AssetBaseCfg`
-- **Dynamic objects** (grasped, moved): use `RigidObjectCfg` with `activate_contact_sensors=True`
+`LibraryObject` defaults to `ObjectType.RIGID` (correct for graspable objects). If an object
+is purely static (a surface, board, fixture), set `object_type = ObjectType.BASE` on the class.
 
 If no custom objects exist, write a one-line comment module.
 
 ---
 
-## Step 5 — Write `embodiments/<project_name>_embodiment.py`
+## Step 5 — Embodiment (no custom file for standard cases)
 
-Look up the built-in embodiment class for the robot in the spec:
+No embodiment file is generated for standard cases. The embodiment is selected inline
+inside `get_env()` (see Step 7).
 
-```bash
-ls <ARENA_SRC>/isaaclab_arena/embodiments/
-```
-
-Read the matching embodiment file to find the exact class name and `__init__` signature.
-
-Subclass it with `@register_asset`:
-
-```python
-@register_asset
-class <ProjectName>Embodiment(<BuiltInClass>):
-    name = "<project_name>_embodiment"
-
-    def __init__(self, enable_cameras=False, initial_pose=None, **kwargs):
-        super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose, **kwargs)
-```
-
-**No-gripper robots** (`gr1_pink`, `g1_wbc_pink`, `kuka_allegro`, custom robots without gripper):
-also register a keyboard retargeter in the same file. Read
-`<ARENA_SRC>/isaaclab_arena/assets/register.py` for the `@register_retargeter` signature.
+Only create `<PKG>/embodiments/<project_name>_embodiment.py` if the spec requires a custom
+robot USD not available in the built-in registry. In that case read the built-in embodiment
+closest to the desired robot and subclass it.
 
 ---
 
 ## Step 6 — Write `tasks/<project_name>_task.py`
 
-Read `<ARENA_SRC>/isaaclab_arena/tasks/task_base.py` for the `TaskBase` interface.
+Always generate this file using the template below. Do not subclass a built-in task type —
+subclass `TaskBase` directly so the developer has full visibility of every extension point.
+Fill in `<ProjectName>` and the docstring from the spec.
 
-Derive the success function from `success_condition` in the spec:
-- EEF-to-object distance → check `ee_frame` vs `target` position
-- Height above surface → check `object.pos.z - surface.pos.z > threshold`
-- Object in region → check axis-aligned bounds
+```python
+from dataclasses import MISSING
 
-Always call `wp.to_torch()` on any `.data` field before indexing or arithmetic.
-Read `<ARENA_SRC>/isaaclab_arena/tasks/` for existing success function examples.
+import isaaclab.envs.mdp as mdp_isaac_lab
+from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.utils import configclass
 
-If `mimicgen == true`:
-- Read `<ARENA_SRC>/isaaclab_arena/` for `MimicEnvCfg`, `SubTaskConfig` usage
-- Do **not** add `generation_relative` or `generation_joint_pos` — these fields no longer exist
+from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.tasks.task_base import TaskBase
+
+
+@configclass
+class SceneCfg:
+    # TODO: add ContactSensorCfg fields for objects that need contact detection, e.g.:
+    # object_contact_sensor: ContactSensorCfg = MISSING
+    pass
+
+
+@configclass
+class RewardsCfg:
+    # TODO: add reward terms, e.g.:
+    # reaching_object: RewardTermCfg = RewardTermCfg(func=..., params={...}, weight=1.0)
+    pass
+
+
+@configclass
+class TerminationsCfg:
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
+    # TODO: add success and failure termination terms, e.g.:
+    # success: TerminationTermCfg = MISSING
+    # object_dropped: TerminationTermCfg = MISSING
+
+
+class <ProjectName>Task(TaskBase):
+    """<task description>"""
+
+    def __init__(self, scene_objects: list, background_scene, episode_length_s: float = 20.0, **kwargs):
+        super().__init__(episode_length_s=episode_length_s, **kwargs)
+        self.scene_objects = scene_objects
+        self.background_scene = background_scene
+        self.termination_cfg = self._make_termination_cfg()
+
+    def get_scene_cfg(self):
+        return SceneCfg()
+
+    def get_termination_cfg(self):
+        return self.termination_cfg
+
+    def get_rewards_cfg(self):
+        # TODO: implement reward terms
+        return RewardsCfg()
+
+    def get_events_cfg(self):
+        return None
+
+    def get_mimic_env_cfg(self, arm_mode):
+        return None
+
+    def get_metrics(self):
+        # TODO: add ObjectMovedRateMetric(obj) for each manipulated object
+        return [SuccessRateMetric()]
+
+    def _make_termination_cfg(self):
+        # TODO: implement success and failure conditions.
+        # Available termination functions (see API Quick Reference above):
+        #   object_on_destination, lift_object_il_success, objects_in_proximity, ...
+        return TerminationsCfg()
+```
+
+The `scene_objects` parameter is a placeholder list. Once the developer knows which objects
+need termination or reward logic, replace it with named parameters and wire up accordingly.
 
 ---
 
 ## Step 7 — Write `environments/<project_name>_environment.py`
 
-Read `<ARENA_SRC>/isaaclab_arena_environments/example_environment_base.py` for the
-`ExampleEnvironmentBase` interface (`get_env`, `add_cli_args`, `asset_registry`, `device_registry`).
+Use the template below. The output must be runnable immediately with `policy_runner.py`.
 
-Read a complete working environment (e.g. `kitchen_pick_and_place`) to understand the exact
-import pattern and assembly order.
-
-Rules that must be followed:
-1. **No top-level sim imports** — file is parsed before Isaac Sim starts; all Isaac Lab / warp / torch
-   imports must be inside `get_env()`.
-2. **Side-effect imports first** inside `get_env()` — library files must be imported before
+### Rules
+1. **No top-level sim imports** — the file is parsed before Isaac Sim starts; all Isaac Lab /
+   warp / torch imports must be inside `get_env()`.
+2. **Side-effect imports first** inside `get_env()` — import project library files before
    `get_asset_by_name()` so `@register_asset` decorators fire.
-3. **Embodiment NOT in Scene** — pass it to `IsaacLabArenaEnvironment` directly.
-4. **No-gripper teleop** — for robots without a gripper, use an inline `_KeyboardNoGripper`
-   class with `gripper_term=False` in `Se3KeyboardCfg`; do not use the device registry.
+3. **Embodiment NOT in Scene** — pass it directly to `IsaacLabArenaEnvironment`.
+
+### Template
+
+```python
+import argparse
+
+from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+
+class <ProjectName>Environment(ExampleEnvironmentBase):
+
+    name: str = "<project_name>"
+
+    def get_env(self, args_cli: argparse.Namespace):
+        import isaaclab.sim as sim_utils
+        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.scene.scene import Scene
+
+        from <project_name>.tasks.<project_name>_task import <ProjectName>Task
+
+        # Side-effect imports so @register_asset decorators fire (only if custom assets exist)
+        # from <project_name>.assets import background_library, object_library
+
+        # Step 1 — Retrieve assets
+        background = self.asset_registry.get_asset_by_name("<background_name>")()
+        object = self.asset_registry.get_asset_by_name(args_cli.object)()
+
+        # TODO: add spatial relationships (ObjectReference, On, IsAnchor, etc.)
+
+        # Step 2 — Lighting
+        light = self.asset_registry.get_asset_by_name("light")(
+            spawner_cfg=sim_utils.DomeLightCfg(intensity=args_cli.light_intensity),
+        )
+        if args_cli.hdr is not None:
+            light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
+
+        # Step 3 — Embodiment
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+            enable_cameras=args_cli.enable_cameras,
+        )
+
+        # Step 4 — Scene (do NOT add embodiment here)
+        scene = Scene(assets=[background, light, object])
+
+        # Step 5 — Task
+        task = <ProjectName>Task(
+            scene_objects=[object],
+            background_scene=background,
+            episode_length_s=20.0,
+        )
+
+        # Step 6 — Assemble
+        return IsaacLabArenaEnvironment(
+            name=self.name,
+            embodiment=embodiment,
+            scene=scene,
+            task=task,
+        )
+
+    @staticmethod
+    def add_cli_args(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--embodiment", type=str, default="<spec.robot>")
+        parser.add_argument("--teleop_device", type=str, default=None)
+        parser.add_argument("--hdr", type=str, default=None)
+        parser.add_argument("--light_intensity", type=float, default=500.0)
+        parser.add_argument("--object", type=str, default="<first_object_asset_name>")
+```
+
+Substitute all `<...>` placeholders from the spec:
+- `<background_name>`: name of the background asset (built-in or custom)
+- `<spec.robot>`: robot name from spec (e.g. `"franka_ik"`)
+- `<first_object_asset_name>`: name of the first object-type asset in `scene_assets`
+
+If the spec has multiple objects, add one `self.asset_registry.get_asset_by_name(...)()` call per object and append each to `scene_objects` and `Scene(assets=[...])`. Spatial relationships are left for the developer.
+
+---
+
+## Step 8 — Print the smoke-test command
+
+After all files are written, output the following command block so the user can immediately
+test the environment with a zero-action policy. Substitute `<project_name>` and
+`<ProjectName>` from the spec.
+
+```
+To smoke-test your environment, run:
+
+docker exec <project_name>-latest bash -c \
+  "cd /workspaces/isaaclab_arena && \
+   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+   --policy_type zero_action \
+   --num_steps 50 \
+   --external_environment_class_path \
+     <project_name>.environments.<project_name>_environment:<ProjectName>Environment \
+   <project_name>"
+```
+
+If the container is not yet running, use `/arena-verify <spec_path>` which starts the
+container, installs the package, and runs this test automatically.

@@ -13,14 +13,13 @@
       "type": "background",
       "_type_options": ["background", "object"],
       "source": "built-in",
-      "_source_note": "Use 'built-in' OR provide host_usd_path + container_usd_path for custom assets"
+      "_source_note": "Use 'built-in' OR provide host_usd_path for custom assets. The container path is derived automatically from extra_mounts."
     },
     {
       "name": "my_object",
       "type": "object",
       "source": "custom",
-      "host_usd_path": "/home/user/assets/my_object.usd",
-      "container_usd_path": "/workspaces/assets/my_object.usd"
+      "host_usd_path": "/home/user/assets/my_object.usd"
     }
   ],
 
