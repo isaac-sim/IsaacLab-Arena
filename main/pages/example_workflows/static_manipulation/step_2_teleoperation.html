@@ -28,8 +28,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../_static/styles/theme.css?digest=7f76b32a3354e82990f2" rel="stylesheet" />
-<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=7f76b32a3354e82990f2" rel="stylesheet" />
+  <link href="../../../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
@@ -38,10 +38,10 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../_static/scripts/fontawesome.js?digest=7f76b32a3354e82990f2"></script>
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=7f76b32a3354e82990f2" />
-<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=7f76b32a3354e82990f2" />
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
 
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
@@ -79,7 +79,9 @@
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -537,6 +539,16 @@ sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </s
 </ol>
 </div>
 </div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
+To accept the EULA, reply <code class="docutils literal notranslate"><span class="pre">Yes</span></code> when prompted with the below message:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>NVIDIA<span class="w"> </span>CloudXR<span class="w"> </span>EULA<span class="w"> </span>must<span class="w"> </span>be<span class="w"> </span>accepted<span class="w"> </span>to<span class="w"> </span>run.<span class="w"> </span>View:<span class="w"> </span>https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
+
+Accept<span class="w"> </span>NVIDIA<span class="w"> </span>CloudXR<span class="w"> </span>EULA?<span class="w"> </span><span class="o">[</span>y/N<span class="o">]</span>:<span class="w"> </span>Yes
+</pre></div>
+</div>
+</div>
 </section>
 <section id="step-2-start-recording">
 <h2>Step 2: Start Recording<a class="headerlink" href="#step-2-start-recording" title="Link to this heading">#</a></h2>
@@ -567,6 +579,12 @@ and <em>before</em> you start the Arena app. The Arena app must inherit the Isaa
 <span class="w">  </span>--teleop_device<span class="w"> </span>openxr
 </pre></div>
 </div>
+</li>
+<li><p>In the running application, start the session from the <strong>XR</strong> tab in the application window.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../../_images/xr_start_button.png"><img alt="Start XR button in the XR tab" src="../../../_images/xr_start_button.png" style="width: 55%;" />
+</a>
+</figure>
 </li>
 </ol>
 </section>
@@ -736,8 +754,8 @@ at <code class="docutils literal notranslate"><span class="pre">$DATASET_DIR/are
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../_static/scripts/bootstrap.js?digest=7f76b32a3354e82990f2"></script>
-<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=7f76b32a3354e82990f2"></script>
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
