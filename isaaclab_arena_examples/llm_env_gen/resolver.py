@@ -21,6 +21,14 @@ from isaaclab_arena.assets.registries import AssetRegistry
 
 from .schema import Item, SceneSpec
 
+# When the LLM emits a bare robot family name, pick the IK variant.
+IK_DEFAULTS: dict[str, str] = {
+    "franka": "franka_ik",
+    "droid": "droid_differential_ik",
+    "g1": "g1_wbc_pink",
+    "gr1": "gr1_pink",
+}
+
 
 @dataclass
 class TraceEvent:
@@ -48,10 +56,11 @@ class Resolver:
     Design notes:
       * Never raises on LLM mistakes — instead records a trace event with
         chosen=None so the caller can decide (retry LLM, ask user, fall back).
-      * Exact name match wins. Otherwise we search by tag intersection, then
-        fuzzy-match within that pool. This keeps category constraints hard
-        (a "vegetable" slot never gets resolved to a power drill) while still
-        tolerating noisy LLM strings.
+      * Exact name match wins. Otherwise substring containment, then difflib
+        fuzzy, within a tag-filtered pool.
+      * category_tags is a PREFERENCE, not a hard filter: if the tag pool is
+        empty or yields no close match, we relax to the full object pool and
+        record the relaxation in the trace.
     """
 
     def __init__(self, registry: AssetRegistry | None = None):
@@ -85,25 +94,63 @@ class Resolver:
     # ------------------------------------------------------------------
 
     def _resolve_item(self, item: Item, trace: list[TraceEvent]) -> type | None:
-        # 1. exact name hit
         if self.registry.is_registered(item.query):
-            cls = self.registry.get_asset_by_name(item.query)
             trace.append(TraceEvent("item.exact", item.query, item.query))
+            return self.registry.get_asset_by_name(item.query)
+
+        object_pool = self._pool_for(["object"])
+
+        if item.category_tags:
+            pool = self._pool_for(item.category_tags)
+            if not pool:
+                trace.append(
+                    TraceEvent(
+                        "item.tag_pool_empty",
+                        item.query,
+                        None,
+                        note=f"no assets matched tags={item.category_tags}; relaxing to objects",
+                    )
+                )
+            else:
+                cls = self._best_match(item.query, pool, trace, stage_prefix="item.in_tags", note=f"tags={item.category_tags}")
+                if cls is not None:
+                    return cls
+                trace.append(
+                    TraceEvent(
+                        "item.no_match_in_tags",
+                        item.query,
+                        None,
+                        candidates=pool[:10],
+                        note=f"tags={item.category_tags}; relaxing to objects",
+                    )
+                )
+
+        cls = self._best_match(
+            item.query, object_pool, trace, stage_prefix="item.relaxed", note="closest object; category ignored"
+        )
+        if cls is not None:
             return cls
 
-        # 2. tag-filtered pool
-        pool = self._pool_for(item.category_tags) if item.category_tags else self.registry.get_all_keys()
+        trace.append(TraceEvent("item.miss", item.query, None, candidates=object_pool[:10]))
+        return None
 
-        # 3. fuzzy match within the pool
-        matches = get_close_matches(item.query, pool, n=3, cutoff=0.4)
-        if matches:
-            chosen = matches[0]
+    def _best_match(
+        self, query: str, pool: list[str], trace: list[TraceEvent], stage_prefix: str, note: str
+    ) -> type | None:
+        """Prefer substring containment (e.g. 'bowl' → 'bowl_ycb_robolab'), then difflib fuzzy."""
+        q = query.lower()
+        substrs = [p for p in pool if q in p.lower()]
+        if substrs:
+            chosen = min(substrs, key=len)
             trace.append(
-                TraceEvent("item.fuzzy", item.query, chosen, candidates=matches, note=f"tags={item.category_tags}")
+                TraceEvent(f"{stage_prefix}.substring", query, chosen, candidates=substrs[:5], note=note)
             )
             return self.registry.get_asset_by_name(chosen)
 
-        trace.append(TraceEvent("item.miss", item.query, None, candidates=pool[:10]))
+        matches = get_close_matches(query, pool, n=3, cutoff=0.5)
+        if matches:
+            trace.append(TraceEvent(f"{stage_prefix}.fuzzy", query, matches[0], candidates=matches, note=note))
+            return self.registry.get_asset_by_name(matches[0])
         return None
 
     def _pool_for(self, tags: list[str]) -> list[str]:
@@ -139,9 +186,17 @@ class Resolver:
         if self.registry.is_registered(name):
             trace.append(TraceEvent("embodiment.exact", name, name))
             return name
-        # Fuzzy match against anything that starts with a known prefix —
-        # franka, gr1, g1, droid, galbot, kuka_allegro, agibot.
-        matches = get_close_matches(name, self.registry.get_all_keys(), n=3, cutoff=0.5)
+
+        lower = name.lower()
+        if lower in IK_DEFAULTS:
+            chosen = IK_DEFAULTS[lower]
+            trace.append(
+                TraceEvent("embodiment.ik_default", name, chosen, note=f"bare family {name!r} → IK variant")
+            )
+            return chosen
+
+        embodiment_pool = self._pool_for(["embodiment"])
+        matches = get_close_matches(name, embodiment_pool, n=3, cutoff=0.5)
         if matches:
             trace.append(TraceEvent("embodiment.fuzzy", name, matches[0], candidates=matches))
             return matches[0]

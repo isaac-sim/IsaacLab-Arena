@@ -15,8 +15,6 @@ from __future__ import annotations
 import json
 import os
 
-from openai import OpenAI
-
 from .schema import SceneSpec
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
@@ -60,6 +58,8 @@ class LLMAgent:
         model: str = DEFAULT_MODEL,
         base_url: str = DEFAULT_BASE_URL,
     ):
+        from openai import OpenAI
+
         self.api_key = api_key or os.getenv("NV_API_KEY")
         assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
         self.model = model
@@ -101,16 +101,20 @@ class LLMAgent:
             "You are a scene-generation parser for robot manipulation tasks.\n"
             "Convert a natural-language prompt into a SceneSpec JSON object that matches the schema below.\n\n"
             "RULES:\n"
-            "- item.query: short human name from the prompt (e.g. 'avocado', 'bowl'). The resolver will fuzzy-match\n"
-            "  it against the OBJECTS catalog; you do NOT need to emit the exact registered name.\n"
-            "- item.role: 'foreground' for task-relevant objects named in the prompt; 'distractor' for extras;\n"
-            "  'anchor' for reference surfaces (rare — usually the background handles this).\n"
-            "- item.category_tags: constrain the asset pool. Use ONLY tags that appear in the OBJECTS catalog\n"
-            "  (e.g. ['vegetable'], ['fruit'], ['graspable']). For distractors where the prompt says 'veggies',\n"
-            "  emit one Item per distractor slot with category_tags=['vegetable'].\n"
-            "- relation.kind ∈ {on, next_to, at_position, is_anchor}. subject/target reference items by their\n"
-            "  query string, or the background name.\n"
-            "- Default embodiment is 'franka_ik' unless the prompt specifies a robot with a different control mode.\n"
+            "- item.query: the short human name as it appears in the prompt (e.g. 'avocado', 'bowl').\n"
+            "  The resolver fuzzy-matches this against the OBJECTS catalog; you do NOT need to emit the\n"
+            "  exact registered name.\n"
+            "- item.role: 'foreground' for objects the task acts on; 'distractor' for extras mentioned as\n"
+            "  clutter; 'anchor' for reference surfaces (rare — the background usually covers this).\n"
+            "- item.category_tags: tags that semantically narrow the query, preferring assets with those\n"
+            "  tags. This is a PREFERENCE, not a hard filter — the resolver will fall back to the full\n"
+            "  catalog if the tag pool is empty or yields no close match. Err toward emitting useful tags;\n"
+            "  the trace will report what was relaxed.\n"
+            "- relation.kind ∈ {on, next_to, at_position, is_anchor}. subject/target reference items by\n"
+            "  their query string, or the background name.\n"
+            "- embodiment: use a bare robot family name ('franka', 'droid', 'g1', 'gr1') when the prompt\n"
+            "  does not specify a control mode — the resolver defaults each to its IK variant. Use a\n"
+            "  full registered name (e.g. 'franka_joint_pos') only when the prompt requests joint control.\n"
             "- Emit ONLY the JSON object. No prose, no markdown fences.\n\n"
             f"SCHEMA:\n{schema}"
         )
