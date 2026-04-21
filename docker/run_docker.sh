@@ -171,6 +171,12 @@ else
         fi
     fi
 
+    # pass through API keys used by the LLM scene-gen prototype; values are
+    # inherited from the host shell so the key never lives in the repo.
+    if [ -n "$NV_API_KEY" ]; then
+        DOCKER_RUN_ARGS+=("--env" "NV_API_KEY")
+    fi
+
     # if gr00t is installed, mount the gr00t directory in case anything needs to change there
     if [ "$INSTALL_GROOT" = "true" ]; then
         DOCKER_RUN_ARGS+=("-v" "./submodules/Isaac-GR00T:${WORKDIR}/submodules/Isaac-GR00T")
