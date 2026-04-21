@@ -38,6 +38,12 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--print-schema", action="store_true")
     parser.add_argument("--print-catalog", action="store_true")
+    parser.add_argument(
+        "--write-env",
+        type=str,
+        default=None,
+        help="After resolving, write an auto-generated env.py with NoTask to this path.",
+    )
     args = parser.parse_args()
 
     from isaaclab_arena_examples.llm_env_gen.schema import SceneSpec
@@ -99,6 +105,12 @@ def main() -> None:
         chosen = t.chosen if t.chosen is not None else "<none>"
         extra = f"  [{t.note}]" if t.note else ""
         print(f"  {t.stage:34s} {t.query!s:24s} -> {chosen}{extra}")
+
+    if args.write_env:
+        from isaaclab_arena_examples.llm_env_gen.env_writer import write_env
+
+        written = write_env(resolved, spec, args.write_env)
+        print(f"\n=== wrote env to {written} ===")
 
 
 if __name__ == "__main__":
