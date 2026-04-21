@@ -62,6 +62,32 @@ def main() -> None:
     print("\n=== parsed SceneSpec ===")
     print(spec.model_dump_json(indent=2))
 
+    from isaaclab_arena_examples.llm_env_gen.resolver import Resolver
+
+    resolved = Resolver().resolve(spec)
+
+    bg = resolved.background.name if resolved.background else "<miss>"
+    print("\n=== resolved bindings ===")
+    print(f"background : {bg}")
+    print(f"embodiment : {resolved.embodiment_name}")
+    print("items:")
+    for key, cls in resolved.items.items():
+        print(f"  {key:20s} -> {cls.name}")
+
+    print("\n=== initial_scene_graph (resolved) ===")
+    for rel in resolved.initial_scene_graph:
+        print(f"  {rel['kind']}({rel['subject']}, {rel['target']})")
+
+    print("\n=== final_scene_graph (resolved) ===")
+    for rel in resolved.final_scene_graph:
+        print(f"  {rel['kind']}({rel['subject']}, {rel['target']})")
+
+    print("\n=== trace ===")
+    for t in resolved.trace:
+        chosen = t.chosen if t.chosen is not None else "<none>"
+        extra = f"  [{t.note}]" if t.note else ""
+        print(f"  {t.stage:34s} {t.query!s:24s} -> {chosen}{extra}")
+
 
 if __name__ == "__main__":
     main()
