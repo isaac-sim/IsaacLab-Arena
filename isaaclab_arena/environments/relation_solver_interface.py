@@ -59,6 +59,7 @@ def solve_and_apply_relation_placement(
         objects=objects,
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
+        num_envs=num_envs,
     )
     return _apply_relation_placement_result(
         objects=objects,
