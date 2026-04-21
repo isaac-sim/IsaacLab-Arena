@@ -13,10 +13,16 @@ Example:
     --num_envs 16 --env_spacing 4.0 --enable_cameras gr1_table_multi_object_no_collision --embodiment gr1_joint
 """
 
+from __future__ import annotations
+
 import argparse
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 DEFAULT_TABLE_OBJECTS = [
     "cracker_box",
@@ -40,7 +46,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
 
     name: str = "gr1_table_multi_object_no_collision"
 
-    def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On

@@ -29,10 +29,6 @@ Summary
      - Multiple jobs (env/policy combos) in sequence
      - ``eval_runner.py``
      - No
-   * - Server–client
-     - Policy runs in separate process/machine
-     - Policy runner + remote server
-     - Depends on client
 
 1. Policy runner — single job (single GPU and multi-GPU)
 --------------------------------------------------------
@@ -287,5 +283,3 @@ Choosing an evaluation type
   use ``--object_set`` for heterogeneous objects in one run.
 - **Many env/policy combinations in one go**: use the **sequential batch eval
   runner** with a jobs JSON; use ``--object_set`` for heterogeneous objects in one run.
-- **Heavy model on another machine or process**: use **server–client** with the
-  policy runner on the client and a remote policy server.
