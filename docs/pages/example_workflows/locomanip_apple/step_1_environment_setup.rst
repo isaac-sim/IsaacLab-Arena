@@ -32,7 +32,7 @@ matter of passing the right asset names — no separate environment class is nee
            def get_env(self, args_cli: argparse.Namespace):
                from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
                from isaaclab_arena.scene.scene import Scene
-               from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
+               from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceTask
                from isaaclab_arena.utils.pose import Pose, PoseRange
 
                background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
@@ -63,7 +63,7 @@ matter of passing the right asset names — no separate environment class is nee
                embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
                scene = Scene(assets=[background, pick_up_object, destination])
-               task = G1LocomanipPickAndPlaceTask(pick_up_object, destination, background)
+               task = LocomanipPickAndPlaceTask(pick_up_object, destination, background)
 
                isaaclab_arena_environment = IsaacLabArenaEnvironment(
                    name=self.name,
@@ -144,12 +144,13 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 
 .. code-block:: python
 
-    task = G1LocomanipPickAndPlaceTask(pick_up_object, destination, background)
+    task = LocomanipPickAndPlaceTask(pick_up_object, destination, background)
 
-We reuse the same ``G1LocomanipPickAndPlaceTask`` as the box/bin workflow. The task takes the pick-up object and
+We reuse the same ``LocomanipPickAndPlaceTask`` as the box/bin workflow. The task takes the pick-up object and
 destination as constructor arguments, so swapping the apple and plate in for the box and bin works without
-any task-class changes. Internally, the task passes ``pick_up_object.name`` through to the Isaac Lab Mimic
-configuration so that data generation references the correct object frame.
+any task-class changes. Internally, the task passes both ``pick_up_object.name`` and
+``destination_location.name`` through to the Isaac Lab Mimic configuration so that data generation references
+the correct object frame and resolves a unique ``datagen_config.name`` per ``(object, destination)`` pair.
 
 See :doc:`../../concepts/task/index` for task creation details.
 
@@ -174,19 +175,23 @@ See :doc:`../../concepts/concept_overview` for environment composition details.
 Step 1: Validate Environment with Automated Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A dedicated pytest module covers the apple-to-plate environment: it asserts that the task does not
-terminate when the apple is at its initial pose, that the success termination fires when the apple is
-teleported onto the plate, and that the Isaac Lab Mimic config correctly references the apple asset
-across all subtask configurations.
+A dedicated pytest module covers the apple-to-plate environment. It asserts that (i) the task does not
+terminate when the apple is at its initial pose, (ii) the success termination fires when the apple is
+teleported onto the plate, (iii) the Isaac Lab Mimic config correctly references both the apple object
+and plate destination across all subtask configurations and its datagen key, (iv) the legacy
+``(brown_box, blue_sorting_bin)`` pair still resolves to the preserved ``"locomanip_pick_and_place_D0"``
+datagen name, and (v) any non-legacy ``brown_box`` pair (e.g. ``brown_box`` + plate) is routed to a
+distinct templated datagen name so parallel Mimic runs cannot overwrite the box-to-bin dataset.
 
 .. code-block:: bash
 
    python -m pytest isaaclab_arena/tests/test_g1_locomanip_apple_to_plate.py -v
 
-You should see all three tests pass. The simulation-based tests
+You should see all five tests pass. The simulation-based tests
 (``test_initial_state_not_terminated`` and ``test_apple_on_plate_succeeds``) run headless with cameras
-enabled and take around a minute each. This is the fastest way to confirm the scene, task, and Mimic
-config are wired up correctly without requiring teleoperation hardware.
+enabled and take around a minute each; the three Mimic config tests are lightweight and complete in a
+few seconds. This is the fastest way to confirm the scene, task, and Mimic config are wired up
+correctly without requiring teleoperation hardware.
 
 
 Step 2: Validate Environment with Demo Replay (Optional)

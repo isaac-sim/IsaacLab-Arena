@@ -109,11 +109,15 @@ You can remove ``--headless`` and add ``--viz kit``
 
 .. note::
 
-   Mimic relies on the ``pick_up_object_name`` field of ``G1LocomanipPickPlaceMimicEnvCfg`` to know
-   which object frame to use in its subtask configuration. The loco-manip task plumbs
-   ``pick_up_object.name`` through to the Mimic config automatically, so the same ``generate_dataset.py``
-   command that works for the brown-box workflow works here — just with ``apple_01_objaverse_robolab``
-   instead of ``brown_box``.
+   Mimic relies on the ``pick_up_object_name`` and ``destination_name`` fields of
+   ``LocomanipPickAndPlaceMimicEnvCfg`` to know which object and destination frames to use in its
+   subtask configuration, and to derive a unique ``datagen_config.name`` per
+   ``(object, destination)`` pair. The loco-manip task plumbs ``pick_up_object.name`` and
+   ``destination_location.name`` through to the Mimic config automatically, so the same
+   ``generate_dataset.py`` command that works for the brown-box + blue-bin workflow works here — just
+   with ``apple_01_objaverse_robolab`` and ``clay_plates_hot3d_robolab``. The apple-to-plate dataset
+   is written under a distinct templated datagen key, so it does not overwrite the brown-box dataset
+   that keeps the preserved ``"locomanip_pick_and_place_D0"`` name.
 
 
 Step 3: Validate Generated Dataset (Optional)

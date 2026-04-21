@@ -180,8 +180,11 @@ and the number of episodes is more than the single environment evaluation becaus
 
    Because the apple is smaller and rounder than the brown box, and the plate is flat rather than a
    deep bin, the apple-to-plate task is typically harder than the box-to-bin task. The environment
-   passes tighter 10 cm proximity thresholds on all three axes for the apple-on-plate success
-   condition, since the box-to-bin defaults (26 cm along x) are too loose for a ~30 cm plate.
-   If you need to override these for a different apple/plate combination, see the
-   ``max_x_separation`` / ``max_y_separation`` / ``max_z_separation`` kwargs on
-   ``G1LocomanipPickAndPlaceTask`` in ``isaaclab_arena/tasks/g1_locomanip_pick_and_place_task.py``.
+   passes a tighter 10 cm Euclidean ``success_proximity_max_distance`` around the plate for the
+   apple-on-plate success condition; the box-to-bin default (contact-sensor-only, i.e.
+   ``success_proximity_max_distance=0.0``) is too permissive for a ~30 cm plate footprint.
+   If you need to tune this for a different apple/plate combination, see the
+   ``_SUCCESS_PROXIMITY_OVERRIDES_M`` dict in
+   ``isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py``, which maps
+   ``(--object, --destination)`` pairs to the ``success_proximity_max_distance`` scalar that the
+   environment forwards to ``LocomanipPickAndPlaceTask``.
