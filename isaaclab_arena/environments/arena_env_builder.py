@@ -99,6 +99,7 @@ class ArenaEnvBuilder:
             objects=objects_with_relations,
             placer_params=placer_params,
             pool_size=pool_size,
+            num_envs=num_envs,
         )
 
         if placer_params.resolve_on_reset:

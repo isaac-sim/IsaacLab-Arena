@@ -47,7 +47,7 @@ def solve_and_place_objects(
         return
 
     num_reset_envs = len(env_ids)
-    results_per_env = placement_pool.sample_without_replacement(num_reset_envs)
+    results_per_env = placement_pool.sample_without_replacement(num_reset_envs, env_ids=env_ids)
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
