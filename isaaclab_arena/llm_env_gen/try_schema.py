@@ -10,13 +10,13 @@ NV_API_KEY and the `openai` pip package.
 
 Examples:
     # Print the Pydantic SceneSpec JSON schema (no LLM call):
-    /isaac-sim/python.sh -m isaaclab_arena_examples.llm_env_gen.try_schema --print-schema
+    /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema --print-schema
 
     # Print the catalog sent to the LLM (no LLM call):
-    /isaac-sim/python.sh -m isaaclab_arena_examples.llm_env_gen.try_schema --print-catalog
+    /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema --print-catalog
 
     # Call the LLM and print the parsed SceneSpec:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.llm_env_gen.try_schema \
+    /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema \
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
 
@@ -46,13 +46,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from isaaclab_arena_examples.llm_env_gen.schema import SceneSpec
+    from isaaclab_arena.llm_env_gen.schema import SceneSpec
 
     if args.print_schema:
         print(json.dumps(SceneSpec.model_json_schema(), indent=2))
         return
 
-    from isaaclab_arena_examples.llm_env_gen.llm_agent import LLMAgent, build_catalog_text
+    from isaaclab_arena.llm_env_gen.llm_agent import LLMAgent, build_catalog_text
 
     catalog = build_catalog_text()
     if args.print_catalog:
@@ -68,7 +68,7 @@ def main() -> None:
     print("\n=== parsed SceneSpec ===")
     print(spec.model_dump_json(indent=2))
 
-    from isaaclab_arena_examples.llm_env_gen.resolver import Resolver
+    from isaaclab_arena.llm_env_gen.resolver import Resolver
 
     resolved = Resolver().resolve(spec)
 
@@ -107,7 +107,7 @@ def main() -> None:
         print(f"  {t.stage:34s} {t.query!s:24s} -> {chosen}{extra}")
 
     if args.write_env:
-        from isaaclab_arena_examples.llm_env_gen.env_writer import write_env
+        from isaaclab_arena.llm_env_gen.env_writer import write_env
 
         written = write_env(resolved, spec, args.write_env)
         print(f"\n=== wrote env to {written} ===")
