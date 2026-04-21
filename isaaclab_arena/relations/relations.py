@@ -126,6 +126,14 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
+# TODO: Implement an `In` / containment relation (e.g. "avocado in bowl"). Used
+# by the LLM scene-gen prototype as a goal-phase success condition — it must
+# not constrain initial placement. A solver variant would need a loss that
+# rewards the child's XY staying inside the parent's opening footprint and Z
+# below the parent's rim, plus an IsInside predicate for task success checks.
+# See isaaclab_arena_examples/llm_env_gen/schema.py RelationKind "in".
+
+
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 

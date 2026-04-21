@@ -215,8 +215,24 @@ class Resolver:
             if rel.target is not None and rel.target not in known:
                 trace.append(TraceEvent("relation.unknown_target", rel.target, None, note=rel.kind))
                 continue
+            if rel.kind == "in" and rel.phase == "initial":
+                trace.append(
+                    TraceEvent(
+                        "relation.in_initial_skipped",
+                        rel.subject,
+                        rel.target,
+                        note="'in' has no initial-phase semantics; builder will skip. Did you mean phase='goal'?",
+                    )
+                )
+                continue
             resolved.append(
-                {"kind": rel.kind, "subject": rel.subject, "target": rel.target, "params": rel.params}
+                {
+                    "kind": rel.kind,
+                    "subject": rel.subject,
+                    "target": rel.target,
+                    "phase": rel.phase,
+                    "params": rel.params,
+                }
             )
-            trace.append(TraceEvent("relation.ok", rel.subject, rel.target, note=rel.kind))
+            trace.append(TraceEvent("relation.ok", rel.subject, rel.target, note=f"{rel.kind}/{rel.phase}"))
         return resolved

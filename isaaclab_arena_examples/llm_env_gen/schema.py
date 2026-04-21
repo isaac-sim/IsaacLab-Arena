@@ -19,8 +19,15 @@ from pydantic import BaseModel, Field
 
 # Relation kinds currently surfaced to the LLM. Mirror the subset of
 # isaaclab_arena.relations.relations that makes sense for tabletop prompts.
-# Extend as more relations are validated end-to-end.
-RelationKind = Literal["on", "next_to", "at_position", "is_anchor"]
+# "in" has no In class in isaaclab_arena.relations.relations yet — see the
+# TODO there. Scene builders should skip initial-phase "in" relations and
+# materialize goal-phase "in" as the task's success predicate only.
+RelationKind = Literal["on", "in", "next_to", "at_position", "is_anchor"]
+
+# "initial" relations configure the starting scene. "goal" relations are the
+# task's success condition and must NOT affect initial placement (e.g. the
+# avocado starts on the table; it is "in" the bowl only at goal time).
+RelationPhase = Literal["initial", "goal"]
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
@@ -41,11 +48,19 @@ class Item(BaseModel):
 
 
 class Relation(BaseModel):
-    """A spatial / structural relation between two items (or on one item)."""
+    """A spatial / structural relation between two items (or on one item).
+
+    `phase` distinguishes the starting scene from the task's success condition:
+      * "initial" — placement at env reset. Affects where the object spawns.
+      * "goal" — must hold for the task to be considered complete. Does NOT
+        affect initial placement; the builder feeds it to the task as the
+        success predicate.
+    """
 
     kind: RelationKind
     subject: str
     target: str | None = None
+    phase: RelationPhase = "initial"
     params: dict = Field(default_factory=dict)
 
 
