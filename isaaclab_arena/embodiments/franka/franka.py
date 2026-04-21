@@ -28,11 +28,11 @@ from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab_assets.robots.franka import FRANKA_PANDA_CFG, FRANKA_PANDA_HIGH_PD_CFG
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.observations import ee_frame_pos, ee_frame_quat
 
-from isaaclab_arena.assets.object_library import ISAACLAB_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
@@ -47,9 +47,7 @@ _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw
 # This is not ideal but currently required by the ObjectPlacementSolver to handle the robot placement correctly.
 # TODO(cvolk): Move to the IsaacLab supported FRANKA_CFG and handle the handling of the stand internally.
 _FRANKA_IK_REL_CFG = FRANKA_PANDA_HIGH_PD_CFG.copy()
-_FRANKA_IK_REL_CFG.spawn.usd_path = (
-    f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
-)
+_FRANKA_IK_REL_CFG.spawn.usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/franka_panda_hand_on_stand.usd"
 
 # Standard-PD Franka for joint-position control.
 # Uses FRANKA_PANDA_CFG (gravity on, stiffness=80, damping=4) instead of HIGH_PD.
