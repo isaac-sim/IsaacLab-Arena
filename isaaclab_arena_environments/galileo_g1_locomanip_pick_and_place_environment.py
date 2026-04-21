@@ -16,6 +16,30 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+# Exact task description used by the v0.2 workflow for brown-box-to-blue-bin. Preserved verbatim
+# so the pretrained gr00t model that was SQA'd against this wording keeps bit-identical behavior.
+_LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION = (
+    "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the"
+    " right of the shelf."
+)
+
+# Tighter proximity guard (in meters) for apple-on-plate success. The Hot3D clay plate measures
+# ~30 cm in diameter, and since ``PickAndPlaceTask`` uses an Euclidean ``success_proximity_max_distance``
+# around the destination, 10 cm keeps the apple inside the plate footprint while leaving margin
+# for the contact sensor's spurious long-range readings on the GPU physics pipeline.
+_APPLE_ON_PLATE_SUCCESS_PROXIMITY_M = 0.10
+
+# Per-``(--object, --destination)`` overrides for the task's success proximity threshold. Any pair
+# not listed here falls through to ``PickAndPlaceTask``'s default (``success_proximity_max_distance=0.0``,
+# i.e. contact sensor only, which is what brown_box + blue_sorting_bin ships with on main). All
+# registered Objaverse apple variants share the plate override since the success footprint is
+# driven by the plate, not the apple shape.
+_SUCCESS_PROXIMITY_OVERRIDES_M: dict[tuple[str, str], float] = {
+    ("apple_01_objaverse_robolab", "clay_plates_hot3d_robolab"): _APPLE_ON_PLATE_SUCCESS_PROXIMITY_M,
+    ("apple_02_objaverse_robolab", "clay_plates_hot3d_robolab"): _APPLE_ON_PLATE_SUCCESS_PROXIMITY_M,
+}
+
+
 @register_environment
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
@@ -29,7 +53,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
+        destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
         if args_cli.teleop_device is not None:
@@ -47,7 +71,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        blue_sorting_bin.set_initial_pose(
+        destination.set_initial_pose(
             Pose(
                 position_xyz=(-0.2450, -1.6272, -0.2641),
                 rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
@@ -77,22 +101,36 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 ([-0.0955, -1.1070, -1.78], False),
             ]
 
-        scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
+        if args_cli.task_description is not None:
+            task_description = args_cli.task_description
+        elif args_cli.object == "brown_box" and args_cli.destination == "blue_sorting_bin":
+            task_description = _LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION
+        else:
+            object_label = args_cli.object.replace("_", " ")
+            destination_label = args_cli.destination.replace("_", " ")
+            task_description = (
+                f"Pick up the {object_label} from the shelf, and place it on the {destination_label} on the table"
+                " located at the right of the shelf."
+            )
+
+        success_proximity_max_distance = _SUCCESS_PROXIMITY_OVERRIDES_M.get(
+            (args_cli.object, args_cli.destination), 0.0
+        )
+
+        scene = Scene(assets=[background, pick_up_object, destination])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
             task=LocomanipPickAndPlaceTask(
                 pick_up_object,
-                blue_sorting_bin,
+                destination,
                 background,
                 episode_length_s=30.0,
-                task_description=(
-                    "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the"
-                    " right of the shelf."
-                ),
+                task_description=task_description,
                 force_threshold=0.5,
                 velocity_threshold=0.1,
+                success_proximity_max_distance=success_proximity_max_distance,
             ),
             teleop_device=teleop_device,
         )
@@ -101,5 +139,15 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--object", type=str, default="brown_box")
+        parser.add_argument("--destination", type=str, default="blue_sorting_bin")
         parser.add_argument("--embodiment", type=str, default="g1_wbc_pink")
         parser.add_argument("--teleop_device", type=str, default=None)
+        parser.add_argument(
+            "--task_description",
+            type=str,
+            default=None,
+            help=(
+                "Override the natural-language task description. Defaults to a template derived from --object "
+                "and --destination."
+            ),
+        )

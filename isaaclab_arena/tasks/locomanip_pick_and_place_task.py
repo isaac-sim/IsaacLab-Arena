@@ -10,6 +10,16 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
+# The v0.2 brown-box-to-blue-bin workflow was SQA'd against this exact datagen name and object /
+# destination identifiers. We preserve the datagen name verbatim for that specific ``(pick_up_object,
+# destination)`` pair so existing Mimic datasets and policy checkpoints keyed on it keep resolving
+# after this PR. Any other pair -- including ``brown_box`` against a non-default destination -- gets
+# a templated name that includes both the object and the destination, so Mimic runs for
+# e.g. ``brown_box`` + plate vs ``brown_box`` + bin don't collide on one shared dataset key.
+_LEGACY_DATAGEN_NAME = "locomanip_pick_and_place_D0"
+_LEGACY_PICK_UP_OBJECT_NAME = "brown_box"
+_LEGACY_DESTINATION_NAME = "blue_sorting_bin"
+
 
 class LocomanipPickAndPlaceTask(PickAndPlaceTask):
 
@@ -22,6 +32,7 @@ class LocomanipPickAndPlaceTask(PickAndPlaceTask):
         task_description: str | None = None,
         force_threshold: float = 1.0,
         velocity_threshold: float = 0.1,
+        success_proximity_max_distance: float = 0.0,
     ):
         super().__init__(
             pick_up_object=pick_up_object,
@@ -31,6 +42,7 @@ class LocomanipPickAndPlaceTask(PickAndPlaceTask):
             task_description=task_description,
             force_threshold=force_threshold,
             velocity_threshold=velocity_threshold,
+            success_proximity_max_distance=success_proximity_max_distance,
         )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
@@ -39,6 +51,7 @@ class LocomanipPickAndPlaceTask(PickAndPlaceTask):
         assert arm_mode == ArmMode.DUAL_ARM, "Locomanip pick and place task only supports dual arm mode"
         return LocomanipPickAndPlaceMimicEnvCfg(
             pick_up_object_name=self.pick_up_object.name,
+            destination_name=self.destination_location.name,
         )
 
 
@@ -48,13 +61,23 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for G1 Locomanip Pick and Place env.
     """
 
-    pick_up_object_name: str = "pick_up_object"
+    pick_up_object_name: str = _LEGACY_PICK_UP_OBJECT_NAME
+    destination_name: str = _LEGACY_DESTINATION_NAME
 
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
 
-        self.datagen_config.name = "locomanip_pick_and_place_D0"
+        is_legacy_pair = (
+            self.pick_up_object_name == _LEGACY_PICK_UP_OBJECT_NAME
+            and self.destination_name == _LEGACY_DESTINATION_NAME
+        )
+        if is_legacy_pair:
+            self.datagen_config.name = _LEGACY_DATAGEN_NAME
+        else:
+            self.datagen_config.name = (
+                f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_name}_D0"
+            )
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
         self.datagen_config.generation_num_trials = 100
@@ -222,7 +245,7 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_to_table",

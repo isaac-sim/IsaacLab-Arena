@@ -1578,6 +1578,8 @@ class Apple01ObjaverseRobolab(LibraryObject):
     name = "apple_01_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/apple_01.usd"
+    # Objaverse meshes ship at roughly 100x real-world scale; downscale to a realistic apple size.
+    scale = (0.01, 0.01, 0.01)
 
 
 @register_asset
@@ -1585,6 +1587,8 @@ class Apple02ObjaverseRobolab(LibraryObject):
     name = "apple_02_objaverse_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/objaverse/apple_02.usd"
+    # Objaverse meshes ship at roughly 100x real-world scale; downscale to a realistic apple size.
+    scale = (0.01, 0.01, 0.01)
 
 
 @register_asset
