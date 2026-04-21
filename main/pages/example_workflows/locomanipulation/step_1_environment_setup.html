@@ -393,6 +393,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../concepts/concept_object_placement.html">Object Placement</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/policy/concept_remote_policies_design.html">Remote Policies</a></li>
 </ul>
 </details></li>
 </ul>
@@ -401,6 +402,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/gr00t_server_client.html">Server-Client Mode With GR00T</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -482,7 +484,7 @@ and validate that we can load it in Isaac Lab.</p>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.g1_locomanip_pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">G1LocomanipPickAndPlaceTask</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.locomanip_pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocomanipPickAndPlaceTask</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
 
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
@@ -510,7 +512,7 @@ and validate that we can load it in Isaac Lab.</p>
         <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)))</span>
 
         <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">])</span>
-        <span class="n">task</span> <span class="o">=</span> <span class="n">G1LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
 
         <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
@@ -566,10 +568,10 @@ currently set manually to create an achievable task.</p>
 <p>Now we bring everything together into a IsaacLab-Arena scene.
 See <a class="reference internal" href="../../concepts/scene/index.html"><span class="doc">Scene</span></a> for scene composition details.</p>
 <p><strong>4. Create the Locomanip Pick and Place Task</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">G1LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">LocomanipPickAndPlaceTask</span><span class="p">(</span><span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">G1LocomanipPickAndPlaceTask</span></code> encapsulates the task’s goal of the
+<p>The <code class="docutils literal notranslate"><span class="pre">LocomanipPickAndPlaceTask</span></code> encapsulates the task’s goal of the
 environment: pick up the specified object and place it in the blue sorting bin.</p>
 <p>The task knows about the key objects involved (what to pick, where to place it, and the environment context) and will
 provide rewards, compute observations, and determine when the episode should end.

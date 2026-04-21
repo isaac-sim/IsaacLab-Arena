@@ -25,7 +25,7 @@ Environment Description
            def get_env(self, args_cli: argparse.Namespace):
                from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
                from isaaclab_arena.scene.scene import Scene
-               from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
+               from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceTask
                from isaaclab_arena.utils.pose import Pose, PoseRange
 
                background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
@@ -53,7 +53,7 @@ Environment Description
                embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
                scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
-               task = G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
+               task = LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
 
                isaaclab_arena_environment = IsaacLabArenaEnvironment(
                    name=self.name,
@@ -122,9 +122,9 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 
 .. code-block:: python
 
-    task = G1LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
+    task = LocomanipPickAndPlaceTask(pick_up_object, blue_sorting_bin, background),
 
-The ``G1LocomanipPickAndPlaceTask`` encapsulates the task's goal of the
+The ``LocomanipPickAndPlaceTask`` encapsulates the task's goal of the
 environment: pick up the specified object and place it in the blue sorting bin.
 
 The task knows about the key objects involved (what to pick, where to place it, and the environment context) and will

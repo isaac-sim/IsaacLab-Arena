@@ -55,7 +55,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Omniverse Authentication" href="../../advanced/private_omniverse.html" />
+    <link rel="next" title="Remote Policies" href="concept_remote_policies_design.html" />
     <link rel="prev" title="Policy" href="index.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -394,6 +394,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../concept_object_placement.html">Object Placement</a></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Policy</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concept_remote_policies_design.html">Remote Policies</a></li>
 </ul>
 </details></li>
 </ul>
@@ -402,6 +403,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/gr00t_server_client.html">Server-Client Mode With GR00T</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
@@ -462,13 +464,14 @@
                   
   <section id="evaluation-types">
 <h1>Evaluation Types<a class="headerlink" href="#evaluation-types" title="Link to this heading">#</a></h1>
-<p>Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
-<strong>policy runner</strong> (single or multi-GPU) and a <strong>sequential batch eval runner</strong> for
-multiple jobs in one process. This section summarizes when to use each and how
-they work. Each section below links to the relevant concept docs:
-<a class="reference internal" href="index.html"><span class="doc">Policy Design</span></a>,
-<a class="reference internal" href="../concept_overview.html"><span class="doc">Environment Design</span></a>, and
-<a class="reference internal" href="../task/concept_metrics_design.html"><span class="doc">Metrics Design</span></a>.</p>
+<p>Isaac Lab Arena supports three main ways to run policy evaluation: a single-job
+<strong>policy runner</strong> (single or multi-GPU), a <strong>sequential batch eval runner</strong> for
+multiple jobs in one process, and a <strong>server–client</strong> setup for remote policies. This
+section summarizes when to use each and how they work. Each section below links
+to the relevant concept docs: <a class="reference internal" href="index.html"><span class="doc">Policy Design</span></a>,
+<a class="reference internal" href="../concept_overview.html"><span class="doc">Environment Design</span></a>,
+<a class="reference internal" href="../task/concept_metrics_design.html"><span class="doc">Metrics Design</span></a>, and
+<a class="reference internal" href="concept_remote_policies_design.html"><span class="doc">Remote Policies Design</span></a>.</p>
 <section id="summary">
 <h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="table">
@@ -670,6 +673,57 @@ default (e.g. <code class="docutils literal notranslate"><span class="pre">--num
 <p>If any job needs cameras, set <code class="docutils literal notranslate"><span class="pre">enable_cameras:</span> <span class="pre">true</span></code> in that job’s
 <code class="docutils literal notranslate"><span class="pre">arena_env_args</span></code>; the sequential batch eval runner automatically enables camera support if any job requires it.</p>
 </section>
+<section id="serverclient-remote-policies">
+<h2>3. Server–client (remote policies)<a class="headerlink" href="#serverclient-remote-policies" title="Link to this heading">#</a></h2>
+<p>When the policy runs in a <strong>separate process or machine</strong> (e.g. a GPU server
+with a large model), evaluation still uses the <strong>policy runner</strong> on the client
+side, but the policy is a <strong>client-side remote policy</strong> that talks to a
+<strong>remote policy server</strong> over the network.</p>
+<p><strong>Design context:</strong> For the full remote policy design, protocol, and how to
+implement custom server-side and client-side policies, see
+<a class="reference internal" href="concept_remote_policies_design.html"><span class="doc">Remote Policies Design</span></a>.</p>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p><strong>Server</strong>: Runs the model and a <code class="docutils literal notranslate"><span class="pre">ServerSidePolicy</span></code> (e.g. GR00T), often
+started via <code class="docutils literal notranslate"><span class="pre">remote_policy_server_runner</span></code> or a wrapper script (e.g.
+<code class="docutils literal notranslate"><span class="pre">docker/run_gr00t_server.sh</span></code>). No Isaac Sim on the server.</p></li>
+<li><p><strong>Client</strong>: Runs Isaac Lab Arena and the simulation; the policy is a
+<code class="docutils literal notranslate"><span class="pre">ClientSidePolicy</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">ActionChunkingClientSidePolicy</span></code>) that packs
+observations, sends them to the server, and applies returned actions (with
+optional chunking or post-processing).</p></li>
+<li><p><strong>Protocol</strong>: Server and client agree on an <code class="docutils literal notranslate"><span class="pre">ActionProtocol</span></code> (e.g. observation
+keys, action shape, chunk length). The protocol is negotiated at handshake;
+no policy logic lives in the protocol.</p></li>
+</ul>
+<p><strong>Typical workflow</strong></p>
+<ol class="arabic">
+<li><p>Start the remote policy server (separate terminal or machine), e.g. with GR00T:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>docker/run_gr00t_server.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml
+</pre></div>
+</div>
+</li>
+<li><p>Run evaluation on the client with a client-side policy (i.e. <code class="docutils literal notranslate"><span class="pre">ActionChunkingClientSidePolicy</span></code>) and remote connection. Within the <code class="docutils literal notranslate"><span class="pre">Base</span></code> container, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--remote_kill_on_exit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>&lt;arena_environment&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment<span class="w"> </span>&lt;embodiment&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>...
+</pre></div>
+</div>
+</li>
+</ol>
+<p>The same <strong>policy runner</strong> is used as in the single-job case; only the policy
+type and remote options change.</p>
+</section>
 <section id="choosing-an-evaluation-type">
 <h2>Choosing an evaluation type<a class="headerlink" href="#choosing-an-evaluation-type" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -701,11 +755,11 @@ runner</strong> with a jobs JSON; use <code class="docutils literal notranslate"
       </div>
     </a>
     <a class="right-next"
-       href="../../advanced/private_omniverse.html"
+       href="concept_remote_policies_design.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Omniverse Authentication</p>
+        <p class="prev-next-title">Remote Policies</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -733,6 +787,7 @@ runner</strong> with a jobs JSON; use <code class="docutils literal notranslate"
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-runner-single-job-single-gpu-and-multi-gpu">1. Policy runner — single job (single GPU and multi-GPU)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-batch-eval-runner-batch-jobs">2. Sequential batch eval runner — batch jobs</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#serverclient-remote-policies">3. Server–client (remote policies)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-an-evaluation-type">Choosing an evaluation type</a></li>
 </ul>
   </nav></div>
