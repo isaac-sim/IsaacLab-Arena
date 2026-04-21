@@ -150,7 +150,6 @@ def test_eval_runner_from_existing_config():
 
 
 @pytest.mark.with_subprocess
-@pytest.mark.skip(reason="CI takes 1000s to cold-start camera rendering.")
 def test_eval_runner_enable_cameras(tmp_path):
     """Test eval_runner with enable_cameras set to true."""
     jobs = [

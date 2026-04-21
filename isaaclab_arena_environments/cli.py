@@ -95,7 +95,6 @@ def get_isaaclab_arena_environments_cli_parser(
 
 
 def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
-
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     ensure_environments_registered()
