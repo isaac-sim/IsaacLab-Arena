@@ -10,8 +10,8 @@ HEADLESS = True
 
 def _test_object_references_added_before_parents(simulation_app) -> bool:
     """ObjectReferences can be added before their parents."""
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.scene.scene import Scene
 
     # Set up a test scene
@@ -33,8 +33,8 @@ def _test_object_references_added_before_parents(simulation_app) -> bool:
 def _test_object_reference_without_parent_raises(simulation_app) -> bool:
     """Adding an ObjectReference whose parent is not in the scene should fail."""
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.scene.scene import Scene
 
     asset_registry = AssetRegistry()

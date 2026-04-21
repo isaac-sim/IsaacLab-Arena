@@ -5,6 +5,7 @@
 
 import argparse
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # NOTE(alexmillane, 2025.09.04): There is an issue with type annotation in this file.
@@ -14,6 +15,7 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 # TODO(alexmillane, 2025.09.04): Fix this.
 
 
+@register_environment
 class LiftObjectEnvironment(ExampleEnvironmentBase):
 
     name: str = "lift_object"

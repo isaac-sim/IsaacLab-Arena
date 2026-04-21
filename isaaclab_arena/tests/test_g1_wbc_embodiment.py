@@ -48,7 +48,7 @@ WBC_PINK_IDLE_ACTION = [
 def get_test_environment(num_envs: int, pink_ik_enabled: bool):
     """Returns a scene which we use for these tests."""
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.g1.g1 import G1WBCJointEmbodiment, G1WBCPinkEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

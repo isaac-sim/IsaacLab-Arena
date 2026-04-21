@@ -1,0 +1,36 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Setup Isaac Sim kit cache
+description: |
+  Read Isaac Sim version from the image, restore /isaac-sim/kit/cache from the
+  GitHub Actions cache, and run /isaac-sim/warmup.sh when the cache misses so
+  shader assets are generated for faster test runs.
+
+outputs:
+  cache-hit:
+    description: Whether the kit cache was restored from the Actions cache (true/false).
+    value: ${{ steps.isaac_sim_cache.outputs.cache-hit }}
+  isaac-sim-version:
+    description: Isaac Sim version string read from /isaac-sim/VERSION.
+    value: ${{ steps.read_version.outputs.isaac_sim_version }}
+
+runs:
+  using: composite
+  steps:
+    - id: read_version
+      name: Read Isaac Sim version
+      shell: bash
+      run: |
+        ISAAC_SIM_VERSION="$(cat /isaac-sim/VERSION)"
+        echo "ISAAC_SIM_VERSION=${ISAAC_SIM_VERSION}" >> "${GITHUB_ENV}"
+        echo "isaac_sim_version=${ISAAC_SIM_VERSION}" >> "${GITHUB_OUTPUT}"
+
+    - id: isaac_sim_cache
+      name: Cache Isaac Sim Kit cache
+      uses: actions/cache@v4
+      with:
+        path: /isaac-sim/kit/cache
+        key: isaac-kit-cache-${{ steps.read_version.outputs.isaac_sim_version }}

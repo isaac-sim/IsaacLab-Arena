@@ -24,7 +24,7 @@ def get_test_environment(num_envs: int):
     isolate task termination logic from the full production environment.
     """
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.g1.g1 import G1WBCAgileJointEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

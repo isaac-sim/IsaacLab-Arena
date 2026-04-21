@@ -10,7 +10,7 @@ HEADLESS = True
 
 def _test_object_initial_pose_update(simulation_app):
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()

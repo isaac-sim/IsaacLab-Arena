@@ -13,10 +13,13 @@ def test_dexsuite_lift_example_in_cli_registry() -> None:
     pytest.importorskip(
         "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
     )
-    from isaaclab_arena_environments.cli import ExampleEnvironments
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
 
-    assert "dexsuite_lift" in ExampleEnvironments
-    assert ExampleEnvironments["dexsuite_lift"].name == "dexsuite_lift"
+    ensure_environments_registered()
+    env_registry = EnvironmentRegistry()
+    assert env_registry.is_registered("dexsuite_lift")
+    assert env_registry.get_component_by_name("dexsuite_lift").name == "dexsuite_lift"
 
 
 @pytest.mark.with_newton
@@ -24,7 +27,7 @@ def test_procedural_assets_registered() -> None:
     pytest.importorskip(
         "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
     )
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
 
     reg = AssetRegistry()
     assert reg.is_registered("procedural_table")
@@ -37,7 +40,7 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
         "isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.dexsuite_kuka_allegro_env_cfg"
     )
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
     from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, DexsuiteLiftTerminationsCfg, LiftObjectTask
     from isaaclab_arena.utils.pose import Pose, PoseRange
