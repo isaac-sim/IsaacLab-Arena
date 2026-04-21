@@ -37,11 +37,6 @@ AppLauncher()
 
 # %%
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from isaacsim import SimulationApp
-
 
 HOMOGENEOUS_OBJECTS = ["cracker_box", "mug", "tomato_soup_can", "sugar_box"]
 
@@ -128,8 +123,6 @@ def _create_camera_sensor(num_envs: int, env_spacing: float, cam_width: int, cam
     Creates one camera per environment, each positioned at the docs camera angle
     relative to its environment origin.
     """
-    import torch
-
     import isaaclab.sim as sim_utils
     from isaaclab.sensors.camera import Camera, CameraCfg
 
@@ -179,7 +172,6 @@ def _position_cameras(camera, env_origins, device: str):
 def _tile_images(images, num_cols=2):
     """Tile a list of images into a grid."""
     import math
-
     import numpy as np
 
     n = len(images)
@@ -236,14 +228,14 @@ def run_placement_gif_capture(
         scene=scene,
     )
 
-    args_cli = get_isaaclab_arena_cli_parser().parse_args(
-        [
-            "--num_envs", str(num_envs),
-            "--enable_cameras",
-            "--env_spacing", str(env_spacing),
-            "--resolve_on_reset",
-        ]
-    )
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([
+        "--num_envs",
+        str(num_envs),
+        "--enable_cameras",
+        "--env_spacing",
+        str(env_spacing),
+        "--resolve_on_reset",
+    ])
 
     env_builder = ArenaEnvBuilder(arena_env, args_cli)
     env = env_builder.make_registered(render_mode=None)

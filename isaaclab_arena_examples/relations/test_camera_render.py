@@ -1,3 +1,8 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Minimal test: does the Camera sensor produce non-black images in this container?
 # Usage: /isaac-sim/python.sh isaaclab_arena_examples/relations/test_camera_render.py --enable_cameras --headless
 
@@ -23,7 +28,9 @@ sim = sim_utils.SimulationContext(sim_cfg)
 
 # Ground + light + colored cube
 sim_utils.GroundPlaneCfg().func("/World/Ground", sim_utils.GroundPlaneCfg())
-sim_utils.DistantLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75)).func("/World/Light", sim_utils.DistantLightCfg(intensity=3000.0))
+sim_utils.DistantLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75)).func(
+    "/World/Light", sim_utils.DistantLightCfg(intensity=3000.0)
+)
 
 cube_cfg = RigidObjectCfg(
     prim_path="/World/Cube",
@@ -40,16 +47,21 @@ cube = RigidObject(cfg=cube_cfg)
 
 # Camera
 sim_utils.create_prim("/World/CameraMount", "Xform")
-camera = Camera(cfg=CameraCfg(
-    prim_path="/World/CameraMount/CameraSensor",
-    update_period=0,
-    height=480,
-    width=640,
-    data_types=["rgb"],
-    spawn=sim_utils.PinholeCameraCfg(
-        focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 1.0e5),
-    ),
-))
+camera = Camera(
+    cfg=CameraCfg(
+        prim_path="/World/CameraMount/CameraSensor",
+        update_period=0,
+        height=480,
+        width=640,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0,
+            focus_distance=400.0,
+            horizontal_aperture=20.955,
+            clipping_range=(0.1, 1.0e5),
+        ),
+    )
+)
 
 sim.reset()
 camera.update(dt=0.0)
@@ -70,6 +82,7 @@ print(f"Frame shape: {img.shape}, sum: {pixel_sum}")
 
 if pixel_sum > 0:
     from PIL import Image
+
     Image.fromarray(img[:, :, :3]).save("/tmp/test_render.png")
     print("SUCCESS: Saved /tmp/test_render.png")
 else:
