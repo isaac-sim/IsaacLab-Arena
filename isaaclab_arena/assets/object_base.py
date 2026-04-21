@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -16,8 +18,9 @@ from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events imp
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
-from isaaclab_arena.terms.events import set_object_pose
-from isaaclab_arena.utils.pose import Pose, PoseRange
+from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 
 
@@ -25,7 +28,6 @@ class ObjectType(Enum):
     BASE = "base"
     RIGID = "rigid"
     ARTICULATION = "articulation"
-    SPAWNER = "spawner"
 
 
 class ObjectBase(Asset, ABC):
@@ -43,13 +45,13 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
-        self.initial_pose: Pose | PoseRange | None = None
+        self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
 
-    def get_initial_pose(self) -> Pose | PoseRange | None:
+    def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.
 
         Subclasses may override to derive the pose from other sources
@@ -57,24 +59,38 @@ class ObjectBase(Asset, ABC):
         """
         return self.initial_pose
 
+    @abstractmethod
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get local bounding box (relative to object origin)."""
+        ...
+
+    @abstractmethod
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Get bounding box in world coordinates (local bbox rotated and translated)."""
+        ...
+
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
 
         If the initial pose is a ``PoseRange``, its midpoint is returned.
+        If the initial pose is a ``PosePerEnv``, the first environment's pose is returned.
         If the initial pose is ``None``, ``None`` is returned.
         """
         initial_pose = self.get_initial_pose()
         if initial_pose is None:
             return None
+        if isinstance(initial_pose, PosePerEnv):
+            return initial_pose.poses[0]
         if isinstance(initial_pose, PoseRange):
             return initial_pose.get_midpoint()
         return initial_pose
 
-    def set_initial_pose(self, pose: Pose | PoseRange) -> None:
+    def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Set / override the initial pose and rebuild derived configs.
 
         Args:
-            pose: A fixed ``Pose`` or a ``PoseRange`` (randomised on reset).
+            pose: A fixed ``Pose``, a ``PoseRange`` (randomised on reset),
+                or a ``PosePerEnv`` (distinct pose per environment).
         """
         self.initial_pose = pose
         initial_pose = self._get_initial_pose_as_pose()
@@ -117,7 +133,16 @@ class ObjectBase(Asset, ABC):
             return None
 
         initial_pose = self.get_initial_pose()
-        if isinstance(initial_pose, PoseRange):
+        if isinstance(initial_pose, PosePerEnv):
+            return EventTermCfg(
+                func=set_object_pose_per_env,
+                mode="reset",
+                params={
+                    "asset_cfg": SceneEntityCfg(self.name),
+                    "pose_list": initial_pose.poses,
+                },
+            )
+        elif isinstance(initial_pose, PoseRange):
             return EventTermCfg(
                 func=randomize_object_pose,
                 mode="reset",
@@ -126,16 +151,15 @@ class ObjectBase(Asset, ABC):
                     "asset_cfgs": [SceneEntityCfg(self.name)],
                 },
             )
-        else:
-            params: dict = {
-                "pose": initial_pose,
-                "asset_cfg": SceneEntityCfg(self.name),
-                "velocity": self.initial_velocity,
-            }
+        else:  # Pose
             return EventTermCfg(
                 func=set_object_pose,
                 mode="reset",
-                params=params,
+                params={
+                    "pose": initial_pose,
+                    "asset_cfg": SceneEntityCfg(self.name),
+                    "velocity": self.initial_velocity,
+                },
             )
 
     def get_relations(self) -> list[RelationBase]:
@@ -165,8 +189,6 @@ class ObjectBase(Asset, ABC):
             object_cfg = self._generate_articulation_cfg()
         elif self.object_type == ObjectType.BASE:
             object_cfg = self._generate_base_cfg()
-        elif self.object_type == ObjectType.SPAWNER:
-            object_cfg = self._generate_spawner_cfg()
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
         return object_cfg
@@ -180,7 +202,7 @@ class ObjectBase(Asset, ABC):
 
         Returns:
             The pose of the object in each environment. The shape is (num_envs, 7).
-            The order is (x, y, z, qw, qx, qy, qz).
+            The order is (x, y, z, qx, qy, qz, qw).
         """
         # We require that the asset has been added to the scene under its name.
         assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
@@ -216,13 +238,12 @@ class ObjectBase(Asset, ABC):
             torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
         )
 
-    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        if contact_against_prim_paths is None:
-            contact_against_prim_paths = []
+        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
         return ContactSensorCfg(
             prim_path=self.prim_path,
-            filter_prim_paths_expr=contact_against_prim_paths,
+            filter_prim_paths_expr=filter_prim_paths,
         )
 
     @abstractmethod
@@ -238,8 +259,4 @@ class ObjectBase(Asset, ABC):
     @abstractmethod
     def _generate_base_cfg(self) -> AssetBaseCfg:
         # Subclasses must implement this method
-        pass
-
-    def _generate_spawner_cfg(self) -> AssetBaseCfg:
-        # Object Subclasses must implement this method
         pass

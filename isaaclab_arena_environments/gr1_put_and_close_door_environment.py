@@ -9,6 +9,7 @@ import argparse
 import math
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -21,6 +22,7 @@ RANDOMIZATION_HALF_RANGE_Y_M = 0.01
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
 
 
+@register_environment
 class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     """
     A sequential task environment with two subtasks for GR1 humanoid robot:

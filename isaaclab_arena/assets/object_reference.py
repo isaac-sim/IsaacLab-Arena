@@ -27,7 +27,6 @@ class ObjectReference(ObjectBase):
         self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
-        assert self.object_type != ObjectType.SPAWNER, "Object reference cannot be a spawner"
         self.object_cfg = self._init_object_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
 
@@ -83,7 +82,7 @@ class ObjectReference(ObjectBase):
         quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
         return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
 
-    def get_contact_sensor_cfg(self, contact_against_prim_paths: list[str] | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
         # has the contact sensor enabled prior to using this reference.
         # At the moment, for the tests, I enabled the relevant APIs in the GUI.
@@ -93,7 +92,7 @@ class ObjectReference(ObjectBase):
         # the contact reporter API to a prim in a USD, perhaps that can be repurposed
         # and used here.
         # Just call out to the parent class method.
-        return super().get_contact_sensor_cfg(contact_against_prim_paths)
+        return super().get_contact_sensor_cfg(contact_against_object)
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

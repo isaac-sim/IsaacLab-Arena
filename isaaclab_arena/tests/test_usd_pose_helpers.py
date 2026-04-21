@@ -16,7 +16,7 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
 
     from pxr import Usd
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
     asset_registry = AssetRegistry()

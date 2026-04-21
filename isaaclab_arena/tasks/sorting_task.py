@@ -41,7 +41,7 @@ class SortMultiObjectTask(TaskBase):
         self.contact_sensor_name_list = []
         for pick_up_object, destination in zip(pick_up_object_list, destination_location_list):
             self.pick_up_object_contact_sensor_list.append(
-                pick_up_object.get_contact_sensor_cfg(contact_against_prim_paths=[destination.get_prim_path()])
+                pick_up_object.get_contact_sensor_cfg(contact_against_object=destination)
             )
             self.contact_sensor_name_list.append(f"contact_sensor_{pick_up_object.name}")
 

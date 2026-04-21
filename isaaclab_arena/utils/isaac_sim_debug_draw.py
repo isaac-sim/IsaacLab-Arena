@@ -91,7 +91,7 @@ class IsaacSimDebugDraw:
             Tuple of (min_point, max_point) or None if extraction failed.
         """
         world_bbox = obj.get_world_bounding_box()
-        return world_bbox.min_point, world_bbox.max_point
+        return tuple(world_bbox.min_point[0].tolist()), tuple(world_bbox.max_point[0].tolist())
 
     def _draw_bbox_wireframe(
         self,

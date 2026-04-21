@@ -8,12 +8,14 @@ from __future__ import annotations
 import argparse
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@register_environment
 class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
     """
     A environment for achieving the goal pose of a cube.

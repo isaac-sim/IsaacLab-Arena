@@ -9,12 +9,14 @@ import argparse
 import math
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@register_environment
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
@@ -22,7 +24,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
+        from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
@@ -80,7 +82,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=G1LocomanipPickAndPlaceTask(
+            task=LocomanipPickAndPlaceTask(
                 pick_up_object,
                 blue_sorting_bin,
                 background,
@@ -89,6 +91,8 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                     "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the"
                     " right of the shelf."
                 ),
+                force_threshold=0.5,
+                velocity_threshold=0.1,
             ),
             teleop_device=teleop_device,
         )

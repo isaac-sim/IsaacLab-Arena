@@ -18,7 +18,7 @@ OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
 
 def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test", task=None):
     """Build arena env with given scene and optional task, then reset. Returns env (caller must close)."""
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -53,8 +53,8 @@ def _run_pick_and_place_object_set_test(
     """Build env with one object set and PickAndPlaceTask, run common assertions, close. path_contains: str or list[str] of length NUM_ENVS."""
     from isaacsim.core.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
 
@@ -114,8 +114,8 @@ def _test_empty_object_set(simulation_app):
 
 
 def _test_articulation_object_set(simulation_app):
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.registries import AssetRegistry
 
     asset_registry = AssetRegistry()
     microwave = asset_registry.get_asset_by_name("microwave")()
@@ -129,9 +129,9 @@ def _test_articulation_object_set(simulation_app):
 def _test_single_object_in_one_object_set(simulation_app):
     from isaacsim.core.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -196,9 +196,9 @@ def _test_single_object_in_one_object_set(simulation_app):
 def _test_multi_objects_in_one_object_set(simulation_app):
     from isaacsim.core.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -270,8 +270,8 @@ def _test_multi_objects_in_one_object_set(simulation_app):
 def _test_multi_object_sets(simulation_app):
     from isaacsim.core.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

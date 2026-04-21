@@ -18,7 +18,7 @@ RESET_TARGET_LEVEL = random.randint(0, 5)
 def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

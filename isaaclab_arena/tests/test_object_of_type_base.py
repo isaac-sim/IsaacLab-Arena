@@ -16,9 +16,9 @@ MOVEMENT_EPS = 0.001
 
 def _test_object_of_type_base(simulation_app):
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_library import LibraryObject
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

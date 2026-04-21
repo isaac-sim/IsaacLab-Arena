@@ -401,7 +401,7 @@ class GroundPlane(LibraryObject):
     tags = ["ground_plane"]
     # Setting a global prim path for the ground plane. Will not get repeated for each environment.
     default_prim_path = "/World/GroundPlane"
-    object_type = ObjectType.SPAWNER
+    object_type = ObjectType.BASE
     default_spawner_cfg = GroundPlaneCfg()
 
     def __init__(
@@ -411,8 +411,9 @@ class GroundPlane(LibraryObject):
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.GroundPlaneCfg = default_spawner_cfg,
     ):
-        self.spawner_cfg = spawner_cfg
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+        super().__init__(
+            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
+        )
 
 
 @register_asset
@@ -423,7 +424,7 @@ class Sphere(LibraryObject):
 
     name = "sphere"
     tags = ["object"]
-    object_type = ObjectType.SPAWNER
+    object_type = ObjectType.RIGID
     scale = (1.0, 1.0, 1.0)
     default_spawner_cfg = sim_utils.SphereCfg(
         radius=0.1,
@@ -448,27 +449,13 @@ class Sphere(LibraryObject):
         scale: tuple[float, float, float] | None = None,
         spawner_cfg: sim_utils.SphereCfg = default_spawner_cfg,
     ):
-        self.spawner_cfg = spawner_cfg
         super().__init__(
             instance_name=instance_name,
             prim_path=prim_path,
             initial_pose=initial_pose,
             scale=scale,
+            spawner_cfg=spawner_cfg,
         )
-
-    def _generate_spawner_cfg(self) -> RigidObjectCfg:
-        object_cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=self.spawner_cfg,
-        )
-        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        if self.initial_velocity is not None:
-            object_cfg.init_state.lin_vel = self.initial_velocity.linear_xyz
-            object_cfg.init_state.ang_vel = self.initial_velocity.angular_xyz
-        return object_cfg
-
-    def _requires_reset_pose_event(self) -> bool:
-        return self.get_initial_pose() is not None and self.reset_pose
 
 
 @register_asset
@@ -492,7 +479,7 @@ class DomeLight(LibraryObject):
     tags = ["light"]
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
-    object_type = ObjectType.SPAWNER
+    object_type = ObjectType.BASE
     default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
 
     def __init__(
@@ -503,8 +490,9 @@ class DomeLight(LibraryObject):
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
-        self.spawner_cfg = spawner_cfg
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+        super().__init__(
+            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
+        )
         if hdr is not None:
             self.add_hdr(hdr)
 

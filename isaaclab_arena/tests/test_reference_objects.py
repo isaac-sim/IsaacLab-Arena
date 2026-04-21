@@ -39,7 +39,7 @@ def background_from_usd_path(name: str, usd_path: pathlib.Path, initial_pose: Po
 
 
 def get_test_scene():
-    from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: F401
+    from isaaclab_arena.assets.registries import AssetRegistry  # noqa: F401
     from isaaclab_arena.scene.scene import Scene
 
     asset_registry = AssetRegistry()
