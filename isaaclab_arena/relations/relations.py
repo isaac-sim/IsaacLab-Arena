@@ -127,7 +127,7 @@ class On(Relation):
 
 
 # TODO: Implement an `In` / containment relation (e.g. "avocado in bowl"). Used
-# by the LLM scene-gen prototype as a goal-phase success condition — it must
+# by the LLM scene-gen prototype as a final-state success condition — it does
 # not constrain initial placement. A solver variant would need a loss that
 # rewards the child's XY staying inside the parent's opening footprint and Z
 # below the parent's rim, plus an IsInside predicate for task success checks.

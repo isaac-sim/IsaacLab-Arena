@@ -20,14 +20,9 @@ from pydantic import BaseModel, Field
 # Relation kinds currently surfaced to the LLM. Mirror the subset of
 # isaaclab_arena.relations.relations that makes sense for tabletop prompts.
 # "in" has no In class in isaaclab_arena.relations.relations yet — see the
-# TODO there. Scene builders should skip initial-phase "in" relations and
-# materialize goal-phase "in" as the task's success predicate only.
+# TODO there. The scene builder materializes goal-state "in" relations as
+# the task's success predicate.
 RelationKind = Literal["on", "in", "next_to", "at_position", "is_anchor"]
-
-# "initial" relations configure the starting scene. "goal" relations are the
-# task's success condition and must NOT affect initial placement (e.g. the
-# avocado starts on the table; it is "in" the bowl only at goal time).
-RelationPhase = Literal["initial", "goal"]
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
@@ -48,32 +43,33 @@ class Item(BaseModel):
 
 
 class Relation(BaseModel):
-    """A spatial / structural relation between two items (or on one item).
-
-    `phase` distinguishes the starting scene from the task's success condition:
-      * "initial" — placement at env reset. Affects where the object spawns.
-      * "goal" — must hold for the task to be considered complete. Does NOT
-        affect initial placement; the builder feeds it to the task as the
-        success predicate.
-    """
+    """A spatial / structural relation between two items (or on one item)."""
 
     kind: RelationKind
     subject: str
     target: str | None = None
-    phase: RelationPhase = "initial"
     params: dict = Field(default_factory=dict)
 
 
 class SceneSpec(BaseModel):
     """LLM output — a structured plan for the scene.
 
-    Must be fully resolvable against AssetRegistry + the relation set. Nothing
-    here is executed directly; the Resolver turns it into concrete asset
-    classes + relation instances.
+    The language prompt is decomposed into two full scene graphs:
+
+      * ``initial_scene_graph`` — every relation that holds at env reset.
+        This configures where objects spawn.
+      * ``final_scene_graph`` — every relation that must hold for the task
+        to be considered complete. This is a FULL snapshot, not a diff:
+        relations that are unchanged between initial and final must appear
+        in both lists (e.g. the bowl stays on the table). Relations that
+        are invalidated by the task (the avocado is no longer on the
+        table because it is now in the bowl) must be omitted from the
+        final graph.
     """
 
     task_description: str
     background: str
     embodiment: str = "franka_ik"
     items: list[Item]
-    relations: list[Relation]
+    initial_scene_graph: list[Relation]
+    final_scene_graph: list[Relation]

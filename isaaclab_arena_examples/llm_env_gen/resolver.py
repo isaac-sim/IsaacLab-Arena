@@ -46,7 +46,8 @@ class ResolvedScene:
     background: type
     embodiment_name: str
     items: dict[str, type]
-    relations: list[dict[str, Any]]
+    initial_scene_graph: list[dict[str, Any]]
+    final_scene_graph: list[dict[str, Any]]
     trace: list[TraceEvent]
 
 
@@ -79,13 +80,16 @@ class Resolver:
                 key = item.instance_name or item.query
                 items[key] = cls
 
-        relations = self._resolve_relations(spec, items, trace=trace)
+        known = set(items) | {spec.background}
+        initial_graph = self._resolve_graph(spec.initial_scene_graph, "initial", known, trace)
+        final_graph = self._resolve_graph(spec.final_scene_graph, "final", known, trace)
 
         return ResolvedScene(
             background=background_cls,
             embodiment_name=embodiment_name,
             items=items,
-            relations=relations,
+            initial_scene_graph=initial_graph,
+            final_scene_graph=final_graph,
             trace=trace,
         )
 
@@ -203,36 +207,31 @@ class Resolver:
         trace.append(TraceEvent("embodiment.miss", name, None, note="falling back to franka_ik"))
         return "franka_ik"
 
-    def _resolve_relations(
-        self, spec: SceneSpec, items: dict[str, type], trace: list[TraceEvent]
+    def _resolve_graph(
+        self, graph: list, phase: str, known: set[str], trace: list[TraceEvent]
     ) -> list[dict[str, Any]]:
+        """Validate one scene graph (initial or final) against the known item set."""
         resolved: list[dict[str, Any]] = []
-        known = set(items) | {spec.background}
-        for rel in spec.relations:
+        for rel in graph:
+            stage_prefix = f"relation.{phase}"
             if rel.subject not in known:
-                trace.append(TraceEvent("relation.unknown_subject", rel.subject, None, note=rel.kind))
+                trace.append(TraceEvent(f"{stage_prefix}.unknown_subject", rel.subject, None, note=rel.kind))
                 continue
             if rel.target is not None and rel.target not in known:
-                trace.append(TraceEvent("relation.unknown_target", rel.target, None, note=rel.kind))
+                trace.append(TraceEvent(f"{stage_prefix}.unknown_target", rel.target, None, note=rel.kind))
                 continue
-            if rel.kind == "in" and rel.phase == "initial":
+            if rel.kind == "in" and phase == "initial":
                 trace.append(
                     TraceEvent(
-                        "relation.in_initial_skipped",
+                        f"{stage_prefix}.in_skipped",
                         rel.subject,
                         rel.target,
-                        note="'in' has no initial-phase semantics; builder will skip. Did you mean phase='goal'?",
+                        note="'in' has no initial-state semantics; move this to final_scene_graph.",
                     )
                 )
                 continue
             resolved.append(
-                {
-                    "kind": rel.kind,
-                    "subject": rel.subject,
-                    "target": rel.target,
-                    "phase": rel.phase,
-                    "params": rel.params,
-                }
+                {"kind": rel.kind, "subject": rel.subject, "target": rel.target, "params": rel.params}
             )
-            trace.append(TraceEvent("relation.ok", rel.subject, rel.target, note=f"{rel.kind}/{rel.phase}"))
+            trace.append(TraceEvent(f"{stage_prefix}.ok", rel.subject, rel.target, note=rel.kind))
         return resolved
