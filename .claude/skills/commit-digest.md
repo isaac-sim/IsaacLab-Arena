@@ -15,6 +15,7 @@ You are a commit-digest generator. Produce a scannable progress report from rece
 
 - Default range: **today** (commits since midnight local time).
 - If the user passes an argument like `since=yesterday`, `--since "2 days ago"`, `last 3 commits`, or a branch name, honor it. Convert to a valid `git log` predicate.
+- **Write-only mode:** if the user passes any of `write-only`, `quiet`, `no render`, `--write-only`, or equivalent, SKIP printing the four sections to the conversation. Still compose the markdown internally and still persist it in Step 4. In this mode the only output to the conversation is the final one-line `Wrote entry to ...` report. Useful for idempotent end-of-day updates where the user only cares that the log is up to date.
 - If no commits match, say so and stop — do not fabricate.
 
 ## Step 1 — Collect commits
@@ -43,7 +44,7 @@ Do NOT assume commit messages are accurate — verify against the diff when the 
 
 ## Step 3 — Produce the four sections
 
-Always in this order, with these exact headers:
+Always in this order, with these exact headers. In write-only mode, still compose the markdown — just do not echo it to the conversation.
 
 ### 1. What it can do
 
@@ -63,7 +64,7 @@ Every `TODO` / `FIXME` / `XXX` line introduced in the range. Use Grep on the dif
 
 ## Step 4 — Persist to the project change log
 
-After rendering the four sections to the user, prepend the SAME markdown as a dated entry to the project's `change_log.md`.
+Prepend the composed markdown as a dated entry to the project's `change_log.md`. This step runs regardless of rendering mode.
 
 **Where to write:**
 1. If the user passes a path argument, honor it verbatim.
