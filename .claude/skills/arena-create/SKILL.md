@@ -358,5 +358,6 @@ docker exec <project_name>-latest bash -c \
    <project_name>"
 ```
 
-If the container is not yet running, use `/arena-verify <spec_path>` which starts the
-container, installs the package, and runs this test automatically.
+If the container is not yet running, start it manually (for example with
+`docker/run_docker.sh`), install the package in the container if needed, and then run the
+smoke-test command above.
