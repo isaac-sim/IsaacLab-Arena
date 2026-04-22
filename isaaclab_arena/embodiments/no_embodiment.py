@@ -5,6 +5,7 @@
 
 from isaaclab.utils import configclass
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 
@@ -15,6 +16,7 @@ class EmptyActionsCfg:
     pass
 
 
+@register_asset
 class NoEmbodiment(EmbodimentBase):
     """Null object for environments without an embodiment."""
 
