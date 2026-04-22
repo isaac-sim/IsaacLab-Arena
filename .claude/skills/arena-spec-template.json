@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy this file, fill it in, and pass it to /arena-install, /arena-create, /arena-verify.",
+  "_comment": "Copy this file, fill it in, and pass it to /arena-install, /arena-create.",
 
   "project_name": "my_arm_task",
   "base_dir": "/home/user/Projects",
