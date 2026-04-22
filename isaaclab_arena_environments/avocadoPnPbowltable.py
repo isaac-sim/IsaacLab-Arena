@@ -7,10 +7,7 @@
 
 Task: Pick up the avocado from the table and place it into a bowl on the table, with distractor vegetables present.
 
-NoTask is used as a placeholder — the initial scene graph is materialized
-via add_relation() calls on each item, but there is no success predicate.
-Swap NoTask for a real task (and implement the In relation) to wire up
-goal checking.
+Task wiring: PickAndPlaceTask: pick_up=avocado, destination=bowl
 """
 
 from __future__ import annotations
@@ -31,11 +28,11 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
 
     name: str = "avocadoPnPbowltable"
 
-    def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.no_task import NoTask
+        from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("table")()
@@ -61,13 +58,36 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         sweet_potato_obj.add_relation(On(background, clearance_m=0.02))
         red_bell_pepper_obj.add_relation(On(background, clearance_m=0.02))
 
-        scene = Scene(assets=[background, ground_plane, light, avocado_obj, bowl_obj, broccoli_obj, sweet_potato_obj, red_bell_pepper_obj])
+        scene = Scene(
+            assets=[
+                background,
+                ground_plane,
+                light,
+                avocado_obj,
+                bowl_obj,
+                broccoli_obj,
+                sweet_potato_obj,
+                red_bell_pepper_obj,
+            ]
+        )
+
+        # goal_added (enforced by PickAndPlaceTask success predicate):  in(avocado, bowl)
+        # goal_removed (implicitly negated when the pick succeeds):  on(avocado, table)
 
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=NoTask(),
+            task=PickAndPlaceTask(
+                pick_up_object=avocado_obj,
+                destination_location=bowl_obj,
+                background_scene=background,
+                episode_length_s=20.0,
+                task_description=(
+                    "Pick up the avocado from the table and place it into a bowl on the table, with distractor"
+                    " vegetables present."
+                ),
+            ),
         )
 
     @staticmethod
