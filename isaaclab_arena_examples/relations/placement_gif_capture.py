@@ -38,10 +38,38 @@ AppLauncher()
 # %%
 
 
-HOMOGENEOUS_OBJECTS = ["cracker_box", "mug", "tomato_soup_can", "sugar_box"]
+FRUIT_OBJECTS = ["orange_01_fruits_veggies_robolab", "banana_ycb_robolab"]
 
-HETEROGENEOUS_VARIANTS = ["cracker_box", "mug", "tomato_soup_can", "sugar_box"]
-COMMON_EXTRA_OBJECTS = ["dex_cube", "red_container"]
+BOTTLE_VARIANTS = [
+    "ketchup_bottle_hope_robolab",
+    "mustard_bottle_hope_robolab",
+    "mayonnaise_bottle_hope_robolab",
+    "bbq_sauce_bottle_hope_robolab",
+]
+CAN_VARIANTS = [
+    "alphabet_soup_can_hope_robolab",
+    "canned_peaches_hope_robolab",
+    "corn_can_hope_robolab",
+    "tomato_sauce_can_hope_robolab",
+]
+TOOL_VARIANTS = [
+    "spoon_handal_robolab",
+    "spoon_1_handal_robolab",
+    "spoon_2_handal_robolab",
+    "measuring_spoon_handal_robolab",
+]
+BOX_VARIANTS = [
+    "popcorn_box_hope_robolab",
+    "chocolate_pudding_mix_hope_robolab",
+]
+
+HOMOGENEOUS_OBJECTS = [
+    *FRUIT_OBJECTS,
+    "ketchup_bottle_hope_robolab",
+    "alphabet_soup_can_hope_robolab",
+    "spoon_handal_robolab",
+    "sugar_box_ycb_robolab",
+]
 
 LIGHT_INTENSITY = 500.0
 HDR_NAME = "home_office_robolab"
@@ -79,7 +107,11 @@ def _build_base_scene(asset_registry, hdr_registry):
 
 
 def _build_homogeneous_scene(asset_registry, hdr_registry):
-    """Build a scene with the same objects in every environment."""
+    """Build a scene with the same objects in every environment.
+
+    Six objects (2 fruits + bottle + can + block + container) as regular
+    Objects with On(table), so every env gets the same set at random positions.
+    """
     from isaaclab_arena.relations.relations import On
     from isaaclab_arena.scene.scene import Scene
 
@@ -96,24 +128,41 @@ def _build_homogeneous_scene(asset_registry, hdr_registry):
 
 
 def _build_heterogeneous_scene(asset_registry, hdr_registry):
-    """Build a scene where each environment gets a different object variant."""
+    """Build a scene mixing homogeneous and heterogeneous objects.
+
+    Two fruits are pinned to fixed XY positions via AtPosition so they
+    appear in the same spot across all envs.  Four object categories
+    (bottles, cans, blocks, containers) are each wrapped in a
+    RigidObjectSet so each env gets a different variant at a random
+    position — assigned automatically by the PooledObjectPlacer.
+    """
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.relations.relations import AtPosition, On
     from isaaclab_arena.scene.scene import Scene
 
     background, light, table_reference = _build_base_scene(asset_registry, hdr_registry)
 
-    variant_objects = [asset_registry.get_asset_by_name(n)() for n in HETEROGENEOUS_VARIANTS]
-    hetero_object = RigidObjectSet(name="hetero_pick", objects=variant_objects)
-    hetero_object.add_relation(On(table_reference))
+    orange = asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")()
+    orange.add_relation(On(table_reference))
+    orange.add_relation(AtPosition(x=0.5, y=-0.15))
 
-    extras = []
-    for name in COMMON_EXTRA_OBJECTS:
-        obj = asset_registry.get_asset_by_name(name)()
-        obj.add_relation(On(table_reference))
-        extras.append(obj)
+    banana = asset_registry.get_asset_by_name("banana_ycb_robolab")()
+    banana.add_relation(On(table_reference))
+    banana.add_relation(AtPosition(x=0.5, y=0.15))
 
-    scene = Scene(assets=[background, light, table_reference, hetero_object, *extras])
+    hetero_sets = []
+    for set_name, variants in [
+        ("bottles", BOTTLE_VARIANTS),
+        ("cans", CAN_VARIANTS),
+        ("tools", TOOL_VARIANTS),
+        ("boxes", BOX_VARIANTS),
+    ]:
+        objs = [asset_registry.get_asset_by_name(n)() for n in variants]
+        obj_set = RigidObjectSet(name=set_name, objects=objs)
+        obj_set.add_relation(On(table_reference))
+        hetero_sets.append(obj_set)
+
+    scene = Scene(assets=[background, light, table_reference, orange, banana, *hetero_sets])
     return scene
 
 
@@ -190,22 +239,33 @@ def _tile_images(images, num_cols=2):
 def run_placement_gif_capture(
     mode: str = "homogeneous",
     num_envs: int = 4,
-    output_dir: str = "/tmp/placement_gifs",
+    output_dir: str | None = None,
     num_resets: int = 10,
     warmup_steps: int = 20,
     gif_frame_duration_ms: int = 1500,
     env_spacing: float = 3.0,
-    cam_width: int = 640,
-    cam_height: int = 480,
+    cam_width: int = 960,
+    cam_height: int = 720,
 ) -> str:
     """Capture placement frames and assemble into an animated GIF.
 
     Uses the Isaac Lab Camera sensor directly (following the official
     ``run_usd_camera.py`` tutorial pattern) for reliable headless capture.
+
+    Args:
+        output_dir: Directory for output files.
+            Defaults to ``~/datasets/isaaclab_arena/placement_gifs``.
     """
     import numpy as np
     import os
     import torch
+
+    if output_dir is None:
+        if os.path.isdir("/datasets"):
+            output_dir = "/datasets/isaaclab_arena/placement_gifs"
+        else:
+            output_dir = os.path.expanduser("~/datasets/isaaclab_arena/placement_gifs")
+    output_dir = os.path.join(output_dir, mode)
 
     from isaaclab_arena.assets.registries import AssetRegistry, HDRImageRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -304,37 +364,55 @@ def run_placement_gif_capture(
     from PIL import Image
 
     pil_frames = [Image.fromarray(f) for f in frames]
-    gif_path = os.path.join(output_dir, f"{mode}_placement.gif")
+
+    webp_path = os.path.join(output_dir, f"{mode}_placement.webp")
     pil_frames[0].save(
-        gif_path,
+        webp_path,
         save_all=True,
         append_images=pil_frames[1:],
         duration=gif_frame_duration_ms,
         loop=0,
+        quality=90,
     )
-    print(f"\nSaved GIF: {gif_path}  ({len(frames)} frames, {gif_frame_duration_ms}ms each)")
+    print(f"\nSaved WebP: {webp_path}  ({len(frames)} frames, {gif_frame_duration_ms}ms each)")
+
+    gif_path = os.path.join(output_dir, f"{mode}_placement.gif")
+    all_pixels = np.concatenate([np.asarray(f) for f in pil_frames], axis=0)
+    palette_image = Image.fromarray(all_pixels).quantize(colors=256, method=Image.Quantize.MEDIANCUT)
+    quantized = [f.quantize(palette=palette_image, dither=Image.Dither.FLOYDSTEINBERG) for f in pil_frames]
+    quantized[0].save(
+        gif_path,
+        save_all=True,
+        append_images=quantized[1:],
+        duration=gif_frame_duration_ms,
+        loop=0,
+    )
+    print(f"Saved GIF:  {gif_path}")
 
     for idx, img in enumerate(pil_frames):
         png_path = os.path.join(output_dir, f"{mode}_layout_{idx:02d}.png")
         img.save(png_path)
 
-    return gif_path
+    return webp_path
 
 
 # %%
 if __name__ == "__main__":
     import argparse
+    import os
 
     parser = argparse.ArgumentParser(description="Placement GIF capture (homogeneous / heterogeneous)")
     parser.add_argument("--mode", type=str, default="homogeneous", choices=["homogeneous", "heterogeneous"])
     parser.add_argument("--num_envs", type=int, default=4)
-    parser.add_argument("--output_dir", type=str, default="/tmp/placement_gifs")
+    parser.add_argument(
+        "--output_dir", type=str, default=os.path.expanduser("~/datasets/isaaclab_arena/placement_gifs")
+    )
     parser.add_argument("--num_resets", type=int, default=10)
     parser.add_argument("--warmup_steps", type=int, default=20)
     parser.add_argument("--gif_frame_duration_ms", type=int, default=1500)
     parser.add_argument("--env_spacing", type=float, default=3.0)
-    parser.add_argument("--cam_width", type=int, default=640)
-    parser.add_argument("--cam_height", type=int, default=480)
+    parser.add_argument("--cam_width", type=int, default=960)
+    parser.add_argument("--cam_height", type=int, default=720)
     args, _ = parser.parse_known_args()
 
     run_placement_gif_capture(

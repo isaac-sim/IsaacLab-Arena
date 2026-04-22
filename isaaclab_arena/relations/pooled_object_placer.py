@@ -61,7 +61,7 @@ class PooledObjectPlacer:
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
 
-        self._objects = list(objects)
+        self._objects = objects
         self._placer = ObjectPlacer(params=placer_params)
         self._pool_size = pool_size
         self._heterogeneous = any(getattr(obj, "heterogeneous_bbox", False) for obj in objects)
@@ -189,8 +189,11 @@ class PooledObjectPlacer:
                 f" {total_valid} valid, {num_layouts - total_valid} failed validation"
             )
 
-        for v in range(self._num_variants):
-            random.shuffle(self._variant_layouts[v])
+        if total_valid == 0:
+            print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
+            for i, r in enumerate(all_results):
+                variant = i % self._num_variants
+                self._variant_layouts[variant].append(r)
 
     # ------------------------------------------------------------------
     # Public API

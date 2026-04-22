@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 def run_heterogeneous_placement_capture(
     num_envs: int = 4,
-    output_dir: str = "/tmp/placement_captures",
+    output_dir: str | None = None,
     num_resets: int = 3,
     warmup_steps: int = 10,
 ) -> list[str]:
@@ -46,6 +46,7 @@ def run_heterogeneous_placement_capture(
         num_envs: Number of parallel environments, each potentially with
             a different object variant and layout.
         output_dir: Directory where captured PNG images are saved.
+            Defaults to ``~/datasets/isaaclab_arena/placement_captures``.
         num_resets: Number of reset cycles to capture (each reset yields
             a new random layout drawn from the placement pool).
         warmup_steps: Simulation steps to run after each reset before
@@ -58,6 +59,12 @@ def run_heterogeneous_placement_capture(
     import os
     import torch
 
+    if output_dir is None:
+        if os.path.isdir("/datasets"):
+            output_dir = "/datasets/isaaclab_arena/placement_captures"
+        else:
+            output_dir = os.path.expanduser("~/datasets/isaaclab_arena/placement_captures")
+
     from isaaclab.envs.common import ViewerCfg
 
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -66,7 +73,7 @@ def run_heterogeneous_placement_capture(
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
 
     os.makedirs(output_dir, exist_ok=True)
@@ -84,22 +91,41 @@ def run_heterogeneous_placement_capture(
     )
     table_reference.add_relation(IsAnchor())
 
-    # -- Heterogeneous pick-up object (different object per env) --
-    variant_names = ["cracker_box", "mug", "tomato_soup_can", "sugar_box"]
-    variant_objects = [asset_registry.get_asset_by_name(n)() for n in variant_names]
-    hetero_object = RigidObjectSet(name="hetero_pick", objects=variant_objects)
-    hetero_object.add_relation(On(table_reference))
+    # -- Fruits pinned to fixed XY positions (same spot across all envs) --
+    orange = asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")()
+    orange.add_relation(On(table_reference))
+    orange.add_relation(AtPosition(x=0.5, y=-0.15))
 
-    # -- Extra common objects on the table --
-    extra_names = ["dex_cube", "red_container"]
-    extras = []
-    for name in extra_names:
-        obj = asset_registry.get_asset_by_name(name)()
-        obj.add_relation(On(table_reference))
-        extras.append(obj)
+    banana = asset_registry.get_asset_by_name("banana_ycb_robolab")()
+    banana.add_relation(On(table_reference))
+    banana.add_relation(AtPosition(x=0.5, y=0.15))
+
+    # -- Heterogeneous object sets (different variant per env, random placement) --
+    hetero_sets = []
+    for set_name, variants in [
+        ("bottles", [
+            "ketchup_bottle_hope_robolab", "mustard_bottle_hope_robolab",
+            "mayonnaise_bottle_hope_robolab", "bbq_sauce_bottle_hope_robolab",
+        ]),
+        ("cans", [
+            "alphabet_soup_can_hope_robolab", "canned_peaches_hope_robolab",
+            "corn_can_hope_robolab", "tomato_sauce_can_hope_robolab",
+        ]),
+        ("tools", [
+            "spoon_handal_robolab", "spoon_1_handal_robolab",
+            "spoon_2_handal_robolab", "measuring_spoon_handal_robolab",
+        ]),
+        ("boxes", [
+            "popcorn_box_hope_robolab", "chocolate_pudding_mix_hope_robolab",
+        ]),
+    ]:
+        objs = [asset_registry.get_asset_by_name(n)() for n in variants]
+        obj_set = RigidObjectSet(name=set_name, objects=objs)
+        obj_set.add_relation(On(table_reference))
+        hetero_sets.append(obj_set)
 
     # -- Scene and environment --
-    scene = Scene(assets=[background, light, table_reference, hetero_object, *extras])
+    scene = Scene(assets=[background, light, table_reference, orange, banana, *hetero_sets])
 
     def _set_viewer_cfg(env_cfg):
         env_cfg.viewer = ViewerCfg(eye=(1.5, 0.0, 1.0), lookat=(0.2, 0.0, 0.0))
@@ -150,10 +176,13 @@ def smoke_test_heterogeneous_placement_capture(simulation_app: SimulationApp) ->
 # %%
 if __name__ == "__main__":
     import argparse
+    import os
 
     parser = argparse.ArgumentParser(description="Heterogeneous placement image capture")
     parser.add_argument("--num_envs", type=int, default=4)
-    parser.add_argument("--output_dir", type=str, default="/tmp/placement_captures")
+    parser.add_argument(
+        "--output_dir", type=str, default=os.path.expanduser("~/datasets/isaaclab_arena/placement_captures")
+    )
     parser.add_argument("--num_resets", type=int, default=3)
     parser.add_argument("--warmup_steps", type=int, default=10)
     args, _ = parser.parse_known_args()
