@@ -209,17 +209,21 @@ class {class_name}(ExampleEnvironmentBase):
 
     def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import On
+        from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.no_task import NoTask
+        from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("{background_name}")()
+        background.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
+        background.add_relation(IsAnchor())
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
+        ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
         light = self.asset_registry.get_asset_by_name("light")()
 
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=args_cli.enable_cameras,
-        )
+        # No kwargs — works for both no_embodiment and robot embodiments whose
+        # optional flags (enable_cameras, etc.) default to safe values.
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
 {item_decls}
 
