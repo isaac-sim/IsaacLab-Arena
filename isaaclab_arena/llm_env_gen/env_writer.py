@@ -3,109 +3,36 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate a registered ArenaEnvironment file from a ResolvedScene.
+"""Render a ``Placement`` to a registered ArenaEnvironment Python module.
 
-Takes the initial_scene_graph from a resolved scene and writes a Python
-module that instantiates the background + embodiment + items, applies the
-initial relations, and wires them into an IsaacLabArenaEnvironment.
+The pipeline is split into two stages:
 
-Task selection is driven off ``resolved.goal_added`` / ``resolved.goal_removed``:
+  1. :func:`isaaclab_arena.llm_env_gen.placement_proposer.propose_placement`
+     decides *what* should happen — which task to wire, how to anchor the
+     tabletop, what relations each item gets. It produces a pure-data
+     ``Placement`` bundle with no source strings.
+  2. :func:`write_env` (this module) consumes a ``Placement`` and emits
+     a ``@register_environment`` module. All template / indentation /
+     import concerns live here; no placement decisions are made.
 
-  * Exactly one ``on`` / ``in`` goal between two resolved items →
-    ``PickAndPlaceTask`` (subject becomes ``pick_up_object``, target becomes
-    ``destination_location``). ``goal_removed`` relations are implicitly
-    negated by the pick — they are recorded as comments for traceability.
-  * Anything else (multi-relation goals, unsupported kinds, target resolves
-    to the background) → ``NoTask`` fallback with explicit ``TODO`` comments
-    for each unmapped goal so the caller can wire them in manually.
-
-``next_to`` / ``at_position`` initial placements are still emitted as
-``TODO`` comments (see ``_SUPPORTED_INITIAL_KINDS``); the ``In`` relation
-class is also still missing (see the TODO in
-``isaaclab_arena.relations.relations``).
+Separating the two lets feasibility gates (IK reachability, motion-plan
+validity) run against a Placement before any file hits disk.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import Any
 
+from .placement_proposer import (
+    Placement,
+    PlacementItem,
+    RelationSpec,
+    TabletopAnchorPlan,
+    TaskPlan,
+    propose_placement,
+)
 from .resolver import ResolvedScene
 from .schema import SceneSpec
-
-# Relation kinds the writer knows how to translate into Arena `add_relation`
-# calls. Anything else is emitted as a commented-out placeholder.
-_SUPPORTED_INITIAL_KINDS = {"on"}
-
-# Goal-relation kinds that map to ``PickAndPlaceTask``. ``on`` and ``in`` both
-# describe "put subject at target"; the task's contact-sensor success predicate
-# handles both identically.
-_PICK_AND_PLACE_KINDS = {"on", "in"}
-
-# Default episode length for auto-generated pick_and_place envs. Matches the
-# hand-authored examples (e.g. pick_and_place_maple_table_environment).
-_DEFAULT_PICK_AND_PLACE_EPISODE_LENGTH_S = 20.0
-
-# Short verb code per goal-relation kind. Chosen so the generated env name
-# reads like "avocadoPnPbowltable" rather than a 40-character description.
-_VERB_CODES: dict[str, str] = {
-    "on": "PnP",
-    "in": "PnP",
-    "next_to": "Place",
-    "at_position": "Move",
-    "is_anchor": "Anchor",
-}
-
-
-def _safe_var(name: str) -> str:
-    v = re.sub(r"[^a-zA-Z0-9_]", "_", name).strip("_")
-    if not v:
-        return "obj"
-    if v[0].isdigit():
-        v = "_" + v
-    return v
-
-
-def _compact(name: str) -> str:
-    """Lowercase, strip non-alphanumerics — e.g. 'red_bell_pepper' -> 'redbellpepper'."""
-    return re.sub(r"[^a-zA-Z0-9]", "", name).lower() if name else ""
-
-
-def _env_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
-    """Build a compact env name from the goal diff, e.g. 'avocadoPnPbowltable'.
-
-    Subject of the first goal_added relation drives the primary object; the
-    target drives the secondary; the background anchors the support surface.
-    Falls back to the first resolved item if goal_added is empty, which the
-    schema validator already treats as an error case.
-    """
-    if resolved.goal_added:
-        diff = resolved.goal_added[0]
-        verb = _VERB_CODES.get(diff["kind"], diff["kind"].capitalize())
-        primary = _compact(diff["subject"])
-        secondary = _compact(diff["target"])
-    else:
-        verb = "Env"
-        primary = _compact(next(iter(resolved.items), "llm"))
-        secondary = ""
-    support = _compact(resolved.background.name if resolved.background else spec.background)
-    return f"{primary}{verb}{secondary}{support}" or "llmEnv"
-
-
-def _class_name(env_name: str, resolved: ResolvedScene, spec: SceneSpec) -> str:
-    """CamelCase variant of the env name, with the verb code preserved."""
-    if resolved.goal_added:
-        diff = resolved.goal_added[0]
-        verb = _VERB_CODES.get(diff["kind"], diff["kind"].capitalize())
-        primary = _compact(diff["subject"]).capitalize()
-        secondary = _compact(diff["target"]).capitalize()
-    else:
-        verb = "Env"
-        primary = _compact(next(iter(resolved.items), "llm")).capitalize()
-        secondary = ""
-    support = _compact(resolved.background.name if resolved.background else spec.background).capitalize()
-    return f"{primary}{verb}{secondary}{support}Environment"
 
 
 def write_env(resolved: ResolvedScene, spec: SceneSpec, out_path: str | Path) -> Path:
@@ -115,195 +42,40 @@ def write_env(resolved: ResolvedScene, spec: SceneSpec, out_path: str | Path) ->
     in the latter case the filename is derived from the env name so the
     generated module on disk matches the registered env name.
     """
-    env_slug = _env_name(resolved, spec)
-    class_name = _class_name(env_slug, resolved, spec)
+    placement = propose_placement(resolved, spec)
 
     out_path = Path(out_path)
     if out_path.suffix != ".py":
-        out_path = out_path / f"{env_slug}.py"
+        out_path = out_path / f"{placement.env_name}.py"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    item_vars: dict[str, str] = {}  # instance_name -> python var
-    for instance_name in resolved.items:
-        item_vars[instance_name] = f"{_safe_var(instance_name)}_obj"
-
-    background_name = resolved.background.name if resolved.background else spec.background
-    task_plan = _plan_task(resolved, spec, item_vars, background_name)
-
-    body = _render_module(
-        class_name=class_name,
-        env_name=env_slug,
-        task_description=spec.task_description,
-        background_name=background_name,
-        embodiment_default=resolved.embodiment_name,
-        items=[(item_vars[n], cls.name) for n, cls in resolved.items.items()],
-        initial_relations=_render_relations(resolved, spec, item_vars),
-        asset_list_src=["background", "ground_plane", "light", *item_vars.values()],
-        task_plan=task_plan,
-    )
-
+    body = _render_module(placement)
     out_path.write_text(body)
     return out_path
 
 
-def _plan_task(
-    resolved: ResolvedScene,
-    spec: SceneSpec,
-    item_vars: dict[str, str],
-    background_name: str,
-) -> dict[str, Any]:
-    """Decide which task to emit based on the resolved goal diff.
-
-    Returns a dict with:
-
-      * ``kind``          — ``"pick_and_place"`` or ``"no_task"``
-      * ``task_import``   — single ``from ... import ...`` line to inline in
-        ``get_env`` (matches the style of the other imports there)
-      * ``task_expr``     — source for the task instance passed to
-        ``IsaacLabArenaEnvironment(..., task=<expr>)``; may span multiple lines
-        and must already be indented for placement at call-site column.
-      * ``goal_comments`` — lines (each already prefixed with leading
-        whitespace) documenting ``goal_added`` / ``goal_removed`` entries —
-        success contract for pick_and_place, or manual TODOs for NoTask.
-      * ``header_note``   — one-liner explaining what was emitted; goes in the
-        module docstring so ``head -n 20 foo.py`` is self-explanatory.
-    """
-    # Try to fit PickAndPlaceTask: exactly one on/in goal between resolved items
-    # (not the background — PickAndPlaceTask distinguishes background_scene
-    # from destination_location, and uses the destination for contact-sensor
-    # filtering, which a whole-scene background generally does not support).
-    if len(resolved.goal_added) == 1:
-        g = resolved.goal_added[0]
-        if g["kind"] in _PICK_AND_PLACE_KINDS:
-            subj_var = item_vars.get(g["subject"])
-            tgt_var = None
-            if g["target"] != background_name:
-                tgt_var = item_vars.get(g["target"])
-            if subj_var is not None and tgt_var is not None:
-                return _pick_and_place_plan(resolved, spec, g, subj_var, tgt_var)
-
-    return _no_task_plan(resolved)
+# ---------------------------------------------------------------------------
+# Rendering helpers — all purely string manipulation.
+# ---------------------------------------------------------------------------
 
 
-def _pick_and_place_plan(
-    resolved: ResolvedScene,
-    spec: SceneSpec,
-    goal: dict[str, Any],
-    subject_var: str,
-    target_var: str,
-) -> dict[str, Any]:
-    comments = [
-        "        # goal_added (enforced by PickAndPlaceTask success predicate):"
-        f"  {goal['kind']}({goal['subject']}, {goal['target']})"
-    ]
-    for r in resolved.goal_removed:
-        comments.append(
-            "        # goal_removed (implicitly negated when the pick succeeds):"
-            f"  {r['kind']}({r['subject']}, {r['target']})"
-        )
-    return {
-        "kind": "pick_and_place",
-        "task_import": "from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask",
-        "task_expr": (
-            "PickAndPlaceTask(\n"
-            f"                pick_up_object={subject_var},\n"
-            f"                destination_location={target_var},\n"
-            "                background_scene=background,\n"
-            f"                episode_length_s={_DEFAULT_PICK_AND_PLACE_EPISODE_LENGTH_S},\n"
-            f"                task_description={spec.task_description!r},\n"
-            "            )"
-        ),
-        "goal_comments": comments,
-        "header_note": (
-            f"PickAndPlaceTask: pick_up={subject_var.removesuffix('_obj')}, "
-            f"destination={target_var.removesuffix('_obj')}"
-        ),
-    }
-
-
-def _no_task_plan(resolved: ResolvedScene) -> dict[str, Any]:
-    """Fallback when the goal diff does not fit a known task shape."""
-    added = [(r["kind"], r["subject"], r["target"]) for r in resolved.goal_added]
-    removed = [(r["kind"], r["subject"], r["target"]) for r in resolved.goal_removed]
-    reason: str
-    if not resolved.goal_added:
-        reason = "no goal_added relations in resolved scene"
-    elif len(resolved.goal_added) > 1:
-        reason = f"multi-relation goal not yet supported ({len(resolved.goal_added)} added)"
-    else:
-        g = resolved.goal_added[0]
-        if g["kind"] not in _PICK_AND_PLACE_KINDS:
-            reason = f"goal kind {g['kind']!r} has no task mapping yet"
-        else:
-            reason = (
-                f"goal {g['kind']}({g['subject']}, {g['target']}) does not resolve "
-                "to two distinct items (target may be the background or unresolved)"
-            )
-    comments = [f"        # NoTask fallback — {reason}."]
-    for kind, subj, tgt in added:
-        comments.append(f"        # TODO(goal_added): {kind}({subj}, {tgt}) — wire success predicate")
-    for kind, subj, tgt in removed:
-        comments.append(f"        # TODO(goal_removed): {kind}({subj}, {tgt}) — wire negation")
-    return {
-        "kind": "no_task",
-        "task_import": "from isaaclab_arena.tasks.no_task import NoTask",
-        "task_expr": "NoTask()",
-        "goal_comments": comments,
-        "header_note": f"NoTask fallback ({reason}). Goal diff preserved as TODO comments.",
-    }
-
-
-def _render_relations(resolved: ResolvedScene, spec: SceneSpec, item_vars: dict[str, str]) -> list[str]:
-    """Translate initial_scene_graph into add_relation call source lines."""
-    lines: list[str] = []
-    for rel in resolved.initial_scene_graph:
-        subject_var = item_vars.get(rel["subject"])
-        target_name = rel["target"]
-
-        if subject_var is None:
-            lines.append(f"        # SKIPPED (unknown subject {rel['subject']!r}): {rel}")
-            continue
-
-        if rel["kind"] == "on":
-            target_var = "background" if target_name == spec.background else item_vars.get(target_name)
-            if target_var is None:
-                lines.append(f"        # SKIPPED (unknown target {target_name!r}): {rel}")
-                continue
-            lines.append(f"        {subject_var}.add_relation(On({target_var}, clearance_m=0.02))")
-        else:
-            lines.append(f"        # TODO({rel['kind']}): no generator support yet for this relation kind. raw={rel}")
-    return lines
-
-
-def _render_module(
-    *,
-    class_name: str,
-    env_name: str,
-    task_description: str,
-    background_name: str,
-    embodiment_default: str,
-    items: list[tuple[str, str]],
-    initial_relations: list[str],
-    asset_list_src: list[str],
-    task_plan: dict[str, Any],
-) -> str:
-    # TODO: Support multiple instances of the same library asset (e.g. two
-    # bananas in one scene). Right now each item gets the asset's registered
-    # name by default, so two bananas would collide on the scene-level name.
-    # When we need this, re-introduce instance_name="..." on the emitted
-    # line and derive a unique suffix from the LLM's instance_name / query
-    # (e.g. "banana_1", "banana_2"). The resolver already keeps items keyed
-    # by instance_name, so this is a generator-side fix only.
-    item_decls = "\n".join(
-        f'        {var} = self.asset_registry.get_asset_by_name("{asset}")()' for var, asset in items
+def _render_module(placement: Placement) -> str:
+    item_decls = _render_item_decls(placement.items)
+    anchor_setup = _render_anchor_setup(placement.tabletop_anchor_plan)
+    bbox_setup = _render_bbox_setup(placement.tabletop_anchor_plan)
+    relations_src = _render_relations(placement.items)
+    goal_comments = "\n".join(placement.task_plan.goal_comments)
+    asset_list = ", ".join(
+        [
+            "background",
+            "ground_plane",
+            "light",
+            *placement.extra_scene_assets,
+            *(i.var_name for i in placement.items),
+        ]
     )
-    relations_src = "\n".join(initial_relations) if initial_relations else "        # (no initial relations)"
-    asset_list = ", ".join(asset_list_src)
 
-    goal_comments = "\n".join(task_plan["goal_comments"])
-    task_import = task_plan["task_import"]
-    task_expr = task_plan["task_expr"]
-    task_header_note = task_plan["header_note"]
+    tabletop_header_note = placement.tabletop_anchor_plan.header_note(placement.background_name)
 
     return f'''# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
@@ -312,9 +84,9 @@ def _render_module(
 
 """Auto-generated by isaaclab_arena.llm_env_gen.
 
-Task: {task_description}
+Task: {placement.task_description}
 
-Task wiring: {task_header_note}
+Task wiring: {placement.task_plan.header_note}
 """
 
 from __future__ import annotations
@@ -330,30 +102,36 @@ if TYPE_CHECKING:
 
 
 @register_environment
-class {class_name}(ExampleEnvironmentBase):
-    """{task_description}"""
+class {placement.class_name}(ExampleEnvironmentBase):
+    """{placement.task_description}"""
 
-    name: str = "{env_name}"
+    name: str = "{placement.env_name}"
 
     def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
+        from isaaclab_arena.assets.object_base import ObjectType
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
-        {task_import}
+        {placement.task_plan.task_import}
         from isaaclab_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("{background_name}")()
+        background = self.asset_registry.get_asset_by_name("{placement.background_name}")()
         background.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
-        background.add_relation(IsAnchor())
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
         light = self.asset_registry.get_asset_by_name("light")()
+
+        # Tabletop anchor — {tabletop_header_note}.
+{anchor_setup}
 
         # No kwargs — works for both no_embodiment and robot embodiments whose
         # optional flags (enable_cameras, etc.) default to safe values.
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
 {item_decls}
+
+{bbox_setup}
 
 {relations_src}
 
@@ -365,10 +143,83 @@ class {class_name}(ExampleEnvironmentBase):
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task={task_expr},
+            task={placement.task_plan.task_expr},
         )
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--embodiment", type=str, default="{embodiment_default}")
+        parser.add_argument("--embodiment", type=str, default="{placement.embodiment_default}")
 '''
+
+
+def _render_item_decls(items: list[PlacementItem]) -> str:
+    # TODO: Support multiple instances of the same library asset (e.g. two
+    # bananas in one scene). Right now each item gets the asset's registered
+    # name by default, so two bananas would collide on the scene-level name.
+    # When we need this, re-introduce instance_name="..." on the emitted
+    # line and derive a unique suffix from the LLM's instance_name / query.
+    return "\n".join(
+        f'        {i.var_name} = self.asset_registry.get_asset_by_name("{i.asset_name}")()' for i in items
+    )
+
+
+def _render_anchor_setup(plan: TabletopAnchorPlan) -> str:
+    if plan.kind == "reference":
+        return (
+            "        tabletop_anchor = ObjectReference(\n"
+            '            name="table",\n'
+            f'            prim_path="{plan.prim_path}",\n'
+            "            parent_asset=background,\n"
+            "            object_type=ObjectType.RIGID,\n"
+            "        )\n"
+            "        tabletop_anchor.add_relation(IsAnchor())"
+        )
+    # "none" and "background" both anchor on the background asset.
+    return "        background.add_relation(IsAnchor())"
+
+
+def _render_bbox_setup(plan: TabletopAnchorPlan) -> str:
+    if not plan.emit_position_limits:
+        return "        # (no tabletop bbox — background not in _BACKGROUND_TABLETOP_ANCHOR)"
+    return (
+        "        # Runtime-derived XY footprint from the tabletop bbox — no\n"
+        "        # hardcoded bounds, works across tables of any size. The\n"
+        "        # bbox stores (N, 3) tensors; we squeeze to plain floats\n"
+        "        # for the first env since PositionLimits takes scalars and\n"
+        "        # the tabletop is static across envs.\n"
+        f"        _tbl_bbox = {plan.anchor_var}.get_world_bounding_box()\n"
+        "        _tbl_min_xyz = [float(_tbl_bbox.min_point[0, i]) for i in range(3)]\n"
+        "        _tbl_max_xyz = [float(_tbl_bbox.max_point[0, i]) for i in range(3)]\n"
+        f"        _tbl_margin = {plan.margin_m}"
+    )
+
+
+def _render_relations(items: list[PlacementItem]) -> str:
+    lines: list[str] = []
+    for item in items:
+        if not item.relations:
+            continue
+        for rel in item.relations:
+            lines.extend(_render_one_relation(item.var_name, rel))
+    if not lines:
+        return "        # (no initial relations)"
+    return "\n".join(lines)
+
+
+def _render_one_relation(var: str, rel: RelationSpec) -> list[str]:
+    if rel.kind == "on":
+        return [f"        {var}.add_relation(On({rel.on_target_var}, clearance_m={rel.on_clearance_m}))"]
+    if rel.kind == "position_limits":
+        if rel.pl_source != "bbox":
+            return [f"        # TODO(position_limits): unsupported source {rel.pl_source!r}"]
+        return [
+            f"        {var}.add_relation(PositionLimits(",
+            "            x_min=_tbl_min_xyz[0] + _tbl_margin,",
+            "            x_max=_tbl_max_xyz[0] - _tbl_margin,",
+            "            y_min=_tbl_min_xyz[1] + _tbl_margin,",
+            "            y_max=_tbl_max_xyz[1] - _tbl_margin,",
+            "        ))",
+        ]
+    if rel.kind == "unsupported":
+        return [f"        # TODO({rel.reason}): {rel.raw_relation}"]
+    return [f"        # TODO(unknown relation kind {rel.kind!r}): {rel.raw_relation}"]

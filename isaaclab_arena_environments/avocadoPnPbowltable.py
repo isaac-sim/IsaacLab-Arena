@@ -28,19 +28,23 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
 
     name: str = "avocadoPnPbowltable"
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
+        from isaaclab_arena.assets.object_base import ObjectType
+        from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("table")()
         background.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
-        background.add_relation(IsAnchor())
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
         light = self.asset_registry.get_asset_by_name("light")()
+
+        # Tabletop anchor — tabletop anchor = background (background); PositionLimits derived from get_world_bounding_box().
+        background.add_relation(IsAnchor())
 
         # No kwargs — works for both no_embodiment and robot embodiments whose
         # optional flags (enable_cameras, etc.) default to safe values.
@@ -52,24 +56,53 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         sweet_potato_obj = self.asset_registry.get_asset_by_name("sweet_potato")()
         red_bell_pepper_obj = self.asset_registry.get_asset_by_name("red_bell_pepper_objaverse_robolab")()
 
-        avocado_obj.add_relation(On(background, clearance_m=0.02))
-        bowl_obj.add_relation(On(background, clearance_m=0.02))
-        broccoli_obj.add_relation(On(background, clearance_m=0.02))
-        sweet_potato_obj.add_relation(On(background, clearance_m=0.02))
-        red_bell_pepper_obj.add_relation(On(background, clearance_m=0.02))
+        # Runtime-derived XY footprint from the tabletop bbox — no
+        # hardcoded bounds, works across tables of any size. The
+        # bbox stores (N, 3) tensors; we squeeze to plain floats
+        # for the first env since PositionLimits takes scalars and
+        # the tabletop is static across envs.
+        _tbl_bbox = background.get_world_bounding_box()
+        _tbl_min_xyz = [float(_tbl_bbox.min_point[0, i]) for i in range(3)]
+        _tbl_max_xyz = [float(_tbl_bbox.max_point[0, i]) for i in range(3)]
+        _tbl_margin = 0.05
 
-        scene = Scene(
-            assets=[
-                background,
-                ground_plane,
-                light,
-                avocado_obj,
-                bowl_obj,
-                broccoli_obj,
-                sweet_potato_obj,
-                red_bell_pepper_obj,
-            ]
-        )
+        avocado_obj.add_relation(On(background, clearance_m=0.02))
+        avocado_obj.add_relation(PositionLimits(
+            x_min=_tbl_min_xyz[0] + _tbl_margin,
+            x_max=_tbl_max_xyz[0] - _tbl_margin,
+            y_min=_tbl_min_xyz[1] + _tbl_margin,
+            y_max=_tbl_max_xyz[1] - _tbl_margin,
+        ))
+        bowl_obj.add_relation(On(background, clearance_m=0.02))
+        bowl_obj.add_relation(PositionLimits(
+            x_min=_tbl_min_xyz[0] + _tbl_margin,
+            x_max=_tbl_max_xyz[0] - _tbl_margin,
+            y_min=_tbl_min_xyz[1] + _tbl_margin,
+            y_max=_tbl_max_xyz[1] - _tbl_margin,
+        ))
+        broccoli_obj.add_relation(On(background, clearance_m=0.02))
+        broccoli_obj.add_relation(PositionLimits(
+            x_min=_tbl_min_xyz[0] + _tbl_margin,
+            x_max=_tbl_max_xyz[0] - _tbl_margin,
+            y_min=_tbl_min_xyz[1] + _tbl_margin,
+            y_max=_tbl_max_xyz[1] - _tbl_margin,
+        ))
+        sweet_potato_obj.add_relation(On(background, clearance_m=0.02))
+        sweet_potato_obj.add_relation(PositionLimits(
+            x_min=_tbl_min_xyz[0] + _tbl_margin,
+            x_max=_tbl_max_xyz[0] - _tbl_margin,
+            y_min=_tbl_min_xyz[1] + _tbl_margin,
+            y_max=_tbl_max_xyz[1] - _tbl_margin,
+        ))
+        red_bell_pepper_obj.add_relation(On(background, clearance_m=0.02))
+        red_bell_pepper_obj.add_relation(PositionLimits(
+            x_min=_tbl_min_xyz[0] + _tbl_margin,
+            x_max=_tbl_max_xyz[0] - _tbl_margin,
+            y_min=_tbl_min_xyz[1] + _tbl_margin,
+            y_max=_tbl_max_xyz[1] - _tbl_margin,
+        ))
+
+        scene = Scene(assets=[background, ground_plane, light, avocado_obj, bowl_obj, broccoli_obj, sweet_potato_obj, red_bell_pepper_obj])
 
         # goal_added (enforced by PickAndPlaceTask success predicate):  in(avocado, bowl)
         # goal_removed (implicitly negated when the pick succeeds):  on(avocado, table)
@@ -83,10 +116,7 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
                 destination_location=bowl_obj,
                 background_scene=background,
                 episode_length_s=20.0,
-                task_description=(
-                    "Pick up the avocado from the table and place it into a bowl on the table, with distractor"
-                    " vegetables present."
-                ),
+                task_description='Pick up the avocado from the table and place it into a bowl on the table, with distractor vegetables present.',
             ),
         )
 
