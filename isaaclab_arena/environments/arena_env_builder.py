@@ -173,6 +173,36 @@ class ArenaEnvBuilder:
             else:
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
+    def _compose_variations_event_cfg(self):
+        """Build a configclass instance holding an :class:`EventTermCfg` per enabled variation.
+
+        Walks every enabled variation on the scene (and, later, any env-level
+        variation escape hatch) and asks it for its event term via
+        :meth:`~isaaclab_arena.variations.variation_base.VariationBase.build_event_cfg`.
+        Returns ``None`` when nothing is enabled so
+        :func:`combine_configclass_instances` skips it cleanly.
+
+        Raises:
+            AssertionError: If two variations want the same event-term name
+                (variations are responsible for uniquely namespacing their
+                terms, typically by prefixing with the asset name).
+        """
+        variations = self.arena_env.scene.get_variations()
+        if not variations:
+            return None
+        fields: list[tuple[str, type, EventTermCfg]] = []
+        seen: set[str] = set()
+        for variation in variations:
+            event_name, event_cfg = variation.build_event_cfg(self.arena_env.scene)
+            assert event_name not in seen, (
+                f"Duplicate variation event term name '{event_name}'. "
+                "Each variation must produce a unique name; consider prefixing with the asset name."
+            )
+            seen.add(event_name)
+            fields.append((event_name, EventTermCfg, event_cfg))
+        VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
+        return VariationsEventCfg()
+
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
         base = getattr(recorder_cfg, "dataset_filename", "dataset")
@@ -224,12 +254,14 @@ class ArenaEnvBuilder:
                 [("placement_reset", EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
+        variations_event_cfg = self._compose_variations_event_cfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
             placement_event_cfg,
+            variations_event_cfg,
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",

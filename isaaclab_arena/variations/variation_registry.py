@@ -53,18 +53,25 @@ class VariationRegistry:
         return dict(cls._entries)
 
 
-def register_variation(name: str):
-    """Decorator: register a :class:`VariationBase` subclass under ``name``.
+def register_variation(cls: type[VariationBase]) -> type[VariationBase]:
+    """Decorator: register a :class:`VariationBase` subclass under its ``name``.
+
+    The variation's class-level :attr:`~VariationBase.name` attribute is used
+    as the registry key — the same name the asset keys it under when it is
+    attached via
+    :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`. This
+    keeps the "variation name" defined in exactly one place: the class itself.
 
     Example::
 
-        @register_variation("color")
+        @register_variation
         class ObjectColorVariation(VariationBase):
+            name = "color"
             ...
     """
-
-    def decorator(cls: type[VariationBase]) -> type[VariationBase]:
-        VariationRegistry.register(name, cls)
-        return cls
-
-    return decorator
+    assert isinstance(getattr(cls, "name", None), str) and cls.name, (
+        f"Variation {cls.__module__}.{cls.__name__} must declare a non-empty "
+        "class-level `name: ClassVar[str]` before @register_variation."
+    )
+    VariationRegistry.register(cls.name, cls)
+    return cls

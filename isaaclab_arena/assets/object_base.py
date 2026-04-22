@@ -51,22 +51,24 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
-        self._variations: dict[str, VariationBase] = {
-            variation_name: variation_cls(self)
-            for variation_name, variation_cls in type(self).available_variations().items()
-        }
+        self._variations: dict[str, VariationBase] = {}
 
-    @classmethod
-    def available_variations(cls) -> dict[str, type[VariationBase]]:
-        """Variation classes this asset class supports.
+    def add_variation(self, variation: VariationBase) -> None:
+        """Attach a concrete variation to this asset under its :attr:`VariationBase.name`.
 
-        Subclasses extend via ``{**super().available_variations(), "name": VariationCls}``.
-        Each entry is instantiated once per asset instance at construction time and
-        starts disabled; users opt in via
-        :meth:`get_variation` -> :meth:`~isaaclab_arena.variations.variation_base.VariationBase.enable`
-        and configure it via :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
+        Subclasses call this from their ``__init__`` (after ``super().__init__``)
+        to declare the variations they support, e.g.
+        ``self.add_variation(ObjectColorVariation(self))``. The variation's
+        class-level ``name`` is used as the key, so it matches the name the
+        variation is registered under globally (via
+        :func:`~isaaclab_arena.variations.variation_registry.register_variation`)
+        and the name users reference through :meth:`get_variation`. Each variation
+        is added in its default state (disabled, pre-configured with a sensible
+        default sampler where applicable) so that users can opt in with a single
+        :meth:`get_variation(name).enable() <isaaclab_arena.variations.variation_base.VariationBase.enable>`
+        call. Re-registering the same name overwrites the existing entry.
         """
-        return {}
+        self._variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:
         """Return the variation with the given name; raises ``KeyError`` if unsupported."""

@@ -7,17 +7,19 @@
 
 A :class:`VariationBase` describes *one* knob to turn on the scene — the
 target asset, the sampler that drives it, and the event term that realises
-it. Variations are instantiated by their target asset as part of
-:meth:`~isaaclab_arena.assets.object_base.ObjectBase.available_variations`
-(disabled + sampler-less by default) and then configured by the user via
-:meth:`enable` / :meth:`set_sampler`. The builder walks the scene, collects
-enabled variations, and merges their event terms into ``events_cfg``.
+it. Variations are attached to their target asset in the asset's ``__init__``
+via :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`
+(disabled by default, pre-configured with a sensible default sampler where
+applicable) and then toggled by the user via
+:meth:`enable` (and optionally narrowed via :meth:`set_sampler`). The builder
+walks the scene, collects enabled variations, and merges their event terms
+into ``events_cfg``.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from isaaclab.managers import EventTermCfg
 
@@ -32,12 +34,27 @@ class VariationBase(ABC):
 
     A variation binds a target asset and a
     :class:`~isaaclab_arena.variations.sampler.Sampler` to the event term
-    required to apply it on reset / prestartup. It starts disabled with no
-    sampler; the user flips it on via :meth:`enable` and supplies a sampler
-    via :meth:`set_sampler` before the environment is built. Subclasses
+    required to apply it on reset / prestartup. It starts disabled; concrete
+    subclasses typically install a default sampler in their constructor so
+    the user can flip it on with a single :meth:`enable` call and override
+    the distribution later via :meth:`set_sampler` if desired. Subclasses
     implement :meth:`build_event_cfg`, which the builder calls once per
     enabled variation.
+
+    Concrete subclasses must also declare a class-level :attr:`name` — a short,
+    unique identifier used both as the key under which the asset stores the
+    variation (see
+    :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`) and as
+    the registry key picked up by
+    :func:`~isaaclab_arena.variations.variation_registry.register_variation`.
     """
+
+    #: Short, unique identifier for this variation kind (e.g. ``"color"``,
+    #: ``"mass"``). Concrete subclasses **must** set this; abstract intermediates
+    #: may leave it unset. Used by
+    #: :class:`~isaaclab_arena.variations.variation_registry.VariationRegistry`
+    #: and :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`.
+    name: ClassVar[str]
 
     def __init__(self, asset: ObjectBase):
         self.asset = asset

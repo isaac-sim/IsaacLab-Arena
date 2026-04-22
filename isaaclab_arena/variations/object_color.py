@@ -33,7 +33,14 @@ if TYPE_CHECKING:
     from isaaclab_arena.scene.scene import Scene
 
 
-@register_variation("color")
+#: Default RGB sampler used when the user enables the variation without
+#: calling :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
+#: Full ``[0, 1]^3`` range — aggressive but universally valid; users wanting
+#: subtler tints can override via ``set_sampler(UniformSampler(low=(0.4,)*3, high=(1.0,)*3))``.
+DEFAULT_COLOR_SAMPLER = UniformSampler(low=(0.0, 0.0, 0.0), high=(1.0, 1.0, 1.0))
+
+
+@register_variation
 class ObjectColorVariation(VariationBase):
     """Randomize an object's visual color per env.
 
@@ -41,7 +48,9 @@ class ObjectColorVariation(VariationBase):
     :class:`isaaclab.envs.mdp.randomize_visual_color`. The target asset's
     bound material is replaced with a fresh ``OmniPBR`` instance whose
     ``diffuse_color_constant`` is sampled (uniformly over RGB) from the
-    bounds of the sampler provided via
+    variation's sampler. The sampler defaults to :data:`DEFAULT_COLOR_SAMPLER`
+    so calling :meth:`enable` alone is sufficient for reasonable behaviour;
+    users can narrow or replace the distribution via
     :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
 
     Requirements:
@@ -63,6 +72,8 @@ class ObjectColorVariation(VariationBase):
             meshes under the asset's prim.
     """
 
+    name = "color"
+
     def __init__(
         self,
         asset: ObjectBase,
@@ -72,6 +83,7 @@ class ObjectColorVariation(VariationBase):
         super().__init__(asset)
         self.mode = mode
         self.mesh_name = mesh_name
+        self.set_sampler(DEFAULT_COLOR_SAMPLER)
 
     def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:  # noqa: ARG002
         assert self._sampler is not None, (

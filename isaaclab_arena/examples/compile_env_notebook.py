@@ -24,17 +24,18 @@ simulation_app = app_launcher.app
 
 # %%
 
-import isaaclab.envs.mdp as mdp  # noqa: F401  (kept for the commented-out replacement term below)
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
+import isaaclab.envs.mdp as mdp  # noqa: F401  (kept for the commented-out in-place tint notes below)
+from isaaclab.managers import EventTermCfg, SceneEntityCfg  # noqa: F401  (kept for the commented-out in-place tint notes below)
 
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.examples.tint_events import randomize_visual_diffuse_tint
+from isaaclab_arena.examples.tint_events import randomize_visual_diffuse_tint  # noqa: F401  (kept for the commented-out in-place tint notes below)
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.variations import UniformSampler
 
 asset_registry = AssetRegistry()
 
@@ -46,6 +47,19 @@ tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 cracker_box.add_relation(IsAnchor())
 tomato_soup_can.add_relation(On(cracker_box))
+
+# --- New-style variation configuration ---------------------------------------
+#
+# Every ``Object`` ships with a registry of built-in variations (currently just
+# ``"color"``), pre-configured with a sensible default sampler. Calling
+# :meth:`~isaaclab_arena.variations.variation_base.VariationBase.enable` alone
+# is enough to get reasonable behaviour; :meth:`set_sampler` is only needed to
+# narrow or replace the default distribution.
+cracker_box.get_variation("color").enable()  # uses the default full-RGB sampler
+
+# Uncomment to also randomize the soup can with a tighter (pastel) range:
+# tomato_soup_can.get_variation("color").enable()
+# tomato_soup_can.get_variation("color").set_sampler(UniformSampler(low=(0.4,) * 3, high=(1.0,) * 3))
 
 scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -61,65 +75,27 @@ args_cli.num_envs = 4
 args_cli.visualizer = "kit"
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
-# Build the env_cfg so we can inject extra event terms before registration.
+# ``compose_manager_cfg`` collects every enabled variation from the scene and
+# merges their event terms into ``env_cfg.events`` automatically (see
+# ``ArenaEnvBuilder._compose_variations_event_cfg``). No manual plumbing.
 env_cfg = env_builder.compose_manager_cfg()
+assert (
+    env_cfg.scene.replicate_physics is False
+), "Per-env color variation requires replicate_physics=False; got True."
 
 # %%
 
-# Per-env visual tint via a custom event (see ``tint_events.py``).
+# --- In-place diffuse tint (still a TODO, see 2026_04_21_color_variation_status.md) --
 #
-# This *keeps* the asset's original diffuse texture and multiplies a random
-# color onto it, rather than replacing the material with a flat OmniPBR
-# instance like ``mdp.randomize_visual_color`` does.
-#
-# Requirements:
-# * ``scene.replicate_physics`` must be False (Arena default) — with replication
-#   on, every env shares a single source material and per-env tinting is
-#   impossible. The event itself also asserts this.
-# * ``mode="prestartup"`` → each env gets a stable tint for the entire run.
-#   Use ``mode="reset"`` instead to resample on every episode reset.
-# * The colors dict specifies uniform ranges per channel. Narrow ranges near
-#   1.0 (e.g. (0.4, 1.0)) give subtle, photo-realistic tints; wide ranges
-#   like (0.0, 1.0) look more aggressive.
-assert (
-    env_cfg.scene.replicate_physics is False
-), "randomize_visual_diffuse_tint requires replicate_physics=False; got True."
+# The in-place tint path (``randomize_visual_diffuse_tint``) preserves the
+# asset's diffuse texture but currently doesn't produce a visible change.
+# Left here so it's easy to A/B once the shader-path fix lands.
 # env_cfg.events.cracker_box_tint = EventTermCfg(
 #     func=randomize_visual_diffuse_tint,
 #     mode="reset",
 #     params={
 #         "asset_cfg": SceneEntityCfg(cracker_box.name),
 #         "colors": {"r": (0.4, 1.0), "g": (0.4, 1.0), "b": (0.4, 1.0)},
-#     },
-# )
-# env_cfg.events.tomato_soup_can_tint = EventTermCfg(
-#     func=randomize_visual_diffuse_tint,
-#     mode="prestartup",
-#     params={
-#         "asset_cfg": SceneEntityCfg(tomato_soup_can.name),
-#         "colors": {"r": (0.4, 1.0), "g": (0.4, 1.0), "b": (0.4, 1.0)},
-#     },
-# )
-
-# --- Previous behavior: replace the material entirely (texture is lost) ---
-env_cfg.events.cracker_box_color = EventTermCfg(
-    func=mdp.randomize_visual_color,
-    mode="reset",
-    params={
-        "asset_cfg": SceneEntityCfg(cracker_box.name),
-        "colors": {"r": (0.0, 1.0), "g": (0.0, 1.0), "b": (0.0, 1.0)},
-        "mesh_name": "",
-        "event_name": "cracker_box_color",
-    },
-)
-# env_cfg.events.tomato_soup_can_color = EventTermCfg(
-#     func=mdp.randomize_visual_color,
-#     mode="prestartup",
-#     params={
-#         "asset_cfg": SceneEntityCfg(tomato_soup_can.name),
-#         "colors": [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (1.0, 1.0, 0.0)],
-#         "mesh_name": "",
-#         "event_name": "tomato_soup_can_color",
 #     },
 # )
 

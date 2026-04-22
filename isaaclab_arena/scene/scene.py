@@ -13,12 +13,13 @@ from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
+from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
 
@@ -101,6 +102,14 @@ class Scene:
 
     def get_commands_cfg(self) -> Any:
         return self.commands_cfg
+
+    def get_variations(self) -> list[VariationBase]:
+        """Return all enabled variations declared on :class:`ObjectBase` assets in the scene."""
+        variations: list[VariationBase] = []
+        for asset in self.assets.values():
+            if isinstance(asset, ObjectBase):
+                variations.extend(asset.get_variations())
+        return variations
 
     def get_objects_with_relations(self) -> list[Object | ObjectReference]:
         """Return all objects in the scene that have at least one relation."""

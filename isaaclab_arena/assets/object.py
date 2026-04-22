@@ -18,7 +18,6 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 from isaaclab_arena.variations.object_color import ObjectColorVariation
-from isaaclab_arena.variations.variation_base import VariationBase
 
 
 class Object(ObjectBase):
@@ -63,10 +62,7 @@ class Object(ObjectBase):
         self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
-
-    @classmethod
-    def available_variations(cls) -> dict[str, type[VariationBase]]:
-        return {**super().available_variations(), "color": ObjectColorVariation}
+        self.add_variation(ObjectColorVariation(self))
 
     def add_relation(self, relation: RelationBase) -> None:
         """Add a relation to this object."""
