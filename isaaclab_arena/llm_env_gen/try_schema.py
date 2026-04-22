@@ -44,6 +44,18 @@ def main() -> None:
         default=None,
         help="After resolving, write an auto-generated env.py with NoTask to this path.",
     )
+    parser.add_argument(
+        "--background",
+        type=str,
+        default="maple_table_robolab",
+        help=(
+            "Override the background chosen by the LLM (e.g. 'office_table' "
+            "or 'kitchen'). Default is 'maple_table_robolab' because its "
+            "tabletop ObjectReference yields a clean bbox and stable "
+            "placement, unlike the rotated plain 'table' background. Pass "
+            "an empty string ('') to keep the LLM's choice."
+        ),
+    )
     args = parser.parse_args()
 
     from isaaclab_arena.llm_env_gen.schema import SceneSpec
@@ -65,6 +77,22 @@ def main() -> None:
 
     print("=== raw LLM response ===")
     print(raw)
+
+    if args.background and args.background != spec.background:
+        # Swap the background name wherever it appears so downstream code
+        # (resolver, proposer) sees a consistent scene. Relations whose
+        # target was the old background get rewired to the new one.
+        old_bg = spec.background
+        new_bg = args.background
+        for rel in spec.initial_scene_graph:
+            if rel.target == old_bg:
+                rel.target = new_bg
+        for rel in spec.final_scene_graph:
+            if rel.target == old_bg:
+                rel.target = new_bg
+        spec.background = new_bg
+        print(f"\n=== background override applied: {old_bg!r} -> {new_bg!r} ===")
+
     print("\n=== parsed SceneSpec ===")
     print(spec.model_dump_json(indent=2))
 

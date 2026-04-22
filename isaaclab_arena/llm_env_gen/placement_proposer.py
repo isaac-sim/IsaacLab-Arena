@@ -71,6 +71,24 @@ _BACKGROUND_TABLETOP_ANCHOR: dict[str, str | None] = {
     "kitchen": "{ENV_REGEX_NS}/kitchen/Kitchen_Counter/TRS_Base/TRS_Static/Counter_Top_A",
 }
 
+# Background → short family name used in the env slug. Different variants
+# of the same physical surface (e.g. maple_table_robolab / office_table /
+# plain table) all collapse to "table" so the generated env name stays
+# readable ("avocadoPnPbowltable") regardless of which specific USD we
+# pick. Backgrounds not in this map contribute their full registered
+# name (compacted) — tweak here when a new family shows up.
+_BACKGROUND_NAME_ALIASES: dict[str, str] = {
+    "table": "table",
+    "maple_table_robolab": "table",
+    "table_maple_robolab": "table",
+    "office_table": "table",
+    "packing_table": "table",
+    "kitchen": "kitchen",
+    "kitchen_with_open_drawer": "kitchen",
+    "lightwheel_robocasa_kitchen": "kitchen",
+}
+
+
 # Short verb code per goal-relation kind. Chosen so the generated env name
 # reads like "avocadoPnPbowltable" rather than a 40-character description.
 _VERB_CODES: dict[str, str] = {
@@ -217,6 +235,12 @@ def _compact(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]", "", name).lower() if name else ""
 
 
+def _background_family(resolved: ResolvedScene, spec: SceneSpec) -> str:
+    """Short alias for the background, used in env / class names."""
+    bg_name = resolved.background.name if resolved.background else spec.background
+    return _BACKGROUND_NAME_ALIASES.get(bg_name, _compact(bg_name))
+
+
 def _derive_env_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
     """Compact env name from the goal diff, e.g. 'avocadoPnPbowltable'."""
     if resolved.goal_added:
@@ -228,8 +252,7 @@ def _derive_env_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
         verb = "Env"
         primary = _compact(next(iter(resolved.items), "llm"))
         secondary = ""
-    support = _compact(resolved.background.name if resolved.background else spec.background)
-    return f"{primary}{verb}{secondary}{support}" or "llmEnv"
+    return f"{primary}{verb}{secondary}{_background_family(resolved, spec)}" or "llmEnv"
 
 
 def _derive_class_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
@@ -243,8 +266,7 @@ def _derive_class_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
         verb = "Env"
         primary = _compact(next(iter(resolved.items), "llm")).capitalize()
         secondary = ""
-    support = _compact(resolved.background.name if resolved.background else spec.background).capitalize()
-    return f"{primary}{verb}{secondary}{support}Environment"
+    return f"{primary}{verb}{secondary}{_background_family(resolved, spec).capitalize()}Environment"
 
 
 # ---------------------------------------------------------------------------

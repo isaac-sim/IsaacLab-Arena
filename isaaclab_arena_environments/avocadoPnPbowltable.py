@@ -37,14 +37,20 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose
 
-        background = self.asset_registry.get_asset_by_name("table")()
+        background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         background.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
         light = self.asset_registry.get_asset_by_name("light")()
 
-        # Tabletop anchor — tabletop anchor = background (background); PositionLimits derived from get_world_bounding_box().
-        background.add_relation(IsAnchor())
+        # Tabletop anchor — tabletop anchor = tabletop_anchor (ObjectReference sub-prim); PositionLimits derived from get_world_bounding_box().
+        tabletop_anchor = ObjectReference(
+            name="table",
+            prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
+            parent_asset=background,
+            object_type=ObjectType.RIGID,
+        )
+        tabletop_anchor.add_relation(IsAnchor())
 
         # No kwargs — works for both no_embodiment and robot embodiments whose
         # optional flags (enable_cameras, etc.) default to safe values.
@@ -61,40 +67,40 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         # bbox stores (N, 3) tensors; we squeeze to plain floats
         # for the first env since PositionLimits takes scalars and
         # the tabletop is static across envs.
-        _tbl_bbox = background.get_world_bounding_box()
+        _tbl_bbox = tabletop_anchor.get_world_bounding_box()
         _tbl_min_xyz = [float(_tbl_bbox.min_point[0, i]) for i in range(3)]
         _tbl_max_xyz = [float(_tbl_bbox.max_point[0, i]) for i in range(3)]
         _tbl_margin = 0.05
 
-        avocado_obj.add_relation(On(background, clearance_m=0.02))
+        avocado_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
         avocado_obj.add_relation(PositionLimits(
             x_min=_tbl_min_xyz[0] + _tbl_margin,
             x_max=_tbl_max_xyz[0] - _tbl_margin,
             y_min=_tbl_min_xyz[1] + _tbl_margin,
             y_max=_tbl_max_xyz[1] - _tbl_margin,
         ))
-        bowl_obj.add_relation(On(background, clearance_m=0.02))
+        bowl_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
         bowl_obj.add_relation(PositionLimits(
             x_min=_tbl_min_xyz[0] + _tbl_margin,
             x_max=_tbl_max_xyz[0] - _tbl_margin,
             y_min=_tbl_min_xyz[1] + _tbl_margin,
             y_max=_tbl_max_xyz[1] - _tbl_margin,
         ))
-        broccoli_obj.add_relation(On(background, clearance_m=0.02))
+        broccoli_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
         broccoli_obj.add_relation(PositionLimits(
             x_min=_tbl_min_xyz[0] + _tbl_margin,
             x_max=_tbl_max_xyz[0] - _tbl_margin,
             y_min=_tbl_min_xyz[1] + _tbl_margin,
             y_max=_tbl_max_xyz[1] - _tbl_margin,
         ))
-        sweet_potato_obj.add_relation(On(background, clearance_m=0.02))
+        sweet_potato_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
         sweet_potato_obj.add_relation(PositionLimits(
             x_min=_tbl_min_xyz[0] + _tbl_margin,
             x_max=_tbl_max_xyz[0] - _tbl_margin,
             y_min=_tbl_min_xyz[1] + _tbl_margin,
             y_max=_tbl_max_xyz[1] - _tbl_margin,
         ))
-        red_bell_pepper_obj.add_relation(On(background, clearance_m=0.02))
+        red_bell_pepper_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
         red_bell_pepper_obj.add_relation(PositionLimits(
             x_min=_tbl_min_xyz[0] + _tbl_margin,
             x_max=_tbl_max_xyz[0] - _tbl_margin,
@@ -102,10 +108,10 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
             y_max=_tbl_max_xyz[1] - _tbl_margin,
         ))
 
-        scene = Scene(assets=[background, ground_plane, light, avocado_obj, bowl_obj, broccoli_obj, sweet_potato_obj, red_bell_pepper_obj])
+        scene = Scene(assets=[background, ground_plane, light, tabletop_anchor, avocado_obj, bowl_obj, broccoli_obj, sweet_potato_obj, red_bell_pepper_obj])
 
         # goal_added (enforced by PickAndPlaceTask success predicate):  in(avocado, bowl)
-        # goal_removed (implicitly negated when the pick succeeds):  on(avocado, table)
+        # goal_removed (implicitly negated when the pick succeeds):  on(avocado, maple_table_robolab)
 
         return IsaacLabArenaEnvironment(
             name=self.name,
