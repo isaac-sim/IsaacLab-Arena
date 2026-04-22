@@ -22,6 +22,7 @@ from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
+from isaaclab_arena.variations.variation_base import VariationBase
 
 
 class ObjectType(Enum):
@@ -50,6 +51,35 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
+        self._variations: dict[str, VariationBase] = {
+            variation_name: variation_cls(self)
+            for variation_name, variation_cls in type(self).available_variations().items()
+        }
+
+    @classmethod
+    def available_variations(cls) -> dict[str, type[VariationBase]]:
+        """Variation classes this asset class supports.
+
+        Subclasses extend via ``{**super().available_variations(), "name": VariationCls}``.
+        Each entry is instantiated once per asset instance at construction time and
+        starts disabled; users opt in via
+        :meth:`get_variation` -> :meth:`~isaaclab_arena.variations.variation_base.VariationBase.enable`
+        and configure it via :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
+        """
+        return {}
+
+    def get_variation(self, name: str) -> VariationBase:
+        """Return the variation with the given name; raises ``KeyError`` if unsupported."""
+        if name not in self._variations:
+            raise KeyError(
+                f"Asset '{self.name}' ({type(self).__name__}) does not support variation '{name}'. "
+                f"Supported variations: {sorted(self._variations)}."
+            )
+        return self._variations[name]
+
+    def get_variations(self) -> list[VariationBase]:
+        """Return all enabled variations declared on this asset."""
+        return [v for v in self._variations.values() if v.enabled]
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.

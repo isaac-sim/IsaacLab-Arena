@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 import isaaclab.envs.mdp as mdp
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 
-from isaaclab_arena.variations.sampler import Sampler, UniformSampler
+from isaaclab_arena.variations.sampler import UniformSampler
 from isaaclab_arena.variations.variation_base import VariationBase
 from isaaclab_arena.variations.variation_registry import register_variation
 
@@ -41,7 +41,8 @@ class ObjectColorVariation(VariationBase):
     :class:`isaaclab.envs.mdp.randomize_visual_color`. The target asset's
     bound material is replaced with a fresh ``OmniPBR`` instance whose
     ``diffuse_color_constant`` is sampled (uniformly over RGB) from the
-    bounds of the provided :class:`UniformSampler`.
+    bounds of the sampler provided via
+    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
 
     Requirements:
         * ``scene.replicate_physics`` must be False (the Arena default).
@@ -55,8 +56,6 @@ class ObjectColorVariation(VariationBase):
             asset's ``name`` is used to resolve the scene entity at event
             time, so the same instance must also be registered on the
             :class:`~isaaclab_arena.scene.scene.Scene`.
-        sampler: Distribution over RGB triples. Currently restricted to
-            a :class:`UniformSampler` with ``event_shape == (3,)``.
         mode: Event mode. ``"reset"`` resamples on every episode reset;
             ``"prestartup"`` picks a stable color per env for the whole run.
         mesh_name: Sub-mesh selector forwarded to
@@ -67,16 +66,18 @@ class ObjectColorVariation(VariationBase):
     def __init__(
         self,
         asset: ObjectBase,
-        sampler: Sampler,
         mode: str = "reset",
         mesh_name: str = "",
     ):
-        self.asset = asset
-        self.sampler = sampler
+        super().__init__(asset)
         self.mode = mode
         self.mesh_name = mesh_name
 
     def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:  # noqa: ARG002
+        assert self._sampler is not None, (
+            f"ObjectColorVariation on '{self.asset.name}' is enabled but no sampler is set; "
+            "call .set_sampler(...) before building the env."
+        )
         colors = self._sampler_to_colors_spec()
         event_name = f"{self.asset.name}_color_variation"
         event_cfg = EventTermCfg(
@@ -92,7 +93,7 @@ class ObjectColorVariation(VariationBase):
         return event_name, event_cfg
 
     def _sampler_to_colors_spec(self) -> dict[str, tuple[float, float]]:
-        """Translate ``self.sampler`` into the ``colors`` dict the event term expects.
+        """Translate ``self._sampler`` into the ``colors`` dict the event term expects.
 
         :class:`randomize_visual_color` accepts either a list of discrete
         RGB triples or a dict ``{"r": (low, high), "g": (...), "b": (...)}``
@@ -100,16 +101,16 @@ class ObjectColorVariation(VariationBase):
         form from a 3D :class:`UniformSampler`; richer sampler types (e.g.
         a discrete choice sampler) can extend this mapping later.
         """
-        assert isinstance(self.sampler, UniformSampler), (
-            f"ObjectColorVariation currently only supports UniformSampler; got {type(self.sampler).__name__}. "
+        assert isinstance(self._sampler, UniformSampler), (
+            f"ObjectColorVariation currently only supports UniformSampler; got {type(self._sampler).__name__}. "
             "Discrete palette support (DiscreteChoiceSampler) is planned but not implemented."
         )
-        assert tuple(self.sampler.event_shape) == (3,), (
+        assert tuple(self._sampler.event_shape) == (3,), (
             "ObjectColorVariation expects a 3D UniformSampler over RGB; got event_shape "
-            f"{tuple(self.sampler.event_shape)}."
+            f"{tuple(self._sampler.event_shape)}."
         )
-        low = self.sampler.low.tolist()
-        high = self.sampler.high.tolist()
+        low = self._sampler.low.tolist()
+        high = self._sampler.high.tolist()
         return {
             "r": (low[0], high[0]),
             "g": (low[1], high[1]),
