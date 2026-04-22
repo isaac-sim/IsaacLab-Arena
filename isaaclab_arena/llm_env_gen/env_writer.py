@@ -7,19 +7,29 @@
 
 Takes the initial_scene_graph from a resolved scene and writes a Python
 module that instantiates the background + embodiment + items, applies the
-initial relations, and wires them into an IsaacLabArenaEnvironment with
-NoTask (the null task used for non-goal-driven scene walkthroughs).
+initial relations, and wires them into an IsaacLabArenaEnvironment.
 
-The `in` / goal relations are intentionally NOT materialized here — NoTask
-has no success predicate, and there is no In relation class yet (see the
-TODO in isaaclab_arena.relations.relations). To wire up goal checking,
-swap NoTask for a real task and implement the In relation first.
+Task selection is driven off ``resolved.goal_added`` / ``resolved.goal_removed``:
+
+  * Exactly one ``on`` / ``in`` goal between two resolved items →
+    ``PickAndPlaceTask`` (subject becomes ``pick_up_object``, target becomes
+    ``destination_location``). ``goal_removed`` relations are implicitly
+    negated by the pick — they are recorded as comments for traceability.
+  * Anything else (multi-relation goals, unsupported kinds, target resolves
+    to the background) → ``NoTask`` fallback with explicit ``TODO`` comments
+    for each unmapped goal so the caller can wire them in manually.
+
+``next_to`` / ``at_position`` initial placements are still emitted as
+``TODO`` comments (see ``_SUPPORTED_INITIAL_KINDS``); the ``In`` relation
+class is also still missing (see the TODO in
+``isaaclab_arena.relations.relations``).
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 from .resolver import ResolvedScene
 from .schema import SceneSpec
@@ -27,6 +37,15 @@ from .schema import SceneSpec
 # Relation kinds the writer knows how to translate into Arena `add_relation`
 # calls. Anything else is emitted as a commented-out placeholder.
 _SUPPORTED_INITIAL_KINDS = {"on"}
+
+# Goal-relation kinds that map to ``PickAndPlaceTask``. ``on`` and ``in`` both
+# describe "put subject at target"; the task's contact-sensor success predicate
+# handles both identically.
+_PICK_AND_PLACE_KINDS = {"on", "in"}
+
+# Default episode length for auto-generated pick_and_place envs. Matches the
+# hand-authored examples (e.g. pick_and_place_maple_table_environment).
+_DEFAULT_PICK_AND_PLACE_EPISODE_LENGTH_S = 20.0
 
 # Short verb code per goal-relation kind. Chosen so the generated env name
 # reads like "avocadoPnPbowltable" rather than a 40-character description.
@@ -108,24 +127,133 @@ def write_env(resolved: ResolvedScene, spec: SceneSpec, out_path: str | Path) ->
     for instance_name in resolved.items:
         item_vars[instance_name] = f"{_safe_var(instance_name)}_obj"
 
+    background_name = resolved.background.name if resolved.background else spec.background
+    task_plan = _plan_task(resolved, spec, item_vars, background_name)
+
     body = _render_module(
         class_name=class_name,
         env_name=env_slug,
         task_description=spec.task_description,
-        background_name=resolved.background.name if resolved.background else spec.background,
+        background_name=background_name,
         embodiment_default=resolved.embodiment_name,
         items=[(item_vars[n], cls.name) for n, cls in resolved.items.items()],
         initial_relations=_render_relations(resolved, spec, item_vars),
         asset_list_src=["background", "ground_plane", "light", *item_vars.values()],
+        task_plan=task_plan,
     )
 
     out_path.write_text(body)
     return out_path
 
 
-def _render_relations(
-    resolved: ResolvedScene, spec: SceneSpec, item_vars: dict[str, str]
-) -> list[str]:
+def _plan_task(
+    resolved: ResolvedScene,
+    spec: SceneSpec,
+    item_vars: dict[str, str],
+    background_name: str,
+) -> dict[str, Any]:
+    """Decide which task to emit based on the resolved goal diff.
+
+    Returns a dict with:
+
+      * ``kind``          — ``"pick_and_place"`` or ``"no_task"``
+      * ``task_import``   — single ``from ... import ...`` line to inline in
+        ``get_env`` (matches the style of the other imports there)
+      * ``task_expr``     — source for the task instance passed to
+        ``IsaacLabArenaEnvironment(..., task=<expr>)``; may span multiple lines
+        and must already be indented for placement at call-site column.
+      * ``goal_comments`` — lines (each already prefixed with leading
+        whitespace) documenting ``goal_added`` / ``goal_removed`` entries —
+        success contract for pick_and_place, or manual TODOs for NoTask.
+      * ``header_note``   — one-liner explaining what was emitted; goes in the
+        module docstring so ``head -n 20 foo.py`` is self-explanatory.
+    """
+    # Try to fit PickAndPlaceTask: exactly one on/in goal between resolved items
+    # (not the background — PickAndPlaceTask distinguishes background_scene
+    # from destination_location, and uses the destination for contact-sensor
+    # filtering, which a whole-scene background generally does not support).
+    if len(resolved.goal_added) == 1:
+        g = resolved.goal_added[0]
+        if g["kind"] in _PICK_AND_PLACE_KINDS:
+            subj_var = item_vars.get(g["subject"])
+            tgt_var = None
+            if g["target"] != background_name:
+                tgt_var = item_vars.get(g["target"])
+            if subj_var is not None and tgt_var is not None:
+                return _pick_and_place_plan(resolved, spec, g, subj_var, tgt_var)
+
+    return _no_task_plan(resolved)
+
+
+def _pick_and_place_plan(
+    resolved: ResolvedScene,
+    spec: SceneSpec,
+    goal: dict[str, Any],
+    subject_var: str,
+    target_var: str,
+) -> dict[str, Any]:
+    comments = [
+        "        # goal_added (enforced by PickAndPlaceTask success predicate):"
+        f"  {goal['kind']}({goal['subject']}, {goal['target']})"
+    ]
+    for r in resolved.goal_removed:
+        comments.append(
+            "        # goal_removed (implicitly negated when the pick succeeds):"
+            f"  {r['kind']}({r['subject']}, {r['target']})"
+        )
+    return {
+        "kind": "pick_and_place",
+        "task_import": "from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask",
+        "task_expr": (
+            "PickAndPlaceTask(\n"
+            f"                pick_up_object={subject_var},\n"
+            f"                destination_location={target_var},\n"
+            "                background_scene=background,\n"
+            f"                episode_length_s={_DEFAULT_PICK_AND_PLACE_EPISODE_LENGTH_S},\n"
+            f"                task_description={spec.task_description!r},\n"
+            "            )"
+        ),
+        "goal_comments": comments,
+        "header_note": (
+            f"PickAndPlaceTask: pick_up={subject_var.removesuffix('_obj')}, "
+            f"destination={target_var.removesuffix('_obj')}"
+        ),
+    }
+
+
+def _no_task_plan(resolved: ResolvedScene) -> dict[str, Any]:
+    """Fallback when the goal diff does not fit a known task shape."""
+    added = [(r["kind"], r["subject"], r["target"]) for r in resolved.goal_added]
+    removed = [(r["kind"], r["subject"], r["target"]) for r in resolved.goal_removed]
+    reason: str
+    if not resolved.goal_added:
+        reason = "no goal_added relations in resolved scene"
+    elif len(resolved.goal_added) > 1:
+        reason = f"multi-relation goal not yet supported ({len(resolved.goal_added)} added)"
+    else:
+        g = resolved.goal_added[0]
+        if g["kind"] not in _PICK_AND_PLACE_KINDS:
+            reason = f"goal kind {g['kind']!r} has no task mapping yet"
+        else:
+            reason = (
+                f"goal {g['kind']}({g['subject']}, {g['target']}) does not resolve "
+                "to two distinct items (target may be the background or unresolved)"
+            )
+    comments = [f"        # NoTask fallback — {reason}."]
+    for kind, subj, tgt in added:
+        comments.append(f"        # TODO(goal_added): {kind}({subj}, {tgt}) — wire success predicate")
+    for kind, subj, tgt in removed:
+        comments.append(f"        # TODO(goal_removed): {kind}({subj}, {tgt}) — wire negation")
+    return {
+        "kind": "no_task",
+        "task_import": "from isaaclab_arena.tasks.no_task import NoTask",
+        "task_expr": "NoTask()",
+        "goal_comments": comments,
+        "header_note": f"NoTask fallback ({reason}). Goal diff preserved as TODO comments.",
+    }
+
+
+def _render_relations(resolved: ResolvedScene, spec: SceneSpec, item_vars: dict[str, str]) -> list[str]:
     """Translate initial_scene_graph into add_relation call source lines."""
     lines: list[str] = []
     for rel in resolved.initial_scene_graph:
@@ -143,9 +271,7 @@ def _render_relations(
                 continue
             lines.append(f"        {subject_var}.add_relation(On({target_var}, clearance_m=0.02))")
         else:
-            lines.append(
-                f"        # TODO({rel['kind']}): no generator support yet for this relation kind. raw={rel}"
-            )
+            lines.append(f"        # TODO({rel['kind']}): no generator support yet for this relation kind. raw={rel}")
     return lines
 
 
@@ -159,6 +285,7 @@ def _render_module(
     items: list[tuple[str, str]],
     initial_relations: list[str],
     asset_list_src: list[str],
+    task_plan: dict[str, Any],
 ) -> str:
     # TODO: Support multiple instances of the same library asset (e.g. two
     # bananas in one scene). Right now each item gets the asset's registered
@@ -168,11 +295,15 @@ def _render_module(
     # (e.g. "banana_1", "banana_2"). The resolver already keeps items keyed
     # by instance_name, so this is a generator-side fix only.
     item_decls = "\n".join(
-        f'        {var} = self.asset_registry.get_asset_by_name("{asset}")()'
-        for var, asset in items
+        f'        {var} = self.asset_registry.get_asset_by_name("{asset}")()' for var, asset in items
     )
     relations_src = "\n".join(initial_relations) if initial_relations else "        # (no initial relations)"
     asset_list = ", ".join(asset_list_src)
+
+    goal_comments = "\n".join(task_plan["goal_comments"])
+    task_import = task_plan["task_import"]
+    task_expr = task_plan["task_expr"]
+    task_header_note = task_plan["header_note"]
 
     return f'''# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
@@ -183,10 +314,7 @@ def _render_module(
 
 Task: {task_description}
 
-NoTask is used as a placeholder — the initial scene graph is materialized
-via add_relation() calls on each item, but there is no success predicate.
-Swap NoTask for a real task (and implement the In relation) to wire up
-goal checking.
+Task wiring: {task_header_note}
 """
 
 from __future__ import annotations
@@ -211,7 +339,7 @@ class {class_name}(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.no_task import NoTask
+        {task_import}
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("{background_name}")()
@@ -231,11 +359,13 @@ class {class_name}(ExampleEnvironmentBase):
 
         scene = Scene(assets=[{asset_list}])
 
+{goal_comments}
+
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=NoTask(),
+            task={task_expr},
         )
 
     @staticmethod
