@@ -22,6 +22,17 @@ Step 1: Start the CloudXR Runtime
 
       python -m isaacteleop.cloudxr
 
+.. attention::
+
+   The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
+   To accept the EULA, reply ``Yes`` when prompted with the below message:
+
+   .. code:: bash
+
+      NVIDIA CloudXR EULA must be accepted to run. View: https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
+
+      Accept NVIDIA CloudXR EULA? [y/N]: Yes
+
 
 Step 2: Start Arena Teleop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
