@@ -375,8 +375,8 @@ class GR1T2CameraCfg:
         common_kwargs = dict(
             prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
             update_period=0.0,
-            height=512,
-            width=512,
+            height=64,
+            width=64,
             data_types=["rgb"],
             spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
         )
