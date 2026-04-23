@@ -25,13 +25,18 @@ simulation_app = app_launcher.app
 # %%
 
 import isaaclab.envs.mdp as mdp  # noqa: F401  (kept for the commented-out in-place tint notes below)
-from isaaclab.managers import EventTermCfg, SceneEntityCfg  # noqa: F401  (kept for the commented-out in-place tint notes below)
+from isaaclab.managers import (  # noqa: F401  (kept for the commented-out in-place tint notes below)
+    EventTermCfg,
+    SceneEntityCfg,
+)
 
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.examples.tint_events import randomize_visual_diffuse_tint  # noqa: F401  (kept for the commented-out in-place tint notes below)
+from isaaclab_arena.examples.tint_events import (  # noqa: F401  (kept for the commented-out in-place tint notes below)
+    randomize_visual_diffuse_tint,
+)
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
@@ -55,10 +60,10 @@ tomato_soup_can.add_relation(On(cracker_box))
 # :meth:`~isaaclab_arena.variations.variation_base.VariationBase.enable` alone
 # is enough to get reasonable behaviour; :meth:`set_sampler` is only needed to
 # narrow or replace the default distribution.
-cracker_box.get_variation("color").enable()  # uses the default full-RGB sampler
+# cracker_box.get_variation("color").enable()  # uses the default full-RGB sampler
 
 # Uncomment to also randomize the soup can with a tighter (pastel) range:
-# tomato_soup_can.get_variation("color").enable()
+tomato_soup_can.get_variation("color").enable()
 # tomato_soup_can.get_variation("color").set_sampler(UniformSampler(low=(0.4,) * 3, high=(1.0,) * 3))
 
 scene = Scene(assets=[background, cracker_box, tomato_soup_can])
@@ -79,9 +84,7 @@ env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 # merges their event terms into ``env_cfg.events`` automatically (see
 # ``ArenaEnvBuilder._compose_variations_event_cfg``). No manual plumbing.
 env_cfg = env_builder.compose_manager_cfg()
-assert (
-    env_cfg.scene.replicate_physics is False
-), "Per-env color variation requires replicate_physics=False; got True."
+assert env_cfg.scene.replicate_physics is False, "Per-env color variation requires replicate_physics=False; got True."
 
 # %%
 

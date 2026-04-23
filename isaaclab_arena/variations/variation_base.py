@@ -5,15 +5,18 @@
 
 """Variation abstract base class.
 
-A :class:`VariationBase` describes *one* knob to turn on the scene — the
-target asset, the sampler that drives it, and the event term that realises
-it. Variations are attached to their target asset in the asset's ``__init__``
-via :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`
+A :class:`VariationBase` describes *one* knob to turn on the scene — a
+sampler that drives it and the event term that realises it. Concrete
+subclasses are responsible for remembering the target asset (typically by
+name, not by reference, to avoid back-edges into the asset graph that can
+trip reference-walking validators like
+:func:`isaaclab.utils.configclass._validate`). Variations are attached to
+their target asset in the asset's ``__init__`` via
+:meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`
 (disabled by default, pre-configured with a sensible default sampler where
-applicable) and then toggled by the user via
-:meth:`enable` (and optionally narrowed via :meth:`set_sampler`). The builder
-walks the scene, collects enabled variations, and merges their event terms
-into ``events_cfg``.
+applicable) and then toggled by the user via :meth:`enable` (and optionally
+narrowed via :meth:`set_sampler`). The builder walks the scene, collects
+enabled variations, and merges their event terms into ``events_cfg``.
 """
 
 from __future__ import annotations
@@ -24,7 +27,6 @@ from typing import TYPE_CHECKING, ClassVar
 from isaaclab.managers import EventTermCfg
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.variations.sampler import Sampler
 
@@ -56,8 +58,7 @@ class VariationBase(ABC):
     #: and :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`.
     name: ClassVar[str]
 
-    def __init__(self, asset: ObjectBase):
-        self.asset = asset
+    def __init__(self):
         self._enabled: bool = False
         self._sampler: Sampler | None = None
 

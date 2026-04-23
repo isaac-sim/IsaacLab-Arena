@@ -80,23 +80,24 @@ class ObjectColorVariation(VariationBase):
         mode: str = "reset",
         mesh_name: str = "",
     ):
-        super().__init__(asset)
+        super().__init__()
+        self.asset_name = asset.name
         self.mode = mode
         self.mesh_name = mesh_name
         self.set_sampler(DEFAULT_COLOR_SAMPLER)
 
     def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:  # noqa: ARG002
         assert self._sampler is not None, (
-            f"ObjectColorVariation on '{self.asset.name}' is enabled but no sampler is set; "
+            f"ObjectColorVariation on '{self.asset_name}' is enabled but no sampler is set; "
             "call .set_sampler(...) before building the env."
         )
         colors = self._sampler_to_colors_spec()
-        event_name = f"{self.asset.name}_color_variation"
+        event_name = f"{self.asset_name}_color_variation"
         event_cfg = EventTermCfg(
             func=mdp.randomize_visual_color,
             mode=self.mode,
             params={
-                "asset_cfg": SceneEntityCfg(self.asset.name),
+                "asset_cfg": SceneEntityCfg(self.asset_name),
                 "colors": colors,
                 "mesh_name": self.mesh_name,
                 "event_name": event_name,
