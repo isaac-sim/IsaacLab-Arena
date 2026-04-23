@@ -36,10 +36,8 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 1.0,
         velocity_threshold: float = 0.1,
-        success_proximity_max_distance: float = 0.0,
     ):
         super().__init__(episode_length_s=episode_length_s)
-        self.success_proximity_max_distance = success_proximity_max_distance
         self.pick_up_object = pick_up_object
         self.destination_object = destination_object
         self.background_scene = background_scene
