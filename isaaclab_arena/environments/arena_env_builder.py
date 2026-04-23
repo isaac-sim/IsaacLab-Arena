@@ -254,8 +254,7 @@ class ArenaEnvBuilder:
                 [("placement_reset", EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
-        # variations_event_cfg = self._compose_variations_event_cfg()
-        variations_event_cfg = None
+        variations_event_cfg = self._compose_variations_event_cfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),

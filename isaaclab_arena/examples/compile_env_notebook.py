@@ -40,7 +40,6 @@ from isaaclab_arena.examples.tint_events import (  # noqa: F401  (kept for the c
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.variations import UniformSampler
 
 asset_registry = AssetRegistry()
 
@@ -63,6 +62,7 @@ tomato_soup_can.add_relation(On(cracker_box))
 # cracker_box.get_variation("color").enable()  # uses the default full-RGB sampler
 
 # Uncomment to also randomize the soup can with a tighter (pastel) range:
+cracker_box.get_variation("color").enable()
 tomato_soup_can.get_variation("color").enable()
 # tomato_soup_can.get_variation("color").set_sampler(UniformSampler(low=(0.4,) * 3, high=(1.0,) * 3))
 
