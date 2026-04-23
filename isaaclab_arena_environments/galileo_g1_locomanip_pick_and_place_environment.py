@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import math
 from typing import TYPE_CHECKING, Any
 
@@ -15,9 +14,6 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-
-
-logger = logging.getLogger(__name__)
 
 
 # The v0.2 brown-box-to-blue-bin workflow was SQA'd against this exact task description, Mimic
