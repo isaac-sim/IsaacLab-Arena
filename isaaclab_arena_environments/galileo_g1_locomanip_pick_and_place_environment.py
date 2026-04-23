@@ -23,22 +23,6 @@ _LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION = (
     " right of the shelf."
 )
 
-# Tighter proximity guard (in meters) for apple-on-plate success. The Hot3D clay plate measures
-# ~30 cm in diameter, and since ``PickAndPlaceTask`` uses an Euclidean ``success_proximity_max_distance``
-# around the destination, 10 cm keeps the apple inside the plate footprint while leaving margin
-# for the contact sensor's spurious long-range readings on the GPU physics pipeline.
-_APPLE_ON_PLATE_SUCCESS_PROXIMITY_M = 0.10
-
-# Per-``(--object, --destination)`` overrides for the task's success proximity threshold. Any pair
-# not listed here falls through to ``PickAndPlaceTask``'s default (``success_proximity_max_distance=0.0``,
-# i.e. contact sensor only, which is what brown_box + blue_sorting_bin ships with on main). All
-# registered Objaverse apple variants share the plate override since the success footprint is
-# driven by the plate, not the apple shape.
-_SUCCESS_PROXIMITY_OVERRIDES_M: dict[tuple[str, str], float] = {
-    ("apple_01_objaverse_robolab", "clay_plates_hot3d_robolab"): _APPLE_ON_PLATE_SUCCESS_PROXIMITY_M,
-    ("apple_02_objaverse_robolab", "clay_plates_hot3d_robolab"): _APPLE_ON_PLATE_SUCCESS_PROXIMITY_M,
-}
-
 
 @register_environment
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
@@ -113,10 +97,6 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 " located at the right of the shelf."
             )
 
-        success_proximity_max_distance = _SUCCESS_PROXIMITY_OVERRIDES_M.get(
-            (args_cli.object, args_cli.destination), 0.0
-        )
-
         scene = Scene(assets=[background, pick_up_object, destination])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
@@ -130,7 +110,6 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 task_description=task_description,
                 force_threshold=0.5,
                 velocity_threshold=0.1,
-                success_proximity_max_distance=success_proximity_max_distance,
             ),
             teleop_device=teleop_device,
         )

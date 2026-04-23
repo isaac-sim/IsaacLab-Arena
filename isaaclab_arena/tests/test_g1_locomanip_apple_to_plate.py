@@ -20,11 +20,6 @@ APPLE_INITIAL_POSITION_M = (0.15, 0.15, 0.05)
 PLATE_INITIAL_POSITION_M = (0.15, -0.40, 0.02)
 APPLE_ABOVE_PLATE_OFFSET_M = 0.05
 
-# Match the tighter apple-on-plate proximity guard used by the production locomanip env so the test
-# exercises the same ``success_proximity_max_distance`` value that actually ships. See
-# ``_SUCCESS_PROXIMITY_OVERRIDES_M`` in ``galileo_g1_locomanip_pick_and_place_environment``.
-APPLE_ON_PLATE_PROXIMITY_M = 0.10
-
 
 def get_test_environment(num_envs: int):
     """Build a simplified G1 locomanip apple-to-plate environment for testing.
@@ -62,7 +57,6 @@ def get_test_environment(num_envs: int):
         background_scene=background,
         episode_length_s=30.0,
         task_description="Pick up the apple from the table and place it onto the plate.",
-        success_proximity_max_distance=APPLE_ON_PLATE_PROXIMITY_M,
     )
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

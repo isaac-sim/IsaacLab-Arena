@@ -32,7 +32,6 @@ class LocomanipPickAndPlaceTask(PickAndPlaceTask):
         task_description: str | None = None,
         force_threshold: float = 1.0,
         velocity_threshold: float = 0.1,
-        success_proximity_max_distance: float = 0.0,
     ):
         super().__init__(
             pick_up_object=pick_up_object,
@@ -42,7 +41,6 @@ class LocomanipPickAndPlaceTask(PickAndPlaceTask):
             task_description=task_description,
             force_threshold=force_threshold,
             velocity_threshold=velocity_threshold,
-            success_proximity_max_distance=success_proximity_max_distance,
         )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
