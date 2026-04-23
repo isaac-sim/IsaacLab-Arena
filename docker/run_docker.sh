@@ -15,11 +15,13 @@ MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 # Default GR00T installation settings (false means no GR00T installation)
 INSTALL_GROOT="false"
+# Default cuRobo installation settings (false means no cuRobo installation)
+INSTALL_CUROBO="false"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
 
-while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
+while getopts ":d:m:e:hn:rn:Rn:vn:gn:c" OPTION; do
     case $OPTION in
 
         d)
@@ -49,6 +51,10 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             INSTALL_GROOT="true"
             DOCKER_VERSION_TAG='cuda_gr00t_gn16'
             ;;
+        c)
+            INSTALL_CUROBO="true"
+            DOCKER_VERSION_TAG='curobo'
+            ;;
         h)
             script_name=$(basename "$0")
             echo "Helper script to build and IsaacLab Arena docker environment."
@@ -65,6 +71,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
             echo "  -g (Install GR00T N1.6 dependencies.)"
+  echo "  -c (Install cuRobo motion-planning library; compiles CUDA extensions, adds ~10 min to build.)"
             exit 0
             ;;
         \?)
@@ -97,6 +104,7 @@ else
         --progress=plain \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
+        --build-arg INSTALL_CUROBO=$INSTALL_CUROBO \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
         --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
         $SCRIPT_DIR/..
