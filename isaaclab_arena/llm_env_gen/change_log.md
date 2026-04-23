@@ -1,5 +1,64 @@
 # llm_env_gen — change log
 
+## Qian Lin — 2026-04-23
+
+### 1. What it can do
+
+- **Check IK reachability** for any Arena pick-and-place environment: given any `PickAndPlaceTask` + Franka embodiment, determine whether the pick object's pose is kinematically reachable (IK, collision-unaware) from the robot's initial configuration.
+- **Check motion-plan feasibility**: if IK passes, run a full cuRobo collision-aware trajectory planner to confirm a collision-free approach path exists to the top-down grasp pose.
+- **Visualize in Rerun**: stream robot collision spheres, EE trajectory, and world meshes to a Rerun viewer via X11, or save a `.rrd` file for offline replay when no display is available.
+- **Tune IK thresholds** at the CLI (`--position_threshold`, `--rotation_threshold`) to probe borderline poses.
+- **Bake cuRobo into the Arena Docker image** with a single rebuild flag (`-c`) — installs `cuda-toolkit-12.8` + cuRobo from pinned source; no manual container patching required.
+
+**Assumptions:** `./docker/run_docker.sh -c -r` builds the `isaaclab_arena:curobo` image. The `install_cuda.sh` script is always present in the Arena source tree. cuRobo must be compiled from source (PyPI stub is non-functional). Rerun viewer version on the host must match the SDK in the container (currently `0.31.3`). Do NOT start `rerun` manually before running visualization — `rr.spawn()` inside the script owns the viewer lifecycle.
+
+### 2. What was added
+
+**`isaaclab_arena/llm_env_gen/check_ik_reachability.py`** (new)
+- Arena-CLI-compatible entry point using the standard subparser pattern
+- `_assert_franka_embodiment`, `_resolve_pick_object_name` — validate env constraints before cuRobo init
+- `_build_curobo_target_pose` — top-down grasp target (TCP offset + configurable axis rotation)
+- `_run_ik_reachability` — calls `motion_gen.ik_solver.solve_single`; returns position/rotation errors
+- `_run_motion_plan` — calls `planner.update_world()` + `planner.plan_motion()`; collision-aware
+- `_log_initial_scene` — unconditionally logs robot spheres + world meshes to Rerun regardless of plan success
+- `--save_rrd PATH` with `rr.spawn` monkey-patch — saves recording to file, bypasses display requirement
+- `--position_threshold` / `--rotation_threshold` CLI overrides for IK diagnostics
+- `--visualize_plan` / `--visualize_spheres` flags (Rerun)
+
+**`docker/Dockerfile.isaaclab_arena`**
+- New `ARG INSTALL_CUROBO=false` block: re-COPYs `install_cuda.sh` (avoiding the GR00T block's unconditional `rm`), installs `cuda-toolkit-12.8`, builds cuRobo from pinned commit, persists `CUDA_HOME` via `/etc/profile.d/cuda.sh`
+
+**`docker/run_docker.sh`**
+- New `-c` flag: sets `INSTALL_CUROBO=true`, tags image as `isaaclab_arena:curobo`, passes `--build-arg INSTALL_CUROBO` to `docker build`
+
+### 3. Commands
+
+```bash
+# Build the Arena Docker image with cuRobo baked in
+./docker/run_docker.sh -c -r
+
+# Run IK-only check (fast, no motion planning)
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/llm_env_gen/check_ik_reachability.py \
+    --headless --num_envs 1 --ik_only avocadoPnPbowltable"
+
+# Full check with Rerun visualization (X11; do NOT start rerun manually)
+docker exec -it isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/llm_env_gen/check_ik_reachability.py \
+    --headless --num_envs 1 --visualize_plan --visualize_spheres \
+    --top_down_offset 0.12 avocadoPnPbowltable"
+
+# Save Rerun recording to file (no display / headless SSH)
+# Then on host: rerun /tmp/plan.rrd
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/llm_env_gen/check_ik_reachability.py \
+    --headless --num_envs 1 --visualize_plan --save_rrd /tmp/plan.rrd avocadoPnPbowltable"
+
+# Diagnose rotation convention or relax thresholds for borderline poses
+#   --grasp_axis y          (try if x-axis gives rot_err ~0.7 rad)
+#   --rotation_threshold 0.8 --position_threshold 0.015
+```
+
 ## Xinjie Yao — 2026-04-22
 
 ### 1. What it can do
