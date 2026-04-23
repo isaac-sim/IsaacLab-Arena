@@ -182,7 +182,7 @@ and the number of episodes is more than the single environment evaluation becaus
    smaller and rounder (easier to nudge or roll off the edge), and a ~30 cm flat plate leaves far
    less drop margin than the deep blue bin. Both variants share the same contact-sensor success
    termination (``force_threshold=0.5 N``, ``velocity_threshold=0.1 m/s``), filtered to contacts
-   with the ``--destination`` asset. The thresholds are set on ``LocomanipPickAndPlaceTask`` in
-   ``isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py``; tune them
-   on the task constructor if you need a different success criterion for a new apple/plate
-   combination.
+   with the ``--destination`` asset. Both values are passed to ``LocomanipPickAndPlaceTask`` from
+   ``isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py``; edit the
+   ``force_threshold`` / ``velocity_threshold`` kwargs there if you need a different success
+   criterion for a new apple/plate combination.
