@@ -1,5 +1,54 @@
 # llm_env_gen — change log
 
+## Xinjie Yao — 2026-04-22
+
+### 1. What it can do
+
+- Spawn items **inside containers** via a new `In` containment relation — XY clamped to the parent's footprint, Z nudged just above the parent's rim so gravity completes the deposit. Replaces the long-standing TODO at `isaaclab_arena/relations/relations.py`.
+- Generate envs through a **two-stage pipeline**: `propose_placement` (pure data transform → `Placement` dataclass) feeds `write_env` (thin renderer). Feasibility gates can slot in between without touching the renderer.
+- **Override the LLM's background** at the CLI (`--background maple_table_robolab` is the default) — the full avocado scene swaps cleanly to the maple tabletop with `ObjectReference`-based anchoring and runtime bbox-derived `PositionLimits`.
+- **Stable env names** regardless of the chosen USD — `_BACKGROUND_NAME_ALIASES` folds `maple_table_robolab`, `office_table`, `packing_table`, etc. under `"table"` and kitchen variants under `"kitchen"` for slug generation. The avocado env stays named `avocadoPnPbowltable` no matter which table USD drives it.
+- **Smoke-test any registered env** via the new project-level `verify-env-with-zero-action` skill — Kit-viz by default, `no_embodiment` + `zero_action`, failure-to-fix hint table for the common bring-up errors.
+
+**Assumptions:** Docker container running; `NV_API_KEY` on host for any LLM flow; `openai` pip installed inside the container; generated env files land under `isaaclab_arena_environments/` for auto-discovery; tabletop-style backgrounds are the only ones with a tested anchor / bbox path (`_BACKGROUND_TABLETOP_ANCHOR`).
+
+### 2. What was added
+
+- **`isaaclab_arena/relations/`**
+  - `In(Relation)` class — XY containment without Z constraint at the relation layer.
+  - `InLossStrategy(slope, z_slope_ratio=0.1, z_margin_m=0.02)` — XY band loss identical to `OnLossStrategy`, plus a soft Z-point term at `parent_rim + z_margin` scaled by `slope * z_slope_ratio`. `z_slope_ratio=0.0` recovers pure XY-only.
+  - Registered as `In: InLossStrategy(slope=100.0)` in `RelationSolverParams._default_strategies`.
+- **`isaaclab_arena/llm_env_gen/placement_proposer.py`** (new) — typed bundle (`Placement`, `PlacementItem`, `RelationSpec`, `TabletopAnchorPlan`, `TaskPlan`) with `propose_placement()` as the pure transform. Owns naming, anchor lookup, per-item relation planning (including `In`), and task dispatch.
+- **`isaaclab_arena/llm_env_gen/env_writer.py`** (rewritten) — thin `write_env()` shim: `propose → render → write`. Renders `In(...)` calls in addition to `On(...)` / `PositionLimits(...)`.
+- **`isaaclab_arena/llm_env_gen/try_schema.py`** — new `--background` CLI flag (default `"maple_table_robolab"`) that patches `SceneSpec.background` and all matching relation targets after the LLM returns but before resolution.
+- **`_BACKGROUND_NAME_ALIASES`** — alias map that folds background variants into short family names for env slugs.
+- **`isaaclab_arena_environments/avocadoPnPbowltable.py`** — regenerated under the new pipeline: `maple_table_robolab` background + tabletop `ObjectReference` + bbox-derived `PositionLimits` per item + `PickAndPlaceTask` wiring (`pick_up=avocado`, `destination=bowl`).
+- **`isaaclab_arena_environments/avocadoInBowlTest.py`** (new) — hand-authored test env exercising the `In` relation: bowl on the maple tabletop, avocado spawned `In(bowl)`. Observed init positions place the avocado's XY on the bowl's centre.
+- **`.claude/skills/verify-env-with-zero-action/SKILL.md`** (new, project-level) — smoke-test skill with Kit-viz default and a failure→fix hint table.
+
+### 3. Commands
+
+```
+# Override the LLM's background when regenerating an env
+/isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema \
+    --background maple_table_robolab \
+    --write-env isaaclab_arena_environments
+
+# Verify any registered env with zero_action + Kit viz (200 steps)
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+    --viz kit --policy_type zero_action --num_steps 200 --num_envs 1 \
+    <env_name> --embodiment no_embodiment
+
+# Bring up the hand-authored In-relation test env
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+    --policy_type zero_action --num_steps 5 --num_envs 1 \
+    avocadoInBowlTest --embodiment no_embodiment
+```
+
+### 4. TODOs
+
+- `isaaclab_arena/llm_env_gen/placement_proposer.py` (`_BACKGROUND_TABLETOP_ANCHOR` docstring) — `get_world_bounding_box()` on a plain standalone table background doesn't account for the 90° Z rotation applied by the template, so PL derived from it clamps the wrong axes; prefer `ObjectReference` sub-prim entries until the asset layer handles pose-aware AABBs.
+
 ## Qian Lin — 2026-04-22
 
 ### 1. What it can do
