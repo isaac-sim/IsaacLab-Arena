@@ -126,6 +126,38 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
+class Not(Relation):
+    """Inverts the satisfaction of an inner binary relation.
+
+    A relation's underlying loss approaches zero as it is satisfied (e.g.
+    ``InLossStrategy`` returns ~0 when the child's XY is inside the
+    parent). ``Not`` turns that around: when the inner is satisfied the
+    wrapper's loss spikes, pushing the optimizer *away* from the
+    satisfying region. Used by the scene-gen pipeline to forbid the
+    initial placement from already satisfying a goal (e.g. "avocado NOT
+    already in bowl at reset").
+
+    The wrapper currently only supports *binary* inner relations (i.e.
+    ``Relation`` subclasses with a parent); that is what the
+    scene-gen pipeline needs today. Extend to ``UnaryRelation`` by
+    adding a matching dispatch path in ``RelationSolver`` when / if
+    needed.
+    """
+
+    def __init__(self, inner: "Relation", relation_loss_weight: float = 1.0):
+        """
+        Args:
+            inner: The binary relation whose satisfaction should be
+                forbidden. ``inner.parent`` is forwarded so the solver's
+                binary-relation dispatch path handles ``Not`` without
+                special-casing.
+            relation_loss_weight: Weight for this wrapper (independent of
+                ``inner.relation_loss_weight``).
+        """
+        super().__init__(parent=inner.parent, relation_loss_weight=relation_loss_weight)
+        self.inner = inner
+
+
 class In(Relation):
     """Represents a containment (XY-only) relationship between objects.
 

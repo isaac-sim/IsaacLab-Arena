@@ -32,7 +32,7 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import In, IsAnchor, On, PositionLimits
+        from isaaclab_arena.relations.relations import In, IsAnchor, Not, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose
@@ -79,6 +79,7 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
             y_min=_tbl_min_xyz[1] + _tbl_margin,
             y_max=_tbl_max_xyz[1] - _tbl_margin,
         ))
+        avocado_obj.add_relation(Not(In(bowl_obj)))
         bowl_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
         bowl_obj.add_relation(PositionLimits(
             x_min=_tbl_min_xyz[0] + _tbl_margin,

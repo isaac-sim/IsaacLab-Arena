@@ -132,11 +132,14 @@ class TabletopAnchorPlan:
 class RelationSpec:
     """Structured view of one add_relation call to be rendered in the env."""
 
-    kind: Literal["on", "in", "position_limits", "at_position", "unsupported"]
+    kind: Literal["on", "in", "not", "position_limits", "at_position", "unsupported"]
     # On / In: parent variable to reference. On also carries a clearance.
     on_target_var: str | None = None
     on_clearance_m: float = 0.02
     in_target_var: str | None = None
+    # Not: the wrapped spec whose satisfaction we forbid. Only "on" and
+    # "in" inner kinds are rendered today.
+    inner: "RelationSpec | None" = None
     # PositionLimits: when source == "bbox", runtime-derived; when "static", use explicit bounds.
     pl_source: Literal["bbox", "static"] = "bbox"
     # Unsupported: keep the raw relation dict + a reason so it can be emitted as a TODO.
@@ -145,11 +148,21 @@ class RelationSpec:
 
 
 @dataclass
+class GoalBindingSpec:
+    """Where an item is expected to end up — derived from goal_added."""
+
+    kind: Literal["on", "in"]
+    target_var: str  # Python var in the generated env
+    target_name: str  # instance_name (or background name) for logs
+
+
+@dataclass
 class PlacementItem:
     var_name: str  # Python variable in the generated env
     asset_name: str  # registered asset name for AssetRegistry.get_asset_by_name
     instance_name: str  # key used by the resolver / LLM
     relations: list[RelationSpec] = field(default_factory=list)
+    goal_binding: GoalBindingSpec | None = None  # populated by block_initial_goal_satisfaction
 
 
 @dataclass
@@ -181,6 +194,80 @@ class Placement:
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
+
+def block_initial_goal_satisfaction(placement: Placement, resolved: ResolvedScene) -> Placement:
+    """Attach final-graph-aware constraints that keep the initial state
+    from already satisfying any ``goal_added`` relation.
+
+    For every entry in ``resolved.goal_added``:
+
+      * Record a :class:`GoalBindingSpec` on the subject's
+        ``PlacementItem`` so downstream consumers (task wiring,
+        feasibility gates) can see where it is supposed to end up.
+      * Append a ``RelationSpec(kind="not", inner=<on|in> spec)`` so
+        the generated env calls ``subject.add_relation(Not(In(target)))``.
+        The solver's ``NotRelationLossStrategy`` pushes the initial
+        placement out of the goal region.
+
+    Missing / unresolvable targets are skipped with a trace-friendly
+    ``unsupported`` RelationSpec so the caller can see the reason in
+    the generated file. Returns the mutated Placement for convenience;
+    mutation is in-place.
+    """
+    item_vars = {i.instance_name: i.var_name for i in placement.items}
+    by_instance: dict[str, PlacementItem] = {i.instance_name: i for i in placement.items}
+
+    for goal in resolved.goal_added:
+        kind = goal["kind"]
+        subj = goal["subject"]
+        tgt = goal["target"]
+
+        item = by_instance.get(subj)
+        if item is None:
+            # Unresolved subject — let the proposer's original trace carry it.
+            continue
+
+        # Target may be another item or the background — resolve once.
+        if tgt == placement.background_name:
+            target_var = placement.tabletop_anchor_plan.anchor_var
+        else:
+            target_var = item_vars.get(tgt)
+
+        if target_var is None:
+            item.relations.append(
+                RelationSpec(
+                    kind="unsupported",
+                    raw_relation=goal,
+                    reason=f"block_initial_goal_satisfaction: unknown target {tgt!r}",
+                )
+            )
+            continue
+
+        # Explicit kind dispatch. Each branch builds the inner spec that
+        # Not(...) will wrap; unsupported kinds fall through to the else.
+        if kind == "in":
+            inner = RelationSpec(kind="in", in_target_var=target_var)
+        elif kind == "on":
+            inner = RelationSpec(kind="on", on_target_var=target_var)
+        else:
+            item.relations.append(
+                RelationSpec(
+                    kind="unsupported",
+                    raw_relation=goal,
+                    reason=f"block_initial_goal_satisfaction: no Not(...) mapping for kind {kind!r}",
+                )
+            )
+            continue
+
+        # Record where the item is supposed to end up (first goal wins
+        # when multiple goals touch the same item — Layer 2b can refine).
+        if item.goal_binding is None:
+            item.goal_binding = GoalBindingSpec(kind=kind, target_var=target_var, target_name=tgt)
+
+        item.relations.append(RelationSpec(kind="not", inner=inner))
+
+    return placement
 
 
 def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:

@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, In, NextTo, On, PositionLimits, Relation
+    from isaaclab_arena.relations.relations import AtPosition, In, NextTo, Not, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -410,6 +410,73 @@ class InLossStrategy(RelationLossStrategy):
         total_loss = x_band_loss + y_band_loss + z_loss
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
+
+
+class NotRelationLossStrategy(RelationLossStrategy):
+    """Loss strategy that inverts the satisfaction of an inner relation.
+
+    Treats the inner strategy's returned loss as a "distance from safe":
+    0 when the inner relation holds, larger when it is violated. The
+    Not wrapper adds ``max(0, margin - inner_loss)`` back in (scaled by
+    ``slope``), so the combined loss spikes near the satisfying region
+    and is zero once the child is ``margin`` worth of inner-loss away.
+
+    A single Not strategy is registered for the ``Not`` class; it looks
+    up the inner's strategy at compute time via the same
+    ``RelationSolverParams.strategies`` dict the solver uses for the
+    primitive relations.
+    """
+
+    def __init__(self, margin: float = 0.05, slope: float = 10.0, debug: bool = False):
+        """
+        Args:
+            margin: Minimum inner-loss below which Not contributes a
+                positive loss. Loosely: how far (in inner-loss units)
+                the solver must stay from the satisfying region.
+            slope: Scale on the inverted loss.
+            debug: If True, print the inner/outer loss breakdown.
+        """
+        self.margin = margin
+        self.slope = slope
+        self.debug = debug
+
+    def compute_loss(
+        self,
+        relation: "Not",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+        inner_strategy: "RelationLossStrategy | UnaryRelationLossStrategy | None" = None,
+    ) -> torch.Tensor:
+        """Compute Not's loss by inverting the inner strategy's loss.
+
+        ``inner_strategy`` is injected by :class:`RelationSolver` at the
+        call site — we deliberately do NOT cache a reference to the
+        strategies dict on this instance, because it creates a cycle
+        (strategies[Not].strategies[Not] ...) that the configclass
+        validator recurses into.
+        """
+        assert inner_strategy is not None, (
+            "NotRelationLossStrategy.compute_loss requires inner_strategy; "
+            "the solver's Not-dispatch branch passes this in."
+        )
+        inner_loss = inner_strategy.compute_loss(
+            relation.inner,
+            child_pos=child_pos,
+            child_bbox=child_bbox,
+            parent_world_bbox=parent_world_bbox,
+        )
+        # Zero when inner is well-violated; positive when inner is
+        # satisfied. Multiplied by slope and the wrapper's weight.
+        inverted = torch.clamp(self.margin - inner_loss, min=0.0) * self.slope
+
+        if self.debug:
+            print(
+                f"    [Not] inner_loss={inner_loss.mean().item():.6f} "
+                f"margin={self.margin} -> inverted={inverted.mean().item():.6f}"
+            )
+
+        return relation.relation_loss_weight * inverted
 
 
 class NoCollisionLossStrategy:

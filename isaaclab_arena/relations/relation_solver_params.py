@@ -9,12 +9,13 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     AtPositionLossStrategy,
     InLossStrategy,
     NextToLossStrategy,
+    NotRelationLossStrategy,
     OnLossStrategy,
     PositionLimitsLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
-from isaaclab_arena.relations.relations import AtPosition, In, NextTo, On, PositionLimits, RelationBase
+from isaaclab_arena.relations.relations import AtPosition, In, NextTo, Not, On, PositionLimits, RelationBase
 
 
 def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
@@ -23,6 +24,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
         NextTo: NextToLossStrategy(slope=10.0),
         On: OnLossStrategy(slope=100.0),
         In: InLossStrategy(slope=100.0),
+        Not: NotRelationLossStrategy(margin=0.05, slope=100.0),
         AtPosition: AtPositionLossStrategy(slope=100.0),
         PositionLimits: PositionLimitsLossStrategy(slope=100.0),
     }
