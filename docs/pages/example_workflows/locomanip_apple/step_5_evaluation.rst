@@ -80,6 +80,7 @@ Test the policy in a single environment with visualization via the GUI run:
      --policy_type isaaclab_arena_gr00t.policy.gr00t_closedloop_policy.Gr00tClosedloopPolicy \
      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_apple_gr00t_closedloop_config.yaml \
      --num_steps 1500 \
+     --device cpu \
      --enable_cameras \
      galileo_g1_locomanip_pick_and_place \
      --object apple_01_objaverse_robolab \

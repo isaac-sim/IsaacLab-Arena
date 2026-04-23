@@ -78,16 +78,20 @@ The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/c
 
    .. code-block:: yaml
 
+      # Input/Output paths
       data_root: /datasets/isaaclab_arena/locomanip_apple_tutorial
       hdf5_name: "arena_g1_locomanip_apple_dataset_generated.hdf5"
 
+      # Task description
       language_instruction: "Pick up the apple from the shelf, and place it onto the plate on the table located at the right of the shelf."
       task_index: 2
 
+      # Data field mappings
       state_name_sim: "robot_joint_pos"
       action_name_sim: "processed_actions"
       pov_cam_name_sim: "robot_head_cam_rgb"
 
+      # Output configuration
       fps: 50
       chunks_size: 1000
 

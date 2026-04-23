@@ -21,7 +21,7 @@ Step 1: Annotate Demonstrations
 
 This step describes how to annotate the demonstrations recorded in the preceding step
 so they can be used by Isaac Lab Mimic. For more details on Mimic annotation, see the
-`Isaac Lab Mimic documentation <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrationsl>`_.
+`Isaac Lab Mimic documentation <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrations>`_.
 
 To skip this step, you can download the pre-annotated dataset from Hugging Face as described below.
 
@@ -57,7 +57,9 @@ To start the annotation process, run the following command:
      --input_file $DATASET_DIR/arena_g1_locomanip_apple_dataset_recorded.hdf5 \
      --output_file $DATASET_DIR/arena_g1_locomanip_apple_dataset_annotated.hdf5 \
      --mimic \
-     galileo_g1_locomanip_pick_and_place
+     galileo_g1_locomanip_pick_and_place \
+     --object apple_01_objaverse_robolab \
+     --destination clay_plates_hot3d_robolab
 
 Follow the instructions described on the CLI to complete the annotation.
 
