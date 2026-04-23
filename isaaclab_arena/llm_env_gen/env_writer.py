@@ -111,7 +111,7 @@ class {placement.class_name}(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
+        from isaaclab_arena.relations.relations import In, IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         {placement.task_plan.task_import}
         from isaaclab_arena.utils.pose import Pose
@@ -209,6 +209,8 @@ def _render_relations(items: list[PlacementItem]) -> str:
 def _render_one_relation(var: str, rel: RelationSpec) -> list[str]:
     if rel.kind == "on":
         return [f"        {var}.add_relation(On({rel.on_target_var}, clearance_m={rel.on_clearance_m}))"]
+    if rel.kind == "in":
+        return [f"        {var}.add_relation(In({rel.in_target_var}))"]
     if rel.kind == "position_limits":
         if rel.pl_source != "bbox":
             return [f"        # TODO(position_limits): unsupported source {rel.pl_source!r}"]

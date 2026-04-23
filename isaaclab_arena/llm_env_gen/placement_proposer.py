@@ -132,10 +132,11 @@ class TabletopAnchorPlan:
 class RelationSpec:
     """Structured view of one add_relation call to be rendered in the env."""
 
-    kind: Literal["on", "position_limits", "at_position", "unsupported"]
-    # On:
+    kind: Literal["on", "in", "position_limits", "at_position", "unsupported"]
+    # On / In: parent variable to reference. On also carries a clearance.
     on_target_var: str | None = None
     on_clearance_m: float = 0.02
+    in_target_var: str | None = None
     # PositionLimits: when source == "bbox", runtime-derived; when "static", use explicit bounds.
     pl_source: Literal["bbox", "static"] = "bbox"
     # Unsupported: keep the raw relation dict + a reason so it can be emitted as a TODO.
@@ -346,6 +347,22 @@ def _propose_items(
             item.relations.append(RelationSpec(kind="on", on_target_var=target_var))
             if is_tabletop and tabletop_plan.emit_position_limits:
                 item.relations.append(RelationSpec(kind="position_limits", pl_source="bbox"))
+        elif rel["kind"] == "in":
+            tgt = rel["target"]
+            # In targets a container item, not the background. In clamps
+            # XY to the container's footprint and lets gravity resolve Z
+            # on the first physics tick, so no PositionLimits is emitted.
+            target_var = item_vars.get(tgt)
+            if target_var is None:
+                item.relations.append(
+                    RelationSpec(
+                        kind="unsupported",
+                        raw_relation=rel,
+                        reason=f"unknown target {tgt!r} for In",
+                    )
+                )
+                continue
+            item.relations.append(RelationSpec(kind="in", in_target_var=target_var))
         else:
             item.relations.append(
                 RelationSpec(

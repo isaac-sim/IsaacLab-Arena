@@ -126,12 +126,34 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
-# TODO: Implement an `In` / containment relation (e.g. "avocado in bowl"). Used
-# by the LLM scene-gen prototype as a final-state success condition — it does
-# not constrain initial placement. A solver variant would need a loss that
-# rewards the child's XY staying inside the parent's opening footprint and Z
-# below the parent's rim, plus an IsInside predicate for task success checks.
-# See isaaclab_arena/llm_env_gen/schema.py RelationKind "in".
+class In(Relation):
+    """Represents a containment (XY-only) relationship between objects.
+
+    ``In`` is the relaxed cousin of ``On``: the child's XY must stay inside
+    the parent's XY footprint, but Z is unconstrained. Gravity is expected
+    to finish the placement at simulation time — an object whose XY is
+    above the mouth of a bowl will drop into the bowl on the first physics
+    tick.
+
+    Use ``In`` instead of ``On`` when the parent has a cavity (bowl, bin,
+    drawer) where "on top of" misrepresents the intended spawn geometry,
+    or when Z should be free so the drop dynamics stay physical.
+
+    Note: Loss computation is handled by InLossStrategy in
+    relation_loss_strategies.py.
+    """
+
+    def __init__(
+        self,
+        parent: ObjectBase,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            parent: The container asset the child should end up inside of.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        super().__init__(parent, relation_loss_weight)
 
 
 class IsAnchor(RelationBase):
