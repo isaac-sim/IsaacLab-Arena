@@ -159,6 +159,14 @@ Step 4: Record with Quest 3
    :align: center
    :height: 400px
 
+.. warning::
+
+   **Known issue:** the squat height does not reset correctly between demos. As a
+   workaround, after each completed demo:
+
+   #. Use the **right joystick** (up) to stand the robot back up.
+   #. Use the control panel to **Reset**, then **Play** to start the next demo.
+
 
 Step 5: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
