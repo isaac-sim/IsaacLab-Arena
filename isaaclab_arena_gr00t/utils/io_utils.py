@@ -204,13 +204,22 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embod
     Returns:
         modality_configs: Modality configurations
     """
+    import importlib
+    import sys
+
     from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
     from gr00t.data.embodiment_tags import EmbodimentTag
-    from gr00t.experiment.launch_finetune import load_modality_config
 
     if modality_config_path:
-        # Import module for side-effect registration
-        load_modality_config(modality_config_path)
+        # Import the modality config module for side-effect registration.
+        # Inlined from gr00t.experiment.launch_finetune.load_modality_config()
+        # to avoid pulling in the full training stack (tyro, FinetuneConfig, etc.).
+        path = Path(modality_config_path)
+        if path.exists() and path.suffix == ".py":
+            sys.path.append(str(path.parent))
+            importlib.import_module(path.stem)
+        else:
+            raise FileNotFoundError(f"Modality config path does not exist: {modality_config_path}")
 
     # Get the embodiment tag from policy config and convert to EmbodimentTag enum
     # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)

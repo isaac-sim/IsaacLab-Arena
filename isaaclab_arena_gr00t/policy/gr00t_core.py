@@ -35,7 +35,6 @@ from pathlib import Path
 from typing import Any
 
 from gr00t.data.embodiment_tags import EmbodimentTag
-from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
@@ -80,32 +79,6 @@ class Gr00tBasePolicyArgs:
 # --------------------------------------------------------------------------- #
 # Config, model, and joint helpers (backend-agnostic)
 # --------------------------------------------------------------------------- #
-
-
-def load_gr00t_policy_from_config(policy_config: Gr00tClosedloopPolicyConfig) -> Gr00tPolicy:
-    """Instantiate a GR00T policy from the closed-loop config.
-
-    Args:
-        policy_config: Loaded closed-loop config (model path, embodiment, device).
-
-    Returns:
-        Loaded ``Gr00tPolicy`` on the configured device.
-
-    Raises:
-        AssertionError: If ``policy_config.model_path`` does not exist.
-    """
-    model_path = policy_config.model_path
-    # HuggingFace Hub repo IDs use "owner/repo" format (e.g. "nvidia/GR00T-N1.6-DROID").
-    is_hf_id = bool(model_path and "/" in model_path and not model_path.startswith(("/", ".")))
-    assert (
-        Path(model_path).exists() or is_hf_id
-    ), f"Model path {model_path} does not exist and is not a HuggingFace model id"
-    return Gr00tPolicy(
-        model_path=policy_config.model_path,
-        embodiment_tag=EmbodimentTag[policy_config.embodiment_tag],
-        device=policy_config.policy_device,
-        strict=True,
-    )
 
 
 def load_gr00t_joint_configs(

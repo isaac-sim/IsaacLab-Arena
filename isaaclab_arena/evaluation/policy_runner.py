@@ -15,6 +15,7 @@ from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
+from isaaclab_arena.utils.timing import TimingStats
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 from isaaclab_arena_gr00t.utils.groot_path import ensure_groot_deps_in_path
 
@@ -65,10 +66,43 @@ def rollout_policy(
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
+    _TIMING_PRINT_INTERVAL = 100
+
     pbar = None
+    timing = TimingStats()
+
+    # Per-env reset counter — initialised lazily once num_envs is known.
+    per_env_reset_counts: torch.Tensor | None = None
+
+    def _parallel_env_report(num_steps_done: int) -> str:
+        """Build a human-readable parallel-env efficiency report."""
+        if per_env_reset_counts is None:
+            return ""
+        num_envs = per_env_reset_counts.shape[0]
+        lines = [f"[Parallel-env stats]  num_envs={num_envs}  steps={num_steps_done}"]
+        lines.append(f"  per_env_resets      : {per_env_reset_counts.tolist()}")
+        if hasattr(policy, "action_scheduler_stats") and hasattr(policy, "action_chunk_length"):
+            s = policy.action_scheduler_stats
+            ideal = num_steps_done / policy.action_chunk_length
+            actual = s["n_fetch_calls"]
+            overhead_pct = (actual - ideal) / ideal * 100 if ideal > 0 else 0.0
+            eff = s["fetch_efficiency"]
+            lines.append(
+                f"  inference calls     : actual={actual}  ideal={ideal:.1f}"
+                f"  overhead={overhead_pct:+.1f}%"
+            )
+            lines.append(
+                f"  avg_envs_per_fetch  : {s['avg_envs_per_fetch']:.2f}/{num_envs}"
+                f"  efficiency={eff:.1%}"
+                f"  (1.0 = all envs needed fetch, <1.0 = wasted compute)"
+            )
+            lines.append(f"  per_env_fetch_count : {s['per_env_fetch_count']}")
+        return "\n".join(lines)
+
     try:
         obs, _ = env.reset()
         policy.reset()
+        per_env_reset_counts = torch.zeros(env.unwrapped.num_envs, dtype=torch.int64)
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
         task_description = language_instruction or env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description()
@@ -85,17 +119,22 @@ def rollout_policy(
 
         while True:
             with torch.inference_mode():
-                actions = policy.get_action(env, obs)
-                obs, _, terminated, truncated, _ = env.step(actions)
+                with timing.measure("get_action"):
+                    actions = policy.get_action(env, obs)
+
+                with timing.measure("env_step"):
+                    obs, _, terminated, truncated, _ = env.step(actions)
 
                 if terminated.any() or truncated.any():
-                    # Only reset policy for those envs that are terminated or truncated
+                    env_ids = (terminated | truncated).nonzero().flatten()
                     print(
                         f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
                         f" and truncated env_ids: {truncated.nonzero().flatten()}"
                     )
-                    env_ids = (terminated | truncated).nonzero().flatten()
-                    policy.reset(env_ids=env_ids)
+                    with timing.measure("reset"):
+                        if per_env_reset_counts is not None:
+                            per_env_reset_counts[env_ids.cpu()] += 1
+                        policy.reset(env_ids=env_ids)
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
@@ -110,6 +149,14 @@ def rollout_policy(
                     if num_steps_completed >= num_steps:
                         break
 
+            if num_steps_completed % _TIMING_PRINT_INTERVAL == 0:
+                print(timing.summary("Runner (cumulative)"))
+                if hasattr(policy, "timing_stats"):
+                    print(policy.timing_stats.summary("Policy (cumulative)"))
+                report = _parallel_env_report(num_steps_completed)
+                if report:
+                    print(report)
+
         pbar.close()
 
     except Exception as e:
@@ -118,6 +165,12 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
+        print(timing.summary("Runner (final)"))
+        if hasattr(policy, "timing_stats"):
+            print(policy.timing_stats.summary("Policy (final)"))
+        report = _parallel_env_report(num_steps_completed)
+        if report:
+            print(report.replace("cumulative", "final"))
 
         # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
@@ -204,18 +257,10 @@ def main():
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
 
-        # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
-        # Do NOT rely on a __del__ destructor in policy for this, since destructors are
-        # triggered implicitly and their execution time (or even whether they run)
-        # is not guaranteed, which makes resource cleanup unreliable.
-        if policy.is_remote:
-            policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
-
         # Close the environment.
         env.close()
 
 
 if __name__ == "__main__":
-    # TODO(xinjie.yao, 2026.03.31): Remove it after policy sever-client is implemented properly in v0.3.
     ensure_groot_deps_in_path()
     main()
