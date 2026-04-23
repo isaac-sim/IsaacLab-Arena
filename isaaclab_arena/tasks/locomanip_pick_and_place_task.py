@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import MISSING
+
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.utils import configclass
 
@@ -39,6 +41,7 @@ class LocomanipPickAndPlaceTask(PickAndPlaceTask):
         assert arm_mode == ArmMode.DUAL_ARM, "Locomanip pick and place task only supports dual arm mode"
         return LocomanipPickAndPlaceMimicEnvCfg(
             pick_up_object_name=self.pick_up_object.name,
+            destination_name=self.destination_location.name,
         )
 
 
@@ -48,13 +51,14 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for G1 Locomanip Pick and Place env.
     """
 
-    pick_up_object_name: str = "pick_up_object"
+    pick_up_object_name: str = MISSING
+    destination_name: str = MISSING
 
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
 
-        self.datagen_config.name = "locomanip_pick_and_place_D0"
+        self.datagen_config.name = f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_name}_D0"
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
         self.datagen_config.generation_num_trials = 100
@@ -222,7 +226,7 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
         subtask_configs.append(
             SubTaskConfig(
                 # Each subtask involves manipulation with respect to a single object frame.
-                object_ref="brown_box",
+                object_ref=self.pick_up_object_name,
                 # This key corresponds to the binary indicator in "datagen_info" that signals
                 # when this subtask is finished (e.g., on a 0 to 1 edge).
                 subtask_term_signal="navigate_to_table",
