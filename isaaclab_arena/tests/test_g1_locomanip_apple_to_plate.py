@@ -232,19 +232,23 @@ def _test_mimic_cfg_uses_object_and_destination_names(simulation_app) -> bool:
 
 
 def _test_mimic_cfg_brown_box_preserves_legacy_datagen_name(simulation_app) -> bool:
-    """Regression guard: the default brown_box+blue_sorting_bin Mimic cfg must keep the main datagen name.
+    """Regression guard: the brown_box+blue_sorting_bin env callback must rewrite the datagen name.
 
-    Existing Mimic datasets and policy checkpoints are keyed on ``"locomanip_pick_and_place_D0"``
-    (post-#571 refactor); any drift here silently invalidates them. The legacy name is reserved
-    for the exact (brown_box, blue_sorting_bin) pair only -- any other pairing must use the
-    per-pair templated name (covered by the apple test above and the
-    brown_box+non_default_destination test below).
+    Existing Mimic datasets and policy checkpoints are keyed on ``"locomanip_pick_and_place_D0"``;
+    any drift here silently invalidates them. The legacy override lives on the
+    ``galileo_g1_locomanip_pick_and_place`` environment (not the task itself), so we test the env
+    callback directly here. The legacy name is reserved for the exact (brown_box, blue_sorting_bin)
+    pair only -- any other pairing keeps the per-pair templated name produced by the task
+    (covered by the apple test above and the brown_box+non_default_destination test below).
     """
 
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
+        _apply_legacy_datagen_name_override,
+    )
 
     asset_registry = AssetRegistry()
     brown_box = asset_registry.get_asset_by_name("brown_box")()
@@ -262,13 +266,26 @@ def _test_mimic_cfg_brown_box_preserves_legacy_datagen_name(simulation_app) -> b
 
     mimic_cfg = task.get_mimic_env_cfg(arm_mode=ArmMode.DUAL_ARM)
 
-    expected_name = "locomanip_pick_and_place_D0"
-    assert mimic_cfg.datagen_config.name == expected_name, (
-        f"brown_box+blue_sorting_bin Mimic datagen name must stay '{expected_name}' for backward "
-        f"compatibility, got '{mimic_cfg.datagen_config.name}'"
+    # Sanity check: the task itself should always produce the per-pair templated name now. The
+    # legacy name is applied by the environment callback, not the task.
+    assert mimic_cfg.datagen_config.name != "locomanip_pick_and_place_D0", (
+        "LocomanipPickAndPlaceTask must not produce the legacy datagen name directly; that is the "
+        f"environment callback's job. Got '{mimic_cfg.datagen_config.name}'."
     )
 
-    print(f"Success: brown_box+blue_sorting_bin Mimic cfg preserves legacy datagen name '{expected_name}'")
+    _apply_legacy_datagen_name_override(
+        mimic_cfg,
+        pick_up_object_name=brown_box.name,
+        destination_name=blue_bin.name,
+    )
+
+    expected_name = "locomanip_pick_and_place_D0"
+    assert mimic_cfg.datagen_config.name == expected_name, (
+        "brown_box+blue_sorting_bin env callback must rewrite the Mimic datagen name to "
+        f"'{expected_name}' for backward compatibility, got '{mimic_cfg.datagen_config.name}'"
+    )
+
+    print(f"Success: brown_box+blue_sorting_bin env callback preserves legacy datagen name '{expected_name}'")
     return True
 
 
@@ -276,13 +293,17 @@ def _test_mimic_cfg_brown_box_non_default_destination_is_not_legacy(simulation_a
     """Only the exact legacy (brown_box, blue_sorting_bin) pair should get the legacy datagen name.
 
     ``brown_box`` paired with a non-default destination (e.g. the clay plate) must generate its
-    own per-pair datagen key so Mimic runs don't silently overwrite the brown_box dataset.
+    own per-pair datagen key so Mimic runs don't silently overwrite the brown_box dataset. The
+    environment-level legacy override must also be a no-op for this pairing.
     """
 
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
+        _apply_legacy_datagen_name_override,
+    )
 
     asset_registry = AssetRegistry()
     brown_box = asset_registry.get_asset_by_name("brown_box")()
@@ -308,6 +329,19 @@ def _test_mimic_cfg_brown_box_non_default_destination_is_not_legacy(simulation_a
     assert brown_box.name in mimic_cfg.datagen_config.name and plate.name in mimic_cfg.datagen_config.name, (
         f"Expected datagen_config.name to include both '{brown_box.name}' and '{plate.name}', "
         f"got '{mimic_cfg.datagen_config.name}'"
+    )
+
+    # The env-level legacy override must be a no-op for this non-legacy pair -- the datagen name
+    # must stay the per-pair templated name after the callback.
+    name_before_callback = mimic_cfg.datagen_config.name
+    _apply_legacy_datagen_name_override(
+        mimic_cfg,
+        pick_up_object_name=brown_box.name,
+        destination_name=plate.name,
+    )
+    assert mimic_cfg.datagen_config.name == name_before_callback, (
+        "Env legacy-override callback must not rewrite datagen name for non-legacy pairs; name "
+        f"changed from '{name_before_callback}' to '{mimic_cfg.datagen_config.name}'"
     )
 
     print(f"Success: brown_box+non-default destination uses per-pair datagen name '{mimic_cfg.datagen_config.name}'")

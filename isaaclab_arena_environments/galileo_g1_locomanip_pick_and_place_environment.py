@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
@@ -16,12 +17,52 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-# Exact task description used by the v0.2 workflow for brown-box-to-blue-bin. Preserved verbatim
-# so the pretrained gr00t model that was SQA'd against this wording keeps bit-identical behavior.
+logger = logging.getLogger(__name__)
+
+
+# The v0.2 brown-box-to-blue-bin workflow was SQA'd against this exact task description, Mimic
+# datagen name, and (object, destination) pair. We preserve them verbatim for that specific pair so
+# the pretrained gr00t model and existing Mimic datasets / policy checkpoints keyed on them keep
+# resolving bit-identically. Any other pair -- including ``brown_box`` against a non-default
+# destination -- uses the templated behavior from the base task / environment.
+_LEGACY_PICK_UP_OBJECT_NAME = "brown_box"
+_LEGACY_DESTINATION_NAME = "blue_sorting_bin"
+_LEGACY_DATAGEN_NAME = "locomanip_pick_and_place_D0"
 _LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION = (
     "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the"
     " right of the shelf."
 )
+
+
+def _is_legacy_pair(pick_up_object_name: str, destination_name: str) -> bool:
+    return pick_up_object_name == _LEGACY_PICK_UP_OBJECT_NAME and destination_name == _LEGACY_DESTINATION_NAME
+
+
+def _apply_legacy_datagen_name_override(
+    env_cfg: Any,
+    pick_up_object_name: str,
+    destination_name: str,
+) -> Any:
+    """Rewrite the Mimic ``datagen_config.name`` to the legacy value for the v0.2 workflow.
+
+    Only applies to Mimic configs (where ``datagen_config`` exists) and only to the exact
+    ``(brown_box, blue_sorting_bin)`` pair that was SQA'd against this datagen key. All other
+    pairs keep the templated name produced by ``LocomanipPickAndPlaceMimicEnvCfg``.
+    """
+    if not _is_legacy_pair(pick_up_object_name, destination_name):
+        return env_cfg
+
+    datagen_config = getattr(env_cfg, "datagen_config", None)
+    if datagen_config is None:
+        return env_cfg
+
+    print(
+        f"Overriding Mimic datagen_config.name from {datagen_config.name} to the legacy {_LEGACY_DATAGEN_NAME}"
+        "This preserves identical behavior with existing Mimic datasets"
+        "Remove this in the future when checkpoints are retrained."
+    )
+    datagen_config.name = _LEGACY_DATAGEN_NAME
+    return env_cfg
 
 
 @register_environment
@@ -87,7 +128,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         if args_cli.task_description is not None:
             task_description = args_cli.task_description
-        elif args_cli.object == "brown_box" and args_cli.destination == "blue_sorting_bin":
+        elif _is_legacy_pair(args_cli.object, args_cli.destination):
             task_description = _LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION
         else:
             object_label = args_cli.object.replace("_", " ")
@@ -95,6 +136,13 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             task_description = (
                 f"Pick up the {object_label} from the shelf, and place it on the {destination_label} on the table"
                 " located at the right of the shelf."
+            )
+
+        def env_cfg_callback(env_cfg):
+            return _apply_legacy_datagen_name_override(
+                env_cfg,
+                pick_up_object_name=pick_up_object.name,
+                destination_name=destination.name,
             )
 
         scene = Scene(assets=[background, pick_up_object, destination])
@@ -112,6 +160,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 velocity_threshold=0.1,
             ),
             teleop_device=teleop_device,
+            env_cfg_callback=env_cfg_callback,
         )
         return isaaclab_arena_environment
 

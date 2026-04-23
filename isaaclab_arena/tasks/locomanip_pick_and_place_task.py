@@ -3,22 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import MISSING
+
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-
-# The v0.2 brown-box-to-blue-bin workflow was SQA'd against this exact datagen name and object /
-# destination identifiers. We preserve the datagen name verbatim for that specific ``(pick_up_object,
-# destination)`` pair so existing Mimic datasets and policy checkpoints keyed on it keep resolving
-# after this PR. Any other pair -- including ``brown_box`` against a non-default destination -- gets
-# a templated name that includes both the object and the destination, so Mimic runs for
-# e.g. ``brown_box`` + plate vs ``brown_box`` + bin don't collide on one shared dataset key.
-_LEGACY_DATAGEN_NAME = "locomanip_pick_and_place_D0"
-_LEGACY_PICK_UP_OBJECT_NAME = "brown_box"
-_LEGACY_DESTINATION_NAME = "blue_sorting_bin"
 
 
 class LocomanipPickAndPlaceTask(PickAndPlaceTask):
@@ -59,23 +51,14 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
     Isaac Lab Mimic environment config class for G1 Locomanip Pick and Place env.
     """
 
-    pick_up_object_name: str = _LEGACY_PICK_UP_OBJECT_NAME
-    destination_name: str = _LEGACY_DESTINATION_NAME
+    pick_up_object_name: str = MISSING
+    destination_name: str = MISSING
 
     def __post_init__(self):
         # post init of parents
         super().__post_init__()
 
-        is_legacy_pair = (
-            self.pick_up_object_name == _LEGACY_PICK_UP_OBJECT_NAME
-            and self.destination_name == _LEGACY_DESTINATION_NAME
-        )
-        if is_legacy_pair:
-            self.datagen_config.name = _LEGACY_DATAGEN_NAME
-        else:
-            self.datagen_config.name = (
-                f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_name}_D0"
-            )
+        self.datagen_config.name = f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_name}_D0"
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
         self.datagen_config.generation_num_trials = 100
