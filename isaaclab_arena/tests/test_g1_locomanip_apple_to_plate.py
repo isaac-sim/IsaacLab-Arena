@@ -93,20 +93,17 @@ def _step_with_standing_actions(env, num_steps: int) -> list[bool]:
     return terminated_list
 
 
-def _replace_apple_at_initial_pose(env, apple) -> None:
-    """Teleport the apple back to its initial position with zero velocity.
+def _teleport_apple(env, apple, position_xyz: tuple[float, float, float]) -> None:
+    """Teleport ``apple`` to ``position_xyz`` (env-local frame) with identity orientation and zero velocity.
 
-    During warmup the G1 WBC locomotion policy can physically knock the apple off the table. Calling
-    this after warmup restores the apple so the real test assertions start from a known-good state.
+    Uses ``ObjectBase.set_object_pose`` so we piggyback on the framework helper for pose + velocity
+    resets instead of reaching into the raw ``RigidObject.write_root_*`` APIs. Note the ``Pose`` quat
+    convention is ``xyzw``, so ``(0, 0, 0, 1)`` is the identity quaternion (Isaac Lab 3.0).
     """
-    from isaaclab.assets import RigidObject
+    from isaaclab_arena.utils.pose import Pose
 
     with torch.inference_mode():
-        apple_object: RigidObject = env.unwrapped.scene[apple.name]
-        init_pos = torch.tensor([list(APPLE_INITIAL_POSITION_M)], device=env.unwrapped.device)
-        init_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.unwrapped.device)
-        apple_object.write_root_pose_to_sim(root_pose=torch.cat([init_pos, init_quat], dim=-1))
-        apple_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.unwrapped.device))
+        apple.set_object_pose(env, Pose(position_xyz=position_xyz, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
 
 def _test_initial_state_not_terminated(simulation_app) -> bool:
@@ -122,7 +119,7 @@ def _test_initial_state_not_terminated(simulation_app) -> bool:
 
         # Re-place the apple after warmup; the robot's stabilisation can knock it off the table and
         # trigger the object_dropped termination before we even start the real assertion steps.
-        _replace_apple_at_initial_pose(env, apple)
+        _teleport_apple(env, apple, APPLE_INITIAL_POSITION_M)
 
         terminated_list = _step_with_standing_actions(env, NUM_STEPS)
         for step, terminated in enumerate(terminated_list):
@@ -138,7 +135,7 @@ def _test_initial_state_not_terminated(simulation_app) -> bool:
 
 
 def _test_apple_on_plate_succeeds(simulation_app) -> bool:
-    """Teleporting the apple onto the plate should trigger success termination."""
+    """Re-teleporting the apple above the plate should trigger success termination."""
 
     from isaaclab.assets import RigidObject
 
@@ -147,30 +144,31 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
     try:
         _step_with_standing_actions(env, WARMUP_STEPS)
 
-        with torch.inference_mode():
-            plate_object: RigidObject = env.unwrapped.scene[plate.name]
-            apple_object: RigidObject = env.unwrapped.scene[apple.name]
+        plate_object: RigidObject = env.unwrapped.scene[plate.name]
+        plate_pos_world = wp.to_torch(plate_object.data.root_pos_w)[0]
+        env_origin = env.unwrapped.scene.env_origins[0]
+        plate_pos_local = plate_pos_world - env_origin
+        apple_target = (
+            float(plate_pos_local[0]),
+            float(plate_pos_local[1]),
+            float(plate_pos_local[2]) + APPLE_ABOVE_PLATE_OFFSET_M,
+        )
 
-            plate_pos = wp.to_torch(plate_object.data.root_pos_w)[0]
-            target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.unwrapped.device)
-
-            apple_target_pos = plate_pos.clone().unsqueeze(0)
-            apple_target_pos[0, 2] += APPLE_ABOVE_PLATE_OFFSET_M
-
-            apple_object.write_root_pose_to_sim(root_pose=torch.cat([apple_target_pos, target_quat], dim=-1))
-            apple_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.unwrapped.device))
-
-            terminated_ever = False
-            for _ in range(NUM_STEPS * 10):
+        terminated_ever = False
+        for _ in range(NUM_STEPS * 10):
+            # Re-teleport each step so short physics drifts (bouncing off a thin plate edge)
+            # cannot push the apple outside the proximity threshold before termination fires.
+            _teleport_apple(env, apple, apple_target)
+            with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 actions[:, -4] = 0.75
                 _, _, terminated, _, _ = env.step(actions)
-                if terminated.item():
-                    terminated_ever = True
-                    break
+            if terminated.item():
+                terminated_ever = True
+                break
 
-            assert terminated_ever, "Task should terminate after apple is placed on plate"
-            print("Success: apple-on-plate termination detected")
+        assert terminated_ever, "Task should terminate after apple is placed on plate"
+        print("Success: apple-on-plate termination detected")
 
     except Exception as e:
         print(f"Error: {e}")
