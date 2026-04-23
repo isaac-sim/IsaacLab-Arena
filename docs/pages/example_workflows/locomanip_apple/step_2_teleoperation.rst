@@ -78,9 +78,9 @@ A strong wireless connection is essential for a high-quality streaming experienc
 
 #. **Teleoperation Controls**:
 
-* **Left joystick**: Move the body forward/backward/left/right.
-* **Right joystick**: Squat (down), rotate torso (left/right).
-* **Controllers**: Move end-effector (EE) targets for the arms.
+   * **Left joystick**: Move the body forward/backward/left/right.
+   * **Right joystick**: Squat (down), rotate torso (left/right).
+   * **Controllers**: Move end-effector (EE) targets for the arms.
 
 
 .. note::
