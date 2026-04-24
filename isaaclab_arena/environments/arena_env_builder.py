@@ -174,19 +174,6 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
-    # This method gives the arena environment a chance to modify the environment configuration.
-    # This is a workaround to allow user to gradually move to the new configuration system.
-    # THE ORDER MATTERS HERE.
-    # THIS WILL BE REMOVED IN THE FUTURE.
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        """Modify the environment configuration."""
-        if self.arena_env.task is not None:
-            env_cfg = self.arena_env.task.modify_env_cfg(env_cfg)
-        if self.arena_env.embodiment is not None:
-            env_cfg = self.arena_env.embodiment.modify_env_cfg(env_cfg)
-        env_cfg = self.arena_env.scene.modify_env_cfg(env_cfg)
-        return env_cfg
-
     def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
@@ -344,7 +331,7 @@ class ArenaEnvBuilder:
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
 
             # Set replicate_physics for shared physics representations.
-            # For Newton, wihotut this flag, the simulation initialization
+            # For Newton, without this flag, the simulation initialization
             # takes a very long time for large number of parallel environments.
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
@@ -368,9 +355,6 @@ class ArenaEnvBuilder:
         """Register Gym env and parse runtime cfg."""
         name = self.arena_env.name
         cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
-        # THIS IS A WORKAROUND TO ALLOW USER TO GRADUALLY MOVE TO THE NEW CONFIGURATION SYSTEM.
-        # THIS WILL BE REMOVED IN THE FUTURE.
-        cfg_entry = self.modify_env_cfg(cfg_entry)
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
         kwargs = {

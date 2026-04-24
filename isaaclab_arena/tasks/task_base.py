@@ -10,7 +10,6 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_base import MetricBase
 
 
@@ -54,9 +53,6 @@ class TaskBase(ABC):
 
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
         return None
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        return env_cfg
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg()

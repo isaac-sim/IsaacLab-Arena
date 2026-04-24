@@ -16,7 +16,6 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 
@@ -111,9 +110,6 @@ class Scene:
             if asset.get_relations():
                 objects_with_relations.append(asset)
         return objects_with_relations
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        return env_cfg
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:
         """Exports the scene to a USD file.
