@@ -6,15 +6,28 @@ This workflow covers collecting demonstrations for the G1 loco-manipulation appl
 .. admonition:: No teleoperation hardware?
    :class: tip
 
-   The G1 loco-manipulation task needs bimanual end-effector control plus locomotion/squat commands,
-   which is not practical to drive from a keyboard or SpaceMouse. If you don't have an XR headset,
-   **skip this step** and jump to :doc:`step_3_data_generation`, where you can download a
-   pre-recorded dataset from Hugging Face and run the rest of the pipeline (annotation, Mimic
-   generation, policy training, closed-loop evaluation) without ever touching teleoperation hardware.
+   The G1 loco-manipulation task needs bimanual end-effector control plus locomotion/squat
+   commands, which is not practical to drive from a keyboard or SpaceMouse. If you don't have an
+   XR headset, you have two headset-free options:
 
-   This is the same "emulation" path that the existing
-   :doc:`G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/step_3_data_generation>`
-   workflow relies on.
+   #. **Smoke-test the full pipeline with IWER.** Open
+      `<https://nvidia.github.io/IsaacTeleop/client>`_ in desktop Chrome (instead of the Quest
+      browser). The page auto-loads the `Immersive Web Emulator Runtime
+      <https://github.com/meta-quest/immersive-web-emulator>`_ and emulates a Quest 3 with your
+      mouse and keyboard, per the `IsaacTeleop Quick Start
+      <https://nvidia.github.io/IsaacTeleop/main/getting_started/quick_start.html>`_. Follow
+      Steps 1--4 below unchanged; the only difference is that Step 3 is done from a desktop
+      browser tab. This is enough to verify that CloudXR is reachable, the XR session starts,
+      actions flow into the env, and ``record_demos.py`` writes a valid HDF5 -- but driving a
+      bimanual loco-manip action space with a mouse is cumbersome, so IWER-recorded runs will
+      rarely complete the task. Treat it as a pipeline smoke test, not a data-collection path.
+
+   #. **Skip teleoperation entirely.** Jump to :doc:`step_3_data_generation`, where you can
+      download a pre-recorded dataset from Hugging Face and run the rest of the pipeline
+      (annotation, Mimic generation, policy training, closed-loop evaluation) without ever
+      touching teleoperation hardware. This is the same "emulation" path that the existing
+      :doc:`G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/step_3_data_generation>`
+      workflow relies on.
 
 
 Step 1: Start the CloudXR Runtime
