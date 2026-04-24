@@ -35,7 +35,7 @@ class AvocadoInBowlTestEnvironment(ExampleEnvironmentBase):
 
     name: str = "avocadoInBowlTest"
 
-    def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -45,9 +45,7 @@ class AvocadoInBowlTestEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-        background.set_initial_pose(
-            Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068))
-        )
+        background.set_initial_pose(Pose(position_xyz=(0.5, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
         light = self.asset_registry.get_asset_by_name("light")()

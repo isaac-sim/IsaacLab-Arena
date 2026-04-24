@@ -22,7 +22,6 @@ import argparse
 import math
 import torch
 
-
 # ---------------------------------------------------------------------------
 # Status constants (stable strings — safe to emit in JSON payloads)
 # ---------------------------------------------------------------------------

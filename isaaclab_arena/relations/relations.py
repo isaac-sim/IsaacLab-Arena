@@ -144,7 +144,7 @@ class Not(Relation):
     needed.
     """
 
-    def __init__(self, inner: "Relation", relation_loss_weight: float = 1.0):
+    def __init__(self, inner: Relation, relation_loss_weight: float = 1.0):
         """
         Args:
             inner: The binary relation whose satisfaction should be

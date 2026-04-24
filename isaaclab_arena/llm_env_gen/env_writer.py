@@ -28,7 +28,6 @@ from .placement_proposer import (
     PlacementItem,
     RelationSpec,
     TabletopAnchorPlan,
-    TaskPlan,
     block_initial_goal_satisfaction,
     propose_placement,
 )
@@ -67,15 +66,13 @@ def _render_module(placement: Placement) -> str:
     bbox_setup = _render_bbox_setup(placement.tabletop_anchor_plan)
     relations_src = _render_relations(placement.items)
     goal_comments = "\n".join(placement.task_plan.goal_comments)
-    asset_list = ", ".join(
-        [
-            "background",
-            "ground_plane",
-            "light",
-            *placement.extra_scene_assets,
-            *(i.var_name for i in placement.items),
-        ]
-    )
+    asset_list = ", ".join([
+        "background",
+        "ground_plane",
+        "light",
+        *placement.extra_scene_assets,
+        *(i.var_name for i in placement.items),
+    ])
 
     tabletop_header_note = placement.tabletop_anchor_plan.header_note(placement.background_name)
 
@@ -160,9 +157,7 @@ def _render_item_decls(items: list[PlacementItem]) -> str:
     # name by default, so two bananas would collide on the scene-level name.
     # When we need this, re-introduce instance_name="..." on the emitted
     # line and derive a unique suffix from the LLM's instance_name / query.
-    return "\n".join(
-        f'        {i.var_name} = self.asset_registry.get_asset_by_name("{i.asset_name}")()' for i in items
-    )
+    return "\n".join(f'        {i.var_name} = self.asset_registry.get_asset_by_name("{i.asset_name}")()' for i in items)
 
 
 def _render_anchor_setup(plan: TabletopAnchorPlan) -> str:
@@ -228,7 +223,7 @@ def _render_one_relation(var: str, rel: RelationSpec) -> list[str]:
         return [f"        {var}.add_relation({_relation_call_expr(rel)})"]
     if rel.kind == "not":
         if rel.inner is None:
-            return [f"        # TODO(not): missing inner spec"]
+            return ["        # TODO(not): missing inner spec"]
         inner_expr = _relation_call_expr(rel.inner)
         if inner_expr is None:
             return [f"        # TODO(not): inner kind {rel.inner.kind!r} has no call expr"]

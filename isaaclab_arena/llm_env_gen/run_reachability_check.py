@@ -39,10 +39,6 @@ import sys
 import torch
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.utils.random import set_seed
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
-
 from isaaclab_arena.llm_env_gen.reachability_utils import (
     IK_STATUS_FEASIBLE,
     IK_STATUS_IN_COLLISION,
@@ -58,6 +54,9 @@ from isaaclab_arena.llm_env_gen.reachability_utils import (
     get_object_world_pos,
     get_robot_world_pos,
 )
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.random import set_seed
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 
 def main() -> int:
@@ -154,8 +153,7 @@ def main() -> int:
                     dest_pos_local = get_object_pos_in_robot_frame(env, dest_name, env_id)
                 except AssertionError as exc:
                     print(
-                        f"[reachability] Place '{dest_name}': not a rigid_object — "
-                        f"skipping place IK check. ({exc})",
+                        f"[reachability] Place '{dest_name}': not a rigid_object — skipping place IK check. ({exc})",
                         flush=True,
                     )
                     dest_name = None
@@ -207,7 +205,7 @@ def main() -> int:
             )
             pick_target, _ = build_curobo_target_pose(object_pos_local=pick_pos_local, **pose_kwargs)
             print(
-                f"[reachability] Pick  top-down hand target: "
+                "[reachability] Pick  top-down hand target: "
                 f"{format_xyz(pick_target.position.squeeze(0).detach().cpu())}",
                 flush=True,
             )
@@ -215,7 +213,7 @@ def main() -> int:
             if dest_pos_local is not None:
                 place_target, _ = build_curobo_target_pose(object_pos_local=dest_pos_local, **pose_kwargs)
                 print(
-                    f"[reachability] Place top-down hand target: "
+                    "[reachability] Place top-down hand target: "
                     f"{format_xyz(place_target.position.squeeze(0).detach().cpu())}",
                     flush=True,
                 )
@@ -224,9 +222,7 @@ def main() -> int:
             rot_thresh = float(planner_cfg.rotation_threshold)
 
             pick_feasible, pick_pos_err, pick_rot_err, pick_q = check_ik_feasibility(planner, pick_target)
-            pick_status = classify_ik_status(
-                pick_feasible, pick_pos_err, pick_rot_err, pos_thresh, rot_thresh
-            )
+            pick_status = classify_ik_status(pick_feasible, pick_pos_err, pick_rot_err, pos_thresh, rot_thresh)
             print(
                 f"[reachability] Pick  status: {pick_status} "
                 f"(pos_err={pick_pos_err:.4f} m, rot_err={pick_rot_err:.4f} rad)",
@@ -242,9 +238,7 @@ def main() -> int:
                 place_feasible, place_pos_err, place_rot_err, _ = check_ik_feasibility(
                     planner, place_target, seed_config=pick_q
                 )
-                place_status = classify_ik_status(
-                    place_feasible, place_pos_err, place_rot_err, pos_thresh, rot_thresh
-                )
+                place_status = classify_ik_status(place_feasible, place_pos_err, place_rot_err, pos_thresh, rot_thresh)
                 print(
                     f"[reachability] Place status: {place_status} "
                     f"(pos_err={place_pos_err:.4f} m, rot_err={place_rot_err:.4f} rad)",
@@ -289,9 +283,11 @@ def main() -> int:
             overall_status = (
                 IK_STATUS_FEASIBLE
                 if overall_feasible
-                else IK_STATUS_IN_COLLISION
-                if IK_STATUS_IN_COLLISION in statuses and IK_STATUS_UNREACHABLE not in statuses
-                else IK_STATUS_UNREACHABLE
+                else (
+                    IK_STATUS_IN_COLLISION
+                    if IK_STATUS_IN_COLLISION in statuses and IK_STATUS_UNREACHABLE not in statuses
+                    else IK_STATUS_UNREACHABLE
+                )
             )
             print(f"[reachability] Overall: {overall_status}", flush=True)
 

@@ -79,7 +79,7 @@ class SceneSpec(BaseModel):
     final_scene_graph: list[Relation]
 
     @model_validator(mode="after")
-    def _graphs_must_differ(self) -> "SceneSpec":
+    def _graphs_must_differ(self) -> SceneSpec:
         if not self.goal_added() and not self.goal_removed():
             raise ValueError(
                 "initial_scene_graph and final_scene_graph are identical — the task "

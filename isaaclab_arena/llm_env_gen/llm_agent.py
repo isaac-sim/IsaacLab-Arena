@@ -11,6 +11,7 @@ SceneSpec Pydantic bundle so asset resolution stays deterministic.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 
@@ -38,9 +39,7 @@ def build_catalog_text() -> str:
         elif "object" in tags:
             objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
 
-    obj_lines = "\n".join(
-        f"- {o['name']}  tags={o['tags']}" for o in sorted(objects, key=lambda o: o["name"])
-    )
+    obj_lines = "\n".join(f"- {o['name']}  tags={o['tags']}" for o in sorted(objects, key=lambda o: o["name"]))
     return (
         f"EMBODIMENTS: {', '.join(sorted(embodiments))}\n\n"
         f"BACKGROUNDS: {', '.join(sorted(backgrounds))}\n\n"
@@ -74,11 +73,7 @@ class LLMAgent:
         """Return (validated SceneSpec, raw LLM response)."""
         catalog_text = catalog_text or build_catalog_text()
         system = self._system_prompt()
-        user = (
-            f"{catalog_text}\n\n"
-            f"USER PROMPT:\n{prompt}\n\n"
-            "Return ONLY a JSON object matching the SceneSpec schema."
-        )
+        user = f"{catalog_text}\n\nUSER PROMPT:\n{prompt}\n\nReturn ONLY a JSON object matching the SceneSpec schema."
 
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -136,10 +131,8 @@ class LLMAgent:
                 lines = lines[:-1]
             content = "\n".join(lines)
 
-        try:
+        with contextlib.suppress(json.JSONDecodeError):
             return json.loads(content)
-        except json.JSONDecodeError:
-            pass
 
         start = content.find("{")
         assert start != -1, f"No JSON object in LLM response: {content!r}"

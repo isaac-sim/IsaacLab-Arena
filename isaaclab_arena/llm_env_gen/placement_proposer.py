@@ -123,8 +123,7 @@ class TabletopAnchorPlan:
             )
         descriptor = "background" if self.kind == "background" else "ObjectReference sub-prim"
         return (
-            f"tabletop anchor = {self.anchor_var} ({descriptor}); "
-            "PositionLimits derived from get_world_bounding_box()"
+            f"tabletop anchor = {self.anchor_var} ({descriptor}); PositionLimits derived from get_world_bounding_box()"
         )
 
 
@@ -139,7 +138,7 @@ class RelationSpec:
     in_target_var: str | None = None
     # Not: the wrapped spec whose satisfaction we forbid. Only "on" and
     # "in" inner kinds are rendered today.
-    inner: "RelationSpec | None" = None
+    inner: RelationSpec | None = None
     # PositionLimits: when source == "bbox", runtime-derived; when "static", use explicit bounds.
     pl_source: Literal["bbox", "static"] = "bbox"
     # Unsupported: keep the raw relation dict + a reason so it can be emitted as a TODO.
@@ -277,9 +276,7 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:
     env_name = _derive_env_name(resolved, spec)
     class_name = _derive_class_name(resolved, spec)
 
-    item_vars: dict[str, str] = {
-        instance_name: f"{_safe_var(instance_name)}_obj" for instance_name in resolved.items
-    }
+    item_vars: dict[str, str] = {instance_name: f"{_safe_var(instance_name)}_obj" for instance_name in resolved.items}
 
     tabletop_plan = _plan_tabletop_anchor(background_name)
 
@@ -365,17 +362,11 @@ def _derive_class_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
 def _plan_tabletop_anchor(background_name: str) -> TabletopAnchorPlan:
     """Decide whether to anchor to the background, an ObjectReference, or nothing."""
     if background_name not in _BACKGROUND_TABLETOP_ANCHOR:
-        return TabletopAnchorPlan(
-            kind="none", anchor_var="background", prim_path=None, emit_position_limits=False
-        )
+        return TabletopAnchorPlan(kind="none", anchor_var="background", prim_path=None, emit_position_limits=False)
     prim = _BACKGROUND_TABLETOP_ANCHOR[background_name]
     if prim is None:
-        return TabletopAnchorPlan(
-            kind="background", anchor_var="background", prim_path=None, emit_position_limits=True
-        )
-    return TabletopAnchorPlan(
-        kind="reference", anchor_var="tabletop_anchor", prim_path=prim, emit_position_limits=True
-    )
+        return TabletopAnchorPlan(kind="background", anchor_var="background", prim_path=None, emit_position_limits=True)
+    return TabletopAnchorPlan(kind="reference", anchor_var="tabletop_anchor", prim_path=prim, emit_position_limits=True)
 
 
 # ---------------------------------------------------------------------------

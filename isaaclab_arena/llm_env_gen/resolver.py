@@ -135,7 +135,9 @@ class Resolver:
                     )
                 )
             else:
-                cls = self._best_match(item.query, pool, trace, stage_prefix="item.in_tags", note=f"tags={item.category_tags}")
+                cls = self._best_match(
+                    item.query, pool, trace, stage_prefix="item.in_tags", note=f"tags={item.category_tags}"
+                )
                 if cls is not None:
                     return cls
                 trace.append(
@@ -165,9 +167,7 @@ class Resolver:
         substrs = [p for p in pool if q in p.lower()]
         if substrs:
             chosen = min(substrs, key=len)
-            trace.append(
-                TraceEvent(f"{stage_prefix}.substring", query, chosen, candidates=substrs[:5], note=note)
-            )
+            trace.append(TraceEvent(f"{stage_prefix}.substring", query, chosen, candidates=substrs[:5], note=note))
             return self.registry.get_asset_by_name(chosen)
 
         matches = get_close_matches(query, pool, n=3, cutoff=0.5)
@@ -189,9 +189,7 @@ class Resolver:
         if self.registry.is_registered(name):
             cls = self.registry.get_asset_by_name(name)
             if required_tag and required_tag not in getattr(cls, "tags", []):
-                trace.append(
-                    TraceEvent("name.wrong_tag", name, None, note=f"expected tag {required_tag!r}")
-                )
+                trace.append(TraceEvent("name.wrong_tag", name, None, note=f"expected tag {required_tag!r}"))
                 return None
             trace.append(TraceEvent("name.exact", name, name))
             return cls
@@ -213,9 +211,7 @@ class Resolver:
         lower = name.lower()
         if lower in IK_DEFAULTS:
             chosen = IK_DEFAULTS[lower]
-            trace.append(
-                TraceEvent("embodiment.ik_default", name, chosen, note=f"bare family {name!r} → IK variant")
-            )
+            trace.append(TraceEvent("embodiment.ik_default", name, chosen, note=f"bare family {name!r} → IK variant"))
             return chosen
 
         embodiment_pool = self._pool_for(["embodiment"])
@@ -226,9 +222,7 @@ class Resolver:
         trace.append(TraceEvent("embodiment.miss", name, None, note="falling back to franka_ik"))
         return "franka_ik"
 
-    def _resolve_graph(
-        self, graph: list, phase: str, known: set[str], trace: list[TraceEvent]
-    ) -> list[dict[str, Any]]:
+    def _resolve_graph(self, graph: list, phase: str, known: set[str], trace: list[TraceEvent]) -> list[dict[str, Any]]:
         """Validate one scene graph (initial or final) against the known item set."""
         resolved: list[dict[str, Any]] = []
         for rel in graph:
@@ -249,8 +243,6 @@ class Resolver:
                     )
                 )
                 continue
-            resolved.append(
-                {"kind": rel.kind, "subject": rel.subject, "target": rel.target, "params": rel.params}
-            )
+            resolved.append({"kind": rel.kind, "subject": rel.subject, "target": rel.target, "params": rel.params})
             trace.append(TraceEvent(f"{stage_prefix}.ok", rel.subject, rel.target, note=rel.kind))
         return resolved

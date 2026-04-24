@@ -28,7 +28,7 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
 
     name: str = "avocadoPnPbowltable"
 
-    def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -73,43 +73,65 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         _tbl_margin = 0.05
 
         avocado_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
-        avocado_obj.add_relation(PositionLimits(
-            x_min=_tbl_min_xyz[0] + _tbl_margin,
-            x_max=_tbl_max_xyz[0] - _tbl_margin,
-            y_min=_tbl_min_xyz[1] + _tbl_margin,
-            y_max=_tbl_max_xyz[1] - _tbl_margin,
-        ))
+        avocado_obj.add_relation(
+            PositionLimits(
+                x_min=_tbl_min_xyz[0] + _tbl_margin,
+                x_max=_tbl_max_xyz[0] - _tbl_margin,
+                y_min=_tbl_min_xyz[1] + _tbl_margin,
+                y_max=_tbl_max_xyz[1] - _tbl_margin,
+            )
+        )
         avocado_obj.add_relation(Not(In(bowl_obj)))
         bowl_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
-        bowl_obj.add_relation(PositionLimits(
-            x_min=_tbl_min_xyz[0] + _tbl_margin,
-            x_max=_tbl_max_xyz[0] - _tbl_margin,
-            y_min=_tbl_min_xyz[1] + _tbl_margin,
-            y_max=_tbl_max_xyz[1] - _tbl_margin,
-        ))
+        bowl_obj.add_relation(
+            PositionLimits(
+                x_min=_tbl_min_xyz[0] + _tbl_margin,
+                x_max=_tbl_max_xyz[0] - _tbl_margin,
+                y_min=_tbl_min_xyz[1] + _tbl_margin,
+                y_max=_tbl_max_xyz[1] - _tbl_margin,
+            )
+        )
         broccoli_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
-        broccoli_obj.add_relation(PositionLimits(
-            x_min=_tbl_min_xyz[0] + _tbl_margin,
-            x_max=_tbl_max_xyz[0] - _tbl_margin,
-            y_min=_tbl_min_xyz[1] + _tbl_margin,
-            y_max=_tbl_max_xyz[1] - _tbl_margin,
-        ))
+        broccoli_obj.add_relation(
+            PositionLimits(
+                x_min=_tbl_min_xyz[0] + _tbl_margin,
+                x_max=_tbl_max_xyz[0] - _tbl_margin,
+                y_min=_tbl_min_xyz[1] + _tbl_margin,
+                y_max=_tbl_max_xyz[1] - _tbl_margin,
+            )
+        )
         sweet_potato_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
-        sweet_potato_obj.add_relation(PositionLimits(
-            x_min=_tbl_min_xyz[0] + _tbl_margin,
-            x_max=_tbl_max_xyz[0] - _tbl_margin,
-            y_min=_tbl_min_xyz[1] + _tbl_margin,
-            y_max=_tbl_max_xyz[1] - _tbl_margin,
-        ))
+        sweet_potato_obj.add_relation(
+            PositionLimits(
+                x_min=_tbl_min_xyz[0] + _tbl_margin,
+                x_max=_tbl_max_xyz[0] - _tbl_margin,
+                y_min=_tbl_min_xyz[1] + _tbl_margin,
+                y_max=_tbl_max_xyz[1] - _tbl_margin,
+            )
+        )
         red_bell_pepper_obj.add_relation(On(tabletop_anchor, clearance_m=0.02))
-        red_bell_pepper_obj.add_relation(PositionLimits(
-            x_min=_tbl_min_xyz[0] + _tbl_margin,
-            x_max=_tbl_max_xyz[0] - _tbl_margin,
-            y_min=_tbl_min_xyz[1] + _tbl_margin,
-            y_max=_tbl_max_xyz[1] - _tbl_margin,
-        ))
+        red_bell_pepper_obj.add_relation(
+            PositionLimits(
+                x_min=_tbl_min_xyz[0] + _tbl_margin,
+                x_max=_tbl_max_xyz[0] - _tbl_margin,
+                y_min=_tbl_min_xyz[1] + _tbl_margin,
+                y_max=_tbl_max_xyz[1] - _tbl_margin,
+            )
+        )
 
-        scene = Scene(assets=[background, ground_plane, light, tabletop_anchor, avocado_obj, bowl_obj, broccoli_obj, sweet_potato_obj, red_bell_pepper_obj])
+        scene = Scene(
+            assets=[
+                background,
+                ground_plane,
+                light,
+                tabletop_anchor,
+                avocado_obj,
+                bowl_obj,
+                broccoli_obj,
+                sweet_potato_obj,
+                red_bell_pepper_obj,
+            ]
+        )
 
         # goal_added (enforced by PickAndPlaceTask success predicate):  in(avocado, bowl)
         # goal_removed (implicitly negated when the pick succeeds):  on(avocado, maple_table_robolab)
@@ -123,7 +145,10 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
                 destination_location=bowl_obj,
                 background_scene=background,
                 episode_length_s=20.0,
-                task_description='Pick up the avocado from the table and place it into a bowl on the table, with distractor vegetables present.',
+                task_description=(
+                    "Pick up the avocado from the table and place it into a bowl on the table, with distractor"
+                    " vegetables present."
+                ),
             ),
         )
 
