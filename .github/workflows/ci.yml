@@ -31,7 +31,7 @@ jobs:
 
   pre_commit:
     name: Pre-commit
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
 
     container:
@@ -96,7 +96,7 @@ jobs:
 
   test:
     name: Run tests
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 80
     needs: [pre_commit]
 
@@ -161,7 +161,7 @@ jobs:
 
   tests_with_subprocess:
     name: Run tests with subprocess
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
     needs: [pre_commit]
 
@@ -196,7 +196,7 @@ jobs:
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
     needs: [pre_commit]
 
@@ -230,7 +230,7 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
     needs: [pre_commit]
 
@@ -256,7 +256,7 @@ jobs:
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 90
     needs: [test, test_policy]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
