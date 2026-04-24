@@ -25,5 +25,5 @@ This starts a local server with auto-refresh for your Mermaid diagrams.
 This exports at four times the standard resolution.
 
 ```bash
-mmdc -i diagram.mmd -o diagram.png -s 4 -w 2000
+mmdc -i 2026_04_24_v3_propsed_timeline.mmd -o 2026_04_24_v3_propsed_timeline.png -s 4 -w 2000
 ```
