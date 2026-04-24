@@ -68,6 +68,50 @@ def objects_on_destinations(
     return condition_met
 
 
+def all_objects_at_goal(
+    env: ManagerBasedRLEnv,
+    object_cfgs: list[SceneEntityCfg],
+    goal_xyzs: list[tuple[float, float, float]],
+    pos_tolerance: float = 0.05,
+    velocity_threshold: float = 0.1,
+) -> torch.Tensor:
+    """True iff every object is at its goal xyz AND at rest.
+
+    `goal_xyzs[i]` is the precomputed target for `object_cfgs[i]`, produced
+    by `predicate_to_xyz.resolve_goal_xyz()` from the GoalSpec's
+    goal_relations. This collapses arbitrary LLM success predicates
+    (center_of, on_top, in_container, next_to, ...) into one geometric
+    check. Combine with `isaaclab.envs.mdp.time_out` to cap episode length.
+
+    Args:
+        object_cfgs: one SceneEntityCfg per goal-constrained object.
+        goal_xyzs: one (x, y, z) target per object, matching cfg order.
+        pos_tolerance: Euclidean distance tolerance in metres.
+        velocity_threshold: max speed to count as "at rest" in m/s.
+    """
+    assert len(object_cfgs) == len(goal_xyzs), "object_cfgs and goal_xyzs length mismatch"
+    if not object_cfgs:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    done = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+    for cfg, goal in zip(object_cfgs, goal_xyzs):
+        obj = env.scene[cfg.name]
+        # RigidObject exposes .data.root_pos_w / root_lin_vel_w. XFormPrim
+        # (used when an asset was classified static) only has get_world_poses;
+        # treat its velocity as zero since it can't move.
+        if hasattr(obj, "data"):
+            pos_w = obj.data.root_pos_w
+            vel_w = obj.data.root_lin_vel_w
+        else:
+            pos_w, _ = obj.get_world_poses()
+            vel_w = torch.zeros_like(pos_w)
+        goal_t = torch.tensor(goal, device=pos_w.device, dtype=pos_w.dtype)
+        at_goal = torch.norm(pos_w - goal_t, dim=-1) < pos_tolerance
+        at_rest = torch.norm(vel_w, dim=-1) < velocity_threshold
+        done = done & at_goal & at_rest
+    return done
+
+
 def objects_in_proximity(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
