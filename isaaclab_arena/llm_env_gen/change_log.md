@@ -1,5 +1,91 @@
 # llm_env_gen — change log
 
+## Qian Lin — 2026-04-24
+
+### 1. What it can do
+
+- **Generate open/close door environments** from a natural-language prompt: `llm_env_gen` now produces `OpenDoorTask` or `CloseDoorTask` environments for articulated appliances (microwave, fridge, cabinet).
+- **Relational placement for openable objects**: the microwave is placed ON the counter via the constraint solver (no fixed world position), with `RotateAroundSolution` locking its door to face the robot.
+- **Correct tabletop anchor for kitchen background**: `ObjectReference` for the kitchen counter is created without `ObjectType.RIGID` (the sub-prim lacks `RigidBodyAPI`), preventing the previous `RuntimeError`.
+- **IK reachability check for open-door tasks**: `run_reachability_check.py` auto-detects `OpenDoorTask`/`CloseDoorTask` and checks a horizontal front-approach pose at the door center.
+- **Two generated microwave envs**: `microwaveOpenkitchen` (kitchen background) and `microwaveOpentable` (table background) are registered and runnable with `zero_action` policy.
+
+**Assumptions:**
+- Docker container `isaaclab_arena-curobo` (or `-latest`) must be running.
+- `NV_API_KEY` env var required for LLM generation (`try_schema.py`).
+- `--door_facing_axis -x` is correct for kitchen-background envs (microwave oriented by `RotateAroundSolution(yaw=-π/2)`).
+
+### 2. What was added
+
+**`schema.py`**
+- `RelationKind` extended with `"open"` and `"closed"` literals — Pydantic validation gate for unary door-state relations.
+
+**`placement_proposer.py`**
+- `_OPEN_DOOR_KINDS`, `_CLOSE_DOOR_KINDS`, `_DEFAULT_OPEN_DOOR_EPISODE_LENGTH_S` constants.
+- `_APPLIANCE_FACING_YAW` dict: maps `(background, asset)` → yaw for `RotateAroundSolution`.
+- `_BACKGROUND_TABLETOP_ANCHOR_BASE_TYPE`: backgrounds whose tabletop sub-prim lacks `RigidBodyAPI` (currently `{"kitchen"}`).
+- `TabletopAnchorPlan.anchor_object_type` field (`"RIGID"` or `"BASE"`); `_plan_tabletop_anchor` sets it per background.
+- `RelationSpec.kind` extended with `"rotate_around_solution"`; new `rotate_yaw_rad` field.
+- `PlacementItem.is_openable` flag; `_propose_items` detects openable subjects from goal diff and appends `RotateAroundSolution` after building the `On` relation.
+- `TaskPlan.kind` extended with `"open_door"` and `"close_door"`.
+- `_open_door_plan` and `_close_door_plan` task plan builders; `_plan_task` dispatches on goal kind.
+- `block_initial_goal_satisfaction` skips `open`/`closed` goals (no `Not(...)` wrapping needed).
+- `_derive_env_name` / `_derive_class_name` handle `target=None` for unary goals.
+
+**`env_writer.py`**
+- `_render_anchor_setup` respects `anchor_object_type`: omits `object_type=ObjectType.RIGID` for `BASE`-type anchors.
+- `_render_one_relation` handles `"rotate_around_solution"` → `RotateAroundSolution(yaw_rad=...)`.
+- Dynamic `relation_imports` now includes `RotateAroundSolution` when used.
+
+**`llm_agent.py`**
+- System prompt updated: explains `open`/`closed` unary relations, null target, initial/final graph semantics, and that distractors still need `on(distractor, background)`.
+
+**`reachability_utils.py`**
+- `find_open_close_door_task(arena_env)`: duck-typed task finder for `openable_object` attribute.
+- `get_articulation_world_pos(env, name, env_id)`: root position from `scene.articulations`.
+- `get_scene_object_world_pos(env, name, env_id)`: tries rigid objects, falls back to articulations.
+- `get_object_pos_in_robot_frame` updated to use `get_scene_object_world_pos`.
+- `door_approach_quaternion_wxyz(door_facing_axis)`: quaternion mapping `{-x, +x, -y, +y}` to a horizontal hand approach.
+- `build_curobo_door_approach_pose(...)`: places hand `door_approach_offset` m in front of door center with horizontal orientation.
+- New CLI args: `--door_approach_offset` (default 0.10 m), `--door_facing_axis` (default `-x`).
+
+**`run_reachability_check.py`**
+- `main()` auto-detects task type: tries `find_pick_and_place_task`, falls back to `find_open_close_door_task`.
+- Refactored into `_check_pick_and_place(...)` and `_check_open_door(...)` helper functions.
+- JSON payload and marker names adapted per task type.
+
+**New environment files**
+- `isaaclab_arena_environments/microwaveOpenkitchen.py` — kitchen counter background.
+- `isaaclab_arena_environments/microwaveOpentable.py` — maple table background.
+
+### 3. Commands
+
+```bash
+# Generate an open-door env from prompt (kitchen background)
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema \
+  --prompt 'franka open microwave door on top of a kitchen table. there are other veggies on the table outside of the microwave as distractors' \
+  --background kitchen \
+  --write-env isaaclab_arena_environments/"
+
+# Run zero-action policy on generated microwave env (kitchen)
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+  --policy_type zero_action --num_steps 10 \
+  microwaveOpenkitchen --embodiment franka_ik"
+
+# IK reachability check for open-door task
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/llm_env_gen/run_reachability_check.py \
+  --viz kit --num_envs 1 microwaveOpenkitchen --embodiment franka_ik \
+  --door_approach_offset 0.12 --door_facing_axis -x"
+```
+
+### 4. TODOs
+
+- `isaaclab_arena_environments/microwaveOpenkitchen.py:87` — `# TODO(relation kind 'next_to' has no generator support yet)` for broccoli, sweet_potato, red_bell_pepper next_to microwave
+- `isaaclab_arena_environments/microwaveOpentable.py` — same `next_to` TODOs for distractor veggies
+
 ## Qian Lin — 2026-04-23
 
 ### 1. What it can do
