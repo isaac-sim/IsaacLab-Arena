@@ -11,6 +11,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
@@ -33,6 +34,7 @@ class HeterogeneousDummyObject(DummyObject):
         super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
         self._per_env_bboxes = bboxes
         self.heterogeneous_bbox = True
+        self.objects = bboxes
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         n_variants = len(self._per_env_bboxes)
@@ -268,3 +270,100 @@ def test_homogeneous_path_unchanged():
 
     assert isinstance(result, MultiEnvPlacementResult)
     assert len(result.results) == 2
+
+
+# ---------------------------------------------------------------------------
+# PooledObjectPlacer heterogeneous mode
+# ---------------------------------------------------------------------------
+
+
+def _make_hetero_pool_objects():
+    """Create desk + heterogeneous box for pool tests."""
+    desk = _make_desk()
+    small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
+    hetero = HeterogeneousDummyObject(name="hetero", bboxes=[small, large])
+    hetero.add_relation(On(desk, clearance_m=0.01))
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+    return desk, hetero, placer_params
+
+
+def test_pooled_placer_heterogeneous_is_detected():
+    """PooledObjectPlacer should detect heterogeneous objects and create variant sub-pools."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    assert pool.is_heterogeneous
+    assert pool.remaining > 0
+
+
+def test_pooled_placer_heterogeneous_sample_without_replacement():
+    """sample_without_replacement with env_ids should return one layout per env from correct variant."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    env_ids = torch.tensor([0, 1, 2, 3])
+    draws = pool.sample_without_replacement(4, env_ids=env_ids)
+    assert len(draws) == 4
+    for d in draws:
+        assert hetero in d.positions
+
+
+def test_pooled_placer_heterogeneous_sample_without_replacement_requires_env_ids():
+    """Heterogeneous pool should assert when env_ids is not provided."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    try:
+        pool.sample_without_replacement(2, env_ids=None)
+        assert False, "Should have raised AssertionError"
+    except AssertionError:
+        pass
+
+
+def test_pooled_placer_heterogeneous_sample_with_replacement():
+    """sample_with_replacement should return per-variant layouts without consuming."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    initial_remaining = pool.remaining
+    samples = pool.sample_with_replacement(4)
+    assert len(samples) == 4
+    assert pool.remaining == initial_remaining, "sample_with_replacement should not consume layouts"
+
+
+def test_pooled_placer_heterogeneous_refill():
+    """Exhausting a variant sub-pool should trigger a refill."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=4, num_envs=2)
+
+    initial_remaining = pool.remaining
+
+    # Draw all layouts for env 0 (variant 0) and env 1 (variant 1)
+    env_ids = torch.tensor([0, 1] * initial_remaining)
+    pool.sample_without_replacement(len(env_ids), env_ids=env_ids)
+
+    # Pool should be exhausted now; request more to trigger refill
+    env_ids_more = torch.tensor([0, 1])
+    draws = pool.sample_without_replacement(2, env_ids=env_ids_more)
+    assert len(draws) == 2, "Pool should refill and return requested layouts"
+
+
+def test_pooled_placer_homogeneous_unaffected_by_num_envs():
+    """Homogeneous pool should work the same whether num_envs is passed or not."""
+    desk = _make_desk()
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    box.add_relation(On(desk, clearance_m=0.01))
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+
+    pool = PooledObjectPlacer(objects=[desk, box], placer_params=placer_params, pool_size=10, num_envs=4)
+    assert not pool.is_heterogeneous
+    draws = pool.sample_without_replacement(3)
+    assert len(draws) == 3
