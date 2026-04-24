@@ -17,32 +17,43 @@ SCENE_GEN_TABLES = {
     "oak_table_robolab": {
         "registry_name": "oak_table_robolab",
         "source": "background_library",
-        "native_size": True,  # Already 0.7 x 1.0
+        "native_size": True,
         "scale": (1.0, 1.0, 1.0),
+        "pose": {"position": (0.547, 0.0, -0.35), "rotation": (1.0, 0.0, 0.0, 0.0)},
     },
     "maple_table_robolab": {
         "registry_name": "maple_table_robolab",
         "source": "background_library",
         "native_size": True,
         "scale": (1.0, 1.0, 1.0),
+        # Background scene USD — table already positioned internally, no extra transform
+        "pose": {"position": (0.0, 0.0, 0.0), "rotation": (1.0, 0.0, 0.0, 0.0)},
     },
     "bamboo_table_robolab": {
         "registry_name": "bamboo_table_robolab",
         "source": "background_library",
         "native_size": True,
         "scale": (1.0, 1.0, 1.0),
+        "pose": {"position": (0.547, 0.0, -0.35), "rotation": (1.0, 0.0, 0.0, 0.0)},
     },
     "black_table_robolab": {
         "registry_name": "black_table_robolab",
         "source": "background_library",
         "native_size": True,
         "scale": (1.0, 1.0, 1.0),
+        "pose": {"position": (0.547, 0.0, -0.35), "rotation": (1.0, 0.0, 0.0, 0.0)},
     },
     "office_table_background": {
         "registry_name": "office_table_background",
         "source": "background_library",
-        "native_size": False,  # Different native size, needs verification
-        "scale": (1.0, 1.0, 1.0),  # TODO: adjust once measured
+        "native_size": False,
+        # X/Y scale 0.7 kept for width (arena droid reference); Z scale raised from 0.7 → 0.9195
+        # so scaled leg height (0.758 × 0.9195 = 0.697) reaches the ground collision at
+        # z=-0.697. Translate lowered from -0.531 → -0.697 so the base touches ground and
+        # top still sits at z=0 (matching all other tables for consistent object placement).
+        # Previously the 0.7 Z-scale left a 0.166 m gap under the legs → visible drop at t=0.
+        "scale": (0.7, 1.0, 0.9195),
+        "pose": {"position": (0.55, 0.0, -0.697), "rotation": (0.707, 0.0, 0.0, 0.707)},
     },
 }
 
@@ -53,6 +64,11 @@ SCENE_GEN_TABLES = {
 # The solver uses table-relative coordinates.
 DEFAULT_TABLE_BOUNDS = (0.20, 0.90, -0.45, 0.45)  # (min_x, max_x, min_y, max_y)
 DEFAULT_TABLE_TOP_Z = 0.0  # Objects placed relative to table surface
+
+# Max object footprint for on-table placement (meters).
+# Objects exceeding these are auto-scaled down during catalog building.
+MAX_OBJECT_WIDTH = 0.32
+MAX_OBJECT_DEPTH = 0.40
 
 # Large fixture objects (racks, shelving) — placed as fixed obstacles, not graspable
 RACK_OBJECTS = {
@@ -66,8 +82,17 @@ RACK_OBJECTS = {
 # Objects excluded from scene generation (too large, non-graspable, or fixtures)
 EXCLUDED_OBJECTS = RACK_OBJECTS | {
     "large_storage_rack_vomp_robolab",
-    # "sesame_bagel_objaverse_robolab",  # Broken asset: 50m x 50m geometry
+    "red_cube",       # Broken texture paths (robotwin relative paths don't resolve)
+    "green_cube",     # Same broken texture paths
 }
+
+
+
+# Max object footprint for on-table placement (meters).
+# Objects larger than this are auto-scaled down during catalog building
+# so that LLM, spatial solver, and USD export all see the same dims.
+MAX_OBJECT_WIDTH = 0.25
+MAX_OBJECT_DEPTH = 0.40
 
 
 class ArenaAssetManager:
@@ -78,6 +103,11 @@ class ArenaAssetManager:
     - Coverage tracking across batch generation (prioritize unused objects)
     - Tag-based filtering for themed scenes
     - Table selection and randomization
+
+    All dims in the catalog are *effective* dims — i.e. they already include
+    the registered scale AND any auto-scaling for oversized objects.  The
+    corresponding ``effective_scale`` is also stored so that USD export can
+    apply it without recomputation.
     """
 
     def __init__(self, tags: list[str] | None = None, require_dims: bool = True, compute_dims: bool = True):
@@ -94,6 +124,10 @@ class ArenaAssetManager:
         """
         self._require_dims = require_dims
         self._compute_dims = compute_dims
+        # Cache of local mesh min_z per usd_path (scaled), populated during
+        # _compute_dims_from_usd. Used by the placer to lift assets whose
+        # prim origin sits above the mesh bottom (e.g. bowls).
+        self._min_z_cache: dict[str, float] = {}
         self._catalog = self._build_catalog(tags)
         self._regular_objects = [
             obj for obj in self._catalog if obj["name"] not in EXCLUDED_OBJECTS
@@ -129,6 +163,9 @@ class ArenaAssetManager:
                 bbox.max_point[1] - bbox.min_point[1],
                 bbox.max_point[2] - bbox.min_point[2],
             ]
+            # Cache scaled min_z so the placer can compensate for assets whose
+            # origin sits above the mesh bottom (bowls with curved bases).
+            self._min_z_cache[usd_path] = float(bbox.min_point[2])
             return dims
         except Exception as e:
             print(f"[ArenaAssetManager] Failed to compute dims for {usd_path}: {e}")
@@ -187,6 +224,26 @@ class ArenaAssetManager:
             if self._require_dims and dims is None:
                 continue
 
+            # Auto-scale oversized objects: correct dims AND compute
+            # effective_scale (registered_scale × auto_factor) for USD export.
+            # Microwaves use larger limits to stay realistically sized.
+            effective_scale = scale
+            # min_z already scaled by `scale` (from compute_local_bounding_box_from_usd).
+            # If auto_factor kicks in below, it's scaled again to match effective_scale.
+            local_min_z = self._min_z_cache.get(usd_path, 0.0)
+            if dims is not None:
+                w, d = dims[0], dims[1]
+                is_microwave = "microwave" in name
+                max_w = MAX_OBJECT_WIDTH * 1.2 if is_microwave else MAX_OBJECT_WIDTH
+                max_d = MAX_OBJECT_DEPTH * 1.2 if is_microwave else MAX_OBJECT_DEPTH
+                auto_sx = max_w / w if w > max_w else 1.0
+                auto_sy = max_d / d if d > max_d else 1.0
+                auto_factor = min(auto_sx, auto_sy, 1.0)
+                if auto_factor < 1.0:
+                    dims = tuple(dim * auto_factor for dim in dims)
+                    effective_scale = tuple(s * auto_factor for s in scale)
+                    local_min_z *= auto_factor
+
             description = ""
             if cls.__doc__:
                 description = cls.__doc__.strip().split("\n")[0]
@@ -205,6 +262,8 @@ class ArenaAssetManager:
             catalog.append({
                 "name": name,
                 "dims": list(dims) if dims else None,
+                "min_z": local_min_z,
+                "effective_scale": effective_scale,
                 "tags": obj_tags,
                 "description": description,
                 "object_type": obj_type.value if obj_type else "rigid",
@@ -253,16 +312,18 @@ class ArenaAssetManager:
         return result
 
     def is_articulated(self, name: str) -> bool:
-        """Check if an object is articulated (has joints/affordances)."""
+        """Check if an object is articulated (has joints/affordances). Handles _N suffixes."""
+        resolved = self._resolve_name(name)
         for obj in self._catalog:
-            if obj["name"] == name:
+            if obj["name"] == resolved:
                 return obj.get("is_articulated", False)
         return False
 
     def get_affordances(self, name: str) -> list[str]:
-        """Get affordance list for an object (openable, pressable, turnable)."""
+        """Get affordance list for an object (openable, pressable, turnable). Handles _N suffixes."""
+        resolved = self._resolve_name(name)
         for obj in self._catalog:
-            if obj["name"] == name:
+            if obj["name"] == resolved:
                 return obj.get("affordances", [])
         return []
 
@@ -317,12 +378,50 @@ class ArenaAssetManager:
         self._used.update(selected)
         return selected
 
+    def _resolve_name(self, name: str) -> str:
+        """Strip multi-instance suffix (_2, _3, …) to find the base catalog entry.
+
+        The LLM can request e.g. ``bowl_005_2`` which is a second instance of
+        ``bowl_005``.  The catalog only stores the base name.
+        """
+        # Fast path: name exists as-is
+        if any(obj["name"] == name for obj in self._catalog):
+            return name
+        # Try stripping trailing _N
+        parts = name.rsplit("_", 1)
+        if len(parts) == 2 and parts[1].isdigit():
+            return parts[0]
+        return name
+
     def get_object_dims(self, name: str) -> tuple[float, float, float] | None:
-        """Get (width, depth, height) for a named object."""
+        """Get (width, depth, height) for a named object (handles _N suffixes)."""
+        resolved = self._resolve_name(name)
         for obj in self._catalog:
-            if obj["name"] == name and obj["dims"]:
+            if obj["name"] == resolved and obj["dims"]:
                 return tuple(obj["dims"])
         return None
+
+    def get_object_scale(self, name: str) -> tuple[float, float, float]:
+        """Get effective scale (registered_scale × auto_factor) for USD export (handles _N suffixes)."""
+        resolved = self._resolve_name(name)
+        for obj in self._catalog:
+            if obj["name"] == resolved:
+                return tuple(obj.get("effective_scale", (1.0, 1.0, 1.0)))
+        return (1.0, 1.0, 1.0)
+
+    def get_object_min_z(self, name: str) -> float:
+        """Local-frame min Z of the asset's mesh (already scaled).
+
+        0.0 for origin-at-base assets (most of the catalog). Negative for
+        assets whose prim origin sits above the mesh bottom (bowls with
+        curved bases, cups). The placer subtracts this so the object's
+        actual bottom (not its origin) lands at `clearance` above the table.
+        """
+        resolved = self._resolve_name(name)
+        for obj in self._catalog:
+            if obj["name"] == resolved:
+                return float(obj.get("min_z", 0.0))
+        return 0.0
 
     def get_all_object_dims(self, names: list[str]) -> dict[str, tuple[float, float, float]]:
         """Get dims for multiple objects. Skips objects without dims."""

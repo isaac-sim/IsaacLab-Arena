@@ -143,15 +143,20 @@ def translate_predicates(
 
         # --- Rotation predicates ---
         elif pred_type == "random-rot":
-            yaw = random.uniform(0, 360)
+            # Large containers/bins stay axis-aligned, small objects get slight rotation
+            large_keywords = ("container", "bin", "case", "box", "pail", "bucket", "rack")
+            if any(kw in obj_name for kw in large_keywords):
+                yaw = random.choice([0, 90, 180, 270])
+            else:
+                yaw = random.uniform(-20, 20)
             state.yaw = yaw
             obj.add_relation(RotateAroundSolution(
                 roll_rad=0.0, pitch_rad=0.0, yaw_rad=math.radians(yaw)))
 
         elif pred_type == "facing-front":
-            state.yaw = 0.0
+            state.yaw = 270.0  # Face door toward robot at -X
             obj.add_relation(RotateAroundSolution(
-                roll_rad=0.0, pitch_rad=0.0, yaw_rad=0.0))
+                roll_rad=0.0, pitch_rad=0.0, yaw_rad=3 * math.pi / 2))
 
         elif pred_type == "facing-back":
             state.yaw = 180.0

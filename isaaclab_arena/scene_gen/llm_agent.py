@@ -127,7 +127,7 @@ class LLMAgent:
    - 8-12 objects: 20cm spacing (0.20m)
    - 13-16 objects: 15cm spacing (0.15m)
    - 17+ objects: 12cm spacing (0.12m)
-5. Stay WELL within bounds: X=[0.30 to 0.80], Y=[-0.40 to 0.40]
+5. Stay WELL within bounds: X=[0.25 to 0.85], Y=[-0.45 to 0.45]. Spread across FULL table — do NOT cluster large objects together.
 6. Dense scenes (>=10): arrange in 3-5 rows, evenly spaced
 7. **NEVER overlap objects or place them too close**
 8. Leave 5cm margin from table edges
@@ -163,6 +163,7 @@ class LLMAgent:
 - Give EXPLICIT x,y coordinates for ALL objects
 - ARTICULATED objects (marked with [A]) MUST use facing-front, NOT random-rot
 - Use at most 2 large containers/bins/cases per scene — prefer smaller graspable objects
+- Do NOT use place-in (no objects inside containers). Up to 3 objects may use place-on (on plates, trays, or cutting boards). Do not stack objects on top of other objects — only on flat surfaces.
 - For MULTIPLE copies of the same object (e.g. 3 bananas), repeat with _1, _2 suffix: "banana_005", "banana_005_1", "banana_005_2". Each needs its own coordinates
 - The base name (without _1/_2 suffix) MUST match an object from the catalog exactly
 - Each rigid object needs place-on-base + random-rot (2 predicates)

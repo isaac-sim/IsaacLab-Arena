@@ -2160,86 +2160,6 @@ class BlackandbrassbowlSmallVompRobolab(LibraryObject):
 
 
 @register_asset
-class BoxA01VompRobolab(LibraryObject):
-    """This box is constructed from opaque plastic with alternating black and clear sections, featuring a sturdy rectangular shape. Its design includes multiple compartments, providing organized storage within its compact form."""
-    name = "box_a01_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a01/box_a01.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.5999, 0.3999, 0.3300)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class BoxA02VompRobolab(LibraryObject):
-    """This box is made of opaque plastic with alternating black and regular bins. It has a smooth surface and a modular design, suitable for organizing or storing various items."""
-    name = "box_a02_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a02/box_a02.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.5999, 0.3999, 0.2900)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=7850.0),
-    }
-
-
-@register_asset
-class BoxA03VompRobolab(LibraryObject):
-    """The box is composed of opaque plastic with alternating black and standard bins, featuring a smooth surface and a sturdy, stackable design."""
-    name = "box_a03_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a03/box_a03.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.5999, 0.3999, 0.2299)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=800.0),
-    }
-
-
-@register_asset
-class BoxA04VompRobolab(LibraryObject):
-    """The box is constructed from opaque plastic with alternating black and standard sections, featuring a sturdy, rectangular design. Its smooth surface and uniform color scheme provide a sleek, modern appearance."""
-    name = "box_a04_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a04/box_a04.usd"
-    )
-    scale = (0.875, 0.875, 0.875)
-    dims = (0.4000, 0.3000, 0.4100)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class BoxA05VompRobolab(LibraryObject):
-    """This box is constructed from opaque plastic with a mix of black and standard bins. It features a modular design, allowing for versatile storage and organization."""
-    name = "box_a05_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a05/box_a05.usd"
-    )
-    scale = (0.875, 0.875, 0.875)
-    dims = (0.4000, 0.3000, 0.3300)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
 class BoxA06VompRobolab(LibraryObject):
     """This box is composed of opaque plastic with a mix of black and standard bins, featuring a sturdy, stackable design ideal for organizing and storing various items."""
     name = "box_a06_vomp_robolab"
@@ -2249,54 +2169,6 @@ class BoxA06VompRobolab(LibraryObject):
     )
     scale = (0.583, 0.583, 0.583)
     dims = (0.5999, 0.3999, 0.1850)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=800.0),
-    }
-
-
-@register_asset
-class BoxA07VompRobolab(LibraryObject):
-    """The box is composed of opaque plastic with alternating black and standard sections. Its modular design features multiple bins, providing versatile storage options with a sleek, modern appearance."""
-    name = "box_a07_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a07/box_a07.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.5999, 0.4000, 0.1300)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=800.0),
-    }
-
-
-@register_asset
-class BoxA08VompRobolab(LibraryObject):
-    """The box is composed of opaque plastic with alternating black and standard sections, featuring a sturdy rectangular shape. Its design suggests durability and practicality for storage purposes."""
-    name = "box_a08_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a08/box_a08.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.5999, 0.4123, 0.0850)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class BoxA09VompRobolab(LibraryObject):
-    """The box is composed of opaque plastic with alternating black and standard bins, featuring a sturdy, stackable design ideal for organizing and storing items efficiently."""
-    name = "box_a09_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/box_a09/box_a09.usd"
-    )
-    scale = (0.875, 0.875, 0.875)
-    dims = (0.4000, 0.3000, 0.2448)
     # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
     spawn_cfg_addon = {
         "mass_props": sim_utils.MassPropertiesCfg(density=800.0),
@@ -2959,374 +2831,6 @@ class ContainerB18VompRobolab(LibraryObject):
 
 
 @register_asset
-class ContainerC01VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth, shiny surface. It has a secure lid and a minimalist design, ideal for storing various items."""
-    name = "container_c01_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c01/container_c01.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4004, 0.2288)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC02VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape and a smooth, reflective surface. It features a secure lid and a seamless design, emphasizing durability and industrial style."""
-    name = "container_c02_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c02/container_c02.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4004, 0.2882)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC03VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth silver surface. It has a secure lid and a simple, industrial design, suitable for storing various items."""
-    name = "container_c03_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c03/container_c03.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4004, 0.3480)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC04VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth silver surface. It has a secure, fitted lid and is designed for durability and storage efficiency."""
-    name = "container_c04_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c04/container_c04.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4004, 0.4281)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC05VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth, reflective surface. It has a secure lid and a minimalist design, emphasizing durability and functionality."""
-    name = "container_c05_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c05/container_c05.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4025, 0.2282)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC06VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth, shiny surface. It has a secure lid and a minimalist design, suitable for storing various items."""
-    name = "container_c06_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c06/container_c06.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4025, 0.2876)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=950.0),
-    }
-
-
-@register_asset
-class ContainerC07VompRobolab(LibraryObject):
-    """This container is metallic with a cylindrical shape and a smooth, silver finish. It features a secure, matching lid and a seamless design, ideal for storing various items."""
-    name = "container_c07_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c07/container_c07.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4025, 0.3475)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC08VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth, shiny surface. It has a secure, fitted lid and a minimalist design, emphasizing functionality and durability."""
-    name = "container_c08_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c08/container_c08.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4025, 0.4275)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC09VompRobolab(LibraryObject):
-    """This container is metallic with a cylindrical shape and a smooth, reflective surface. It features a secure, fitted lid and is designed for durability and efficient storage."""
-    name = "container_c09_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c09/container_c09.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4061, 0.3000, 0.1285)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC10VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth silver surface. It has a secure lid and is designed for durability, ideal for storing various items."""
-    name = "container_c10_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c10/container_c10.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4062, 0.3000, 0.1779)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC11VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape and a smooth, shiny surface. It features a secure, matching lid, providing a sleek and functional design for storage purposes."""
-    name = "container_c11_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c11/container_c11.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4062, 0.3000, 0.2280)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC12VompRobolab(LibraryObject):
-    """The container is metallic with a smooth, cylindrical shape and a silver finish. It features a secure, matching lid and is designed for durability and practical storage."""
-    name = "container_c12_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c12/container_c12.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4062, 0.3000, 0.3280)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC13VompRobolab(LibraryObject):
-    """The container is metallic with a sleek, cylindrical shape and a smooth, reflective surface. It features a secure lid and a minimalist design, emphasizing functionality and durability."""
-    name = "container_c13_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c13/container_c13.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4061, 0.3029, 0.1280)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC14VompRobolab(LibraryObject):
-    """This container is made of metal with a sleek, cylindrical shape and a smooth, silver finish. It features a secure lid and a minimalist design, suitable for storing various items."""
-    name = "container_c14_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c14/container_c14.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4062, 0.3029, 0.1773)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC15VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape and a smooth, silver surface. It features a secure lid and a robust design, suitable for storing various items."""
-    name = "container_c15_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c15/container_c15.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4062, 0.3029, 0.2275)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC16VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape and a smooth, shiny surface. It features a secure, tight-fitting lid and is designed for durability and storage efficiency."""
-    name = "container_c16_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c16/container_c16.usd"
-    )
-    scale = (0.862, 0.862, 0.862)
-    dims = (0.4062, 0.3029, 0.3275)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC17VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth, shiny surface. It has a secure, flat lid and a minimalist design, emphasizing functionality and durability."""
-    name = "container_c17_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c17/container_c17.usd"
-    )
-    scale = (0.577, 0.577, 0.577)
-    dims = (0.6062, 0.4013, 0.0832)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC18VompRobolab(LibraryObject):
-    """This container is metallic with a cylindrical shape and a smooth, reflective surface. It features a secure lid and a minimalist design, ideal for storing various items."""
-    name = "container_c18_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c18/container_c18.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4006, 0.1274)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC20VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape, featuring a smooth, silver surface. It has a secure, fitted lid and is designed for durability and storage efficiency."""
-    name = "container_c20_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c20/container_c20.usd"
-    )
-    scale = (0.577, 0.577, 0.577)
-    dims = (0.6062, 0.4008, 0.1782)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC21VompRobolab(LibraryObject):
-    """The container is metallic with a sleek, cylindrical shape and a smooth, reflective surface. It features a secure lid and a minimalist design, emphasizing functionality and modern aesthetics."""
-    name = "container_c21_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c21/container_c21.usd"
-    )
-    scale = (0.577, 0.577, 0.577)
-    dims = (0.6062, 0.4031, 0.0827)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=2700.0),
-    }
-
-
-@register_asset
-class ContainerC22VompRobolab(LibraryObject):
-    """The container is metallic with a smooth, cylindrical body and a secure, fitted lid. It features a sleek silver finish, providing a modern and industrial look."""
-    name = "container_c22_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c22/container_c22.usd"
-    )
-    scale = (0.583, 0.583, 0.583)
-    dims = (0.6000, 0.4025, 0.1269)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC23VompRobolab(LibraryObject):
-    """The container is metallic with a cylindrical shape and a smooth, shiny surface. It features a secure lid and a minimalist design, ideal for storing various items."""
-    name = "container_c23_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c23/container_c23.usd"
-    )
-    scale = (0.577, 0.577, 0.577)
-    dims = (0.6062, 0.4025, 0.1577)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
-class ContainerC24VompRobolab(LibraryObject):
-    """The container is metallic with a sleek, cylindrical shape and a smooth, silver finish. It features a secure lid and a minimalist design, ideal for storing various items."""
-    name = "container_c24_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_c24/container_c24.usd"
-    )
-    scale = (0.577, 0.577, 0.577)
-    dims = (0.6062, 0.4025, 0.1777)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=1200.0),
-    }
-
-
-@register_asset
 class ContainerD01VompRobolab(LibraryObject):
     """The container is made of opaque black plastic, featuring a smooth, cylindrical body with a secure, snap-on lid. Its minimalist design is both functional and durable for storing various items."""
     name = "container_d01_vomp_robolab"
@@ -3750,7 +3254,7 @@ class ContainerF18VompRobolab(LibraryObject):
     usd_path = (
         f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_f18/container_f18.usd"
     )
-    scale = (0.43, 0.43, 0.43)
+    scale = (0.302, 0.302, 0.302)
     dims = (0.7995, 1.1634, 0.8000)
     # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
     spawn_cfg_addon = {
@@ -4156,35 +3660,6 @@ class PlasticjerricanAVompRobolab(LibraryObject):
     }
 
 
-@register_asset
-class PlasticjerricanA01VompRobolab(LibraryObject):
-    """This 20-liter jerry can is made of durable opaque plastic with a translucent section for monitoring liquid levels. It features a sturdy handle and a secure screw cap for easy transport and storage."""
-    name = "plasticjerrican_a01_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plasticjerrican_a01/plasticjerrican_a01.usd"
-    )
-    dims = (0.1872, 0.2045, 0.2270)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=950.0),
-    }
-
-
-@register_asset
-class PlasticjerricanA02VompRobolab(LibraryObject):
-    """This 20-liter jerry can is made of durable opaque plastic, featuring a blue color. It has a rectangular shape with a built-in handle and a secure screw cap for easy transportation and storage of liquids."""
-    name = "plasticjerrican_a02_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plasticjerrican_a02/plasticjerrican_a02.usd"
-    )
-    dims = (0.2171, 0.2370, 0.2932)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=800.0),
-    }
-
 
 @register_asset
 class PlasticjerricanA03VompRobolab(LibraryObject):
@@ -4198,21 +3673,6 @@ class PlasticjerricanA03VompRobolab(LibraryObject):
     # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
     spawn_cfg_addon = {
         "mass_props": sim_utils.MassPropertiesCfg(density=950.0),
-    }
-
-
-@register_asset
-class PlasticjerricanA04VompRobolab(LibraryObject):
-    """This 20-liter jerry can features a sturdy, opaque plastic construction with a blue body and a white cap. Its rectangular shape and built-in handle ensure easy handling and efficient storage."""
-    name = "plasticjerrican_a04_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plasticjerrican_a04/plasticjerrican_a04.usd"
-    )
-    dims = (0.2525, 0.2793, 0.5103)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=800.0),
     }
 
 
@@ -4368,57 +3828,12 @@ class ScrewtoppailA01VompRobolab(LibraryObject):
 
 
 @register_asset
-class ScrewtoppailA02VompRobolab(LibraryObject):
-    """This pail features a glossy, opaque plastic body with a screw-top lid. It comes in three colors: white, blue, and red, providing a sturdy and secure storage solution."""
-    name = "screwtoppail_a02_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/screwtoppail_a02/screwtoppail_a02.usd"
-    )
-    dims = (0.3295, 0.3295, 0.2716)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=950.0),
-    }
-
-
-@register_asset
-class ScrewtoppailA03VompRobolab(LibraryObject):
-    """This pail features a glossy, opaque plastic body with a screw-top lid. It comes in vibrant colors, including blue and red, providing a secure and colorful storage solution."""
-    name = "screwtoppail_a03_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/screwtoppail_a03/screwtoppail_a03.usd"
-    )
-    dims = (0.3295, 0.3295, 0.3229)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=950.0),
-    }
-
-
-@register_asset
-class ScrewtoppailA04VompRobolab(LibraryObject):
-    """This pail features a glossy, opaque plastic body with a screw top lid. It is available in blue and red variations, offering a durable and secure storage solution."""
-    name = "screwtoppail_a04_vomp_robolab"
-    tags = ["object", "container", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/screwtoppail_a04/screwtoppail_a04.usd"
-    )
-    dims = (0.3295, 0.3295, 0.4781)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.30000001192092896
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(density=950.0),
-    }
-
-
-@register_asset
 class SeahornVaseVompRobolab(LibraryObject):
     """The seahorn vase is crafted from opaque concrete, featuring a unique design that resembles a twisted sea horn. Its textured surface and muted gray color give it a modern, sculptural appearance."""
     name = "seahorn_vase_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/seahorn_vase/seahorn_vase.usd"
+        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/seahorn/seahorn.usd"
     )
     dims = (0.3365, 0.3365, 0.3680)
     # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.009999999776482582
@@ -4962,21 +4377,6 @@ class BowlYcbRobolab(LibraryObject):
     tags = ["object", "graspable", "tool", "robolab"]
     usd_path = (
         f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/bowl.usd"
-    )
-    dims = (0.1614, 0.1611, 0.0550)
-    # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
-    spawn_cfg_addon = {
-        "mass_props": sim_utils.MassPropertiesCfg(mass=0.5),
-    }
-
-
-@register_asset
-class Bowl2YcbRobolab(LibraryObject):
-    """The bowls are round with a smooth, glossy surface and a vibrant red color. They feature a speckled design and a slightly raised rim, adding a decorative touch."""
-    name = "bowl2_ycb_robolab"
-    tags = ["object", "graspable", "tool", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_STAGING_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/bowl2.usd"
     )
     dims = (0.1614, 0.1611, 0.0550)
     # Physics material: dynamic_friction=2.0, static_friction=2.0, restitution=0.10000000149011612
@@ -5986,12 +5386,6 @@ class Carrot014(LibraryObject):
     usd_path = os.path.expanduser("~/.cache/lightwheel_sdk/object/Carrot014/Carrot014.usd")
     object_type = ObjectType.RIGID
 
-@register_asset
-class Cauliflower007(LibraryObject):
-    name = "cauliflower_007"
-    tags = ["object", "lightwheel"]
-    usd_path = os.path.expanduser("~/.cache/lightwheel_sdk/object/Cauliflower007/Cauliflower007.usd")
-    object_type = ObjectType.RIGID
 
 @register_asset
 class Cauliflower008(LibraryObject):

@@ -21,7 +21,11 @@ from isaaclab_arena.scene_gen.arena_asset_manager import DEFAULT_TABLE_BOUNDS
 from isaaclab_arena.utils.pose import Pose
 
 
-DEFAULT_CLEARANCE_M = 0.02
+# 5 mm clearance above the table surface. 1 mm was too tight — some objects
+# (e.g. bowl_ycb) have collision meshes that poke below their origin and cause
+# a visible jump at t=0 as physics resolves the interpenetration. 5 mm keeps
+# the drop small but invisible while giving those meshes room.
+DEFAULT_CLEARANCE_M = 0.005
 
 
 @dataclass
@@ -93,6 +97,7 @@ def place_objects_adaptive(
               f"{len(stacking_objects)} stacking, {len(container_objects)} in-container")
 
     # --- Phase 1: Build ObjectStates from LLM positions ---
+    success = True  # Will be overwritten by solver if it runs
     object_states = {}
     object_dims = {}
 
@@ -109,16 +114,11 @@ def place_objects_adaptive(
         if y is None:
             y = rng.uniform(table_bounds[2] + 0.05, table_bounds[3] - 0.05)
 
-        # Get dims from asset manager
+        # Get dims from asset manager (single source of truth, includes auto-scaling)
         dims = asset_manager.get_object_dims(obj.name)
         if dims is None:
-            # Compute from bounding box
-            bbox = obj.get_bounding_box()
-            dims = (
-                bbox.max_point[0] - bbox.min_point[0],
-                bbox.max_point[1] - bbox.min_point[1],
-                bbox.max_point[2] - bbox.min_point[2],
-            )
+            print(f"[AdaptivePlacer] WARNING: no dims for {obj.name}, using default")
+            dims = (0.05, 0.05, 0.05)
 
         object_dims[obj.name] = dims
 
@@ -131,7 +131,7 @@ def place_objects_adaptive(
         # Check for rotation
         for rel in obj.get_relations():
             if isinstance(rel, RotateAroundSolution):
-                state.yaw = math.degrees(rel._yaw_rad) if hasattr(rel, '_yaw_rad') else 0.0
+                state.yaw = math.degrees(rel.yaw_rad) if hasattr(rel, 'yaw_rad') else 0.0
 
         if state.yaw is None:
             import random
@@ -158,9 +158,12 @@ def place_objects_adaptive(
             continue
 
         state = object_states[name]
-        dims = object_dims.get(name, (0.05, 0.05, 0.05))
-        half_height = dims[2] / 2.0
-        z = table_top_z + half_height + DEFAULT_CLEARANCE_M
+        # Most assets are origin-at-base (mesh min_z == 0). Some (bowls with
+        # curved bottoms, cups) have min_z < 0 — their physical bottom dips
+        # below the prim origin. Subtracting min_z lifts the origin so the
+        # actual bottom sits exactly `clearance` above the table top.
+        min_z = asset_manager.get_object_min_z(name)
+        z = table_top_z + DEFAULT_CLEARANCE_M - min_z
 
         x = state.x if state.x is not None else 0.55
         y = state.y if state.y is not None else 0.0
@@ -173,19 +176,23 @@ def place_objects_adaptive(
     # --- Phase 3b: Handle place-on (stacking on another object) ---
     for obj in stacking_objects:
         state = obj._object_state
+        obj_dims = asset_manager.get_object_dims(obj.name) or (0.05, 0.05, 0.05)
+        obj_half_h = obj_dims[2] / 2.0
         for pred in state.predicates:
             if isinstance(pred, PlaceOnPredicate):
                 support_name = pred.support_object
                 if support_name in positions:
                     sx, sy, sz = positions[support_name]
                     support_dims = object_dims.get(support_name, (0.1, 0.1, 0.1))
-                    support_top_z = sz + support_dims[2] / 2.0
+                    support_min_z = asset_manager.get_object_min_z(support_name)
+                    # support top world-z = prim.z + support_max_z, where
+                    # max_z = dims[2] + min_z in the mesh's local frame.
+                    support_top_z = sz + support_dims[2] + support_min_z
 
-                    obj_bbox = obj.get_bounding_box()
-                    obj_half_h = (obj_bbox.max_point[2] - obj_bbox.min_point[2]) / 2.0
-
-                    # Stack: center on support, Z on top
-                    stack_z = support_top_z + obj_half_h + 0.001
+                    # Object's actual bottom = obj.prim.z + obj_min_z. We want
+                    # obj.bottom to rest on support.top with 1 mm clearance.
+                    obj_min_z = asset_manager.get_object_min_z(obj.name)
+                    stack_z = support_top_z + 0.001 - obj_min_z
                     yaw_rad = math.radians(state.yaw) if state.yaw else 0.0
 
                     positions[obj.name] = (sx, sy, stack_z)
@@ -196,10 +203,9 @@ def place_objects_adaptive(
                     if verbose:
                         print(f"  [Stack] {obj.name} on {support_name} at z={stack_z:.3f}")
                 else:
-                    # Fallback: place on table
-                    obj_bbox = obj.get_bounding_box()
-                    obj_half_h = (obj_bbox.max_point[2] - obj_bbox.min_point[2]) / 2.0
-                    z = table_top_z + obj_half_h + DEFAULT_CLEARANCE_M
+                    # Fallback: place on table (with min_z compensation)
+                    obj_min_z = asset_manager.get_object_min_z(obj.name)
+                    z = table_top_z + DEFAULT_CLEARANCE_M - obj_min_z
                     positions[obj.name] = (0.55, 0.0, z)
                     obj.set_initial_pose(Pose(position_xyz=(0.55, 0.0, z)))
                 break
@@ -207,6 +213,8 @@ def place_objects_adaptive(
     # --- Phase 4: Handle place-in (inside container) ---
     for obj in container_objects:
         state = obj._object_state
+        obj_dims = asset_manager.get_object_dims(obj.name) or (0.05, 0.05, 0.05)
+        obj_half_h = obj_dims[2] / 2.0
         for pred in state.predicates:
             if isinstance(pred, PlaceInPredicate):
                 container_name = pred.support_object
@@ -214,20 +222,15 @@ def place_objects_adaptive(
                     cx, cy, cz = positions[container_name]
                     container_dims = object_dims.get(container_name)
 
-                    # Place inside: same XY, Z inside container
+                    # Place inside: same XY, Z inside container.
+                    # Origin-at-base: container bottom at cz, top at cz+height.
                     if container_dims:
-                        # Container bottom = cz - container_half_height
-                        # Inner Z = bottom + small clearance + obj_half_height
-                        container_half_h = container_dims[2] / 2.0
-                        container_bottom_z = cz - container_half_h
-                        inner_z = container_bottom_z + container_dims[2] * 0.2
+                        inner_z = cz + container_dims[2] * 0.2  # 20% up from container floor
                     else:
                         inner_z = cz
 
-                    obj_bbox = obj.get_bounding_box()
-                    obj_half_h = (obj_bbox.max_point[2] - obj_bbox.min_point[2]) / 2.0
-
-                    final_z = inner_z + obj_half_h
+                    # Object origin-at-base sits at inner_z (no half_height add).
+                    final_z = inner_z
                     positions[obj.name] = (cx, cy, final_z)
                     obj.set_initial_pose(Pose(
                         position_xyz=(cx, cy, final_z),
@@ -237,7 +240,7 @@ def place_objects_adaptive(
                         print(f"  [Inside] {obj.name} in {container_name} at z={final_z:.3f}")
                 break
 
-    success = True
+    # success is set by the solver at Phase 2 (default True if no solver ran)
     if verbose:
         print(f"\n[AdaptivePlacer] Placed {len(positions)} objects")
         for name, (x, y, z) in sorted(positions.items()):

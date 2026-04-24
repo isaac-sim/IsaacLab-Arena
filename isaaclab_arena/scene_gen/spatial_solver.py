@@ -42,6 +42,26 @@ class SpatialSolver:
         self.table_width = self.max_x - self.min_x
         self.table_depth = self.max_y - self.min_y
 
+    @staticmethod
+    def _get_half_extents(
+        dims: tuple[float, float, float], yaw_deg: float | None
+    ) -> tuple[float, float]:
+        """Get axis-aligned half-extents of a rotated rectangle.
+
+        Args:
+            dims: (width, depth, height) of the object.
+            yaw_deg: Rotation around Z in degrees (None → 0).
+
+        Returns:
+            (half_x, half_y) axis-aligned half-extents in world frame.
+        """
+        hw, hd = dims[0] / 2, dims[1] / 2
+        if yaw_deg is None or yaw_deg == 0.0:
+            return hw, hd
+        yaw = math.radians(yaw_deg)
+        cos_y, sin_y = abs(math.cos(yaw)), abs(math.sin(yaw))
+        return hw * cos_y + hd * sin_y, hw * sin_y + hd * cos_y
+
     def solve(
         self,
         object_states: dict[str, ObjectState],
@@ -294,7 +314,7 @@ class SpatialSolver:
         elif pred.type == PredicateType.FACING_RIGHT:
             obj_state.yaw = 0.0
         elif pred.type == PredicateType.FACING_FRONT:
-            obj_state.yaw = 90.0
+            obj_state.yaw = 270.0  # Face door toward robot at -X
         elif pred.type == PredicateType.FACING_BACK:
             obj_state.yaw = 270.0
         elif pred.type == PredicateType.RANDOM_ROT:
@@ -330,11 +350,28 @@ class SpatialSolver:
             if len(collisions) >= previous_collision_count:
                 no_progress_count += 1
                 if no_progress_count > 10:
-                    # Add random perturbation to break deadlock (but not fixed objects)
-                    for name, state in object_states.items():
-                        if state.x is not None and name not in fixed_objects:
-                            state.x += random.uniform(-0.05, 0.05)
-                            state.y += random.uniform(-0.05, 0.05)
+                    # Redistribute the LARGEST colliding objects to random empty regions
+                    colliding_names = set()
+                    for n1, n2 in collisions:
+                        if n1 not in fixed_objects:
+                            colliding_names.add(n1)
+                        if n2 not in fixed_objects:
+                            colliding_names.add(n2)
+                    # Sort by footprint descending, move the biggest ones
+                    colliding_sorted = sorted(
+                        colliding_names,
+                        key=lambda n: max(object_dims.get(n, (0.05, 0.05, 0.05))[:2]),
+                        reverse=True,
+                    )
+                    for name in colliding_sorted[:max(1, len(colliding_sorted) // 2)]:
+                        object_states[name].x = random.uniform(self.min_x + 0.1, self.max_x - 0.1)
+                        object_states[name].y = random.uniform(self.min_y + 0.1, self.max_y - 0.1)
+                        # Rotate elongated objects by 90° — swaps width/depth footprint
+                        dims = object_dims.get(name, (0.05, 0.05, 0.05))
+                        aspect = max(dims[0], dims[1]) / max(min(dims[0], dims[1]), 0.01)
+                        if aspect > 1.5:  # Only rotate meaningfully elongated objects
+                            yaw = object_states[name].yaw or 0.0
+                            object_states[name].yaw = yaw + 90.0
                     no_progress_count = 0
             else:
                 no_progress_count = 0
@@ -392,30 +429,28 @@ class SpatialSolver:
         object_states: dict[str, ObjectState],
         object_dims: dict[str, tuple[float, float, float]],
     ) -> list[tuple[str, str]]:
-        """Check for collisions between objects."""
+        """Check for AABB collisions between objects (rotation-aware)."""
         collisions = []
         names = list(object_states.keys())
+        m = self.collision_margin
 
         for i, name1 in enumerate(names):
             state1 = object_states[name1]
             if state1.x is None or state1.y is None:
                 continue
+            hx1, hy1 = self._get_half_extents(object_dims[name1], state1.yaw)
 
             for name2 in names[i + 1 :]:
-
                 state2 = object_states[name2]
                 if state2.x is None or state2.y is None:
                     continue
+                hx2, hy2 = self._get_half_extents(object_dims[name2], state2.yaw)
 
-                # Simple circle-based collision check
-                dims1 = object_dims[name1]
-                dims2 = object_dims[name2]
-                radius1 = max(dims1[0], dims1[1]) / 2 + self.collision_margin
-                radius2 = max(dims2[0], dims2[1]) / 2 + self.collision_margin
-
-                dist = np.sqrt((state1.x - state2.x) ** 2 + (state1.y - state2.y) ** 2)
-                min_dist = radius1 + radius2
-                if dist < min_dist:
+                # AABB overlap: separate check per axis
+                if (
+                    abs(state1.x - state2.x) < hx1 + hx2 + m
+                    and abs(state1.y - state2.y) < hy1 + hy2 + m
+                ):
                     collisions.append((name1, name2))
 
         return collisions
@@ -425,23 +460,15 @@ class SpatialSolver:
         object_states: dict[str, ObjectState],
         object_dims: dict[str, tuple[float, float, float]],
     ) -> bool:
-        """Check if all objects are within table bounds."""
+        """Check if all objects are within table bounds (AABB-aware)."""
         for name, state in object_states.items():
             if state.x is None or state.y is None:
                 continue
 
-            dims = object_dims[name]
-            radius = max(dims[0], dims[1]) / 2
+            hx, hy = self._get_half_extents(object_dims[name], state.yaw)
 
-            if (
-                state.x - radius < self.min_x
-                or state.x + radius > self.max_x
-                or state.y - radius < self.min_y
-                or state.y + radius > self.max_y
-            ):
-                # Clamp to bounds
-                state.x = np.clip(state.x, self.min_x + radius, self.max_x - radius)
-                state.y = np.clip(state.y, self.min_y + radius, self.max_y - radius)
+            state.x = np.clip(state.x, self.min_x + hx, self.max_x - hx)
+            state.y = np.clip(state.y, self.min_y + hy, self.max_y - hy)
 
         return True
 
@@ -461,37 +488,27 @@ class SpatialSolver:
         ):
             return
 
-        # Calculate direction away from fixed object
-        dx = movable_state.x - fixed_state.x
-        dy = movable_state.y - fixed_state.y
-        dist = math.sqrt(dx * dx + dy * dy)
+        m = self.collision_margin
+        extra_margin = 0.05  # Extra buffer for rack clearance
 
-        if dist < 0.01:  # Avoid division by zero
-            dx, dy = random.uniform(-1, 1), random.uniform(-1, 1)
-            dist = math.sqrt(dx * dx + dy * dy)
+        hx_m, hy_m = self._get_half_extents(movable_dims, movable_state.yaw)
+        hx_f, hy_f = self._get_half_extents(fixed_dims, fixed_state.yaw)
 
-        # Normalize direction
-        dx, dy = dx / dist, dy / dist
+        # Push along axis of minimum overlap
+        overlap_x = (hx_m + hx_f + m + extra_margin) - abs(movable_state.x - fixed_state.x)
+        overlap_y = (hy_m + hy_f + m + extra_margin) - abs(movable_state.y - fixed_state.y)
 
-        # Calculate required separation distance with EXTRA margin for fixed objects
-        # Add 5cm extra buffer to ensure clearance from racks
-        extra_margin = 0.05
-        required_sep = (
-            (movable_dims[0] + fixed_dims[0]) / 2 + self.collision_margin + extra_margin
-        )
-
-        # Move movable object away from fixed object
-        movable_state.x = fixed_state.x + dx * required_sep
-        movable_state.y = fixed_state.y + dy * required_sep
+        if overlap_x > 0 and overlap_y > 0:
+            if overlap_x < overlap_y:
+                direction = 1.0 if movable_state.x >= fixed_state.x else -1.0
+                movable_state.x += direction * (overlap_x + 0.01)
+            else:
+                direction = 1.0 if movable_state.y >= fixed_state.y else -1.0
+                movable_state.y += direction * (overlap_y + 0.01)
 
         # Clamp to table bounds
-        radius_xy = max(movable_dims[0], movable_dims[1]) / 2 + self.collision_margin
-        movable_state.x = max(
-            self.min_x + radius_xy, min(self.max_x - radius_xy, movable_state.x)
-        )
-        movable_state.y = max(
-            self.min_y + radius_xy, min(self.max_y - radius_xy, movable_state.y)
-        )
+        movable_state.x = np.clip(movable_state.x, self.min_x + hx_m, self.max_x - hx_m)
+        movable_state.y = np.clip(movable_state.y, self.min_y + hy_m, self.max_y - hy_m)
 
     def _resolve_collision(
         self,
@@ -500,43 +517,32 @@ class SpatialSolver:
         dims1: tuple[float, float, float],
         dims2: tuple[float, float, float],
     ):
-        """Resolve collision by pushing objects apart."""
-        # Calculate push direction
-        dx = state1.x - state2.x
-        dy = state1.y - state2.y
-        dist = np.sqrt(dx**2 + dy**2)
+        """Resolve AABB collision by pushing apart along the axis of minimum overlap."""
+        m = self.collision_margin
+        hx1, hy1 = self._get_half_extents(dims1, state1.yaw)
+        hx2, hy2 = self._get_half_extents(dims2, state2.yaw)
 
-        if dist < 0.001:
-            # Objects at same position, push in random direction
-            angle = random.uniform(0, 2 * np.pi)
-            dx = np.cos(angle)
-            dy = np.sin(angle)
-            dist = 1.0
+        overlap_x = (hx1 + hx2 + m) - abs(state1.x - state2.x)
+        overlap_y = (hy1 + hy2 + m) - abs(state1.y - state2.y)
 
-        # Normalize
-        dx /= dist
-        dy /= dist
+        if overlap_x <= 0 or overlap_y <= 0:
+            return  # No actual overlap
 
-        # Calculate required separation
-        radius1 = max(dims1[0], dims1[1]) / 2 + self.collision_margin
-        radius2 = max(dims2[0], dims2[1]) / 2 + self.collision_margin
-        required_dist = radius1 + radius2
-
-        # Push apart more aggressively for large objects
-        # Add extra buffer for large objects (>20cm) to help convergence
-        avg_size = (max(dims1[0], dims1[1]) + max(dims2[0], dims2[1])) / 2
-        extra_buffer = (
-            0.02 if avg_size > 0.2 else 0.01
-        )  # 2cm for large objects, 1cm for small
-
-        push = (required_dist - dist) / 2 + extra_buffer
-        state1.x += dx * push
-        state1.y += dy * push
-        state2.x -= dx * push
-        state2.y -= dy * push
+        # Push along the axis of minimum overlap (shortest escape)
+        push_extra = 0.01  # Small buffer for convergence
+        if overlap_x < overlap_y:
+            push = (overlap_x / 2) + push_extra
+            direction = 1.0 if state1.x >= state2.x else -1.0
+            state1.x += direction * push
+            state2.x -= direction * push
+        else:
+            push = (overlap_y / 2) + push_extra
+            direction = 1.0 if state1.y >= state2.y else -1.0
+            state1.y += direction * push
+            state2.y -= direction * push
 
         # Clamp to table bounds
-        state1.x = np.clip(state1.x, self.min_x + radius1, self.max_x - radius1)
-        state1.y = np.clip(state1.y, self.min_y + radius1, self.max_y - radius1)
-        state2.x = np.clip(state2.x, self.min_x + radius2, self.max_x - radius2)
-        state2.y = np.clip(state2.y, self.min_y + radius2, self.max_y - radius2)
+        state1.x = np.clip(state1.x, self.min_x + hx1, self.max_x - hx1)
+        state1.y = np.clip(state1.y, self.min_y + hy1, self.max_y - hy1)
+        state2.x = np.clip(state2.x, self.min_x + hx2, self.max_x - hx2)
+        state2.y = np.clip(state2.y, self.min_y + hy2, self.max_y - hy2)
