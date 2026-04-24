@@ -5,9 +5,8 @@
 
 """LLM agent for parsing natural-language scene prompts into a SceneSpec.
 
-Uses Claude via NVIDIA's OpenAI-compatible inference API. Modeled on
-isaaclab_arena/scene_gen/llm_agent.py from the dev/stark branch, adapted
-to emit our SceneSpec (Pydantic) so asset resolution stays deterministic.
+Uses Claude via NVIDIA's OpenAI-compatible inference API. Emits the
+SceneSpec Pydantic bundle so asset resolution stays deterministic.
 """
 
 from __future__ import annotations
