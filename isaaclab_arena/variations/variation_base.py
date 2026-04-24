@@ -17,6 +17,16 @@ their target asset in the asset's ``__init__`` via
 applicable) and then toggled by the user via :meth:`enable` (and optionally
 narrowed via :meth:`set_sampler`). The builder walks the scene, collects
 enabled variations, and merges their event terms into ``events_cfg``.
+
+The structural knobs of a variation (mode, target sub-mesh, ...) live on a
+dedicated :class:`VariationBaseCfg` subclass that each concrete variation
+ships alongside its class. The runtime state that is *not* configuration —
+the ``enabled`` flag and the current :class:`~isaaclab_arena.variations.sampler.Sampler` —
+is managed on the variation object itself (:meth:`enable`, :meth:`set_sampler`).
+Keeping them separate avoids the circular-reference trap that
+:func:`isaaclab.utils.configclass._validate` imposes on cfg instances
+(see ``2026_04_21_variation_system_plan.md``) and leaves the cfg as a
+leaf-only, CLI / Hydra-friendly dataclass.
 """
 
 from __future__ import annotations
@@ -25,10 +35,32 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
 from isaaclab.managers import EventTermCfg
+from isaaclab.utils import configclass
+
+from isaaclab_arena.variations.sampler import Sampler, SamplerCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.variations.sampler import Sampler
+
+
+@configclass
+class VariationBaseCfg:
+    """Base configclass for :class:`VariationBase` instances.
+
+    Intentionally empty: there are no fields shared across all variation
+    kinds today, but every concrete variation ships a cfg subclass of this
+    type so downstream code (the env builder, the forthcoming Hydra CLI
+    layer in ``hydra_dynamic_schema_example.py``) can rely on a single
+    common parent when collecting per-variation schemas from a scene.
+
+    What does **not** live on the cfg:
+        * the target asset — passed explicitly to the variation's ctor and
+          stored as a *name* only (never a back-reference, to avoid the
+          reference cycles that trip ``configclass._validate``);
+        * the ``enabled`` flag and the current sampler — these are runtime
+          state toggled via :meth:`VariationBase.enable` /
+          :meth:`VariationBase.set_sampler`, not configuration.
+    """
 
 
 class VariationBase(ABC):
@@ -49,6 +81,12 @@ class VariationBase(ABC):
     :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`) and as
     the registry key picked up by
     :func:`~isaaclab_arena.variations.variation_registry.register_variation`.
+
+    Concrete subclasses pair themselves with a :class:`VariationBaseCfg`
+    subclass that declares their tunable parameters (mode, mesh selector,
+    ...) and forward an instance of it to :meth:`__init__`. The base simply
+    stores it on :attr:`cfg`; subclasses typically narrow the attribute
+    type via a class-level annotation (``cfg: ObjectColorVariationCfg``).
     """
 
     #: Short, unique identifier for this variation kind (e.g. ``"color"``,
@@ -58,7 +96,12 @@ class VariationBase(ABC):
     #: and :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`.
     name: ClassVar[str]
 
-    def __init__(self):
+    #: The configclass instance holding this variation's tunable parameters.
+    #: Subclasses narrow the type via a class-level annotation.
+    cfg: VariationBaseCfg
+
+    def __init__(self, cfg: VariationBaseCfg):
+        self.cfg = cfg
         self._enabled: bool = False
         self._sampler: Sampler | None = None
 
@@ -80,9 +123,38 @@ class VariationBase(ABC):
         """The sampler driving this variation, or ``None`` if not yet set."""
         return self._sampler
 
-    def set_sampler(self, sampler: Sampler) -> None:
-        """Set the sampler driving this variation."""
-        self._sampler = sampler
+    def set_sampler(self, sampler: Sampler | SamplerCfg) -> None:
+        """Replace this variation's sampler.
+
+        The argument may be either a declarative :class:`SamplerCfg` (the
+        Hydra-/serialisation-friendly form) or a live :class:`Sampler`
+        (the imperative form); dispatch is by type:
+
+        * :class:`SamplerCfg` — built into a live sampler via
+          :meth:`SamplerCfg.build`, and — if ``self.cfg`` exposes a
+          ``sampler`` field (the common case for variations that accept a
+          configurable distribution) — also written to
+          ``self.cfg.sampler`` so the declarative description stays the
+          source of truth and the cfg still survives a round-trip through
+          serialisation.
+        * :class:`Sampler` — stored directly as the live sampler. This is
+          the imperative escape hatch (useful for tests and code-level
+          overrides); ``self.cfg`` is **not** touched, so the cfg will no
+          longer reflect the live distribution. Callers who want cfg to
+          track a live sampler must pass a :class:`SamplerCfg` instead.
+
+        Raises:
+            TypeError: If ``sampler`` is neither a :class:`Sampler` nor a
+                :class:`SamplerCfg`.
+        """
+        if isinstance(sampler, SamplerCfg):
+            self._sampler = sampler.build()
+            if hasattr(self.cfg, "sampler"):
+                self.cfg.sampler = sampler
+        elif isinstance(sampler, Sampler):
+            self._sampler = sampler
+        else:
+            raise TypeError(f"set_sampler expects a Sampler or SamplerCfg; got {type(sampler).__name__}.")
 
     @abstractmethod
     def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:

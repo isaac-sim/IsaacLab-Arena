@@ -13,6 +13,13 @@ Concrete samplers live in this module so they slot in uniformly: a variation
 receives a sampler, inspects it if it needs to translate it for a foreign
 API (see e.g. :class:`~isaaclab_arena.variations.object_color.ObjectColorVariation`),
 or just calls :meth:`Sampler.sample` on it at event time.
+
+Each sampler ships a parallel declarative cfg (:class:`SamplerCfg` +
+subclasses) with a :meth:`~SamplerCfg.build` factory. The cfgs are what the
+variation cfg (and therefore Hydra overrides) sees — the live :class:`Sampler`
+instance is built from the cfg at variation-construction time. This keeps the
+Hydra surface "plain data" (lists of floats) while the runtime side keeps
+torch tensors and other non-serialisable bits.
 """
 
 from __future__ import annotations
@@ -20,6 +27,55 @@ from __future__ import annotations
 import torch
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import field
+
+from isaaclab.utils import configclass
+
+
+@configclass
+class SamplerCfg:
+    """Base configclass for declarative sampler descriptions.
+
+    Concrete sampler cfgs subclass this and add their parameters plus a
+    :meth:`build` factory that returns the live :class:`Sampler`. The base
+    declares :meth:`build` as an abstract (unimplemented) method so that
+    downstream code — e.g.
+    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`
+    — can rely on every sampler cfg being build-able without type-narrowing
+    to a specific subclass.
+    """
+
+    def build(self) -> Sampler:
+        raise NotImplementedError(
+            f"{type(self).__name__}.build() is not implemented; every concrete SamplerCfg "
+            "subclass must provide a build() that returns its live Sampler."
+        )
+
+
+@configclass
+class UniformSamplerCfg(SamplerCfg):
+    """Config for :class:`UniformSampler`.
+
+    ``low`` and ``high`` are kept as ``list[float]`` (not tuple) so that
+    OmegaConf / Hydra round-trips cleanly — OmegaConf canonicalises any
+    sequence override to a :class:`omegaconf.ListConfig`. The live
+    :class:`UniformSampler` stores them as torch tensors and performs the
+    shape / ordering validation on construction.
+
+    Attributes:
+        low: Lower bound per dimension. Length determines the sampler's
+            ``event_shape``; ``[0.0]`` is a scalar uniform, ``[0.0, 0.0, 0.0]``
+            a 3D uniform (e.g. RGB).
+        high: Upper bound per dimension. Must have the same length as ``low``
+            and be element-wise ``>= low`` — both checks are enforced by
+            :class:`UniformSampler`'s ctor at build time.
+    """
+
+    low: list[float] = field(default_factory=lambda: [0.0])
+    high: list[float] = field(default_factory=lambda: [1.0])
+
+    def build(self) -> UniformSampler:
+        return UniformSampler(low=self.low, high=self.high)
 
 
 class Sampler(ABC):

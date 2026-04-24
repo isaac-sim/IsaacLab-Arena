@@ -40,6 +40,7 @@ from isaaclab_arena.examples.tint_events import (  # noqa: F401  (kept for the c
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.variations import UniformSampler, UniformSamplerCfg
 
 asset_registry = AssetRegistry()
 
@@ -52,19 +53,34 @@ cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0
 cracker_box.add_relation(IsAnchor())
 tomato_soup_can.add_relation(On(cracker_box))
 
-# --- New-style variation configuration ---------------------------------------
+# --- Variation configuration --------------------------------------------------
 #
 # Every ``Object`` ships with a registry of built-in variations (currently just
 # ``"color"``), pre-configured with a sensible default sampler. Calling
 # :meth:`~isaaclab_arena.variations.variation_base.VariationBase.enable` alone
-# is enough to get reasonable behaviour; :meth:`set_sampler` is only needed to
-# narrow or replace the default distribution.
-# cracker_box.get_variation("color").enable()  # uses the default full-RGB sampler
+# is enough to get reasonable behaviour; ``set_sampler`` narrows or replaces
+# the default distribution and accepts either a live :class:`Sampler` or a
+# :class:`SamplerCfg`.
+#
+# Both objects randomize along a single RGB axis so the per-env tint is obvious
+# at a glance: the cracker box varies red, the tomato soup can varies blue. We
+# drive one via each branch of the unified ``set_sampler`` to exercise both
+# surfaces side-by-side.
 
-# Uncomment to also randomize the soup can with a tighter (pastel) range:
-cracker_box.get_variation("color").enable()
-tomato_soup_can.get_variation("color").enable()
-# tomato_soup_can.get_variation("color").set_sampler(UniformSampler(low=(0.4,) * 3, high=(1.0,) * 3))
+# Imperative path: pass a live ``Sampler``. Convenient at code-level / in tests;
+# does **not** touch ``variation.cfg``, so a Hydra / serialisation round-trip
+# would miss this override.
+cracker_box_color = cracker_box.get_variation("color")
+cracker_box_color.set_sampler(UniformSampler(low=[0.2, 0.2, 0.0], high=[1.0, 1.0, 0.0]))
+cracker_box_color.enable()
+
+# Declarative path: pass a ``SamplerCfg``. It is built into a live sampler
+# *and* written back onto ``variation.cfg.sampler``, so the cfg stays the
+# source of truth — this is the form that survives Hydra CLI overrides (see
+# ``hydra_dynamic_schema_example.py``).
+tomato_soup_can_color = tomato_soup_can.get_variation("color")
+tomato_soup_can_color.set_sampler(UniformSamplerCfg(low=[0.0, 0.2, 0.2], high=[0.0, 1.0, 1.0]))
+tomato_soup_can_color.enable()
 
 scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -110,7 +126,7 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 500
+NUM_STEPS = 2000
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

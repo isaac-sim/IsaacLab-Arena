@@ -19,13 +19,15 @@ as-is.
 
 from __future__ import annotations
 
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.utils import configclass
 
-from isaaclab_arena.variations.sampler import UniformSampler
-from isaaclab_arena.variations.variation_base import VariationBase
+from isaaclab_arena.variations.sampler import Sampler, UniformSampler, UniformSamplerCfg
+from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 from isaaclab_arena.variations.variation_registry import register_variation
 
 if TYPE_CHECKING:
@@ -33,11 +35,38 @@ if TYPE_CHECKING:
     from isaaclab_arena.scene.scene import Scene
 
 
-#: Default RGB sampler used when the user enables the variation without
-#: calling :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
-#: Full ``[0, 1]^3`` range — aggressive but universally valid; users wanting
-#: subtler tints can override via ``set_sampler(UniformSampler(low=(0.4,)*3, high=(1.0,)*3))``.
-DEFAULT_COLOR_SAMPLER = UniformSampler(low=(0.0, 0.0, 0.0), high=(1.0, 1.0, 1.0))
+@configclass
+class ObjectColorVariationCfg(VariationBaseCfg):
+    """Configuration for :class:`ObjectColorVariation`.
+
+    The default ``sampler`` is a 3D :class:`UniformSamplerCfg` over the full
+    ``[0, 1]^3`` RGB cube — aggressive but universally valid; users wanting
+    subtler tints can override individual bounds (e.g.
+    ``...sampler.low=[0.4,0.4,0.4]``) or replace the whole cfg via
+    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
+
+    Attributes:
+        mode: Event mode forwarded to :class:`EventTermCfg`. ``"reset"``
+            resamples on every episode reset; ``"prestartup"`` picks a
+            stable color per env for the whole run.
+        mesh_name: Sub-mesh selector forwarded to
+            :class:`isaaclab.envs.mdp.randomize_visual_color`. Empty string
+            targets all meshes under the asset's prim.
+        sampler: RGB distribution. Currently pinned to
+            :class:`~isaaclab_arena.variations.sampler.UniformSamplerCfg`
+            because :meth:`ObjectColorVariation.build_event_cfg` only knows how
+            to translate uniform bounds into the ``colors`` dict that
+            :class:`randomize_visual_color` expects; see
+            :meth:`_sampler_to_colors_spec` for details. A tagged-union /
+            config-group mechanism can be introduced later if other sampler
+            kinds (e.g. discrete palette) become useful here.
+    """
+
+    mode: str = "reset"
+    mesh_name: str = ""
+    sampler: UniformSamplerCfg = field(
+        default_factory=lambda: UniformSamplerCfg(low=[0.0, 0.0, 0.0], high=[1.0, 1.0, 1.0])
+    )
 
 
 @register_variation
@@ -48,10 +77,15 @@ class ObjectColorVariation(VariationBase):
     :class:`isaaclab.envs.mdp.randomize_visual_color`. The target asset's
     bound material is replaced with a fresh ``OmniPBR`` instance whose
     ``diffuse_color_constant`` is sampled (uniformly over RGB) from the
-    variation's sampler. The sampler defaults to :data:`DEFAULT_COLOR_SAMPLER`
-    so calling :meth:`enable` alone is sufficient for reasonable behaviour;
-    users can narrow or replace the distribution via
-    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
+    variation's sampler. The sampler is built from
+    :attr:`ObjectColorVariationCfg.sampler` at construction time, so calling
+    :meth:`enable` alone is sufficient for reasonable behaviour; users can
+    narrow or replace the distribution either at construction time (via the
+    ``sampler`` kwarg, see below) or later via
+    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`,
+    which accepts both :class:`~isaaclab_arena.variations.sampler.SamplerCfg`
+    (cfg-driven, keeps :attr:`cfg` in sync) and :class:`Sampler` (imperative,
+    does not touch :attr:`cfg`) inputs.
 
     Requirements:
         * ``scene.replicate_physics`` must be False (the Arena default).
@@ -65,26 +99,38 @@ class ObjectColorVariation(VariationBase):
             asset's ``name`` is used to resolve the scene entity at event
             time, so the same instance must also be registered on the
             :class:`~isaaclab_arena.scene.scene.Scene`.
-        mode: Event mode. ``"reset"`` resamples on every episode reset;
-            ``"prestartup"`` picks a stable color per env for the whole run.
-        mesh_name: Sub-mesh selector forwarded to
-            :class:`randomize_visual_color`. Empty string targets all
-            meshes under the asset's prim.
+        cfg: Tunable parameters (``mode``, ``mesh_name``, ``sampler``).
+            Defaults to an :class:`ObjectColorVariationCfg` with sensible
+            reset-time, all-meshes, full-RGB-uniform defaults; callers only
+            need to supply a cfg to override those.
+        sampler: Optional override for the RGB distribution. Mirrors
+            :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`:
+            a :class:`UniformSamplerCfg` is built into a live sampler **and**
+            written back onto ``self.cfg.sampler`` (declarative round-trip);
+            a bare :class:`Sampler` is stored directly without touching
+            ``self.cfg`` (imperative override). When both ``cfg.sampler`` and
+            ``sampler`` are supplied the ``sampler`` kwarg wins — the cfg's
+            sampler field is replaced for cfg-driven overrides or left as a
+            stale record for imperative overrides. When ``sampler`` is
+            ``None`` the sampler in ``cfg`` is used as-is.
     """
 
     name = "color"
 
+    #: Narrow the base class annotation so static checkers know
+    #: ``self.cfg.mode`` / ``self.cfg.mesh_name`` / ``self.cfg.sampler`` are
+    #: available.
+    cfg: ObjectColorVariationCfg
+
     def __init__(
         self,
         asset: ObjectBase,
-        mode: str = "reset",
-        mesh_name: str = "",
+        cfg: ObjectColorVariationCfg | None = None,
+        sampler: Sampler | UniformSamplerCfg | None = None,
     ):
-        super().__init__()
+        super().__init__(cfg=cfg if cfg is not None else ObjectColorVariationCfg())
         self.asset_name = asset.name
-        self.mode = mode
-        self.mesh_name = mesh_name
-        self.set_sampler(DEFAULT_COLOR_SAMPLER)
+        self.set_sampler(sampler if sampler is not None else self.cfg.sampler)
 
     def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:  # noqa: ARG002
         assert self._sampler is not None, (
@@ -95,11 +141,11 @@ class ObjectColorVariation(VariationBase):
         event_name = f"{self.asset_name}_color_variation"
         event_cfg = EventTermCfg(
             func=mdp.randomize_visual_color,
-            mode=self.mode,
+            mode=self.cfg.mode,
             params={
                 "asset_cfg": SceneEntityCfg(self.asset_name),
                 "colors": colors,
-                "mesh_name": self.mesh_name,
+                "mesh_name": self.cfg.mesh_name,
                 "event_name": event_name,
             },
         )

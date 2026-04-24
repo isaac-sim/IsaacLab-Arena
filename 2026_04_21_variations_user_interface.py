@@ -3,8 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-##
-
+## Variations in user interface in Python
 
 # Option 1: Variations travel with asset.
 # DECISION: SUPPORTED
@@ -25,3 +24,6 @@ apple.get_variation("color").set_sampler(UniformSampler(low=(0.0,) * 3, high=(1.
 asset_registry = AssetRegistry()
 apple = asset_registry.get_asset_by_name("apple")
 color_variation = ObjectColorVariation(apple, sampler=UniformSampler(low=(0.0,) * 3, high=(1.0,) * 3))
+
+
+## Variations in user interface in Hydra
