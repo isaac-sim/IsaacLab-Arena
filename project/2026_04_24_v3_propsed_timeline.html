@@ -1,0 +1,42 @@
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <div class="mermaid">
+    gantt
+        title Proposed Timeline for Isaac Lab Arena v0.3
+        dateFormat  YYYY-MM-DD
+        axisFormat  %b %d
+
+        section v2
+        v0.2 SQA                  :active, sqa,  2026-04-13, 2026-04-28
+
+        section Planning
+        Exploration + Prototyping :active,  por, 2026-04-13, 2026-05-15
+        Design                    :active,  design, 2026-04-13, 2026-05-15
+        Cleanup                   :active,  design, 2026-04-13, 2026-05-15
+        Write POR                 :active,  por, 2026-05-11, 2026-05-15
+
+        section Development
+        Development               :active, :featA,   2026-05-18, 2026-07-17
+        Upgrade Lab 3.0 Beta 2    :active, :featA,   2026-06-01, 2026-06-05
+
+        section SQA
+        SQA                       :active, :sqa,     2026-07-20, 2026-08-14
+
+        section Events
+        Zurich On-site            :active, :featA,   2026-06-24, 2026-06-26
+        Jensen Days               :active, :featA,   2026-06-18, 2026-06-19
+
+        section Milstones
+        Design Docs written       :milestone, m0, 2026-05-15, 0d
+        POR written               :milestone, m1, 2026-05-15, 0d
+        Milestone 1               :milestone, m2, 2026-06-17, 0d
+        Feature Complete          :milestone, m3, 2026-07-17, 0d
+        OSS Release               :milestone, m4, 2026-08-14, 0d
+  </div>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true });
+  </script>
+</body>
+</html>
