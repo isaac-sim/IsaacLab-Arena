@@ -127,6 +127,28 @@ def add_ik_reachability_cli_args(parser: argparse.ArgumentParser) -> None:
             "(i.e. not --headless). Default 1500 (~50s)."
         ),
     )
+    group.add_argument(
+        "--door_approach_offset",
+        type=float,
+        default=0.10,
+        help=(
+            "Distance (meters) from the openable object's center along the door-facing axis "
+            "where the panda_hand target is placed for open-door IK checks. "
+            "Increase if the hand clips the object; decrease to check a tighter approach. "
+            "Default: 0.10 m."
+        ),
+    )
+    group.add_argument(
+        "--door_facing_axis",
+        choices=["-x", "+x", "-y", "+y"],
+        default="-x",
+        help=(
+            "World-frame axis the openable object's door faces (the direction pointing "
+            "away from the object toward the robot). '-x' is the default for envs generated "
+            "with kitchen background + RotateAroundSolution(yaw=-pi/2). "
+            "Default: '-x'."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -202,8 +224,36 @@ def find_pick_and_place_task(arena_env):
     )
 
 
+def find_open_close_door_task(arena_env):
+    """Return the OpenDoorTask / CloseDoorTask object for the env.
+
+    Uses duck-typing: any task (or subtask) that exposes ``openable_object``
+    is accepted, so no Isaac Sim import is required here.
+
+    Raises ``AssertionError`` if no such task is found.
+    """
+    task = arena_env.task
+    assert task is not None, "Environment must provide a task for the IK check."
+
+    # Case 1 — flat: the top-level task exposes openable_object.
+    if hasattr(task, "openable_object"):
+        return task
+
+    # Case 2 — sequential wrapper: scan subtasks.
+    subtasks = getattr(task, "subtasks", None)
+    if subtasks:
+        for sub in subtasks:
+            if hasattr(sub, "openable_object"):
+                return sub
+
+    raise AssertionError(
+        f"Task {type(task).__name__} has no 'openable_object' (direct or in subtasks); "
+        "this helper needs an OpenDoorTask or CloseDoorTask somewhere in the task chain."
+    )
+
+
 def get_object_world_pos(env, object_name: str, env_id: int) -> torch.Tensor:
-    """Return the named scene object's position in **world** coordinates.
+    """Return the named rigid-body scene object's position in **world** coordinates.
 
     Shape: ``(3,)``.
     """
@@ -217,6 +267,32 @@ def get_object_world_pos(env, object_name: str, env_id: int) -> torch.Tensor:
     return wp.to_torch(obj.data.root_pos_w)[env_id]
 
 
+def get_articulation_world_pos(env, object_name: str, env_id: int) -> torch.Tensor:
+    """Return the named articulation's root position in **world** coordinates.
+
+    Shape: ``(3,)``.
+    """
+    import warp as wp
+
+    articulations = env.unwrapped.scene.articulations
+    assert (
+        object_name in articulations
+    ), f"Object '{object_name}' not found in scene.articulations. Available: {list(articulations.keys())}"
+    art = articulations[object_name]
+    return wp.to_torch(art.data.root_pos_w)[env_id, :3]
+
+
+def get_scene_object_world_pos(env, object_name: str, env_id: int) -> torch.Tensor:
+    """Return the world position of any scene object, trying rigid_objects then articulations.
+
+    Shape: ``(3,)``.
+    """
+    try:
+        return get_object_world_pos(env, object_name, env_id)
+    except AssertionError:
+        return get_articulation_world_pos(env, object_name, env_id)
+
+
 def get_robot_world_pos(env, env_id: int) -> torch.Tensor:
     """Return the robot base's world position (``scene['robot'].root_pos_w``)."""
     import warp as wp
@@ -228,14 +304,16 @@ def get_robot_world_pos(env, env_id: int) -> torch.Tensor:
 def get_object_pos_in_robot_frame(env, object_name: str, env_id: int) -> torch.Tensor:
     """Return the object's position expressed in the robot's base frame.
 
-    cuRobo's IK solver interprets target poses in the robot-base frame,
-    so this is what callers should feed into :func:`build_curobo_target_pose`.
+    Accepts both rigid bodies and articulations (tries rigid_objects first,
+    then articulations). cuRobo's IK solver interprets target poses in the
+    robot-base frame, so this is what callers should feed into
+    :func:`build_curobo_target_pose` and :func:`build_curobo_door_approach_pose`.
 
     Assumes the robot base has no yaw / roll / pitch rotation (true for
     the Franka-on-stand assets we've validated). Generalizing requires
     rotating ``(world_pos - robot_world_pos)`` by ``root_quat_w.inverse()``.
     """
-    return get_object_world_pos(env, object_name, env_id) - get_robot_world_pos(env, env_id)
+    return get_scene_object_world_pos(env, object_name, env_id) - get_robot_world_pos(env, env_id)
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +355,79 @@ def build_curobo_target_pose(
     hand_target_pos[2] = hand_target_pos[2] + hand_to_tcp_z
 
     qw, qx, qy, qz = top_down_quaternion_wxyz(grasp_axis)
+    quat_wxyz = torch.tensor([qw, qx, qy, qz], device=device, dtype=torch.float32)
+
+    curobo_pose = Pose(
+        position=hand_target_pos.unsqueeze(0),
+        quaternion=quat_wxyz.unsqueeze(0),
+    )
+
+    rot_matrix = PoseUtils.matrix_from_quat(quat_wxyz)
+    hand_target_4x4 = PoseUtils.make_pose(hand_target_pos, rot_matrix)
+    return curobo_pose, hand_target_4x4
+
+
+def door_approach_quaternion_wxyz(door_facing_axis: str) -> tuple[float, float, float, float]:
+    """Return a ``(w, x, y, z)`` quaternion whose panda_hand Z-axis points INTO the door.
+
+    The hand approaches horizontally: panda_hand Z points opposite to the
+    door-facing direction (i.e. toward the door, from the robot's side).
+
+    ``door_facing_axis`` is the world-frame axis the door face points along
+    (toward the robot):
+
+    * ``"-x"`` — door faces world -X → hand Z points +X  (rotate +90° about Y)
+    * ``"+x"`` — door faces world +X → hand Z points -X  (rotate -90° about Y)
+    * ``"-y"`` — door faces world -Y → hand Z points +Y  (rotate -90° about X)
+    * ``"+y"`` — door faces world +Y → hand Z points -Y  (rotate +90° about X)
+    """
+    _SQRT2_INV = 0.7071067811865476
+    mapping = {
+        "-x": (_SQRT2_INV, 0.0, _SQRT2_INV, 0.0),  # R_y(+90°): Z → +X
+        "+x": (_SQRT2_INV, 0.0, -_SQRT2_INV, 0.0),  # R_y(-90°): Z → -X
+        "-y": (_SQRT2_INV, -_SQRT2_INV, 0.0, 0.0),  # R_x(-90°): Z → +Y
+        "+y": (_SQRT2_INV, _SQRT2_INV, 0.0, 0.0),  # R_x(+90°): Z → -Y
+    }
+    if door_facing_axis not in mapping:
+        raise ValueError(f"Unsupported door_facing_axis: {door_facing_axis!r}")
+    return mapping[door_facing_axis]
+
+
+def _door_facing_unit_vec(door_facing_axis: str) -> list[float]:
+    """Unit vector (x, y, z) for the door-facing axis string."""
+    return {
+        "-x": [-1.0, 0.0, 0.0],
+        "+x": [1.0, 0.0, 0.0],
+        "-y": [0.0, -1.0, 0.0],
+        "+y": [0.0, 1.0, 0.0],
+    }[door_facing_axis]
+
+
+def build_curobo_door_approach_pose(
+    object_pos_local: torch.Tensor,
+    door_approach_offset: float,
+    door_facing_axis: str,
+    device: torch.device,
+):
+    """Construct a horizontal front-approach ``panda_hand`` target Pose (cuRobo).
+
+    The hand is placed ``door_approach_offset`` meters in front of the
+    openable object's center, along the door-facing direction (toward the
+    robot). The orientation is a horizontal approach — panda_hand Z-axis
+    points INTO the door (opposite to ``door_facing_axis``).
+
+    Returns a tuple ``(curobo_pose, hand_target_4x4)`` in the robot-local
+    frame. ``curobo_pose.position`` and ``.quaternion`` are shape ``(1, 3)``
+    and ``(1, 4)`` (wxyz) respectively.
+    """
+    import isaaclab.utils.math as PoseUtils
+    from curobo.types.math import Pose
+
+    facing_vec = torch.tensor(_door_facing_unit_vec(door_facing_axis), device=device, dtype=torch.float32)
+    pos = object_pos_local.to(device=device, dtype=torch.float32).clone()
+    hand_target_pos = pos + door_approach_offset * facing_vec
+
+    qw, qx, qy, qz = door_approach_quaternion_wxyz(door_facing_axis)
     quat_wxyz = torch.tensor([qw, qx, qy, qz], device=device, dtype=torch.float32)
 
     curobo_pose = Pose(

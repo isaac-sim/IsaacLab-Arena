@@ -45,14 +45,16 @@ from isaaclab_arena.llm_env_gen.reachability_utils import (
     IK_STATUS_UNREACHABLE,
     add_ik_reachability_cli_args,
     assert_franka_embodiment,
+    build_curobo_door_approach_pose,
     build_curobo_target_pose,
     check_ik_feasibility,
     classify_ik_status,
+    find_open_close_door_task,
     find_pick_and_place_task,
     format_xyz,
     get_object_pos_in_robot_frame,
-    get_object_world_pos,
     get_robot_world_pos,
+    get_scene_object_world_pos,
 )
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.random import set_seed
@@ -73,16 +75,32 @@ def main() -> int:
         arena_builder = get_arena_builder_from_cli(args_cli)
         assert_franka_embodiment(arena_builder.arena_env)
 
-        pnp_task = find_pick_and_place_task(arena_builder.arena_env)
-        pick_name = pnp_task.pick_up_object.name
-        dest = getattr(pnp_task, "destination_location", None)
-        dest_name = getattr(dest, "name", None) if dest is not None else None
-
         env_name = getattr(arena_builder.arena_env, "name", type(arena_builder.arena_env).__name__)
-        print(
-            f"[reachability] Env: '{env_name}' | pick: '{pick_name}' | place: '{dest_name}'",
-            flush=True,
-        )
+
+        # Detect task type: try PickAndPlaceTask first, fall back to open/close door.
+        pick_name: str | None = None
+        dest_name: str | None = None
+        openable_name: str | None = None
+        task_kind: str
+
+        try:
+            pnp_task = find_pick_and_place_task(arena_builder.arena_env)
+            task_kind = "pick_and_place"
+            pick_name = pnp_task.pick_up_object.name
+            dest = getattr(pnp_task, "destination_location", None)
+            dest_name = getattr(dest, "name", None) if dest is not None else None
+            print(
+                f"[reachability] Env: '{env_name}' | task: pick_and_place | pick: '{pick_name}' | place: '{dest_name}'",
+                flush=True,
+            )
+        except AssertionError:
+            door_task = find_open_close_door_task(arena_builder.arena_env)
+            task_kind = type(door_task).__name__  # "OpenDoorTask" or "CloseDoorTask"
+            openable_name = door_task.openable_object.name
+            print(
+                f"[reachability] Env: '{env_name}' | task: {task_kind} | openable: '{openable_name}'",
+                flush=True,
+            )
 
         env, _ = arena_builder.make_registered_and_return_cfg()
         if args_cli.seed is not None:
@@ -114,9 +132,12 @@ def main() -> int:
                     setattr(frame, "scale", (scale, scale, scale))
                 return VisualizationMarkers(cfg)
 
-            markers["pick_hand"] = _make_big_frame("/World/Visuals/reach_pick_hand")
-            if dest_name is not None:
-                markers["place_hand"] = _make_big_frame("/World/Visuals/reach_place_hand")
+            if task_kind == "pick_and_place":
+                markers["pick_hand"] = _make_big_frame("/World/Visuals/reach_pick_hand")
+                if dest_name is not None:
+                    markers["place_hand"] = _make_big_frame("/World/Visuals/reach_place_hand")
+            else:
+                markers["door_approach_hand"] = _make_big_frame("/World/Visuals/reach_door_hand")
 
         try:
             env.reset()
@@ -128,41 +149,6 @@ def main() -> int:
                 f"[reachability] Robot base world pos: {format_xyz(robot_world_pos)}",
                 flush=True,
             )
-
-            # World → robot-base frame for the IK target. Printing both
-            # frames so any mismatch is obvious in the log.
-            pick_world = get_object_world_pos(env, pick_name, env_id)
-            pick_pos_local = get_object_pos_in_robot_frame(env, pick_name, env_id)
-            print(
-                f"[reachability] Pick  '{pick_name}': world={format_xyz(pick_world)} "
-                f"robot_frame={format_xyz(pick_pos_local)}",
-                flush=True,
-            )
-
-            dest_world = None
-            dest_pos_local = None
-            if dest_name is not None:
-                # Some envs wire the destination as an ObjectReference to a
-                # prim nested inside an articulation (e.g. the microwave's
-                # interior disc in franka_put_and_close_door). Those are
-                # not in scene.rigid_objects, so the lookup raises. Treat
-                # that as "skip the place check" rather than failing the
-                # whole run — pick reachability is still useful.
-                try:
-                    dest_world = get_object_world_pos(env, dest_name, env_id)
-                    dest_pos_local = get_object_pos_in_robot_frame(env, dest_name, env_id)
-                except AssertionError as exc:
-                    print(
-                        f"[reachability] Place '{dest_name}': not a rigid_object — skipping place IK check. ({exc})",
-                        flush=True,
-                    )
-                    dest_name = None
-                else:
-                    print(
-                        f"[reachability] Place '{dest_name}': world={format_xyz(dest_world)} "
-                        f"robot_frame={format_xyz(dest_pos_local)}",
-                        flush=True,
-                    )
 
             # Lazy import so --help works without cuRobo installed.
             try:
@@ -197,121 +183,43 @@ def main() -> int:
             # Sync object poses into cuRobo's collision world before IK.
             planner.update_world()
 
-            pose_kwargs = dict(
-                top_down_offset=float(args_cli.top_down_offset),
-                hand_to_tcp_z=float(args_cli.hand_to_tcp_z),
-                grasp_axis=str(args_cli.grasp_axis),
-                device=planner.tensor_args.device,
-            )
-            pick_target, _ = build_curobo_target_pose(object_pos_local=pick_pos_local, **pose_kwargs)
-            print(
-                "[reachability] Pick  top-down hand target: "
-                f"{format_xyz(pick_target.position.squeeze(0).detach().cpu())}",
-                flush=True,
-            )
-            place_target = None
-            if dest_pos_local is not None:
-                place_target, _ = build_curobo_target_pose(object_pos_local=dest_pos_local, **pose_kwargs)
-                print(
-                    "[reachability] Place top-down hand target: "
-                    f"{format_xyz(place_target.position.squeeze(0).detach().cpu())}",
-                    flush=True,
+            # ---- branch on task type ----------------------------------------
+            if task_kind == "pick_and_place":
+                overall_status, overall_feasible, payload = _check_pick_and_place(
+                    env=env,
+                    env_id=env_id,
+                    planner=planner,
+                    planner_cfg=planner_cfg,
+                    pick_name=pick_name,
+                    dest_name=dest_name,
+                    robot_world_pos=robot_world_pos,
+                    markers=markers,
+                    zero=zero,
+                    args_cli=args_cli,
                 )
-
-            pos_thresh = float(planner_cfg.position_threshold)
-            rot_thresh = float(planner_cfg.rotation_threshold)
-
-            pick_feasible, pick_pos_err, pick_rot_err, pick_q = check_ik_feasibility(planner, pick_target)
-            pick_status = classify_ik_status(pick_feasible, pick_pos_err, pick_rot_err, pos_thresh, rot_thresh)
-            print(
-                f"[reachability] Pick  status: {pick_status} "
-                f"(pos_err={pick_pos_err:.4f} m, rot_err={pick_rot_err:.4f} rad)",
-                flush=True,
-            )
-
-            place_status = None
-            place_pos_err = float("nan")
-            place_rot_err = float("nan")
-            if place_target is not None:
-                # Warm-seed the place IK with the pick's solution so both
-                # ends converge from a consistent basin when poses are close.
-                place_feasible, place_pos_err, place_rot_err, _ = check_ik_feasibility(
-                    planner, place_target, seed_config=pick_q
+            else:
+                overall_status, overall_feasible, payload = _check_open_door(
+                    env=env,
+                    env_id=env_id,
+                    planner=planner,
+                    planner_cfg=planner_cfg,
+                    openable_name=openable_name,
+                    task_kind=task_kind,
+                    robot_world_pos=robot_world_pos,
+                    markers=markers,
+                    zero=zero,
+                    args_cli=args_cli,
                 )
-                place_status = classify_ik_status(place_feasible, place_pos_err, place_rot_err, pos_thresh, rot_thresh)
-                print(
-                    f"[reachability] Place status: {place_status} "
-                    f"(pos_err={place_pos_err:.4f} m, rot_err={place_rot_err:.4f} rad)",
-                    flush=True,
-                )
+            # -----------------------------------------------------------------
 
-            # Drop a marker at each hand (cuRobo) grasp pose in world
-            # frame. Uses robot-base → world conversion: the target was
-            # built in robot-base frame, so world = robot_world_pos +
-            # target (assumes robot base has no yaw; see
-            # get_object_pos_in_robot_frame docstring).
+            # Dwell so the Kit viewer stays up for visual inspection.
             if markers:
-                device = robot_world_pos.device
-
-                def _world_from_robot_frame(vec3: torch.Tensor) -> torch.Tensor:
-                    return (robot_world_pos + vec3.to(device)).unsqueeze(0)
-
-                def _marker_quat(target):
-                    return target.quaternion.to(device).reshape(1, 4)
-
-                markers["pick_hand"].visualize(
-                    translations=_world_from_robot_frame(pick_target.position.squeeze(0)),
-                    orientations=_marker_quat(pick_target),
-                )
-
-                if "place_hand" in markers and place_target is not None:
-                    markers["place_hand"].visualize(
-                        translations=_world_from_robot_frame(place_target.position.squeeze(0)),
-                        orientations=_marker_quat(place_target),
-                    )
-
-                # Tick the sim so the markers render before env.close().
-                # Dwell is configurable via --dwell_steps so the user can
-                # keep the Kit viewer up long enough to inspect.
                 for _ in range(int(args_cli.dwell_steps)):
                     env.step(zero)
 
-            overall_feasible = pick_status == IK_STATUS_FEASIBLE and (
-                place_status is None or place_status == IK_STATUS_FEASIBLE
-            )
-            statuses = [s for s in (pick_status, place_status) if s is not None]
-            overall_status = (
-                IK_STATUS_FEASIBLE
-                if overall_feasible
-                else (
-                    IK_STATUS_IN_COLLISION
-                    if IK_STATUS_IN_COLLISION in statuses and IK_STATUS_UNREACHABLE not in statuses
-                    else IK_STATUS_UNREACHABLE
-                )
-            )
             print(f"[reachability] Overall: {overall_status}", flush=True)
 
             if args_cli.json:
-                payload: dict = {
-                    "overall_feasible": overall_feasible,
-                    "overall_status": overall_status,
-                    "pick": {
-                        "object": pick_name,
-                        "status": pick_status,
-                        "position_error_m": pick_pos_err,
-                        "rotation_error_rad": pick_rot_err,
-                    },
-                    "place": (
-                        None
-                        if place_status is None
-                        else {
-                            "object": dest_name,
-                            "status": place_status,
-                            "position_error_m": place_pos_err,
-                            "rotation_error_rad": place_rot_err,
-                        }
-                    ),
-                }
                 print(json.dumps(payload))
 
             if overall_feasible:
@@ -322,6 +230,229 @@ def main() -> int:
 
         finally:
             env.close()
+
+
+# ---------------------------------------------------------------------------
+# Per-task-type IK check helpers
+# ---------------------------------------------------------------------------
+
+
+def _check_pick_and_place(
+    env,
+    env_id,
+    planner,
+    planner_cfg,
+    pick_name,
+    dest_name,
+    robot_world_pos,
+    markers,
+    zero,
+    args_cli,
+):
+    """IK check for PickAndPlaceTask. Returns (overall_status, overall_feasible, json_payload)."""
+    pos_thresh = float(planner_cfg.position_threshold)
+    rot_thresh = float(planner_cfg.rotation_threshold)
+
+    # World → robot-base frame for the IK target. Printing both
+    # frames so any mismatch is obvious in the log.
+    pick_world = get_scene_object_world_pos(env, pick_name, env_id)
+    pick_pos_local = get_object_pos_in_robot_frame(env, pick_name, env_id)
+    print(
+        f"[reachability] Pick  '{pick_name}': world={format_xyz(pick_world)} robot_frame={format_xyz(pick_pos_local)}",
+        flush=True,
+    )
+
+    dest_pos_local = None
+    if dest_name is not None:
+        # Some envs wire the destination as an ObjectReference to a
+        # prim nested inside an articulation (e.g. the microwave's
+        # interior disc in franka_put_and_close_door). Those are
+        # not in scene.rigid_objects, so the lookup raises. Treat
+        # that as "skip the place check" rather than failing the
+        # whole run — pick reachability is still useful.
+        try:
+            dest_world = get_scene_object_world_pos(env, dest_name, env_id)
+            dest_pos_local = get_object_pos_in_robot_frame(env, dest_name, env_id)
+            print(
+                f"[reachability] Place '{dest_name}': world={format_xyz(dest_world)} "
+                f"robot_frame={format_xyz(dest_pos_local)}",
+                flush=True,
+            )
+        except AssertionError as exc:
+            print(
+                f"[reachability] Place '{dest_name}': not in scene — skipping place IK check. ({exc})",
+                flush=True,
+            )
+            dest_name = None
+
+    pose_kwargs = dict(
+        top_down_offset=float(args_cli.top_down_offset),
+        hand_to_tcp_z=float(args_cli.hand_to_tcp_z),
+        grasp_axis=str(args_cli.grasp_axis),
+        device=planner.tensor_args.device,
+    )
+    pick_target, _ = build_curobo_target_pose(object_pos_local=pick_pos_local, **pose_kwargs)
+    print(
+        f"[reachability] Pick  top-down hand target: {format_xyz(pick_target.position.squeeze(0).detach().cpu())}",
+        flush=True,
+    )
+    place_target = None
+    if dest_pos_local is not None:
+        place_target, _ = build_curobo_target_pose(object_pos_local=dest_pos_local, **pose_kwargs)
+        print(
+            f"[reachability] Place top-down hand target: {format_xyz(place_target.position.squeeze(0).detach().cpu())}",
+            flush=True,
+        )
+
+    pick_feasible, pick_pos_err, pick_rot_err, pick_q = check_ik_feasibility(planner, pick_target)
+    pick_status = classify_ik_status(pick_feasible, pick_pos_err, pick_rot_err, pos_thresh, rot_thresh)
+    print(
+        f"[reachability] Pick  status: {pick_status} (pos_err={pick_pos_err:.4f} m, rot_err={pick_rot_err:.4f} rad)",
+        flush=True,
+    )
+
+    place_status = None
+    place_pos_err = float("nan")
+    place_rot_err = float("nan")
+    if place_target is not None:
+        # Warm-seed the place IK with the pick's solution so both
+        # ends converge from a consistent basin when poses are close.
+        place_feasible, place_pos_err, place_rot_err, _ = check_ik_feasibility(
+            planner, place_target, seed_config=pick_q
+        )
+        place_status = classify_ik_status(place_feasible, place_pos_err, place_rot_err, pos_thresh, rot_thresh)
+        print(
+            f"[reachability] Place status: {place_status} "
+            f"(pos_err={place_pos_err:.4f} m, rot_err={place_rot_err:.4f} rad)",
+            flush=True,
+        )
+
+    # Drop markers at each hand target in world frame.
+    if markers:
+        device = robot_world_pos.device
+
+        def _world_pos(vec3):
+            return (robot_world_pos + vec3.to(device)).unsqueeze(0)
+
+        def _quat(target):
+            return target.quaternion.to(device).reshape(1, 4)
+
+        markers["pick_hand"].visualize(
+            translations=_world_pos(pick_target.position.squeeze(0)),
+            orientations=_quat(pick_target),
+        )
+        if "place_hand" in markers and place_target is not None:
+            markers["place_hand"].visualize(
+                translations=_world_pos(place_target.position.squeeze(0)),
+                orientations=_quat(place_target),
+            )
+
+    overall_feasible = pick_status == IK_STATUS_FEASIBLE and (
+        place_status is None or place_status == IK_STATUS_FEASIBLE
+    )
+    statuses = [s for s in (pick_status, place_status) if s is not None]
+    overall_status = (
+        IK_STATUS_FEASIBLE
+        if overall_feasible
+        else (
+            IK_STATUS_IN_COLLISION
+            if IK_STATUS_IN_COLLISION in statuses and IK_STATUS_UNREACHABLE not in statuses
+            else IK_STATUS_UNREACHABLE
+        )
+    )
+    payload = {
+        "overall_feasible": overall_feasible,
+        "overall_status": overall_status,
+        "pick": {
+            "object": pick_name,
+            "status": pick_status,
+            "position_error_m": pick_pos_err,
+            "rotation_error_rad": pick_rot_err,
+        },
+        "place": (
+            None
+            if place_status is None
+            else {
+                "object": dest_name,
+                "status": place_status,
+                "position_error_m": place_pos_err,
+                "rotation_error_rad": place_rot_err,
+            }
+        ),
+    }
+    return overall_status, overall_feasible, payload
+
+
+def _check_open_door(
+    env,
+    env_id,
+    planner,
+    planner_cfg,
+    openable_name,
+    task_kind,
+    robot_world_pos,
+    markers,
+    zero,
+    args_cli,
+):
+    """IK check for OpenDoorTask / CloseDoorTask. Returns (overall_status, overall_feasible, json_payload).
+
+    Checks a single horizontal front-approach pose at the door center,
+    offset ``--door_approach_offset`` meters along ``--door_facing_axis``.
+    """
+    pos_thresh = float(planner_cfg.position_threshold)
+    rot_thresh = float(planner_cfg.rotation_threshold)
+
+    openable_world = get_scene_object_world_pos(env, openable_name, env_id)
+    openable_pos_local = get_object_pos_in_robot_frame(env, openable_name, env_id)
+    print(
+        f"[reachability] Openable '{openable_name}': world={format_xyz(openable_world)} "
+        f"robot_frame={format_xyz(openable_pos_local)}",
+        flush=True,
+    )
+
+    approach_target, _ = build_curobo_door_approach_pose(
+        object_pos_local=openable_pos_local,
+        door_approach_offset=float(args_cli.door_approach_offset),
+        door_facing_axis=str(args_cli.door_facing_axis),
+        device=planner.tensor_args.device,
+    )
+    print(
+        "[reachability] Door front-approach hand target: "
+        f"{format_xyz(approach_target.position.squeeze(0).detach().cpu())} "
+        f"(axis={args_cli.door_facing_axis}, offset={args_cli.door_approach_offset} m)",
+        flush=True,
+    )
+
+    feasible, pos_err, rot_err, _ = check_ik_feasibility(planner, approach_target)
+    approach_status = classify_ik_status(feasible, pos_err, rot_err, pos_thresh, rot_thresh)
+    print(
+        f"[reachability] Door  approach status: {approach_status} (pos_err={pos_err:.4f} m, rot_err={rot_err:.4f} rad)",
+        flush=True,
+    )
+
+    if "door_approach_hand" in markers:
+        device = robot_world_pos.device
+        markers["door_approach_hand"].visualize(
+            translations=(robot_world_pos + approach_target.position.squeeze(0).to(device)).unsqueeze(0),
+            orientations=approach_target.quaternion.to(device).reshape(1, 4),
+        )
+
+    overall_feasible = approach_status == IK_STATUS_FEASIBLE
+    payload = {
+        "overall_feasible": overall_feasible,
+        "overall_status": approach_status,
+        "task": task_kind,
+        "door_approach": {
+            "object": openable_name,
+            "status": approach_status,
+            "door_facing_axis": str(args_cli.door_facing_axis),
+            "door_approach_offset_m": float(args_cli.door_approach_offset),
+            "position_error_m": pos_err,
+            "rotation_error_rad": rot_err,
+        },
+    }
+    return approach_status, overall_feasible, payload
 
 
 if __name__ == "__main__":
