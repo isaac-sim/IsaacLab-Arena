@@ -122,13 +122,14 @@ def main() -> int:
 
             from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
 
-            def _make_big_frame(prim_path: str, scale: float = 0.3) -> VisualizationMarkers:
+            def _make_big_frame(prim_path: str, scale: float = 0.15) -> VisualizationMarkers:
                 cfg = deepcopy(FRAME_MARKER_CFG)
                 cfg.prim_path = prim_path
                 frame = cfg.markers.get("frame")
                 if frame is not None:
-                    # Arena's ee_frame uses (0.1, 0.1, 0.1). 0.3 puts us
-                    # at 3x their size so ours is unmistakable.
+                    # Arena's ee_frame uses (0.1, 0.1, 0.1); 0.15 keeps us
+                    # slightly larger so ours is still identifiable in the
+                    # viewport without dominating the scene.
                     setattr(frame, "scale", (scale, scale, scale))
                 return VisualizationMarkers(cfg)
 

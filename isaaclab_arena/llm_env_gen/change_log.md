@@ -86,6 +86,52 @@ docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
 - `isaaclab_arena_environments/microwaveOpenkitchen.py:87` — `# TODO(relation kind 'next_to' has no generator support yet)` for broccoli, sweet_potato, red_bell_pepper next_to microwave
 - `isaaclab_arena_environments/microwaveOpentable.py` — same `next_to` TODOs for distractor veggies
 
+## Xinjie Yao — 2026-04-23
+
+### 1. What it can do
+
+- **Randomize the robot base around the tabletop** on every regenerated env — a new `RobotPlacement` field in `Placement` samples one of the four tabletop edges (`x_min` / `x_max` / `y_min` / `y_max`), picks a fraction in `[0.4, 0.6]` along that edge, plants the base 0.1 m outside, and yaws it to face the table center. The avocado env now emits an `embodiment.set_initial_pose(...)` block driven by the runtime tabletop bbox rather than a hardcoded pose.
+- **Seeded by env name** so regenerating the same env yields the same pose (`random.Random(env_name)`). Different envs → different edges; same prompt → reproducible pose.
+- **Only emitted for tabletop-anchored backgrounds** (gated on `TabletopAnchorPlan.emit_position_limits`) so non-tabletop flows stay untouched.
+- **Faster default viewer dwell** on reachability runs — `--dwell_steps` default dropped from 1500 (~50 s) to 300 (~10 s); bump it back up when you need longer manual inspection.
+
+**Assumptions:** generated env uses a registered embodiment whose `set_initial_pose(Pose)` is wired through `EmbodimentBase._update_scene_cfg_with_robot_initial_pose` (verified for `franka_ik`). `no_embodiment` currently rejects `set_initial_pose` because its `scene_config` has no `robot` — use `franka_ik` for smoke tests that exercise the pose block. The template now materializes `_tbl_min_xyz` / `_tbl_max_xyz` **before** `embodiment = …`, so any downstream renderer must preserve that order.
+
+### 2. What was added
+
+- **`isaaclab_arena/llm_env_gen/placement_proposer.py`**
+  - `RobotPlacement` dataclass — `edge`, `fraction`, `offset_m`, `z_m`, `rotation_xyzw`.
+  - `Placement.robot_placement: RobotPlacement | None` — `None` when the background has no usable tabletop bbox.
+  - `_EDGE_ROTATION_XYZW` — yaw quaternion table keyed by edge name (4 cardinal orientations).
+  - `_ROBOT_EDGE_OFFSET_M = 0.1`, `_ROBOT_EDGE_FRACTION_RANGE = (0.4, 0.6)` — tunables kept at module scope so they're easy to find.
+  - `_propose_robot_placement(env_name)` — seeded sampler wired into `propose_placement`.
+- **`isaaclab_arena/llm_env_gen/env_writer.py`**
+  - `_render_robot_pose(rp)` — emits the `_robot_x` / `_robot_y` / `embodiment.set_initial_pose(...)` block from a `RobotPlacement`, sharing one template across the four edges via compact axis-expr dispatch.
+  - Template reordered: `{bbox_setup}` now renders **before** embodiment creation so the robot-pose block can reference `_tbl_min_xyz` / `_tbl_max_xyz`.
+- **`isaaclab_arena/llm_env_gen/reachability_utils.py`** — `--dwell_steps` default dropped from 1500 to 300 (~10 s); help text updated to say "bump for longer inspection".
+- **`isaaclab_arena/llm_env_gen/run_reachability_check.py`** — shrank the `_make_big_frame` default scale from 0.3 → 0.15 so the reachability target frame is still identifiable against Arena's 0.1 ee_frame markers without dominating the viewport.
+- **`isaaclab_arena_environments/avocadoPnPbowltable.py`** — regenerated under the new pipeline. Sampled edge `x_max` at fraction 0.448 → Franka sits east of the table, yaw 180° facing inward. Verified with the `verify-env-with-zero-action` smoke test (500 steps, Kit viz, `franka_ik`, exit 0).
+
+### 3. Commands
+
+```bash
+# Regenerate an env with a randomized robot placement
+/isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema \
+    --background maple_table_robolab \
+    --write-env isaaclab_arena_environments
+
+# Smoke-test the regenerated env with franka_ik + Kit viz
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh -u -m isaaclab_arena.evaluation.policy_runner \
+    --policy_type zero_action --num_envs 1 --num_steps 500 --viz kit \
+    avocadoPnPbowltable --embodiment franka_ik"
+```
+
+### 4. TODOs
+
+- `no_embodiment` still crashes because its `scene_config` has no `robot` attribute — generated envs now unconditionally call `embodiment.set_initial_pose(...)`. Either guard the emit site on `args_cli.embodiment != "no_embodiment"` or make `NoEmbodiment.set_initial_pose` a no-op so the `verify-env-with-zero-action` skill keeps working.
+- Robot placement currently ignores the pick/destination geometry — a future feasibility gate (IK reachability on both objects) should reject or resample placements where neither object is in the Franka work envelope from the sampled edge.
+
 ## Qian Lin — 2026-04-23
 
 ### 1. What it can do

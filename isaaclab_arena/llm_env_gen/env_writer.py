@@ -27,6 +27,7 @@ from .placement_proposer import (
     Placement,
     PlacementItem,
     RelationSpec,
+    RobotPlacement,
     TabletopAnchorPlan,
     block_initial_goal_satisfaction,
     propose_placement,
@@ -64,6 +65,7 @@ def _render_module(placement: Placement) -> str:
     item_decls = _render_item_decls(placement.items)
     anchor_setup = _render_anchor_setup(placement.tabletop_anchor_plan)
     bbox_setup = _render_bbox_setup(placement.tabletop_anchor_plan)
+    robot_pose_setup = _render_robot_pose(placement.robot_placement)
     relations_src = _render_relations(placement.items)
     goal_comments = "\n".join(placement.task_plan.goal_comments)
     asset_list = ", ".join([
@@ -147,13 +149,14 @@ class {placement.class_name}(ExampleEnvironmentBase):
         # Tabletop anchor — {tabletop_header_note}.
 {anchor_setup}
 
+{bbox_setup}
+
         # No kwargs — works for both no_embodiment and robot embodiments whose
         # optional flags (enable_cameras, etc.) default to safe values.
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+{robot_pose_setup}
 
 {item_decls}
-
-{bbox_setup}
 
 {relations_src}
 
@@ -221,6 +224,50 @@ def _render_bbox_setup(plan: TabletopAnchorPlan) -> str:
         "        _tbl_min_xyz = [float(_tbl_bbox.min_point[0, i]) for i in range(3)]\n"
         "        _tbl_max_xyz = [float(_tbl_bbox.max_point[0, i]) for i in range(3)]\n"
         f"        _tbl_margin = {plan.margin_m}"
+    )
+
+
+def _render_robot_pose(rp: RobotPlacement | None) -> str:
+    """Emit the lines that place the embodiment along the sampled table edge.
+
+    Relies on ``_tbl_min_xyz`` / ``_tbl_max_xyz`` / ``_tbl_margin`` having
+    been materialized by :func:`_render_bbox_setup`, so this must be
+    rendered *after* the bbox setup block in the generated module.
+    """
+    if rp is None:
+        return ""
+
+    # Compact axis encoding so we can share one template across edges.
+    # The sampled edge picks which XY axis is "fixed at the edge" vs
+    # "interpolated between the two corners", and which direction the
+    # outward offset points.
+    frac = round(rp.fraction, 4)
+    if rp.edge == "x_min":
+        x_expr = f"_tbl_min_xyz[0] - {rp.offset_m}"
+        y_expr = f"(1 - {frac}) * _tbl_min_xyz[1] + {frac} * _tbl_max_xyz[1]"
+    elif rp.edge == "x_max":
+        x_expr = f"_tbl_max_xyz[0] + {rp.offset_m}"
+        y_expr = f"(1 - {frac}) * _tbl_min_xyz[1] + {frac} * _tbl_max_xyz[1]"
+    elif rp.edge == "y_min":
+        x_expr = f"(1 - {frac}) * _tbl_min_xyz[0] + {frac} * _tbl_max_xyz[0]"
+        y_expr = f"_tbl_min_xyz[1] - {rp.offset_m}"
+    elif rp.edge == "y_max":
+        x_expr = f"(1 - {frac}) * _tbl_min_xyz[0] + {frac} * _tbl_max_xyz[0]"
+        y_expr = f"_tbl_max_xyz[1] + {rp.offset_m}"
+    else:
+        return f"        # TODO(robot_placement): unsupported edge {rp.edge!r}"
+
+    return (
+        "\n"
+        f"        # Robot placement sampled on tabletop edge '{rp.edge}' at fraction "
+        f"{rp.fraction:.3f};\n"
+        f"        # base sits {rp.offset_m} m outside the edge, yaw faces the table center.\n"
+        f"        _robot_x = {x_expr}\n"
+        f"        _robot_y = {y_expr}\n"
+        f"        embodiment.set_initial_pose(Pose(\n"
+        f"            position_xyz=(_robot_x, _robot_y, {rp.z_m}),\n"
+        f"            rotation_xyzw={rp.rotation_xyzw},\n"
+        f"        ))"
     )
 
 

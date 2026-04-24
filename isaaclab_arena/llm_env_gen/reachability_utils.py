@@ -120,11 +120,11 @@ def add_ik_reachability_cli_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         "--dwell_steps",
         type=int,
-        default=1500,
+        default=300,
         help=(
             "Number of zero-action sim steps to take after rendering the target markers "
             "so the Kit viewer stays up for inspection. Only runs when a viewer is open "
-            "(i.e. not --headless). Default 1500 (~50s)."
+            "(i.e. not --headless). Default 300 (~10s); bump for longer inspection."
         ),
     )
     group.add_argument(

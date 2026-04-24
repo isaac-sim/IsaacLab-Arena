@@ -21,6 +21,7 @@ module. Keeping the two concerns separate lets us:
 from __future__ import annotations
 
 import math
+import random
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -119,6 +120,28 @@ _DEFAULT_APPLIANCE_FACING_YAW: float = -math.pi / 2
 _BACKGROUND_TABLETOP_ANCHOR_BASE_TYPE: frozenset[str] = frozenset({"kitchen"})
 
 
+# Edge-name → yaw quaternion (qx, qy, qz, qw) so the robot faces the
+# table center from the chosen edge. Four cardinal orientations cover
+# the full perimeter of a rectangular tabletop.
+_EDGE_ROTATION_XYZW: dict[str, tuple[float, float, float, float]] = {
+    "x_min": (0.0, 0.0, 0.0, 1.0),            # faces +x (0°)
+    "x_max": (0.0, 0.0, 1.0, 0.0),            # faces -x (180°)
+    "y_min": (0.0, 0.0, 0.7071068, 0.7071068),  # faces +y (+90°)
+    "y_max": (0.0, 0.0, -0.7071068, 0.7071068),  # faces -y (-90°)
+}
+
+# Robot-base sits this far outside the sampled tabletop edge. Large
+# enough that the robot-stand footprint does not intersect the table,
+# small enough that objects in the middle stay within Franka's
+# ~0.85 m reach envelope.
+_ROBOT_EDGE_OFFSET_M = 0.1
+
+# Sample the robot fraction inside this sub-range of the edge so the
+# base is roughly centered rather than at the corners (where IK is
+# much tighter).
+_ROBOT_EDGE_FRACTION_RANGE = (0.4, 0.6)
+
+
 # ---------------------------------------------------------------------------
 # Placement data classes
 # ---------------------------------------------------------------------------
@@ -202,6 +225,24 @@ class TaskPlan:
 
 
 @dataclass
+class RobotPlacement:
+    """Where to plant the robot base along the tabletop perimeter.
+
+    Resolved at render time against the runtime tabletop bbox so the
+    robot sits ``offset_m`` outside the sampled edge, at ``fraction``
+    along that edge. ``rotation_xyzw`` makes the robot face the table
+    center. Only meaningful when the env exposes a usable tabletop
+    bbox (``TabletopAnchorPlan.emit_position_limits`` is True).
+    """
+
+    edge: Literal["x_min", "x_max", "y_min", "y_max"]
+    fraction: float  # in [0, 1] — interpolated between the two corners of the edge
+    offset_m: float  # outward offset from the edge (meters)
+    z_m: float  # world-Z of the robot base (meters)
+    rotation_xyzw: tuple[float, float, float, float]
+
+
+@dataclass
 class Placement:
     """Everything the env_writer needs to render an env module."""
 
@@ -214,6 +255,7 @@ class Placement:
     tabletop_anchor_plan: TabletopAnchorPlan
     task_plan: TaskPlan
     extra_scene_assets: list[str]  # extra asset vars in Scene(assets=[...])
+    robot_placement: RobotPlacement | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +360,10 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:
     if tabletop_plan.kind == "reference":
         extra_assets.append("tabletop_anchor")
 
+    robot_placement = (
+        _propose_robot_placement(env_name) if tabletop_plan.emit_position_limits else None
+    )
+
     return Placement(
         env_name=env_name,
         class_name=class_name,
@@ -328,6 +374,26 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:
         tabletop_anchor_plan=tabletop_plan,
         task_plan=task_plan,
         extra_scene_assets=extra_assets,
+        robot_placement=robot_placement,
+    )
+
+
+def _propose_robot_placement(env_name: str) -> RobotPlacement:
+    """Sample a robot placement along one of the four tabletop edges.
+
+    Uses ``env_name`` as the RNG seed so regenerating the same env
+    produces the same placement (important for reproducibility when
+    the pipeline is re-run from the same prompt).
+    """
+    rng = random.Random(env_name)
+    edge = rng.choice(list(_EDGE_ROTATION_XYZW.keys()))
+    fraction = rng.uniform(*_ROBOT_EDGE_FRACTION_RANGE)
+    return RobotPlacement(
+        edge=edge,
+        fraction=fraction,
+        offset_m=_ROBOT_EDGE_OFFSET_M,
+        z_m=0.0,
+        rotation_xyzw=_EDGE_ROTATION_XYZW[edge],
     )
 
 
