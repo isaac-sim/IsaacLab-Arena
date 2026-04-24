@@ -51,13 +51,6 @@ class ArenaEnvBuilder:
         )
         self._placement_event_cfg: EventTermCfg | None = None
 
-    def orchestrate(self) -> None:
-        """Orchestrate the environment member interaction"""
-        if self.arena_env.orchestrator is not None:
-            self.arena_env.orchestrator.orchestrate(
-                self.arena_env.embodiment, self.arena_env.scene, self.arena_env.task
-            )
-
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
 
@@ -374,8 +367,6 @@ class ArenaEnvBuilder:
     ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg]:
         """Register Gym env and parse runtime cfg."""
         name = self.arena_env.name
-        # orchestrate the environment member interaction
-        self.orchestrate()
         cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
         # THIS IS A WORKAROUND TO ALLOW USER TO GRADUALLY MOVE TO THE NEW CONFIGURATION SYSTEM.
         # THIS WILL BE REMOVED IN THE FUTURE.

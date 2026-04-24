@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
-    from isaaclab_arena.orchestrator.orchestrator_base import OrchestratorBase
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -27,7 +26,6 @@ class IsaacLabArenaEnvironment:
         embodiment: EmbodimentBase | None = None,
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
-        orchestrator: OrchestratorBase | None = None,
         env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
@@ -39,7 +37,6 @@ class IsaacLabArenaEnvironment:
             embodiment: The embodiment to use in the environment.
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
-            orchestrator: The orchestrator to use in the environment.
             env_cfg_callback: A callback function that modifies the environment configuration.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
@@ -55,7 +52,6 @@ class IsaacLabArenaEnvironment:
         self.embodiment = embodiment
         self.task = task
         self.teleop_device = teleop_device
-        self.orchestrator = orchestrator
         self.env_cfg_callback = env_cfg_callback
         if (rl_framework_entry_point is None) != (rl_policy_cfg is None):
             raise ValueError("rl_framework_entry_point and rl_policy_cfg must both be set or both be None.")
