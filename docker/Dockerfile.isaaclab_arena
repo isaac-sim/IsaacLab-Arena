@@ -61,7 +61,7 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 # HuggingFace CLI for downloading datasets and models.
 # Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
 # without touching system Python packages.
-RUN apt-get install -y pipx && \
+RUN apt-get update && apt-get install -y --fix-missing pipx && \
     PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin \
     pipx install \
     "huggingface-hub[cli]" \
