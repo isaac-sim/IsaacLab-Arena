@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation
+    from isaaclab_arena.relations.relations import AtPosition, In, NextTo, Not, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -316,6 +316,188 @@ class OnLossStrategy(RelationLossStrategy):
 
         total_loss = x_band_loss + y_band_loss + z_loss
         result = relation.relation_loss_weight * total_loss
+        return result.squeeze(0) if single_input else result
+
+
+class InLossStrategy(RelationLossStrategy):
+    """Loss strategy for In (containment) relations.
+
+    XY bands match ``OnLossStrategy`` -- the child's footprint must stay
+    inside the parent's XY footprint. Z is treated as a soft preference:
+    the child is nudged toward spawning slightly above the parent's rim
+    so gravity finishes the deposit on the first physics tick.
+
+    The Z term uses ``slope * z_slope_ratio`` so it stays dominated by
+    the XY bands and by any sibling no-overlap loss.
+    """
+
+    def __init__(
+        self,
+        slope: float = 10.0,
+        z_slope_ratio: float = 0.1,
+        debug: bool = False,
+    ):
+        """
+        Args:
+            slope: Gradient magnitude for the XY band losses.
+            z_slope_ratio: Fraction of ``slope`` used for the soft Z
+                preference. Keep well below 1 so Z stays secondary to
+                XY containment.
+            debug: If True, print a per-component loss breakdown.
+        """
+        self.slope = slope
+        self.z_slope_ratio = z_slope_ratio
+        self.debug = debug
+
+    def compute_loss(
+        self,
+        relation: "In",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for In relation.
+
+        Args:
+            relation: In relation with clearance_m attribute.
+            child_pos: Child object position (N, 3) in world coords.
+            child_bbox: Child object local bounding box (N=1).
+            parent_world_bbox: Parent bounding box in world coordinates.
+
+        Returns:
+            Weighted loss tensor of shape (N,).
+        """
+        single_input = child_pos.dim() == 1
+        if single_input:
+            child_pos = child_pos.unsqueeze(0)
+
+        parent_x_min = parent_world_bbox.min_point[:, 0]
+        parent_x_max = parent_world_bbox.max_point[:, 0]
+        parent_y_min = parent_world_bbox.min_point[:, 1]
+        parent_y_max = parent_world_bbox.max_point[:, 1]
+        parent_z_max = parent_world_bbox.max_point[:, 2]
+
+        valid_x_min = parent_x_min - child_bbox.min_point[:, 0]
+        valid_x_max = parent_x_max - child_bbox.max_point[:, 0]
+        valid_y_min = parent_y_min - child_bbox.min_point[:, 1]
+        valid_y_max = parent_y_max - child_bbox.max_point[:, 1]
+
+        x_band_loss = linear_band_loss(
+            child_pos[:, 0], lower_bound=valid_x_min, upper_bound=valid_x_max, slope=self.slope
+        )
+        y_band_loss = linear_band_loss(
+            child_pos[:, 1], lower_bound=valid_y_min, upper_bound=valid_y_max, slope=self.slope
+        )
+
+        # Soft Z preference: child bottom sits just above parent rim.
+        target_z = parent_z_max + relation.clearance_m - child_bbox.min_point[:, 2]
+        z_slope = self.slope * self.z_slope_ratio
+        if z_slope > 0:
+            z_loss = single_point_linear_loss(child_pos[:, 2], target_z, slope=z_slope)
+        else:
+            z_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
+
+        if self.debug and child_pos.shape[0] == 1:
+            print(
+                f"    [In] X: child_pos={child_pos[0, 0].item():.4f}, valid_range=[{valid_x_min[0].item():.4f},"
+                f" {valid_x_max[0].item():.4f}], loss={x_band_loss[0].item():.6f}"
+            )
+            print(
+                f"    [In] Y: child_pos={child_pos[0, 1].item():.4f}, valid_range=[{valid_y_min[0].item():.4f},"
+                f" {valid_y_max[0].item():.4f}], loss={y_band_loss[0].item():.6f}"
+            )
+            print(
+                f"    [In] Z: child_pos={child_pos[0, 2].item():.4f}, target={target_z[0].item():.4f},"
+                f" soft loss={z_loss[0].item():.6f}"
+            )
+
+        total_loss = x_band_loss + y_band_loss + z_loss
+        result = relation.relation_loss_weight * total_loss
+        return result.squeeze(0) if single_input else result
+
+
+class NotRelationLossStrategy(RelationLossStrategy):
+    """Repulsion strategy for Not relations: pushes the child outside the
+    parent's XY footprint (expanded by ``margin_m``).
+
+    Uses an **escape-distance** formulation that measures how far the child
+    center would need to travel (per axis) to exit the parent region.  This
+    provides non-zero gradient even when the child is fully contained,
+    unlike overlap-based losses which go flat inside.
+
+    Per-axis escape distance::
+
+        escape_x = clamp(required_sep_x - |child_cx - parent_cx|, min=0)
+
+    The loss is ``slope * escape_x * escape_y`` so it only fires when the
+    child overlaps the parent in *both* XY axes.  Z is intentionally ignored
+    because the wrapped relation (In, On, ...) describes the vertical rule.
+    """
+
+    def __init__(self, slope: float = 1000.0, debug: bool = False):
+        """
+        Args:
+            slope: Gradient magnitude applied to the escape-distance product.
+                Must be large enough to compete with attracting relations
+                (On / In slope is typically 100).
+            debug: If True, print per-axis escape breakdown.
+        """
+        self.slope = slope
+        self.debug = debug
+
+    def compute_loss(
+        self,
+        relation: "Not",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute escape-distance-based repulsion loss.
+
+        Args:
+            relation: Not relation with margin_m attribute.
+            child_pos: Child object position (N, 3) in world coords.
+            child_bbox: Child object local bounding box (N=1).
+            parent_world_bbox: Parent bounding box in world coordinates.
+
+        Returns:
+            Weighted loss tensor of shape (N,).
+        """
+        single_input = child_pos.dim() == 1
+        if single_input:
+            child_pos = child_pos.unsqueeze(0)
+
+        margin = relation.margin_m
+
+        px_min = parent_world_bbox.min_point[:, 0] - margin
+        px_max = parent_world_bbox.max_point[:, 0] + margin
+        py_min = parent_world_bbox.min_point[:, 1] - margin
+        py_max = parent_world_bbox.max_point[:, 1] + margin
+
+        parent_cx = (px_min + px_max) / 2
+        parent_cy = (py_min + py_max) / 2
+        parent_half_x = (px_max - px_min) / 2
+        parent_half_y = (py_max - py_min) / 2
+
+        child_half_x = (child_bbox.max_point[:, 0] - child_bbox.min_point[:, 0]) / 2
+        child_half_y = (child_bbox.max_point[:, 1] - child_bbox.min_point[:, 1]) / 2
+
+        sep_x = parent_half_x + child_half_x
+        sep_y = parent_half_y + child_half_y
+
+        escape_x = torch.clamp(sep_x - torch.abs(child_pos[:, 0] - parent_cx), min=0.0)
+        escape_y = torch.clamp(sep_y - torch.abs(child_pos[:, 1] - parent_cy), min=0.0)
+
+        loss = self.slope * escape_x * escape_y
+
+        if self.debug and child_pos.shape[0] == 1:
+            print(
+                f"    [Not] escape_x={escape_x[0].item():.6f}, "
+                f"escape_y={escape_y[0].item():.6f}, "
+                f"loss={loss[0].item():.6f}"
+            )
+
+        result = relation.relation_loss_weight * loss
         return result.squeeze(0) if single_input else result
 
 

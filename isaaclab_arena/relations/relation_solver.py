@@ -15,7 +15,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import Not, Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -95,7 +95,7 @@ class RelationSolver:
                     )
                     if debug:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
-                # Handle binary relations (with parent) like On, NextTo
+                # Handle binary relations (with parent) like On, NextTo, In, Not
                 elif isinstance(relation, Relation):
                     parent = relation.parent
                     if parent in state.anchor_objects:
@@ -103,6 +103,7 @@ class RelationSolver:
                     else:
                         parent_pos = state.get_position(parent)
                         parent_world_bbox = parent.get_bounding_box().to(device).translated(parent_pos)
+
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
@@ -328,7 +329,14 @@ def _print_relation_debug(
     child_bbox = obj.get_bounding_box()
     parent_world_bbox = relation.parent.get_world_bounding_box()
 
-    print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
+    if isinstance(relation, Not):
+        inner_type = type(relation.inner).__name__
+        print(
+            f"\n=== {obj.name} -> Not({inner_type}({relation.parent.name}), "
+            f"margin_m={relation.margin_m}) ==="
+        )
+    else:
+        print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
     print(
         f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"

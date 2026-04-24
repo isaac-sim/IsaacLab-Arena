@@ -126,6 +126,81 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
+class In(Relation):
+    """Represents an 'inside' (containment) relationship between objects.
+
+    This relation specifies that a child object should be placed inside
+    the parent object's XY footprint, with Z positioned slightly above
+    the parent's rim so gravity deposits the child into the container.
+
+    Geometrically similar to On for XY (child footprint within parent),
+    but Z uses a soft preference rather than a hard constraint, allowing
+    the physics simulation to settle the child inside.
+
+    Note: Loss computation is handled by InLossStrategy in relation_loss_strategies.py.
+
+    Usage:
+        avocado.add_relation(In(bowl))
+    """
+
+    def __init__(
+        self,
+        parent: ObjectBase,
+        relation_loss_weight: float = 1.0,
+        clearance_m: float = 0.01,
+    ):
+        """
+        Args:
+            parent: The parent (container) asset that this object should be placed inside.
+            relation_loss_weight: Weight for the relationship loss function.
+            clearance_m: Safety clearance above parent's rim in meters (default: 1cm).
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
+        self.clearance_m = clearance_m
+
+
+class Not(Relation):
+    """Negates an inner binary relation -- penalizes when the inner relation IS satisfied.
+
+    Wraps any binary Relation (On, In, NextTo, etc.) and produces a loss that
+    is high when the inner relation's loss is near zero (i.e. the inner relation
+    is satisfied) and zero when the inner relation is well-violated.
+
+    Uses the hinge pattern: ``loss = max(0, margin - inner_loss) * scale``,
+    where margin is derived from ``margin_m`` (in physical meters) scaled by
+    the inner strategy's slope for consistent physical interpretation.
+
+    Typical use: ensuring initial placement does not satisfy a goal condition.
+
+    Usage:
+        # Goal: place avocado In(bowl). Init: avocado must NOT be in bowl.
+        avocado.add_relation(On(table))
+        avocado.add_relation(Not(In(bowl), margin_m=0.05))
+    """
+
+    def __init__(
+        self,
+        inner: Relation,
+        margin_m: float = 0.05,
+        relation_loss_weight: float = 1.0,
+    ):
+        """
+        Args:
+            inner: The binary relation to negate.
+            margin_m: Minimum physical separation (meters) from the inner relation's
+                satisfied state. The child must be at least this far (in inner-loss
+                terms, normalized by the inner strategy's slope) from satisfying the
+                inner relation for the Not penalty to reach zero.
+            relation_loss_weight: Weight for the Not wrapper's loss.
+        """
+        assert isinstance(inner, Relation), f"Not() can only wrap binary Relations, got {type(inner).__name__}"
+        super().__init__(parent=inner.parent, relation_loss_weight=relation_loss_weight)
+        assert margin_m > 0.0, f"margin_m must be positive, got {margin_m}"
+        self.inner = inner
+        self.margin_m = margin_m
+
+
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 
