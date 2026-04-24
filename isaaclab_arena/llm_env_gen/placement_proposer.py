@@ -20,6 +20,7 @@ module. Keeping the two concerns separate lets us:
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -36,9 +37,13 @@ from .schema import SceneSpec
 # handles both identically.
 _PICK_AND_PLACE_KINDS = {"on", "in"}
 
-# Default episode length for auto-generated pick_and_place envs. Matches the
-# hand-authored examples (e.g. pick_and_place_maple_table_environment).
+# Goal-relation kinds that map to OpenDoorTask / CloseDoorTask.
+_OPEN_DOOR_KINDS = frozenset({"open"})
+_CLOSE_DOOR_KINDS = frozenset({"closed"})
+
+# Default episode lengths for auto-generated envs.
 _DEFAULT_PICK_AND_PLACE_EPISODE_LENGTH_S = 20.0
+_DEFAULT_OPEN_DOOR_EPISODE_LENGTH_S = 30.0
 
 # Safety inset (meters) applied to the runtime tabletop bbox so items do
 # not spawn right up against the edge.
@@ -88,7 +93,6 @@ _BACKGROUND_NAME_ALIASES: dict[str, str] = {
     "lightwheel_robocasa_kitchen": "kitchen",
 }
 
-
 # Short verb code per goal-relation kind. Chosen so the generated env name
 # reads like "avocadoPnPbowltable" rather than a 40-character description.
 _VERB_CODES: dict[str, str] = {
@@ -97,7 +101,22 @@ _VERB_CODES: dict[str, str] = {
     "next_to": "Place",
     "at_position": "Move",
     "is_anchor": "Anchor",
+    "open": "Open",
+    "closed": "Close",
 }
+
+# Yaw (radians, world frame) applied via RotateAroundSolution so that an
+# openable appliance's door faces the robot at the world origin. The
+# standard background is placed at (0.5, 0.0, 0.0) rotated 90° Z.
+# -π/2 matches the GR1 microwave env orientation (door toward -X ≈ robot).
+_APPLIANCE_FACING_YAW: dict[tuple[str, str], float] = {
+    ("kitchen", "microwave"): -math.pi / 2,
+}
+_DEFAULT_APPLIANCE_FACING_YAW: float = -math.pi / 2
+
+# Backgrounds whose tabletop sub-prim lacks RigidBodyAPI. The anchor
+# ObjectReference must omit object_type=ObjectType.RIGID in these cases.
+_BACKGROUND_TABLETOP_ANCHOR_BASE_TYPE: frozenset[str] = frozenset({"kitchen"})
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +133,8 @@ class TabletopAnchorPlan:
     prim_path: str | None  # USD prim path when kind == "reference"
     emit_position_limits: bool  # whether items get bbox-derived PL
     margin_m: float = _DEFAULT_TABLETOP_MARGIN_M
+    # "RIGID" → emit object_type=ObjectType.RIGID; "BASE" → omit it (prim has no RigidBodyAPI).
+    anchor_object_type: str = "RIGID"
 
     def header_note(self, background_name: str) -> str:
         if self.kind == "none":
@@ -131,7 +152,7 @@ class TabletopAnchorPlan:
 class RelationSpec:
     """Structured view of one add_relation call to be rendered in the env."""
 
-    kind: Literal["on", "in", "not", "position_limits", "at_position", "unsupported"]
+    kind: Literal["on", "in", "not", "position_limits", "at_position", "rotate_around_solution", "unsupported"]
     # On / In: parent variable to reference. On also carries a clearance.
     on_target_var: str | None = None
     on_clearance_m: float = 0.02
@@ -141,6 +162,8 @@ class RelationSpec:
     inner: RelationSpec | None = None
     # PositionLimits: when source == "bbox", runtime-derived; when "static", use explicit bounds.
     pl_source: Literal["bbox", "static"] = "bbox"
+    # RotateAroundSolution: yaw applied on top of the solver-found position.
+    rotate_yaw_rad: float = 0.0
     # Unsupported: keep the raw relation dict + a reason so it can be emitted as a TODO.
     raw_relation: dict[str, Any] = field(default_factory=dict)
     reason: str = ""
@@ -162,13 +185,16 @@ class PlacementItem:
     instance_name: str  # key used by the resolver / LLM
     relations: list[RelationSpec] = field(default_factory=list)
     goal_binding: GoalBindingSpec | None = None  # populated by block_initial_goal_satisfaction
+    # True for articulated objects with an open/close goal (e.g. microwave).
+    # The proposer adds RotateAroundSolution to orient their door toward the robot.
+    is_openable: bool = False
 
 
 @dataclass
 class TaskPlan:
     """What task to instantiate and how to annotate it."""
 
-    kind: Literal["pick_and_place", "no_task"]
+    kind: Literal["pick_and_place", "open_door", "close_door", "no_task"]
     task_import: str  # single ``from ... import ...`` line
     task_expr: str  # source for the task instance; may span multiple lines
     goal_comments: list[str]  # source lines documenting goal_added/removed
@@ -221,6 +247,10 @@ def block_initial_goal_satisfaction(placement: Placement, resolved: ResolvedScen
         kind = goal["kind"]
         subj = goal["subject"]
         tgt = goal["target"]
+
+        # Open/close door goals are handled by the task, not placement constraints.
+        if kind in _OPEN_DOOR_KINDS | _CLOSE_DOOR_KINDS:
+            continue
 
         item = by_instance.get(subj)
         if item is None:
@@ -332,7 +362,7 @@ def _derive_env_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
         diff = resolved.goal_added[0]
         verb = _VERB_CODES.get(diff["kind"], diff["kind"].capitalize())
         primary = _compact(diff["subject"])
-        secondary = _compact(diff["target"])
+        secondary = _compact(diff["target"] or "")  # target is None for open/closed unary goals
     else:
         verb = "Env"
         primary = _compact(next(iter(resolved.items), "llm"))
@@ -346,7 +376,7 @@ def _derive_class_name(resolved: ResolvedScene, spec: SceneSpec) -> str:
         diff = resolved.goal_added[0]
         verb = _VERB_CODES.get(diff["kind"], diff["kind"].capitalize())
         primary = _compact(diff["subject"]).capitalize()
-        secondary = _compact(diff["target"]).capitalize()
+        secondary = _compact(diff["target"] or "").capitalize()  # target is None for open/closed
     else:
         verb = "Env"
         primary = _compact(next(iter(resolved.items), "llm")).capitalize()
@@ -364,9 +394,22 @@ def _plan_tabletop_anchor(background_name: str) -> TabletopAnchorPlan:
     if background_name not in _BACKGROUND_TABLETOP_ANCHOR:
         return TabletopAnchorPlan(kind="none", anchor_var="background", prim_path=None, emit_position_limits=False)
     prim = _BACKGROUND_TABLETOP_ANCHOR[background_name]
+    anchor_object_type = "BASE" if background_name in _BACKGROUND_TABLETOP_ANCHOR_BASE_TYPE else "RIGID"
     if prim is None:
-        return TabletopAnchorPlan(kind="background", anchor_var="background", prim_path=None, emit_position_limits=True)
-    return TabletopAnchorPlan(kind="reference", anchor_var="tabletop_anchor", prim_path=prim, emit_position_limits=True)
+        return TabletopAnchorPlan(
+            kind="background",
+            anchor_var="background",
+            prim_path=None,
+            emit_position_limits=True,
+            anchor_object_type=anchor_object_type,
+        )
+    return TabletopAnchorPlan(
+        kind="reference",
+        anchor_var="tabletop_anchor",
+        prim_path=prim,
+        emit_position_limits=True,
+        anchor_object_type=anchor_object_type,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +424,16 @@ def _propose_items(
     tabletop_plan: TabletopAnchorPlan,
 ) -> list[PlacementItem]:
     """Build one PlacementItem per resolved item with structured relations."""
+    background_name = resolved.background.name if resolved.background else spec.background
+
+    # Items that are the subject of an open/close door goal need is_openable=True
+    # so that RotateAroundSolution is added to orient the door toward the robot.
+    openable_subjects = {
+        r["subject"]
+        for r in resolved.goal_added + resolved.goal_removed
+        if r["kind"] in _OPEN_DOOR_KINDS | _CLOSE_DOOR_KINDS
+    }
+
     items: list[PlacementItem] = []
     for instance_name, cls in resolved.items.items():
         items.append(
@@ -389,6 +442,7 @@ def _propose_items(
                 asset_name=cls.name,
                 instance_name=instance_name,
                 relations=[],
+                is_openable=(instance_name in openable_subjects),
             )
         )
     # Walk the initial scene graph once; append relation specs to the
@@ -404,6 +458,9 @@ def _propose_items(
         if item is None:
             # Unknown subject — record on the first item so the comment
             # survives rendering; this is strictly a defensive path.
+            continue
+        if rel["kind"] in _OPEN_DOOR_KINDS | _CLOSE_DOOR_KINDS:
+            # State annotations (open/closed) — not placement relations; skip.
             continue
         if rel["kind"] == "on":
             tgt = rel["target"]
@@ -449,6 +506,14 @@ def _propose_items(
                     reason=f"relation kind {rel['kind']!r} has no generator support yet",
                 )
             )
+
+    # For openable items that received an On(tabletop_anchor) relation, append
+    # RotateAroundSolution so the door faces the robot (at world origin).
+    for item in items:
+        if item.is_openable and any(r.kind == "on" for r in item.relations):
+            facing_yaw = _APPLIANCE_FACING_YAW.get((background_name, item.asset_name), _DEFAULT_APPLIANCE_FACING_YAW)
+            item.relations.append(RelationSpec(kind="rotate_around_solution", rotate_yaw_rad=facing_yaw))
+
     return items
 
 
@@ -464,13 +529,22 @@ def _plan_task(
     background_name: str,
 ) -> TaskPlan:
     """Decide which task to emit based on the resolved goal diff."""
-    # Try PickAndPlaceTask: exactly one on/in goal between two resolved
-    # items (not the background — PickAndPlaceTask uses the destination
-    # for contact-sensor filtering, and the whole-scene background is a
-    # poor candidate).
     if len(resolved.goal_added) == 1:
         g = resolved.goal_added[0]
-        if g["kind"] in _PICK_AND_PLACE_KINDS:
+        # OpenDoorTask / CloseDoorTask: unary goal on an openable item.
+        if g["kind"] in _OPEN_DOOR_KINDS:
+            subj_var = item_vars.get(g["subject"])
+            if subj_var is not None:
+                return _open_door_plan(resolved, spec, g, subj_var)
+        elif g["kind"] in _CLOSE_DOOR_KINDS:
+            subj_var = item_vars.get(g["subject"])
+            if subj_var is not None:
+                return _close_door_plan(resolved, spec, g, subj_var)
+        # PickAndPlaceTask: exactly one on/in goal between two resolved
+        # items (not the background — PickAndPlaceTask uses the destination
+        # for contact-sensor filtering, and the whole-scene background is a
+        # poor candidate).
+        elif g["kind"] in _PICK_AND_PLACE_KINDS:
             subj_var = item_vars.get(g["subject"])
             tgt_var = None
             if g["target"] != background_name:
@@ -516,6 +590,58 @@ def _pick_and_place_plan(
     )
 
 
+def _open_door_plan(
+    resolved: ResolvedScene,
+    spec: SceneSpec,
+    goal: dict[str, Any],
+    subject_var: str,
+) -> TaskPlan:
+    comments = [f"        # goal_added: open({goal['subject']}, None) — enforced by OpenDoorTask success predicate"]
+    for r in resolved.goal_removed:
+        comments.append(
+            f"        # goal_removed (implied when door is opened): {r['kind']}({r['subject']}, {r['target']})"
+        )
+    return TaskPlan(
+        kind="open_door",
+        task_import="from isaaclab_arena.tasks.open_door_task import OpenDoorTask",
+        task_expr=(
+            "OpenDoorTask(\n"
+            f"                openable_object={subject_var},\n"
+            f"                episode_length_s={_DEFAULT_OPEN_DOOR_EPISODE_LENGTH_S},\n"
+            f"                task_description={spec.task_description!r},\n"
+            "            )"
+        ),
+        goal_comments=comments,
+        header_note=f"OpenDoorTask: openable={subject_var.removesuffix('_obj')}",
+    )
+
+
+def _close_door_plan(
+    resolved: ResolvedScene,
+    spec: SceneSpec,
+    goal: dict[str, Any],
+    subject_var: str,
+) -> TaskPlan:
+    comments = [f"        # goal_added: closed({goal['subject']}, None) — enforced by CloseDoorTask success predicate"]
+    for r in resolved.goal_removed:
+        comments.append(
+            f"        # goal_removed (implied when door is closed): {r['kind']}({r['subject']}, {r['target']})"
+        )
+    return TaskPlan(
+        kind="close_door",
+        task_import="from isaaclab_arena.tasks.close_door_task import CloseDoorTask",
+        task_expr=(
+            "CloseDoorTask(\n"
+            f"                openable_object={subject_var},\n"
+            f"                episode_length_s={_DEFAULT_OPEN_DOOR_EPISODE_LENGTH_S},\n"
+            f"                task_description={spec.task_description!r},\n"
+            "            )"
+        ),
+        goal_comments=comments,
+        header_note=f"CloseDoorTask: openable={subject_var.removesuffix('_obj')}",
+    )
+
+
 def _no_task_plan(resolved: ResolvedScene) -> TaskPlan:
     added = [(r["kind"], r["subject"], r["target"]) for r in resolved.goal_added]
     removed = [(r["kind"], r["subject"], r["target"]) for r in resolved.goal_removed]
@@ -525,7 +651,9 @@ def _no_task_plan(resolved: ResolvedScene) -> TaskPlan:
         reason = f"multi-relation goal not yet supported ({len(resolved.goal_added)} added)"
     else:
         g = resolved.goal_added[0]
-        if g["kind"] not in _PICK_AND_PLACE_KINDS:
+        if g["kind"] in _OPEN_DOOR_KINDS | _CLOSE_DOOR_KINDS:
+            reason = f"goal kind {g['kind']!r} — subject {g['subject']!r} did not resolve to a known item"
+        elif g["kind"] not in _PICK_AND_PLACE_KINDS:
             reason = f"goal kind {g['kind']!r} has no task mapping yet"
         else:
             reason = (

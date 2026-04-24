@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, model_validator
 # "in" has no In class in isaaclab_arena.relations.relations yet — see the
 # TODO there. The scene builder materializes goal-state "in" relations as
 # the task's success predicate.
-RelationKind = Literal["on", "in", "next_to", "at_position", "is_anchor"]
+RelationKind = Literal["on", "in", "next_to", "at_position", "is_anchor", "open", "closed"]
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 

@@ -76,6 +76,31 @@ def _render_module(placement: Placement) -> str:
 
     tabletop_header_note = placement.tabletop_anchor_plan.header_note(placement.background_name)
 
+    # Only import symbols that are actually used in the generated module.
+    used_relation_kinds = {r.kind for i in placement.items for r in i.relations}
+    relation_imports = sorted(
+        {"IsAnchor"}  # always needed for tabletop anchor
+        | ({"In"} if "in" in used_relation_kinds else set())
+        | ({"Not"} if "not" in used_relation_kinds else set())
+        | ({"On"} if "on" in used_relation_kinds else set())
+        | ({"PositionLimits"} if "position_limits" in used_relation_kinds else set())
+        | ({"RotateAroundSolution"} if "rotate_around_solution" in used_relation_kinds else set())
+    )
+    relations_import_line = f"        from isaaclab_arena.relations.relations import {', '.join(relation_imports)}"
+    # ObjectType is only needed when the anchor ObjectReference uses ObjectType.RIGID explicitly.
+    needs_object_type = (
+        placement.tabletop_anchor_plan.kind == "reference"
+        and placement.tabletop_anchor_plan.anchor_object_type != "BASE"
+    )
+    object_type_import_line = (
+        "        from isaaclab_arena.assets.object_base import ObjectType\n" if needs_object_type else ""
+    )
+    # ObjectReference is only needed when the tabletop anchor is a sub-prim reference.
+    needs_object_reference = placement.tabletop_anchor_plan.kind == "reference"
+    object_reference_import_line = (
+        "        from isaaclab_arena.assets.object_reference import ObjectReference\n" if needs_object_reference else ""
+    )
+
     return f'''# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
@@ -107,10 +132,8 @@ class {placement.class_name}(ExampleEnvironmentBase):
     name: str = "{placement.env_name}"
 
     def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
-        from isaaclab_arena.assets.object_base import ObjectType
-        from isaaclab_arena.assets.object_reference import ObjectReference
-        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import In, IsAnchor, Not, On, PositionLimits
+{object_type_import_line}{object_reference_import_line}        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+{relations_import_line}
         from isaaclab_arena.scene.scene import Scene
         {placement.task_plan.task_import}
         from isaaclab_arena.utils.pose import Pose
@@ -162,6 +185,16 @@ def _render_item_decls(items: list[PlacementItem]) -> str:
 
 def _render_anchor_setup(plan: TabletopAnchorPlan) -> str:
     if plan.kind == "reference":
+        if plan.anchor_object_type == "BASE":
+            # Tabletop sub-prim has no RigidBodyAPI — omit object_type to avoid RuntimeError.
+            return (
+                "        tabletop_anchor = ObjectReference(\n"
+                '            name="table",\n'
+                f'            prim_path="{plan.prim_path}",\n'
+                "            parent_asset=background,\n"
+                "        )\n"
+                "        tabletop_anchor.add_relation(IsAnchor())"
+            )
         return (
             "        tabletop_anchor = ObjectReference(\n"
             '            name="table",\n'
@@ -239,6 +272,8 @@ def _render_one_relation(var: str, rel: RelationSpec) -> list[str]:
             "            y_max=_tbl_max_xyz[1] - _tbl_margin,",
             "        ))",
         ]
+    if rel.kind == "rotate_around_solution":
+        return [f"        {var}.add_relation(RotateAroundSolution(yaw_rad={rel.rotate_yaw_rad}))"]
     if rel.kind == "unsupported":
         return [f"        # TODO({rel.reason}): {rel.raw_relation}"]
     return [f"        # TODO(unknown relation kind {rel.kind!r}): {rel.raw_relation}"]
