@@ -29,17 +29,14 @@ class PooledObjectPlacer:
     layout can serve any environment.
 
     **Heterogeneous mode** (activated when any object has
-    ``heterogeneous_bbox = True``, e.g. ``RigidObjectSet``): each layout
-    is tied to a specific *variant index* (``env_idx % num_variants``).
-    Layouts are bucketed into per-variant sub-pools so that
-    :meth:`sample_without_replacement` and :meth:`sample_with_replacement`
-    always return a layout that matches the requesting environment's
-    variant geometry.
+    ``heterogeneous_bbox = True``, e.g. ``RigidObjectSet``): each
+    environment has its own fixed set of object variants, assigned at
+    build time.  Layouts are stored per ``env_id`` so that resets always
+    return a layout solved for that environment's actual object geometry.
 
     * :meth:`sample_without_replacement` — returns the next *count* layouts
       sequentially.  Auto-refills when exhausted.  In heterogeneous mode,
-      pass ``env_ids`` so each environment receives a layout matching its
-      variant.
+      pass ``env_ids`` so each environment receives a matching layout.
     * :meth:`sample_with_replacement` — picks *count* layouts at random
       (non-consuming).  Used for static initial positions.
 
@@ -48,7 +45,7 @@ class PooledObjectPlacer:
         placer_params: Parameters forwarded to ``ObjectPlacer`` for the batched solve.
         pool_size: Number of layouts to solve per batch.
         num_envs: Total number of simulation environments.  Required for
-            heterogeneous placement so variant indices can be resolved.
+            heterogeneous placement so per-env pools can be created.
     """
 
     def __init__(
@@ -69,18 +66,17 @@ class PooledObjectPlacer:
         if self._heterogeneous:
             assert (
                 num_envs is not None
-            ), "num_envs is required for heterogeneous placement pools so variant indices can be resolved."
+            ), "num_envs is required for heterogeneous placement so per-env pools can be created."
             self._num_envs = num_envs
-            self._num_variants = self._detect_num_variants(objects)
 
-            self._variant_layouts: dict[int, list[PlacementResult]] = {v: [] for v in range(self._num_variants)}
-            self._variant_next_idx: dict[int, int] = {v: 0 for v in range(self._num_variants)}
+            self._layout_pools: dict[int, list[PlacementResult]] = {env_id: [] for env_id in range(num_envs)}
+            self._layout_cursors: dict[int, int] = {env_id: 0 for env_id in range(num_envs)}
 
             self._solve_and_store_heterogeneous(pool_size)
-            for v in range(self._num_variants):
-                if not self._variant_layouts[v]:
+            for env_id, pool in self._layout_pools.items():
+                if not pool:
                     raise RuntimeError(
-                        f"Placement pool failed to produce any valid layouts for variant {v} "
+                        f"Placement pool failed to produce any valid layouts for env {env_id} "
                         f"from {pool_size} attempts. Check object relations and constraints."
                     )
         else:
@@ -96,24 +92,8 @@ class PooledObjectPlacer:
 
     @property
     def is_heterogeneous(self) -> bool:
-        """Whether this pool operates in heterogeneous (per-variant) mode."""
+        """Whether this pool operates in heterogeneous (per-env) mode."""
         return self._heterogeneous
-
-    # ------------------------------------------------------------------
-    # Variant helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _detect_num_variants(objects: list[ObjectBase]) -> int:
-        """Return the number of unique object variants across heterogeneous objects."""
-        for obj in objects:
-            if getattr(obj, "heterogeneous_bbox", False):
-                return len(obj.objects)  # type: ignore[attr-defined]
-        return 1
-
-    def _variant_for_env(self, env_id: int) -> int:
-        """Map an environment index to its variant index."""
-        return env_id % self._num_variants
 
     # ------------------------------------------------------------------
     # Homogeneous (flat pool) internals
@@ -152,48 +132,73 @@ class PooledObjectPlacer:
             self._layouts.extend(all_results)
 
     # ------------------------------------------------------------------
-    # Heterogeneous (per-variant sub-pool) internals
+    # Heterogeneous (per-env pool) internals
     # ------------------------------------------------------------------
 
-    def _compact_variant(self, variant: int) -> None:
-        """Drop consumed layouts for a single variant and reset its read index."""
-        idx = self._variant_next_idx[variant]
-        self._variant_layouts[variant] = self._variant_layouts[variant][idx:]
-        self._variant_next_idx[variant] = 0
+    def _compact_env_pool(self, env_id: int) -> None:
+        """Drop consumed layouts for a single env and reset its cursor."""
+        idx = self._layout_cursors[env_id]
+        self._layout_pools[env_id] = self._layout_pools[env_id][idx:]
+        self._layout_cursors[env_id] = 0
 
     def _solve_and_store_heterogeneous(self, num_layouts: int) -> None:
-        """Solve layouts and bucket valid results by variant index.
+        """Solve layouts and store valid results into per-env pools.
 
-        Each result ``i`` from the solver corresponds to variant
-        ``i % num_variants`` because ``get_bounding_box_per_env`` assigns
-        variants in round-robin order.
+        Each round solves ``num_envs`` layouts in one batched call.
+        Result ``i`` is solved with env ``i``'s actual object geometry
+        (from ``get_bounding_box_per_env(num_envs)``) and is stored
+        directly into ``_layout_pools[i]``.  Multiple rounds are run
+        until each env has enough candidates.
         """
-        for v in range(self._num_variants):
-            self._compact_variant(v)
+        for env_id in self._layout_pools:
+            self._compact_env_pool(env_id)
 
-        with torch.inference_mode(False):
-            result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
-
-        all_results = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
-
+        num_rounds = max(1, num_layouts // self._num_envs)
         total_valid = 0
-        for i, r in enumerate(all_results):
-            if r.success:
-                variant = i % self._num_variants
-                self._variant_layouts[variant].append(r)
-                total_valid += 1
+        total_solved = 0
+        all_round_results: list[list[PlacementResult]] = []
 
-        if total_valid < num_layouts:
-            print(
-                f"Placement pool (heterogeneous): solved {num_layouts} candidates,"
-                f" {total_valid} valid, {num_layouts - total_valid} failed validation"
+        for _ in range(num_rounds):
+            with torch.inference_mode(False):
+                result = self._placer.place(self._objects, num_envs=self._num_envs, result_per_env=True)
+
+            round_results = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
+            all_round_results.append(round_results)
+            total_solved += len(round_results)
+
+            for env_id, r in enumerate(round_results):
+                if r.success:
+                    self._layout_pools[env_id].append(r)
+                    total_valid += 1
+
+        if total_valid < total_solved:
+            failed_envs = [e for e in self._layout_pools if not self._layout_pools[e]]
+            msg = (
+                f"Placement pool (heterogeneous): solved {total_solved} candidates"
+                f" across {num_rounds} rounds,"
+                f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
+            if failed_envs:
+                msg += f". Envs with zero valid layouts: {failed_envs}"
+            print(msg)
 
-        if total_valid == 0:
-            print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
-            for i, r in enumerate(all_results):
-                variant = i % self._num_variants
-                self._variant_layouts[variant].append(r)
+        # Per-env fallback: for any env that still has zero valid layouts,
+        # accept the best-loss (lowest loss) result from all rounds.
+        for env_id in range(self._num_envs):
+            if self._layout_pools[env_id]:
+                continue
+            best: PlacementResult | None = None
+            for round_results in all_round_results:
+                if env_id < len(round_results):
+                    r = round_results[env_id]
+                    if best is None or r.final_loss < best.final_loss:
+                        best = r
+            if best is not None:
+                print(
+                    f"Warning: env {env_id} had no valid layouts; "
+                    f"accepting best-loss fallback (loss={best.final_loss:.6f})."
+                )
+                self._layout_pools[env_id].append(best)
 
     # ------------------------------------------------------------------
     # Public API
@@ -208,7 +213,7 @@ class PooledObjectPlacer:
         read index.
 
         In **heterogeneous mode** ``env_ids`` must be provided so each
-        environment receives a layout matching its variant geometry.
+        environment receives a layout matching its object geometry.
 
         Args:
             count: Number of layouts to return.
@@ -239,6 +244,7 @@ class PooledObjectPlacer:
     def _sample_without_replacement_heterogeneous(
         self, count: int, env_ids: list[int] | torch.Tensor | None
     ) -> list[PlacementResult]:
+        """Draw one layout per requested env, refilling any depleted per-env pool."""
         assert env_ids is not None, "env_ids must be provided for heterogeneous placement pools."
 
         if isinstance(env_ids, torch.Tensor):
@@ -247,28 +253,32 @@ class PooledObjectPlacer:
             ids = list(env_ids)
         assert len(ids) == count
 
-        variant_demand: dict[int, int] = {}
-        for eid in ids:
-            v = self._variant_for_env(eid)
-            variant_demand[v] = variant_demand.get(v, 0) + 1
+        # Refill any env pool that doesn't have enough layouts.
+        demand_per_env: dict[int, int] = {}
+        for env_id in ids:
+            demand_per_env[env_id] = demand_per_env.get(env_id, 0) + 1
 
-        for v, demand in variant_demand.items():
-            avail = len(self._variant_layouts[v]) - self._variant_next_idx[v]
-            if avail < demand:
-                refill = max(self._pool_size, demand * self._num_variants)
-                self._solve_and_store_heterogeneous(refill)
+        needs_refill = False
+        for env_id, demand in demand_per_env.items():
+            available = len(self._layout_pools[env_id]) - self._layout_cursors[env_id]
+            if available < demand:
+                needs_refill = True
+                break
+
+        if needs_refill:
+            max_demand = max(demand_per_env.values())
+            self._solve_and_store_heterogeneous(max(self._pool_size, max_demand * self._num_envs))
 
         results: list[PlacementResult] = []
-        for eid in ids:
-            v = self._variant_for_env(eid)
-            idx = self._variant_next_idx[v]
-            if idx >= len(self._variant_layouts[v]):
+        for env_id in ids:
+            idx = self._layout_cursors[env_id]
+            if idx >= len(self._layout_pools[env_id]):
                 raise RuntimeError(
-                    f"Placement pool: variant {v} has no more valid layouts "
-                    f"(needed for env {eid}). The solver is not producing enough valid placements."
+                    f"Placement pool: env {env_id} has no more valid layouts. "
+                    "The solver is not producing enough valid placements."
                 )
-            results.append(self._variant_layouts[v][idx])
-            self._variant_next_idx[v] = idx + 1
+            results.append(self._layout_pools[env_id][idx])
+            self._layout_cursors[env_id] = idx + 1
 
         return results
 
@@ -276,8 +286,7 @@ class PooledObjectPlacer:
         """Pick *count* layouts at random with replacement (non-consuming).
 
         In **heterogeneous mode**, each position ``i`` in the returned
-        list corresponds to env ``i`` and is drawn from the sub-pool
-        matching that env's variant (``i % num_variants``).
+        list corresponds to env ``i`` and is drawn from that env's pool.
 
         Used by ``resolve_on_reset=False`` to assign initial positions
         that persist across resets.
@@ -287,11 +296,11 @@ class PooledObjectPlacer:
         return random.choices(self._layouts, k=count)
 
     def _sample_with_replacement_heterogeneous(self, count: int) -> list[PlacementResult]:
+        """Pick one random layout per env from its pool (non-consuming)."""
         results: list[PlacementResult] = []
-        for env_idx in range(count):
-            v = self._variant_for_env(env_idx)
-            pool = self._variant_layouts[v]
-            assert pool, f"Variant {v} has no valid layouts to sample from."
+        for env_id in range(count):
+            pool = self._layout_pools[env_id]
+            assert pool, f"Env {env_id} has no valid layouts to sample from."
             results.append(random.choice(pool))
         return results
 
@@ -299,8 +308,8 @@ class PooledObjectPlacer:
     def remaining(self) -> int:
         """Number of layouts not yet consumed by :meth:`sample_without_replacement`.
 
-        For heterogeneous pools, returns the minimum across all variants.
+        For heterogeneous pools, returns the minimum across all envs.
         """
         if self._heterogeneous:
-            return min(len(self._variant_layouts[v]) - self._variant_next_idx[v] for v in range(self._num_variants))
+            return min(len(self._layout_pools[e]) - self._layout_cursors[e] for e in self._layout_pools)
         return len(self._layouts) - self._next_idx

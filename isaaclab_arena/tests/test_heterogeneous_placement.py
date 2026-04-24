@@ -367,3 +367,122 @@ def test_pooled_placer_homogeneous_unaffected_by_num_envs():
     assert not pool.is_heterogeneous
     draws = pool.sample_without_replacement(3)
     assert len(draws) == 3
+
+
+# ---------------------------------------------------------------------------
+# Multi-set heterogeneous: different variant counts across objects
+# ---------------------------------------------------------------------------
+
+
+def test_pooled_placer_multi_set_different_variant_counts():
+    """Pool with two heterogeneous objects having different variant counts.
+
+    Bottles (3 variants) and boxes (2 variants) across 6 envs.
+    Each env gets its own pool with layouts matching its object geometry.
+    """
+    desk = _make_desk()
+
+    bottle_small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.2))
+    bottle_medium = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.25))
+    bottle_large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.3))
+    bottles = HeterogeneousDummyObject(name="bottles", bboxes=[bottle_small, bottle_medium, bottle_large])
+    bottles.add_relation(On(desk, clearance_m=0.01))
+
+    box_small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.1, 0.1))
+    box_large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.15))
+    boxes = HeterogeneousDummyObject(name="boxes", bboxes=[box_small, box_large])
+    boxes.add_relation(On(desk, clearance_m=0.01))
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+
+    pool = PooledObjectPlacer(objects=[desk, bottles, boxes], placer_params=placer_params, pool_size=50, num_envs=6)
+    assert pool.is_heterogeneous
+    assert pool.remaining > 0
+
+    env_ids = torch.tensor([0, 1, 2, 3, 4, 5])
+    draws = pool.sample_without_replacement(6, env_ids=env_ids)
+    assert len(draws) == 6
+    for d in draws:
+        assert bottles in d.positions
+        assert boxes in d.positions
+
+
+def test_pooled_placer_multi_set_sample_with_replacement():
+    """sample_with_replacement with multi-set heterogeneous objects."""
+    desk = _make_desk()
+
+    a_s = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.15))
+    a_m = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
+    a_l = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.25))
+    obj_a = HeterogeneousDummyObject(name="A", bboxes=[a_s, a_m, a_l])
+    obj_a.add_relation(On(desk, clearance_m=0.01))
+
+    b_s = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
+    b_l = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.12))
+    obj_b = HeterogeneousDummyObject(name="B", bboxes=[b_s, b_l])
+    obj_b.add_relation(On(desk, clearance_m=0.01))
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+
+    pool = PooledObjectPlacer(objects=[desk, obj_a, obj_b], placer_params=placer_params, pool_size=50, num_envs=6)
+
+    initial_remaining = pool.remaining
+    samples = pool.sample_with_replacement(6)
+    assert len(samples) == 6
+    assert pool.remaining == initial_remaining
+
+
+def test_pooled_placer_multi_set_refill():
+    """Exhausting a per-env pool should trigger refill with multi-set objects."""
+    desk = _make_desk()
+
+    v1 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
+    v2 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.2))
+    v3 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.18))
+    obj_a = HeterogeneousDummyObject(name="A", bboxes=[v1, v2, v3])
+    obj_a.add_relation(On(desk, clearance_m=0.01))
+
+    w1 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.1, 0.1))
+    w2 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.12, 0.12))
+    obj_b = HeterogeneousDummyObject(name="B", bboxes=[w1, w2])
+    obj_b.add_relation(On(desk, clearance_m=0.01))
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
+
+    # 6 envs with 3+2 variant objects, small pool to force refill
+    pool = PooledObjectPlacer(objects=[desk, obj_a, obj_b], placer_params=placer_params, pool_size=12, num_envs=6)
+
+    # Drain pool then request more to trigger refill
+    initial_remaining = pool.remaining
+    env_ids = torch.tensor(list(range(6)) * initial_remaining)
+    pool.sample_without_replacement(len(env_ids), env_ids=env_ids)
+
+    env_ids_more = torch.tensor([0, 1, 2, 3, 4, 5])
+    draws = pool.sample_without_replacement(6, env_ids=env_ids_more)
+    assert len(draws) == 6
+
+
+def test_pooled_placer_per_env_pools_isolated():
+    """Each env_id should have its own independent pool of layouts."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    initial_remaining = pool.remaining
+
+    # Draw only from env 0 and env 1; env 2 and 3 should be unaffected.
+    env_ids = torch.tensor([0, 1])
+    pool.sample_without_replacement(2, env_ids=env_ids)
+
+    # `remaining` reports the min across all envs.  Env 0 and 1 each lost one
+    # layout, so the min should have decreased by 1.
+    assert pool.remaining == initial_remaining - 1
+
+    # Drawing from env 2 and 3 should still work from their full pools.
+    env_ids_23 = torch.tensor([2, 3])
+    draws = pool.sample_without_replacement(2, env_ids=env_ids_23)
+    assert len(draws) == 2
+    for d in draws:
+        assert hetero in d.positions
