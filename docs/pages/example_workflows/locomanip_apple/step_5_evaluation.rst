@@ -72,7 +72,7 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 
 .. code-block:: text
 
-   Metrics: {success_rate: 1.0, num_episodes: 1}
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 1}
 
 Step 2: Run Parallel Environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -138,7 +138,7 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 1.0, 'num_episodes': 4}
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 4}
 
 .. note::
 
@@ -151,8 +151,14 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. note::
 
-   The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
-   If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
+   The example policy was trained on datasets generated with CPU-based physics, so the
+   single-environment command above uses ``--device cpu`` to keep evaluation physics aligned
+   with training and give per-episode reproducibility. The parallel commands instead use
+   ``--device cuda`` for throughput -- this swaps the physics backend, so individual episodes
+   are no longer bit-for-bit reproducible against the CPU-trained policy, but aggregate
+   success-rate metrics over many episodes remain informative. If your dataset was generated on
+   GPU physics, prefer ``--device cuda`` for both single and parallel runs to keep evaluation
+   physics aligned with training.
 
 .. note::
 
