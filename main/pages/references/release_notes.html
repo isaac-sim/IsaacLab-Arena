@@ -461,16 +461,10 @@
                   
   <section id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Link to this heading">#</a></h1>
-<section id="unreleased-v0-2-0">
-<h2>Unreleased: v0.2.0<a class="headerlink" href="#unreleased-v0-2-0" title="Link to this heading">#</a></h2>
-<p>This release of Isaac Lab-Arena focuses on adding essential features needed for creation and
+<section id="isaac-lab-arena">
+<h2>Isaac Lab Arena<a class="headerlink" href="#isaac-lab-arena" title="Link to this heading">#</a></h2>
+<p>Isaac Lab-Arena focuses on adding essential features needed for creation and
 execution of large-scale task libraries with complex long-horizon tasks.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Changes on <code class="docutils literal notranslate"><span class="pre">main</span></code> contains an in development version of v0.2.0.
-As of March 16th 2026 (GTC San Jose 2026), <code class="docutils literal notranslate"><span class="pre">main</span></code> contains most of the features for the v0.2.0 release,
-however, is based on Isaac Lab 2.3 (rather than Isaac Lab 3.0) and has not been SQA tested.*</p>
-</div>
 <p><strong>Key Features</strong></p>
 <ul class="simple">
 <li><p><strong>LEGO-like Composable Environments</strong> — Mix and match scenes,  embodiments, and tasks independently</p></li>
@@ -498,16 +492,6 @@ benchmarks using Arena (<a class="reference external" href="https://arxiv.org/ab
 and discover Arena environments on Hugging Face</p></li>
 <li><p><strong>Coming Soon:</strong> NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more.</p></li>
 </ul>
-<p><strong>Developer preview branches</strong></p>
-<ul class="simple">
-<li><p><strong>A developer preview of Isaac Lab-Arena 0.2 (based on Isaac Lab 2.3) is now available</strong> on
-<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/main">main</a>.
-This early version includes the 0.2 features and is meant for users who can accept some instability.</p></li>
-<li><p><strong>Isaac Lab-Arena 0.2 on Isaac Lab 3.0 is underway in a dedicated feature branch</strong>
-<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/tree/feature/isaac_lab_3_newton">feature/isaac_lab_3_newton</a>.
-This branch is subject to significant changes and instability as Lab 3.0 (Newton) is evolving quickly.</p></li>
-<li><p><strong>The official, stable, and tested release of Isaac Lab-Arena 0.2 on Isaac Lab 3.0 is coming soon in April 2026.</strong></p></li>
-</ul>
 <p><strong>Collaboration</strong></p>
 <p>Isaac Lab-Arena is being developed as an open-source, shared evaluation framework that the community can
 collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.2 Alpha, share feedback, and help
@@ -523,6 +507,80 @@ such as PIP packaging.</p>
 <ul class="simple">
 <li><p>pip install support is coming soon (current installation method is Docker-based).</p></li>
 <li><p>Performance is not yet hardened for production-scale workloads in Alpha stage.</p></li>
+</ul>
+</section>
+<section id="v0-2-0">
+<h2>v0.2.0<a class="headerlink" href="#v0-2-0" title="Link to this heading">#</a></h2>
+<p>This release introduces major new capabilities including Isaac Lab 3.0 (Newton) support,
+a sequential task chaining framework, semantic object placement, teleoperation, GR00T N1.6
+and DROID integration, RL workflows, and a large set of new tasks and embodiments.</p>
+<p><strong>Features and improvements</strong></p>
+<ul class="simple">
+<li><p><strong>Isaac Lab 3.0 (Newton) upgrade:</strong> Updated the framework to Isaac Lab 3.0 (Newton),
+including an updated interop layer (#464, #533).</p></li>
+<li><p><strong>Sequential task framework:</strong> Added <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> class for chaining atomic
+skills into long-horizon tasks, with mimic and metrics support, user-specifiable
+final subtask success states, and an example that puts an object into a microwave and
+closes the door (#289, #323, #337, #365).</p></li>
+<li><p><strong>Semantic object placement:</strong> Added a differentiable relation-based object placement
+solver supporting <code class="docutils literal notranslate"><span class="pre">On</span></code>, <code class="docutils literal notranslate"><span class="pre">NextTo</span></code>, <code class="docutils literal notranslate"><span class="pre">AtPosition</span></code>, and <code class="docutils literal notranslate"><span class="pre">PositionLimits</span></code> relations,
+multiple anchors, <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code>, and full integration with <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>
+and <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> (#328, #354, #358, #362, #387, #574).</p></li>
+<li><p><strong>Teleoperation:</strong> Added teleoperation support for G1 loco-manipulation and GR1 using
+Quest XR hand-tracking and CloudXR; updated to IsaacTeleop v1.1 (#286, #350, #577, #605).</p></li>
+<li><p><strong>GR00T N1.6 and DROID integration:</strong> Upgraded GR00T to N1.6 and added DROID dataset
+support, local inference pipeline, and language instruction support for closed-loop
+evaluation (#334, #416, #418, #420, #519).</p></li>
+<li><p><strong>New tasks, embodiments, and evaluation capabilities:</strong> Added Sorting, FactoryAssembly,
+TurnKnob, CloseDoor, and AdjustPose atomic tasks; Galbot and Agibot A2D embodiments;
+G1 WBC-AGILE end-to-end velocity policy; RSL-RL policy evaluation; distributed
+multi-GPU policy runner; multi-task evaluation job runner (#371, #285, #315,
+#295, #305, #391, #292, #489, #333, #411, #277, #445, #394).</p></li>
+</ul>
+<p><strong>Documentation</strong></p>
+<ul class="simple">
+<li><p><strong>README and Getting Started overhaul:</strong> Comprehensive README rewrite and full
+reorganization of the Getting Started section and navigation structure (#480, #505).</p></li>
+<li><p><strong>Concepts and placement docs:</strong> Added a humanized concepts page and a dedicated
+object placement documentation page (#526, #511).</p></li>
+<li><p><strong>RL and evaluation workflows:</strong> Added RL workflow docs, policy evaluation section,
+Newton evaluation example from IsaacLab DexSuite, and GTC DLI workflow docs
+(#363, #451, #536, #390).</p></li>
+<li><p><strong>External repository and advanced usage:</strong> Added a dedicated page for using Arena
+from an external repository, an advanced custom task example, GR00T closed-loop
+docs, and DROID usage instructions (#518, #550, #519).</p></li>
+</ul>
+<p><strong>Infrastructure and CI</strong></p>
+<ul class="simple">
+<li><p><strong>Docker and dependency improvements:</strong> Moved Python dependencies from the Dockerfile
+to <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>; pinned Newton mujoco version; fixed docker pipx stall; added missing
+Arena package to NGC docker (#535, #629, #640, #578).</p></li>
+<li><p><strong>Repository governance:</strong> Added CODEOWNERS, issue templates (brought over from
+IsaacLab), <code class="docutils literal notranslate"><span class="pre">SECURITY.md</span></code>, <code class="docutils literal notranslate"><span class="pre">AGENTS.md</span></code>, and <code class="docutils literal notranslate"><span class="pre">CLAUDE.md</span></code> (#583, #584, #585,
+#586, #492, #454).</p></li>
+</ul>
+<p><strong>Assets and tests</strong></p>
+<ul class="simple">
+<li><p><strong>RoboLab objects and HDR library:</strong> Added the RoboLab asset library and HDR lighting
+support for use in robolab scenes (#429, #428, #431).</p></li>
+<li><p><strong>New example environments:</strong> Added GR1 DLI environment, G1 AGILE tabletop
+environment, and a Rubik’s cube pick-and-place environment (#385, #562, #421).</p></li>
+<li><p><strong>USD asset paths:</strong> Updated object library paths to use the <code class="docutils literal notranslate"><span class="pre">ISAAC_NUCLEUS_DIR</span></code>
+prefix and updated USDs to reference the Isaac Sim 6.0 staging bucket (#291, #621).</p></li>
+</ul>
+<p><strong>Bug fixes</strong></p>
+<ul class="simple">
+<li><p><strong>Sequential task metrics:</strong> Fixed subtask success rate metric and
+<code class="docutils literal notranslate"><span class="pre">desired_subtask_success_state</span></code> check in sequential task evaluation (#405, #410).</p></li>
+<li><p><strong>RSL-RL evaluation metrics:</strong> Fixed an extra episode appearing in policy evaluation
+metrics when using RSL-RL (#530).</p></li>
+<li><p><strong>Object placement correctness:</strong> Fixed bounding box rotation in world frame, rejection
+of overlapping placements by <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>, and initialization of <code class="docutils literal notranslate"><span class="pre">On</span></code>-relation
+objects within their parent’s footprint (#400, #439, #538).</p></li>
+<li><p><strong>Recorder dataset filename collision:</strong> Fixed filename collisions when multiple
+recorders write concurrently to a shared <code class="docutils literal notranslate"><span class="pre">/tmp</span></code> directory (#469).</p></li>
+<li><p><strong>Metrics serialization:</strong> Sanitized NumPy types in metrics output to prevent
+serialization errors (#602).</p></li>
 </ul>
 </section>
 <section id="v0-1-1">
@@ -653,7 +711,8 @@ performed on a single GPU.)</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#unreleased-v0-2-0">Unreleased: v0.2.0</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#isaac-lab-arena">Isaac Lab Arena</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-2-0">v0.2.0</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-1-1">v0.1.1</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-1-0">v0.1.0</a></li>
 </ul>
