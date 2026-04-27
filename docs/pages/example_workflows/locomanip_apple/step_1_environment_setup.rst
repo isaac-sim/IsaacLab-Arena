@@ -172,8 +172,8 @@ top-level container that connects your embodiment (the robot), the scene (the wo
 See :doc:`../../concepts/concept_overview` for environment composition details.
 
 
-Step 1: Validate Environment with Automated Tests
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Validate Environment with Automated Tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A dedicated pytest module covers the apple-to-plate environment. It asserts that (i) the task does not
 terminate when the apple is at its initial pose, (ii) the success termination fires when the apple is
@@ -193,10 +193,6 @@ enabled and take around a minute each; the three Mimic config tests are lightwei
 few seconds. This is the fastest way to confirm the scene, task, and Mimic config are wired up
 correctly without requiring teleoperation hardware.
 
-
-Step 2: Validate Environment with Demo Replay (Optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 .. note::
 
    **First-run asset cache**: The Objaverse apple USD streams from an S3 staging bucket and
@@ -205,28 +201,3 @@ Step 2: Validate Environment with Demo Replay (Optional)
    tunnel through the shelf surface on the very first load. Subsequent runs read the cached
    USD from ``/tmp/Assets/`` and spawn correctly. If you see the apple fall through the shelf,
    just re-run the command once.
-
-Once a pre-recorded dataset is published for this workflow on Hugging Face, you can also validate the
-environment by replaying the dataset. The replay runs the environment with the recorded actions and no
-teleoperation device is needed, so this is a handy way to visually confirm the environment looks right
-without an XR headset:
-
-.. code-block:: bash
-
-   python isaaclab_arena/scripts/imitation_learning/replay_demos.py \
-     --viz kit \
-     --device cpu \
-     --enable_cameras \
-     --dataset_file ${DATASET_DIR}/arena_g1_locomanip_apple_dataset_generated.hdf5 \
-     galileo_g1_locomanip_pick_and_place \
-     --object apple_01_objaverse_robolab \
-     --destination clay_plates_hot3d_robolab \
-     --embodiment g1_wbc_pink
-
-.. note::
-
-   The downloaded dataset will be generated using CPU device physics, so the replay uses ``--device cpu``
-   to ensure reproducibility.
-
-You should see the G1 robot replaying the generated demonstrations, performing the apple pick and place
-task in the Galileo lab environment.

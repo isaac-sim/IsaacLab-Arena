@@ -17,30 +17,7 @@ Once inside the container, set the dataset and models directories.
     export MODELS_DIR=/models/isaaclab_arena/locomanip_apple_tutorial
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_4_policy_training>` or downloaded the
-pre-trained model checkpoint below:
-
-.. dropdown:: Download Pre-trained Model (skip preceding steps)
-   :animate: fade-in
-
-   These commands can be used to download the pre-trained GR00T N1.6 policy checkpoint,
-   such that the preceding steps can be skipped.
-   This step requires the Hugging Face CLI, which can be installed by following the
-   `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_.
-
-   To download run:
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/GN1x-Tuned-Arena-G1-Locomanip-Apple \
-         --local-dir $MODELS_DIR/checkpoint-20000
-
-   .. note::
-
-      The ``nvidia/GN1x-Tuned-Arena-G1-Locomanip-Apple`` checkpoint is a placeholder — it will be
-      populated once apple-to-plate demonstrations have been collected and the policy has been
-      post-trained. Until then, train your own checkpoint via :doc:`step_4_policy_training`.
+:doc:`preceding step (Policy Training) <step_4_policy_training>`.
 
 
 Step 1: Run Single Environment Evaluation

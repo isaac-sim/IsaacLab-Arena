@@ -9,12 +9,6 @@ This workflow covers annotating and generating the demonstration dataset using
 
 :docker_run_default:
 
-.. note::
-
-   If you skipped :doc:`step_2_teleoperation` because you don't have teleoperation hardware, this is
-   the step where you rejoin the pipeline. Use the "Download Pre-annotated Dataset" dropdown below to
-   fetch a ready-to-generate annotated HDF5 file (once published) and continue to Step 2 on this page.
-
 
 Step 1: Annotate Demonstrations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -22,30 +16,6 @@ Step 1: Annotate Demonstrations
 This step describes how to annotate the demonstrations recorded in the preceding step
 so they can be used by Isaac Lab Mimic. For more details on Mimic annotation, see the
 `Isaac Lab Mimic documentation <https://isaac-sim.github.io/IsaacLab/main/source/overview/imitation-learning/teleop_imitation.html#annotate-the-demonstrations>`_.
-
-To skip this step, you can download the pre-annotated dataset from Hugging Face as described below.
-
-.. dropdown:: Download Pre-annotated Dataset (skip annotation step)
-   :animate: fade-in
-
-   These commands can be used to download the pre-annotated dataset,
-   such that the annotation step can be skipped.
-
-   To download run:
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/Arena-G1-Loco-Manipulation-Apple-Task \
-         arena_g1_locomanip_apple_dataset_annotated.hdf5 \
-         --repo-type dataset \
-         --local-dir $DATASET_DIR
-
-   .. note::
-
-      The ``nvidia/Arena-G1-Loco-Manipulation-Apple-Task`` dataset repository is a placeholder — it
-      will be populated once apple-to-plate demonstrations are collected and annotated. Until then,
-      you will need to record demonstrations yourself via :doc:`step_2_teleoperation`.
 
 To start the annotation process, run the following command:
 
@@ -70,22 +40,6 @@ Step 2: Generate Augmented Dataset
 
 Isaac Lab Mimic generates additional demonstrations from the annotated demonstrations
 by applying object and trajectory transformations to introduce data variations.
-
-This step can be skipped by downloading the pre-generated dataset from Hugging Face as described below.
-
-.. dropdown:: Download Pre-generated Dataset (skip data generation step)
-   :animate: fade-in
-
-   These commands can be used to download the pre-generated dataset,
-   such that the data generation step can be skipped.
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/Arena-G1-Loco-Manipulation-Apple-Task \
-         arena_g1_locomanip_apple_dataset_generated.hdf5 \
-         --repo-type dataset \
-         --local-dir $DATASET_DIR
 
 Generate the dataset:
 

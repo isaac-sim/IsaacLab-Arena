@@ -41,9 +41,9 @@ flatter target.
    * - **Post-training**
      - Imitation Learning
    * - **Dataset**
-     - TBD (pre-recorded dataset will be published once trained checkpoints are available)
+     - Self-recorded (collect via Step 2)
    * - **Checkpoint**
-     - TBD
+     - Self-trained (post-train via Step 4)
    * - **Physics**
      - PhysX (200Hz @ 4 decimation)
    * - **Closed-loop**
@@ -51,21 +51,14 @@ flatter target.
    * - **Metrics**
      - Success rate
 
-.. note::
-
-   Pre-recorded datasets and trained checkpoints for this workflow are **not yet published**. Until they
-   are, the "download pre-recorded" dropdowns in the steps below serve as placeholders that will be
-   populated when the artifacts are released. In the meantime, the workflow is runnable end-to-end
-   starting from the teleoperation step (with or without an XR headset — see Step 2).
-
 
 Workflow
 --------
 
 This tutorial covers the pipeline between creating an environment, collecting teleoperation demonstrations, generating training data,
 fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
-A user can follow the whole pipeline, or can start at any intermediate step
-by downloading the pre-generated output of the preceding step(s) once those artifacts are published.
+Follow the steps in order from teleoperation through closed-loop evaluation; each step consumes the
+artifacts produced by the previous one.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -73,12 +66,6 @@ Prerequisites
 Start the isaaclab docker container
 
 :docker_run_default:
-
-We store data on Hugging Face, so you'll need to log in to Hugging Face if you haven't already.
-
-.. code-block:: bash
-
-    hf auth login
 
 Create the folders for the data and models:
 

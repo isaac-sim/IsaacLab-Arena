@@ -16,23 +16,7 @@ Once inside the container, set the dataset and models directories.
     export MODELS_DIR=/models/isaaclab_arena/locomanip_apple_tutorial
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Data Generation) <step_3_data_generation>` or downloaded the pre-generated dataset.
-
-.. dropdown:: Download Pre-generated Dataset (skip preceding steps)
-   :animate: fade-in
-
-   These commands can be used to download the mimic-generated HDF5 dataset ready for policy post-training,
-   such that the preceding steps can be skipped.
-
-   To download run:
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/Arena-G1-Loco-Manipulation-Apple-Task \
-         arena_g1_locomanip_apple_dataset_generated.hdf5 \
-         --repo-type dataset \
-         --local-dir $DATASET_DIR
+:doc:`preceding step (Data Generation) <step_3_data_generation>`.
 
 
 Step 1: Convert to LeRobot Format
@@ -40,25 +24,6 @@ Step 1: Convert to LeRobot Format
 
 GR00T N1.6 requires the dataset to be in LeRobot format.
 We provide a script to convert from the IsaacLab Mimic generated HDF5 dataset to LeRobot format.
-Note that this conversion step can be skipped by downloading the pre-converted LeRobot format dataset.
-
-.. dropdown:: Download Pre-converted LeRobot Dataset (skip conversion step)
-   :animate: fade-in
-
-   These commands can be used to download the pre-converted LeRobot format dataset,
-   such that the conversion step can be skipped.
-
-   To download run:
-
-   .. code-block:: bash
-
-      hf download \
-         nvidia/Arena-G1-Loco-Manipulation-Apple-Task \
-         --include lerobot/* \
-         --repo-type dataset \
-         --local-dir $DATASET_DIR/arena_g1_locomanip_apple_dataset_generated
-
-   If you download this dataset, you can skip the conversion step below and continue to the next step.
 
 Convert the HDF5 dataset to LeRobot format for policy post-training:
 
