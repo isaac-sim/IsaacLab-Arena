@@ -113,6 +113,13 @@ add_volume_if_it_exists() {
     [ -d "$src" ] && echo "-v $src:$dst"
 }
 
+# Forward host SSH auth into the container when available.
+SSH_DOCKER_ARGS=()
+if [ -S "$SSH_AUTH_SOCK" ]; then
+    SSH_DOCKER_ARGS+=("-v" "$SSH_AUTH_SOCK:/ssh-agent")
+    SSH_DOCKER_ARGS+=("--env" "SSH_AUTH_SOCK=/ssh-agent")
+fi
+
 # If container is running, attach to it, otherwise start
 if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
@@ -138,6 +145,9 @@ else
                     "-v" "/tmp/.X11-unix:/tmp/.X11-unix:rw"
                     "-v" "/var/run/docker.sock:/var/run/docker.sock"
                     "-v" "$HOME/.Xauthority:/root/.Xauthority"
+                    "-v" "$HOME/.github:/home/$(id -un)/.github"
+                    "-v" "$HOME/.ssh:/home/$(id -un)/.ssh"
+                    "${SSH_DOCKER_ARGS[@]}"
                     # Mount host SSL certificate store so the container trusts CA certs
                     "-v" "/etc/ssl/certs:/etc/ssl/certs:ro"
                     "--env" "DISPLAY"
