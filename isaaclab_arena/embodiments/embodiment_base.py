@@ -10,7 +10,6 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.cameras import make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose
@@ -111,9 +110,6 @@ class EmbodimentBase(Asset):
 
     def get_termination_cfg(self) -> Any:
         return self.termination_cfg
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        return env_cfg
 
     def get_embodiment_name_in_scene(self) -> str:
         return "robot"
