@@ -1,5 +1,89 @@
 # llm_env_gen — change log
 
+## Xinjie Yao — 2026-04-27
+
+### 1. What it can do
+
+- **Compute the Franka EEF reachability map** with batched cuRobo IK on GPU,
+  standalone (no SimulationApp / Kit boot). 25³ = 15,625 voxels solve in ~24s.
+- **Save reach-map artifacts** to disk: a `.npz` with success / pos_err /
+  rot_err arrays + axis grids, and a 3-D matplotlib voxel render PNG with the
+  robot base origin and an x/y/z axis triad overlaid.
+- **Visualize the reach map inside Kit**, overlaid on a registered Arena env:
+  green/cyan sphere markers at feasible voxels (split by IK pos-error median),
+  red sphere at the robot base. Loads a precomputed `.npz` to skip cuRobo,
+  so the only cost is Kit boot.
+
+**Assumptions:**
+
+- `isaaclab_arena-curobo` container running.
+- For `viz_reach_map_kit.py`: top-level CLI flags must come **before** the env
+  name positional (Arena's env subparser owns args after the env name).
+
+### 2. What was added
+
+**`tools/compute_reach_map.py`** *(new)*
+
+- Pure cuRobo + PyTorch — imports `IKSolver` directly from `curobo.wrap.reacher`
+  with `RobotConfig.from_dict(load_yaml("franka.yml")["robot_cfg"])`. No Isaac
+  Sim env needed, so no SimApp boot.
+- 3-D `torch.linspace` grid in robot base frame (`--x_min / --x_max / --y_min /
+  --y_max / --z_min / --z_max`, default `[-0.4, 1.0] × [-0.9, 0.9] × [0.0, 1.4]`).
+- Top-down EE quaternion (wxyz `[0, 1, 0, 0]`) by default; configurable via
+  `--quat_wxyz`. `--num_seeds` controls cuRobo IK seed count (default 20).
+- `--save_npz <path>`: stores `success`, `pos_err`, `rot_err`, axis grids,
+  and the EE quaternion.
+- `--save_png <path>`: matplotlib `Agg` voxel render colored by IK position
+  error, with a red base marker at the origin, dashed plumb line up through
+  the workspace, and an RGB axis triad. Works headless.
+
+**`tools/viz_reach_map_kit.py`** *(new)*
+
+- Brings up a registered Arena env (e.g. `avocadoPnPbowltable`) under
+  `--viz kit` and scatters `VisualizationMarkers` sphere instances at every
+  feasible voxel in world frame.
+- Two reach-map sphere bins (`tight` green, `loose` cyan) split at the
+  feasible-voxel pos-error median to show robust vs marginal reach.
+- Separate red sphere marker (`/World/Visuals/reach_map_base`, radius 0.06)
+  at the robot's world root pose.
+- `--load_npz <path>`: loads the artifact saved by `compute_reach_map.py` and
+  skips the cuRobo step entirely. Falls back to in-process cuRobo IK if no
+  NPZ is provided.
+- Robot world pose fetched via `wp.to_torch(robot.data.root_pos_w)[0, :3]`
+  and same for `root_quat_w` (Isaac Lab exposes these as warp arrays, not
+  torch tensors). Voxels in base frame are rotated to world via
+  `isaaclab.utils.math.quat_apply` before being passed to `markers.visualize`.
+
+### 3. Commands
+
+```
+# Compute the reach map and save NPZ + PNG (no Kit, ~25s on GPU).
+docker exec isaaclab_arena-curobo bash -c \
+  'cd /workspaces/isaaclab_arena && /isaac-sim/python.sh tools/compute_reach_map.py \
+     --grid 25 \
+     --save_npz tools/franka_reach_top_down.npz \
+     --save_png tools/franka_reach_top_down.png'
+
+# Show the reach map in the Kit viewer overlaid on avocadoPnPbowltable.
+# Note: --load_npz must come BEFORE the env name positional.
+docker exec isaaclab_arena-curobo bash -c \
+  'cd /workspaces/isaaclab_arena && /isaac-sim/python.sh tools/viz_reach_map_kit.py \
+     --viz kit --num_envs 1 \
+     --load_npz tools/franka_reach_top_down.npz \
+     avocadoPnPbowltable --embodiment franka_ik'
+```
+
+### 4. TODOs
+
+- Loop over a small set of EE quaternions (top-down, side approach, ±yaw)
+  inside `compute_reach_map.py` and store *fraction reachable* per voxel —
+  smoother [0, 1] field, suitable as the differentiable proxy `W` for
+  the placement-optimization design.
+- Color the Kit reach markers by manipulability `√det(JJᵀ)` instead of (or in
+  addition to) IK pos-error bins — cuRobo exposes the Jacobian at `q*`.
+- Wire `viz_reach_map_kit.py` to honor the `--quat_wxyz` from the NPZ so the
+  Kit overlay matches the orientation the map was computed for.
+
 ## Qian Lin — 2026-04-24
 
 ### 1. What it can do
