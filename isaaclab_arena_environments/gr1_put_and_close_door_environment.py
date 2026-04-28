@@ -215,4 +215,4 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             "--kitchen_style", type=int, default=2, help="Kitchen style ID for lightwheel robocasa kitchen"
         )
         parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")
-        parser.add_argument("--embodiment", type=str, default="gr1_pink", help="Robot embodiment to use")
+        parser.add_argument("--embodiment", type=str, default="gr1_wbc_pink", help="Robot embodiment to use")

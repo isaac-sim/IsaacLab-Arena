@@ -29,7 +29,7 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("kitchen")()
         stand_mixer = self.asset_registry.get_asset_by_name("stand_mixer")()
         assets = [background, stand_mixer]
-        assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
+        assert args_cli.embodiment in ["gr1_wbc_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
             args_cli.embodiment
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
@@ -78,6 +78,6 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase):
         # to be used in the record_demos.py script.
         parser.add_argument("--teleop_device", type=str, default=None)
         # Note (xinjieyao, 2025.10.06): Add the embodiment argument for PINK IK EEF control or Joint positional control
-        parser.add_argument("--embodiment", type=str, default="gr1_pink")
+        parser.add_argument("--embodiment", type=str, default="gr1_wbc_pink")
         parser.add_argument("--target_level", type=int, default=4)
         parser.add_argument("--reset_level", type=int, default=-1)

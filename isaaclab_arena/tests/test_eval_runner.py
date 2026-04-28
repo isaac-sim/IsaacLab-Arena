@@ -13,6 +13,7 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
+DEFAULT_VISUALIZER = "kit"
 
 
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
@@ -38,6 +39,9 @@ def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
     args.append(jobs_config_path)
     if headless:
         args.append("--headless")
+    else:
+        args.append("--visualizer")
+        args.append(DEFAULT_VISUALIZER)
 
     run_subprocess(args)
 
