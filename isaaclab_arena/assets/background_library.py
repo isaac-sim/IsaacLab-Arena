@@ -117,7 +117,7 @@ class GalileoLocomanipBackground(LibraryBackground):
     tags = ["background"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/background_library/galileo_locomanip/galileo_locomanip.usd"
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-    object_min_z = -0.2
+    object_min_z = -0.3
 
     def __init__(self):
         super().__init__()
