@@ -206,6 +206,12 @@ TABLE OF CONTENTS
 
 .. toctree::
    :maxdepth: 1
+   :caption: Example Environments
+
+   pages/example_environments
+
+.. toctree::
+   :maxdepth: 1
    :caption: Example Workflows
 
    pages/example_workflows/imitation_learning/index
