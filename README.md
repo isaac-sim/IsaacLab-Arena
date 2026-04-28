@@ -6,9 +6,9 @@
 
 [![Alpha](https://img.shields.io/badge/status-alpha-e8912d.svg)](#%EF%B8%8F-project-status)
 [![Version](https://img.shields.io/badge/version-0.2.x-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-5.1.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
-[![IsaacLab](https://img.shields.io/badge/IsaacLab-2.3.0-silver.svg)](https://github.com/isaac-sim/IsaacLab)
-[![Python](https://img.shields.io/badge/python-≥3.10-blue.svg)](https://docs.python.org/3/whatsnew/3.10.html)
+[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.0.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
+[![IsaacLab](https://img.shields.io/badge/IsaacLab-3.0.0-silver.svg)](https://github.com/isaac-sim/IsaacLab)
+[![Python](https://img.shields.io/badge/python-≥3.12-blue.svg)](https://docs.python.org/3/whatsnew/3.12.html)
 [![Linux](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/22.04/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow.svg)](LICENSE.md)
 
@@ -23,9 +23,7 @@
 > Isaac Lab-Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
 > [!NOTE]
-> Changes on `main` contains an in development version of v0.2.0.
-> As of March 16th 2026 (GTC San Jose 2026), `main` contains most of the features for the v0.2.0 release,
-> however, is based on Isaac Lab 2.3 (rather than Isaac Lab 3.0) and has not been SQA tested.*
+> Changes on `main` contains an in development version based on v0.2.0, based on Isaac Lab 3.0.
 ---
 
 ## Overview
@@ -67,7 +65,7 @@ Arena solves this by making environment variation a first-class concept. Swap an
 ### Prerequisites
 
 - Linux (Ubuntu 22.04+)
-- NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html))
+- NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html))
 - Docker and NVIDIA Container Toolkit
 - Git
 
@@ -133,10 +131,13 @@ Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLa
 
 | Example | Description |
 |---------|-------------|
-| [G1 Loco-Manipulation](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/locomanipulation/index.html) | Unitree G1 humanoid locomotion + manipulation |
-| [GR1 Open Microwave Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/static_manipulation/index.html) | GR1 humanoid interacting with articulated objects |
-| [GR1 Sequential Pick & Place](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/sequential_static_manipulation/index.html) | Multi-step manipulation with GR1 |
-| [Franka Lift Object](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/reinforcement_learning/index.html) | Classic Franka pick-up task |
+| **Imitation Learning** | |
+| [G1 Loco-Manipulation Pick & Place](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/locomanipulation/index.html) | G1 humanoid navigates, picks up a box, and places it in a bin |
+| [GR1 Open Microwave Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/static_manipulation/index.html) | GR1 upper-body manipulation of an articulated microwave door |
+| [GR1 Sequential Pick & Place and Close Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/sequential_static_manipulation/index.html) | GR1 picks an object, places it in a fridge, and closes the door |
+| **Reinforcement Learning** | |
+| [Franka Lift Object](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/reinforcement_learning/index.html) | Franka Panda grasps and lifts objects to target positions (PhysX) |
+| [Dexsuite Kuka Allegro Lift (Newton)](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/dexsuite_lift/index.html) | Dexterous object lifting with Kuka Allegro hand (Newton physics, experimental) |
 
 ## Project Structure
 
@@ -158,11 +159,12 @@ IsaacLab-Arena/
 
 ## Version Compatibility
 
-| Isaac Lab-Arena | Isaac Lab | Isaac Sim | Python |
-|-----------------|-----------|-----------|--------|
-| `main` branch   | 3.0.0     | 6.0.0     | ≥ 3.12 |
-| `feature/arena_v0.2_on_lab_2.3`   | 2.3.0     | 5.1.0     | ≥ 3.10 |
-| `release/0.1.1` | 2.3.0     | 5.0.0     | ≥ 3.10 |
+| Isaac Lab-Arena                      | Isaac Lab | Isaac Sim | Python |
+|--------------------------------------|-----------|-----------|--------|
+| `main`                               | 3.0.0     | 6.0.0     | ≥ 3.12 |
+| `release/0.2.0`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
+| `feature/arena_v0.2_on_lab_2.3`      | 2.3.0     | 5.1.0     | ≥ 3.10 |
+| `release/0.1.1`                      | 2.3.0     | 5.0.0     | ≥ 3.10 |
 
 ## ⚠️ Project Status
 
@@ -174,7 +176,7 @@ Isaac Lab-Arena is in **alpha** (`v0.2.x`). This is important to understand:
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
 | **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, enhanced heterogeneity across parallel evaluations and pip install support are planned but not yet implemented. |
 | **Docker-only install** | Source installation in a Docker container is the only supported method. |
-| **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.1.1` for the most stable experience. |
+| **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.2.0` for the most stable experience. |
 
 
 ## Ecosystem

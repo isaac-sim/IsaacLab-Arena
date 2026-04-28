@@ -101,6 +101,16 @@ class Scene:
     def get_commands_cfg(self) -> Any:
         return self.commands_cfg
 
+    def get_objects_with_relations(self) -> list[Object | ObjectReference]:
+        """Return all objects in the scene that have at least one relation."""
+        objects_with_relations: list[Object | ObjectReference] = []
+        for asset in self.assets.values():
+            if not isinstance(asset, (Object, ObjectReference)):
+                continue
+            if asset.get_relations():
+                objects_with_relations.append(asset)
+        return objects_with_relations
+
     def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         return env_cfg
 

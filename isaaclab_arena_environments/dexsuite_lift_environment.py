@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 import argparse
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
-# NOTE: Same pattern as other example envs — avoid heavy imports before AppLauncher.
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 @register_environment
@@ -23,7 +25,7 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
 
     name: str = "dexsuite_lift"
 
-    def get_env(self, args_cli: argparse.Namespace):
+    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         import math
 
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401

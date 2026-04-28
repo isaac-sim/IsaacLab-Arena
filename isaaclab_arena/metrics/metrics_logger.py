@@ -4,6 +4,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import numpy as np
+from typing import Any
+
+
+def metrics_to_plain_python_types(metrics: dict[str, Any]) -> dict[str, int | float | list]:
+    """Convert numpy scalars/arrays in a metrics dict to plain Python types."""
+    sanitized = {}
+    for k, v in metrics.items():
+        if isinstance(v, np.bool_):
+            sanitized[k] = bool(v)
+        elif isinstance(v, np.floating):
+            sanitized[k] = float(v)
+        elif isinstance(v, np.integer):
+            sanitized[k] = int(v)
+        elif isinstance(v, np.ndarray):
+            sanitized[k] = v.tolist()
+        else:
+            sanitized[k] = v
+    return sanitized
 
 
 class MetricsLogger:
@@ -11,7 +30,7 @@ class MetricsLogger:
         self.metrics_file = metrics_file
         self.metrics_data = {}
 
-    def append_job_metrics(self, job_name: str, metrics: dict[str, float]):
+    def append_job_metrics(self, job_name: str, metrics: dict[str, Any]):
         """Add or update metrics for a specific job.
 
         Args:
@@ -20,7 +39,7 @@ class MetricsLogger:
         """
         if job_name not in self.metrics_data:
             self.metrics_data[job_name] = {}
-        self.metrics_data[job_name].update(metrics)
+        self.metrics_data[job_name].update(metrics_to_plain_python_types(metrics))
 
     def save_metrics_to_file(self):
         """Save all metrics to JSON file."""
