@@ -34,6 +34,7 @@ ENV_ARG_OVERRIDES: dict[str, dict] = {
     "gr1_open_microwave": {"embodiment": "gr1_joint"},
     "gr1_put_and_close_door": {"embodiment": "gr1_joint"},
     "gr1_turn_stand_mixer_knob": {"embodiment": "gr1_joint"},
+    "put_item_in_fridge_and_close_door": {"embodiment": "gr1_joint"},
 }
 
 

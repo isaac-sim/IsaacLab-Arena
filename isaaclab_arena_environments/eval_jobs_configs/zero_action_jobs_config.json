@@ -17,7 +17,7 @@
                 "num_envs": 10,
                 "environment":"gr1_open_microwave",
                 "object":"sugar_box",
-                "embodiment":"gr1_wbc_pink"
+                "embodiment":"gr1_pink"
             },
             "num_steps": 10,
             "policy_type": "zero_action",
