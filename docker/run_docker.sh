@@ -146,7 +146,6 @@ else
                     "-v" "/var/run/docker.sock:/var/run/docker.sock"
                     "-v" "$HOME/.Xauthority:/root/.Xauthority"
                     "-v" "$HOME/.github:/home/$(id -un)/.github"
-                    "-v" "$HOME/.ssh:/home/$(id -un)/.ssh"
                     "${SSH_DOCKER_ARGS[@]}"
                     # Mount host SSL certificate store so the container trusts CA certs
                     "-v" "/etc/ssl/certs:/etc/ssl/certs:ro"
