@@ -341,8 +341,14 @@ def block_initial_goal_satisfaction(placement: Placement, resolved: ResolvedScen
     return placement
 
 
-def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:
-    """Turn a resolved scene into a Placement with no I/O side effects."""
+def propose_placement(resolved: ResolvedScene, spec: SceneSpec, attempt: int = 0) -> Placement:
+    """Turn a resolved scene into a Placement with no I/O side effects.
+
+    ``attempt`` selects which robot-placement sample to draw — bumping it
+    yields a different (edge, fraction) pair so the auto-retry driver can
+    re-sample after an IK-feasibility failure without reseeding the rest
+    of the pipeline.
+    """
     background_name = resolved.background.name if resolved.background else spec.background
 
     env_name = _derive_env_name(resolved, spec)
@@ -361,7 +367,7 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:
         extra_assets.append("tabletop_anchor")
 
     robot_placement = (
-        _propose_robot_placement(env_name) if tabletop_plan.emit_position_limits else None
+        _propose_robot_placement(env_name, attempt) if tabletop_plan.emit_position_limits else None
     )
 
     return Placement(
@@ -378,14 +384,15 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec) -> Placement:
     )
 
 
-def _propose_robot_placement(env_name: str) -> RobotPlacement:
+def _propose_robot_placement(env_name: str, attempt: int = 0) -> RobotPlacement:
     """Sample a robot placement along one of the four tabletop edges.
 
-    Uses ``env_name`` as the RNG seed so regenerating the same env
-    produces the same placement (important for reproducibility when
-    the pipeline is re-run from the same prompt).
+    Seeded by ``(env_name, attempt)``: a fixed (env_name, attempt) pair is
+    reproducible, while bumping ``attempt`` produces a different
+    (edge, fraction) sample. The auto-retry driver uses this to walk
+    through alternative placements when IK feasibility fails.
     """
-    rng = random.Random(env_name)
+    rng = random.Random(f"{env_name}#{attempt}")
     edge = rng.choice(list(_EDGE_ROTATION_XYZW.keys()))
     fraction = rng.uniform(*_ROBOT_EDGE_FRACTION_RANGE)
     return RobotPlacement(

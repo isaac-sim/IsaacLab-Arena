@@ -56,7 +56,7 @@ from isaaclab_arena.llm_env_gen.reachability_utils import (
     get_robot_world_pos,
     get_scene_object_world_pos,
 )
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
@@ -73,164 +73,187 @@ def main() -> int:
         args_cli = parser.parse_args()
 
         arena_builder = get_arena_builder_from_cli(args_cli)
-        assert_franka_embodiment(arena_builder.arena_env)
+        return check_reachability_for_arena_builder(arena_builder, args_cli)
 
-        env_name = getattr(arena_builder.arena_env, "name", type(arena_builder.arena_env).__name__)
 
-        # Detect task type: try PickAndPlaceTask first, fall back to open/close door.
-        pick_name: str | None = None
-        dest_name: str | None = None
-        openable_name: str | None = None
-        task_kind: str
+def check_reachability_for_arena_builder(arena_builder, args_cli) -> int:
+    """Run the IK feasibility check against an already-built ``ArenaEnvBuilder``.
 
+    Caller owns the SimulationApp lifecycle. The env is built, exercised,
+    and closed inside this call so the caller can rebuild a fresh
+    ``arena_builder`` (with a different robot placement) and call again
+    without re-booting Isaac Sim.
+
+    Returns the same exit codes the standalone CLI uses:
+      * 0 — feasible
+      * 2 — unreachable (pose-space failure)
+      * 3 — in_collision (pose reachable but configuration rejected)
+    """
+    assert_franka_embodiment(arena_builder.arena_env)
+
+    env_name = getattr(arena_builder.arena_env, "name", type(arena_builder.arena_env).__name__)
+
+    # Detect task type: try PickAndPlaceTask first, fall back to open/close door.
+    pick_name: str | None = None
+    dest_name: str | None = None
+    openable_name: str | None = None
+    task_kind: str
+
+    try:
+        pnp_task = find_pick_and_place_task(arena_builder.arena_env)
+        task_kind = "pick_and_place"
+        pick_name = pnp_task.pick_up_object.name
+        dest = getattr(pnp_task, "destination_location", None)
+        dest_name = getattr(dest, "name", None) if dest is not None else None
+        print(
+            f"[reachability] Env: '{env_name}' | task: pick_and_place | pick: '{pick_name}' | place: '{dest_name}'",
+            flush=True,
+        )
+    except AssertionError:
+        door_task = find_open_close_door_task(arena_builder.arena_env)
+        task_kind = type(door_task).__name__  # "OpenDoorTask" or "CloseDoorTask"
+        openable_name = door_task.openable_object.name
+        print(
+            f"[reachability] Env: '{env_name}' | task: {task_kind} | openable: '{openable_name}'",
+            flush=True,
+        )
+
+    env, _ = arena_builder.make_registered_and_return_cfg()
+    if args_cli.seed is not None:
+        set_seed(args_cli.seed, env)
+
+    env_id = int(args_cli.env_id)
+    num_envs = int(args_cli.num_envs)
+    assert 0 <= env_id < num_envs, f"--env_id {env_id} out of range for --num_envs {num_envs}"
+
+    # Optional target markers — only when a viewer is open. We use
+    # the stock FRAME_MARKER_CFG (RGB axes USD) but scale it ~3x
+    # larger than Arena's built-in FrameTransformer markers, which
+    # are at scale 0.1. Sphere markers were tried and collided
+    # visually with Arena's contact-sensor visualizer (also
+    # spheres), so we're back to axes — just much bigger.
+    markers: dict = {}
+    if not getattr(args_cli, "headless", False):
+        from copy import deepcopy
+
+        from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
+
+        def _make_big_frame(prim_path: str, scale: float = 0.15) -> VisualizationMarkers:
+            cfg = deepcopy(FRAME_MARKER_CFG)
+            cfg.prim_path = prim_path
+            frame = cfg.markers.get("frame")
+            if frame is not None:
+                # Arena's ee_frame uses (0.1, 0.1, 0.1); 0.15 keeps us
+                # slightly larger so ours is still identifiable in the
+                # viewport without dominating the scene.
+                setattr(frame, "scale", (scale, scale, scale))
+            return VisualizationMarkers(cfg)
+
+        if task_kind == "pick_and_place":
+            markers["pick_hand"] = _make_big_frame("/World/Visuals/reach_pick_hand")
+            if dest_name is not None:
+                markers["place_hand"] = _make_big_frame("/World/Visuals/reach_place_hand")
+        else:
+            markers["door_approach_hand"] = _make_big_frame("/World/Visuals/reach_door_hand")
+
+    try:
+        env.reset()
+        zero = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        env.step(zero)
+
+        robot_world_pos = get_robot_world_pos(env, env_id)
+        print(
+            f"[reachability] Robot base world pos: {format_xyz(robot_world_pos)}",
+            flush=True,
+        )
+
+        # Lazy import so --help works without cuRobo installed.
         try:
-            pnp_task = find_pick_and_place_task(arena_builder.arena_env)
-            task_kind = "pick_and_place"
-            pick_name = pnp_task.pick_up_object.name
-            dest = getattr(pnp_task, "destination_location", None)
-            dest_name = getattr(dest, "name", None) if dest is not None else None
+            from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
+            from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
+        except ImportError as exc:
             print(
-                f"[reachability] Env: '{env_name}' | task: pick_and_place | pick: '{pick_name}' | place: '{dest_name}'",
-                flush=True,
+                "[reachability] ERROR: cuRobo / isaaclab_mimic is not installed in this container.\n"
+                "  Re-run `./docker/run_docker.sh -c` to build with cuRobo.",
+                file=sys.stderr,
             )
-        except AssertionError:
-            door_task = find_open_close_door_task(arena_builder.arena_env)
-            task_kind = type(door_task).__name__  # "OpenDoorTask" or "CloseDoorTask"
-            openable_name = door_task.openable_object.name
-            print(
-                f"[reachability] Env: '{env_name}' | task: {task_kind} | openable: '{openable_name}'",
-                flush=True,
-            )
+            raise exc
 
-        env, _ = arena_builder.make_registered_and_return_cfg()
-        if args_cli.seed is not None:
-            set_seed(args_cli.seed, env)
+        planner_cfg = CuroboPlannerCfg.franka_config()
+        planner_cfg.debug_planner = bool(args_cli.debug_planner)
+        if args_cli.position_threshold is not None:
+            planner_cfg.position_threshold = float(args_cli.position_threshold)
+        if args_cli.rotation_threshold is not None:
+            planner_cfg.rotation_threshold = float(args_cli.rotation_threshold)
+        # Disable cuRobo's rerun-backed visualization hooks; our
+        # Isaac-Lab markers (above) are the viz surface.
+        planner_cfg.visualize_plan = False
+        planner_cfg.visualize_spheres = False
 
-        env_id = int(args_cli.env_id)
-        num_envs = int(args_cli.num_envs)
-        assert 0 <= env_id < num_envs, f"--env_id {env_id} out of range for --num_envs {num_envs}"
+        print("[reachability] Initializing cuRobo planner from USD stage...", flush=True)
+        planner = CuroboPlanner(
+            env=env.unwrapped,
+            robot=env.unwrapped.scene["robot"],
+            config=planner_cfg,
+            env_id=env_id,
+        )
+        # Sync object poses into cuRobo's collision world before IK.
+        planner.update_world()
 
-        # Optional target markers — only when a viewer is open. We use
-        # the stock FRAME_MARKER_CFG (RGB axes USD) but scale it ~3x
-        # larger than Arena's built-in FrameTransformer markers, which
-        # are at scale 0.1. Sphere markers were tried and collided
-        # visually with Arena's contact-sensor visualizer (also
-        # spheres), so we're back to axes — just much bigger.
-        markers: dict = {}
-        if not getattr(args_cli, "headless", False):
-            from copy import deepcopy
-
-            from isaaclab.markers import FRAME_MARKER_CFG, VisualizationMarkers
-
-            def _make_big_frame(prim_path: str, scale: float = 0.15) -> VisualizationMarkers:
-                cfg = deepcopy(FRAME_MARKER_CFG)
-                cfg.prim_path = prim_path
-                frame = cfg.markers.get("frame")
-                if frame is not None:
-                    # Arena's ee_frame uses (0.1, 0.1, 0.1); 0.15 keeps us
-                    # slightly larger so ours is still identifiable in the
-                    # viewport without dominating the scene.
-                    setattr(frame, "scale", (scale, scale, scale))
-                return VisualizationMarkers(cfg)
-
-            if task_kind == "pick_and_place":
-                markers["pick_hand"] = _make_big_frame("/World/Visuals/reach_pick_hand")
-                if dest_name is not None:
-                    markers["place_hand"] = _make_big_frame("/World/Visuals/reach_place_hand")
-            else:
-                markers["door_approach_hand"] = _make_big_frame("/World/Visuals/reach_door_hand")
-
-        try:
-            env.reset()
-            zero = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            env.step(zero)
-
-            robot_world_pos = get_robot_world_pos(env, env_id)
-            print(
-                f"[reachability] Robot base world pos: {format_xyz(robot_world_pos)}",
-                flush=True,
-            )
-
-            # Lazy import so --help works without cuRobo installed.
-            try:
-                from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
-                from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
-            except ImportError as exc:
-                print(
-                    "[reachability] ERROR: cuRobo / isaaclab_mimic is not installed in this container.\n"
-                    "  Re-run `./docker/run_docker.sh -c` to build with cuRobo.",
-                    file=sys.stderr,
-                )
-                raise exc
-
-            planner_cfg = CuroboPlannerCfg.franka_config()
-            planner_cfg.debug_planner = bool(args_cli.debug_planner)
-            if args_cli.position_threshold is not None:
-                planner_cfg.position_threshold = float(args_cli.position_threshold)
-            if args_cli.rotation_threshold is not None:
-                planner_cfg.rotation_threshold = float(args_cli.rotation_threshold)
-            # Disable cuRobo's rerun-backed visualization hooks; our
-            # Isaac-Lab markers (above) are the viz surface.
-            planner_cfg.visualize_plan = False
-            planner_cfg.visualize_spheres = False
-
-            print("[reachability] Initializing cuRobo planner from USD stage...", flush=True)
-            planner = CuroboPlanner(
-                env=env.unwrapped,
-                robot=env.unwrapped.scene["robot"],
-                config=planner_cfg,
+        # ---- branch on task type ----------------------------------------
+        if task_kind == "pick_and_place":
+            overall_status, overall_feasible, payload = _check_pick_and_place(
+                env=env,
                 env_id=env_id,
+                planner=planner,
+                planner_cfg=planner_cfg,
+                pick_name=pick_name,
+                dest_name=dest_name,
+                robot_world_pos=robot_world_pos,
+                markers=markers,
+                zero=zero,
+                args_cli=args_cli,
             )
-            # Sync object poses into cuRobo's collision world before IK.
-            planner.update_world()
+        else:
+            overall_status, overall_feasible, payload = _check_open_door(
+                env=env,
+                env_id=env_id,
+                planner=planner,
+                planner_cfg=planner_cfg,
+                openable_name=openable_name,
+                task_kind=task_kind,
+                robot_world_pos=robot_world_pos,
+                markers=markers,
+                zero=zero,
+                args_cli=args_cli,
+            )
+        # -----------------------------------------------------------------
 
-            # ---- branch on task type ----------------------------------------
-            if task_kind == "pick_and_place":
-                overall_status, overall_feasible, payload = _check_pick_and_place(
-                    env=env,
-                    env_id=env_id,
-                    planner=planner,
-                    planner_cfg=planner_cfg,
-                    pick_name=pick_name,
-                    dest_name=dest_name,
-                    robot_world_pos=robot_world_pos,
-                    markers=markers,
-                    zero=zero,
-                    args_cli=args_cli,
-                )
-            else:
-                overall_status, overall_feasible, payload = _check_open_door(
-                    env=env,
-                    env_id=env_id,
-                    planner=planner,
-                    planner_cfg=planner_cfg,
-                    openable_name=openable_name,
-                    task_kind=task_kind,
-                    robot_world_pos=robot_world_pos,
-                    markers=markers,
-                    zero=zero,
-                    args_cli=args_cli,
-                )
-            # -----------------------------------------------------------------
+        # Dwell so the Kit viewer stays up for visual inspection.
+        if markers:
+            for _ in range(int(args_cli.dwell_steps)):
+                env.step(zero)
 
-            # Dwell so the Kit viewer stays up for visual inspection.
-            if markers:
-                for _ in range(int(args_cli.dwell_steps)):
-                    env.step(zero)
+        print(f"[reachability] Overall: {overall_status}", flush=True)
 
-            print(f"[reachability] Overall: {overall_status}", flush=True)
+        if args_cli.json:
+            print(json.dumps(payload))
 
-            if args_cli.json:
-                print(json.dumps(payload))
+        if overall_feasible:
+            return 0
+        if overall_status == IK_STATUS_IN_COLLISION:
+            return 3
+        return 2
 
-            if overall_feasible:
-                return 0
-            if overall_status == IK_STATUS_IN_COLLISION:
-                return 3
-            return 2
-
-        finally:
-            env.close()
+    finally:
+        # Mirror eval_runner.py: tear down the SimulationContext and
+        # open a fresh USD stage *before* env.close(). Without this,
+        # prims left at fixed scene paths persist into the next
+        # gym.make() and the new arena_env's set_initial_pose calls
+        # silently no-op — the auto-retry loop would freeze item /
+        # robot poses at the second attempt's state.
+        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+        env.close()
 
 
 # ---------------------------------------------------------------------------

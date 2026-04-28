@@ -36,15 +36,35 @@ from .resolver import ResolvedScene
 from .schema import SceneSpec
 
 
-def write_env(resolved: ResolvedScene, spec: SceneSpec, out_path: str | Path) -> Path:
+def write_env(
+    resolved: ResolvedScene,
+    spec: SceneSpec,
+    out_path: str | Path,
+    attempt: int = 0,
+    env_suffix: str = "",
+) -> Path:
     """Render the env module and return the final path.
 
     ``out_path`` may be either an explicit ``*.py`` file or a directory —
     in the latter case the filename is derived from the env name so the
     generated module on disk matches the registered env name.
+
+    ``attempt`` is forwarded to :func:`propose_placement` to vary the
+    sampled robot placement across retries (see auto_generate_env).
+
+    ``env_suffix`` is appended to the env / class names so the auto
+    driver can register a unique env per attempt (e.g. ``"_t0"``,
+    ``"_t1"``). This sidesteps Isaac Sim's gym / scene caching, which
+    causes init_state from a re-registered same-name env to be ignored
+    on the third attempt onward.
     """
-    placement = propose_placement(resolved, spec)
+    placement = propose_placement(resolved, spec, attempt=attempt)
     placement = block_initial_goal_satisfaction(placement, resolved)
+    if env_suffix:
+        # Camelize "_t3" -> "T3" so the class name stays PEP-8-friendly.
+        suffix_camel = "".join(part.capitalize() for part in env_suffix.lstrip("_").split("_"))
+        placement.env_name = f"{placement.env_name}{env_suffix}"
+        placement.class_name = f"{placement.class_name}{suffix_camel}"
 
     out_path = Path(out_path)
     if out_path.suffix != ".py":
@@ -79,7 +99,17 @@ def _render_module(placement: Placement) -> str:
     tabletop_header_note = placement.tabletop_anchor_plan.header_note(placement.background_name)
 
     # Only import symbols that are actually used in the generated module.
-    used_relation_kinds = {r.kind for i in placement.items for r in i.relations}
+    # Walk inner specs so the kind wrapped by Not(...) is counted too —
+    # e.g. Not(In(bowl)) needs both ``Not`` and ``In`` imported.
+    def _collect_kinds(specs):
+        seen: set[str] = set()
+        for spec in specs:
+            seen.add(spec.kind)
+            if spec.inner is not None:
+                seen.update(_collect_kinds([spec.inner]))
+        return seen
+
+    used_relation_kinds = _collect_kinds([r for i in placement.items for r in i.relations])
     relation_imports = sorted(
         {"IsAnchor"}  # always needed for tabletop anchor
         | ({"In"} if "in" in used_relation_kinds else set())
