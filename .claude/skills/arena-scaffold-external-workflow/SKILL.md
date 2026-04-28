@@ -15,7 +15,7 @@ description: Scaffold a new external IsaacLab-Arena project — creates director
 
 ## Prerequisites
 
-Before running this skill, make sure user must have the following in place:
+Before running this skill, make sure the user has the following in place:
 
 **An existing local IsaacLab-Arena clone with submodules initialized**
 
