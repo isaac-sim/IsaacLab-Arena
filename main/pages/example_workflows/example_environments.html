@@ -1,0 +1,1407 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Example Environments &#8212; isaaclab_arena 0.2</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/example_workflows/example_environments';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Imitation Learning" href="imitation_learning/index.html" />
+    <link rel="prev" title="Your Own Tasks and Embodiments" href="../arena_in_your_repo/external_tasks_and_embodiments.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="example_environments.html" selected>main</option>
+            <option value="../../../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../release/0.1.1/index.html" >release/0.1.1</option>
+            <option value="../../../release/0.2.0/index.html" >release/0.2.0</option>
+            <option value="../../../release/0.2.1/index.html" >release/0.2.1</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/first_experiments/running_a_real_policy.html">Running a Real Policy</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Example Environments</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/policy/index.html">Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/policy/concept_remote_policies_design.html">Remote Policies</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/gr00t_server_client.html">Server-Client Mode With GR00T</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Example Environments</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="example-environments">
+<h1>Example Environments<a class="headerlink" href="#example-environments" title="Link to this heading">#</a></h1>
+<p>Isaac Lab Arena ships a catalog of ready-to-run example environments under
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/</span></code>. Each environment is a small composition of
+the building blocks introduced in <a class="reference internal" href="../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a> —
+<strong>Scene</strong>, <strong>Embodiment</strong>, and <strong>Task</strong> — wrapped in an <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code>
+subclass and registered with the global <code class="docutils literal notranslate"><span class="pre">EnvironmentRegistry</span></code>.</p>
+<p>The registered <code class="docutils literal notranslate"><span class="pre">Task</span> <span class="pre">ID</span></code> listed below is the value passed as the positional
+<code class="docutils literal notranslate"><span class="pre">example_environment</span></code> argument to scripts such as
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/evaluation/policy_runner.py</span></code>,
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/scripts/imitation_learning/record_demos.py</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/scripts/imitation_learning/replay_demos.py</span></code>.</p>
+<p>The metadata below follows the same structure as the <strong>Key Specifications</strong>
+tables in the <a class="reference internal" href="imitation_learning/index.html"><span class="doc">Imitation Learning</span></a> and
+<a class="reference internal" href="reinforcement_learning_workflows/index.html"><span class="doc">Reinforcement Learning</span></a> workflow guides.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#pick-place" id="id1">Pick &amp; Place</a></p></li>
+<li><p><a class="reference internal" href="#articulated-object-manipulation" id="id2">Articulated Object Manipulation</a></p></li>
+<li><p><a class="reference internal" href="#sorting" id="id3">Sorting</a></p></li>
+<li><p><a class="reference internal" href="#assembly" id="id4">Assembly</a></p></li>
+<li><p><a class="reference internal" href="#goal-pose-lift-rl" id="id5">Goal-Pose / Lift (RL)</a></p></li>
+<li><p><a class="reference internal" href="#sandbox" id="id6">Sandbox</a></p></li>
+<li><p><a class="reference internal" href="#sequential-composite-tasks" id="id7">Sequential / Composite Tasks</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id8">See Also</a></p></li>
+</ul>
+</nav>
+<section id="pick-place">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Pick &amp; Place</a><a class="headerlink" href="#pick-place" title="Link to this heading">#</a></h2>
+<section id="kitchen-pick-and-place">
+<h3>kitchen_pick_and_place<a class="headerlink" href="#kitchen-pick-and-place" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">kitchen_pick_and_place</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">KitchenPickAndPlaceEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/kitchen_pick_and_place_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Pick an object off the kitchen counter top and place it
+inside a kitchen cabinet. Supports a single object via <code class="docutils literal notranslate"><span class="pre">--object</span></code> or a
+heterogeneous <code class="docutils literal notranslate"><span class="pre">--object_set</span></code> spawning a different object per environment.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Pick &amp; place</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (default), configurable via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kitchen</span></code> background, counter top reference (anchor), cabinet destination</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Configurable via <code class="docutils literal notranslate"><span class="pre">--object</span></code> / <code class="docutils literal notranslate"><span class="pre">--object_set</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">tomato_soup_can</span></code>, <code class="docutils literal notranslate"><span class="pre">cracker_box</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Object Placement</strong></p></td>
+<td><p>Relations: <code class="docutils literal notranslate"><span class="pre">On(table_top)</span></code>, <code class="docutils literal notranslate"><span class="pre">AtPosition(x=0.4,</span> <span class="pre">y=0.0)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--object_set</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="pick-and-place-maple-table">
+<h3>pick_and_place_maple_table<a class="headerlink" href="#pick-and-place-maple-table" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">PickAndPlaceMapleTableEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/pick_and_place_maple_table_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Tabletop pick-and-place on the maple Robolab table; used
+as the introductory <code class="docutils literal notranslate"><span class="pre">First</span> <span class="pre">Arena</span> <span class="pre">Environment</span></code> walkthrough.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Pick &amp; place</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">droid_abs_joint_pos</span></code> (default), configurable via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">maple_table_robolab</span></code> background, dome <code class="docutils literal notranslate"><span class="pre">light</span></code> (configurable HDR / intensity)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Pick: <code class="docutils literal notranslate"><span class="pre">rubiks_cube_hot3d_robolab</span></code> (default); Destination: <code class="docutils literal notranslate"><span class="pre">bowl_ycb_robolab</span></code> (default); plus optional <code class="docutils literal notranslate"><span class="pre">--additional_table_objects</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> (episode_length_s = 20)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Object Placement</strong></p></td>
+<td><p>Relations: <code class="docutils literal notranslate"><span class="pre">On(table)</span></code>, <code class="docutils literal notranslate"><span class="pre">PositionLimits(x=0.55..0.70,</span> <span class="pre">y=-0.4..-0.1)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--pick_up_object</span></code>, <code class="docutils literal notranslate"><span class="pre">--destination_location</span></code>, <code class="docutils literal notranslate"><span class="pre">--additional_table_objects</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code>, <code class="docutils literal notranslate"><span class="pre">--hdr</span></code>, <code class="docutils literal notranslate"><span class="pre">--light_intensity</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="galileo-pick-and-place">
+<h3>galileo_pick_and_place<a class="headerlink" href="#galileo-pick-and-place" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">galileo_pick_and_place</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">GalileoPickAndPlaceEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/galileo_pick_and_place_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Pick up an object in the Galileo lab environment and
+place it into a small bin on the shelf.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, lab scene</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Pick &amp; place</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code> (default), configurable via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">galileo</span></code> lab background; bin lid (<code class="docutils literal notranslate"><span class="pre">small_bin_grid_01/lid</span></code>) used as destination reference</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">power_drill</span></code> (default), configurable via <code class="docutils literal notranslate"><span class="pre">--object</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="galileo-g1-locomanip-pick-and-place">
+<h3>galileo_g1_locomanip_pick_and_place<a class="headerlink" href="#galileo-g1-locomanip-pick-and-place" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">galileo_g1_locomanip_pick_and_place</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">GalileoG1LocomanipPickAndPlaceEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> The G1 humanoid navigates the lab, squats, and picks an
+object off a shelf to place it into a bin on a table to its right. Featured in
+the <a class="reference internal" href="locomanipulation/index.html"><span class="doc">G1 Loco-Manipulation Box Pick and Place Task</span></a> workflow.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Room-scale loco-manipulation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Squat, Turn, Walk, Pick, Place</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">g1_wbc_pink</span></code> (default; whole-body controller w/ navigation P-controller in Mimic)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">galileo_locomanip</span></code> background</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Pick: <code class="docutils literal notranslate"><span class="pre">brown_box</span></code> (default); Destination: <code class="docutils literal notranslate"><span class="pre">blue_sorting_bin</span></code> (default)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LocomanipPickAndPlaceTask</span></code> (episode_length_s = 30, force / velocity success thresholds)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Interop</strong></p></td>
+<td><p>Isaac Lab Mimic (legacy <code class="docutils literal notranslate"><span class="pre">locomanip_pick_and_place_D0</span></code> datagen for the brown-box → blue-bin pair)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--destination</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code>, <code class="docutils literal notranslate"><span class="pre">--task_description</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="articulated-object-manipulation">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Articulated Object Manipulation</a><a class="headerlink" href="#articulated-object-manipulation" title="Link to this heading">#</a></h2>
+<section id="gr1-open-microwave">
+<h3>gr1_open_microwave<a class="headerlink" href="#gr1-open-microwave" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gr1_open_microwave</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">Gr1OpenMicrowaveEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/gr1_open_microwave_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> The GR1T2 humanoid reaches with its upper body to open a
+microwave door. Featured in the
+<a class="reference internal" href="static_manipulation/index.html"><span class="doc">GR1 Open Microwave Door Task</span></a> workflow.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, articulated objects</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Open door</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kitchen</span></code> background, <code class="docutils literal notranslate"><span class="pre">microwave</span></code> placed on the packing table</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">microwave</span></code> (articulated); optional <code class="docutils literal notranslate"><span class="pre">--object</span></code> placed in front of the microwave</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code> (openness_threshold = 0.8, reset_openness = 0.2, episode_length_s = 5)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="gr1-turn-stand-mixer-knob">
+<h3>gr1_turn_stand_mixer_knob<a class="headerlink" href="#gr1-turn-stand-mixer-knob" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gr1_turn_stand_mixer_knob</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">Gr1TurnStandMixerKnobEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/gr1_turn_stand_mixer_knob_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> GR1 humanoid turns the dial on a stand mixer to a
+target level.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, articulated objects</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp knob, Turn</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kitchen</span></code> background, <code class="docutils literal notranslate"><span class="pre">stand_mixer</span></code> on the packing table</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stand_mixer</span></code> (articulated); optional <code class="docutils literal notranslate"><span class="pre">--object</span></code> placed in front</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TurnKnobTask</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--target_level</span></code> (default 4), <code class="docutils literal notranslate"><span class="pre">--reset_level</span></code> (default -1), <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="press-button">
+<h3>press_button<a class="headerlink" href="#press-button" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">press_button</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">PressButtonEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/press_button_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Press the button on a coffee machine.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, articulated objects</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Press</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">packing_table</span></code> background, <code class="docutils literal notranslate"><span class="pre">coffee_machine</span></code> placed on top</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">coffee_machine</span></code> (articulated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PressButtonTask</span></code> (reset_pressedness = 0.8)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="sorting">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Sorting</a><a class="headerlink" href="#sorting" title="Link to this heading">#</a></h2>
+<section id="tabletop-sort-cubes">
+<h3>tabletop_sort_cubes<a class="headerlink" href="#tabletop-sort-cubes" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">tabletop_sort_cubes</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">TableTopSortCubesEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/sorting_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Sort two cubes into two color-matching containers on a
+table.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, multi-object</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Pick, Place, Sort</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (only supported value)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">table</span></code> background (configurable), <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--objects</span></code> (default <code class="docutils literal notranslate"><span class="pre">red_cube</span> <span class="pre">green_cube</span></code>); <code class="docutils literal notranslate"><span class="pre">--destinations</span></code> (default <code class="docutils literal notranslate"><span class="pre">red_container</span> <span class="pre">green_container</span></code>); exactly 2 of each required</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SortMultiObjectTask</span></code> (custom success force_threshold = 0.1)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--objects</span></code>, <code class="docutils literal notranslate"><span class="pre">--destinations</span></code>, <code class="docutils literal notranslate"><span class="pre">--background</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="assembly">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Assembly</a><a class="headerlink" href="#assembly" title="Link to this heading">#</a></h2>
+<section id="peg-insert">
+<h3>peg_insert<a class="headerlink" href="#peg-insert" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">peg_insert</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">PegInsertEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/tabletop_peginsert_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Assemble a peg into a hole on a tabletop.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Tabletop, contact-rich assembly</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Insert</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (default; assembly high-PD config) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">table</span></code> background (configurable), dome <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Pick: <code class="docutils literal notranslate"><span class="pre">peg</span></code> (default); Destination: <code class="docutils literal notranslate"><span class="pre">hole</span></code> (default)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AssemblyTask</span></code> (min_separation = 0.1, randomized x/y/yaw pose range)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--destination_object</span></code>, <code class="docutils literal notranslate"><span class="pre">--background</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="gear-mesh">
+<h3>gear_mesh<a class="headerlink" href="#gear-mesh" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gear_mesh</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">GearMeshEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/tabletop_gearmesh_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Pick a medium gear and mesh it onto a gear base, with
+small and large reference gears already mounted.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Tabletop, contact-rich assembly</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Mesh</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (default; assembly high-PD config) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">table</span></code> background (configurable), dome <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gear_base</span></code>, <code class="docutils literal notranslate"><span class="pre">medium_gear</span></code> (held), <code class="docutils literal notranslate"><span class="pre">small_gear</span></code> and <code class="docutils literal notranslate"><span class="pre">large_gear</span></code> (auxiliary)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AssemblyTask</span></code> (held-fixed-and-auxiliary randomization, min_separation = 0.18)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--background</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="tabletop-place-upright">
+<h3>tabletop_place_upright<a class="headerlink" href="#tabletop-place-upright" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">tabletop_place_upright</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">TableTopPlaceUprightEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/tabletop_place_upright_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Pick a tipped-over mug on the table and place it
+upright.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, re-orientation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Re-orient, Place</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">agibot</span></code> (only supported value; <code class="docutils literal notranslate"><span class="pre">ArmMode.LEFT</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">table</span></code> background (configurable), <code class="docutils literal notranslate"><span class="pre">ground_plane</span></code>, <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mug</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--object</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PlaceUprightTask</span></code> (custom event <code class="docutils literal notranslate"><span class="pre">randomize_mug_positions</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--background</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="goal-pose-lift-rl">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Goal-Pose / Lift (RL)</a><a class="headerlink" href="#goal-pose-lift-rl" title="Link to this heading">#</a></h2>
+<section id="cube-goal-pose">
+<h3>cube_goal_pose<a class="headerlink" href="#cube-goal-pose" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">cube_goal_pose</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">CubeGoalPoseEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/cube_goal_pose_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Reach a target 6-DoF pose with a cube (goal-conditioned
+manipulation).</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, goal-conditioned</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Re-orient</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">table</span></code> background (configurable), <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dex_cube</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--object</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GoalPoseTask</span></code> (target_z_range = [0.2, 1.0], target_orientation_xyzw = yaw 90°, tolerance = 0.2 rad)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--background</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="lift-object">
+<h3>lift_object<a class="headerlink" href="#lift-object" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">lift_object</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">LiftObjectEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/lift_object_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Reinforcement-learning task in which the Franka Panda
+learns to grasp and lift an object to a commanded target position. Featured in
+the <a class="reference internal" href="reinforcement_learning/index.html"><span class="doc">Franka Lift Object Task</span></a> workflow.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Table-top manipulation, RL training</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Lift</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_joint_pos</span></code> (default; joint-position control yields better RL success than IK) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">table</span></code> background, <code class="docutils literal notranslate"><span class="pre">ground_plane</span></code>, <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dex_cube</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--object</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LiftObjectTaskRL</span></code> (minimum_height_to_lift = 0.04, episode_length_s = 5)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Training Method</strong></p></td>
+<td><p>Reinforcement Learning (RSL-RL PPO; <code class="docutils literal notranslate"><span class="pre">rl_policy_cfg</span></code> = <code class="docutils literal notranslate"><span class="pre">base_rsl_rl_policy:RLPolicyCfg</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code>, <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="dexsuite-lift">
+<h3>dexsuite_lift<a class="headerlink" href="#dexsuite-lift" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">DexsuiteLiftEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/dexsuite_lift_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Evaluation wrapper around the Isaac Lab
+<code class="docutils literal notranslate"><span class="pre">Isaac-Dexsuite-Kuka-Allegro-Lift-v0</span></code> MDP. The Kuka arm with an Allegro
+dexterous hand lifts a procedurally generated cuboid to a commanded target
+position. Featured in the
+<a class="reference internal" href="dexsuite_lift/index.html"><span class="doc">Dexsuite Kuka Allegro Lift Task (Newton)</span></a> workflow.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Dexterous manipulation, contact-rich, RL evaluation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Reach, Grasp, Lift (multi-finger)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kuka_allegro</span></code> (fixed)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">procedural_table</span></code> background, <code class="docutils literal notranslate"><span class="pre">ground_plane</span></code>, <code class="docutils literal notranslate"><span class="pre">light</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">procedural_cube</span></code> (randomized initial pose with a wide <code class="docutils literal notranslate"><span class="pre">PoseRange</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DexsuiteLiftTask</span></code> (object_pose command, position-only, resampled every 2–3 s)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Training Method</strong></p></td>
+<td><p>Pre-trained in Isaac Lab via <code class="docutils literal notranslate"><span class="pre">DexsuiteKukaAllegroPPORunnerCfg</span></code> (RSL-RL PPO)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Physics Backend</strong></p></td>
+<td><p>PhysX (default) or Newton (<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><em>(none environment-specific; uses common ``ArenaEnvBuilder`` flags)</em></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="sandbox">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Sandbox</a><a class="headerlink" href="#sandbox" title="Link to this heading">#</a></h2>
+<section id="gr1-table-multi-object-no-collision">
+<h3>gr1_table_multi_object_no_collision<a class="headerlink" href="#gr1-table-multi-object-no-collision" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">gr1_table_multi_object_no_collision</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">GR1TableMultiObjectNoCollisionEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/gr1_table_multi_object_no_collision_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Sandbox scene for testing the relation solver: an office
+table with multiple objects placed via <code class="docutils literal notranslate"><span class="pre">On(table)</span></code> plus the built-in
+no-overlap solver. No success task — useful for <code class="docutils literal notranslate"><span class="pre">policy_runner</span></code> smoke tests
+with <code class="docutils literal notranslate"><span class="pre">zero_action</span></code> or any policy.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Sandbox, multi-object placement</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p><em>(none — no task)</em></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ground_plane</span></code>, <code class="docutils literal notranslate"><span class="pre">office_table</span></code>, <code class="docutils literal notranslate"><span class="pre">light</span></code>, table-top anchor</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Default set: <code class="docutils literal notranslate"><span class="pre">cracker_box</span></code>, <code class="docutils literal notranslate"><span class="pre">sugar_box</span></code>, <code class="docutils literal notranslate"><span class="pre">tomato_soup_can</span></code>, <code class="docutils literal notranslate"><span class="pre">dex_cube</span></code>, <code class="docutils literal notranslate"><span class="pre">power_drill</span></code>, <code class="docutils literal notranslate"><span class="pre">red_container</span></code> (override via <code class="docutils literal notranslate"><span class="pre">--objects</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NoTask</span></code> (optional time-out termination via <code class="docutils literal notranslate"><span class="pre">--episode_length_s</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--objects</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code>, <code class="docutils literal notranslate"><span class="pre">--episode_length_s</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="sequential-composite-tasks">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Sequential / Composite Tasks</a><a class="headerlink" href="#sequential-composite-tasks" title="Link to this heading">#</a></h2>
+<section id="put-item-in-fridge-and-close-door">
+<h3>put_item_in_fridge_and_close_door<a class="headerlink" href="#put-item-in-fridge-and-close-door" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">put_item_in_fridge_and_close_door</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">GR1PutAndCloseDoorEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/gr1_put_and_close_door_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> GR1 humanoid sequentially picks an object, places it on
+the refrigerator shelf, then closes the refrigerator door. Featured in the
+<a class="reference internal" href="sequential_static_manipulation/index.html"><span class="doc">GR1 Sequential Pick &amp; Place and Close Door Task</span></a> workflow.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Sequential manipulation, articulated objects</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Pick, Place, Close door</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gr1_pink</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lightwheel_robocasa_kitchen</span></code> background (<code class="docutils literal notranslate"><span class="pre">--kitchen_style</span></code> selectable), <code class="docutils literal notranslate"><span class="pre">light</span></code>, kitchen counter anchor</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Pick: <code class="docutils literal notranslate"><span class="pre">ranch_dressing_hope_robolab</span></code> (default), or <code class="docutils literal notranslate"><span class="pre">--object_set</span></code> for heterogeneous spawning; Destination: refrigerator shelf reference; Container: <code class="docutils literal notranslate"><span class="pre">refrigerator</span></code> (articulated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PutAndCloseDoorTask</span></code> (sequential: <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> → <code class="docutils literal notranslate"><span class="pre">CloseDoorTask</span></code>, episode_length_s = 10)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Interop</strong></p></td>
+<td><p>Isaac Lab Mimic (<code class="docutils literal notranslate"><span class="pre">put_and_close_door_task_D0</span></code> datagen)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--object_set</span></code>, <code class="docutils literal notranslate"><span class="pre">--kitchen_style</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="franka-put-and-close-door">
+<h3>franka_put_and_close_door<a class="headerlink" href="#franka-put-and-close-door" title="Link to this heading">#</a></h3>
+<p><strong>Task ID:</strong> <code class="docutils literal notranslate"><span class="pre">franka_put_and_close_door</span></code></p>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">FrankaPutAndCloseDoorEnvironment</span></code> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/franka_put_and_close_door_environment.py</span></code>)</p>
+<p><strong>Task Description:</strong> Sequential pick-and-place of an object into a
+microwave, followed by closing the microwave door.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Tags</strong></p></td>
+<td><p>Sequential manipulation, articulated objects</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skills</strong></p></td>
+<td><p>Pick, Place, Close door</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Embodiment</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">franka_ik</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Scene</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kitchen</span></code> background, <code class="docutils literal notranslate"><span class="pre">microwave</span></code> (articulated, starts open)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Objects</strong></p></td>
+<td><p>Pick: <code class="docutils literal notranslate"><span class="pre">dex_cube</span></code> (default) via <code class="docutils literal notranslate"><span class="pre">--object</span></code>; Container: <code class="docutils literal notranslate"><span class="pre">microwave</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Task Class</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FrankaPutAndCloseDoorTask</span></code> (sequential: <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> → <code class="docutils literal notranslate"><span class="pre">CloseDoorTask</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CLI Args</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--object</span></code>, <code class="docutils literal notranslate"><span class="pre">--embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="see-also">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a> — the Scene / Embodiment / Task building blocks used by every environment listed here.</p></li>
+<li><p><a class="reference internal" href="../quickstart/first_arena_env.html"><span class="doc">First Arena Environment</span></a> — walkthrough of the <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code> environment.</p></li>
+<li><p><a class="reference internal" href="../arena_in_your_repo/index.html"><span class="doc">Arena in Your Repository</span></a> — how to register your own <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code> subclass alongside the built-in ones.</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../arena_in_your_repo/external_tasks_and_embodiments.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Your Own Tasks and Embodiments</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="imitation_learning/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Imitation Learning</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pick-place">Pick &amp; Place</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#kitchen-pick-and-place">kitchen_pick_and_place</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pick-and-place-maple-table">pick_and_place_maple_table</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#galileo-pick-and-place">galileo_pick_and_place</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#galileo-g1-locomanip-pick-and-place">galileo_g1_locomanip_pick_and_place</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#articulated-object-manipulation">Articulated Object Manipulation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gr1-open-microwave">gr1_open_microwave</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gr1-turn-stand-mixer-knob">gr1_turn_stand_mixer_knob</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#press-button">press_button</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sorting">Sorting</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tabletop-sort-cubes">tabletop_sort_cubes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#assembly">Assembly</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#peg-insert">peg_insert</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gear-mesh">gear_mesh</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tabletop-place-upright">tabletop_place_upright</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#goal-pose-lift-rl">Goal-Pose / Lift (RL)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cube-goal-pose">cube_goal_pose</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#lift-object">lift_object</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dexsuite-lift">dexsuite_lift</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sandbox">Sandbox</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gr1-table-multi-object-no-collision">gr1_table_multi_object_no_collision</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-composite-tasks">Sequential / Composite Tasks</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#put-item-in-fridge-and-close-door">put_item_in_fridge_and_close_door</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#franka-put-and-close-door">franka_put_and_close_door</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See Also</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

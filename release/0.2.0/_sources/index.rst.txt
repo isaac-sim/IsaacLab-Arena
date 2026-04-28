@@ -236,3 +236,4 @@ TABLE OF CONTENTS
    :caption: References
 
    pages/references/release_notes
+   pages/references/citing_us
