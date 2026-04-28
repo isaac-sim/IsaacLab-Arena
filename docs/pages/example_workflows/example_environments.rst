@@ -3,7 +3,7 @@ Example Environments
 
 Isaac Lab Arena ships a catalog of ready-to-run example environments under
 ``isaaclab_arena_environments/``. Each environment is a small composition of
-the building blocks introduced in :doc:`concepts/concept_overview` —
+the building blocks introduced in :doc:`../concepts/concept_overview` —
 **Scene**, **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
 subclass and registered with the global ``EnvironmentRegistry``.
 
@@ -14,9 +14,8 @@ The registered ``Task ID`` listed below is the value passed as the positional
 ``isaaclab_arena/scripts/imitation_learning/replay_demos.py``.
 
 The metadata below follows the same structure as the **Key Specifications**
-tables in the :doc:`example_workflows/imitation_learning/index` and
-:doc:`example_workflows/reinforcement_learning_workflows/index` workflow
-guides.
+tables in the :doc:`imitation_learning/index` and
+:doc:`reinforcement_learning_workflows/index` workflow guides.
 
 .. contents::
    :local:
@@ -136,7 +135,7 @@ galileo_g1_locomanip_pick_and_place
 
 **Task Description:** The G1 humanoid navigates the lab, squats, and picks an
 object off a shelf to place it into a bin on a table to its right. Featured in
-the :doc:`example_workflows/locomanipulation/index` workflow.
+the :doc:`locomanipulation/index` workflow.
 
 .. list-table::
    :widths: 30 70
@@ -174,7 +173,7 @@ gr1_open_microwave
 
 **Task Description:** The GR1T2 humanoid reaches with its upper body to open a
 microwave door. Featured in the
-:doc:`example_workflows/static_manipulation/index` workflow.
+:doc:`static_manipulation/index` workflow.
 
 .. list-table::
    :widths: 30 70
@@ -438,7 +437,7 @@ lift_object
 
 **Task Description:** Reinforcement-learning task in which the Franka Panda
 learns to grasp and lift an object to a commanded target position. Featured in
-the :doc:`example_workflows/reinforcement_learning/index` workflow.
+the :doc:`reinforcement_learning/index` workflow.
 
 .. list-table::
    :widths: 30 70
@@ -475,7 +474,7 @@ dexsuite_lift
 ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` MDP. The Kuka arm with an Allegro
 dexterous hand lifts a procedurally generated cuboid to a commanded target
 position. Featured in the
-:doc:`example_workflows/dexsuite_lift/index` workflow.
+:doc:`dexsuite_lift/index` workflow.
 
 .. list-table::
    :widths: 30 70
@@ -552,7 +551,7 @@ put_item_in_fridge_and_close_door
 
 **Task Description:** GR1 humanoid sequentially picks an object, places it on
 the refrigerator shelf, then closes the refrigerator door. Featured in the
-:doc:`example_workflows/sequential_static_manipulation/index` workflow.
+:doc:`sequential_static_manipulation/index` workflow.
 
 .. list-table::
    :widths: 30 70
@@ -613,6 +612,6 @@ microwave, followed by closing the microwave door.
 See Also
 --------
 
-- :doc:`concepts/concept_overview` — the Scene / Embodiment / Task building blocks used by every environment listed here.
-- :doc:`quickstart/first_arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
-- :doc:`arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
+- :doc:`../concepts/concept_overview` — the Scene / Embodiment / Task building blocks used by every environment listed here.
+- :doc:`../quickstart/first_arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
+- :doc:`../arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
