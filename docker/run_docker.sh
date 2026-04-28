@@ -109,7 +109,7 @@ else
 fi
 
 # Remove any exited containers
-if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX)" ]; then
+if [ "$(docker ps -a --quiet --filter status=exited --filter "name=^${DOCKER_IMAGE_NAME}-${DOCKER_VERSION_TAG}${CONTAINER_SUFFIX}$")" ]; then
     docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX > /dev/null
 fi
 
