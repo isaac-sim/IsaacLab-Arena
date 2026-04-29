@@ -1,0 +1,116 @@
+Policy Post-Training
+--------------------
+
+This workflow covers post-training an example policy using the generated dataset,
+here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
+
+**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
+
+:docker_run_gr00t:
+
+Once inside the container, set the dataset and models directories.
+
+.. code:: bash
+
+    export DATASET_DIR=/datasets/isaaclab_arena/locomanip_apple_tutorial
+    export MODELS_DIR=/models/isaaclab_arena/locomanip_apple_tutorial
+
+Note that this tutorial assumes that you've completed the
+:doc:`preceding step (Data Generation) <step_3_data_generation>`.
+
+
+Step 1: Convert to LeRobot Format
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+GR00T N1.6 requires the dataset to be in LeRobot format.
+We provide a script to convert from the IsaacLab Mimic generated HDF5 dataset to LeRobot format.
+
+Convert the HDF5 dataset to LeRobot format for policy post-training:
+
+.. code-block:: bash
+
+   python isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py \
+     --yaml_file isaaclab_arena_gr00t/lerobot/config/g1_locomanip_apple_config.yaml
+
+
+This creates a folder ``$DATASET_DIR/arena_g1_locomanip_apple_dataset_generated/lerobot`` containing parquet files with states/actions,
+MP4 camera recordings, and dataset metadata.
+
+The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/config/g1_locomanip_apple_config.yaml``.
+
+.. dropdown:: Configuration file (``g1_locomanip_apple_config.yaml``)
+   :animate: fade-in
+
+   .. code-block:: yaml
+
+      # Input/Output paths
+      data_root: /datasets/isaaclab_arena/locomanip_apple_tutorial
+      hdf5_name: "arena_g1_locomanip_apple_dataset_generated.hdf5"
+
+      # Task description
+      language_instruction: "Pick up the apple from the shelf, and place it onto the plate on the table located at the right of the shelf."
+      task_index: 2
+
+      # Data field mappings
+      state_name_sim: "robot_joint_pos"
+      action_name_sim: "processed_actions"
+      pov_cam_name_sim: "robot_head_cam_rgb"
+
+      # Output configuration
+      fps: 50
+      chunks_size: 1000
+
+The main differences from the brown-box config are the ``data_root`` / ``hdf5_name`` pointing at the
+apple-to-plate dataset and the ``language_instruction`` describing the apple-and-plate variant.
+
+
+Step 2: Post-train Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We post-train the GR00T N1.6 policy on the task.
+
+The GR00T N1.6 policy has 3 billion parameters so post-training is an expensive operation.
+We provide one post-training option, 8 GPUs with 48GB memory, to achieve the best quality.
+
+Training takes approximately 4-8 hours on 8x L40s GPUs.
+
+Compute Requirements:
+
+- **GPUs:** 8x with at least 48 GB VRAM each (e.g. L40s, GB200, etc.)
+- **System RAM:** 256 GB or more recommended — multi-GPU training with large batch sizes
+  and multiple dataloader workers requires substantial host memory
+
+Training Configuration:
+
+- **Base Model:** GR00T-N1.6-3B (foundation model)
+- **Tuned Modules:** Visual backbone, projector, diffusion model
+- **Frozen Modules:** LLM (language model)
+- **Batch Size:** 96 (adjust based on GPU memory)
+- **Training Steps:** 20,000
+
+To post-train the policy, run the following command
+
+.. code-block:: bash
+
+   PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH python -m torch.distributed.run --nproc_per_node=8 --standalone submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
+   --dataset_path=$DATASET_DIR/arena_g1_locomanip_apple_dataset_generated/lerobot \
+   --output_dir=$MODELS_DIR \
+   --modality_config_path=isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py \
+   --global_batch_size=96 \
+   --max_steps=20000 \
+   --num_gpus=8 \
+   --save_steps=5000 \
+   --save_total_limit=5 \
+   --base_model_path=nvidia/GR00T-N1.6-3B \
+   --no_tune_llm \
+   --tune_visual \
+   --tune_projector \
+   --tune_diffusion_model \
+   --dataloader_num_workers=8 \
+   --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
+   --embodiment_tag=NEW_EMBODIMENT
+
+
+If you have less powerful GPUs, please see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
+for information on how to adjust the training configuration to your hardware, to achieve
+the best results. We recommend fine-tuning the visual backbone, projector, and diffusion model for better results.
