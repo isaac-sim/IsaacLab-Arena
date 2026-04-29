@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab.envs.mdp.recorders.recorders_cfg import InitialStateRecorderCfg, PostStepStatesRecorderCfg, PreStepFlatPolicyObservationsRecorderCfg, PostStepProcessedActionsRecorderCfg
+from isaaclab.envs.mdp.recorders.recorders_cfg import (
+    InitialStateRecorderCfg,
+    PostStepProcessedActionsRecorderCfg,
+    PostStepStatesRecorderCfg,
+    PreStepFlatPolicyObservationsRecorderCfg,
+)
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
@@ -11,6 +16,7 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constan
     NAVIGATE_CMD_END_IDX,
     NAVIGATE_CMD_START_IDX,
 )
+
 
 class PostStepG1ObservationsActionRecorder(RecorderTerm):
     def record_post_step(self):

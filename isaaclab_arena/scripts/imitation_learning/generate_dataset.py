@@ -153,7 +153,7 @@ def setup_env_config(
             env_cfg.recorders = ActionStateRecorderManagerCfg()
     else:
         env_cfg.recorders = env_cfg.mimic_recorder_config
-    
+
     env_cfg.recorders.dataset_export_dir_path = output_dir
     env_cfg.recorders.dataset_filename = output_file_name
 
