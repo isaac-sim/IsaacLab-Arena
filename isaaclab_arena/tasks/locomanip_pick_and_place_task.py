@@ -11,6 +11,7 @@ from isaaclab.utils import configclass
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+from isaaclab_arena_g1.g1_env.mdp.recorders.g1_locomanip_recorder_cfg import G1LocomanipRecorderManagerCfg
 
 
 class LocomanipPickAndPlaceTask(PickAndPlaceTask):
