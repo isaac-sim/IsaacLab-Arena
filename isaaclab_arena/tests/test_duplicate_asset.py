@@ -16,7 +16,7 @@ EPS = 0.03
 def get_test_environment(num_envs: int, position_1: tuple[float, float, float], position_2: tuple[float, float, float]):
     """Returns a scene with two copies of the same cube object."""
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

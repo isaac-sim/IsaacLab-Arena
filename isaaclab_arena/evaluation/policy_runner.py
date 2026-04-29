@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
@@ -30,7 +31,7 @@ def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
       the policy_type argument as a string representing the module path and class name.
 
     """
-    from isaaclab_arena.assets.asset_registry import PolicyRegistry
+    from isaaclab_arena.assets.registries import PolicyRegistry
 
     policy_registry = PolicyRegistry()
     if policy_registry.is_registered(policy_type):
@@ -201,8 +202,7 @@ def main():
         metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
 
         if metrics is not None:
-            # Each rank prints its own metrics as it can be different due to random seed
-            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics}")
+            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
 
         # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
         # Do NOT rely on a __del__ destructor in policy for this, since destructors are

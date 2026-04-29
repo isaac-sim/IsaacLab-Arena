@@ -1,17 +1,11 @@
 Release Notes
 =============
 
-Unreleased: v0.2.0
-------------------
+Isaac Lab Arena
+---------------
 
-This release of Isaac Lab-Arena focuses on adding essential features needed for creation and
+Isaac Lab-Arena focuses on adding essential features needed for creation and
 execution of large-scale task libraries with complex long-horizon tasks.
-
-.. note::
-
-  Changes on ``main`` contains an in development version of v0.2.0.
-  As of March 16th 2026 (GTC San Jose 2026), ``main`` contains most of the features for the v0.2.0 release,
-  however, is based on Isaac Lab 2.3 (rather than Isaac Lab 3.0) and has not been SQA tested.*
 
 **Key Features**
 
@@ -41,18 +35,6 @@ so you can reuse LEGO blocks (tasks, scenes, metrics, and datasets) for your cus
   and discover Arena environments on Hugging Face
 - **Coming Soon:** NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more.
 
-
-**Developer preview branches**
-
-- **A developer preview of Isaac Lab-Arena 0.2 (based on Isaac Lab 2.3) is now available** on
-  `main <https://github.com/isaac-sim/IsaacLab-Arena/tree/main>`_.
-  This early version includes the 0.2 features and is meant for users who can accept some instability.
-- **Isaac Lab-Arena 0.2 on Isaac Lab 3.0 is underway in a dedicated feature branch**
-  `feature/isaac_lab_3_newton <https://github.com/isaac-sim/IsaacLab-Arena/tree/feature/isaac_lab_3_newton>`_.
-  This branch is subject to significant changes and instability as Lab 3.0 (Newton) is evolving quickly.
-- **The official, stable, and tested release of Isaac Lab-Arena 0.2 on Isaac Lab 3.0 is coming soon in April 2026.**
-
-
 **Collaboration**
 
 Isaac Lab-Arena is being developed as an open-source, shared evaluation framework that the community can
@@ -74,6 +56,80 @@ such as PIP packaging.
 - Performance is not yet hardened for production-scale workloads in Alpha stage.
 
 
+v0.2.0
+------
+
+This release introduces major new capabilities including Isaac Lab 3.0 (Newton) support,
+a sequential task chaining framework, semantic object placement, teleoperation, GR00T N1.6
+and DROID integration, RL workflows, and a large set of new tasks and embodiments.
+
+**Features and improvements**
+
+- **Isaac Lab 3.0 (Newton) upgrade:** Updated the framework to Isaac Lab 3.0 (Newton),
+  including an updated interop layer (#464, #533).
+- **Sequential task framework:** Added ``SequentialTaskBase`` class for chaining atomic
+  skills into long-horizon tasks, with mimic and metrics support, user-specifiable
+  final subtask success states, and an example that puts an object into a microwave and
+  closes the door (#289, #323, #337, #365).
+- **Semantic object placement:** Added a differentiable relation-based object placement
+  solver supporting ``On``, ``NextTo``, ``AtPosition``, and ``PositionLimits`` relations,
+  multiple anchors, ``RotateAroundSolution``, and full integration with ``ArenaEnvBuilder``
+  and ``ObjectPlacer`` (#328, #354, #358, #362, #387, #574).
+- **Teleoperation:** Added teleoperation support for G1 loco-manipulation and GR1 using
+  Quest XR hand-tracking and CloudXR; updated to IsaacTeleop v1.1 (#286, #350, #577, #605).
+- **GR00T N1.6 and DROID integration:** Upgraded GR00T to N1.6 and added DROID dataset
+  support, local inference pipeline, and language instruction support for closed-loop
+  evaluation (#334, #416, #418, #420, #519).
+- **New tasks, embodiments, and evaluation capabilities:** Added Sorting, FactoryAssembly,
+  TurnKnob, CloseDoor, and AdjustPose atomic tasks; Galbot and Agibot A2D embodiments;
+  G1 WBC-AGILE end-to-end velocity policy; RSL-RL policy evaluation; distributed
+  multi-GPU policy runner; multi-task evaluation job runner (#371, #285, #315,
+  #295, #305, #391, #292, #489, #333, #411, #277, #445, #394).
+
+**Documentation**
+
+- **README and Getting Started overhaul:** Comprehensive README rewrite and full
+  reorganization of the Getting Started section and navigation structure (#480, #505).
+- **Concepts and placement docs:** Added a humanized concepts page and a dedicated
+  object placement documentation page (#526, #511).
+- **RL and evaluation workflows:** Added RL workflow docs, policy evaluation section,
+  Newton evaluation example from IsaacLab DexSuite, and GTC DLI workflow docs
+  (#363, #451, #536, #390).
+- **External repository and advanced usage:** Added a dedicated page for using Arena
+  from an external repository, an advanced custom task example, GR00T closed-loop
+  docs, and DROID usage instructions (#518, #550, #519).
+
+**Infrastructure and CI**
+
+- **Docker and dependency improvements:** Moved Python dependencies from the Dockerfile
+  to ``setup.py``; pinned Newton mujoco version; fixed docker pipx stall; added missing
+  Arena package to NGC docker (#535, #629, #640, #578).
+- **Repository governance:** Added CODEOWNERS, issue templates (brought over from
+  IsaacLab), ``SECURITY.md``, ``AGENTS.md``, and ``CLAUDE.md`` (#583, #584, #585,
+  #586, #492, #454).
+
+**Assets and tests**
+
+- **RoboLab objects and HDR library:** Added the RoboLab asset library and HDR lighting
+  support for use in robolab scenes (#429, #428, #431).
+- **New example environments:** Added GR1 DLI environment, G1 AGILE tabletop
+  environment, and a Rubik's cube pick-and-place environment (#385, #562, #421).
+- **USD asset paths:** Updated object library paths to use the ``ISAAC_NUCLEUS_DIR``
+  prefix and updated USDs to reference the Isaac Sim 6.0 staging bucket (#291, #621).
+
+**Bug fixes**
+
+- **Sequential task metrics:** Fixed subtask success rate metric and
+  ``desired_subtask_success_state`` check in sequential task evaluation (#405, #410).
+- **RSL-RL evaluation metrics:** Fixed an extra episode appearing in policy evaluation
+  metrics when using RSL-RL (#530).
+- **Object placement correctness:** Fixed bounding box rotation in world frame, rejection
+  of overlapping placements by ``ObjectPlacer``, and initialization of ``On``-relation
+  objects within their parent's footprint (#400, #439, #538).
+- **Recorder dataset filename collision:** Fixed filename collisions when multiple
+  recorders write concurrently to a shared ``/tmp`` directory (#469).
+- **Metrics serialization:** Sanitized NumPy types in metrics output to prevent
+  serialization errors (#602).
 
 
 v0.1.1

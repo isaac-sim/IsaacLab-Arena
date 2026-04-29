@@ -18,7 +18,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     """Returns a peg insert environment for testing."""
     import isaaclab.sim as sim_utils
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -88,7 +88,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     """Returns a gear mesh environment for testing."""
     import isaaclab.sim as sim_utils
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

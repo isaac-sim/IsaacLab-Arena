@@ -18,8 +18,10 @@ INSTALL_GROOT="false"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
+# Optional suffix appended to the container name to allow multiple containers
+CONTAINER_SUFFIX=""
 
-while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
+while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
     case $OPTION in
 
         d)
@@ -49,6 +51,9 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             INSTALL_GROOT="true"
             DOCKER_VERSION_TAG='cuda_gr00t_gn16'
             ;;
+        s)
+            CONTAINER_SUFFIX="-${OPTARG}"
+            ;;
         h)
             script_name=$(basename "$0")
             echo "Helper script to build and IsaacLab Arena docker environment."
@@ -65,6 +70,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:" OPTION; do
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
             echo "  -g (Install GR00T N1.6 dependencies.)"
+            echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously.)"
             exit 0
             ;;
         \?)
@@ -103,8 +109,8 @@ else
 fi
 
 # Remove any exited containers
-if [ "$(docker ps -a --quiet --filter status=exited --filter name=$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG)" ]; then
-    docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG > /dev/null
+if [ "$(docker ps -a --quiet --filter status=exited --filter "name=^${DOCKER_IMAGE_NAME}-${DOCKER_VERSION_TAG}${CONTAINER_SUFFIX}$")" ]; then
+    docker rm $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX > /dev/null
 fi
 
 add_volume_if_it_exists() {
@@ -114,11 +120,11 @@ add_volume_if_it_exists() {
 }
 
 # If container is running, attach to it, otherwise start
-if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG 2>/dev/null)" = "true" ]; then
+if [ "$( docker container inspect -f '{{.State.Running}}' $DOCKER_IMAGE_NAME'-'$DOCKER_VERSION_TAG$CONTAINER_SUFFIX 2>/dev/null)" = "true" ]; then
   echo "Container already running. Attaching."
-  docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG su $(id -un)
+  docker exec -it $DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX su $(id -un)
 else
-    DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG"
+    DOCKER_RUN_ARGS=("--name" "$DOCKER_IMAGE_NAME-$DOCKER_VERSION_TAG$CONTAINER_SUFFIX"
                     "--privileged"
                     "--ulimit" "memlock=-1"
                     "--ulimit" "stack=-1"
@@ -132,6 +138,7 @@ else
                     $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
+                    "-v" "$HOME/.config/gh:/home/$(id -un)/.config/gh"
                     "-v" "$HOME/.cache:/home/$(id -un)/.cache"
                     "-v" "/tmp:/tmp"
                     "-v" "/tmp/.X11-unix:/tmp/.X11-unix:rw"

@@ -208,6 +208,7 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Example Workflows
 
+   pages/example_workflows/example_environments
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
 
@@ -230,9 +231,11 @@ TABLE OF CONTENTS
    pages/advanced/private_omniverse
    pages/advanced/assets_management
    pages/quickstart/jupyter_notebooks
+   pages/advanced/gr00t_server_client
 
 .. toctree::
    :maxdepth: 1
    :caption: References
 
    pages/references/release_notes
+   pages/references/citing_us

@@ -210,6 +210,13 @@ class HDRImageRegistry(Registry):
         return random.choice(hdrs)
 
 
+class EnvironmentRegistry(Registry):
+    """Registry for example environment classes."""
+
+    def __init__(self):
+        super().__init__()
+
+
 # Lazy registration to avoid circular imports
 _assets_registered = False
 

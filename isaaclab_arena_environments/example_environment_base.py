@@ -18,7 +18,7 @@ class ExampleEnvironmentBase(ABC):
     name: str | None = None
 
     def __init__(self):
-        from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, HDRImageRegistry
+        from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry, HDRImageRegistry
 
         self.asset_registry = AssetRegistry()
         self.device_registry = DeviceRegistry()

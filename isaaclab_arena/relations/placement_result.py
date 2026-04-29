@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 @dataclass
@@ -19,7 +19,7 @@ class PlacementResult:
     success: bool
     """Whether placement passed validation checks."""
 
-    positions: dict[Object, tuple[float, float, float]]
+    positions: dict[ObjectBase, tuple[float, float, float]]
     """Final positions for each object."""
 
     final_loss: float
@@ -27,3 +27,21 @@ class PlacementResult:
 
     attempts: int
     """Number of attempts made."""
+
+
+@dataclass
+class MultiEnvPlacementResult:
+    """Result of an ObjectPlacer.place() call for multiple environments."""
+
+    results: list[PlacementResult]
+    """One PlacementResult per environment (same length as num_envs)."""
+
+    @property
+    def success(self) -> bool:
+        """True if every environment's placement succeeded."""
+        return all(r.success for r in self.results)
+
+    @property
+    def attempts(self) -> int:
+        """Number of attempts (same for all envs in the batched run)."""
+        return self.results[0].attempts if self.results else 0

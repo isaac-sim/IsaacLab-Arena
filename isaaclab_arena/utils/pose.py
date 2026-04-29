@@ -75,6 +75,14 @@ def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
 
 
 @dataclass
+class PosePerEnv:
+    """Per-environment poses (one Pose per env, used for batched placement)."""
+
+    poses: list[Pose]
+    """One Pose per environment."""
+
+
+@dataclass
 class PoseRange:
     """Range of poses.
 

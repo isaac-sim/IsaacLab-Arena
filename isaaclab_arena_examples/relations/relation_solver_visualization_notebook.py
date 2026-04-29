@@ -93,7 +93,7 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
     parent_pose = parent.get_initial_pose()
     parent_bbox = parent.get_bounding_box()
     px, py, pz = parent_pose.position_xyz
-    pw, pd, ph = parent_bbox.size
+    pw, pd, ph = parent_bbox.size[0].tolist()
 
     # Draw parent bounding box
     parent_rect = Rectangle(
@@ -104,7 +104,7 @@ def plot_loss_heatmap(X, Y, losses, parent, child, side, distance_m):
 
     # Get child bounding box
     child_bbox = child.get_bounding_box()
-    cw, cd, ch = child_bbox.size
+    cw, cd, ch = child_bbox.size[0].tolist()
 
     # Mark ideal position
     if side == Side.POSITIVE_X:

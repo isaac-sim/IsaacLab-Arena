@@ -8,14 +8,17 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relation_loss_strategies import RelationLossStrategy, UnaryRelationLossStrategy
+from isaaclab_arena.relations.relation_loss_strategies import (
+    NoCollisionLossStrategy,
+    RelationLossStrategy,
+    UnaryRelationLossStrategy,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 class RelationSolver:
@@ -37,8 +40,11 @@ class RelationSolver:
             params: Solver configuration parameters. If None, uses defaults.
         """
         self.params = params or RelationSolverParams()
+        # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
+        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
+        self._last_loss_per_env: torch.Tensor | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
@@ -68,9 +74,11 @@ class RelationSolver:
             debug: If True, print detailed loss breakdown.
 
         Returns:
-            Total loss tensor.
+            Scalar loss tensor (mean over environments).
         """
-        total_loss = torch.tensor(0.0)
+        batch_size = state.batch_size
+        device = state.device
+        total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
         # Compute loss from all spatial relations using strategies
         for obj in state.optimizable_objects:
@@ -83,54 +91,127 @@ class RelationSolver:
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box(),
+                        child_bbox=obj.get_bounding_box().to(device),
                     )
                     if debug:
-                        _print_unary_relation_debug(obj, relation, child_pos, loss)
+                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
-                    # Build parent world bbox: anchors have a known fixed pose,
-                    # optimizable parents use the current solver position + local bbox.
                     parent = relation.parent
                     if parent in state.anchor_objects:
-                        parent_world_bbox = parent.get_world_bounding_box()
+                        parent_world_bbox = parent.get_world_bounding_box().to(device)
                     else:
                         parent_pos = state.get_position(parent)
-                        parent_world_bbox = parent.get_bounding_box().translated(
-                            (float(parent_pos[0]), float(parent_pos[1]), float(parent_pos[2]))
-                        )
+                        parent_world_bbox = parent.get_bounding_box().to(device).translated(parent_pos)
                     loss = strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box(),
+                        child_bbox=obj.get_bounding_box().to(device),
                         parent_world_bbox=parent_world_bbox,
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
-                        _print_relation_debug(obj, relation, child_pos, parent_pos, loss)
+                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.mean())
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
                 total_loss = total_loss + loss
 
+        # Add built-in no-overlap loss between all object pairs
+        total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
+
+        self._last_loss_per_env = total_loss.detach().clone()
+        return total_loss.mean()
+
+    def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
+
+        Each unique pair is evaluated twice (once per direction):
+        - Non-anchor vs anchor: gradient flows to the non-anchor only.
+        - Non-anchor vs non-anchor: both objects receive gradient by computing
+          the loss in both directions with the other's position detached.
+
+        Args:
+            state: Current optimization state with object positions.
+            debug: If True, print detailed loss breakdown.
+
+        Returns:
+            Per-environment loss tensor of shape (batch_size,).
+        """
+        device = state.device
+        total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
+
+        non_anchor_objects = state.optimizable_objects
+        anchor_objects = list(state.anchor_objects)
+
+        for i, child in enumerate(non_anchor_objects):
+            child_pos = state.get_position(child)
+            child_bbox = child.get_bounding_box().to(device)
+
+            # Against all anchors
+            for anchor in anchor_objects:
+                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+                loss = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=anchor_world_bbox,
+                )
+                if debug:
+                    print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
+                total_loss = total_loss + loss
+
+            # Against other non-anchors (unique pairs, both directions)
+            for j in range(i + 1, len(non_anchor_objects)):
+                other = non_anchor_objects[j]
+                other_pos = state.get_position(other)
+                other_bbox = other.get_bounding_box().to(device)
+
+                # Forward: gradient flows to child (object i)
+                other_world_bbox = other_bbox.translated(other_pos.detach())
+                loss_fwd = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=other_world_bbox,
+                )
+
+                # Reverse: gradient flows to other (object j)
+                child_world_bbox = child_bbox.translated(child_pos.detach())
+                loss_rev = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=other_pos,
+                    child_bbox=other_bbox,
+                    parent_world_bbox=child_world_bbox,
+                )
+
+                if debug:
+                    print(
+                        f"  [NoOverlap] {child.name} vs {other.name}:"
+                        f" fwd={loss_fwd.mean().item():.6f}, rev={loss_rev.mean().item():.6f}"
+                    )
+                total_loss = total_loss + loss_fwd + loss_rev
+
         return total_loss
 
     def solve(
         self,
-        objects: list[Object | ObjectReference],
-        initial_positions: dict[Object | ObjectReference, tuple[float, float, float]],
-    ) -> dict[Object | ObjectReference, tuple[float, float, float]]:
+        objects: list[ObjectBase],
+        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
+    ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of Object or ObjectReference instances. Must include at least one object
+            objects: List of ObjectBase instances. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
-            initial_positions: Starting positions for all objects (including anchors).
+            initial_positions: List of dicts (one per env). Use a single-element list
+                for single-env placement.
 
         Returns:
-            Dictionary mapping object instances to final (x, y, z) positions.
+            List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
-        state = RelationSolverState(objects, initial_positions)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        state = RelationSolverState(objects, initial_positions, device=device)
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -144,11 +225,17 @@ class RelationSolver:
             if self.params.verbose:
                 print("No optimizable objects, skipping solver.")
             self._last_loss_history = [0.0]
+            self._last_loss_per_env = torch.zeros(state.batch_size)
             self._last_position_history = [state.get_all_positions_snapshot()]
-            return state.get_final_positions_dict()
+            return state.get_final_positions()
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
+
+        # Compute initial loss so _last_loss_per_env is always populated
+        # (needed even when max_iters=0, e.g. tests that only check init positions).
+        with torch.no_grad():
+            self._compute_total_loss(state)
 
         # Optimization loop
         loss_history = []
@@ -180,7 +267,7 @@ class RelationSolver:
         if self.params.save_position_history:
             position_history.append(state.get_all_positions_snapshot())
 
-        if self.params.verbose:
+        if self.params.verbose and loss_history:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
@@ -188,7 +275,7 @@ class RelationSolver:
         self._last_loss_history = loss_history
         self._last_position_history = position_history
 
-        return state.get_final_positions_dict()
+        return state.get_final_positions()
 
     @property
     def last_loss_history(self) -> list[float]:
@@ -196,11 +283,16 @@ class RelationSolver:
         return self._last_loss_history
 
     @property
+    def last_loss_per_env(self) -> torch.Tensor | None:
+        """Per-candidate loss tensor of shape (batch_size,) from the last solve() call."""
+        return self._last_loss_per_env
+
+    @property
     def last_position_history(self) -> list:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[Object | ObjectReference]) -> None:
+    def debug_losses(self, objects: list[ObjectBase]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
@@ -220,13 +312,13 @@ class RelationSolver:
         # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
-        state = RelationSolverState(objects, final_positions)
+        state = RelationSolverState(objects, [final_positions])
         self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 
 
 def _print_relation_debug(
-    obj: Object | ObjectReference,
+    obj: ObjectBase,
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,
@@ -238,26 +330,41 @@ def _print_relation_debug(
 
     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}")
+    print(
+        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
+        f" size={child_bbox.size[0].tolist()}"
+    )
     print(f"  Parent pos: ({parent_pos[0].item():.4f}, {parent_pos[1].item():.4f}, {parent_pos[2].item():.4f})")
     print(
-        f"  Parent world bbox: min={parent_world_bbox.min_point}, max={parent_world_bbox.max_point},"
-        f" size={parent_world_bbox.size}"
+        f"  Parent world bbox: min={parent_world_bbox.min_point[0].tolist()},"
+        f" max={parent_world_bbox.max_point[0].tolist()}, size={parent_world_bbox.size[0].tolist()}"
     )
 
     # Child world extents
-    child_x_range = (child_pos[0].item() + child_bbox.min_point[0], child_pos[0].item() + child_bbox.max_point[0])
-    child_y_range = (child_pos[1].item() + child_bbox.min_point[1], child_pos[1].item() + child_bbox.max_point[1])
+    child_x_range = (
+        child_pos[0].item() + child_bbox.min_point[0, 0].item(),
+        child_pos[0].item() + child_bbox.max_point[0, 0].item(),
+    )
+    child_y_range = (
+        child_pos[1].item() + child_bbox.min_point[0, 1].item(),
+        child_pos[1].item() + child_bbox.max_point[0, 1].item(),
+    )
 
     print(f"  Child world X: [{child_x_range[0]:.4f}, {child_x_range[1]:.4f}]")
     print(f"  Child world Y: [{child_y_range[0]:.4f}, {child_y_range[1]:.4f}]")
-    print(f"  Parent world X: [{parent_world_bbox.min_point[0]:.4f}, {parent_world_bbox.max_point[0]:.4f}]")
-    print(f"  Parent world Y: [{parent_world_bbox.min_point[1]:.4f}, {parent_world_bbox.max_point[1]:.4f}]")
+    print(
+        f"  Parent world X: [{parent_world_bbox.min_point[0, 0].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 0].item():.4f}]"
+    )
+    print(
+        f"  Parent world Y: [{parent_world_bbox.min_point[0, 1].item():.4f},"
+        f" {parent_world_bbox.max_point[0, 1].item():.4f}]"
+    )
     print(f"  Loss: {loss.item():.6f}")
 
 
 def _print_unary_relation_debug(
-    obj: Object,
+    obj: ObjectBase,
     relation: RelationBase,
     child_pos: torch.Tensor,
     loss: torch.Tensor,
@@ -269,5 +376,8 @@ def _print_unary_relation_debug(
     param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
     print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
-    print(f"  Child bbox: min={child_bbox.min_point}, max={child_bbox.max_point}, size={child_bbox.size}")
+    print(
+        f"  Child bbox: min={child_bbox.min_point[0].tolist()}, max={child_bbox.max_point[0].tolist()},"
+        f" size={child_bbox.size[0].tolist()}"
+    )
     print(f"  Loss: {loss.item():.6f}")

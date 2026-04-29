@@ -19,7 +19,7 @@ DEVICE_NAMES = ["openxr", "spacemouse", "keyboard"]
 def _test_all_devices_and_retargeters_in_registry(simulation_app):
     # Import the necessary classes.
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry, DeviceRegistry, RetargeterRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry, RetargeterRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene

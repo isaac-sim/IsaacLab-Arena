@@ -27,11 +27,15 @@ class ObjectPlacerParams:
     placement_seed: int | None = None
     """Random seed for reproducible placement. If None, uses current RNG state."""
 
-    min_separation_m: float = 0.0
-    """Minimum separation (meters) required between object bounding boxes.
-    Set to 0.0 to only reject actual overlaps. A small positive value (e.g. 0.005)
-    adds a safety margin between objects."""
-
     on_relation_z_tolerance_m: float = 5e-3
     """Tolerance (meters) for On-relation Z validation. Valid Z band is extended to
     (parent_top - tolerance, parent_top + clearance_m + tolerance]. Default 5e-3 accommodates solver residual."""
+
+    resolve_on_reset: bool = True
+    """If True, draw fresh layouts from the placement pool on each environment reset.
+    If False, solve initial positions once and reuse them across all resets."""
+
+    min_unique_layouts_per_env: int = 5
+    """Number of unique pre-solved layouts per environment in the placement pool.
+    The pool stores ``min_unique_layouts_per_env * num_envs`` valid layouts so each
+    environment has many distinct configurations to draw from."""

@@ -52,6 +52,15 @@ RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 # Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
 RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.1.0 --extra-index-url https://pypi.nvidia.com
 
+# Install isaaclab_newton's [all] extra so its pinned mujoco / mujoco-warp / newton
+# versions take effect. The earlier `isaaclab*` loop above and `isaaclab.sh -i`
+# install with `--no-deps` and without the extra, so the pins in
+# `isaaclab_newton/setup.py::EXTRAS_REQUIRE["all"]` are otherwise ignored,
+# and `isaaclab` pulls `mujoco-warp>=3.5` which resolves to 3.7.x — where
+# `geom_dataid` is 2D and breaks the pinned Newton's SolverMuJoCo kernels.
+RUN /isaac-sim/python.sh -m pip install -e \
+      "${WORKDIR}/submodules/IsaacLab/source/isaaclab_newton[all]"
+
 # Upgrade pip ahead of the editable install
 RUN /isaac-sim/python.sh -m pip install --upgrade pip
 
@@ -61,7 +70,7 @@ ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 # HuggingFace CLI for downloading datasets and models.
 # Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
 # without touching system Python packages.
-RUN apt-get install -y pipx && \
+RUN apt-get update && apt-get install -y pipx && \
     PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin \
     pipx install \
     "huggingface-hub[cli]" \

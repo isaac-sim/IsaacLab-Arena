@@ -66,7 +66,7 @@ class TestNewtonPresetParameters:
 
 def _build_env_cfg(presets: str | None):
     """Build a real env cfg through ArenaEnvBuilder.compose_manager_cfg with the given preset."""
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

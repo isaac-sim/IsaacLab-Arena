@@ -14,8 +14,7 @@ from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 class Side(Enum):
@@ -51,10 +50,10 @@ class UnaryRelation(RelationBase):
 class Relation(RelationBase):
     """Base class for binary spatial relationships between objects."""
 
-    def __init__(self, parent: Object | ObjectReference, relation_loss_weight: float = 1.0):
+    def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
         """
         Args:
-            parent: The parent asset in the relationship (Object or ObjectReference).
+            parent: The parent asset in the relationship.
             relation_loss_weight: Weight for the relationship loss function.
         """
         self.parent = parent
@@ -72,7 +71,7 @@ class NextTo(Relation):
 
     def __init__(
         self,
-        parent: Object | ObjectReference,
+        parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
         side: Side = Side.POSITIVE_X,
@@ -112,7 +111,7 @@ class On(Relation):
 
     def __init__(
         self,
-        parent: Object | ObjectReference,
+        parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
     ):
@@ -124,33 +123,6 @@ class On(Relation):
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
-        self.clearance_m = clearance_m
-
-
-class NoCollision(Relation):
-    """Represents a 'no collision' relationship between two objects.
-
-    This relation specifies that the child and parent bounding boxes must not
-    overlap. Adding NoCollision on one side is enough; the solver counts each
-    unordered pair once.
-
-    Note: Loss computation is handled by NoCollisionLossStrategy in relation_loss_strategies.py.
-    """
-
-    def __init__(
-        self,
-        parent: Object | ObjectReference,
-        relation_loss_weight: float = 1.0,
-        clearance_m: float = 0.01,
-    ):
-        """
-        Args:
-            parent: The other object that this object must not collide with.
-            relation_loss_weight: Weight for the relationship loss function.
-            clearance_m: Minimum clearance between bounding boxes in meters (default: 1cm).
-        """
-        super().__init__(parent, relation_loss_weight)
-        assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"
         self.clearance_m = clearance_m
 
 
@@ -393,7 +365,7 @@ class PositionLimits(UnaryRelation):
         self.relation_loss_weight = relation_loss_weight
 
 
-def get_anchor_objects(objects: list[Object | ObjectReference]) -> list[Object | ObjectReference]:
+def get_anchor_objects(objects: list[ObjectBase]) -> list[ObjectBase]:
     """Get all anchor objects from a list of objects.
 
     Anchor objects are marked with IsAnchor() relation and serve as

@@ -16,7 +16,7 @@ OBJECT_SEPARATION = 0.5
 
 
 def _test_default_assets_registered(simulation_app):
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
 
     asset_registry = AssetRegistry()
     assert asset_registry is not None
@@ -46,8 +46,8 @@ def test_default_assets_registered():
 def _test_all_assets_in_registry(simulation_app):
     # Import the necessary classes.
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -131,8 +131,8 @@ def test_all_assets_in_registry():
 
 
 def _test_hdr_images_registered(simulation_app):
-    from isaaclab_arena.assets.asset_registry import HDRImageRegistry
     from isaaclab_arena.assets.hdr_image import HDRImage
+    from isaaclab_arena.assets.registries import HDRImageRegistry
 
     hdr_registry = HDRImageRegistry()
     all_keys = hdr_registry.get_all_keys()
@@ -168,7 +168,7 @@ def _test_hdr_image_spawn(simulation_app):
     This test only needs to confirm that the DomeLight + HDRImage mechanism
     works in a live simulation, so a single HDR is sufficient.
     """
-    from isaaclab_arena.assets.asset_registry import AssetRegistry, HDRImageRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry, HDRImageRegistry
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -223,7 +223,7 @@ def test_hdr_image_spawn():
 def _test_multi_light_in_scene(simulation_app):
     from pxr import UsdLux
 
-    from isaaclab_arena.assets.asset_registry import AssetRegistry
+    from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
