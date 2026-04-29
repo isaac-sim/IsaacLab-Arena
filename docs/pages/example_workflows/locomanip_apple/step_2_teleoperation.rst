@@ -25,43 +25,72 @@ This workflow covers collecting demonstrations for the G1 loco-manipulation appl
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
+#. On the host machine, configure the firewall to allow CloudXR traffic. The required ports depend on the client type.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   sudo ufw allow 49100/tcp   # Signaling
-   sudo ufw allow 47998/udp   # Media stream
-   sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
+      sudo ufw allow 49100/tcp   # Signaling
+      sudo ufw allow 47998/udp   # Media stream
+      sudo ufw allow 48322/tcp   # Proxy (HTTPS mode only)
 
 
-Start the CloudXR runtime from the Arena Docker container:
+#. Start the CloudXR runtime from the Arena Docker container:
 
-:docker_run_default:
+   :docker_run_default:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   python -m isaacteleop.cloudxr
+      python -m isaacteleop.cloudxr
+
+.. attention::
+
+   The first run will prompt users to accept the NVIDIA CloudXR License Agreement.
+   To accept the EULA, reply ``Yes`` when prompted with the below message:
+
+   .. code:: bash
+
+      NVIDIA CloudXR EULA must be accepted to run. View: https://github.com/NVIDIA/IsaacTeleop/blob/main/deps/cloudxr/CLOUDXR_LICENSE
+
+      Accept NVIDIA CloudXR EULA? [y/N]: Yes
 
 
 Step 2: Start Arena Teleop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In another terminal, start the Arena Docker container and launch the teleop session to verify the pipeline:
+#. In another terminal, start the Arena Docker container and launch the teleop session to verify the pipeline:
 
-:docker_run_default:
+   :docker_run_default:
 
-.. code-block:: bash
+#. Run the following command to activate IsaacTeleop CloudXR environment settings:
 
-   source ~/.cloudxr/run/cloudxr.env
-   python isaaclab_arena/scripts/imitation_learning/teleop.py \
-     --viz kit \
-     --device cpu \
-     galileo_g1_locomanip_pick_and_place \
-     --object apple_01_objaverse_robolab \
-     --destination clay_plates_hot3d_robolab \
-     --teleop_device openxr
+   .. code-block:: bash
 
-Start the session from the **XR** tab in the application window.
+      source ~/.cloudxr/run/cloudxr.env
+
+   .. important::
+      **Order matters.** In the terminal where you will run Arena, ``source ~/.cloudxr/run/cloudxr.env`` *after* the CloudXR runtime from Step 1 is already running,
+      and *before* you start the Arena app. The Arena app must inherit the IsaacTeleop CloudXR environment variables.
+
+#. Run the teleop script:
+
+   .. code-block:: bash
+
+      python isaaclab_arena/scripts/imitation_learning/teleop.py \
+      --viz kit \
+      --device cpu \
+      galileo_g1_locomanip_pick_and_place \
+      --object apple_01_objaverse_robolab \
+      --destination clay_plates_hot3d_robolab \
+      --teleop_device openxr
+
+#. In the running application, start the session from the **XR** tab in the application window.
+
+   .. figure:: ../../../images/locomanip_arena_server_apple.png
+      :width: 100%
+      :alt: Arena teleop with XR running (stereoscopic view and OpenXR settings)
+      :align: center
+
+      Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).
 
 
 Step 3: Connect from Meta Quest 3
@@ -79,7 +108,20 @@ A strong wireless connection is essential for a high-quality streaming experienc
    Accept the certificate in the new page that opens, then navigate back to the
    CloudXR.js client page.
 
-#. Click Connect to begin teleoperation.
+#. Click **Connect** to begin teleoperation.
+
+   .. note::
+      Once you press **Connect** in the web browser, you should see the following control panel. Press **Play** to start teleoperation.
+      You can also reset the scene by pressing the **Reset** button.
+
+      If the control panel is not visible (for example, behind a solid wall in the simulated environment), you can put the headset on
+      before clicking **Start XR** in the Isaac Lab Arena application, and drag the control panel to a better location.
+
+      .. figure:: ../../../images/react-isaac-sample-controls-start.jpg
+         :width: 40%
+         :alt: IsaacSim view
+         :align: center
+
 
 #. **Teleoperation Controls**:
 
@@ -92,9 +134,24 @@ A strong wireless connection is essential for a high-quality streaming experienc
 
    If the simulation runs at too low FPS and makes the teleoperation feel laggy, you can try to reduce the XR resolution from the XR tab / Advanced Settings / Render Resolution.
 
+   .. figure:: ../../../images/xr_resolution.png
+      :width: 40%
+      :alt: XR resolution panel
+      :align: center
+
+      Reducing render resolution from 1 (default) to 0.2.
+
 
 Step 4: Record with Quest 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+   Run the following command to activate IsaacTeleop CloudXR environment settings again if you are starting the recording app from a different terminal.
+
+   .. code-block:: bash
+
+      source ~/.cloudxr/run/cloudxr.env
 
 #. **Recording**: When ready to collect data, run the recording script from the Arena container:
 
@@ -114,6 +171,10 @@ Step 4: Record with Quest 3
         --object apple_01_objaverse_robolab \
         --destination clay_plates_hot3d_robolab \
         --teleop_device openxr
+
+#. In the running application, start the session from the **XR** tab in the application window.
+
+#. Follow Step 3 to connect the Quest 3 headset again.
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
 
@@ -136,6 +197,14 @@ Step 4: Record with Quest 3
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
    bin. Keep the release height low and the orientation stable — successful demonstrations make
    Isaac Lab Mimic's job much easier in :doc:`step_3_data_generation`.
+
+.. warning::
+
+   **Known issue:** the squat height does not reset correctly between demos. As a
+   workaround, after each completed demo:
+
+   #. Use the **right joystick** (up) to stand the robot back up.
+   #. Use the CloudXR control panel to **Reset**, then **Play** to start the next demo.
 
 
 Step 5: Replay Recorded Demos (Optional)
