@@ -250,9 +250,9 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         **************************************************
         """
         # Extract navigate_cmd  base_height_cmd, and torso_orientation_rpy_cmd from actions
-        navigate_cmd = self.get_navigation_cmd_from_actions(actions_clone)
-        base_height_cmd = self.get_base_height_cmd_from_actions(actions_clone)
-        torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone)
+        navigate_cmd = self.get_navigation_cmd_from_actions(actions_clone).cpu()
+        base_height_cmd = self.get_base_height_cmd_from_actions(actions_clone).cpu()
+        torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone).cpu()
 
         if self.cfg.use_p_control:
             if not self._is_navigating and self._navigation_goal_reached:

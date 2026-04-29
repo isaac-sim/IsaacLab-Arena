@@ -146,10 +146,14 @@ def setup_env_config(
     env_cfg.observations.policy.concatenate_terms = False
 
     # Setup recorders
-    if args_cli.enable_cameras:
-        env_cfg.recorders = ArenaEnvRecorderManagerCfg()
+    if env_cfg.mimic_recorder_config is None:
+        if args_cli.enable_cameras:
+            env_cfg.recorders = ArenaEnvRecorderManagerCfg()
+        else:
+            env_cfg.recorders = ActionStateRecorderManagerCfg()
     else:
-        env_cfg.recorders = ActionStateRecorderManagerCfg()
+        env_cfg.recorders = env_cfg.mimic_recorder_config
+
     env_cfg.recorders.dataset_export_dir_path = output_dir
     env_cfg.recorders.dataset_filename = output_file_name
 

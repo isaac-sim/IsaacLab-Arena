@@ -11,6 +11,7 @@ from isaaclab.utils import configclass
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+from isaaclab_arena_g1.g1_env.mdp.recorders.g1_locomanip_recorder_cfg import G1LocomanipRecorderManagerCfg
 
 
 class LocomanipPickAndPlaceTask(PickAndPlaceTask):
@@ -70,6 +71,9 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
         self.datagen_config.generation_interpolate_from_last_target_pose = True
         self.datagen_config.max_num_failures = 25
         self.datagen_config.seed = 1
+        self.datagen_config.use_navigation_controller = True
+
+        self.mimic_recorder_config = G1LocomanipRecorderManagerCfg()
 
         # Right arm subtasks
         subtask_configs = []
