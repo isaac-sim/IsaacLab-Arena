@@ -42,6 +42,7 @@ def write_env(
     out_path: str | Path,
     attempt: int = 0,
     env_suffix: str = "",
+    seed: int | None = None,
 ) -> Path:
     """Render the env module and return the final path.
 
@@ -57,8 +58,13 @@ def write_env(
     ``"_t1"``). This sidesteps Isaac Sim's gym / scene caching, which
     causes init_state from a re-registered same-name env to be ignored
     on the third attempt onward.
+
+    ``seed`` is forwarded to :func:`propose_placement` so the
+    robot-placement RNG mixes in the user-supplied ``--seed`` —
+    different seeds give different angular samples for the same
+    (env_name, attempt) pair.
     """
-    placement = propose_placement(resolved, spec, attempt=attempt)
+    placement = propose_placement(resolved, spec, attempt=attempt, seed=seed)
     placement = block_initial_goal_satisfaction(placement, resolved)
     if env_suffix:
         # Camelize "_t3" -> "T3" so the class name stays PEP-8-friendly.
@@ -164,7 +170,8 @@ class {placement.class_name}(ExampleEnvironmentBase):
     name: str = "{placement.env_name}"
 
     def get_env(self, args_cli: argparse.Namespace) -> "IsaacLabArenaEnvironment":
-{object_type_import_line}{object_reference_import_line}        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+{object_type_import_line}{object_reference_import_line}        from isaaclab.envs.common import ViewerCfg
+        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 {relations_import_line}
         from isaaclab_arena.scene.scene import Scene
         {placement.task_plan.task_import}
@@ -194,11 +201,34 @@ class {placement.class_name}(ExampleEnvironmentBase):
 
 {goal_comments}
 
+        # Zoom the Kit viewer onto the tabletop. The default
+        # IsaacLabArenaManagerBasedRLEnvCfg viewer sits at (7.5, 7.5, 7.5)
+        # — too far out to see grasp markers — so we override it with a
+        # high-and-tilted-down framing. lookat is the runtime tabletop
+        # bbox midpoint; eye sits well above so the camera looks down on
+        # the table and keeps the Franka EEF inside the frame instead of
+        # clipping it off the top edge.
+        _viewer_lookat = (
+            (_tbl_min_xyz[0] + _tbl_max_xyz[0]) / 2.0,
+            (_tbl_min_xyz[1] + _tbl_max_xyz[1]) / 2.0,
+            _tbl_max_xyz[2],
+        )
+        _viewer_eye = (
+            _viewer_lookat[0] + 1.0,
+            _viewer_lookat[1] + 1.0,
+            _viewer_lookat[2] + 2.5,
+        )
+
+        def _set_viewer_cfg(env_cfg):
+            env_cfg.viewer = ViewerCfg(eye=_viewer_eye, lookat=_viewer_lookat)
+            return env_cfg
+
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
             task={placement.task_plan.task_expr},
+            env_cfg_callback=_set_viewer_cfg,
         )
 
     @staticmethod
@@ -253,7 +283,16 @@ def _render_bbox_setup(plan: TabletopAnchorPlan) -> str:
         f"        _tbl_bbox = {plan.anchor_var}.get_world_bounding_box()\n"
         "        _tbl_min_xyz = [float(_tbl_bbox.min_point[0, i]) for i in range(3)]\n"
         "        _tbl_max_xyz = [float(_tbl_bbox.max_point[0, i]) for i in range(3)]\n"
-        f"        _tbl_margin = {plan.margin_m}"
+        f"        _tbl_margin = {plan.margin_m}\n"
+        "        print(\n"
+        "            f\"[bbox] tabletop world AABB: min=({_tbl_min_xyz[0]:.3f}, \"\n"
+        "            f\"{_tbl_min_xyz[1]:.3f}, {_tbl_min_xyz[2]:.3f}) -> \"\n"
+        "            f\"max=({_tbl_max_xyz[0]:.3f}, {_tbl_max_xyz[1]:.3f}, \"\n"
+        "            f\"{_tbl_max_xyz[2]:.3f}); size_xy=\"\n"
+        "            f\"({_tbl_max_xyz[0] - _tbl_min_xyz[0]:.3f}, \"\n"
+        "            f\"{_tbl_max_xyz[1] - _tbl_min_xyz[1]:.3f})\",\n"
+        "            flush=True,\n"
+        "        )"
     )
 
 
@@ -291,7 +330,8 @@ def _render_robot_pose(rp: RobotPlacement | None) -> str:
         "\n"
         f"        # Robot placement sampled on tabletop edge '{rp.edge}' at fraction "
         f"{rp.fraction:.3f};\n"
-        f"        # base sits {rp.offset_m} m outside the edge, yaw faces the table center.\n"
+        f"        # base sits {rp.offset_m} m outside the edge, gripper aligned with the\n"
+        f"        # cardinal axis pointing back across the table at the objects.\n"
         f"        _robot_x = {x_expr}\n"
         f"        _robot_y = {y_expr}\n"
         f"        embodiment.set_initial_pose(Pose(\n"

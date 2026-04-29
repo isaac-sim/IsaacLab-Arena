@@ -239,16 +239,51 @@ def main() -> int:
         trial_paths: list[Path] = []
         last_status: int | None = None
         winning_attempt: int | None = None
+        winning_robot_idx: int = 0
+
+        # Search strategy: attempt 0 is the baseline (robot_idx=0,
+        # item_idx=0). Subsequent attempts vary exactly one of the two
+        # axes — odd attempts reseed the placement pool, even attempts
+        # resample the robot edge — so when something starts working we
+        # can attribute the fix to that axis. The final attempt is a
+        # last-resort that varies both.
+        base_placement_seed = int(args_cli.placement_seed) if args_cli.placement_seed is not None else 0
+        robot_idx = 0
+        item_idx = 0
 
         for attempt in range(max_attempts):
+            is_last = attempt == max_attempts - 1
+
+            if attempt == 0:
+                change_note = "baseline (robot_idx=0, item_idx=0)"
+            elif is_last:
+                robot_idx += 1
+                item_idx += 1
+                change_note = f"both varied (robot_idx={robot_idx}, item_idx={item_idx}) — last-resort"
+            elif attempt % 2 == 1:
+                item_idx += 1
+                change_note = f"items only (item_idx={item_idx}, robot_idx={robot_idx} held)"
+            else:
+                robot_idx += 1
+                change_note = f"robot only (robot_idx={robot_idx}, item_idx={item_idx} held)"
+
+            # Stride by max_placement_attempts (=10) so each item_idx
+            # picks a non-overlapping range of candidate seeds. Stepping
+            # by 1 instead leaves the "best" layout almost always the
+            # same one across consecutive seeds, which defeats the
+            # purpose of reseeding items.
+            args_cli.placement_seed = base_placement_seed + item_idx * 100
+
             env_suffix = f"_t{attempt}"
-            trial_path = write_env(resolved, spec, out_dir, attempt=attempt, env_suffix=env_suffix)
+            trial_path = write_env(
+                resolved, spec, out_dir, attempt=robot_idx, env_suffix=env_suffix, seed=args_cli.seed
+            )
             trial_paths.append(trial_path)
 
             # Re-propose just for the placement note (env_name is the
             # suffixed file name). ``write_env`` already ran the same
             # propose, so this is cheap.
-            placement = propose_placement(resolved, spec, attempt=attempt)
+            placement = propose_placement(resolved, spec, attempt=robot_idx, seed=args_cli.seed)
             if placement.robot_placement is not None:
                 rp = placement.robot_placement
                 placement_note = f"robot edge={rp.edge}, frac={rp.fraction:.3f}"
@@ -257,7 +292,8 @@ def main() -> int:
             trial_env_name = trial_path.stem
             print(
                 f"[auto_env] attempt {attempt + 1}/{max_attempts}: wrote {trial_path.name} "
-                f"as env {trial_env_name!r} ({placement_note})",
+                f"as env {trial_env_name!r} — {change_note}; {placement_note}; "
+                f"placement_seed={args_cli.placement_seed}",
                 flush=True,
             )
 
@@ -282,11 +318,13 @@ def main() -> int:
 
             if last_status == 0:
                 winning_attempt = attempt
+                winning_robot_idx = robot_idx
                 print(f"[auto_env] feasible on attempt {attempt + 1}: {trial_path}", flush=True)
                 break
 
             print(
-                f"[auto_env] attempt {attempt + 1} failed (exit={last_status}); resampling robot placement.",
+                f"[auto_env] attempt {attempt + 1} failed (exit={last_status}); "
+                f"next iteration will vary the other axis.",
                 flush=True,
             )
 
@@ -299,8 +337,13 @@ def main() -> int:
             return last_status if last_status is not None else 2
 
         # Promote the winning trial to the canonical env name (drop the
-        # ``_t<N>`` suffix). The user gets a single ready-to-use file.
-        canonical_path = write_env(resolved, spec, out_dir, attempt=winning_attempt, env_suffix="")
+        # ``_t<N>`` suffix). The robot pose is baked into the file via
+        # ``attempt=winning_robot_idx``; the item layout is sampled at
+        # runtime from --placement_seed, which the user can pin to the
+        # winning value if they want exact reproduction.
+        canonical_path = write_env(
+            resolved, spec, out_dir, attempt=winning_robot_idx, env_suffix="", seed=args_cli.seed
+        )
         # Sweep every ``<canonical_stem>_t*.py`` in ``out_dir`` so prior
         # runs' stragglers don't hang around either. The canonical file
         # itself is excluded by the ``_t`` infix.

@@ -1,5 +1,153 @@
 # llm_env_gen — change log
 
+## Xinjie Yao — 2026-04-28
+
+### 1. What it can do
+
+- **Search instead of single-shot retry** — the auto-driver now drives a
+  structured exploration each attempt: even attempts vary only the robot
+  placement, odd attempts only the item placement seed, and the final
+  attempt varies both. When a fix lands you can attribute it to the axis
+  that changed, and the loop has predictable diversity (no two attempts
+  resample the same axis back-to-back).
+- **Save the Kit viewport per attempt** — `--save_render_dir <DIR>` on
+  `auto_generate_env` / `run_reachability_check` captures the scene as
+  `<env_name>_ik_success.png` or `<env_name>_ik_failure_<status>.png`
+  via `omni.kit.viewport.utility.capture_viewport_to_file`. Pumps
+  `omni.kit.app.update()` for up to 60 frames so the async write lands
+  before teardown destroys the viewport.
+- **Stay away from corners by construction** — robot edge sampling is
+  `Uniform(0.3, 0.7)` along the chosen edge, so the base lands somewhere
+  in the middle two-thirds of an edge rather than at a corner where IK
+  reachability is tightest. The seed string folds in `--seed`, so a
+  different `--seed` value shifts the sample sequence end-to-end.
+- **Spread item placement seeds** — `placement_seed = base + item_idx *
+  100`. The placement pool draws `max_placement_attempts=10` candidates
+  from `seed..seed+9`, so naive `+1` strides leave the "best" layout
+  almost identical across consecutive item_idx; a stride of 100 fully
+  decorrelates them.
+- **Auto-zoom the generated env's Kit viewer** onto the table — the
+  generated module installs an `env_cfg_callback` that overrides
+  `env_cfg.viewer` with `lookat = runtime bbox midpoint`,
+  `eye = lookat + (1.0, 1.0, 2.5)`. Replaces the default
+  `(7.5, 7.5, 7.5)` framing that put the EEF outside the visible
+  region.
+- **Diagnose the bbox itself** — every generated env prints the
+  tabletop world AABB at build time (`[bbox] tabletop world AABB:
+  min=(...) -> max=(...); size_xy=(w, h)`) so you can sanity-check the
+  ray-trace assumption that min/max really span the table.
+
+**Assumptions:** Same as the auto_generate_env baseline — generated
+envs use a tabletop background mapped in `_BACKGROUND_TABLETOP_ANCHOR`
+(`maple_table_robolab` is the default override) so
+`get_world_bounding_box` returns the real tabletop corners. The
+viewport capture path requires `--viz kit`; headless runs skip the
+save with a log line. Trial and canonical files share a directory;
+the cleanup glob removes `<canonical_stem>_t*.py` on success — ad-hoc
+files with the same prefix would also be swept.
+
+### 2. What was added
+
+- **`isaaclab_arena/llm_env_gen/auto_generate_env.py`**
+  - `robot_idx` / `item_idx` counters with the alternation rule
+    described above. Each attempt logs the `change_note`
+    (`"baseline"`, `"items only"`, `"robot only"`, `"both varied …"`)
+    so the search trace is human-readable.
+  - Item-seed plumbing: `args_cli.placement_seed = base + item_idx *
+    100`; the base is the user-supplied `--placement_seed` if set,
+    else 0.
+  - Forwards `args_cli.seed` to `write_env` / `propose_placement` so
+    the robot RNG mixes it in.
+  - On success: writes a canonical `<env_name>.py` (no `_tN` suffix)
+    keyed to the winning `robot_idx`, then sweeps every
+    `<canonical_stem>_t*.py` in `out_dir` (this run's trials *and*
+    stragglers from prior failed runs).
+- **`isaaclab_arena/llm_env_gen/placement_proposer.py`**
+  - `_propose_robot_placement(env_name, attempt, seed)` — RNG seed
+    becomes `f"{env_name}#{attempt}#{seed}"` so a fixed
+    (env_name, attempt, seed) triple is reproducible.
+  - `_ROBOT_EDGE_FRACTION_RANGE = (0.3, 0.7)` — uniform sampling band
+    that excludes corners while still covering the middle two-thirds
+    of the edge.
+  - `_DEFAULT_TABLETOP_MARGIN_M = 0.15` — items spawn at least 15 cm
+    from the edge.
+  - `propose_placement(...)` carries the new `seed` parameter through
+    to the robot sampler.
+- **`isaaclab_arena/llm_env_gen/env_writer.py`**
+  - `write_env(..., env_suffix="", seed=None)` — `env_suffix` is
+    appended to the env / class names so each trial registers a
+    unique env (sidesteps Isaac Sim's gym + scene caches that
+    silently inherit a previous attempt's `init_state` after a
+    same-name re-registration on the third attempt onward); `seed`
+    is forwarded into placement proposing.
+  - `_render_module` walks inner relation specs when picking
+    imports, so `Not(In(bowl))` now correctly emits both `Not` and
+    `In` (previously dropped the inner kind, which broke at
+    runtime with `NameError: 'In' is not defined`).
+  - `_render_robot_pose` emits the (edge, fraction) → (x, y, qz, qw)
+    block plus a per-edge cardinal yaw quaternion.
+  - `_render_bbox_setup` adds a runtime print of the tabletop AABB
+    (`[bbox] tabletop world AABB: min=… -> max=…; size_xy=…`).
+  - The generated `get_env(...)` body now installs an
+    `env_cfg_callback` that overrides `env_cfg.viewer` with a
+    bbox-derived eye / lookat tuple — table is centred and the
+    Franka EEF stays in frame.
+- **`isaaclab_arena/llm_env_gen/reachability_utils.py`**
+  - `--save_render_dir DIR` flag on the IK-reachability arg group;
+    reused by both the standalone `run_reachability_check` driver
+    and `auto_generate_env`.
+  - `--dwell_steps` default 300 → 90 (~3 s at 30 Hz).
+- **`isaaclab_arena/llm_env_gen/run_reachability_check.py`**
+  - `check_reachability_for_arena_builder(arena_builder, args_cli)
+    -> int` — extracted from `main()` so the auto-driver can call
+    the IK gate inside its loop without re-booting Isaac Sim.
+  - Finally-clause now calls
+    `teardown_simulation_app(make_new_stage=True)` *before*
+    `env.close()` (mirrors `eval_runner.py`). Without it the next
+    `gym.make()` inherits stale prims and ignores the new env's
+    `init_state`.
+  - `_save_scene_render(env, save_render_dir, env_name, status,
+    feasible)` — captures the active Kit viewport via
+    `omni.kit.viewport.utility.capture_viewport_to_file`, pumps
+    up to 60 `app.update()` frames so the async PNG lands.
+  - `--save_render_dir` triggers no extra setup (no enable_cameras
+    flag, no rgb_array path) — the viewport that `--viz kit` already
+    renders is what gets saved.
+
+### 3. Commands
+
+```bash
+# 10-attempt prompt → IK-feasible env, with viewport snapshots per attempt
+docker exec isaaclab_arena-curobo bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.auto_generate_env \
+    --viz kit --num_envs 1 --max-attempts 10 --seed 17 \
+    --save_render_dir /tmp/auto_renders \
+    --prompt 'franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor'"
+
+# Inspect a trial render afterwards
+ls /tmp/auto_renders                # avocadoPnPbowltable_t0_ik_success.png, ...
+```
+
+### 4. TODOs
+
+- **Vary the canonical robot pose across re-runs of the same prompt.**
+  With a fixed `--seed`, attempt-N's `(env_name, attempt, seed)` triple
+  is stable. That's reproducible by design but means re-running with
+  the same prompt + seed always starts from the same baseline; rotate
+  the seed offset (or expose `--robot_placement_seed` separately from
+  the rest of `--seed`) when you want diversity without changing the
+  rest of the pipeline's randomness.
+- **Sweep stragglers conservatively.** The on-success cleanup glob is
+  `<canonical_stem>_t*.py` — anyone who hand-named a file matching
+  that pattern would lose it. Probably fine in practice but worth a
+  warning if the directory ever contains user-curated artifacts.
+- **Door tasks ignore the new robot sampling.** `OpenDoorTask` /
+  `CloseDoorTask` envs still rely on `RotateAroundSolution` to face
+  the door, but the robot base placement is now drawn the same way as
+  PnP — a cardinal-edge sample without door-aware filtering. Add a
+  filter that prefers edges whose facing direction is consistent with
+  the openable's door axis.
+
 ## Xinjie Yao — 2026-04-27
 
 ### 1. What it can do

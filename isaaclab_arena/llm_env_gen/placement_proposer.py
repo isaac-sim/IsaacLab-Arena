@@ -47,8 +47,11 @@ _DEFAULT_PICK_AND_PLACE_EPISODE_LENGTH_S = 20.0
 _DEFAULT_OPEN_DOOR_EPISODE_LENGTH_S = 30.0
 
 # Safety inset (meters) applied to the runtime tabletop bbox so items do
-# not spawn right up against the edge.
-_DEFAULT_TABLETOP_MARGIN_M = 0.05
+# not spawn right up against the edge. 0.15 m (~half a hand-span) keeps
+# items well inside the table even at the corners and pulls the
+# placement pool's "best" layouts toward the centre, which gives the
+# robot a much better chance at IK reachability.
+_DEFAULT_TABLETOP_MARGIN_M = 0.15
 
 # Per-background tabletop anchor spec. Maps a background's registered
 # name to either:
@@ -121,25 +124,25 @@ _BACKGROUND_TABLETOP_ANCHOR_BASE_TYPE: frozenset[str] = frozenset({"kitchen"})
 
 
 # Edge-name → yaw quaternion (qx, qy, qz, qw) so the robot faces the
-# table center from the chosen edge. Four cardinal orientations cover
+# table centre from the chosen edge. Four cardinal orientations cover
 # the full perimeter of a rectangular tabletop.
 _EDGE_ROTATION_XYZW: dict[str, tuple[float, float, float, float]] = {
-    "x_min": (0.0, 0.0, 0.0, 1.0),            # faces +x (0°)
-    "x_max": (0.0, 0.0, 1.0, 0.0),            # faces -x (180°)
-    "y_min": (0.0, 0.0, 0.7071068, 0.7071068),  # faces +y (+90°)
+    "x_min": (0.0, 0.0, 0.0, 1.0),               # faces +x (0°)
+    "x_max": (0.0, 0.0, 1.0, 0.0),               # faces -x (180°)
+    "y_min": (0.0, 0.0, 0.7071068, 0.7071068),   # faces +y (+90°)
     "y_max": (0.0, 0.0, -0.7071068, 0.7071068),  # faces -y (-90°)
 }
 
-# Robot-base sits this far outside the sampled tabletop edge. Large
-# enough that the robot-stand footprint does not intersect the table,
-# small enough that objects in the middle stay within Franka's
-# ~0.85 m reach envelope.
+# Robot-base sits this far outside the sampled edge. Large enough that
+# the robot-stand footprint does not intersect the table, small enough
+# that objects in the middle stay within Franka's ~0.85 m reach
+# envelope.
 _ROBOT_EDGE_OFFSET_M = 0.1
 
-# Sample the robot fraction inside this sub-range of the edge so the
-# base is roughly centered rather than at the corners (where IK is
-# much tighter).
-_ROBOT_EDGE_FRACTION_RANGE = (0.4, 0.6)
+# Edge-fraction sampling range: drawn uniformly from this band so the
+# robot lands somewhere across the middle two-thirds of the chosen
+# edge but stays clear of either corner.
+_ROBOT_EDGE_FRACTION_RANGE = (0.3, 0.7)
 
 
 # ---------------------------------------------------------------------------
@@ -226,13 +229,18 @@ class TaskPlan:
 
 @dataclass
 class RobotPlacement:
-    """Where to plant the robot base along the tabletop perimeter.
+    """Where to plant the robot base along one of the four tabletop edges.
 
-    Resolved at render time against the runtime tabletop bbox so the
-    robot sits ``offset_m`` outside the sampled edge, at ``fraction``
-    along that edge. ``rotation_xyzw`` makes the robot face the table
-    center. Only meaningful when the env exposes a usable tabletop
-    bbox (``TabletopAnchorPlan.emit_position_limits`` is True).
+    Sampled as ``(edge, fraction)``: the edge is drawn uniformly from
+    ``{x_min, x_max, y_min, y_max}`` and the fraction along that edge
+    is drawn from ``Uniform(0, 1)``. At render time the generated env
+    plants the robot base ``offset_m`` outside that edge, at the
+    sampled fraction between the two corners. The base yaw is one of
+    four cardinals (per-edge) so the gripper is axis-aligned and
+    points across the table at the objects.
+
+    Only meaningful when the env exposes a usable tabletop bbox
+    (``TabletopAnchorPlan.emit_position_limits`` is True).
     """
 
     edge: Literal["x_min", "x_max", "y_min", "y_max"]
@@ -341,13 +349,20 @@ def block_initial_goal_satisfaction(placement: Placement, resolved: ResolvedScen
     return placement
 
 
-def propose_placement(resolved: ResolvedScene, spec: SceneSpec, attempt: int = 0) -> Placement:
+def propose_placement(
+    resolved: ResolvedScene, spec: SceneSpec, attempt: int = 0, seed: int | None = None
+) -> Placement:
     """Turn a resolved scene into a Placement with no I/O side effects.
 
     ``attempt`` selects which robot-placement sample to draw — bumping it
-    yields a different (edge, fraction) pair so the auto-retry driver can
+    yields a different angular sample so the auto-retry driver can
     re-sample after an IK-feasibility failure without reseeding the rest
     of the pipeline.
+
+    ``seed`` is folded into the robot-placement RNG seed so a different
+    value (typically the user-controlled ``--seed``) yields a different
+    angular sample for the same (env_name, attempt) pair — useful when
+    the default seed keeps placing the robot at an unhelpful corner.
     """
     background_name = resolved.background.name if resolved.background else spec.background
 
@@ -367,7 +382,9 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec, attempt: int = 0
         extra_assets.append("tabletop_anchor")
 
     robot_placement = (
-        _propose_robot_placement(env_name, attempt) if tabletop_plan.emit_position_limits else None
+        _propose_robot_placement(env_name, attempt, seed=seed)
+        if tabletop_plan.emit_position_limits
+        else None
     )
 
     return Placement(
@@ -384,15 +401,24 @@ def propose_placement(resolved: ResolvedScene, spec: SceneSpec, attempt: int = 0
     )
 
 
-def _propose_robot_placement(env_name: str, attempt: int = 0) -> RobotPlacement:
+def _propose_robot_placement(env_name: str, attempt: int = 0, seed: int | None = None) -> RobotPlacement:
     """Sample a robot placement along one of the four tabletop edges.
 
-    Seeded by ``(env_name, attempt)``: a fixed (env_name, attempt) pair is
-    reproducible, while bumping ``attempt`` produces a different
-    (edge, fraction) sample. The auto-retry driver uses this to walk
-    through alternative placements when IK feasibility fails.
+    Each edge is drawn with equal probability from
+    ``{x_min, x_max, y_min, y_max}`` and the position along the edge
+    is drawn from ``Uniform(*_ROBOT_EDGE_FRACTION_RANGE)`` — currently
+    [0.3, 0.7], so the robot can land anywhere in the middle two
+    thirds of the edge while still avoiding the corners. The seed is
+    ``f"{env_name}#{attempt}#{seed}"`` so a fixed
+    (env_name, attempt, seed) triple stays reproducible; bumping
+    ``attempt`` walks through alternative samples when IK feasibility
+    fails, and varying ``--seed`` shifts the whole sequence.
+
+    The base rotation is one of four cardinal yaws (per-edge), so the
+    gripper is always axis-aligned with the side the robot is on and
+    points across the table at the objects.
     """
-    rng = random.Random(f"{env_name}#{attempt}")
+    rng = random.Random(f"{env_name}#{attempt}#{seed}")
     edge = rng.choice(list(_EDGE_ROTATION_XYZW.keys()))
     fraction = rng.uniform(*_ROBOT_EDGE_FRACTION_RANGE)
     return RobotPlacement(

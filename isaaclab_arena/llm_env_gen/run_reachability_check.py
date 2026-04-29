@@ -34,6 +34,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import torch
@@ -118,6 +119,7 @@ def check_reachability_for_arena_builder(arena_builder, args_cli) -> int:
             flush=True,
         )
 
+    save_render_dir = getattr(args_cli, "save_render_dir", None)
     env, _ = arena_builder.make_registered_and_return_cfg()
     if args_cli.seed is not None:
         set_seed(args_cli.seed, env)
@@ -236,6 +238,9 @@ def check_reachability_for_arena_builder(arena_builder, args_cli) -> int:
 
         print(f"[reachability] Overall: {overall_status}", flush=True)
 
+        if save_render_dir:
+            _save_scene_render(env, save_render_dir, env_name, overall_status, overall_feasible)
+
         if args_cli.json:
             print(json.dumps(payload))
 
@@ -254,6 +259,63 @@ def check_reachability_for_arena_builder(arena_builder, args_cli) -> int:
         # robot poses at the second attempt's state.
         teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
         env.close()
+
+
+def _save_scene_render(env, save_render_dir: str, env_name: str, status: str, feasible: bool) -> None:
+    """Capture the active Kit viewport and save it under ``save_render_dir``.
+
+    Naming: ``<env_name>_ik_success.png`` when the IK check succeeded;
+    ``<env_name>_ik_failure_<status>.png`` otherwise (status is the
+    classifier output — currently ``unreachable`` or ``in_collision``).
+
+    Uses ``omni.kit.viewport.utility.capture_viewport_to_file`` so it
+    works without ``--enable_cameras`` — it grabs whatever Kit is
+    already rendering for ``--viz kit``. Headless runs (no viewport)
+    will log a skip message.
+    """
+    from pathlib import Path
+
+    out_dir = Path(save_render_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    label = "ik_success" if feasible else f"ik_failure_{status}"
+    out_path = out_dir / f"{env_name}_{label}.png"
+
+    try:
+        from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport
+    except ImportError as exc:
+        print(f"[reachability] viewport capture unavailable ({exc!r}); skipping render save.", flush=True)
+        return
+
+    viewport = get_active_viewport()
+    if viewport is None:
+        print(
+            "[reachability] no active Kit viewport (running headless?); skipping render save.",
+            flush=True,
+        )
+        return
+
+    capture_viewport_to_file(viewport, file_path=str(out_path))
+    # Capture is async (returns a MultiAOVFileCapture awaiting an
+    # asyncio.Future). Pump the app's frame loop synchronously until
+    # the PNG lands, since teardown right after this call would
+    # destroy the viewport mid-write.
+    with contextlib.suppress(ImportError):
+        import omni.kit.app
+
+        app = omni.kit.app.get_app()
+        for _ in range(60):
+            app.update()
+            if out_path.exists():
+                break
+
+    if out_path.exists():
+        print(f"[reachability] Saved viewport render: {out_path}", flush=True)
+    else:
+        print(
+            f"[reachability] viewport capture queued for {out_path} but did not land within 60 frames; "
+            "subsequent app.update() ticks should still flush it.",
+            flush=True,
+        )
 
 
 # ---------------------------------------------------------------------------

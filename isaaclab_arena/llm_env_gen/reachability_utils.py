@@ -120,11 +120,11 @@ def add_ik_reachability_cli_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         "--dwell_steps",
         type=int,
-        default=300,
+        default=90,
         help=(
             "Number of zero-action sim steps to take after rendering the target markers "
             "so the Kit viewer stays up for inspection. Only runs when a viewer is open "
-            "(i.e. not --headless). Default 300 (~10s); bump for longer inspection."
+            "(i.e. not --headless). Default 90 (~3s at 30 Hz); bump for longer inspection."
         ),
     )
     group.add_argument(
@@ -147,6 +147,19 @@ def add_ik_reachability_cli_args(parser: argparse.ArgumentParser) -> None:
             "away from the object toward the robot). '-x' is the default for envs generated "
             "with kitchen background + RotateAroundSolution(yaw=-pi/2). "
             "Default: '-x'."
+        ),
+    )
+    group.add_argument(
+        "--save_render_dir",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help=(
+            "If set, capture the active Kit viewport after each IK check and save it as "
+            "'<env_name>_ik_success.png' on feasible runs or "
+            "'<env_name>_ik_failure_<status>.png' otherwise (status is 'unreachable' "
+            "or 'in_collision'). Requires '--viz kit' (the viewport is what gets captured); "
+            "headless runs are skipped with a log line."
         ),
     )
 
