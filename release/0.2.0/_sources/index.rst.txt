@@ -208,6 +208,7 @@ TABLE OF CONTENTS
    :maxdepth: 1
    :caption: Example Workflows
 
+   pages/example_workflows/example_environments
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
 
