@@ -40,7 +40,7 @@ def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
     if headless:
         args.append("--headless")
     else:
-        args.append("--visualizer")
+        args.append("--viz")
         args.append(DEFAULT_VISUALIZER)
 
     run_subprocess(args)
