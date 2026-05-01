@@ -143,13 +143,12 @@ and ``policy_runner.py`` can launch the same environment without instantiating a
             rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
    )
 
-The robot pose mirrors the loco-manip env exactly so the WBC controller stands the robot up in the
-same shelf-relative spot. The apple is placed at the same shelf X/Y as the loco-manip env (the only
-on-shelf spot we have ground-truth data for), and the plate is offset 24 cm in -Y so its 30 cm
-footprint clears the apple without collision. ``_shelf_spawn_z`` consults a per-asset USD-origin
-table so each asset's *bottom face* — not its USD origin — lands flush on the shelf surface; assets
-not in the table fall back to ``SHELF_SURFACE_Z + SHELF_AIRGAP`` and emit a warning so you know to
-verify the spawn pose visually before recording demonstrations.
+The robot pose mirrors the loco-manipulation env exactly so the WBC controller stands the robot up
+in the same shelf-relative spot. The apple is placed at a measured on-shelf X/Y, and the plate is
+offset 24 cm in -Y so its 30 cm footprint clears the apple without collision. ``_shelf_spawn_z``
+consults a per-asset USD-origin table so each asset's *bottom face* — not its USD origin — lands
+flush on the shelf surface; assets not in the table fall back to ``SHELF_SURFACE_Z + SHELF_AIRGAP``
+and emit a warning so you know to verify the spawn pose visually before recording demonstrations.
 
 
 **3. Compose the Scene**
@@ -158,9 +157,8 @@ verify the spawn pose visually before recording demonstrations.
 
     scene = Scene(assets=[background, pick_up_object, destination])
 
-Same scene composition as the loco-manip variant — just one shelf-anchored background, the pick-up
-object and the destination — because the static env never needs the second table that the loco-manip
-plate sits on.
+The static env uses a single shelf-anchored background plus the pick-up object and the destination;
+no second table is needed because the destination plate sits on the same shelf as the apple.
 See :doc:`../../concepts/scene/index` for scene composition details.
 
 

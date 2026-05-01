@@ -60,7 +60,7 @@ The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/c
       fps: 50
       chunks_size: 1000
 
-The main differences from the loco-manip apple-to-plate config are the
+The main differences from the loco-manip box config (``g1_locomanip_config.yaml``) are the
 ``data_root`` / ``hdf5_name`` pointing at the static apple-to-plate dataset and the
 ``language_instruction`` describing the same-shelf placement (no walking, no second table).
 The 23-D action layout, embodiment tag, modality template and joint-space configurations are all

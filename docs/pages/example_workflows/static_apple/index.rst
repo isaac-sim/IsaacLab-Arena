@@ -3,7 +3,7 @@ G1 Static Apple-to-Plate Task
 
 This example demonstrates the complete workflow for the **G1 static (no-navigation) apple-to-plate task** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection (OpenXR with Meta Quest 3), data generation, policy post-training, and closed-loop evaluation.
 
-This workflow is the no-locomotion sibling of the :doc:`G1 Loco-Manipulation Apple-to-Plate Task <../locomanip_apple/index>`. The robot stands in place using the same Whole Body Controller (WBC) for balance, but the destination plate sits on the *same* shelf as the apple — within arm's reach — so the lower body never moves. If you want a tabletop manipulation surface for upper-body data collection without the complexity of full-body locomotion, this is the workflow to use.
+This workflow is the no-locomotion sibling of the :doc:`G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/index>`. The robot stands in place using the same Whole Body Controller (WBC) for balance, but the destination plate sits on the *same* shelf as the apple — within arm's reach — so the lower body never moves. If you want a tabletop manipulation surface for upper-body data collection without the complexity of full-body locomotion, this is the workflow to use.
 
 Task Overview
 -------------
@@ -32,7 +32,7 @@ balances the standing pose (no navigation, no squat), and PinkIK drives the uppe
    * - **Interop**
      - Isaac Lab Mimic
    * - **Scene**
-     - Galileo Lab Environment (same shelf as locomanip apple-to-plate)
+     - Galileo Lab Environment (single shelf, no second table)
    * - **Manipulated Object(s)**
      - Apple (rigid body), Clay plate (destination, same-shelf placement)
    * - **Policy**
