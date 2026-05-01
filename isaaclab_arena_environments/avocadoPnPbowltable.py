@@ -22,6 +22,114 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+def _solve_robot_pose_via_reach(
+    args_cli: argparse.Namespace,
+    tbl_min_xyz: list[float],
+    tbl_max_xyz: list[float],
+) -> dict:
+    """Run the joint reach + placement POC and return a robot pose dict.
+
+    Lazy import so the (torch + scipy) dependency is only paid when the
+    optional ``--use_reach_solver`` flag is set.
+    """
+    import os
+
+    npz_path = args_cli.reach_npz
+    if not os.path.isabs(npz_path):
+        # Resolve relative to the repo root (two parents up from this file).
+        npz_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), npz_path)
+    if not os.path.exists(npz_path):
+        raise FileNotFoundError(
+            f"--use_reach_solver requested but reach map not found at {npz_path}. "
+            "Generate it first with tools/compute_reach_map.py, or pass --reach_npz <path>."
+        )
+
+    import torch
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.relations import IsAnchor, On as _On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose as _Pose
+    from isaaclab_arena_examples.relations.joint_reach_solver_poc import (
+        EDGE_NAMES,
+        ReachField,
+        joint_solve,
+    )
+
+    device = torch.device("cpu")
+    reach = ReachField.from_npz(npz_path, device=device)
+
+    # The avocado / bowl USDs aren't spawned yet, so we don't have their
+    # real bboxes — use a small default cube. The reach solver's chosen edge
+    # / fraction is dominated by the EDT pull, not by the manipulable bbox.
+    _DEFAULT_HALF = 0.05
+    default_bbox = AxisAlignedBoundingBox(
+        min_point=(-_DEFAULT_HALF, -_DEFAULT_HALF, 0.0),
+        max_point=(+_DEFAULT_HALF, +_DEFAULT_HALF, 2 * _DEFAULT_HALF),
+    )
+
+    cx = (tbl_min_xyz[0] + tbl_max_xyz[0]) / 2.0
+    cy = (tbl_min_xyz[1] + tbl_max_xyz[1]) / 2.0
+    cz = (tbl_min_xyz[2] + tbl_max_xyz[2]) / 2.0
+    table_local_bbox = AxisAlignedBoundingBox(
+        min_point=(tbl_min_xyz[0] - cx, tbl_min_xyz[1] - cy, tbl_min_xyz[2] - cz),
+        max_point=(tbl_max_xyz[0] - cx, tbl_max_xyz[1] - cy, tbl_max_xyz[2] - cz),
+    )
+    table_dummy = DummyObject(name="table", bounding_box=table_local_bbox)
+    table_dummy.set_initial_pose(_Pose(position_xyz=(cx, cy, cz), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table_dummy.add_relation(IsAnchor())
+
+    table_top_z = float(tbl_max_xyz[2])
+    avocado_dummy = DummyObject(name="avocado", bounding_box=default_bbox)
+    avocado_dummy.set_initial_pose(_Pose(
+        position_xyz=(cx, cy, table_top_z + _DEFAULT_HALF),
+        rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+    ))
+    avocado_dummy.add_relation(_On(table_dummy, clearance_m=0.02))
+
+    bowl_dummy = DummyObject(name="bowl", bounding_box=default_bbox)
+    bowl_dummy.set_initial_pose(_Pose(
+        position_xyz=(cx, cy + 0.10, table_top_z + _DEFAULT_HALF),
+        rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+    ))
+    bowl_dummy.add_relation(_On(table_dummy, clearance_m=0.02))
+
+    result = joint_solve(
+        table_anchor=table_dummy,
+        objects=[table_dummy, avocado_dummy, bowl_dummy],
+        reach_targets=[avocado_dummy, bowl_dummy],
+        on_targets={avocado_dummy: table_dummy, bowl_dummy: table_dummy},
+        reach_field=reach,
+        table_xy_min=(float(tbl_min_xyz[0]), float(tbl_min_xyz[1])),
+        table_xy_max=(float(tbl_max_xyz[0]), float(tbl_max_xyz[1])),
+        n_iter=int(args_cli.reach_solver_iters),
+        seed=int(args_cli.reach_solver_seed),
+        device=device,
+    )
+
+    best = result.best_idx
+    edge = EDGE_NAMES[best]
+    # Per-edge cardinal world yaw — matches _EDGE_ROTATION_XYZW in
+    # isaaclab_arena/llm_env_gen/placement_proposer.py.
+    _EDGE_QUAT_XYZW = {
+        "x_min": (0.0, 0.0, 0.0, 1.0),
+        "x_max": (0.0, 0.0, 1.0, 0.0),
+        "y_min": (0.0, 0.0, 0.7071068, 0.7071068),
+        "y_max": (0.0, 0.0, -0.7071068, 0.7071068),
+    }
+    return {
+        "edge": edge,
+        "fraction": float(result.fraction[best]),
+        "offset_m": float(result.offset_m[best]),
+        "position_xyz": (
+            float(result.base_xy[best, 0]),
+            float(result.base_xy[best, 1]),
+            0.0,
+        ),
+        "rotation_xyzw": _EDGE_QUAT_XYZW[edge],
+    }
+
+
 @register_environment
 class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
     """Pick up the avocado from the table and place it in the bowl."""
@@ -66,14 +174,36 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
         # optional flags (enable_cameras, etc.) default to safe values.
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
 
-        # Robot placement sampled on tabletop edge 'x_max' at fraction 0.448;
-        # base sits 0.1 m outside the edge, yaw faces the table center.
-        _robot_x = _tbl_max_xyz[0] + 0.1
-        _robot_y = (1 - 0.4481) * _tbl_min_xyz[1] + 0.4481 * _tbl_max_xyz[1]
-        embodiment.set_initial_pose(Pose(
-            position_xyz=(_robot_x, _robot_y, 0.0),
-            rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
-        ))
+        # Robot placement: by default uses the static edge sampling baked in
+        # by the LLM proposer at generation time (edge 'x_max' at fraction
+        # 0.448, 0.1 m outside the edge). With --use_reach_solver, runs the
+        # joint reach + placement POC at env-build time to pick (edge,
+        # fraction, offset) that maximizes top-down IK reachability for the
+        # avocado + bowl. See
+        # isaaclab_arena_examples/relations/joint_reach_solver_poc.py.
+        if getattr(args_cli, "use_reach_solver", False):
+            _robot_pose = _solve_robot_pose_via_reach(
+                args_cli=args_cli,
+                tbl_min_xyz=_tbl_min_xyz,
+                tbl_max_xyz=_tbl_max_xyz,
+            )
+            print(
+                f"[robot_placement] source=reach_solver edge={_robot_pose['edge']} "
+                f"frac={_robot_pose['fraction']:.3f} off={_robot_pose['offset_m']:.3f} "
+                f"pos={_robot_pose['position_xyz']} rot_xyzw={_robot_pose['rotation_xyzw']}",
+                flush=True,
+            )
+            embodiment.set_initial_pose(Pose(
+                position_xyz=_robot_pose["position_xyz"],
+                rotation_xyzw=_robot_pose["rotation_xyzw"],
+            ))
+        else:
+            _robot_x = _tbl_max_xyz[0] + 0.1
+            _robot_y = (1 - 0.4481) * _tbl_min_xyz[1] + 0.4481 * _tbl_max_xyz[1]
+            embodiment.set_initial_pose(Pose(
+                position_xyz=(_robot_x, _robot_y, 0.0),
+                rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
+            ))
 
         avocado_obj = self.asset_registry.get_asset_by_name("avocado01_fruits_veggies_robolab")()
         bowl_obj = self.asset_registry.get_asset_by_name("bowl_ycb_robolab")()
@@ -161,3 +291,39 @@ class AvocadoPnPBowlTableEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="franka_ik")
+        # --- optional: reach-aware robot placement -------------------------
+        parser.add_argument(
+            "--use_reach_solver",
+            action="store_true",
+            default=False,
+            help=(
+                "If set, choose the robot's tabletop-edge placement by running the "
+                "joint reach + placement POC solver against this scene at env-build "
+                "time, instead of the static (edge, fraction) baked in by the LLM "
+                "proposer. The solver runs all 4 cardinal edges in parallel and "
+                "picks the one whose reachable workspace best covers the "
+                "manipulables (avocado, bowl)."
+            ),
+        )
+        parser.add_argument(
+            "--reach_npz",
+            type=str,
+            default="tools/franka_reach_top_down.npz",
+            help=(
+                "Path to the precomputed Franka top-down reachability map "
+                "(see tools/compute_reach_map.py). Resolved relative to the "
+                "repo root if not absolute. Only used when --use_reach_solver is set."
+            ),
+        )
+        parser.add_argument(
+            "--reach_solver_iters",
+            type=int,
+            default=400,
+            help="Adam iterations for the joint reach solver. Default 400.",
+        )
+        parser.add_argument(
+            "--reach_solver_seed",
+            type=int,
+            default=0,
+            help="Seed for the joint reach solver's per-env init jitter.",
+        )
