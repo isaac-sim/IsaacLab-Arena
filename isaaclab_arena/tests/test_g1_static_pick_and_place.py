@@ -65,11 +65,11 @@ def get_test_environment(num_envs: int):
     apple.set_initial_pose(Pose(position_xyz=APPLE_INITIAL_POSITION_M, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     plate.set_initial_pose(Pose(position_xyz=PLATE_INITIAL_POSITION_M, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    # Use the joint-control WBC variant in tests (mirrors test_g1_locomanip_apple_to_plate):
-    # ``G1WBCPinkEmbodiment`` runs PinkIK on the wrist channels of the action vector, which
-    # crashes on the zero-norm wrist quaternions produced by ``torch.zeros(...)``. The joint
-    # variant just feeds joint targets through, so the same standing-pose hold action works.
-    # Production env still defaults to ``g1_wbc_pink`` -- this is a test-only swap.
+    # Use the joint-control WBC variant in tests (mirrors test_g1_locomanip_apple_to_plate)
+    # to skip the PinkIK forward solve on every step -- the test exercises task termination
+    # semantics, not the IK stack. Production env still defaults to ``g1_wbc_pink``; the
+    # zero-norm wrist quat bootstrapping issue that previously forced this swap is fixed
+    # in ``g1_decoupled_wbc_pink_action._identity_if_zero_norm_xyzw``.
     embodiment = G1WBCJointEmbodiment(enable_cameras=ENABLE_CAMERAS)
     embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 

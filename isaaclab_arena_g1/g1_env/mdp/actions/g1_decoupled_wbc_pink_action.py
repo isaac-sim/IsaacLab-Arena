@@ -58,7 +58,7 @@ _QUAT_ZERO_NORM_TOL = 1e-6
 def _identity_if_zero_norm_xyzw(quat_xyzw: torch.Tensor) -> torch.Tensor:
     """Return ``quat_xyzw`` unchanged, or identity ``(0, 0, 0, 1)`` if its 2-norm ~= 0."""
     if torch.linalg.vector_norm(quat_xyzw) < _QUAT_ZERO_NORM_TOL:
-        return torch.tensor([0.0, 0.0, 0.0, 1.0], dtype=quat_xyzw.dtype, device=quat_xyzw.device)
+        return quat_xyzw.new_tensor([0.0, 0.0, 0.0, 1.0])
     return quat_xyzw
 
 

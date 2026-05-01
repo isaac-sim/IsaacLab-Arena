@@ -20,6 +20,7 @@ same 23-D action layout. The only differences are:
 from __future__ import annotations
 
 import argparse
+import warnings
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
@@ -36,13 +37,9 @@ if TYPE_CHECKING:
 # - SHELF_SURFACE_Z: measured by gravity-settling the plate (whose USD origin sits at
 #   its bottom, i.e. BBox min_z = 0); the settled z = -0.030 in env-local frame is the
 #   actual shelf-top z in the galileo_locomanip scene.
-# - APPLE_USD_ORIGIN_ABOVE_BOTTOM: measured from apple_01.usd (BBox min_z = -0.019,
-#   max_z = 0.049). Add this offset to apple_z so the apple's bottom -- not its USD
-#   origin -- lands on the shelf surface.
 # - SHELF_AIRGAP: keeps PhysX from spawning objects in collider penetration with the
 #   shelf on the first sim tick (which would otherwise launch them upward).
 SHELF_SURFACE_Z = -0.030
-APPLE_USD_ORIGIN_ABOVE_BOTTOM = 0.019
 SHELF_AIRGAP = 0.005
 
 # Object XY spawn pose (env-local frame, shelf-relative). X mirrors the locomanip env
@@ -52,6 +49,38 @@ SHELF_AIRGAP = 0.005
 # for the apple but a smoke test showed it rolls off the shelf edge from there.
 PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.18)
 DESTINATION_SPAWN_XY = (0.5785, -0.06)
+
+# Per-asset Z offset from the asset's USD origin to its bottom face. Added on top of
+# ``SHELF_SURFACE_Z + SHELF_AIRGAP`` so the asset's *bottom* lands on the shelf rather
+# than its USD origin (which may sit anywhere inside the AABB depending on how the
+# asset was authored). Measured from each asset's USD AABB. Assets not in this table
+# are spawned with no Z compensation -- callers passing arbitrary ``--object`` /
+# ``--destination`` values are expected to verify the resulting spawn pose visually.
+_USD_ORIGIN_ABOVE_BOTTOM_M: dict[str, float] = {
+    "apple_01_objaverse_robolab": 0.019,  # BBox min_z = -0.019, max_z = 0.049
+    "clay_plates_hot3d_robolab": 0.0,  # USD origin at plate bottom (BBox min_z = 0)
+}
+
+TUNED_PICK_UP_OBJECT_NAME = "apple_01_objaverse_robolab"
+TUNED_DESTINATION_NAME = "clay_plates_hot3d_robolab"
+
+
+def _shelf_spawn_z(asset_name: str) -> float:
+    """Return the env-local Z to spawn ``asset_name`` flush on the shelf surface.
+
+    Falls back to ``SHELF_SURFACE_Z + SHELF_AIRGAP`` (no USD-origin compensation) for
+    assets we have not measured, with a one-shot warning so the user knows the spawn
+    pose may need visual verification.
+    """
+    if asset_name in _USD_ORIGIN_ABOVE_BOTTOM_M:
+        return SHELF_SURFACE_Z + SHELF_AIRGAP + _USD_ORIGIN_ABOVE_BOTTOM_M[asset_name]
+    warnings.warn(
+        "galileo_g1_static_pick_and_place: no measured USD-origin offset for "
+        f"'{asset_name}'; spawning at shelf surface with no compensation. Verify "
+        "the asset's bottom face actually lands on the shelf.",
+        stacklevel=2,
+    )
+    return SHELF_SURFACE_Z + SHELF_AIRGAP
 
 
 @register_environment
@@ -90,17 +119,13 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object.set_initial_pose(
             Pose(
-                position_xyz=(
-                    pick_up_object_x,
-                    pick_up_object_y,
-                    SHELF_SURFACE_Z + APPLE_USD_ORIGIN_ABOVE_BOTTOM + SHELF_AIRGAP,
-                ),
+                position_xyz=(pick_up_object_x, pick_up_object_y, _shelf_spawn_z(args_cli.object)),
                 rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
         destination.set_initial_pose(
             Pose(
-                position_xyz=(destination_x, destination_y, SHELF_SURFACE_Z + SHELF_AIRGAP),
+                position_xyz=(destination_x, destination_y, _shelf_spawn_z(args_cli.destination)),
                 rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
@@ -153,8 +178,8 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="apple_01_objaverse_robolab")
-        parser.add_argument("--destination", type=str, default="clay_plates_hot3d_robolab")
+        parser.add_argument("--object", type=str, default=TUNED_PICK_UP_OBJECT_NAME)
+        parser.add_argument("--destination", type=str, default=TUNED_DESTINATION_NAME)
         # Default embodiment is g1_wbc_pink: WBC controller balances the robot in place,
         # PinkIK drives the upper body. Identical action layout to the locomanip env (23-D)
         # so the same OpenXR retargeter / Mimic env / converters apply unchanged.
