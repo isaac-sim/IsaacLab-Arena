@@ -13,18 +13,19 @@ We encourage the community to build and publish benchmarks on Isaac Lab-Arena. T
 2. **Reference your benchmark and Isaac Lab-Arena in publications.** When publishing on ArXiv or
    elsewhere, cite both your benchmark (by name, with a link to your repository) and Isaac Lab-Arena
    as the underlying evaluation framework.
+
+   You can cite Isaac Lab-Arena as follows:
+
+   .. code-block:: bibtex
+
+      @misc{isaaclab-arena2025,
+         title   = {Isaac Lab-Arena: Composable Environment Creation and Policy Evaluation for Robotics},
+         author  = {{NVIDIA Isaac Lab-Arena Contributors}},
+         year    = {2025},
+         url     = {https://github.com/isaac-sim/IsaacLab-Arena}
+      }
+
 3. **List it here.** Open a PR to add your benchmark to the
-   `Published Benchmarks <https://isaac-sim.github.io/IsaacLab-Arena/main/pages/references/published_benchmarks.html>`_
-   list above. This README serves as the single source of truth for the Arena benchmark ecosystem so that
+   `Published Benchmarks <https://github.com/isaac-sim/IsaacLab-Arena/tree/main#published-benchmarks>`_ list.
+   This list serves as the single source of truth for the Arena benchmark ecosystem so that
    the community can discover and reuse.
-
-If you use Isaac Lab-Arena in your research, please cite:
-
-.. code-block:: bibtex
-
-   @misc{isaaclab-arena2025,
-       title   = {Isaac Lab-Arena: Composable Environment Creation and Policy Evaluation for Robotics},
-       author  = {{NVIDIA Isaac Lab-Arena Contributors}},
-       year    = {2025},
-       url     = {https://github.com/isaac-sim/IsaacLab-Arena}
-   }
