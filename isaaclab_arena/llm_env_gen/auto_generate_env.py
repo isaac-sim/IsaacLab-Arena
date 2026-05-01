@@ -77,6 +77,42 @@ def _add_auto_cli_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--llm-model", type=str, default=None, help="Override LLMAgent model id.")
     group.add_argument("--temperature", type=float, default=0.2, help="LLM sampling temperature.")
 
+    # --- optional: reach-aware robot placement ----------------------------
+    group.add_argument(
+        "--use-reach-solver",
+        action="store_true",
+        default=False,
+        help=(
+            "Pick (edge, fraction, offset_m) for the robot via the joint reach + "
+            "placement POC solver instead of random sampling. The resulting values "
+            "are baked into the rendered env module — generated env files stay "
+            "declarative, no runtime IK code. Falls back to random sampling for "
+            "backgrounds not in _BACKGROUND_TABLETOP_XY_BBOX."
+        ),
+    )
+    group.add_argument(
+        "--reach-npz",
+        type=str,
+        default="tools/franka_reach_top_down.npz",
+        help=(
+            "Path to the precomputed Franka top-down reachability map "
+            "(see tools/compute_reach_map.py). Resolved relative to the repo root. "
+            "Only used when --use-reach-solver is set."
+        ),
+    )
+    group.add_argument(
+        "--reach-solver-iters",
+        type=int,
+        default=400,
+        help="Adam iterations for the joint reach solver. Default 400.",
+    )
+    group.add_argument(
+        "--reach-solver-seed",
+        type=int,
+        default=0,
+        help="Seed for the joint reach solver's per-env init jitter.",
+    )
+
 
 def _hot_load_env_module(path: Path, env_name: str, attempt: int) -> None:
     """Re-import a generated env file so its ``@register_environment`` decorator runs.
@@ -227,8 +263,35 @@ def main() -> int:
 
         # Stage 2: rewrite + IK-check loop
         from isaaclab_arena.llm_env_gen.env_writer import write_env
-        from isaaclab_arena.llm_env_gen.placement_proposer import block_initial_goal_satisfaction, propose_placement
+        from isaaclab_arena.llm_env_gen.placement_proposer import (
+            ReachSolverCfg,
+            block_initial_goal_satisfaction,
+            propose_placement,
+        )
         from isaaclab_arena.llm_env_gen.run_reachability_check import check_reachability_for_arena_builder
+
+        # Build the reach-solver cfg once if the flag is set; ``None``
+        # otherwise so propose_placement falls back to the random sampler.
+        reach_solver_cfg: ReachSolverCfg | None = None
+        if args_cli.use_reach_solver:
+            npz_path = args_cli.reach_npz
+            if not Path(npz_path).is_absolute():
+                # Resolve relative to the repo root (three parents up from this file).
+                npz_path = str(Path(__file__).resolve().parents[2] / npz_path)
+            assert Path(npz_path).exists(), (
+                f"--use-reach-solver requested but reach map not found at {npz_path}. "
+                "Generate it first with tools/compute_reach_map.py."
+            )
+            reach_solver_cfg = ReachSolverCfg(
+                npz_path=npz_path,
+                iters=int(args_cli.reach_solver_iters),
+                seed=int(args_cli.reach_solver_seed),
+            )
+            print(
+                f"[auto_env] reach solver enabled — npz={npz_path} "
+                f"iters={reach_solver_cfg.iters} seed={reach_solver_cfg.seed}",
+                flush=True,
+            )
 
         # Each attempt registers a unique env name (``..._t<attempt>``).
         # Isaac Sim's gym + scene caches are keyed on env name, so
@@ -276,17 +339,27 @@ def main() -> int:
 
             env_suffix = f"_t{attempt}"
             trial_path = write_env(
-                resolved, spec, out_dir, attempt=robot_idx, env_suffix=env_suffix, seed=args_cli.seed
+                resolved,
+                spec,
+                out_dir,
+                attempt=robot_idx,
+                env_suffix=env_suffix,
+                seed=args_cli.seed,
+                reach_solver=reach_solver_cfg,
             )
             trial_paths.append(trial_path)
 
             # Re-propose just for the placement note (env_name is the
             # suffixed file name). ``write_env`` already ran the same
             # propose, so this is cheap.
-            placement = propose_placement(resolved, spec, attempt=robot_idx, seed=args_cli.seed)
+            placement = propose_placement(
+                resolved, spec, attempt=robot_idx, seed=args_cli.seed, reach_solver=reach_solver_cfg,
+            )
             if placement.robot_placement is not None:
                 rp = placement.robot_placement
-                placement_note = f"robot edge={rp.edge}, frac={rp.fraction:.3f}"
+                placement_note = (
+                    f"robot edge={rp.edge}, frac={rp.fraction:.3f}, off={rp.offset_m:.3f}"
+                )
             else:
                 placement_note = "no robot edge sampling for this background"
             trial_env_name = trial_path.stem

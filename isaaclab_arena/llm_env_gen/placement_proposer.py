@@ -123,6 +123,31 @@ _DEFAULT_APPLIANCE_FACING_YAW: float = -math.pi / 2
 _BACKGROUND_TABLETOP_ANCHOR_BASE_TYPE: frozenset[str] = frozenset({"kitchen"})
 
 
+# Approximate world-frame XY bbox of the tabletop **after** the env's
+# default background pose (typically rotated 90° about Z and translated
+# so the table center sits at world (0.5, 0, 0)). These are used by the
+# gen-time reach-aware robot placer (see ``_propose_robot_placement_via_reach``)
+# which has no live sim to query bboxes from. The values are coarse
+# estimates — the reach solver is dominated by the Franka workspace
+# shell shape and is robust to ~10% bbox error. To refine: boot a sim
+# once via run_simulation_app_function and capture
+# tabletop_anchor.get_world_bounding_box() per background, then update
+# this dict.
+#
+# Backgrounds NOT in this dict fall back to the random sampler, since
+# the reach solver needs SOMETHING for the table footprint.
+_BACKGROUND_TABLETOP_XY_BBOX: dict[str, tuple[tuple[float, float], tuple[float, float]]] = {
+    # Robolab maple tables — ~0.90 x 0.60 m, centered at (0.5, 0).
+    "maple_table_robolab":  ((0.05, -0.30), (0.95, 0.30)),
+    "table_maple_robolab":  ((0.05, -0.30), (0.95, 0.30)),
+    "table":                ((0.05, -0.30), (0.95, 0.30)),
+    # Office desk — wider; placeholder until measured.
+    "office_table":         ((-0.30, -0.40), (1.30, 0.40)),
+    # Kitchen counter — very wide; placeholder.
+    "kitchen":              ((-0.30, -0.50), (1.30, 0.50)),
+}
+
+
 # Edge-name → yaw quaternion (qx, qy, qz, qw) so the robot faces the
 # table centre from the chosen edge. Four cardinal orientations cover
 # the full perimeter of a rectangular tabletop.
@@ -349,8 +374,30 @@ def block_initial_goal_satisfaction(placement: Placement, resolved: ResolvedScen
     return placement
 
 
+@dataclass
+class ReachSolverCfg:
+    """Optional config that switches robot placement from random sampling
+    to a reach-EDT-guided joint solve.
+
+    When set, :func:`propose_placement` calls
+    :func:`_propose_robot_placement_via_reach` instead of the random
+    sampler. The solver uses the precomputed Franka top-down EDT
+    (``npz_path``) plus the table bbox from
+    :data:`_BACKGROUND_TABLETOP_XY_BBOX` to pick the best
+    ``(edge, fraction, offset_m)`` for the goal-bound items.
+    """
+
+    npz_path: str
+    iters: int = 400
+    seed: int = 0
+
+
 def propose_placement(
-    resolved: ResolvedScene, spec: SceneSpec, attempt: int = 0, seed: int | None = None
+    resolved: ResolvedScene,
+    spec: SceneSpec,
+    attempt: int = 0,
+    seed: int | None = None,
+    reach_solver: ReachSolverCfg | None = None,
 ) -> Placement:
     """Turn a resolved scene into a Placement with no I/O side effects.
 
@@ -363,6 +410,11 @@ def propose_placement(
     value (typically the user-controlled ``--seed``) yields a different
     angular sample for the same (env_name, attempt) pair — useful when
     the default seed keeps placing the robot at an unhelpful corner.
+
+    ``reach_solver`` (optional) switches the sampler from uniform-random
+    to a reach-EDT-guided joint solve. Falls back to the random sampler
+    when the resolved background lacks an entry in
+    :data:`_BACKGROUND_TABLETOP_XY_BBOX`.
     """
     background_name = resolved.background.name if resolved.background else spec.background
 
@@ -381,11 +433,16 @@ def propose_placement(
     if tabletop_plan.kind == "reference":
         extra_assets.append("tabletop_anchor")
 
-    robot_placement = (
-        _propose_robot_placement(env_name, attempt, seed=seed)
-        if tabletop_plan.emit_position_limits
-        else None
-    )
+    robot_placement: RobotPlacement | None = None
+    if tabletop_plan.emit_position_limits:
+        if reach_solver is not None and background_name in _BACKGROUND_TABLETOP_XY_BBOX:
+            robot_placement = _propose_robot_placement_via_reach(
+                background_name=background_name,
+                resolved=resolved,
+                cfg=reach_solver,
+            )
+        else:
+            robot_placement = _propose_robot_placement(env_name, attempt, seed=seed)
 
     return Placement(
         env_name=env_name,
@@ -425,6 +482,118 @@ def _propose_robot_placement(env_name: str, attempt: int = 0, seed: int | None =
         edge=edge,
         fraction=fraction,
         offset_m=_ROBOT_EDGE_OFFSET_M,
+        z_m=0.0,
+        rotation_xyzw=_EDGE_ROTATION_XYZW[edge],
+    )
+
+
+def _propose_robot_placement_via_reach(
+    background_name: str,
+    resolved: ResolvedScene,
+    cfg: ReachSolverCfg,
+) -> RobotPlacement:
+    """Pick (edge, fraction, offset_m) by running the joint reach solver.
+
+    Looks up the gen-time table bbox from
+    :data:`_BACKGROUND_TABLETOP_XY_BBOX`, builds a tiny ``DummyObject``
+    scene (table + the goal-bound subject + its target), runs the POC
+    ``joint_solve`` over all 4 cardinal edges in parallel, and returns
+    the lowest-loss placement. Yaw is fixed-cardinal per edge (matches
+    :data:`_EDGE_ROTATION_XYZW`) so no yaw is on the autograd tape.
+
+    Lazy imports keep ``placement_proposer`` from picking up the
+    torch + scipy + matplotlib dependency unless the reach solver is
+    actually requested.
+    """
+    import torch
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.relations import IsAnchor, On as _On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose as _Pose
+    from isaaclab_arena_examples.relations.joint_reach_solver_poc import (
+        EDGE_NAMES,
+        ReachField,
+        joint_solve,
+    )
+
+    (xy_min, xy_max) = _BACKGROUND_TABLETOP_XY_BBOX[background_name]
+
+    device = torch.device("cpu")
+    reach = ReachField.from_npz(cfg.npz_path, device=device)
+
+    # Default 5cm cube bbox for manipulables — gen-time has no real
+    # USD bboxes, but the reach term is dominated by EDT shell shape,
+    # not exact item size. Same approximation the env-side wiring used.
+    _DEFAULT_HALF = 0.05
+    default_bbox = AxisAlignedBoundingBox(
+        min_point=(-_DEFAULT_HALF, -_DEFAULT_HALF, 0.0),
+        max_point=(+_DEFAULT_HALF, +_DEFAULT_HALF, 2 * _DEFAULT_HALF),
+    )
+
+    cx, cy = (xy_min[0] + xy_max[0]) / 2.0, (xy_min[1] + xy_max[1]) / 2.0
+    table_top_z = 0.05  # nominal — solver uses this only to pick the EDT z-slice
+    table_local_bbox = AxisAlignedBoundingBox(
+        min_point=(xy_min[0] - cx, xy_min[1] - cy, -0.025),
+        max_point=(xy_max[0] - cx, xy_max[1] - cy, +0.025),
+    )
+    table_dummy = DummyObject(name="table", bounding_box=table_local_bbox)
+    table_dummy.set_initial_pose(_Pose(position_xyz=(cx, cy, 0.025), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table_dummy.add_relation(IsAnchor())
+
+    # Pick the goal-bound (subject, target) pair as the reach targets.
+    # If unavailable, fall back to the first two items in the resolved scene.
+    reach_target_names: list[str] = []
+    for goal in resolved.goal_added:
+        if goal.get("kind") in {"on", "in"}:
+            for key in ("subject", "target"):
+                name = goal.get(key)
+                if name and name in resolved.items and name not in reach_target_names:
+                    reach_target_names.append(name)
+    if not reach_target_names:
+        reach_target_names = list(resolved.items.keys())[:2]
+    if not reach_target_names:
+        # Degenerate scene — return a centered placement on x_min as a
+        # safe default so the env still renders.
+        return RobotPlacement(
+            edge="x_min",
+            fraction=0.5,
+            offset_m=_ROBOT_EDGE_OFFSET_M,
+            z_m=0.0,
+            rotation_xyzw=_EDGE_ROTATION_XYZW["x_min"],
+        )
+
+    reach_targets: list[DummyObject] = []
+    on_targets: dict[DummyObject, DummyObject] = {}
+    for i, item_name in enumerate(reach_target_names):
+        d = DummyObject(name=item_name, bounding_box=default_bbox)
+        d.set_initial_pose(_Pose(
+            position_xyz=(cx, cy + 0.10 * (i - (len(reach_target_names) - 1) / 2.0), table_top_z + _DEFAULT_HALF),
+            rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+        ))
+        d.add_relation(_On(table_dummy, clearance_m=0.02))
+        reach_targets.append(d)
+        on_targets[d] = table_dummy
+
+    result = joint_solve(
+        table_anchor=table_dummy,
+        objects=[table_dummy] + reach_targets,
+        reach_targets=reach_targets,
+        on_targets=on_targets,
+        reach_field=reach,
+        table_xy_min=(float(xy_min[0]), float(xy_min[1])),
+        table_xy_max=(float(xy_max[0]), float(xy_max[1])),
+        n_iter=int(cfg.iters),
+        seed=int(cfg.seed),
+        device=device,
+    )
+
+    best = result.best_idx
+    edge = EDGE_NAMES[best]
+    return RobotPlacement(
+        edge=edge,
+        fraction=float(result.fraction[best]),
+        offset_m=float(result.offset_m[best]),
         z_m=0.0,
         rotation_xyzw=_EDGE_ROTATION_XYZW[edge],
     )

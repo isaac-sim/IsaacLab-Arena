@@ -27,6 +27,7 @@ from .placement_proposer import (
     Placement,
     PlacementItem,
     RelationSpec,
+    ReachSolverCfg,
     RobotPlacement,
     TabletopAnchorPlan,
     block_initial_goal_satisfaction,
@@ -43,6 +44,7 @@ def write_env(
     attempt: int = 0,
     env_suffix: str = "",
     seed: int | None = None,
+    reach_solver: ReachSolverCfg | None = None,
 ) -> Path:
     """Render the env module and return the final path.
 
@@ -63,8 +65,13 @@ def write_env(
     robot-placement RNG mixes in the user-supplied ``--seed`` —
     different seeds give different angular samples for the same
     (env_name, attempt) pair.
+
+    ``reach_solver`` (optional) switches placement from random sampling
+    to a reach-EDT-guided joint solve at gen time. The rendered env
+    file is identical in shape — only the baked-in (edge, fraction,
+    offset_m) values change.
     """
-    placement = propose_placement(resolved, spec, attempt=attempt, seed=seed)
+    placement = propose_placement(resolved, spec, attempt=attempt, seed=seed, reach_solver=reach_solver)
     placement = block_initial_goal_satisfaction(placement, resolved)
     if env_suffix:
         # Camelize "_t3" -> "T3" so the class name stays PEP-8-friendly.
@@ -311,18 +318,19 @@ def _render_robot_pose(rp: RobotPlacement | None) -> str:
     # "interpolated between the two corners", and which direction the
     # outward offset points.
     frac = round(rp.fraction, 4)
+    off = round(rp.offset_m, 4)
     if rp.edge == "x_min":
-        x_expr = f"_tbl_min_xyz[0] - {rp.offset_m}"
+        x_expr = f"_tbl_min_xyz[0] - {off}"
         y_expr = f"(1 - {frac}) * _tbl_min_xyz[1] + {frac} * _tbl_max_xyz[1]"
     elif rp.edge == "x_max":
-        x_expr = f"_tbl_max_xyz[0] + {rp.offset_m}"
+        x_expr = f"_tbl_max_xyz[0] + {off}"
         y_expr = f"(1 - {frac}) * _tbl_min_xyz[1] + {frac} * _tbl_max_xyz[1]"
     elif rp.edge == "y_min":
         x_expr = f"(1 - {frac}) * _tbl_min_xyz[0] + {frac} * _tbl_max_xyz[0]"
-        y_expr = f"_tbl_min_xyz[1] - {rp.offset_m}"
+        y_expr = f"_tbl_min_xyz[1] - {off}"
     elif rp.edge == "y_max":
         x_expr = f"(1 - {frac}) * _tbl_min_xyz[0] + {frac} * _tbl_max_xyz[0]"
-        y_expr = f"_tbl_max_xyz[1] + {rp.offset_m}"
+        y_expr = f"_tbl_max_xyz[1] + {off}"
     else:
         return f"        # TODO(robot_placement): unsupported edge {rp.edge!r}"
 
@@ -330,7 +338,7 @@ def _render_robot_pose(rp: RobotPlacement | None) -> str:
         "\n"
         f"        # Robot placement sampled on tabletop edge '{rp.edge}' at fraction "
         f"{rp.fraction:.3f};\n"
-        f"        # base sits {rp.offset_m} m outside the edge, gripper aligned with the\n"
+        f"        # base sits {off} m outside the edge, gripper aligned with the\n"
         f"        # cardinal axis pointing back across the table at the objects.\n"
         f"        _robot_x = {x_expr}\n"
         f"        _robot_y = {y_expr}\n"
