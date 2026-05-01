@@ -415,7 +415,13 @@ def main() -> int:
         # runtime from --placement_seed, which the user can pin to the
         # winning value if they want exact reproduction.
         canonical_path = write_env(
-            resolved, spec, out_dir, attempt=winning_robot_idx, env_suffix="", seed=args_cli.seed
+            resolved,
+            spec,
+            out_dir,
+            attempt=winning_robot_idx,
+            env_suffix="",
+            seed=args_cli.seed,
+            reach_solver=reach_solver_cfg,
         )
         # Sweep every ``<canonical_stem>_t*.py`` in ``out_dir`` so prior
         # runs' stragglers don't hang around either. The canonical file
