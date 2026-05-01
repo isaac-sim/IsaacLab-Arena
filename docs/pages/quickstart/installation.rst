@@ -6,10 +6,10 @@ This page describes how to install Isaac Lab Arena from source inside a Docker c
 Supported Systems
 -----------------
 
-Isaac Lab Arena runs on Isaac Sim ``5.1.0`` and Isaac Lab ``2.3.0``.
+Isaac Lab Arena runs on Isaac Sim ``6.0.0`` and Isaac Lab ``3.0.0``.
 The dependencies are installed automatically during the Docker build process.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
-`Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_.
+`Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html>`_.
 
 
 Installation via Docker
