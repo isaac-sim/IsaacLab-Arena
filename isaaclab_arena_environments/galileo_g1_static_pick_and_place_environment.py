@@ -15,10 +15,15 @@ HOMIE behaviour. The other differences from the locomanip env are:
 
 1. The destination plate sits on the *same* shelf as the apple (within arm's reach), so
    the robot never needs to drive its base anywhere -- WBC just holds the standing pose.
-2. The Mimic config (``StaticPickAndPlaceMimicEnvCfg``) collapses the locomanip body
-   subtask sequence (``navigate_to_table -> ... -> navigate_to_bin -> final``) into a
-   single no-op subtask, since the body channel never moves and there are no nav term
-   signals to segment on.
+2. The Mimic config (``StaticPickAndPlaceMimicEnvCfg``) collapses both the locomanip
+   body subtask sequence (``navigate_to_table -> ... -> navigate_to_bin -> final``) and
+   the left-arm subtask sequence (``idle_left -> grasp_and_idle_left -> final``) into
+   single no-op subtasks: the body never moves and the apple-to-plate task is a one-arm
+   pinch-grasp, so neither channel has meaningful segmentation. Annotation only requires
+   the user to mark right-arm boundaries (``idle_right``, ``grasp_and_idle_right``).
+3. The apple's spawn pose is randomized per episode within ``APPLE_SPAWN_XY_RANGE_M``
+   (XY only) so Mimic source demos have spatial variation; the destination plate
+   stays at a fixed pose, mirroring the locomanip env's fixed-bin convention.
 """
 
 from __future__ import annotations
@@ -53,6 +58,18 @@ SHELF_AIRGAP = 0.005
 # for the apple but a smoke test showed it rolls off the shelf edge from there.
 PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.18)
 DESTINATION_SPAWN_XY = (0.5785, -0.06)
+
+# Half-range of the apple's per-episode XY randomization at reset, in metres. Mirrors
+# the locomanip env's ``XY_RANGE_M = 0.025`` but tightened to 0.020 because the static
+# variant places the destination plate on the *same* shelf, so the spawn workspace is
+# narrower (apple at Y=0.18, plate's +Y edge at ~0.09 -> 9 cm headroom; 2 cm jitter
+# leaves 7 cm minimum gap to the plate). Without this jitter every recorded source demo
+# has the apple at the exact same XY, which makes Mimic's nearest-neighbor source-demo
+# selection (used by every arm subtask) degenerate and the generated dataset has no
+# spatial variation to train against. The destination plate is left at a fixed Pose so
+# the place subtask's target is identical across episodes -- mirrors the locomanip env's
+# fixed-bin convention.
+APPLE_SPAWN_XY_RANGE_M = 0.020
 
 # Per-asset Z offset from the asset's USD origin to its bottom face. Added on top of
 # ``SHELF_SURFACE_Z + SHELF_AIRGAP`` so the asset's *bottom* lands on the shelf rather
@@ -101,7 +118,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.static_pick_and_place_task import StaticPickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
@@ -121,10 +138,27 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
+        pick_up_object_z = _shelf_spawn_z(args_cli.object)
+        # ``PoseRange`` registers a ``randomize_object_pose`` reset event so the apple's
+        # XY is resampled every episode within ``APPLE_SPAWN_XY_RANGE_M``. Z and rotation
+        # are pinned (rpy_min == rpy_max) so the object always lands flush on the shelf
+        # in its authored orientation; we only randomize XY. This gives Mimic source demos
+        # the spatial variation needed for ``nearest_neighbor_object`` selection to do
+        # something useful at datagen time.
         pick_up_object.set_initial_pose(
-            Pose(
-                position_xyz=(pick_up_object_x, pick_up_object_y, _shelf_spawn_z(args_cli.object)),
-                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+            PoseRange(
+                position_xyz_min=(
+                    pick_up_object_x - APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_y - APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_z,
+                ),
+                position_xyz_max=(
+                    pick_up_object_x + APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_y + APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_z,
+                ),
+                rpy_min=(0.0, 0.0, 0.0),
+                rpy_max=(0.0, 0.0, 0.0),
             )
         )
         destination.set_initial_pose(

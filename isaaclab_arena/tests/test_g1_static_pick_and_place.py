@@ -319,6 +319,56 @@ def _test_mimic_cfg_body_is_collapsed_to_single_no_op(simulation_app) -> bool:
     return True
 
 
+def _test_mimic_cfg_left_arm_is_collapsed_to_single_no_op(simulation_app) -> bool:
+    """Static Mimic cfg must collapse the locomanip 3-step left-arm subtask sequence to one no-op.
+
+    Regression guard against accidentally inheriting the locomanip left-arm subtask
+    sequence (``idle_left -> grasp_and_idle_left -> final``): apple-to-plate on a single
+    shelf is a one-arm pinch-grasp, so forcing the user to mark left-arm boundaries
+    during ``annotate_demos.py`` is annotation theatre. The collapse drops the per-episode
+    annotation count from 4 marks (2 right + 2 left) to 2 (right only); the right arm
+    keeps its full 3-step sequence so its ``idle_right`` / ``grasp_and_idle_right``
+    boundaries still segment the dataset for Mimic source selection.
+    """
+
+    mimic_cfg, _, _ = _build_static_mimic_cfg()
+
+    # Right arm must still ship the full 3-step locomanip sequence (idle_right ->
+    # grasp_and_idle_right -> final) -- collapsing it would break the actual pick task.
+    right_subtasks = mimic_cfg.subtask_configs["right"]
+    assert len(right_subtasks) == 3, (
+        "Static Mimic cfg must keep the right-arm 3-step subtask sequence intact "
+        f"(idle_right -> grasp_and_idle_right -> final); got {len(right_subtasks)} entries"
+    )
+    expected_right_term_signals = ["idle_right", "grasp_and_idle_right", None]
+    actual_right_term_signals = [s.subtask_term_signal for s in right_subtasks]
+    assert (
+        actual_right_term_signals == expected_right_term_signals
+    ), f"Right-arm subtask term signals should be {expected_right_term_signals}, got {actual_right_term_signals}"
+
+    left_subtasks = mimic_cfg.subtask_configs["left"]
+    assert len(left_subtasks) == 1, (
+        "Static Mimic cfg must collapse the left-arm subtask sequence to a single no-op entry; "
+        f"got {len(left_subtasks)} entries (locomanip ships 3 phases here: idle_left, "
+        "grasp_and_idle_left, final)"
+    )
+
+    left_only = left_subtasks[0]
+    assert left_only.subtask_term_signal is None, (
+        "Static Mimic left-arm no-op subtask must have NO ``subtask_term_signal`` (else "
+        "annotate_demos.py would prompt the user to mark a non-existent boundary); got "
+        f"'{left_only.subtask_term_signal}'"
+    )
+    assert left_only.action_noise == 0.0, (
+        "Static Mimic left-arm no-op subtask must keep action_noise=0 so the unused arm "
+        "doesn't drift into the right-arm workspace under noise injection; got "
+        f"{left_only.action_noise}"
+    )
+
+    print("Success: Static Mimic left-arm subtasks collapsed to single no-op (right arm intact)")
+    return True
+
+
 @pytest.mark.with_cameras
 def test_initial_state_not_terminated():
     result = run_simulation_app_function(
@@ -357,8 +407,18 @@ def test_mimic_cfg_body_is_collapsed_to_single_no_op():
     assert result, f"Test {_test_mimic_cfg_body_is_collapsed_to_single_no_op.__name__} failed"
 
 
+def test_mimic_cfg_left_arm_is_collapsed_to_single_no_op():
+    result = run_simulation_app_function(
+        _test_mimic_cfg_left_arm_is_collapsed_to_single_no_op,
+        headless=HEADLESS,
+        enable_cameras=False,
+    )
+    assert result, f"Test {_test_mimic_cfg_left_arm_is_collapsed_to_single_no_op.__name__} failed"
+
+
 if __name__ == "__main__":
     test_initial_state_not_terminated()
     test_apple_on_plate_succeeds()
     test_mimic_cfg_uses_object_and_destination_names()
     test_mimic_cfg_body_is_collapsed_to_single_no_op()
+    test_mimic_cfg_left_arm_is_collapsed_to_single_no_op()
