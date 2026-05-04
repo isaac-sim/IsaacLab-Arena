@@ -8,6 +8,7 @@ import importlib
 from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena_environments.asset_stability_probe import AssetStabilityProbeEnvironment
 from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironment
 from isaaclab_arena_environments.droid_pick_and_place_srl_environment import DroidPickAndPlaceSRLEnvironment
 from isaaclab_arena_environments.franka_put_and_close_door_environment import FrankaPutAndCloseDoorEnvironment
@@ -49,6 +50,7 @@ ExampleEnvironments = {
     DroidTabletopPickAndPlaceEnvironment.name: DroidTabletopPickAndPlaceEnvironment,
     DroidV2TabletopPickAndPlaceEnvironment.name: DroidV2TabletopPickAndPlaceEnvironment,
     DroidV3TabletopPickAndPlaceEnvironment.name: DroidV3TabletopPickAndPlaceEnvironment,
+    AssetStabilityProbeEnvironment.name: AssetStabilityProbeEnvironment,
 }
 
 
