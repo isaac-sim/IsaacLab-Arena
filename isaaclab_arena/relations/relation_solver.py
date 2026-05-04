@@ -152,12 +152,15 @@ class RelationSolver:
         debug: bool = False,
         bboxes_per_row: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> torch.Tensor:
-        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
+        """Compute pairwise no-overlap loss for non-anchor object pairs only.
 
-        Each unique pair is evaluated twice (once per direction):
-        - Non-anchor vs anchor: gradient flows to the non-anchor only.
-        - Non-anchor vs non-anchor: both objects receive gradient by computing
-          the loss in both directions with the other's position detached.
+        Anchor objects (e.g. the table) are excluded: the On relation already
+        controls Z placement relative to anchors, and adding a 3D clearance
+        envelope around the anchor would fight the On constraint in Z.
+
+        Each unique non-anchor pair is evaluated twice (once per direction) so
+        both objects receive gradient.  Uses xy_only=True because objects on the
+        same surface share Z height.
 
         Args:
             state: Current optimization state with object positions.
@@ -171,26 +174,14 @@ class RelationSolver:
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
 
         non_anchor_objects = state.optimizable_objects
-        anchor_objects = list(state.anchor_objects)
 
         for i, child in enumerate(non_anchor_objects):
             child_pos = state.get_position(child)
             child_bbox = self._get_bbox(child, device, bboxes_per_row)
 
-            # Against all anchors
-            for anchor in anchor_objects:
-                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
-                loss = self._no_collision_strategy.compute_loss(
-                    clearance_m=self.params.clearance_m,
-                    child_pos=child_pos,
-                    child_bbox=child_bbox,
-                    parent_world_bbox=anchor_world_bbox,
-                )
-                if debug:
-                    print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
-                total_loss = total_loss + loss
-
-            # Against other non-anchors (unique pairs, both directions)
+            # Against other non-anchors (unique pairs, both directions).
+            # Uses xy_only=True because objects on the same surface share Z height;
+            # 3D overlap would generate Z-gradient fighting the On constraint.
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
                 other_pos = state.get_position(other)
@@ -203,6 +194,7 @@ class RelationSolver:
                     child_pos=child_pos,
                     child_bbox=child_bbox,
                     parent_world_bbox=other_world_bbox,
+                    xy_only=True,
                 )
 
                 # Reverse: gradient flows to other (object j)
@@ -212,6 +204,7 @@ class RelationSolver:
                     child_pos=other_pos,
                     child_bbox=other_bbox,
                     parent_world_bbox=child_world_bbox,
+                    xy_only=True,
                 )
 
                 if debug:
