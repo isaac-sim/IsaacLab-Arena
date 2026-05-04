@@ -84,6 +84,7 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         num_envs: int = 1,
         result_per_env: bool = True,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
 
@@ -95,6 +96,10 @@ class ObjectPlacer:
             result_per_env: When True (default), each environment gets a distinct
                 layout. When False, a single best layout is solved and applied
                 identically to all environments.
+            env_bboxes: Pre-computed per-env bounding boxes (shape ``(num_envs, 3)``
+                per object).  When provided, ``_place_heterogeneous`` uses these
+                instead of calling ``get_bounding_box_per_env(num_envs)``.  This
+                allows the caller to tile real-env bboxes for pooled solving.
 
         Returns:
             PlacementResult when a single layout is produced (num_envs=1 or
@@ -138,7 +143,13 @@ class ObjectPlacer:
 
         if heterogeneous:
             results_per_env = self._place_heterogeneous(
-                objects, anchor_objects_set, num_envs, max_attempts, num_candidates, generator
+                objects,
+                anchor_objects_set,
+                num_envs,
+                max_attempts,
+                num_candidates,
+                generator,
+                env_bboxes=env_bboxes,
             )
         else:
             results_per_env = self._place_homogeneous(
@@ -207,16 +218,20 @@ class ObjectPlacer:
         max_attempts: int,
         num_candidates: int,
         generator: torch.Generator | None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> list[PlacementResult]:
         """Per-env placement: each candidate is tied to its env's object variants.
 
         Batch layout: candidates [e * max_attempts : (e+1) * max_attempts] belong
         to env *e*. Per-row bboxes reflect each env's actual variant geometry.
+
+        Args:
+            env_bboxes: When provided, uses these bboxes directly instead of
+                calling ``get_bounding_box_per_env(num_envs)``.  Each bbox must
+                have shape ``(num_envs, 3)``.
         """
-        # Build per-env bboxes (num_envs, 3) for every object.
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {
-            obj: obj.get_bounding_box_per_env(num_envs) for obj in objects
-        }
+        if env_bboxes is None:
+            env_bboxes = {obj: obj.get_bounding_box_per_env(num_envs) for obj in objects}
 
         # Expand into per-row bboxes (num_candidates, 3): repeat each env's
         # bbox max_attempts times so rows [e*A:(e+1)*A] share env e's geometry.

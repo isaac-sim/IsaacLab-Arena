@@ -157,55 +157,65 @@ class PooledObjectPlacer:
     def _solve_and_store_heterogeneous(self, num_layouts: int) -> None:
         """Solve layouts and store valid results into per-env pools.
 
-        Each round solves ``num_envs`` layouts in one batched call.
-        Result ``i`` is solved with env ``i``'s actual object geometry
-        (from ``get_bounding_box_per_env(num_envs)``) and is stored
-        directly into ``_layout_pools[i]``.  Multiple rounds are run
-        until each env has enough candidates.
+        Computes bounding boxes for the real ``num_envs`` once, tiles them
+        to ``num_layouts`` entries, and solves everything in **one** batched
+        ``place()`` call.  Result ``i`` is mapped back to real env
+        ``i % num_envs`` for pool storage.
         """
+        from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
         for env_id in self._layout_pools:
             self._compact_env_pool(env_id)
 
-        num_rounds = max(1, num_layouts // self._num_envs)
+        layouts_per_env = max(1, num_layouts // self._num_envs)
+        total_layouts = layouts_per_env * self._num_envs
+
+        real_bboxes: dict = {obj: obj.get_bounding_box_per_env(self._num_envs) for obj in self._objects}
+
+        tiled_bboxes: dict = {}
+        for obj, bbox in real_bboxes.items():
+            # (num_envs, 3) → repeat each env's row layouts_per_env times → (total_layouts, 3)
+            min_pt = bbox.min_point.repeat_interleave(layouts_per_env, dim=0)
+            max_pt = bbox.max_point.repeat_interleave(layouts_per_env, dim=0)
+            tiled_bboxes[obj] = AxisAlignedBoundingBox(min_point=min_pt, max_point=max_pt)
+
+        with torch.inference_mode(False):
+            result = self._placer.place(
+                self._objects,
+                num_envs=total_layouts,
+                result_per_env=True,
+                env_bboxes=tiled_bboxes,
+            )
+
+        all_results = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
+
         total_valid = 0
-        total_solved = 0
-        all_round_results: list[list[PlacementResult]] = []
+        for i, r in enumerate(all_results):
+            env_id = i // layouts_per_env
+            if r.success:
+                self._layout_pools[env_id].append(r)
+                total_valid += 1
 
-        for _ in range(num_rounds):
-            with torch.inference_mode(False):
-                result = self._placer.place(self._objects, num_envs=self._num_envs, result_per_env=True)
-
-            round_results = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
-            all_round_results.append(round_results)
-            total_solved += len(round_results)
-
-            for env_id, r in enumerate(round_results):
-                if r.success:
-                    self._layout_pools[env_id].append(r)
-                    total_valid += 1
-
+        total_solved = len(all_results)
         if total_valid < total_solved:
             failed_envs = [e for e in self._layout_pools if not self._layout_pools[e]]
             msg = (
-                f"Placement pool (heterogeneous): solved {total_solved} candidates"
-                f" across {num_rounds} rounds,"
+                f"Placement pool (heterogeneous): solved {total_solved} candidates,"
                 f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
             if failed_envs:
                 msg += f". Envs with zero valid layouts: {failed_envs}"
             print(msg)
 
-        # Per-env fallback: for any env that still has zero valid layouts,
-        # accept the best-loss (lowest loss) result from all rounds.
         for env_id in range(self._num_envs):
             if self._layout_pools[env_id]:
                 continue
             best: PlacementResult | None = None
-            for round_results in all_round_results:
-                if env_id < len(round_results):
-                    r = round_results[env_id]
-                    if best is None or r.final_loss < best.final_loss:
-                        best = r
+            start = env_id * layouts_per_env
+            end = start + layouts_per_env
+            for r in all_results[start:end]:
+                if best is None or r.final_loss < best.final_loss:
+                    best = r
             if best is not None:
                 print(
                     f"Warning: env {env_id} had no valid layouts; "
