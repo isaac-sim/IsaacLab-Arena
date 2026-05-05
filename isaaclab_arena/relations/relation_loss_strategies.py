@@ -325,8 +325,11 @@ class NoCollisionLossStrategy:
     Computes loss based on:
     1. X overlap: zero when child and parent are separated along X; else overlap length
     2. Y overlap: zero when separated along Y; else overlap length
-    3. Z overlap: zero when separated along Z; else overlap length
-    4. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
+    3. Z overlap: zero when separated along Z; else overlap length (skipped when xy_only=True)
+    4. Loss: slope * overlap product (area when xy_only, volume otherwise)
+
+    When ``xy_only=True``, only XY overlap is used — suitable for objects on the
+    same surface where Z overlap is expected and Z gradients would fight the On constraint.
 
     This is a standalone strategy (not a RelationLossStrategy) because no-overlap
     is a built-in solver behavior, not a user-specified relation.

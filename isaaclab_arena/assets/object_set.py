@@ -71,11 +71,12 @@ class RigidObjectSet(Object):
         self.random_choice = random_choice
         self.heterogeneous_bbox: bool = len(objects) > 1
 
-        assert not (self.heterogeneous_bbox and self.random_choice), (
-            f"RigidObjectSet '{name}': random_choice=True is not supported with heterogeneous "
-            "placement (len(objects) > 1). The placement pool assumes round-robin variant "
-            "assignment (env_idx % num_variants) which conflicts with random spawning order."
-        )
+        if self.heterogeneous_bbox and self.random_choice:
+            raise ValueError(
+                f"RigidObjectSet '{name}': random_choice=True is not supported with heterogeneous "
+                "placement (len(objects) > 1). The placement pool assumes round-robin variant "
+                "assignment (env_idx % num_variants) which conflicts with random spawning order."
+            )
 
         # Set default prim_path if not provided
         if prim_path is None:

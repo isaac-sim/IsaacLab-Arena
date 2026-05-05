@@ -7,6 +7,8 @@
 
 import torch
 
+import pytest
+
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -316,11 +318,8 @@ def test_pooled_placer_heterogeneous_sample_without_replacement_requires_env_ids
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
-    try:
+    with pytest.raises(AssertionError):
         pool.sample_without_replacement(2, env_ids=None)
-        assert False, "Should have raised AssertionError"
-    except AssertionError:
-        pass
 
 
 def test_pooled_placer_heterogeneous_sample_with_replacement():
