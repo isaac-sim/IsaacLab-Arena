@@ -26,18 +26,6 @@ Example (--viz kit enables the Kit visualizer, --episode_length_s triggers perio
   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 --mode heterogeneous
-
-  # Experiment: robolab objects in HOMOGENEOUS mode (isolate object vs mode)
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 \\
-    --objects ketchup_bottle_hope_robolab mustard_bottle_hope_robolab popcorn_box_hope_robolab
-
-  # Experiment: YCB objects in HETEROGENEOUS mode (isolate wrapping vs objects)
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 \\
-    --mode heterogeneous --objects cracker_box sugar_box tomato_soup_can mustard_bottle
 """
 
 from __future__ import annotations
