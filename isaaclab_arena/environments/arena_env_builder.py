@@ -303,7 +303,8 @@ class ArenaEnvBuilder:
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
         env = gym.make(name, cfg=cfg, render_mode=render_mode)
-        _force_convex_hull(env)
+        if self.arena_env.force_convex_hull:
+            _force_convex_hull(env)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
