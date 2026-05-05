@@ -1,6 +1,6 @@
 ---
-name: arena-scaffold-external-workflow
-description: Scaffold a new external IsaacLab-Arena project — creates directory structure, pyproject.toml, Dockerfile, run_docker.sh and launches the docker container. Use this skill whenever the user wants to scaffold a new project, package, or workflow that builds on top of IsaacLab-Arena, even if they don't say "scaffold" or "external workflow" — any request like "start a new Arena-based project", "set up my custom environment package", or "create a project using Arena" should trigger this skill.
+name: arena-create-external-workflow
+description: Create a new external IsaacLab-Arena project — creates directory structure, pyproject.toml, Dockerfile, run_docker.sh, and entrypoint.sh, then launches the docker container. Use this skill whenever the user wants to create a new project, package, or workflow that builds on top of IsaacLab-Arena, even if they don't say "create" or "external workflow" — any request like "start a new Arena-based project", "set up my custom environment package", or "create a project using Arena" should trigger this skill.
 ---
 
 ## How to invoke
@@ -9,45 +9,18 @@ description: Scaffold a new external IsaacLab-Arena project — creates director
 /arena-create-external-workflow <project_name>
 ```
 
-`<project_name>` is both the Python package name (e.g. `my_robot_tasks`) and the Docker image name. Use `snake_case`.
+`<project_name>` is both the project directory name and the Docker image name. Use `snake_case`.
 
 ---
 
 ## Prerequisites
 
-Before running this skill, make sure the user has the following in place:
-
-**An existing local IsaacLab-Arena clone with submodules initialized**
-
-The skill uses it as a `--reference` to avoid re-downloading git objects. The clone must have its nested submodules (`submodules/IsaacLab` and `submodules/Isaac-GR00T`) already initialized:
+The user must have a local IsaacLab-Arena clone with submodules initialized. It will be copied into the project at build time:
 
 ```bash
-git clone git@github.com:isaac-sim/IsaacLab-Arena.git
-cd IsaacLab-Arena
-git submodule update --init --recursive
+git clone git@github.com:isaac-sim/IsaacLab-Arena.git ~/IsaacLab-Arena
+cd ~/IsaacLab-Arena && git submodule update --init --recursive
 ```
-
----
-
-## Container workspace layout
-
-The container uses `/workspaces/` as the root, with one directory per project:
-
-```
-/workspaces/
-├── isaaclab_arena/        ← IsaacLab-Arena source (mounted from submodules/IsaacLab-Arena/)
-└── <project_name>/        ← Your project (mounted from project root)
-    ├── submodules/
-    │   └── IsaacLab-Arena/
-    ├── <project_name>/    ← Python package (pip install -e'd)
-    │   ├── __init__.py
-    │   └── isaaclab_arena_environments/
-    └── docker/
-```
-
-**Why this matters:** Arena's `run_docker.sh` mounts the Arena repo at `/workspaces/isaaclab_arena`. Your project mounts alongside it at `/workspaces/<project_name>`. They are siblings, not nested.
-
-**Always use `/isaac-sim/python.sh`** for all pip installs and python commands — never system `python`. Isaac Sim has its own embedded Python where Arena and IsaacLab are installed.
 
 ---
 
@@ -56,36 +29,76 @@ The container uses `/workspaces/` as the root, with one directory per project:
 ```
 <project_name>/
 ├── submodules/
-│   └── IsaacLab-Arena/          ← git submodule (unmodified Arena)
+│   └── IsaacLab-Arena/              ← cp -r from local clone (used at docker build time)
 ├── <project_name>/
+│   ├── pyproject.toml
 │   ├── __init__.py
 │   └── isaaclab_arena_environments/
 │       ├── __init__.py
-│       └── my_environment.py    ← custom environment class
-├── pyproject.toml               ← defines the Python package
+│       └── my_environment.py        ← inherits ExampleEnvironmentBase
 ├── docker/
-│   ├── Dockerfile
-│   └── run_docker.sh
-└── .gitmodules
+│   ├── Dockerfile                   ← adapted from Arena's Dockerfile.isaaclab_arena
+│   ├── run_docker.sh                ← adapted from Arena's run_docker.sh
+│   └── entrypoint.sh                ← adapted from Arena's entrypoint.sh (one-line change)
 ```
 
 ---
 
-## Step 1 — Create project directory
+## Container layout
 
-**Ask the user where to create the project** before proceeding — do not assume a location. The project must be created **outside** the IsaacLab-Arena repo.
+```
+/
+├── opt/arena/                          ← IsaacLab-Arena (baked into image)
+│   └── submodules/
+│       ├── IsaacLab/                   ← ISAACLAB_PATH
+│       └── Isaac-GR00T/                ← optional
+├── isaac-sim/                          ← Isaac Sim runtime (base image)
+├── workspaces/
+│   └── <project_name>/                 ← WORKDIR (bind-mounted at runtime)
+│       ├── submodules/IsaacLab-Arena/  ← present via bind-mount but unused by Python
+│       └── <project_name>/
+│           ├── pyproject.toml
+│           ├── __init__.py
+│           └── isaaclab_arena_environments/
+│               ├── __init__.py
+│               └── my_environment.py
+├── datasets/                           ← optional mount
+├── models/                             ← optional mount
+└── eval/                               ← optional mount
+```
+
+`submodules/IsaacLab-Arena/` appears inside the container via the project bind-mount but is harmless — Python imports from `/opt/arena/` (where `pip install -e` registered it), not from the mounted copy.
+
+**Key variables:**
+
+| Variable | Value | Purpose |
+|---|---|---|
+| `ARENA_DIR` | `/opt/arena` (hardcoded) | Arena install path |
+| `ISAACLAB_PATH` | `${ARENA_DIR}/submodules/IsaacLab` | decoupled from `WORKDIR` |
+| `WORKDIR` | `/workspaces/<project_name>` (via `--build-arg`) | Docker working dir + user project path |
+
+**Always use `/isaac-sim/python.sh`** for all pip and python commands — never system `python`.
+
+---
+
+## Step 1 — Create project directory and copy Arena
+
+**Ask the user where to create the project** before proceeding. The project must be created **outside** the IsaacLab-Arena repo.
 
 ```bash
 mkdir -p <parent_dir>/<project_name>/{submodules,<project_name>/isaaclab_arena_environments,docker}
 cd <parent_dir>/<project_name>
 git init
+
+# Copy Arena into the project — used only at docker build time, not at runtime
+cp -r ~/IsaacLab-Arena submodules/IsaacLab-Arena
 ```
+
+Ask the user for the path to their local Arena clone if it is not at `~/IsaacLab-Arena`.
 
 ---
 
-## Step 2 — Write `pyproject.toml`
-
-Place at the project root (`<project_name>/pyproject.toml`):
+## Step 2 — Write `<project_name>/pyproject.toml`
 
 ```toml
 [build-system]
@@ -99,59 +112,122 @@ description = "Custom environments built on IsaacLab-Arena"
 requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
-include = ["<project_name>*", "isaaclab_arena_environments*"]
+where = ["."]
+include = ["<project_name>*"]
 ```
-
-The `include` list must cover both your top-level package and `isaaclab_arena_environments` so they are both importable after `pip install -e`.
 
 ---
 
-## Step 3 — Write `<project_name>/__init__.py` and environment stubs
+## Step 3 — Write Python stubs
 
 ```python
-# <project_name>/__init__.py
+# <project_name>/__init__.py  (empty)
 ```
 
 ```python
-# <project_name>/isaaclab_arena_environments/__init__.py
+# <project_name>/isaaclab_arena_environments/__init__.py  (empty)
 ```
 
 ```python
 # <project_name>/isaaclab_arena_environments/my_environment.py
-# Extend Arena environments here
+from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.assets.register import register_environment
+
+@register_environment
+class MyEnvironment(ExampleEnvironmentBase):
+    name: str = "<project_name>_env"
+```
+
+External environments are registered explicitly at runtime via the CLI — they are NOT auto-discovered by Arena:
+```bash
+/isaac-sim/python.sh policy_runner.py \
+    --external_environment_class_path \
+    <project_name>.isaaclab_arena_environments.my_environment:MyEnvironment \
+    <project_name>_env
 ```
 
 ---
 
 ## Step 4 — Write `docker/Dockerfile`
 
-The project Dockerfile is intentionally thin — it builds `FROM isaaclab_arena:latest` rather than duplicating all of Arena's installation steps. The Arena base image is built first by `run_docker.sh` (Step 5).
+**Adapted from `submodules/IsaacLab-Arena/docker/Dockerfile.isaaclab_arena`.** Read Arena's Dockerfile and apply the changes below. Do not write from scratch.
+
+**Change 1 — Add `ARENA_DIR` and decouple `ISAACLAB_PATH` from `WORKDIR`** (after `ARG INSTALL_GROOT`):
 
 ```dockerfile
-ARG ARENA_IMAGE=isaaclab_arena:latest
-FROM ${ARENA_IMAGE}
+# Add:
+ARG ARENA_DIR=/opt/arena
+ENV ARENA_DIR=${ARENA_DIR}
 
-# Install <project_name> on top of the Arena base image.
-# Source must be present before pip install -e: setuptools needs the package directory
-# to exist at install time to discover and register packages. Installing before the
-# source copy would register an empty package list and break imports at runtime.
-# At runtime, the volume mount overlays /workspaces/<project_name>/ with live source.
-COPY pyproject.toml /workspaces/<project_name>/pyproject.toml
-COPY <project_name> /workspaces/<project_name>/<project_name>
-RUN /isaac-sim/python.sh -m pip install -e /workspaces/<project_name>
+# Change WORKDIR default to user project path:
+ARG WORKDIR=/workspaces/<project_name>
 
-# Entrypoint is inherited from the Arena base image (/entrypoint.sh).
-# It mirrors the host user, creates /datasets /models /eval, and
-# re-creates the IsaacLab → /isaac-sim symlink after volume mounts.
+# Change ISAACLAB_PATH to use ARENA_DIR instead of WORKDIR:
+ENV ISAACLAB_PATH=${ARENA_DIR}/submodules/IsaacLab
+```
+
+**Change 2 — Replace all IsaacLab/Arena COPY and install steps** to use `${ARENA_DIR}`:
+
+Replace Arena's individual COPY instructions and all `${WORKDIR}` references in install steps:
+```dockerfile
+# Replace all of Arena's individual COPY lines with one:
+COPY submodules/IsaacLab-Arena ${ARENA_DIR}
+
+# Replace all ${WORKDIR} in install steps with ${ARENA_DIR}, e.g.:
+RUN ln -s /isaac-sim/ ${ARENA_DIR}/submodules/IsaacLab/_isaac_sim
+RUN for DIR in ${ARENA_DIR}/submodules/IsaacLab/source/isaaclab*/; do ...
+RUN ${ISAACLAB_PATH}/isaaclab.sh -i
+# ... and so on for all install steps
+```
+
+**Change 3 — GR00T scripts** no longer need a separate COPY — they are already inside `${ARENA_DIR}/docker/setup/` from Change 2:
+
+```dockerfile
+# Replace:
+COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
+# With (no COPY needed, run directly):
+RUN if [ "$INSTALL_GROOT" = "true" ]; then \
+        chmod +x ${ARENA_DIR}/docker/setup/install_cuda.sh && \
+        ${ARENA_DIR}/docker/setup/install_cuda.sh; ...
+
+# Same for install_gr00t_deps.sh
+```
+
+**Change 4 — Arena `pip install -e`**: remove `[dev]` extras:
+
+```dockerfile
+# Replace:
+RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
+# With:
+RUN /isaac-sim/python.sh -m pip install -e "${ARENA_DIR}/"
+```
+
+**Change 5 — Add user package section** (after Arena install, before bash aliases):
+
+```dockerfile
+# COPY bakes the package into the image. The bind-mount at runtime overlays
+# this with live source — no reinstall needed for daily edits.
+COPY <project_name> ${WORKDIR}/<project_name>
+RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/<project_name>/"
+```
+
+**Change 6 — Update prompt and entrypoint**:
+
+```dockerfile
+# Update prompt:
+RUN echo "PS1='[<project_name>] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /etc/bash.bashrc
+
+# Point to custom entrypoint (Step 6):
+COPY docker/entrypoint.sh /entrypoint.sh
 ```
 
 ---
 
 ## Step 5 — Write `docker/run_docker.sh`
 
-**Do not write this from scratch.** Read `submodules/IsaacLab-Arena/docker/run_docker.sh` and apply the three changes below. Everything else — flags, env vars, volume mounts, GR00T handling, Omniverse auth — is inherited unchanged. This keeps the script in sync with Arena automatically.
+**Adapted from `submodules/IsaacLab-Arena/docker/run_docker.sh`.** Read Arena's script and apply the three changes below. Everything else (flags, Omniverse auth, X11, SSH, datasets/models/eval mounts) is inherited unchanged.
 
-**Change 1 — Replace image/name variables and add project variables** (right after `SCRIPT_DIR=...`):
+**Change 1 — Update variables** (right after `SCRIPT_DIR=...`):
 
 Replace:
 ```bash
@@ -162,49 +238,28 @@ WORKDIR="/workspaces/isaaclab_arena"
 With:
 ```bash
 DOCKER_IMAGE_NAME='<project_name>'
-ARENA_IMAGE_NAME='isaaclab_arena'
 ...
-ARENA_DIR="$SCRIPT_DIR/../submodules/IsaacLab-Arena"
-WORKDIR="/workspaces/isaaclab_arena"
 PROJECT_WORKDIR="/workspaces/<project_name>"
+WORKDIR="$PROJECT_WORKDIR"
 ```
-`DOCKER_VERSION_TAG` is shared by both the Arena base image and the project image — no separate variable needed. The `-g` flag already sets it to `'cuda_gr00t_gn16'` in Arena's script, so both images automatically get the GR00T variant tag.
 
-**Change 2 — Replace the single `docker build` block with two stages:**
+**Change 2 — Replace the `docker build` block** (single build, no two-stage):
 
 ```bash
-# ── Stage 1: Arena base image ─────────────────────────────────────────────────
-# Pass WORKDIR so the editable install path matches the volume mount below.
-# Arena's Dockerfile defaults to /workspace (singular); we need the plural form
-# /workspaces/isaaclab_arena so live source edits are picked up by Python.
-if [ "$(docker images -q $ARENA_IMAGE_NAME:$DOCKER_VERSION_TAG 2>/dev/null)" ] && \
-    [ "$FORCE_REBUILD" = false ]; then
-    echo "Arena image $ARENA_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Skipping."
-else
-    docker build --pull $NO_CACHE --progress=plain \
-        --build-arg WORKDIR="${WORKDIR}" \
-        --build-arg INSTALL_GROOT=$INSTALL_GROOT \
-        -t ${ARENA_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
-        --file $ARENA_DIR/docker/Dockerfile.isaaclab_arena \
-        $ARENA_DIR
-fi
-
-# ── Stage 2: Project image ────────────────────────────────────────────────────
-# Note: no --pull here — isaaclab_arena is a local image, not on Docker Hub.
-# --pull would cause Docker to attempt a registry fetch and fail.
 if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2>/dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
     echo "Docker image $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Not rebuilding."
 else
-    docker build $NO_CACHE --progress=plain \
-        --build-arg ARENA_IMAGE="${ARENA_IMAGE_NAME}:${DOCKER_VERSION_TAG}" \
+    docker build --pull $NO_CACHE --progress=plain \
+        --build-arg WORKDIR="${PROJECT_WORKDIR}" \
+        --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
         --file $SCRIPT_DIR/Dockerfile \
         $SCRIPT_DIR/..
 fi
 ```
 
-**Change 3 — Replace the Arena volume mount and add the project mount** (in `DOCKER_RUN_ARGS`):
+**Change 3 — Replace the Arena volume mount** (in `DOCKER_RUN_ARGS`):
 
 Replace:
 ```bash
@@ -212,60 +267,45 @@ Replace:
 ```
 With:
 ```bash
-"-v" "$ARENA_DIR:${WORKDIR}"           # Arena submodule (live source)
-"-v" "$SCRIPT_DIR/..:${PROJECT_WORKDIR}"  # Project root (live source)
+"-v" "$SCRIPT_DIR/..:${PROJECT_WORKDIR}"
 ```
 
-Also update the GR00T conditional at the bottom:
-```bash
-# Change:
-"-v" "$SCRIPT_DIR/../submodules/Isaac-GR00T:..."
-# To:
-"-v" "$ARENA_DIR/submodules/Isaac-GR00T:..."
-```
+Arena is baked at `/opt/arena/` — it is **not** mounted at runtime. Also remove the GR00T volume mount (`./submodules/Isaac-GR00T`) — Isaac-GR00T is baked inside `/opt/arena/submodules/Isaac-GR00T/`.
 
 ---
 
-## Step 6 — Add IsaacLab-Arena as a git submodule
+## Step 6 — Write `docker/entrypoint.sh`
 
-**Ask the user once for the path to their existing IsaacLab-Arena clone.** Use it to derive `--reference` paths for the Arena submodule and each nested submodule — all from that single answer.
+**Adapted from `submodules/IsaacLab-Arena/docker/setup/entrypoint.sh`.** Copy it verbatim and change one line:
 
 ```bash
-# Add IsaacLab-Arena, borrowing objects from the existing local clone
-git submodule add --reference <existing-arena-clone> \
-    git@github.com:isaac-sim/IsaacLab-Arena.git submodules/IsaacLab-Arena
+# Before (Arena's original):
+if [ ! -e "$WORKDIR/submodules/IsaacLab/_isaac_sim" ]; then
+    ln -s /isaac-sim/ "$WORKDIR/submodules/IsaacLab/_isaac_sim"
+fi
 
-# Initialize each nested submodule with its own reference to avoid network fetches
-git -C submodules/IsaacLab-Arena submodule update --init \
-    --reference <existing-arena-clone>/submodules/IsaacLab \
-    submodules/IsaacLab
-
-git -C submodules/IsaacLab-Arena submodule update --init \
-    --reference <existing-arena-clone>/submodules/Isaac-GR00T \
-    submodules/Isaac-GR00T
+# After (Arena is baked at /opt/arena, not at $WORKDIR):
+if [ ! -e "$ARENA_DIR/submodules/IsaacLab/_isaac_sim" ]; then
+    ln -s /isaac-sim/ "$ARENA_DIR/submodules/IsaacLab/_isaac_sim"
+fi
 ```
 
-Use separate `submodule update --init` calls (not `--recursive`) so each nested submodule gets the right reference path — a single `--recursive` call can only take one `--reference`, which wouldn't match all submodules.
-
-**Why `--reference`:** `run_docker.sh` mounts `submodules/IsaacLab-Arena` over `/workspaces/isaaclab_arena` at runtime. IsaacLab is installed as an editable install pointing to `/workspaces/isaaclab_arena/submodules/IsaacLab/source/isaaclab` — if that nested path is empty, `import isaaclab` fails at runtime even though it worked at build time.
-
-**Note:** clones created with `--reference` have a hard dependency on the reference path via `.git/objects/info/alternates`. This is fine as long as the existing Arena clone stays in place.
-
-If this fails (no SSH key or network), skip it and tell the user — the submodule is required to run the container.
+`ARENA_DIR` is set as `ENV` in the Dockerfile and is available inside the container without additional configuration.
 
 ---
 
 ## Key path reference
 
-| What | Container path | Host source |
-|------|---------------|-------------|
-| Arena source | `/workspaces/isaaclab_arena` | `submodules/IsaacLab-Arena/` |
-| Your project | `/workspaces/<project_name>` | project root |
-| Your Python package | `/workspaces/<project_name>/<project_name>` | `<project_name>/` |
-| Isaac Sim runtime | `/isaac-sim/` | (baked into image) |
-| IsaacLab | `/workspaces/isaaclab_arena/submodules/IsaacLab` | (baked into image) |
-| Datasets | `/datasets` | `~/datasets` |
-| Models | `/models` | `~/models` |
+| What | Container path | Source |
+|---|---|---|
+| IsaacLab-Arena | `/opt/arena/` | baked at build time |
+| IsaacLab | `/opt/arena/submodules/IsaacLab/` | baked at build time |
+| Isaac-GR00T | `/opt/arena/submodules/Isaac-GR00T/` | baked (optional) |
+| Isaac Sim runtime | `/isaac-sim/` | base image |
+| User project | `/workspaces/<project_name>/` | bind-mounted at runtime |
+| User package | `/workspaces/<project_name>/<project_name>/` | bind-mounted + `pip install -e` |
+| Datasets | `/datasets` | `~/datasets` (optional) |
+| Models | `/models` | `~/models` (optional) |
 
 ---
 
@@ -274,25 +314,28 @@ If this fails (no SSH key or network), skip it and tell the user — the submodu
 ```bash
 ls <project_name>/docker/run_docker.sh \
    <project_name>/docker/Dockerfile \
-   <project_name>/pyproject.toml \
+   <project_name>/docker/entrypoint.sh \
+   <project_name>/<project_name>/pyproject.toml \
    <project_name>/<project_name>/__init__.py
 ```
 
-All four paths must exist. Then launch the container:
+All five paths must exist. Then build and launch:
 
 ```bash
 cd <project_name> && bash docker/run_docker.sh
 ```
 
-Watch the output. If the build or container start fails, report the error and stop.
-
-Inside the container, run both checks:
+Inside the container, run all three checks:
 
 ```bash
 /isaac-sim/python.sh -c "import isaaclab; print(isaaclab.__file__)"
+# Expected: /opt/arena/submodules/IsaacLab/source/isaaclab/isaaclab/__init__.py
+
+/isaac-sim/python.sh -c "import isaaclab_arena; print(isaaclab_arena.__file__)"
+# Expected: /opt/arena/isaaclab_arena/__init__.py
+
 /isaac-sim/python.sh -c "import <project_name>; print('OK')"
+# Expected: OK
 ```
 
-The first confirms IsaacLab is correctly installed in the base image. The second confirms the project package was registered by `pip install -e`.
-
-Only report `arena-create-external-workflow complete — <project_name> scaffolded.` if the container starts and both import checks pass.
+Only report `arena-create-external-workflow complete — <project_name> createed.` if the container starts and all three import checks pass.
