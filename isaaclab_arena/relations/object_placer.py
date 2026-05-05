@@ -233,14 +233,14 @@ class ObjectPlacer:
         if env_bboxes is None:
             env_bboxes = {obj: obj.get_bounding_box_per_env(num_envs) for obj in objects}
 
-        # Expand into per-row bboxes (num_candidates, 3): repeat each env's
+        # Expand into per-candidate bboxes (num_candidates, 3): repeat each env's
         # bbox max_attempts times so rows [e*A:(e+1)*A] share env e's geometry.
-        bboxes_per_row: dict[ObjectBase, AxisAlignedBoundingBox] = {}
+        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
         for obj, bbox in env_bboxes.items():
             # bbox.min_point is (num_envs, 3) → repeat_interleave → (num_candidates, 3)
             min_pt = bbox.min_point.repeat_interleave(max_attempts, dim=0)
             max_pt = bbox.max_point.repeat_interleave(max_attempts, dim=0)
-            bboxes_per_row[obj] = AxisAlignedBoundingBox(min_point=min_pt, max_point=max_pt)
+            candidate_bboxes[obj] = AxisAlignedBoundingBox(min_point=min_pt, max_point=max_pt)
 
         # Generate initial positions; each candidate uses its env's bbox.
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
@@ -260,7 +260,7 @@ class ObjectPlacer:
                 self._generate_initial_positions(objects, anchor_objects_set, generator, child_bboxes=env_child_bboxes)
             )
 
-        all_positions = self._solver.solve(objects, initial_positions, bboxes_per_row=bboxes_per_row)
+        all_positions = self._solver.solve(objects, initial_positions, env_bboxes=candidate_bboxes)
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
 
