@@ -30,8 +30,8 @@ cd ~/IsaacLab-Arena && git submodule update --init --recursive
 <project_name>/
 ├── submodules/
 │   └── IsaacLab-Arena/              ← cp -r from local clone (used at docker build time)
+├── pyproject.toml                   ← at project root, defines the Python package
 ├── <project_name>/
-│   ├── pyproject.toml
 │   ├── __init__.py
 │   └── isaaclab_arena_environments/
 │       ├── __init__.py
@@ -56,8 +56,8 @@ cd ~/IsaacLab-Arena && git submodule update --init --recursive
 ├── workspaces/
 │   └── <project_name>/                 ← WORKDIR (bind-mounted at runtime)
 │       ├── submodules/IsaacLab-Arena/  ← present via bind-mount but unused by Python
+│       ├── pyproject.toml
 │       └── <project_name>/
-│           ├── pyproject.toml
 │           ├── __init__.py
 │           └── isaaclab_arena_environments/
 │               ├── __init__.py
@@ -114,6 +114,7 @@ requires-python = ">=3.10"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["<project_name>*"]
+exclude = ["submodules*"]   # skip submodules/IsaacLab-Arena/ during package discovery
 ```
 
 ---
@@ -207,8 +208,9 @@ RUN /isaac-sim/python.sh -m pip install -e "${ARENA_DIR}/"
 ```dockerfile
 # COPY bakes the package into the image. The bind-mount at runtime overlays
 # this with live source — no reinstall needed for daily edits.
+COPY pyproject.toml ${WORKDIR}/pyproject.toml
 COPY <project_name> ${WORKDIR}/<project_name>
-RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/<project_name>/"
+RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/"
 ```
 
 **Change 6 — Update prompt and entrypoint**:
@@ -315,7 +317,7 @@ fi
 ls <project_name>/docker/run_docker.sh \
    <project_name>/docker/Dockerfile \
    <project_name>/docker/entrypoint.sh \
-   <project_name>/<project_name>/pyproject.toml \
+   <project_name>/pyproject.toml \
    <project_name>/<project_name>/__init__.py
 ```
 
@@ -338,4 +340,4 @@ Inside the container, run all three checks:
 # Expected: OK
 ```
 
-Only report `arena-create-external-workflow complete — <project_name> createed.` if the container starts and all three import checks pass.
+Only report `arena-create-external-workflow complete — <project_name> created.` if the container starts and all three import checks pass.
