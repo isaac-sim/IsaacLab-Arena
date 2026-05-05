@@ -101,8 +101,6 @@ HETERO_FIXED_OBJECTS = [
 ]
 
 
-
-
 @register_environment
 class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
     """
@@ -255,7 +253,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             help=(
                 "Object names (works in both modes). "
                 f"Homo default: {' '.join(DEFAULT_TABLE_OBJECTS)}; "
-                f"Hetero default: multi-variant sets (cracker_box/sugar_box, tomato_soup_can/mustard_bottle)"
+                "Hetero default: multi-variant sets (cracker_box/sugar_box, tomato_soup_can/mustard_bottle)"
             ),
         )
         parser.add_argument("--embodiment", type=str, default="gr1_joint", help="Robot embodiment to use")
