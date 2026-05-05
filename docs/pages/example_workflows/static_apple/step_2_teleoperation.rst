@@ -1,7 +1,7 @@
 Teleoperation Data Collection
 -----------------------------
 
-This workflow covers collecting demonstrations for the G1 static apple-to-plate task using **Meta Quest 3** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
+This workflow covers collecting demonstrations for the G1 static apple-to-plate task using **Meta Quest 3** or **Pico 4 Ultra** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
 .. admonition:: No teleoperation hardware?
    :class: tip
@@ -84,9 +84,16 @@ Step 2: Start Arena Teleop
 
 #. In the running application, start the session from the **XR** tab in the application window.
 
+   .. figure:: ../../../images/static_apple_scene.png
+      :width: 100%
+      :alt: Arena teleop with XR running (stereoscopic view and OpenXR settings)
+      :align: center
 
-Step 3: Connect from Meta Quest 3
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).
+
+
+Step 3: Connect from the headset device
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For detailed instructions please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
 
@@ -109,22 +116,31 @@ A strong wireless connection is essential for a high-quality streaming experienc
       If the control panel is not visible (for example, behind a solid wall in the simulated environment), you can put the headset on
       before clicking **Start XR** in the Isaac Lab Arena application, and drag the control panel to a better location.
 
+      .. figure:: ../../../images/react-isaac-sample-controls-start.jpg
+         :width: 40%
+         :alt: IsaacSim view
+         :align: center
 
 #. **Teleoperation Controls**:
 
+   * **Left joystick**: Move the body forward/backward/left/right.
+   * **Right joystick**: Squat (down), rotate torso (left/right).
    * **Controllers**: Move end-effector (EE) targets for the arms.
-   * **Joysticks**: Inactive for this task. The locomotion / squat / turn channels are zeroed out by
-     the recorder so the WBC controller just holds the standing pose; pushing a joystick has no
-     effect.
 
 
 .. note::
 
    If the simulation runs at too low FPS and makes the teleoperation feel laggy, you can try to reduce the XR resolution from the XR tab / Advanced Settings / Render Resolution.
 
+   .. figure:: ../../../images/xr_resolution.png
+      :width: 40%
+      :alt: XR resolution panel
+      :align: center
 
-Step 4: Record with Quest 3
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      Reducing render resolution from 1 (default) to 0.2.
+
+Step 4: Record with the headset device
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. note::
 
@@ -141,6 +157,8 @@ Step 4: Record with Quest 3
       export DATASET_DIR=/datasets/isaaclab_arena/static_apple_tutorial
       mkdir -p $DATASET_DIR
 
+   .. code-block:: bash
+
       # Record demonstrations with OpenXR teleop
       python isaaclab_arena/scripts/imitation_learning/record_demos.py \
         --viz kit \
@@ -155,7 +173,7 @@ Step 4: Record with Quest 3
 
 #. In the running application, start the session from the **XR** tab in the application window.
 
-#. Follow Step 3 to connect the Quest 3 headset again.
+#. Follow Step 3 to connect the headset again.
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
 
@@ -179,6 +197,13 @@ Step 4: Record with Quest 3
    Demos for this task should be noticeably shorter than the loco-manip variant (no walk / turn /
    squat phases), so you can collect 10 successful demos in around 5--10 minutes once the pipeline is
    running.
+
+
+.. note::
+
+   Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
+   bin. Keep the release height low and the orientation stable — successful demonstrations make
+   Isaac Lab Mimic's job much easier in :doc:`step_3_data_generation`.
 
 
 Step 5: Replay Recorded Demos (Optional)
