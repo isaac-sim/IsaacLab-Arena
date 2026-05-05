@@ -52,8 +52,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        # from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-        from isaaclab_arena.tasks.composite_task_base import SequentialTaskBase, CompositeTaskBase
+        from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
         from isaaclab_arena.tasks.task_base import TaskBase
         from isaaclab_arena.utils.pose import Pose
 
