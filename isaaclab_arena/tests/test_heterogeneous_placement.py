@@ -88,12 +88,12 @@ def test_heterogeneous_dummy_returns_different_bboxes():
 
 
 # ---------------------------------------------------------------------------
-# Solver with per-row bboxes
+# Solver with per-env bboxes
 # ---------------------------------------------------------------------------
 
 
-def test_solver_accepts_per_row_bboxes():
-    """Solver should accept bboxes_per_row and produce valid results."""
+def test_solver_accepts_env_bboxes():
+    """Solver should accept env_bboxes and produce valid results."""
 
     desk = _make_desk()
     box = DummyObject(
@@ -107,14 +107,14 @@ def test_solver_accepts_per_row_bboxes():
 
     initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.5, 0.5, 0.11)} for _ in range(batch_size)]
 
-    # Create per-row bboxes with varying sizes across the batch.
+    # Create per-env bboxes with varying sizes across the batch.
     min_pts = torch.zeros(batch_size, 3)
     max_pts = torch.stack([torch.tensor([0.1 + 0.05 * i, 0.1 + 0.05 * i, 0.2]) for i in range(batch_size)])
-    per_row_bbox = AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+    env_bbox = AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
 
     solver_params = RelationSolverParams(max_iters=100, convergence_threshold=1e-3, verbose=False)
     solver = RelationSolver(params=solver_params)
-    result = solver.solve(objects, initial_positions, bboxes_per_row={box: per_row_bbox})
+    result = solver.solve(objects, initial_positions, env_bboxes={box: env_bbox})
 
     assert len(result) == batch_size
     for pos_dict in result:
