@@ -1,5 +1,90 @@
 # llm_env_gen — change log
 
+## Xinjie Yao — 2026-05-05
+
+### 1. What it can do
+
+- **Two-stage interactive review** — opt-in via
+  `auto_generate_env --review-entities` and / or `--review-graphs`.
+  Stage 1 opens `$EDITOR` after the LLM parse so the user can swap to
+  preferred USD names, fix roles / instance keys, and pin per-item
+  `scale` values; the validator confirms every name resolves in
+  `AssetRegistry`. Stage 2 opens after the resolver and lets the user
+  edit the initial / final scene graphs; the validator rejects unknown
+  subjects/targets, invalid kinds, self-loops, parent conflicts in the
+  initial graph, background-as-containment-child, and reports full
+  strongly-connected components for cycles. Errors are prepended as
+  `// …` comments and the editor re-opens until clean. The two flags
+  are independent — pass one, the other, or both.
+- **Table-relative asset auto-scale** — the placement proposer now
+  rescales each item against the tabletop bbox at gen time. Items
+  whose authored size already lies in an acceptable band (manipulables
+  3-24 cm on a 60-cm table; containers 6-42 cm) are left at scale 1.0,
+  so most YCB assets are untouched. Outliers are pulled to the nearest
+  band edge, clamped to `[0.1, 10.0]`. Containers are auto-detected as
+  the targets of `in(...)` goals; a post-pass enforces
+  `container_eff ≥ 1.5 × contents_eff` so `in(A, B)` stays
+  geometrically possible. Articulated assets and anchors are never
+  rescaled. Per-item `scale` in stage-1 review (`null` = auto, float
+  = override) gives the user the final word.
+
+### 2. What was added
+
+- `isaaclab_arena/llm_env_gen/review.py` (new)
+  - `_resolve_editor` — `$EDITOR` → vim → vi → nano → nvim, gated by
+    `shutil.which` so a missing binary fails before Kit boots instead
+    of crashing in the middle of the loop.
+  - `_open_in_editor` / `_review_loop` — write seed JSON to a temp
+    file (with `// …` instructions / errors), spawn `$EDITOR`, parse
+    on save, re-open with errors prepended until validation passes.
+  - `review_entities(spec)` — Stage 1. Materializes `instance_name`
+    so graph keys stay explicit; auto-rewrites graph references when
+    an item's `instance_name` (or background) is renamed in place;
+    drops relations whose subject/target was removed. Validator
+    checks registry membership, `background` tag, embodiment family,
+    role, identifier-safety of `instance_name`, and per-item `scale`.
+  - `review_graphs(resolved, spec)` — Stage 2. Validators: vocab,
+    kinds, unary `open`/`closed` requires `target=null`, no
+    self-loops, single `on/in` parent in initial, background not a
+    containment subject, every non-background entity must be a
+    subject in initial. Tarjan SCC reports the full cycle, not just
+    one edge. Recomputes `goal_added` / `goal_removed` from the
+    edited graphs.
+
+- `isaaclab_arena/llm_env_gen/auto_generate_env.py`
+  - `--review-entities` and `--review-graphs` CLI flags. Wired right
+    after the background override (pre-resolver) and right after
+    `Resolver().resolve(spec)` (pre-retry-loop) respectively, so the
+    retry loop sees the user-curated state.
+
+- `isaaclab_arena/llm_env_gen/schema.py`
+  - `Item.scale: float | None = None` — Pydantic field. `None` lets
+    the proposer auto-fit; explicit positive float overrides.
+
+- `isaaclab_arena/llm_env_gen/placement_proposer.py`
+  - `_AUTO_SCALE_ACCEPTABLE_BAND` — per-band-kind (`manipulable` /
+    `container`) acceptable ranges as fractions of `table_min_xy`.
+    `_AUTO_SCALE_MIN` / `_AUTO_SCALE_MAX` are hard clamps.
+    `_IN_CONTAINER_MARGIN = 1.5`.
+  - `_unit_xy_extent(asset_cls)` — module-cached longest XY of the
+    asset at scale 1.0, opened via `compute_local_bounding_box_from_usd`.
+    Returns 0.0 (skip) for articulations and Pxr failures.
+  - `_compute_auto_scale(asset_cls, table_xy_bbox, role,
+    is_container=False)` — returns 1.0 when the asset already lies in
+    its band; otherwise pulls it back to the nearest band edge.
+  - `PlacementItem.scale` — concrete float baked into the rendered
+    env. Set during `_propose_items` from `Item.scale` (explicit) or
+    `_compute_auto_scale` (auto). Container detection drives off
+    `resolved.goal_added` (kind == `in`).
+  - Post-pass after item construction: for every `in(A, B)` goal
+    bumps the container's scale (never shrinks) so its longest XY is
+    at least `_IN_CONTAINER_MARGIN ×` the contents'.
+
+- `isaaclab_arena/llm_env_gen/env_writer.py`
+  - `_render_item_decls` emits `scale=(s, s, s)` on the asset
+    constructor only when `scale != 1.0`, so envs with all-default
+    scales render textually identical to before.
+
 ## Xinjie Yao — 2026-05-04
 
 ### 1. What it can do

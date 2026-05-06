@@ -40,6 +40,10 @@ class Item(BaseModel):
     role: ItemRole
     category_tags: list[str] = Field(default_factory=list)
     instance_name: str | None = None
+    # Uniform spawn scale. ``None`` (the default) lets the placement
+    # proposer auto-fit the asset against the tabletop bbox; an explicit
+    # positive float overrides the auto-fit.
+    scale: float | None = None
 
 
 class Relation(BaseModel):

@@ -250,7 +250,16 @@ def _render_item_decls(items: list[PlacementItem]) -> str:
     # name by default, so two bananas would collide on the scene-level name.
     # When we need this, re-introduce instance_name="..." on the emitted
     # line and derive a unique suffix from the LLM's instance_name / query.
-    return "\n".join(f'        {i.var_name} = self.asset_registry.get_asset_by_name("{i.asset_name}")()' for i in items)
+    lines = []
+    for i in items:
+        ctor_args = ""
+        if i.scale != 1.0:
+            s = i.scale
+            ctor_args = f"scale=({s:.4f}, {s:.4f}, {s:.4f})"
+        lines.append(
+            f'        {i.var_name} = self.asset_registry.get_asset_by_name("{i.asset_name}")({ctor_args})'
+        )
+    return "\n".join(lines)
 
 
 def _render_anchor_setup(plan: TabletopAnchorPlan) -> str:

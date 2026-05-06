@@ -239,6 +239,11 @@ class PlacementItem:
     # True for articulated objects with an open/close goal (e.g. microwave).
     # The proposer adds RotateAroundSolution to orient their door toward the robot.
     is_openable: bool = False
+    # Uniform spawn scale baked into the rendered env. 1.0 means "no scale
+    # kwarg emitted"; any other value is rendered as scale=(s, s, s) on the
+    # asset constructor. Set by _propose_items from spec.items[i].scale
+    # (explicit) or :func:`_compute_auto_scale` (auto-fit).
+    scale: float = 1.0
 
 
 @dataclass
@@ -684,6 +689,117 @@ def _plan_tabletop_anchor(background_name: str) -> TabletopAnchorPlan:
 # Item + relation planning
 # ---------------------------------------------------------------------------
 
+# Acceptable size band for an item's longest XY extent, expressed as a
+# fraction of the tabletop's shortest side. An item already inside this
+# band is left at scale=1.0 — no rescale at all. Only outliers are
+# pulled back to the nearest band edge.
+#
+# Containers (objects that appear as the target of an in(...) goal) get
+# a wider upper bound so a real-sized bin can keep its authored shape
+# without being shrunk to fit a manipulable's band. Anchors are never
+# rescaled.
+_AUTO_SCALE_ACCEPTABLE_BAND: dict[str, tuple[float, float]] = {
+    "manipulable": (0.05, 0.40),
+    "container":   (0.10, 0.70),
+}
+# Hard clamp so a missing/wrong USD bbox can't produce an absurd
+# multiplier when it does fall outside the band.
+_AUTO_SCALE_MIN = 0.1
+_AUTO_SCALE_MAX = 10.0
+# Required ratio of container.longest_xy over contents.longest_xy after
+# scaling, enforced post-pass. 1.5 leaves visual margin so an in(A, B)
+# goal stays geometrically reachable even when A spawns near B's edge.
+_IN_CONTAINER_MARGIN = 1.5
+
+# Module-level cache so we open each USD at most once per process.
+_UNIT_XY_CACHE: dict[type, float] = {}
+
+
+def _unit_xy_extent(asset_cls: type) -> float:
+    """Return the asset's longest XY extent at scale=1.0, or 0.0 if the
+    bbox can't be computed (articulated, missing USD, Pxr error)."""
+    from isaaclab_arena.assets.object_base import ObjectType
+
+    if asset_cls in _UNIT_XY_CACHE:
+        return _UNIT_XY_CACHE[asset_cls]
+
+    if getattr(asset_cls, "object_type", None) == ObjectType.ARTICULATION:
+        _UNIT_XY_CACHE[asset_cls] = 0.0
+        return 0.0
+    try:
+        obj = asset_cls()
+        size = obj.get_bounding_box().size[0]
+        result = max(float(size[0].item()), float(size[1].item()))
+    except Exception as exc:  # noqa: BLE001 — bbox failure must not block placement
+        print(
+            f"[auto_scale] bbox failure for {getattr(asset_cls, 'name', asset_cls)!r}: "
+            f"{exc!r} — treating as unsizable (scale=1.0).",
+            flush=True,
+        )
+        result = 0.0
+    _UNIT_XY_CACHE[asset_cls] = result
+    return result
+
+
+def _compute_auto_scale(
+    asset_cls: type,
+    table_xy_bbox: tuple[tuple[float, float], tuple[float, float]],
+    role: str,
+    *,
+    is_container: bool = False,
+) -> float:
+    """Return a uniform scale that pulls the asset back to the nearest
+    edge of its acceptable band, or 1.0 if it is already in band.
+
+    Skips rescaling for:
+      * anchors (they are the surface — never rescale),
+      * articulated assets (joint geometry breaks under uniform scale
+        and many subclasses do not accept the ``scale`` kwarg),
+      * assets where bbox extraction failed.
+    """
+    from isaaclab_arena.assets.object_base import ObjectType
+
+    if role == "anchor":
+        return 1.0
+    if getattr(asset_cls, "object_type", None) == ObjectType.ARTICULATION:
+        return 1.0
+
+    item_max_xy = _unit_xy_extent(asset_cls)
+    if item_max_xy <= 0:
+        return 1.0
+
+    (xy_min, xy_max) = table_xy_bbox
+    table_min_xy = min(xy_max[0] - xy_min[0], xy_max[1] - xy_min[1])
+    band_kind = "container" if is_container else "manipulable"
+    lo_frac, hi_frac = _AUTO_SCALE_ACCEPTABLE_BAND[band_kind]
+    item_frac = item_max_xy / table_min_xy
+
+    if lo_frac <= item_frac <= hi_frac:
+        return 1.0  # already in band — leave authored scale alone
+
+    if item_frac > hi_frac:
+        target_frac = hi_frac
+        direction = "down"
+    else:
+        target_frac = lo_frac
+        direction = "up"
+
+    raw_scale = (target_frac * table_min_xy) / item_max_xy
+    clamped = max(_AUTO_SCALE_MIN, min(_AUTO_SCALE_MAX, raw_scale))
+    if clamped != raw_scale:
+        print(
+            f"[auto_scale] {getattr(asset_cls, 'name', asset_cls)!r} clamped to {clamped:.3f} "
+            f"(raw {raw_scale:.3f} hit [{_AUTO_SCALE_MIN}, {_AUTO_SCALE_MAX}]); "
+            "set Item.scale explicitly via --review-entities to override.",
+            flush=True,
+        )
+    print(
+        f"[auto_scale] {getattr(asset_cls, 'name', asset_cls)!r} ({band_kind}) sized {direction}: "
+        f"item_frac={item_frac:.2f} → scale={clamped:.3f}",
+        flush=True,
+    )
+    return clamped
+
 
 def _propose_items(
     resolved: ResolvedScene,
@@ -702,8 +818,37 @@ def _propose_items(
         if r["kind"] in _OPEN_DOOR_KINDS | _CLOSE_DOOR_KINDS
     }
 
+    spec_items_by_instance = {(i.instance_name or i.query): i for i in spec.items}
+    table_xy_bbox = _BACKGROUND_TABLETOP_XY_BBOX.get(background_name)
+
+    # Items that appear as the target of an in(...) goal are containers;
+    # they get the wider band so a real-sized bin keeps its authored
+    # shape. Sourcing from goal_added (final − initial) avoids treating
+    # an "in" relation that already holds at reset as a container goal.
+    container_instances = {
+        goal["target"]
+        for goal in resolved.goal_added
+        if goal["kind"] == "in" and goal.get("target")
+    }
+
     items: list[PlacementItem] = []
     for instance_name, cls in resolved.items.items():
+        spec_item = spec_items_by_instance.get(instance_name)
+        explicit_scale = spec_item.scale if spec_item is not None else None
+        is_container = instance_name in container_instances
+        if explicit_scale is not None:
+            item_scale = float(explicit_scale)
+            if item_scale != 1.0:
+                print(
+                    f"[scale] {instance_name!r}: using explicit scale={item_scale:.3f}",
+                    flush=True,
+                )
+        elif table_xy_bbox is not None:
+            role = spec_item.role if spec_item is not None else "foreground"
+            item_scale = _compute_auto_scale(cls, table_xy_bbox, role, is_container=is_container)
+        else:
+            item_scale = 1.0
+
         items.append(
             PlacementItem(
                 var_name=item_vars[instance_name],
@@ -711,8 +856,43 @@ def _propose_items(
                 instance_name=instance_name,
                 relations=[],
                 is_openable=(instance_name in openable_subjects),
+                scale=item_scale,
             )
         )
+
+    # Post-pass: enforce container > contents for in(A, B) goals. After
+    # independent rescaling a container can still be too small (e.g. the
+    # contents stayed at scale=1.0 inside the band but the container
+    # also got 1.0). Bump the container's scale up — never shrink — so
+    # contents always fit with margin.
+    by_instance = {i.instance_name: i for i in items}
+    cls_by_instance = {name: cls for name, cls in resolved.items.items()}
+    for goal in resolved.goal_added:
+        if goal["kind"] != "in":
+            continue
+        contents = by_instance.get(goal.get("subject"))
+        container = by_instance.get(goal.get("target"))
+        if contents is None or container is None:
+            continue
+        contents_unit = _unit_xy_extent(cls_by_instance[contents.instance_name])
+        container_unit = _unit_xy_extent(cls_by_instance[container.instance_name])
+        if contents_unit <= 0 or container_unit <= 0:
+            continue  # one of them is articulated / unsizable — skip
+        contents_eff = contents.scale * contents_unit
+        container_eff = container.scale * container_unit
+        if container_eff >= _IN_CONTAINER_MARGIN * contents_eff:
+            continue
+        needed = (_IN_CONTAINER_MARGIN * contents_eff) / container_unit
+        bumped = min(_AUTO_SCALE_MAX, needed)
+        if bumped <= container.scale:
+            continue
+        print(
+            f"[scale] container {container.instance_name!r} bumped {container.scale:.3f} → {bumped:.3f} "
+            f"(contents {contents.instance_name!r} effective {contents_eff:.3f} m, "
+            f"margin {_IN_CONTAINER_MARGIN}x)",
+            flush=True,
+        )
+        container.scale = bumped
     # Walk the initial scene graph once; append relation specs to the
     # matching item. Items with no applicable relation get none (their
     # spot in the scene is purely the On from elsewhere, or the default

@@ -77,6 +77,29 @@ def _add_auto_cli_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--llm-model", type=str, default=None, help="Override LLMAgent model id.")
     group.add_argument("--temperature", type=float, default=0.2, help="LLM sampling temperature.")
 
+    # --- optional: interactive review of LLM output -----------------------
+    group.add_argument(
+        "--review-entities",
+        action="store_true",
+        default=False,
+        help=(
+            "Open $EDITOR after parsing the prompt to review/edit task description, "
+            "background, embodiment, and items. Validates names against AssetRegistry "
+            "before resolution proceeds. Independent of --review-graphs."
+        ),
+    )
+    group.add_argument(
+        "--review-graphs",
+        action="store_true",
+        default=False,
+        help=(
+            "Open $EDITOR after resolution to review/edit initial and final scene graphs. "
+            "Validates relation kinds, vocabulary, single-parent in initial, no containment "
+            "cycles (full SCCs reported), and a spawn anchor per entity. Independent of "
+            "--review-entities."
+        ),
+    )
+
     # --- optional: reach-aware robot placement ----------------------------
     group.add_argument(
         "--use-reach-solver",
@@ -255,11 +278,21 @@ def main() -> int:
             spec.background = new_bg
             print(f"[auto_env] Background override: {old_bg!r} -> {new_bg!r}", flush=True)
 
+        if args_cli.review_entities:
+            from isaaclab_arena.llm_env_gen.review import review_entities
+
+            spec = review_entities(spec)
+
         resolved = Resolver().resolve(spec)
         print(
             f"[auto_env] Parsed prompt → spec ({len(resolved.items)} items, embodiment={resolved.embodiment_name})",
             flush=True,
         )
+
+        if args_cli.review_graphs:
+            from isaaclab_arena.llm_env_gen.review import review_graphs
+
+            resolved = review_graphs(resolved, spec)
 
         # Stage 2: rewrite + IK-check loop
         from isaaclab_arena.llm_env_gen.env_writer import write_env
