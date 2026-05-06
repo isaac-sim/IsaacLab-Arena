@@ -19,7 +19,7 @@ from typing import Any
 
 from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 
-from isaaclab_arena.policy.action_chunking import ActionChunkingState
+from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
@@ -100,8 +100,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
 
-        # TODO(xinjieyao, 2026-04-27): consider adding & using ActionChunkingScheduler instead
-        self._chunking_state = ActionChunkingState(
+        self._chunking_state = ActionChunkScheduler(
             num_envs=self.num_envs,
             action_chunk_length=self.action_chunk_length,
             action_horizon=self.policy_config.action_horizon,
