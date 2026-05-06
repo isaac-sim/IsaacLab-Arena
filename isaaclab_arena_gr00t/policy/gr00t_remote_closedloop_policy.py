@@ -142,6 +142,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase):
             default="cuda",
             help="Device for Arena-side tensor operations (default: cuda)",
         )
+        group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate")
         group.add_argument("--remote_host", type=str, default="localhost", help="GR00T policy server hostname")
         group.add_argument("--remote_port", type=int, default=5555, help="GR00T policy server port")
         group.add_argument("--remote_api_token", type=str, default=None, help="API token for the policy server")
