@@ -180,6 +180,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             task=NoTask(),
             teleop_device=teleop_device,
             env_cfg_callback=env_cfg_callback,
+            force_convex_hull=(mode == "heterogeneous"),
         )
         return isaaclab_arena_environment
 
@@ -209,6 +210,10 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.relations.relations import AtPosition, On
 
         if object_names:
+            print(
+                "Warning: --objects with --mode heterogeneous wraps each object as a "
+                "single-variant set (no per-env variance). Use default sets for true heterogeneity."
+            )
             placeable_assets = []
             for name in object_names:
                 obj = self.asset_registry.get_asset_by_name(name)()
@@ -241,7 +246,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             help=(
                 "Object names (works in both modes). "
                 f"Homo default: {' '.join(DEFAULT_TABLE_OBJECTS)}; "
-                "Hetero default: multi-variant sets (cracker_box/sugar_box, tomato_soup_can/mustard_bottle)"
+                f"Hetero default: {', '.join(HETERO_VARIANT_SETS.keys())} variant sets"
             ),
         )
         parser.add_argument("--embodiment", type=str, default="gr1_joint", help="Robot embodiment to use")

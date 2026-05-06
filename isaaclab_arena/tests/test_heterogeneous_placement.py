@@ -9,44 +9,48 @@ import torch
 
 import pytest
 
-from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.object_placer import ObjectPlacer
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import IsAnchor, On
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose
-
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers — all isaaclab_arena imports are deferred to avoid importing
+# Isaac Sim modules at pytest collection time.
 # ---------------------------------------------------------------------------
 
 
-class HeterogeneousDummyObject(DummyObject):
-    """DummyObject that provides different bounding boxes per environment.
+def _make_heterogeneous_dummy_class():
+    """Return the HeterogeneousDummyObject class (deferred import of DummyObject)."""
 
-    Used to exercise the heterogeneous placement path without requiring
-    RigidObjectSet's USD machinery.
-    """
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    def __init__(self, name: str, bboxes: list[AxisAlignedBoundingBox], **kwargs):
-        super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
-        self._per_env_bboxes = bboxes
-        self.heterogeneous_bbox = True
-        self.objects = bboxes
+    class HeterogeneousDummyObject(DummyObject):
+        """DummyObject that provides different bounding boxes per environment.
 
-    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        n_variants = len(self._per_env_bboxes)
-        indices = [i % n_variants for i in range(num_envs)]
-        min_pts = torch.stack([self._per_env_bboxes[idx].min_point[0] for idx in indices])
-        max_pts = torch.stack([self._per_env_bboxes[idx].max_point[0] for idx in indices])
-        return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+        Used to exercise the heterogeneous placement path without requiring
+        RigidObjectSet's USD machinery.
+        """
+
+        def __init__(self, name: str, bboxes: list[AxisAlignedBoundingBox], **kwargs):
+            super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
+            self._per_env_bboxes = bboxes
+            self.heterogeneous_bbox = True
+            self.objects = bboxes
+
+        def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+            n_variants = len(self._per_env_bboxes)
+            indices = [i % n_variants for i in range(num_envs)]
+            min_pts = torch.stack([self._per_env_bboxes[idx].min_point[0] for idx in indices])
+            max_pts = torch.stack([self._per_env_bboxes[idx].max_point[0] for idx in indices])
+            return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+
+    return HeterogeneousDummyObject
 
 
-def _make_desk() -> DummyObject:
+def _make_desk():
+    """Create a desk anchor object for tests."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
     desk = DummyObject(
         name="desk",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
@@ -64,6 +68,9 @@ def _make_desk() -> DummyObject:
 def test_dummy_object_bbox_per_env_expands_single():
     """Default get_bounding_box_per_env should repeat the single bbox."""
 
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
     obj = DummyObject(
         name="box",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
@@ -77,6 +84,10 @@ def test_dummy_object_bbox_per_env_expands_single():
 
 def test_heterogeneous_dummy_returns_different_bboxes():
     """HeterogeneousDummyObject should cycle through its member bboxes."""
+
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
 
     small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
     large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
@@ -96,6 +107,12 @@ def test_heterogeneous_dummy_returns_different_bboxes():
 
 def test_solver_accepts_env_bboxes():
     """Solver should accept env_bboxes and produce valid results."""
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     desk = _make_desk()
     box = DummyObject(
@@ -132,6 +149,15 @@ def test_solver_accepts_env_bboxes():
 def test_placer_heterogeneous_produces_per_env_results():
     """Placer should detect heterogeneous objects and solve per-env."""
 
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
+
     desk = _make_desk()
 
     small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
@@ -160,6 +186,15 @@ def test_placer_heterogeneous_produces_per_env_results():
 
 def test_placer_heterogeneous_z_height_matches_variant():
     """Objects should be placed at z-height matching their env's variant bbox."""
+
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
 
     desk = _make_desk()
 
@@ -199,6 +234,16 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
     bboxes per env while X is identical everywhere.
     """
 
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
+
     desk = _make_desk()
 
     # A: heterogeneous — small variant in even envs, large in odd envs.
@@ -213,8 +258,6 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.15)),
     )
     obj_x.add_relation(On(desk, clearance_m=0.01))
-
-    # No-overlap is handled automatically by the solver's built-in clearance.
 
     objects = [desk, obj_a, obj_x]
     num_envs = 4
@@ -253,6 +296,14 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
 def test_homogeneous_path_unchanged():
     """When no heterogeneous objects exist, the homogeneous path is used."""
 
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
     desk = _make_desk()
     box = DummyObject(
         name="box",
@@ -281,6 +332,13 @@ def test_homogeneous_path_unchanged():
 
 def _make_hetero_pool_objects():
     """Create desk + heterogeneous box for pool tests."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
+
     desk = _make_desk()
     small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
     large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
@@ -294,6 +352,8 @@ def _make_hetero_pool_objects():
 
 def test_pooled_placer_heterogeneous_is_detected():
     """PooledObjectPlacer should detect heterogeneous objects and create variant sub-pools."""
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
@@ -303,6 +363,8 @@ def test_pooled_placer_heterogeneous_is_detected():
 
 def test_pooled_placer_heterogeneous_sample_without_replacement():
     """sample_without_replacement with env_ids should return one layout per env from correct variant."""
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
@@ -315,6 +377,8 @@ def test_pooled_placer_heterogeneous_sample_without_replacement():
 
 def test_pooled_placer_heterogeneous_sample_without_replacement_requires_env_ids():
     """Heterogeneous pool should assert when env_ids is not provided."""
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
@@ -324,6 +388,8 @@ def test_pooled_placer_heterogeneous_sample_without_replacement_requires_env_ids
 
 def test_pooled_placer_heterogeneous_sample_with_replacement():
     """sample_with_replacement should return per-variant layouts without consuming."""
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
@@ -335,6 +401,8 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
 
 def test_pooled_placer_heterogeneous_refill():
     """Exhausting a variant sub-pool should trigger a refill."""
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=4, num_envs=2)
 
@@ -352,6 +420,13 @@ def test_pooled_placer_heterogeneous_refill():
 
 def test_pooled_placer_homogeneous_unaffected_by_num_envs():
     """Homogeneous pool should work the same whether num_envs is passed or not."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
     desk = _make_desk()
     box = DummyObject(
         name="box",
@@ -379,6 +454,14 @@ def test_pooled_placer_multi_set_different_variant_counts():
     Bottles (3 variants) and boxes (2 variants) across 6 envs.
     Each env gets its own pool with layouts matching its object geometry.
     """
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
+
     desk = _make_desk()
 
     bottle_small = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.2))
@@ -409,6 +492,14 @@ def test_pooled_placer_multi_set_different_variant_counts():
 
 def test_pooled_placer_multi_set_sample_with_replacement():
     """sample_with_replacement with multi-set heterogeneous objects."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
+
     desk = _make_desk()
 
     a_s = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.15))
@@ -435,6 +526,14 @@ def test_pooled_placer_multi_set_sample_with_replacement():
 
 def test_pooled_placer_multi_set_refill():
     """Exhausting a per-env pool should trigger refill with multi-set objects."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    HeterogeneousDummyObject = _make_heterogeneous_dummy_class()
+
     desk = _make_desk()
 
     v1 = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
@@ -466,6 +565,8 @@ def test_pooled_placer_multi_set_refill():
 
 def test_pooled_placer_per_env_pools_isolated():
     """Each env_id should have its own independent pool of layouts."""
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
