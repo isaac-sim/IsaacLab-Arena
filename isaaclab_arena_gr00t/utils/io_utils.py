@@ -221,15 +221,19 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embod
 
             load_modality_config(modality_config_path)
         except ImportError:
-            import importlib
-            import sys
+            import importlib.util
 
             path = Path(modality_config_path)
-            if path.exists() and path.suffix == ".py":
-                sys.path.append(str(path.parent))
-                importlib.import_module(path.stem)
-            else:
+            if not (path.exists() and path.suffix == ".py"):
                 raise FileNotFoundError(f"Modality config path does not exist: {modality_config_path}")
+            # Load by file location so we (a) don't mutate sys.path and (b) always
+            # execute the module body — register_modality_config() runs every call,
+            # rather than being skipped on a sys.modules cache hit.
+            spec = importlib.util.spec_from_file_location(path.stem, path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Could not load modality config from {path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
 
     # Get the embodiment tag from policy config and convert to EmbodimentTag enum
     # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)
