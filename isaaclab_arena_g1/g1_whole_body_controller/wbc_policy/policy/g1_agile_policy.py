@@ -54,7 +54,7 @@ class G1AgilePolicy(WBCPolicy):
         # Resolve model path via OV asset API (handles S3 download + local caching).
         # Same pattern as G1HomiePolicyV2: retrieve_file_path returns a local path
         # (absolute for S3 cache, relative for local files), then join with parent_dir.
-        model_local_path = retrieve_file_path(model_path, force_download=True)
+        model_local_path = retrieve_file_path(model_path)
         model_full_path = parent_dir / model_local_path
         self.session = OnnxInferenceSession(str(model_full_path))
 
