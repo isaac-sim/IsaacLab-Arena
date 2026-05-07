@@ -12,9 +12,20 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 
 
 @configclass
-class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
+class G1PickAndPlaceMimicEnvCfg(MimicEnvCfg):
     """
-    Isaac Lab Mimic environment config class for G1 Locomanip Pick and Place env.
+    Isaac Lab Mimic environment config class for the G1 humanoid pick-and-place tasks.
+
+    Encodes G1-specific cfg shape: 3 subtasks per arm
+    (idle / grasp_and_idle / final), a 4-phase nav body subtask sequence
+    (navigate_to_table / navigate_turn_inplace / navigate_to_bin / final), and
+    G1-specific per-subtask numerical tunings. Used by the locomanip env via
+    ``PickAndPlaceTask(mimic_env_cfg_factory=...)``.
+
+    The legacy ``locomanip_pick_and_place_<obj>_to_<dest>_D0`` datagen-name template
+    is preserved for backward compatibility with the SQA'd brown_box flow; the env's
+    legacy callback rewrites it to the historical ``locomanip_pick_and_place_D0`` for
+    that exact pair.
     """
 
     pick_up_object_name: str = MISSING
@@ -28,7 +39,7 @@ class LocomanipPickAndPlaceMimicEnvCfg(MimicEnvCfg):
         # Hardcoded right + left + body subtask shapes assume both arms drive the demo;
         # other arm modes would silently produce a cfg with the wrong subtask shape.
         if self.arm_mode != ArmMode.DUAL_ARM:
-            raise ValueError(f"LocomanipPickAndPlaceMimicEnvCfg only supports ArmMode.DUAL_ARM; got {self.arm_mode}")
+            raise ValueError(f"G1PickAndPlaceMimicEnvCfg only supports ArmMode.DUAL_ARM; got {self.arm_mode}")
 
         self.datagen_config.name = f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_name}_D0"
         self.datagen_config.generation_guarantee = True

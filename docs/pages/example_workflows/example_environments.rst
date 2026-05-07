@@ -154,7 +154,7 @@ the :doc:`locomanipulation/index` workflow.
    * - **Objects**
      - Pick: ``brown_box`` (default); Destination: ``blue_sorting_bin`` (default)
    * - **Task Class**
-     - ``PickAndPlaceTask`` with ``LocomanipPickAndPlaceMimicEnvCfg`` injected via ``mimic_env_cfg_factory`` (episode_length_s = 30, force / velocity success thresholds)
+     - ``PickAndPlaceTask`` with ``G1PickAndPlaceMimicEnvCfg`` injected via ``mimic_env_cfg_factory`` (episode_length_s = 30, force / velocity success thresholds)
    * - **Interop**
      - Isaac Lab Mimic (legacy ``locomanip_pick_and_place_D0`` datagen for the brown-box → blue-bin pair)
    * - **CLI Args**

@@ -25,7 +25,7 @@ Environment Description
            def get_env(self, args_cli: argparse.Namespace):
                from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
                from isaaclab_arena.scene.scene import Scene
-               from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceMimicEnvCfg
+               from isaaclab_arena.tasks.g1_pick_and_place_mimic_cfg import G1PickAndPlaceMimicEnvCfg
                from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
                from isaaclab_arena.utils.pose import Pose, PoseRange
 
@@ -54,7 +54,7 @@ Environment Description
                embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
                def _build_locomanip_mimic_cfg(arm_mode):
-                   return LocomanipPickAndPlaceMimicEnvCfg(
+                   return G1PickAndPlaceMimicEnvCfg(
                        pick_up_object_name=pick_up_object.name,
                        destination_name=blue_sorting_bin.name,
                        arm_mode=arm_mode,
@@ -136,7 +136,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 .. code-block:: python
 
     def _build_locomanip_mimic_cfg(arm_mode):
-        return LocomanipPickAndPlaceMimicEnvCfg(
+        return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=pick_up_object.name,
             destination_name=blue_sorting_bin.name,
             arm_mode=arm_mode,

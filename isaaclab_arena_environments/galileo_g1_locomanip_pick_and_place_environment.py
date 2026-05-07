@@ -43,7 +43,7 @@ def _apply_legacy_datagen_name_override(
 
     Only applies to Mimic configs (where ``datagen_config`` exists) and only to the exact
     ``(brown_box, blue_sorting_bin)`` pair that was SQA'd against this datagen key. All other
-    pairs keep the templated name produced by ``LocomanipPickAndPlaceMimicEnvCfg``.
+    pairs keep the templated name produced by ``G1PickAndPlaceMimicEnvCfg``.
     """
     if not _is_legacy_pair(pick_up_object_name, destination_name):
         return env_cfg
@@ -69,7 +69,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceMimicEnvCfg
+        from isaaclab_arena.tasks.g1_pick_and_place_mimic_cfg import G1PickAndPlaceMimicEnvCfg
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
@@ -143,7 +143,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
 
         def _build_locomanip_mimic_cfg(arm_mode):
-            return LocomanipPickAndPlaceMimicEnvCfg(
+            return G1PickAndPlaceMimicEnvCfg(
                 pick_up_object_name=pick_up_object.name,
                 destination_name=destination.name,
                 arm_mode=arm_mode,
