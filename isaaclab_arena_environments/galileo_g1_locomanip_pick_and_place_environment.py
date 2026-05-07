@@ -144,7 +144,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         def _build_g1_pick_and_place_mimic_cfg(arm_mode):
             return G1PickAndPlaceMimicEnvCfg(
                 pick_up_object_name=pick_up_object.name,
-                destination_name=destination.name,
+                destination_location_name=destination.name,
                 arm_mode=arm_mode,
             )
 

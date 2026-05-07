@@ -270,7 +270,7 @@ class G1PickAndPlaceMimicEnvCfg(MimicEnvCfg):
     """
 
     pick_up_object_name: str = MISSING
-    destination_name: str = MISSING
+    destination_location_name: str = MISSING
     arm_mode: ArmMode = ArmMode.DUAL_ARM
 
     def __post_init__(self):
@@ -282,7 +282,9 @@ class G1PickAndPlaceMimicEnvCfg(MimicEnvCfg):
         if self.arm_mode != ArmMode.DUAL_ARM:
             raise ValueError(f"G1PickAndPlaceMimicEnvCfg only supports ArmMode.DUAL_ARM; got {self.arm_mode}")
 
-        self.datagen_config.name = f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_name}_D0"
+        self.datagen_config.name = (
+            f"locomanip_pick_and_place_{self.pick_up_object_name}_to_{self.destination_location_name}_D0"
+        )
         self.datagen_config.generation_guarantee = True
         self.datagen_config.generation_keep_failed = False
         self.datagen_config.generation_num_trials = 100

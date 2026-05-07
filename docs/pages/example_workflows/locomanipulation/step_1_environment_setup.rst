@@ -55,7 +55,7 @@ Environment Description
                def _build_g1_pick_and_place_mimic_cfg(arm_mode):
                    return G1PickAndPlaceMimicEnvCfg(
                        pick_up_object_name=pick_up_object.name,
-                       destination_name=blue_sorting_bin.name,
+                       destination_location_name=blue_sorting_bin.name,
                        arm_mode=arm_mode,
                    )
 
@@ -137,7 +137,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
     def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=pick_up_object.name,
-            destination_name=blue_sorting_bin.name,
+            destination_location_name=blue_sorting_bin.name,
             arm_mode=arm_mode,
         )
 

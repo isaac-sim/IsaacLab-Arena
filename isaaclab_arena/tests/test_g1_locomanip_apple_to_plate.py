@@ -53,7 +53,7 @@ def get_test_environment(num_envs: int):
     def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=apple.name,
-            destination_name=plate.name,
+            destination_location_name=plate.name,
             arm_mode=arm_mode,
         )
 
@@ -207,7 +207,7 @@ def _test_mimic_cfg_uses_object_and_destination_names(simulation_app) -> bool:
     def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=apple.name,
-            destination_name=plate.name,
+            destination_location_name=plate.name,
             arm_mode=arm_mode,
         )
 
@@ -225,8 +225,8 @@ def _test_mimic_cfg_uses_object_and_destination_names(simulation_app) -> bool:
     ), f"Expected pick_up_object_name='{apple.name}', got '{mimic_cfg.pick_up_object_name}'"
 
     assert (
-        mimic_cfg.destination_name == plate.name
-    ), f"Expected destination_name='{plate.name}', got '{mimic_cfg.destination_name}'"
+        mimic_cfg.destination_location_name == plate.name
+    ), f"Expected destination_location_name='{plate.name}', got '{mimic_cfg.destination_location_name}'"
 
     # Datagen name must include BOTH the object and the destination so Mimic runs for e.g.
     # apple+plate vs apple+bin don't collide on the same dataset key.
@@ -277,7 +277,7 @@ def _test_mimic_cfg_brown_box_preserves_legacy_datagen_name(simulation_app) -> b
     def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=brown_box.name,
-            destination_name=blue_bin.name,
+            destination_location_name=blue_bin.name,
             arm_mode=arm_mode,
         )
 
@@ -340,7 +340,7 @@ def _test_mimic_cfg_brown_box_non_default_destination_is_not_legacy(simulation_a
     def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=brown_box.name,
-            destination_name=plate.name,
+            destination_location_name=plate.name,
             arm_mode=arm_mode,
         )
 

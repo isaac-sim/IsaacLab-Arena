@@ -51,7 +51,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=brown_box.name,
-            destination_name=blue_sorting_bin.name,
+            destination_location_name=blue_sorting_bin.name,
             arm_mode=arm_mode,
         )
 
