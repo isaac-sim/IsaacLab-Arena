@@ -332,15 +332,17 @@ class NoCollisionLossStrategy:
     is a built-in solver behavior, not a user-specified relation.
     """
 
-    def __init__(self, slope: float = 10.0, debug: bool = False):
+    def __init__(self, slope: float = 10.0, debug: bool = False, xy_only: bool = False):
         """
         Args:
             slope: Gradient magnitude for overlap volume loss (default: 10.0).
                    Loss scales with slope times overlap volume.
             debug: If True, print detailed loss component breakdown.
+            xy_only: If True, compute overlap only in the XY plane.
         """
         self.slope = slope
         self.debug = debug
+        self.xy_only = xy_only
 
     def compute_loss(
         self,
@@ -382,8 +384,9 @@ class NoCollisionLossStrategy:
         overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
         overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
 
-        # 2. Volume loss: slope * product of per-axis overlap lengths (overlap volume when slope 1.0)
-        overlap_volume = overlap_x * overlap_y * overlap_z
+        # 2. Overlap loss. For objects already constrained On(table), Z overlap is expected
+        # and should not push objects upward away from the support surface.
+        overlap_volume = overlap_x * overlap_y if self.xy_only else overlap_x * overlap_y * overlap_z
         total_loss = self.slope * overlap_volume
 
         if self.debug and child_pos.shape[0] == 1:
@@ -402,7 +405,8 @@ class NoCollisionLossStrategy:
                 f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f},"
                 f" {parent_z_max[0].item():.4f}])"
             )
-            print(f"    [NoCollision] volume={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
+            loss_kind = "xy_area" if self.xy_only else "volume"
+            print(f"    [NoCollision] {loss_kind}={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
 
         return total_loss.squeeze(0) if single_input else total_loss
 
