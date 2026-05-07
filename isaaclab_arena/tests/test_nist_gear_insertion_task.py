@@ -3,27 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab.managers import ObservationGroupCfg as ObsGroup
-
-from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.embodiments.franka.franka import (
-    FrankaNistGearInsertionObservationsCfg,
-    FrankaNistGearInsertionOscEmbodiment,
-    franka_gripper_joint_setter,
-)
-from isaaclab_arena.tasks.events import place_gear_in_gripper
-from isaaclab_arena.tasks.nist_gear_insertion_task import GearInsertionGeometryCfg, GraspCfg, NistGearInsertionTask
-from isaaclab_arena.tasks.observations.gear_insertion_observations import (
-    NistGearInsertionPolicyObservations,
-    peg_delta_from_held_gear_base,
-    peg_pos_in_env_frame,
-)
-from isaaclab_arena.tasks.rewards import gear_insertion_rewards
-from isaaclab_arena.tasks.terminations import gear_dropped_from_gripper, gear_mesh_insertion_success
-from isaaclab_arena_environments.mdp.nist_gear_insertion_osc_action import NistGearInsertionOscActionCfg
-from isaaclab_arena_environments.nist_assembled_gearmesh_osc_environment import NISTAssembledGearMeshOSCEnvironment
-
-
 class _TestAsset:
     def __init__(self, name: str, object_min_z: float | None = None):
         self.name = name
@@ -38,7 +17,9 @@ def _asset(name: str, object_min_z: float | None = None) -> _TestAsset:
     return _TestAsset(name=name, object_min_z=object_min_z)
 
 
-def _nist_task(**kwargs) -> NistGearInsertionTask:
+def _nist_task(**kwargs):
+    from isaaclab_arena.tasks.nist_gear_insertion_task import GearInsertionGeometryCfg, NistGearInsertionTask
+
     return NistGearInsertionTask(
         assembled_board=_asset("nist_board_assembled"),
         held_gear=_asset("medium_nist_gear"),
@@ -56,6 +37,14 @@ def _nist_task(**kwargs) -> NistGearInsertionTask:
 
 
 def test_franka_nist_gear_osc_embodiment_registers_task_terms():
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.embodiments.franka.franka import (
+        FrankaNistGearInsertionObservationsCfg,
+        FrankaNistGearInsertionOscEmbodiment,
+    )
+    from isaaclab_arena.tasks.observations.gear_insertion_observations import NistGearInsertionPolicyObservations
+    from isaaclab_arena_environments.mdp.nist_gear_insertion_osc_action import NistGearInsertionOscActionCfg
+
     asset_registry = AssetRegistry()
     embodiment_cls = asset_registry.get_asset_by_name("franka_nist_gear_osc")
     embodiment = embodiment_cls(fixed_asset_name="gears_and_base", peg_offset=(0.02025, 0.0, 0.025))
@@ -75,6 +64,8 @@ def test_franka_nist_gear_osc_embodiment_registers_task_terms():
 
 
 def test_nist_object_library_uses_shared_nucleus_assets():
+    from isaaclab_arena.assets.registries import AssetRegistry
+
     asset_registry = AssetRegistry()
     expected_paths = {
         "gears_and_base": (
@@ -99,6 +90,13 @@ def test_nist_object_library_uses_shared_nucleus_assets():
 
 
 def test_nist_task_observation_terms_use_task_geometry():
+    from isaaclab.managers import ObservationGroupCfg as ObsGroup
+
+    from isaaclab_arena.tasks.observations.gear_insertion_observations import (
+        peg_delta_from_held_gear_base,
+        peg_pos_in_env_frame,
+    )
+
     obs_cfg = _nist_task().get_observation_cfg()
 
     assert isinstance(obs_cfg.task_obs, ObsGroup)
@@ -119,6 +117,8 @@ def test_nist_task_observation_terms_use_task_geometry():
 
 
 def test_nist_task_reward_terms_share_insertion_geometry():
+    from isaaclab_arena.tasks.rewards import gear_insertion_rewards
+
     rewards_cfg = _nist_task().get_rewards_cfg()
 
     keypoint_terms = [rewards_cfg.kp_baseline, rewards_cfg.kp_coarse, rewards_cfg.kp_fine]
@@ -142,6 +142,11 @@ def test_nist_task_reward_terms_share_insertion_geometry():
 
 
 def test_nist_task_events_use_embodiment_grasp_and_randomization_cfg():
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.embodiments.franka.franka import franka_gripper_joint_setter
+    from isaaclab_arena.tasks.events import place_gear_in_gripper
+    from isaaclab_arena.tasks.nist_gear_insertion_task import GraspCfg
+
     embodiment = AssetRegistry().get_asset_by_name("franka_nist_gear_osc")()
     task = _nist_task(
         grasp_cfg=GraspCfg(**embodiment.get_gear_insertion_grasp_config()),
@@ -165,6 +170,10 @@ def test_nist_task_events_use_embodiment_grasp_and_randomization_cfg():
 
 
 def test_nist_task_termination_terms_include_success_and_optional_drop_checks():
+    from isaaclab_arena.embodiments.franka.franka import franka_gripper_joint_setter
+    from isaaclab_arena.tasks.nist_gear_insertion_task import GraspCfg
+    from isaaclab_arena.tasks.terminations import gear_dropped_from_gripper, gear_mesh_insertion_success
+
     terminations_cfg = _nist_task(rl_training_mode=True).get_termination_cfg()
 
     assert terminations_cfg.success.func is gear_mesh_insertion_success
@@ -190,6 +199,8 @@ def test_nist_task_termination_terms_include_success_and_optional_drop_checks():
 
 def test_nist_environment_defaults_to_nist_franka_embodiment():
     import argparse
+
+    from isaaclab_arena_environments.nist_assembled_gearmesh_osc_environment import NISTAssembledGearMeshOSCEnvironment
 
     parser = argparse.ArgumentParser()
     NISTAssembledGearMeshOSCEnvironment.add_cli_args(parser)
