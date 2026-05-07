@@ -61,7 +61,7 @@ evaluation; each step consumes the artifacts produced by the previous one.
 
 .. note::
 
-   This workflow trains directly from teleop recordings. The recorded HDF5 from 
+   This workflow trains directly from teleop recordings. The recorded HDF5 from
    :doc:`step_2_teleoperation` is converted to LeRobot format and
    fed straight into post-training in :doc:`step_3_policy_training`.
 
