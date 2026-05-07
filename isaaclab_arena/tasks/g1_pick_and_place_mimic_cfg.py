@@ -21,11 +21,6 @@ class G1PickAndPlaceMimicEnvCfg(MimicEnvCfg):
     (navigate_to_table / navigate_turn_inplace / navigate_to_bin / final), and
     G1-specific per-subtask numerical tunings. Used by the locomanip env via
     ``PickAndPlaceTask(mimic_env_cfg_factory=...)``.
-
-    The legacy ``locomanip_pick_and_place_<obj>_to_<dest>_D0`` datagen-name template
-    is preserved for backward compatibility with the SQA'd brown_box flow; the env's
-    legacy callback rewrites it to the historical ``locomanip_pick_and_place_D0`` for
-    that exact pair.
     """
 
     pick_up_object_name: str = MISSING
