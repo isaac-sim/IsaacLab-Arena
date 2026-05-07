@@ -34,8 +34,8 @@ class G1HomiePolicyV2(WBCPolicy):
         self.num_envs = num_envs
 
         model_path_1, model_path_2 = model_path.split(",")
-        model_path_1_local = retrieve_file_path(model_path_1, force_download=True)
-        model_path_2_local = retrieve_file_path(model_path_2, force_download=True)
+        model_path_1_local = retrieve_file_path(model_path_1)
+        model_path_2_local = retrieve_file_path(model_path_2)
 
         self.policy_1 = OnnxInferenceSession(str(parent_dir / model_path_1_local))
         self.policy_2 = OnnxInferenceSession(str(parent_dir / model_path_2_local))
