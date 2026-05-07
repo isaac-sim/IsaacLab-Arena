@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+from collections.abc import Callable
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -25,6 +26,21 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
 class PickAndPlaceTask(TaskBase):
+    """Pick-and-place task. Success fires when the pick-up object contacts the destination
+    with low velocity. Failure (object_dropped) fires when the object falls below the
+    background's ``object_min_z``.
+
+    The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
+    shape (different arm subtask sequences, different per-subtask numerical knobs,
+    bespoke fields), pass ``mimic_env_cfg_factory`` to inject a custom ``MimicEnvCfg``::
+
+        def _factory(arm_mode):
+            return MyCustomMimicEnvCfg(arm_mode=arm_mode, ...)
+
+        PickAndPlaceTask(..., mimic_env_cfg_factory=_factory)
+
+    The factory receives ``arm_mode`` from the env builder and returns a constructed cfg.
+    """
 
     def __init__(
         self,
@@ -36,6 +52,7 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 1.0,
         velocity_threshold: float = 0.1,
+        mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
@@ -49,6 +66,7 @@ class PickAndPlaceTask(TaskBase):
         )
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
+        self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
@@ -89,6 +107,14 @@ class PickAndPlaceTask(TaskBase):
         return self.events_cfg
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
+        """Build the Mimic env cfg for this task.
+
+        If ``mimic_env_cfg_factory`` was passed at construction, invoke it with
+        ``arm_mode`` and return its result. Otherwise build the default
+        ``PickPlaceMimicEnvCfg``.
+        """
+        if self.mimic_env_cfg_factory is not None:
+            return self.mimic_env_cfg_factory(arm_mode)
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
             pick_up_object_name=self.pick_up_object.name,
