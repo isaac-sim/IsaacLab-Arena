@@ -53,7 +53,7 @@ Environment Description
                )
                embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-               def _build_locomanip_mimic_cfg(arm_mode):
+               def _build_g1_pick_and_place_mimic_cfg(arm_mode):
                    return G1PickAndPlaceMimicEnvCfg(
                        pick_up_object_name=pick_up_object.name,
                        destination_name=blue_sorting_bin.name,
@@ -65,7 +65,7 @@ Environment Description
                    pick_up_object,
                    blue_sorting_bin,
                    background,
-                   mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+                   mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
                )
 
                isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -135,7 +135,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 
 .. code-block:: python
 
-    def _build_locomanip_mimic_cfg(arm_mode):
+    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=pick_up_object.name,
             destination_name=blue_sorting_bin.name,
@@ -146,7 +146,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
         pick_up_object,
         blue_sorting_bin,
         background,
-        mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
 ``PickAndPlaceTask`` encapsulates the task's goal of the environment: pick up the specified object

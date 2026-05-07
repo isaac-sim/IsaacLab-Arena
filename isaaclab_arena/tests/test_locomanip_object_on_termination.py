@@ -49,7 +49,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
 
     scene = Scene(assets=[background, brown_box, blue_sorting_bin])
 
-    def _build_locomanip_mimic_cfg(arm_mode):
+    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=brown_box.name,
             destination_name=blue_sorting_bin.name,
@@ -62,7 +62,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
         background_scene=background,
         force_threshold=0.5,
         velocity_threshold=0.1,
-        mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

@@ -51,7 +51,7 @@ def get_test_environment(num_envs: int):
     embodiment = G1WBCJointEmbodiment(enable_cameras=ENABLE_CAMERAS)
     embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    def _build_locomanip_mimic_cfg(arm_mode):
+    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=apple.name,
             destination_name=plate.name,
@@ -65,7 +65,7 @@ def get_test_environment(num_envs: int):
         background_scene=background,
         episode_length_s=30.0,
         task_description="Pick up the apple from the table and place it onto the plate.",
-        mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -206,7 +206,7 @@ def _test_mimic_cfg_uses_object_and_destination_names(simulation_app) -> bool:
     apple.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
     plate.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
 
-    def _build_locomanip_mimic_cfg(arm_mode):
+    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=apple.name,
             destination_name=plate.name,
@@ -217,7 +217,7 @@ def _test_mimic_cfg_uses_object_and_destination_names(simulation_app) -> bool:
         pick_up_object=apple,
         destination_location=plate,
         background_scene=background,
-        mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
     mimic_cfg = task.get_mimic_env_cfg(arm_mode=ArmMode.DUAL_ARM)
@@ -277,7 +277,7 @@ def _test_mimic_cfg_brown_box_preserves_legacy_datagen_name(simulation_app) -> b
     brown_box.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
     blue_bin.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
 
-    def _build_locomanip_mimic_cfg(arm_mode):
+    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=brown_box.name,
             destination_name=blue_bin.name,
@@ -288,7 +288,7 @@ def _test_mimic_cfg_brown_box_preserves_legacy_datagen_name(simulation_app) -> b
         pick_up_object=brown_box,
         destination_location=blue_bin,
         background_scene=background,
-        mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
     mimic_cfg = task.get_mimic_env_cfg(arm_mode=ArmMode.DUAL_ARM)
@@ -341,7 +341,7 @@ def _test_mimic_cfg_brown_box_non_default_destination_is_not_legacy(simulation_a
     brown_box.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
     plate.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
 
-    def _build_locomanip_mimic_cfg(arm_mode):
+    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
         return G1PickAndPlaceMimicEnvCfg(
             pick_up_object_name=brown_box.name,
             destination_name=plate.name,
@@ -352,7 +352,7 @@ def _test_mimic_cfg_brown_box_non_default_destination_is_not_legacy(simulation_a
         pick_up_object=brown_box,
         destination_location=plate,
         background_scene=background,
-        mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
     mimic_cfg = task.get_mimic_env_cfg(arm_mode=ArmMode.DUAL_ARM)

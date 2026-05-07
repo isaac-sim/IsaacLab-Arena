@@ -142,7 +142,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 destination_name=destination.name,
             )
 
-        def _build_locomanip_mimic_cfg(arm_mode):
+        def _build_g1_pick_and_place_mimic_cfg(arm_mode):
             return G1PickAndPlaceMimicEnvCfg(
                 pick_up_object_name=pick_up_object.name,
                 destination_name=destination.name,
@@ -162,7 +162,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 task_description=task_description,
                 force_threshold=0.5,
                 velocity_threshold=0.1,
-                mimic_env_cfg_factory=_build_locomanip_mimic_cfg,
+                mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
             ),
             teleop_device=teleop_device,
             env_cfg_callback=env_cfg_callback,
