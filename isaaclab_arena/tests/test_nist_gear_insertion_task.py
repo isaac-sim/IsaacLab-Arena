@@ -5,7 +5,7 @@
 
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 
-from isaaclab_arena.assets.asset_registry import AssetRegistry
+from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.embodiments.franka.franka import (
     FrankaNistGearInsertionObservationsCfg,
     FrankaNistGearInsertionOscEmbodiment,

@@ -52,10 +52,14 @@ def _normalize_legacy_positional_task(argv: list[str]) -> list[str]:
     if "--task" in argv or any(arg.startswith("--task=") for arg in argv):
         return argv
 
-    from isaaclab_arena_environments.cli import ExampleEnvironments
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
+    ensure_environments_registered()
+    env_registry = EnvironmentRegistry()
 
     for idx, arg in enumerate(argv):
-        if not arg.startswith("-") and arg in ExampleEnvironments:
+        if not arg.startswith("-") and env_registry.is_registered(arg):
             print("[WARN] Positional environment names are deprecated for RL-Games training; use --task instead.")
             return [*argv[:idx], "--task", arg, *argv[idx + 1 :]]
     return argv
