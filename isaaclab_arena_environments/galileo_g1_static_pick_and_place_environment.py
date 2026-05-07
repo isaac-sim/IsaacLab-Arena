@@ -78,7 +78,7 @@ APPLE_SPAWN_XY_RANGE_M = 0.020
 # are spawned with no Z compensation -- callers passing arbitrary ``--object`` /
 # ``--destination`` values are expected to verify the resulting spawn pose visually.
 _USD_ORIGIN_ABOVE_BOTTOM_M: dict[str, float] = {
-    "apple_01_objaverse_robolab": 0.019,  # BBox min_z = -0.019, max_z = 0.049
+    "apple_01_objaverse_robolab": 0.0171,  # BBox min_z = -0.019, max_z = 0.049
     "clay_plates_hot3d_robolab": 0.0,  # USD origin at plate bottom (BBox min_z = 0)
 }
 
@@ -125,7 +125,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=(0.009, 0.009, 0.009))
         destination = self.asset_registry.get_asset_by_name(args_cli.destination)(scale=(0.5, 0.5, 0.5))
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
@@ -137,7 +137,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # Robot pose mirrors the locomanip env exactly so the WBC controller stands the
         # robot up in the same shelf-relative spot. The controller dynamically lifts the
         # pelvis to ~z=0.74 at runtime; init_state.pos.z=0 is correct.
-        embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.3, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object_z = _shelf_spawn_z(args_cli.object)
