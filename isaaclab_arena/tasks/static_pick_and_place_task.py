@@ -17,23 +17,24 @@ convention for the static variant.
 
 The cfg subclass ``StaticPickAndPlaceMimicEnvCfg`` survives because it still
 encodes the static-specific arm and body subtask shapes (left + body collapsed
-to single no-op subtasks) that ``PickPlaceMimicEnvCfg`` cannot yet express
-through ``mimic_subtask_boundaries`` alone -- arm-channel subtask shape is
-currently driven by ``arm_mode`` and not configurable through that dict.
+to single no-op subtasks) that ``G1PickAndPlaceMimicEnvCfg`` does not provide:
+the parent encodes the locomanip 4-phase nav body sequence and a left-arm
+subtask sequence, neither of which fires in the static env where the base
+never moves and the left arm hangs idle.
 """
 
 from isaaclab.envs.mimic_env_cfg import SubTaskConfig
 from isaaclab.utils import configclass
 
-from isaaclab_arena.tasks.locomanip_pick_and_place_task import LocomanipPickAndPlaceMimicEnvCfg
+from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg
 
 
 @configclass
-class StaticPickAndPlaceMimicEnvCfg(LocomanipPickAndPlaceMimicEnvCfg):
+class StaticPickAndPlaceMimicEnvCfg(G1PickAndPlaceMimicEnvCfg):
     """Mimic env cfg for the static-base G1 pick-and-place task.
 
     Inherits the right-arm subtask sequence (``idle_right`` -> ``grasp_and_idle_right``
-    -> final) and all datagen knobs from ``LocomanipPickAndPlaceMimicEnvCfg`` so the
+    -> final) and all datagen knobs from ``G1PickAndPlaceMimicEnvCfg`` so the
     generated dataset's right-arm semantics line up with the locomanip variant. Three
     overrides:
 
