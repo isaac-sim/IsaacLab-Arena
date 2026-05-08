@@ -27,13 +27,7 @@ import pytest
 
 pytestmark = pytest.mark.gr00t_policy
 
-# NOTE: ``isaaclab_arena.policy.action_scheduling`` is imported lazily inside
-# tests/helpers (mirrors ``test_action_scheduling.py``). Importing it at module
-# top level pulls in ``isaaclab_arena.policy.__init__`` which star-imports
-# policies that load isaaclab/pxr — that pre-loads pxr at pytest collection
-# time and trips Kit's ``omni.kit.usd.mdl`` extension when a sibling test later
-# instantiates SimulationApp (CI gr00t docker has GROOT_DEPS_DIR set, which
-# makes the ordering fatal).
+
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
 
 NUM_ENVS = 2
