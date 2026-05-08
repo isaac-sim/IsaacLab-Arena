@@ -260,6 +260,84 @@ Evidence from multi-object test (7 bottles, `origin/main`, no fixes):
 Spawn Z spread = 5.4 cm (0.5925 → 0.6468). The same objects are all stable
 when placed alone (spawn_z ~0.6391, z_drop ~0.02m, tilt <2°).
 
+### Fixed-Layout Prefix Replay
+
+To separate "the solved layout is bad" from "a later object-object contact starts
+a chain reaction", we replayed a solved 6-object layout from `env_id=1` and added
+objects back incrementally without re-solving.
+
+Object order:
+
+```text
+banana_ycb_robolab
+lime01_fruits_veggies_robolab
+mustard_bottle_hope_robolab
+alphabet_soup_can_hope_robolab
+spoon_handal_robolab
+popcorn_box_hope_robolab
+```
+
+Replay command:
+
+```bash
+docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/llm_env_gen/run_fixed_layout_prefix_viz.py \
+  --viz kit --seed 123 --num_envs 4 --env_spacing 4.0 \
+  --source_env_id 1 --target_env_id 1 --start_count 2 \
+  --settle_steps 60 --dwell_steps 500 \
+  gr1_table_multi_object_no_collision --embodiment gr1_joint \
+  --objects banana_ycb_robolab lime01_fruits_veggies_robolab \
+  mustard_bottle_hope_robolab alphabet_soup_can_hope_robolab \
+  spoon_handal_robolab popcorn_box_hope_robolab"
+```
+
+Observed behavior:
+
+| Active prefix size | Added object | Result |
+|--------------------|--------------|--------|
+| 2 | `banana_ycb_robolab`, `lime01_fruits_veggies_robolab` | stable |
+| 3 | `mustard_bottle_hope_robolab` | stable |
+| 4 | `alphabet_soup_can_hope_robolab` | stable |
+| 5 | `spoon_handal_robolab` | `mustard_bottle_hope_robolab` falls/tips |
+| 6 | `popcorn_box_hope_robolab` | failure remains |
+
+Measured replay output:
+
+| Active prefix size | Overall | Key object statuses |
+|--------------------|---------|---------------------|
+| 2 | stable | banana stable, lime stable |
+| 3 | stable | mustard stable (tilt 2.0°, drop 0.011m, xy 0.003m) |
+| 4 | stable | alphabet soup stable; mustard still stable |
+| 5 | fell_off | mustard fell off (settle: tilt 80.2°, drop 0.580m, xy 4.238m; dwell: tilt 90.0°, drop 0.597m, xy 4.327m); spoon unsettled |
+| 6 | fell_off | mustard fell off (dwell: tilt 90.1°, drop 0.597m, xy 0.989m); spoon tipped (tilt 171.6°); popcorn stable |
+
+Important: this replay helper does **not** enable `force_convex_hull`, and in this
+diagnosis branch the solver defaults are `no_collision_xy_only=True` and
+`no_collision_include_anchors=False`. Therefore the fixed-layout failure above
+is reproduced with the solver-side fixes already enabled, but without the
+convex-hull collision-mesh fix.
+
+This points to an object-object contact/chain-reaction issue in a fixed solved
+layout, not just a table USD setup issue. The table may contribute in rare cases,
+but the same class of instability survived table swaps; the stronger signal is
+the fragile scanned object collision geometry plus the solver's original 3D
+no-collision behavior.
+
+For targeted subset checks, use:
+
+```bash
+docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && \
+  /isaac-sim/python.sh isaaclab_arena/llm_env_gen/run_fixed_layout_subset_viz.py \
+  --viz kit --seed 123 --num_envs 4 --env_spacing 4.0 \
+  --source_env_id 1 --target_env_id 1 \
+  --active_objects mustard_bottle_hope_robolab,spoon_handal_robolab \
+  --settle_steps 60 --dwell_steps 500 \
+  gr1_table_multi_object_no_collision --embodiment gr1_joint \
+  --objects banana_ycb_robolab lime01_fruits_veggies_robolab \
+  mustard_bottle_hope_robolab alphabet_soup_can_hope_robolab \
+  spoon_handal_robolab popcorn_box_hope_robolab"
+```
+
 ### Required Fixes for Multi-Object
 
 | Fix | What it does | Impact |
