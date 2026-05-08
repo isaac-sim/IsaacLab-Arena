@@ -8,34 +8,24 @@
 This module is the single source of truth (SSOT) for GR00T closed-loop policy
 logic. It is structured so that:
 
-- **Torch/numpy conversion is isolated at boundaries**: observation paths
-  convert to numpy once (``extract_obs_numpy_from_torch`` or
-  ``extract_obs_numpy_from_packed``); core logic is numpy-only; the action
-  path converts back to torch only in ``action_numpy_to_tensor``.
+- **Torch/numpy conversion is isolated at boundaries**: observations convert to
+  numpy once via ``extract_obs_numpy_from_torch``; core logic is numpy-only;
+  actions convert back to torch only in ``action_numpy_to_tensor``.
 - **Core logic is modular and numpy-only**: ``resize_rgb_for_policy``,
   ``remap_sim_joints_to_policy_joints_from_np`` (in joints_conversion),
   ``build_gr00t_policy_observations``, and ``build_gr00t_action_np`` do not
   use torch.
 
-Pipelines:
-
-- **Local**: env (torch) -> ``extract_obs_numpy_from_torch`` -> numpy core
-  -> ``build_gr00t_action_np`` -> ``to_tensor`` -> tensor.
-- **Remote**: socket (packed) -> ``extract_obs_numpy_from_packed`` -> same
-  numpy core and action path.
+Pipeline: env (torch) -> ``extract_obs_numpy_from_torch`` -> numpy core
+-> ``build_gr00t_action_np`` -> ``to_tensor`` -> tensor.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import torch
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
-
-from gr00t.data.embodiment_tags import EmbodimentTag
-from gr00t.policy.gr00t_policy import Gr00tPolicy
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
@@ -80,32 +70,6 @@ class Gr00tBasePolicyArgs:
 # --------------------------------------------------------------------------- #
 # Config, model, and joint helpers (backend-agnostic)
 # --------------------------------------------------------------------------- #
-
-
-def load_gr00t_policy_from_config(policy_config: Gr00tClosedloopPolicyConfig) -> Gr00tPolicy:
-    """Instantiate a GR00T policy from the closed-loop config.
-
-    Args:
-        policy_config: Loaded closed-loop config (model path, embodiment, device).
-
-    Returns:
-        Loaded ``Gr00tPolicy`` on the configured device.
-
-    Raises:
-        AssertionError: If ``policy_config.model_path`` does not exist.
-    """
-    model_path = policy_config.model_path
-    # HuggingFace Hub repo IDs use "owner/repo" format (e.g. "nvidia/GR00T-N1.6-DROID").
-    is_hf_id = bool(model_path and "/" in model_path and not model_path.startswith(("/", ".")))
-    assert (
-        Path(model_path).exists() or is_hf_id
-    ), f"Model path {model_path} does not exist and is not a HuggingFace model id"
-    return Gr00tPolicy(
-        model_path=policy_config.model_path,
-        embodiment_tag=EmbodimentTag[policy_config.embodiment_tag],
-        device=policy_config.policy_device,
-        strict=True,
-    )
 
 
 def load_gr00t_joint_configs(
@@ -209,12 +173,9 @@ def extract_obs_numpy_from_torch(
     joint_group_key: str = "policy",
     joint_pos_name: str = "robot_joint_pos",
 ) -> tuple[list[np.ndarray], np.ndarray]:
-    """Convert torch env observation to numpy for the local pipeline.
+    """Convert torch env observation to numpy for the closed-loop pipeline.
 
-    This is the single torch-to-numpy boundary for the local (in-process)
-    pipeline. The remote pipeline gets numpy over the socket and uses
-    ``extract_obs_numpy_from_packed`` instead; both then share the same
-    downstream interface.
+    Single torch-to-numpy boundary; downstream core logic is numpy-only.
 
     Args:
         observation: Env observation with camera_group_key (per-camera tensors)
@@ -235,47 +196,6 @@ def extract_obs_numpy_from_torch(
     )
     joint_pos_sim_np = _extract_joints_from_nested_obs(
         nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=True
-    )
-    return rgb_list_np, joint_pos_sim_np
-
-
-def extract_obs_numpy_from_packed(
-    packed_observation: dict[str, Any],
-    camera_names: list[str],
-    unpack_fn: Callable[[dict[str, Any]], dict[str, Any]],
-    camera_group_key: str = "camera_obs",
-    joint_group_key: str = "policy",
-    joint_pos_name: str = "robot_joint_pos",
-) -> tuple[list[np.ndarray], np.ndarray]:
-    """Extract numpy observation from packed dict for the remote pipeline.
-
-    The remote (client-server) pipeline receives observations as serialized
-    numpy in a flat dict. This helper unpacks them into the same
-    (rgb_list_np, joint_pos_sim_np) tuple used by the core logic so both
-    pipelines share one downstream interface.
-
-    Args:
-        packed_observation: Flat observation dict (e.g. from socket).
-        camera_names: Ordered list of camera keys to read after unpacking.
-        unpack_fn: Function that converts packed_observation to a nested dict
-            with camera_group_key and joint_group_key[joint_pos_name].
-        camera_group_key: Top-level key for camera data in unpacked obs (default "camera_obs").
-        joint_group_key: Top-level key for joint data in unpacked obs (default "policy").
-        joint_pos_name: Key for the joint position array (default "robot_joint_pos").
-
-    Returns:
-        rgb_list_np: List of (N, H, W, C) numpy arrays, one per camera.
-        joint_pos_sim_np: (N, num_joints) float numpy array in sim joint order.
-
-    Raises:
-        AssertionError: If unpacked observation lacks "camera_obs" or a camera key.
-    """
-    nested_obs = unpack_fn(packed_observation)
-    rgb_list_np = _extract_rgb_from_nested_obs(
-        nested_obs=nested_obs, camera_names=camera_names, group_key=camera_group_key, convert_to_numpy=False
-    )
-    joint_pos_sim_np = _extract_joints_from_nested_obs(
-        nested_obs=nested_obs, group_key=joint_group_key, joint_pos_name=joint_pos_name, convert_to_numpy=False
     )
     return rgb_list_np, joint_pos_sim_np
 
@@ -324,7 +244,7 @@ def build_gr00t_policy_observations(
 
     Resizes RGB, remaps sim joints to policy order, then fills language / video /
     state keys from modality config. No torch; use after
-    :func:`extract_obs_numpy_from_torch` or :func:`extract_obs_numpy_from_packed`.
+    :func:`extract_obs_numpy_from_torch`.
 
     Args:
         rgb_list_np: List of RGB arrays, one per camera; each shape (N, H, W, C).

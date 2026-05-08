@@ -231,7 +231,6 @@ TABLE OF CONTENTS
    pages/advanced/private_omniverse
    pages/advanced/assets_management
    pages/quickstart/jupyter_notebooks
-   pages/advanced/gr00t_server_client
 
 .. toctree::
    :maxdepth: 1
